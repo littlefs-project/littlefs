@@ -1458,9 +1458,6 @@ static int lfsr_bd_progdata(lfs_t *lfs,
         while (pos - lfsr_data_pos(&data) < size) {
             lfs_off_t d = size - (pos - lfsr_data_pos(&data));
 
-            // TODO can we take this iteration of our read loop and update
-            // lfsr_file_read_ with lessons learned?
-
             // TODO deduplicate this into some sort of data-returning
             // lfsr_file_iter?
 
@@ -9019,12 +9016,17 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     return err;
 }
 
-// direct read function without state updates
-int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
-        lfs_off_t pos, void *buffer, lfs_size_t size) {
-    LFS_ASSERT(pos <= 0x7fffffff);
-    LFS_ASSERT(size <= 0x7fffffff);
+lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
+        void *buffer, lfs_size_t size) {
+    LFS_ASSERT(lfsr_file_isreadable(file));
+    LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
+    // limit to our file size
+    size = lfs_min32(
+            size,
+            file->size - lfs_min32(file->pos, file->size));
+
+    lfs_off_t pos = file->pos;
     uint8_t *buffer_ = buffer;
     while (size > 0) {
         lfs_ssize_t d = size;
@@ -9047,25 +9049,29 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
             d = lfs_min32(d, file->buffer_pos - pos);
         }
 
-        // is the data in a sprout?
-        if (lfsr_file_hassprout(file) && pos < lfsr_file_inlinedsize(file)) {
-            // TODO these probably shouldn't be using lfsr_data_read, it's
-            // providing the wrong read hint
-            lfsr_data_t data = file->inlined.u.data;
-            lfsr_data_add(&data, pos);
-            d = lfsr_data_read(lfs, &data, buffer_, d);
-            if (d < 0) {
-                return d;
+        // has a sprout?
+        if (lfsr_file_hassprout(file)
+                && pos < lfsr_file_inlinedsize(file)) {
+            // note we use bd read directly to provide a strict hint
+            d = lfs_min32(
+                    d,
+                    lfsr_data_size(&file->inlined.u.data));
+            int err = lfsr_bd_read(lfs,
+                    file->inlined.u.data.u.disk.block,
+                    file->inlined.u.data.u.disk.off + pos, d,
+                    buffer_, d);
+            if (err) {
+                return err;
             }
 
             pos += d;
             buffer_ += d;
             size -= d;
             continue;
-        }
 
-        // is the data in a shrub?
-        if (lfsr_file_hasshrub(file) && pos < lfsr_file_inlinedsize(file)) {
+        // has a shrub?
+        } else if (lfsr_file_hasshrub(file)
+                && pos < lfsr_file_inlinedsize(file)) {
             lfsr_srid_t rid;
             lfsr_tag_t tag;
             lfsr_rid_t weight;
@@ -9080,12 +9086,16 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
             LFS_ASSERT(lfsr_data_size(&data) <= weight);
 
             if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
-                // TODO these probably shouldn't be using lfsr_data_read, it's
-                // providing the wrong read hint
-                lfsr_data_add(&data, pos - (rid-(weight-1)));
-                d = lfsr_data_read(lfs, &data, buffer_, d);
-                if (d < 0) {
-                    return d;
+                // note we use bd read directly to provide a strict hint
+                d = lfs_min32(
+                        d,
+                        lfsr_data_size(&data) - (pos - (rid-(weight-1))));
+                int err = lfsr_bd_read(lfs,
+                        data.u.disk.block,
+                        data.u.disk.off + (pos - (rid-(weight-1))), d,
+                        buffer_, d);
+                if (err) {
+                    return err;
                 }
 
                 pos += d;
@@ -9098,9 +9108,12 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
             d = lfs_min32(d, rid+1 - pos);
         }
 
-        // is the data in a block?
-        if (lfsr_file_hasbptr(file) && pos < lfsr_file_bsize(file)) {
-            d = lfs_min32(d, file->u.bptr.size - pos);
+        // has a direct block?
+        if (lfsr_file_hasbptr(file)
+                && pos < lfsr_file_bsize(file)) {
+            d = lfs_min32(
+                    d,
+                    file->u.bptr.size - pos);
             int err = lfsr_bd_read(lfs, file->u.bptr.block,
                     file->u.bptr.off + pos, d,
                     buffer_, d);
@@ -9112,10 +9125,10 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
             buffer_ -= d;
             size -= d;
             continue;
-        }
 
-        // is the data in a btree?
-        if (lfsr_file_hasbtree(file) && pos < lfsr_file_bsize(file)) {
+        // has an indirect btree?
+        } else if (lfsr_file_hasbtree(file)
+                && pos < lfsr_file_bsize(file)) {
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
@@ -9130,12 +9143,16 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
             if (tag == LFSR_TAG_INLINED) {
                 LFS_ASSERT(lfsr_data_size(&data) <= weight);
                 if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
-                    // TODO these probably shouldn't be using lfsr_data_read,
-                    // it's providing the wrong read hint
-                    lfsr_data_add(&data, pos - (bid-(weight-1)));
-                    d = lfsr_data_read(lfs, &data, buffer_, d);
-                    if (d < 0) {
-                        return d;
+                    // note we use bd read directly to provide a strict hint
+                    d = lfs_min32(
+                            d,
+                            lfsr_data_size(&data) - (pos - (bid-(weight-1))));
+                    int err = lfsr_bd_read(lfs,
+                            data.u.disk.block,
+                            data.u.disk.off + (pos - (bid-(weight-1))), d,
+                            buffer_, d);
+                    if (err) {
+                        return err;
                     }
 
                     pos += d;
@@ -9181,23 +9198,9 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         size -= d;
     }
 
-    return 0;
-}
-
-lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
-        void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_file_isreadable(file));
-
-    lfs_ssize_t d = lfs_min32(
-            size,
-            file->size - lfs_min32(file->pos, file->size));
-    int err = lfsr_file_read_(lfs, file, file->pos, buffer, d);
-    if (err < 0) {
-        return err;
-    }
-
-    file->pos += d;
-    return d;
+    lfs_size_t read = pos - file->pos;
+    file->pos = pos;
+    return read;
 }
 
 // TODO deduplicate carveshrub and flushinlined
@@ -10158,7 +10161,9 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_ASSERT(lfsr_file_iswriteable(file));
-    LFS_ASSERT(size <= 0x7fffffff);
+    // TODO wait, this conflicts with the EFBIG below... should this be
+    // an assert or error?
+    LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
     // would this write make our file larger than our size limit?
     if (size > lfs->size_limit - file->pos) {
