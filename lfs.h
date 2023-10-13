@@ -360,7 +360,7 @@ typedef struct lfsr_rbyd {
 
 typedef struct lfsr_bptr {
     // note size lines up with weight in lfsr_btree_t
-    lfs_soff_t size;
+    lfs_off_t size;
     lfs_block_t block;
     lfs_size_t off;
     // TODO how do we track ecksum?

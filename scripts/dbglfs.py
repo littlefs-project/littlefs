@@ -1496,7 +1496,7 @@ def dbg_fstruct(f, block_size, btree, inlined=False, *,
         if not rbyd:
             print('  %04x.%04x: %*s %*s%s%s%s' % (
                 rbyd.block, rbyd.trunk,
-                m_width,
+                m_width, '',
                 t_width, '',
                 '\x1b[31m' if color else '',
                 '(corrupted rbyd %s)' % rbyd.addr(),
@@ -1764,7 +1764,7 @@ def main(disk, mroots=None, *,
             config.version[0] if config.version[0] is not None else '?',
             config.version[1] if config.version[1] is not None else '?',
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight,
-            config.block_limit+1, config.disk_limit+1))
+            (config.block_limit or -1)+1, (config.disk_limit or -1)+1))
 
         # dynamically size the id field
         w_width = max(

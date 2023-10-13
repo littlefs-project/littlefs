@@ -2101,7 +2101,7 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, &bptr->size);
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->size);
     if (err) {
         return err;
     }
@@ -8845,6 +8845,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->flags = flags;
     file->cfg = cfg;
     file->pos = 0;
+    file->size = 0;
     // default inlined state
     file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
     // default btree state
@@ -8919,6 +8920,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // may be a sprout (simple inlined data)
             if (err != LFS_ERR_NOENT && tag == LFSR_TAG_INLINED) {
                 file->inlined.u.data = data;
+                file->size = lfsr_data_size(&file->inlined.u.data);
 
             // or a shrub (inlined tree)
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_TRUNK) {
@@ -8929,6 +8931,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 }
 
                 file->inlined.u.rbyd.block = file->m.mdir.u.m.blocks[0];
+                file->size = file->inlined.u.rbyd.weight;
 
                 // in order to prevent our shrub from overflowing the mdir, we
                 // need to flush when the shrub exceeds our inlined size,
@@ -8959,6 +8962,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                     return err;
                 }
 
+                file->size = lfs_max32(file->size, file->u.bptr.size);
+
             // or a full btree
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
                 // TODO why does this not take a btree?
@@ -8966,13 +8971,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 if (err) {
                     return err;
                 }
+
+                file->size = lfs_max32(file->size,
+                        lfsr_btree_weight(&file->u.btree));
             }
         }
     }
-
-    // TODO common function for this?
-    // figure out the total size
-    file->size = lfsr_file_inlinedsize(file);
 
     // allocate buffer if necessary
     if (file->cfg->buffer) {
@@ -9016,186 +9020,240 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     return err;
 }
 
+// common iterator over all of the different places data can live in a file
+static int lfsr_file_next(lfs_t *lfs, const lfsr_file_t *file,
+        lfs_off_t pos, lfs_off_t size,
+        lfs_off_t *weight_, lfsr_data_t *data_) {
+    // past end of file?
+    if (pos >= file->size) {
+        return LFS_ERR_NOENT;
+    }
+
+    // keep track of the next highest priority data offset
+    lfs_ssize_t d = lfs_min32(
+            size,
+            file->size - pos);
+
+    // any data in our write buffer?
+    if (pos < file->buffer_pos + file->buffer_size) {
+        if (pos >= file->buffer_pos) {
+            d = lfs_min32(
+                    d,
+                    file->buffer_size - (pos - file->buffer_pos));
+
+            if (weight_) {
+                *weight_ = d;
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_BUF(
+                        &file->buffer[pos - file->buffer_pos],
+                        d);
+            }
+            return 0;
+        }
+
+        // buffered data takes priority
+        d = lfs_min32(d, file->buffer_pos - pos);
+    }
+
+    // has a sprout?
+    if (lfsr_file_hassprout(file)
+            && pos < lfsr_file_inlinedsize(file)) {
+        // note one important side-effect here is any reads to this
+        // data get a strict read hint
+        d = lfs_min32(
+                d,
+                lfsr_data_size(&file->inlined.u.data));
+
+        if (weight_) {
+            *weight_ = d;
+        }
+        if (data_) {
+            *data_ = LFSR_DATA_DISK(
+                    file->inlined.u.data.u.disk.block,
+                    file->inlined.u.data.u.disk.off + pos,
+                    d);
+        }
+        return 0;
+
+    // has a shrub?
+    } else if (lfsr_file_hasshrub(file)
+            && pos < lfsr_file_inlinedsize(file)) {
+        lfsr_srid_t rid;
+        lfsr_tag_t tag;
+        lfsr_rid_t weight;
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd, pos, 0,
+                &rid, &tag, &weight, &data);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+        LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
+        LFS_ASSERT(lfsr_data_size(&data) <= weight);
+
+        if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
+            // note one important side-effect here is any reads to this
+            // data get a strict read hint
+            d = lfs_min32(
+                    d,
+                    lfsr_data_size(&data) - (pos - (rid-(weight-1))));
+
+            if (weight_) {
+                *weight_ = d;
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_DISK(
+                        data.u.disk.block,
+                        data.u.disk.off + (pos - (rid-(weight-1))),
+                        d);
+            }
+            return 0;
+        }
+
+        // found a hole, just make sure next leaf takes priority
+        d = lfs_min32(d, rid+1 - pos);
+    }
+
+    // has a direct block?
+    if (lfsr_file_hasbptr(file)
+            && pos < lfsr_file_bsize(file)) {
+        d = lfs_min32(
+                d,
+                file->u.bptr.size - pos);
+
+        if (weight_) {
+            *weight_ = d;
+        }
+        if (data_) {
+            *data_ = LFSR_DATA_DISK(
+                    file->u.bptr.block,
+                    file->u.bptr.off + pos,
+                    d);
+        }
+        return 0;
+
+    // has an indirect btree?
+    } else if (lfsr_file_hasbtree(file)
+            && pos < lfsr_file_bsize(file)) {
+        lfsr_bid_t bid;
+        lfsr_tag_t tag;
+        lfsr_bid_t weight;
+        lfsr_data_t data;
+        int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
+                &bid, &tag, &weight, &data);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+        LFS_ASSERT(tag == LFSR_TAG_INLINED
+                || tag == LFSR_TAG_BLOCK);
+
+        if (tag == LFSR_TAG_INLINED) {
+            LFS_ASSERT(lfsr_data_size(&data) <= weight);
+            if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
+                // note one important side-effect here is any reads to this
+                // data get a strict read hint
+                d = lfs_min32(
+                        d,
+                        lfsr_data_size(&data) - (pos - (bid-(weight-1))));
+
+                if (weight_) {
+                    *weight_ = d;
+                }
+                if (data_) {
+                    *data_ = LFSR_DATA_DISK(
+                            data.u.disk.block,
+                            data.u.disk.off + (pos - (bid-(weight-1))),
+                            d);
+                }
+                return 0;
+            }
+        } else if (tag == LFSR_TAG_BLOCK) {
+            lfsr_bptr_t bptr;
+            err = lfsr_data_readbptr(lfs, &data, &bptr);
+            if (err) {
+                return err;
+            }
+            LFS_ASSERT(bptr.size <= weight);
+
+            if (pos < bid-(weight-1) + bptr.size) {
+                d = lfs_min32(
+                        d,
+                        bptr.size - (pos - (bid-(weight-1))));
+
+                if (weight_) {
+                    *weight_ = d;
+                }
+                if (data_) {
+                    *data_ = LFSR_DATA_DISK(
+                            bptr.block,
+                            bptr.off + (pos - (bid-(weight-1))),
+                            d);
+                }
+                return 0;
+            }
+        }
+
+        // found a hole, just make sure next leaf takes priority
+        d = lfs_min32(d, bid+1 - pos);
+    }
+
+    // TODO should we have a special LFSR_DATA_HOLE representation?
+
+    // found a hole?
+    if (weight_) {
+        *weight_ = d;
+    }
+    if (data_) {
+        *data_ = LFSR_DATA_NULL;
+    }
+    return 0;
+}
+
+
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_ASSERT(lfsr_file_isreadable(file));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
-    // limit to our file size
-    size = lfs_min32(
-            size,
-            file->size - lfs_min32(file->pos, file->size));
-
     lfs_off_t pos = file->pos;
     uint8_t *buffer_ = buffer;
     while (size > 0) {
-        lfs_ssize_t d = size;
-
-        // is the data in our write buffer?
-        if (pos < file->buffer_pos + file->buffer_size) {
-            if (pos >= file->buffer_pos) {
-                d = lfs_min32(
-                        d,
-                        file->buffer_size - (pos - file->buffer_pos));
-                memcpy(buffer_, &file->buffer[pos - file->buffer_pos], d);
-
-                pos += d;
-                buffer_ += d;
-                size -= d;
-                continue;
+        // read each data/hole
+        lfs_off_t weight;
+        lfsr_data_t data;
+        int err = lfsr_file_next(lfs, file, pos, size,
+                &weight, &data);
+        if (err) {
+            // hit end of file?
+            if (err == LFS_ERR_NOENT) {
+                break;
             }
-
-            // buffered data takes priority
-            d = lfs_min32(d, file->buffer_pos - pos);
+            return err;
         }
+        LFS_ASSERT(weight > 0);
 
-        // has a sprout?
-        if (lfsr_file_hassprout(file)
-                && pos < lfsr_file_inlinedsize(file)) {
-            // note we use bd read directly to provide a strict hint
-            d = lfs_min32(
-                    d,
-                    lfsr_data_size(&file->inlined.u.data));
-            int err = lfsr_bd_read(lfs,
-                    file->inlined.u.data.u.disk.block,
-                    file->inlined.u.data.u.disk.off + pos, d,
-                    buffer_, d);
-            if (err) {
-                return err;
+        // found data?
+        if (lfsr_data_size(&data) > 0) {
+            lfs_ssize_t d = lfsr_data_read(lfs, &data,
+                    buffer_, size);
+            if (d < 0) {
+                return d;
             }
 
             pos += d;
             buffer_ += d;
             size -= d;
-            continue;
 
-        // has a shrub?
-        } else if (lfsr_file_hasshrub(file)
-                && pos < lfsr_file_inlinedsize(file)) {
-            lfsr_srid_t rid;
-            lfsr_tag_t tag;
-            lfsr_rid_t weight;
-            lfsr_data_t data;
-            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd, pos, 0,
-                    &rid, &tag, &weight, &data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-            LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
-            LFS_ASSERT(lfsr_data_size(&data) <= weight);
+        // found a hole? just fill with zeros
+        } else {
+            memset(buffer_, 0, weight);
 
-            if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
-                // note we use bd read directly to provide a strict hint
-                d = lfs_min32(
-                        d,
-                        lfsr_data_size(&data) - (pos - (rid-(weight-1))));
-                int err = lfsr_bd_read(lfs,
-                        data.u.disk.block,
-                        data.u.disk.off + (pos - (rid-(weight-1))), d,
-                        buffer_, d);
-                if (err) {
-                    return err;
-                }
-
-                pos += d;
-                buffer_ += d;
-                size -= d;
-                continue;
-            }
-
-            // found a hole, just make sure next leaf takes priority
-            d = lfs_min32(d, rid+1 - pos);
+            pos += weight;
+            buffer_ += weight;
+            size -= weight;
         }
-
-        // has a direct block?
-        if (lfsr_file_hasbptr(file)
-                && pos < lfsr_file_bsize(file)) {
-            d = lfs_min32(
-                    d,
-                    file->u.bptr.size - pos);
-            int err = lfsr_bd_read(lfs, file->u.bptr.block,
-                    file->u.bptr.off + pos, d,
-                    buffer_, d);
-            if (err) {
-                return err;
-            }
-
-            pos += d;
-            buffer_ -= d;
-            size -= d;
-            continue;
-
-        // has an indirect btree?
-        } else if (lfsr_file_hasbtree(file)
-                && pos < lfsr_file_bsize(file)) {
-            lfsr_bid_t bid;
-            lfsr_tag_t tag;
-            lfsr_bid_t weight;
-            lfsr_data_t data;
-            int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
-                    &bid, &tag, &weight, &data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-
-            if (tag == LFSR_TAG_INLINED) {
-                LFS_ASSERT(lfsr_data_size(&data) <= weight);
-                if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
-                    // note we use bd read directly to provide a strict hint
-                    d = lfs_min32(
-                            d,
-                            lfsr_data_size(&data) - (pos - (bid-(weight-1))));
-                    int err = lfsr_bd_read(lfs,
-                            data.u.disk.block,
-                            data.u.disk.off + (pos - (bid-(weight-1))), d,
-                            buffer_, d);
-                    if (err) {
-                        return err;
-                    }
-
-                    pos += d;
-                    buffer_ += d;
-                    size -= d;
-                    continue;
-                }
-            } else if (tag == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr;
-                err = lfsr_data_readbptr(lfs, &data, &bptr);
-                if (err) {
-                    return err;
-                }
-                LFS_ASSERT(bptr.size <= weight);
-
-                if (pos < bid-(weight-1) + bptr.size) {
-                    d = lfs_min32(
-                            d,
-                            bptr.size - (pos - (bid-(weight-1))));
-                    err = lfsr_bd_read(lfs, bptr.block,
-                            bptr.off + (pos - (bid-(weight-1))), d,
-                            buffer_, d);
-                    if (err) {
-                        return err;
-                    }
-
-                    pos += d;
-                    buffer_ += d;
-                    size -= d;
-                    continue;
-                }
-            }
-
-            // found a hole, just make sure next leaf takes priority
-            d = lfs_min32(d, bid+1 - pos);
-        }
-
-        // no data? found a hole, just fill with zeros
-        memset(buffer_, 0, d);
-
-        pos += d;
-        buffer_ += d;
-        size -= d;
     }
 
     lfs_size_t read = pos - file->pos;
@@ -9267,7 +9325,7 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
         }
 
-        // this can be negative!
+        // note this can be negative!
         left_overlap = (left_rid+1) - pos;
         LFS_ASSERT(left_overlap >= 0
                 || lfsr_file_inlinedsize(file) < pos);
@@ -9351,11 +9409,11 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
 
         // can we coalesce right data?
         if ((lfsr_data_size(&data) == weight + delta
-                    || lfsr_data_size(&right_data) - right_overlap == 0)
-                && (lfs_soff_t)(lfsr_data_size(&data)
-                        + lfsr_data_size(&right_data)
-                        - right_overlap)
-                    <= (lfs_soff_t)lfs->cfg->coalesce_size) {
+                    && (lfs_soff_t)(lfsr_data_size(&data)
+                            + lfsr_data_size(&right_data)
+                            - right_overlap)
+                        <= (lfs_soff_t)lfs->cfg->coalesce_size)
+                || lfsr_data_size(&right_data) - right_overlap == 0) {
             *datas_++ = LFSR_DATA_DISK(
                     right_data.u.disk.block,
                     right_data.u.disk.off + right_overlap,
@@ -9452,7 +9510,7 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
     // TODO can truncate/fruncate trigger this? say fruncate creates a hole,
     // should carveinlined just call flushinlined if we overflow?
     if (estimate > lfs->cfg->inline_size) {
-        //return LFS_ERR_RANGE;
+        return LFS_ERR_RANGE;
     }
 
     // commit our attributes
@@ -9473,187 +9531,336 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         lfsr_tag_t tag, lfsr_data_t data) {
-    // first remove any existing data we're overwriting
-    lfs_off_t rm = lfs_min32(
-            weight,
-            lfsr_btree_weight(&file->u.btree) - lfs_min32(
-                pos,
-                lfsr_btree_weight(&file->u.btree)));
-    while (rm > 0) {
+    // this is similar to lfsr_file_carveinlined, except instead of building
+    // an attribute list, we modify the btree directly in a copy-on-write
+    // fashion
+    //
+    // in theory range-deletions could make this faster, but that would
+    // require btree range-deletions to be implemented
+
+    // TODO actually, should lfsr_file_carveinlined be structured more like
+    // this one? with a single loop and no rm estimate call?
+
+    // scratch datas to track any coalescing data
+    lfsr_data_t scratch_datas[4];
+    lfsr_data_t *datas_ = scratch_datas;
+    *datas_++ = data;
+
+    // TODO support direct blocks here
+    LFS_ASSERT(lfsr_file_hasbtree(file));
+
+    // first coalesce/carve/remove any existing data
+    //
+    // note we start/end +1 to see if we can coalesce any siblings
+    //
+    lfs_off_t pos_ = lfs_smax32(
+            lfs_min32(pos, lfsr_btree_weight(&file->u.btree)) - 1,
+            0);
+    lfs_off_t rm = 0;
+    while (pos_+rm < pos+weight+1 && pos_ < lfsr_btree_weight(&file->u.btree)) {
         lfsr_bid_t bid_;
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
         lfsr_data_t data_;
-        int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
+        int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos_,
                 &bid_, &tag_, &weight_, &data_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
+        LFS_ASSERT(tag == LFSR_TAG_INLINED
+                || tag == LFSR_TAG_BLOCK);
 
-        // need to carve land-locked data? if this is a block, this turns
-        // our btree into a DAG
-        if (pos > bid_-(weight_-1) && pos + rm < bid_+1) {
+        // found left sibling?
+        if (pos > bid_-(weight_-1)) {
+            // note! this may go negative
+            lfs_soff_t overlap_ = (bid_+1) - pos;
+            LFS_ASSERT(overlap_ >= 0
+                    || pos > lfsr_btree_weight(&file->u.btree));
+
             if (tag_ == LFSR_TAG_INLINED) {
                 LFS_ASSERT(lfsr_data_size(&data_) <= weight_);
-                err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
-                        LFSR_ATTR(bid_,
-                            GROW(INLINED), -(bid_+1 - pos),
-                            DISK(
-                                data_.u.disk.block,
-                                data_.u.disk.off,
-                                lfs_min32(
-                                    lfsr_data_size(&data_),
-                                    weight_ - (bid_+1 - pos)))),
-                        LFSR_ATTR(pos,
-                            INLINED, +weight_ - (pos+rm - (bid_-(weight_-1))),
-                            DISK(
-                                data_.u.disk.block,
-                                data_.u.disk.off
-                                    + (pos+rm - (bid_-(weight_-1))),
-                                lfs_min32(
-                                    lfsr_data_size(&data_),
-                                    weight_
-                                        - (pos+rm - (bid_-(weight_-1)))
-                                    )))));
-                if (err) {
-                    return err;
-                }
-            } else if (tag_ == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t l_bptr;
-                err = lfsr_data_readbptr(lfs, &data_, &l_bptr);
-                if (err) {
-                    return err;
-                }
-                LFS_ASSERT(l_bptr.size <= weight_);
-                lfsr_bptr_t r_bptr = l_bptr;
 
-                l_bptr.size = lfs_min32(
-                        l_bptr.size,
-                        weight_ - (bid_+1 - pos));
+                // can we coalesce left data? this is only possible if our
+                // new data is not a block and there is no hole on the left
+                if (tag == LFSR_TAG_INLINED
+                        && pos <= bid_-(weight_-1)+lfsr_data_size(&data_)
+                        && lfsr_data_size(&data) + (weight_ - overlap_)
+                            <= lfs->cfg->crystallize_size) {
+                    // note! this is a reference to cow data! this may need
+                    // special care for non-pure-cow allocators
+                    scratch_datas[0] = LFSR_DATA_DISK(
+                            data_.u.disk.block,
+                            data_.u.disk.off,
+                            weight_ - overlap_);
+                    scratch_datas[1] = data;
+                    datas_ = &scratch_datas[2];
+                    data = lfsr_data_fromcat(&scratch_datas[0], 2);
+                    pos = bid_-(weight_-1);
+                    weight += weight_ - overlap_;
 
-                r_bptr.off += pos+rm - (bid_-(weight_-1));
-                r_bptr.size = weight_ - (pos+rm - (bid_-(weight_-1)));
-
-                uint8_t l_bptr_buf[LFSR_BPTR_DSIZE];
-                uint8_t r_bptr_buf[LFSR_BPTR_DSIZE];
-                err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
-                        LFSR_ATTR(bid_,
-                            GROW(BLOCK), -(bid_+1 - pos),
-                            FROMBPTR(&l_bptr, l_bptr_buf)),
-                        LFSR_ATTR(pos,
-                            BLOCK, +weight_ - (pos+rm - (bid_-(weight_-1))),
-                            FROMBPTR(&r_bptr, r_bptr_buf))));
-                if (err) {
-                    return err;
-                }
-            } else {
-                LFS_UNREACHABLE();
-            }
-
-            rm -= rm;
-
-        // need to carve data in left sibling?
-        } else if (pos > bid_-(weight_-1)) {
-            if (tag_ == LFSR_TAG_INLINED) {
-                LFS_ASSERT(lfsr_data_size(&data_) <= weight_);
-                err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
-                        LFSR_ATTR(bid_,
-                            GROW(INLINED), -(bid_+1 - pos),
-                            DISK(
-                                data_.u.disk.block,
-                                data_.u.disk.off,
-                                lfs_min32(
-                                    lfsr_data_size(&data_),
-                                    weight_ - (bid_+1 - pos))))));
-                if (err) {
-                    return err;
-                }
-            } else if (tag_ == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr;
-                err = lfsr_data_readbptr(lfs, &data_, &bptr);
-                if (err) {
-                    return err;
-                }
-                LFS_ASSERT(bptr.size <= weight_);
-
-                bptr.size = lfs_min32(
-                        bptr.size,
-                        weight_ - (bid_+1 - pos));
-
-                uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-                err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
-                        LFSR_ATTR(bid_,
-                            GROW(BLOCK), -(bid_+1 - pos),
-                            FROMBPTR(&bptr, bptr_buf))));
-                if (err) {
-                    return err;
-                }
-            } else {
-                LFS_UNREACHABLE();
-            }
-
-            rm -= bid_+1 - pos;
-
-        // need to carve data in right sibling?
-        } else if (pos + rm < bid_+1) {
-            if (tag_ == LFSR_TAG_INLINED) {
-                LFS_ASSERT(lfsr_data_size(&data_) <= weight_);
-                err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
-                        LFSR_ATTR(bid_,
-                            GROW(INLINED), -(pos+rm - (bid_-(weight_-1))),
-                            DISK(
-                                data_.u.disk.block,
-                                data_.u.disk.off
-                                    + (pos+rm - (bid_-(weight_-1))),
-                                lfs_min32(
-                                    lfsr_data_size(&data_),
-                                    weight_
-                                        - (pos+rm - (bid_-(weight_-1)))
-                                    )))));
-                if (err) {
-                    return err;
-                }
-            } else if (tag_ == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr;
-                err = lfsr_data_readbptr(lfs, &data_, &bptr);
-                if (err) {
-                    return err;
-                }
-                LFS_ASSERT(bptr.size <= weight_);
-
-                // are we completely eliminating access to the block? change
-                // to a data-less hole so we can garbage collect the block
-                if ((lfs_off_t)bptr.size < pos+rm - (bid_-(weight_-1))) {
+                    // removing data we're referencing? this gets pretty
+                    // cursed...
                     err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                GROW(WIDE(INLINED)),
-                                    -(pos+rm - (bid_-(weight_-1))),
-                                NULL)));
+                            LFSR_ATTR(bid_, RM, -weight_, NULL)));
                     if (err) {
                         return err;
                     }
+
+                // can we get away with a grow attribute?
+                } else if (pos >= bid_-(weight_-1)+lfsr_data_size(&data_)) {
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_, GROW, -overlap_, NULL)));
+                    if (err) {
+                        return err;
+                    }
+
+                // need to carve left data
                 } else {
-                    bptr.off += pos+rm - (bid_-(weight_-1));
-                    bptr.size = weight_ - (pos+rm - (bid_-(weight_-1)));
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_,
+                                GROW(INLINED), -overlap_,
+                                DISK(
+                                    data_.u.disk.block,
+                                    data_.u.disk.off,
+                                    weight_ - overlap_))));
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                // did we split data?
+                if (overlap_ > (lfs_soff_t)weight) {
+                    // did we split actual data?
+                    if (pos+weight < bid_-(weight_-1)+lfsr_data_size(&data_)) {
+                        // we MUST coalesce here, otherwise we risk dagging
+                        LFS_ASSERT(tag == LFSR_TAG_INLINED);
+                        LFS_ASSERT(lfsr_data_size(&data_)
+                                <= lfs->cfg->crystallize_size);
+                        LFS_ASSERT(datas_ - scratch_datas == 2);
+
+                        // note! this is a reference to cow data! this may need
+                        // special care for non-pure-cow allocators
+                        *datas_++ = LFSR_DATA_DISK(
+                                data_.u.disk.block,
+                                data_.u.disk.off
+                                    + (weight_ - overlap_) + weight,
+                                lfsr_data_size(&data_) - lfs_min32(
+                                    (weight_ - overlap_) + weight,
+                                    lfsr_data_size(&data_)));
+                        data = lfsr_data_fromcat(
+                                scratch_datas,
+                                datas_ - scratch_datas);
+                        weight += weight_ - overlap_;
+
+                    // otherwise we just add our hole to our weight
+                    } else {
+                        weight += overlap_ - weight;
+                    }
+                }
+
+            } else if (tag_ == LFSR_TAG_BLOCK) {
+                lfsr_bptr_t bptr_;
+                err = lfsr_data_readbptr(lfs, &data_, &bptr_);
+                if (err) {
+                    return err;
+                }
+                LFS_ASSERT(bptr_.size <= weight_);
+
+                // can we coalesce left data? this is only possible if our
+                // new data is not a block and there is no hole on the left
+                if (tag == LFSR_TAG_INLINED
+                        && pos <= bid_-(weight_-1)+bptr_.size
+                        && lfsr_data_size(&data) + (weight_ - overlap_)
+                            <= lfs->cfg->crystallize_size) {
+                    // note! this is a reference to cow data! this may need
+                    // special care for non-pure-cow allocators
+                    scratch_datas[0] = LFSR_DATA_DISK(
+                            bptr_.block,
+                            bptr_.off,
+                            weight_ - overlap_);
+                    scratch_datas[1] = data;
+                    datas_ = &scratch_datas[2];
+                    data = lfsr_data_fromcat(&scratch_datas[0], 2);
+                    pos = bid_-(weight_-1);
+                    weight += weight_ - overlap_;
+
+                    // removing data we're referencing? this gets pretty
+                    // cursed...
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_, RM, -weight_, NULL)));
+                    if (err) {
+                        return err;
+                    }
+
+                // can we get away with a grow attribute?
+                } else if (pos >= bid_-(weight_-1)+bptr_.size) {
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_, GROW, -overlap_, NULL)));
+                    if (err) {
+                        return err;
+                    }
+
+                // need to carve left data
+                } else {
+                    bptr_.size = weight_ - overlap_;
 
                     uint8_t bptr_buf[LFSR_BPTR_DSIZE];
                     err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
                             LFSR_ATTR(bid_,
-                                GROW(BLOCK), -(pos+rm - (bid_-(weight_-1))),
-                                FROMBPTR(&bptr, bptr_buf))));
+                                GROW(BLOCK), -overlap_,
+                                FROMBPTR(&bptr_, bptr_buf))));
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                // did we split data?
+                if (overlap_ > (lfs_soff_t)weight) {
+                    // did we split actual data?
+                    if (pos+weight < bid_-(weight_-1)+bptr_.size) {
+                        // we MUST coalesce here, otherwise we risk dagging
+                        LFS_ASSERT(tag == LFSR_TAG_INLINED);
+                        LFS_ASSERT(bptr_.size <= lfs->cfg->crystallize_size);
+                        LFS_ASSERT(datas_ - scratch_datas == 2);
+
+                        // note! this is a reference to cow data! this may need
+                        // special care for non-pure-cow allocators
+                        *datas_++ = LFSR_DATA_DISK(
+                                bptr_.block,
+                                bptr_.off
+                                    + (weight_ - overlap_) + weight,
+                                bptr_.size - lfs_min32(
+                                    (weight_ - overlap_) + weight,
+                                    bptr_.size));
+                        data = lfsr_data_fromcat(
+                                scratch_datas,
+                                datas_ - scratch_datas);
+                        weight += weight_ - overlap_;
+
+                    // otherwise we just add our hole to our weight
+                    } else {
+                        weight += overlap_ - weight;
+                    }
+                }
+            }
+
+            pos_ = pos;
+            rm += lfs_smax32(overlap_, 0);
+
+        // found right sibling?
+        } else if (pos + weight-rm < bid_+1) {
+            lfs_soff_t overlap_ = (pos + weight-rm) - (bid_-(weight_-1));
+            LFS_ASSERT(overlap_ >= 0);
+
+            if (tag_ == LFSR_TAG_INLINED) {
+                LFS_ASSERT(lfsr_data_size(&data_) <= weight_);
+
+                // can we coalesce right data? this is only possible if our
+                // new data is not a block, or our right data has no data
+                if ((tag == LFSR_TAG_INLINED
+                            && lfsr_data_size(&data) == weight + delta
+                            && lfsr_data_size(&data)
+                                    + lfsr_data_size(&data_)
+                                    - overlap_
+                                <= lfs->cfg->crystallize_size)
+                        || lfsr_data_size(&data_) - overlap_ == 0) {
+                    // note! this is a reference to cow data! this may need
+                    // special care for non-pure-cow allocators
+                    *datas_++ = LFSR_DATA_DISK(
+                            data_.u.disk.block,
+                            data_.u.disk.off + overlap_,
+                            lfsr_data_size(&data_) - lfs_min32(
+                                overlap_,
+                                lfsr_data_size(&data_)));
+                    data = lfsr_data_fromcat(
+                            scratch_datas,
+                            datas_ - scratch_datas);
+                    weight += weight_ - overlap_;
+
+                    // removing data we're referencing? this gets pretty
+                    // cursed...
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_, RM, -weight_, NULL)));
+                    if (err) {
+                        return err;
+                    }
+
+                // need to carve right data
+                } else {
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_,
+                                GROW(INLINED), -overlap_,
+                                DISK(
+                                    data_.u.disk.block,
+                                    data_.u.disk.off + overlap_,
+                                    lfsr_data_size(&data_) - lfs_min32(
+                                        overlap_,
+                                        lfsr_data_size(&data_))))));
+                    if (err) {
+                        return err;
+                    }
+                }
+
+            } else if (tag_ == LFSR_TAG_BLOCK) {
+                lfsr_bptr_t bptr_;
+                err = lfsr_data_readbptr(lfs, &data_, &bptr_);
+                if (err) {
+                    return err;
+                }
+                LFS_ASSERT(bptr_.size <= weight_);
+
+                // can we coalesce right data? this is only possible if our
+                // new data is not a block, or our right data has no data
+                if ((tag == LFSR_TAG_INLINED
+                            && lfsr_data_size(&data) == weight + delta
+                            && lfsr_data_size(&data)
+                                    + bptr_.size
+                                    - overlap_
+                                <= lfs->cfg->crystallize_size)
+                        || bptr_.size - overlap_ == 0) {
+                    // note! this is a reference to cow data! this may need
+                    // special care for non-pure-cow allocators
+                    *datas_++ = LFSR_DATA_DISK(
+                            bptr_.block,
+                            bptr_.off + overlap_,
+                            bptr_.size - lfs_min32(
+                                overlap_,
+                                bptr_.size));
+                    data = lfsr_data_fromcat(
+                            scratch_datas,
+                            datas_ - scratch_datas);
+                    weight += weight_ - overlap_;
+
+                    // removing data we're referencing? this gets pretty
+                    // cursed...
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_, RM, -weight_, NULL)));
+                    if (err) {
+                        return err;
+                    }
+
+                // need to carve right data
+                } else {
+                    bptr_.off += overlap_;
+                    bptr_.size -= overlap_;
+
+                    uint8_t bptr_buf[LFSR_BPTR_DSIZE];
+                    err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_,
+                                GROW(BLOCK), -overlap_,
+                                FROMBPTR(&bptr_, bptr_buf))));
                     if (err) {
                         return err;
                     }
 
                 }
-            } else {
-                LFS_UNREACHABLE();
             }
 
-            rm -= pos+rm - (bid_-(weight_-1));
+            pos_ += 1;
+            rm += overlap_;
 
-        // need to completely remove this entry
+        // found fully overwritten entry, remove
         } else {
             err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
                     LFSR_ATTR(bid_, RM, -weight_, NULL)));
@@ -9661,12 +9868,16 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
                 return err;
             }
 
-            rm -= weight_;
+            rm += weight_;
         }
     }
 
     // need a hole?
     if (pos > lfsr_btree_weight(&file->u.btree)) {
+        // we should be able to handle non-zero btree holes with grow
+        // attributes above
+        LFS_ASSERT(lfsr_btree_weight(&file->u.btree) == 0);
+
         int err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
                 LFSR_ATTR(lfsr_btree_weight(&file->u.btree),
                     INLINED, +(pos - lfsr_btree_weight(&file->u.btree)),
@@ -9687,100 +9898,96 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
 }
 
 static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
-// TODO should we aim for overflow?
-//    while (overflow > 0) {
-        // TODO is there some way to deduplicate this "read" loop? seems
-        // to be common
+    // iterate through our buffer/sprout/shrub and flush everything into
+    // our btree
+    lfs_off_t inlined_pos = 0;
+    while (inlined_pos < file->size) {
+        lfs_ssize_t d = file->size - inlined_pos;
+        lfsr_data_t inlined_data;
 
-        // first find the start of unflushed data and how much data can be
-        // written in a contiguous run
-        lfs_off_t pos_ = 0;
-        lfs_off_t size_ = 0;
-        lfs_off_t pos = 0;
-        lfs_off_t size = lfs_max32(
-                lfsr_file_inlinedsize(file),
-                file->buffer_pos + file->buffer_size);
-        while (pos < size) {
-            lfs_off_t d = size - pos;
+        // TODO would it make more sense to move this into a separate function?
+        // TODO lfsr_file_inlinednext maybe? and call from lfsr_file_next?
 
-            // prioritize our buffer
-            if (pos < file->buffer_pos + file->buffer_size) {
-                if (pos >= file->buffer_pos) {
-                    d = lfs_min32(
-                            file->buffer_size - (pos - file->buffer_pos),
-                            d);
-                    size_ += d;
-                    pos += d;
-                    continue;
-                }
+        // any data in our write buffer?
+        if (inlined_pos < file->buffer_pos + file->buffer_size) {
+            if (inlined_pos >= file->buffer_pos) {
+                d = lfs_min32(
+                        d,
+                        file->buffer_size - (inlined_pos - file->buffer_pos));
 
-                d = lfs_min32(d, file->buffer_pos - pos);
+                inlined_data = LFSR_DATA_BUF(
+                        &file->buffer[inlined_pos - file->buffer_pos],
+                        d);
+                goto flush;
             }
 
-            // has a sprout?
-            if (lfsr_file_hassprout(file)
-                    && pos < lfsr_file_inlinedsize(file)) {
-                d = lfs_min32(lfsr_file_inlinedsize(file) - pos, d);
-                size_ += d;
-                pos += d;
-                continue;
-            }
-
-            // has a shrub?
-            if (lfsr_file_hasshrub(file)
-                    && pos < lfsr_file_inlinedsize(file)) {
-                lfsr_srid_t rid;
-                lfsr_tag_t tag;
-                lfsr_rid_t weight;
-                lfsr_data_t data;
-                int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                        pos, 0,
-                        &rid, &tag, &weight, &data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
-                LFS_ASSERT(lfsr_data_size(&data) <= weight);
-
-                if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
-                    d = lfs_min32(
-                            lfsr_data_size(&data) - (pos - (rid-(weight-1))),
-                            d);
-                    size_ += d;
-                    pos += d;
-                    continue;
-                }
-
-                d = lfs_min32(d, rid+1 - pos);
-            }
-
-            // found a hole
-            //
-            // we can skip it, but only if we haven't seen any contiguous
-            // data yet
-            //
-            if (size_ == 0) {
-                pos_ += d;
-                pos += d;
-            } else {
-                break;
-            }
+            // buffered data takes priority
+            d = lfs_min32(d, file->buffer_pos - inlined_pos);
         }
 
-        // TODO is this true?
-        // we should have some data to write, why else would this function
-        // be called?
-        LFS_ASSERT(size_ > 0);
+        // has a sprout?
+        if (lfsr_file_hassprout(file)
+                && inlined_pos < lfsr_file_inlinedsize(file)) {
+            d = lfs_min32(
+                    d,
+                    lfsr_data_size(&file->inlined.u.data));
 
-        // TODO check for possible ecksums
+            inlined_data = LFSR_DATA_DISK(
+                    file->inlined.u.data.u.disk.block,
+                    file->inlined.u.data.u.disk.off + inlined_pos,
+                    d);
+            goto flush;
 
-        // no btree? need to allocate?
+        // has a shrub?
+        } else if (lfsr_file_hasshrub(file)
+                && inlined_pos < lfsr_file_inlinedsize(file)) {
+            lfsr_srid_t rid;
+            lfsr_tag_t tag;
+            lfsr_rid_t weight;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+                    inlined_pos, 0,
+                    &rid, &tag, &weight, &data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+            LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
+            LFS_ASSERT(lfsr_data_size(&data) <= weight);
+
+            if (inlined_pos < rid-(weight-1) + lfsr_data_size(&data)) {
+                d = lfs_min32(
+                        d,
+                        lfsr_data_size(&data)
+                            - (inlined_pos - (rid-(weight-1))));
+
+                inlined_data = LFSR_DATA_DISK(
+                        data.u.disk.block,
+                        data.u.disk.off + (inlined_pos - (rid-(weight-1))),
+                        d);
+                goto flush;
+            }
+
+            // found a hole, just make sure next leaf takes priority
+            d = lfs_min32(d, rid+1 - inlined_pos);
+        }
+
+        // found a hole? skip
+        inlined_pos += d;
+        continue;
+
+    flush:;
+        // first we need to figure out if we can coalesce or need a new block
+        lfs_off_t crystal_pos = inlined_pos;
+        lfs_off_t crystal_size = lfsr_data_size(&inlined_data);
+
+        // don't check our crystallization threshold yet, we always need to
+        // lookup our left sibling to determine the best crystal alignment
+
+        // TODO when do we create single blocks?
+
+        // no btree yet? alloc a new root node
         if (!lfsr_file_hasbtree(file)) {
-            // TODO what if we fit in crystallize_size but are clearly writing
-            // linearly? should we have a special heuristic to avoid early
-            // btrees?
-
             // TODO allow single blocks
             LFS_ASSERT(!lfsr_file_hasbptr(file));
 
@@ -9789,180 +9996,96 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
             if (err) {
                 return err;
             }
-        }
 
-        // the next step is to check for over-crystallization
-        //
-        // To do this, we need to figure out the best block alignment. This
-        // gets tricky with the possibility of fruncate/push/pop, so we aim
-        // for local alignment, with the expectation that contiguous writes
-        // will sort themselves out much like actual crystallization in
-        // nature.
-        //
-        lfs_off_t block_pos;
-
-        // By far the most common case is we're appending new data, try to
-        // find a block to the left, this gets a bit tricky to account for
-        // carved blocks.
-        //
-        //   best case     worst case
-        // .-----.-----.  .-----.-----.
-        // |xxxxx|p    |  | xxxx|     |
-        // |xxxx |     |  |xxxxx|    p|
-        // '-----'-----'  '-----'-----'
-        //      '+'        '----+----'
-        //     pos-1       pos-2*bs+1
-        //
-        pos = lfs_min32(pos_, lfsr_btree_weight(&file->u.btree)) - 1;
-        while ((lfs_soff_t)pos >= 0
-                && (lfs_soff_t)pos
-                    >= (lfs_soff_t)(pos_ - 2*lfs->cfg->block_size+1)) {
-            lfsr_bid_t bid;
-            lfsr_tag_t tag;
-            lfsr_bid_t weight;
-            lfsr_data_t data;
-            int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
-                    &bid, &tag, &weight, &data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-
-            // found a block?
-            if (tag == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr;
-                err = lfsr_data_readbptr(lfs, &data, &bptr);
-                if (err) {
-                    return err;
-                }
-
-                // ignore if we're contained in the block, we want our
-                // sibling
-                lfs_off_t block_pos_ = bid-(weight-1) - bptr.off
-                        + lfs->cfg->block_size;
-                if (pos_ >= block_pos_) {
-                    // found left sibling's alignment
-                    block_pos = block_pos_;
-                    goto aligned;
-                }
-            }
-
-            pos = bid - weight;
-        }
-
-        // No block to the left? Maybe we're fruncating, try to find the
-        // block to the right.
-        //
-        //   best case     worst case
-        // .-----.-----.  .-----.-----.
-        // |     | xxxx|  |p    |xxxxx|
-        // |    p|xxxxx|  |     |xxxx |
-        // '-----'-----'  '-----'-----'
-        //      '+'        '----+----'
-        //     pos+1       pos+2*bs-1
-        //
-        pos = pos_+1;
-        while (pos < lfsr_btree_weight(&file->u.btree)
-                && pos < pos_ + 2*lfs->cfg->block_size-1) {
-            lfsr_bid_t bid;
-            lfsr_tag_t tag;
-            lfsr_bid_t weight;
-            lfsr_data_t data;
-            int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
-                    &bid, &tag, &weight, &data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-
-            // found a block?
-            if (tag == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr;
-                err = lfsr_data_readbptr(lfs, &data, &bptr);
-                if (err) {
-                    return err;
-                }
-
-                // ignore if we're contained in the block, we want our
-                // sibling
-                lfs_soff_t block_pos_ = bid-(weight-1) - bptr.off
-                        - lfs->cfg->block_size;
-                if (pos_ < block_pos_ + lfs->cfg->block_size) {
-                    // found right sibling's alignment
-                    block_pos = block_pos_;
-                    goto aligned;
-                }
-            }
-
-            pos = bid + 1;
-        }
-
-        // No sibling either direction? This can happen if we have a bunch
-        // of holes. Fall back to 0-based alignment.
-        block_pos = lfs_aligndown(pos_, lfs->cfg->block_size);
-
-    aligned:;
-        // do we exceed our crystallize threshold?
-        lfs_off_t crystallized = lfs_min32(
-                size_,
-                lfs->cfg->block_size - (pos_ - block_pos));
-        pos = block_pos;
-        while (pos < lfsr_btree_weight(&file->u.btree)
-                && pos < block_pos + lfs->cfg->block_size
-                && crystallized <= lfs->cfg->crystallize_size) {
-            lfs_off_t d = lfs->cfg->block_size - (pos - block_pos);
-
-            // prioritize our inlined data
-            if (pos < pos_ + size_) {
-                if (pos >= pos_) {
-                    // inlined size already accounted to encourage early
-                    // loop termination
-                    pos += size_ - (pos - pos_);
-                    continue;
-                }
-
-                d = lfs_min32(d, pos_ - pos);
-            }
-
-            lfsr_bid_t bid;
-            lfsr_tag_t tag;
-            lfsr_bid_t weight;
-            lfsr_data_t data;
-            int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
-                    &bid, &tag, &weight, &data);
-            if (err) {
-                return err;
-            }
-
-            // found crystallizing inlined data?
-            if (tag == LFSR_TAG_INLINED) {
-                crystallized += lfs_min32(
-                        lfsr_data_size(&data) - (pos - (bid-(weight-1))),
-                        d);
-            }
-
-            pos += lfs_min32(d, (bid+1) - pos);
-        }
-
-        // can we inline into the btree inner nodes?
-        lfs_off_t pos__;
-        lfs_off_t size__;
-        lfsr_tag_t tag__;
-        lfsr_data_t data__;
-        uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-        if (crystallized <= lfs->cfg->crystallize_size) {
-            pos__ = pos_;
-            size__ = size_;
-            tag__ = LFSR_TAG_INLINED;
-            data__ = LFSR_DATA_FILE(file, pos_, size_);
-
-        // exceeded crystallization threshold, compact into a new block
         } else {
-            // can't cross a block boundary here
-            size_ = lfs_min32(
-                    size_,
-                    lfs->cfg->block_size - (pos - block_pos));
+            // has left sibling?
+            if (inlined_pos > 0) {
+                lfsr_bid_t left_bid;
+                lfsr_tag_t left_tag;
+                lfsr_bid_t left_weight;
+                lfsr_data_t left_data;
+                int err = lfsr_btree_lookupnext(lfs, &file->u.btree,
+                        lfs_min32(
+                            inlined_pos,
+                            lfsr_btree_weight(&file->u.btree))-1,
+                        &left_bid, &left_tag, &left_weight, &left_data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    return err;
+                }
+                LFS_ASSERT(left_tag == LFSR_TAG_INLINED
+                        || left_tag == LFSR_TAG_BLOCK);
 
+                lfs_off_t left_size;
+                // is inlined data?
+                if (left_tag == LFSR_TAG_INLINED) {
+                    left_size = lfsr_data_size(&left_data);
+                    LFS_ASSERT(left_size <= left_weight);
+
+                // is a block?
+                } else if (left_tag == LFSR_TAG_BLOCK) {
+                    lfsr_bptr_t bptr;
+                    err = lfsr_data_readbptr(lfs, &left_data, &bptr);
+                    if (err) {
+                        return err;
+                    }
+                    LFS_ASSERT(bptr.size <= left_weight);
+                    left_size = bptr.size;
+                }
+
+                // coalescable? this requires we either overlap, or left sibling
+                // is not a full block
+                if (crystal_pos - (left_bid-(left_weight-1))
+                            < lfs->cfg->block_size
+                        && crystal_pos
+                            <= left_bid-(left_weight-1)+left_size) {
+                    crystal_size += crystal_pos - (left_bid-(left_weight-1));
+                    crystal_pos = left_bid-(left_weight-1);
+                }
+            }
+
+            // scan our crystallizing region to see how much data could be
+            // merged if we created a block here
+            while (crystal_size <= lfs->cfg->crystallize_size
+                    && crystal_pos + crystal_size < file->size) {
+                lfs_off_t weight;
+                lfsr_data_t data;
+                int err = lfsr_file_next(lfs, file,
+                        crystal_pos + crystal_size, file->size,
+                        &weight, &data);
+                if (err) {
+                    // end of file?
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    return err;
+                }
+                LFS_ASSERT(weight > 0);
+
+                // found a hole? just stop here
+                if (lfsr_data_size(&data) == 0) {
+                    break;
+                }
+
+                crystal_size += lfsr_data_size(&data);
+            }
+        }
+
+        // not enough crystallized data for a block? inline the data directly,
+        // potentially coalescing with any neighbors
+        if (crystal_size < lfs->cfg->crystallize_size) {
+            // write inlined data into our tree
+            int err = lfsr_file_carvebtree(lfs, file,
+                    inlined_pos, lfsr_data_size(&inlined_data), 0,
+                    LFSR_TAG_INLINED, inlined_data);
+            if (err) {
+                return err;
+            }
+
+            inlined_pos += lfsr_data_size(&inlined_data);
+
+        // exceeded crystallization threshold? create a new block
+        } else {
             // allocate a new block
             lfs_block_t block;
             int err = lfs_alloc(lfs, &block);
@@ -9976,102 +10099,41 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
                 return err;
             }
 
-            // iterate through data in our btree and write it into the block
-            pos = block_pos;
-            size = lfs_min32(
-                    lfs->cfg->block_size,
-                    lfs_max32(pos_+size_, file->size) - block_pos);
-            while (pos < block_pos + size) {
-                lfs_off_t d = block_pos + size - pos;
-
-                // prioritize our inlined data
-                if (pos < pos_ + size_) {
-                    if (pos >= pos_) {
-                        // TODO becksum?
-                        err = lfsr_bd_progdata(lfs, block, pos - block_pos,
-                                LFSR_DATA_FILE(file, pos_, lfs_min32(size_, d)),
-                                NULL);
-                        if (err) {
-                            return err;
-                        }
-
-                        pos += size_;
-                        continue;
+            // TODO becksum?
+            // copy any data underneath our block into our block
+            lfs_off_t pos = crystal_pos;
+            lfs_off_t size = lfs->cfg->block_size;
+            while (size > 0) {
+                lfs_off_t weight;
+                lfsr_data_t data;
+                err = lfsr_file_next(lfs, file, pos, size,
+                        &weight, &data);
+                if (err) {
+                    // end of file?
+                    if (err == LFS_ERR_NOENT) {
+                        break;
                     }
+                    return err;
+                }
+                LFS_ASSERT(weight > 0);
 
-                    d = lfs_min32(d, pos_ - pos);
+                // TODO we should probably NOT stop or we risk excessive
+                // fragmentation when there are small holes
+
+                // found a hole? just stop here
+                if (lfsr_data_size(&data) == 0) {
+                    break;
                 }
 
-                // write any previously crystallized data
-                if (pos < lfsr_btree_weight(&file->u.btree)) {
-                    lfsr_bid_t bid;
-                    lfsr_tag_t tag;
-                    lfsr_bid_t weight;
-                    lfsr_data_t data;
-                    int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
-                            &bid, &tag, &weight, &data);
-                    if (err) {
-                        return err;
-                    }
-
-                    // crystallizing inlined data?
-                    if (tag == LFSR_TAG_INLINED) {
-                        // data is data
-                        LFS_ASSERT(lfsr_data_size(&data) <= weight);
-
-                    // a previous block?
-                    } else if (tag == LFSR_TAG_BLOCK) {
-                        lfsr_bptr_t bptr;
-                        err = lfsr_data_readbptr(lfs, &data, &bptr);
-                        if (err) {
-                            return err;
-                        }
-                        LFS_ASSERT(bptr.size <= weight);
-
-                        // TODO, wait, are lfsr_data_t and lfsr_bptr_t
-                        // the same thing?
-                        data = LFSR_DATA_DISK(
-                                bptr.block,
-                                bptr.off,
-                                bptr.size);
-
-                    } else {
-                        LFS_UNREACHABLE();
-                    }
-
-                    if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
-                        data = LFSR_DATA_DISK(
-                                data.u.disk.block,
-                                data.u.disk.off + pos - (bid-(weight-1)),
-                                lfs_min32(
-                                    lfsr_data_size(&data)
-                                        - (pos - (bid-(weight-1))),
-                                    d));
-                        err = lfsr_bd_progdata(lfs, block, pos - block_pos,
-                                data,
-                                NULL);
-                        if (err) {
-                            return err;
-                        }
-
-                        pos += lfsr_data_size(&data);
-                        continue;
-                    }
-
-                    // found a hole, just make sure next leaf takes priority
-                    d = lfs_min32(d, bid+1 - pos);
+                err = lfsr_bd_progdata(lfs, block, pos - crystal_pos,
+                        data,
+                        NULL);
+                if (err) {
+                    return err;
                 }
 
-                // hole? we do fill with actual zeros here
-                // TODO do this more efficiently?
-                for (lfs_size_t i = 0; i < d; i++) {
-                    err = lfsr_bd_prog(lfs, block, pos+i, &(uint8_t){0}, 1,
-                            NULL);
-                    if (err) {
-                        return err;
-                    }
-                }
-                pos += d;
+                pos += lfsr_data_size(&data);
+                size -= lfsr_data_size(&data);
             }
 
             // TODO validate?
@@ -10081,52 +10143,30 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
                 return err;
             }
 
-            // setup our new block to be committed into the btree
-            pos__ = block_pos;
-            size__ = size;
-            tag__ = LFSR_TAG_BLOCK;
-            data__ = lfsr_data_frombptr(&(lfsr_bptr_t){
-                    .block=block,
-                    .off=0,
-                    .size=size}, bptr_buf);
+            // create our block pointer
+            lfsr_bptr_t bptr = {
+                .block = block,
+                .off = 0,
+                .size = pos - crystal_pos,
+            };
+
+            // and write it into our tree
+            uint8_t bptr_buf[LFSR_BPTR_DSIZE];
+            err = lfsr_file_carvebtree(lfs, file,
+                    crystal_pos, bptr.size, 0,
+                    LFSR_TAG_BLOCK, lfsr_data_frombptr(&bptr, bptr_buf));
+            if (err) {
+                return err;
+            }
+
+            inlined_pos = crystal_pos + bptr.size;
         }
+    }
 
-        // commit to btree, carving out any underlying data
-        int err = lfsr_file_carvebtree(lfs, file, pos__, size__, 0,
-                tag__, data__);
-        if (err) {
-            return err;
-        }
-
-        // remove any flushed data from shrub
-        //
-        // note this clears any data from 0, we should never have data < pos
-        // in our current flushinlined implementation and this coalesces any
-        // holes together
-        err = lfsr_file_carveinlined(lfs, file, 0, pos_ + size_, 0,
-                LFSR_DATA_NULL);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        // and remove any flushed data from our buffer
-        if (pos_ + size_ > file->buffer_pos) {
-            lfs_size_t d = lfs_min32(
-                    pos_+size_ - file->buffer_pos,
-                    file->buffer_size);
-            memmove(file->buffer, file->buffer + d, file->buffer_size - d);
-            file->buffer_pos += d;
-            file->buffer_size -= d;
-        }
-
-        // TODO update buffer_pos/size?
-
-//        // update our overflow estimate
-//        overflow -= LFSR_ATTR_ESTIMATE + size_;
-//    }
-
-    // TODO
+    // at this point we should have flushed both our inlined data and
+    // our buffer
+    file->buffer_size = 0;
+    file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
     return 0;
 }
 
@@ -10304,8 +10344,11 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                     ? LFSR_BPTR_DSIZE
                     : LFSR_BTREE_DSIZE];
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR(file->m.mdir.mid,
-                        WIDE(SHRUBTRUNK), 0, FILE(file, 0, 0)),
+                    (lfsr_file_hasshrub(file)
+                        ? LFSR_ATTR(file->m.mdir.mid,
+                            WIDE(SHRUBTRUNK), 0, FILE(file, 0, 0))
+                        : LFSR_ATTR(file->m.mdir.mid,
+                            RM(WIDE(STRUCT)), 0, NULL)),
                     // and any btree metadata?
                     (lfsr_file_hasbptr(file)
                         ? LFSR_ATTR(file->m.mdir.mid,
