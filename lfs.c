@@ -4929,9 +4929,9 @@ static int lfsr_btraversal_read(lfs_t *lfs, const lfsr_btree_t *btree,
 /// Metadata pair operations ///
 
 // the mroot anchor, mdir 0x{0,1} is the entry point into the filesystem
-#define LFSR_MBLOCKS_MROOTANCHOR() ((const lfs_block_t[2]){0, 1})
+#define LFSR_MPTR_MROOTANCHOR() ((const lfs_block_t[2]){0, 1})
 
-static inline int lfsr_mblocks_cmp(
+static inline int lfsr_mptr_cmp(
         const lfs_block_t a[static 2],
         const lfs_block_t b[static 2]) {
     // note these can be in either order
@@ -4942,7 +4942,7 @@ static inline int lfsr_mblocks_cmp(
     }
 }
 
-static inline bool lfsr_mblocks_ismrootanchor(
+static inline bool lfsr_mptr_ismrootanchor(
         const lfs_block_t blocks[static 2]) {
     // mrootanchor is always at 0x{0,1}
     // just check that the first block is in mroot anchor range
@@ -4950,11 +4950,11 @@ static inline bool lfsr_mblocks_ismrootanchor(
 }
 
 static inline int lfsr_mdir_cmp(const lfsr_mdir_t *a, const lfsr_mdir_t *b) {
-    return lfsr_mblocks_cmp(a->u.m.blocks, b->u.m.blocks);
+    return lfsr_mptr_cmp(a->u.m.blocks, b->u.m.blocks);
 }
 
 static inline bool lfsr_mdir_ismrootanchor(const lfsr_mdir_t *mdir) {
-    return lfsr_mblocks_ismrootanchor(mdir->u.m.blocks);
+    return lfsr_mptr_ismrootanchor(mdir->u.m.blocks);
 }
 
 static inline void lfsr_mdir_unerase(lfsr_mdir_t *mdir) {
@@ -4964,10 +4964,10 @@ static inline void lfsr_mdir_unerase(lfsr_mdir_t *mdir) {
 // 2 leb128 => 10 bytes (worst case)
 #define LFSR_MDIR_DSIZE (5+5)
 
-#define LFSR_DATA_FROMMBLOCKS(_blocks, _buffer) \
-    lfsr_data_frommblocks(_blocks, _buffer)
+#define LFSR_DATA_FROMMPTR(_blocks, _buffer) \
+    lfsr_data_frommptr(_blocks, _buffer)
 
-static lfsr_data_t lfsr_data_frommblocks(const lfs_block_t blocks[static 2],
+static lfsr_data_t lfsr_data_frommptr(const lfs_block_t blocks[static 2],
         uint8_t buffer[static LFSR_MDIR_DSIZE]) {
     lfs_ssize_t d = 0;
     for (int i = 0; i < 2; i++) {
@@ -4979,7 +4979,7 @@ static lfsr_data_t lfsr_data_frommblocks(const lfs_block_t blocks[static 2],
     return LFSR_DATA_BUF(buffer, d);
 }
 
-static int lfsr_data_readmblocks(lfs_t *lfs, lfsr_data_t *data,
+static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
         lfs_block_t blocks[static 2]) {
     for (int i = 0; i < 2; i++) {
         int err = lfsr_data_readleb128(lfs, data, (int32_t*)&blocks[i]);
@@ -5208,7 +5208,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid, lfsr_mdir_t *mdir_) {
         LFS_ASSERT(tag == LFSR_TAG_MDIR);
 
         // decode mdir
-        err = lfsr_data_readmblocks(lfs, &data, mdir_->u.m.blocks);
+        err = lfsr_data_readmptr(lfs, &data, mdir_->u.m.blocks);
         if (err) {
             return err;
         }
@@ -5221,12 +5221,12 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid, lfsr_mdir_t *mdir_) {
 static int lfsr_mtree_parent(lfs_t *lfs, const lfs_block_t blocks[static 2],
         lfsr_mdir_t *mparent_) {
     // we only call this when we actually have parents
-    LFS_ASSERT(!lfsr_mblocks_ismrootanchor(blocks));
+    LFS_ASSERT(!lfsr_mptr_ismrootanchor(blocks));
 
     // scan list of mroots for our requested pair
     lfs_block_t blocks_[2] = {
-            LFSR_MBLOCKS_MROOTANCHOR()[0],
-            LFSR_MBLOCKS_MROOTANCHOR()[1]};
+            LFSR_MPTR_MROOTANCHOR()[0],
+            LFSR_MPTR_MROOTANCHOR()[1]};
     while (true) {
         // fetch next possible superblock
         lfsr_mdir_t mdir;
@@ -5244,13 +5244,13 @@ static int lfsr_mtree_parent(lfs_t *lfs, const lfs_block_t blocks[static 2],
         }
 
         // decode mdir
-        err = lfsr_data_readmblocks(lfs, &data, blocks_);
+        err = lfsr_data_readmptr(lfs, &data, blocks_);
         if (err) {
             return err;
         }
 
         // found our child?
-        if (lfsr_mblocks_cmp(blocks_, blocks) == 0) {
+        if (lfsr_mptr_cmp(blocks_, blocks) == 0) {
             *mparent_ = mdir;
             return 0;
         }
@@ -6209,11 +6209,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t msibling_buf[LFSR_MDIR_DSIZE];
         err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                 LFSR_ATTR(mdir_.mid | lfsr_midrmask(lfs),
-                    MDIR, 0, FROMMBLOCKS(mdir_.u.m.blocks, mdir_buf)),
+                    MDIR, 0, FROMMPTR(mdir_.u.m.blocks, mdir_buf)),
                 LFSR_ATTR((mdir_.mid | lfsr_midrmask(lfs))+1,
                     BRANCH, +lfsr_mleafweight(lfs), DATA(split_data)),
                 LFSR_ATTR(msibling_.mid | lfsr_midrmask(lfs),
-                    MDIR, 0, FROMMBLOCKS(msibling_.u.m.blocks, msibling_buf))));
+                    MDIR, 0, FROMMPTR(msibling_.u.m.blocks, msibling_buf))));
         if (err) {
             return err;
         }
@@ -6260,7 +6260,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mdir_buf[LFSR_MDIR_DSIZE];
         err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                 LFSR_ATTR(mdir_.mid | lfsr_midrmask(lfs),
-                    MDIR, 0, FROMMBLOCKS(mdir_.u.m.blocks, mdir_buf))));
+                    MDIR, 0, FROMMPTR(mdir_.u.m.blocks, mdir_buf))));
         if (err) {
             return err;
         }
@@ -6370,7 +6370,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mrootchild_buf[LFSR_MDIR_DSIZE];
         err = lfsr_mdir_commit_(lfs, &mrootparent_, -1, -1, NULL, LFSR_ATTRS(
                 LFSR_ATTR(-1,
-                    MROOT, 0, FROMMBLOCKS(mrootchild_.u.m.blocks,
+                    MROOT, 0, FROMMPTR(mrootchild_.u.m.blocks,
                         mrootchild_buf))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -6438,7 +6438,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mrootchild_buf[LFSR_MDIR_DSIZE];
         err = lfsr_mdir_commit__(lfs, &mrootparent_, -1, -1, LFSR_ATTRS(
                 LFSR_ATTR(-1,
-                    WIDE(MROOT), 0, FROMMBLOCKS(mrootchild_.u.m.blocks,
+                    WIDE(MROOT), 0, FROMMPTR(mrootchild_.u.m.blocks,
                         mrootchild_buf))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -6646,7 +6646,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
         LFS_ASSERT(weight == lfsr_mleafweight(lfs));
 
         // decode mdir
-        err = lfsr_data_readmblocks(lfs, &data, mdir.u.m.blocks);
+        err = lfsr_data_readmptr(lfs, &data, mdir.u.m.blocks);
         if (err) {
             return err;
         }
@@ -6902,7 +6902,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
         case LFSR_TRAVERSAL_MROOTANCHOR:;
             // fetch the first mroot 0x{0,1}
             int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
-                    -1, LFSR_MBLOCKS_MROOTANCHOR());
+                    -1, LFSR_MPTR_MROOTANCHOR());
             if (err) {
                 return err;
             }
@@ -6936,7 +6936,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
 
             // found a new mroot
             if (tag == LFSR_TAG_MROOT) {
-                err = lfsr_data_readmblocks(lfs, &data,
+                err = lfsr_data_readmptr(lfs, &data,
                         traversal->mdir.u.m.blocks);
                 if (err) {
                     return err;
@@ -6948,7 +6948,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // inner nodes require checksums of their pointers, so creating
                 // a valid cycle is actually quite difficult
                 //
-                if (lfsr_mblocks_cmp(
+                if (lfsr_mptr_cmp(
                         traversal->mdir.u.m.blocks,
                         traversal->u.mtortoise.blocks) == 0) {
                     LFS_ERROR("Cycle detected during mtree traversal "
@@ -6983,7 +6983,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // found an mdir?
             } else if (tag == LFSR_TAG_MDIR) {
                 // fetch this mdir
-                err = lfsr_data_readmblocks(lfs, &data,
+                err = lfsr_data_readmptr(lfs, &data,
                         tinfo->u.mdir.u.m.blocks);
                 if (err) {
                     return err;
@@ -7092,7 +7092,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
 
             // fetch mdir if we're on a leaf
             } else if (binfo.tag == LFSR_TAG_MDIR) {
-                err = lfsr_data_readmblocks(lfs, &binfo.u.data,
+                err = lfsr_data_readmptr(lfs, &binfo.u.data,
                         traversal->mdir.u.m.blocks);
                 if (err) {
                     return err;
@@ -7751,7 +7751,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     err = lfsr_btree_commit(lfs, &lfs->mtree, LFSR_ATTRS(
                             LFSR_ATTR(0,
                                 MDIR, +lfsr_mleafweight(lfs),
-                                FROMMBLOCKS(tinfo.u.mdir.u.m.blocks,
+                                FROMMPTR(tinfo.u.mdir.u.m.blocks,
                                     mdir_buf))));
                     LFS_ASSERT(!err);
                 }
