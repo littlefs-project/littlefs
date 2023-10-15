@@ -602,7 +602,7 @@ enum lfsr_tag_type {
     LFSR_TAG_GRM            = 0x0100,
 
     LFSR_TAG_NAME           = 0x0200,
-    LFSR_TAG_BRANCH         = 0x0200,
+    LFSR_TAG_BNAME          = 0x0200,
     LFSR_TAG_BOOKMARK       = 0x0201,
     LFSR_TAG_REG            = 0x0202,
     LFSR_TAG_DIR            = 0x0203,
@@ -612,10 +612,11 @@ enum lfsr_tag_type {
     LFSR_TAG_TRUNK          = 0x0304,
     LFSR_TAG_BLOCK          = 0x0308,
     LFSR_TAG_BTREE          = 0x030c,
-    LFSR_TAG_MDIR           = 0x0311,
-    LFSR_TAG_MTREE          = 0x0314,
-    LFSR_TAG_MROOT          = 0x0318,
-    LFSR_TAG_DID            = 0x031c,
+    LFSR_TAG_BRANCH         = 0x0314,
+    LFSR_TAG_MDIR           = 0x0321,
+    LFSR_TAG_MTREE          = 0x0324,
+    LFSR_TAG_MROOT          = 0x0329,
+    LFSR_TAG_DID            = 0x032c,
 
     LFSR_TAG_UATTR          = 0x0400,
     LFSR_TAG_SATTR          = 0x0600,
@@ -2031,11 +2032,11 @@ static lfsr_data_t lfsr_data_fromtrunk(const lfsr_rbyd_t *rbyd,
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
-    lfs_ssize_t d_ = lfs_toleb128(rbyd->trunk, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(rbyd->weight, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(rbyd->weight, &buffer[d], 5);
+    d_ = lfs_toleb128(rbyd->trunk, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -2046,12 +2047,12 @@ static int lfsr_data_readtrunk(lfs_t *lfs, lfsr_data_t *data,
         lfsr_rbyd_t *rbyd) {
     // note the rest of the rbyd may not actually be backed by memory, so
     // we need to be conservative here
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&rbyd->trunk);
+    int err = lfsr_data_readleb128(lfs, data, &rbyd->weight);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, &rbyd->weight);
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&rbyd->trunk);
     if (err) {
         return err;
     }
@@ -2073,15 +2074,15 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
     lfs_ssize_t d = 0;
 
     // write the block, offset, and size
-    lfs_ssize_t d_ = lfs_toleb128(bptr->block, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(bptr->size, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    d_ = lfs_toleb128(bptr->block, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
     d_ = lfs_toleb128(bptr->off, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
-    d += d_;
-
-    d_ = lfs_toleb128(bptr->size, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -2091,17 +2092,17 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
 static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         lfsr_bptr_t *bptr) {
     // read the block, offset, and size
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->block);
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->size);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->block);
     if (err) {
         return err;
     }
 
     err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->off);
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->size);
     if (err) {
         return err;
     }
@@ -3730,7 +3731,7 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // if we have no name or a vestigial name, treat this rid as always lt
         lfs_scmp_t cmp;
-        if ((tag__ == LFSR_TAG_BRANCH && rid__-(weight__-1) == 0)
+        if ((tag__ == LFSR_TAG_BNAME && rid__-(weight__-1) == 0)
                 || lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
             cmp = LFS_CMP_LT;
 
@@ -3839,10 +3840,66 @@ static inline void lfsr_btree_unerase(lfsr_btree_t *btree) {
     }
 }
 
+
+// branch on-disk encoding
+#define LFSR_BRANCH_DSIZE (5+5+4)
+
+// 2 leb128 + 1 crc32c => 14 bytes (worst case)
+#define LFSR_DATA_FROMBRANCH(_branch, _buffer) \
+    lfsr_data_frombranch(_branch, _buffer)
+
+static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
+        uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+    lfs_ssize_t d = 0;
+
+    lfs_ssize_t d_ = lfs_toleb128(branch->block, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    d_ = lfs_toleb128(branch->trunk, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    lfs_tole32_(branch->cksum, &buffer[d]);
+    d += 4;
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_bid_t weight,
+        lfsr_rbyd_t *branch) {
+    // setting off to 0 here will trigger asserts if we try to append
+    // without fetching first
+    branch->eoff = 0;
+    branch->weight = weight;
+
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->block);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->trunk);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_data_readle32(lfs, data, &branch->cksum);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
+
 // btree on-disk encoding
+//
+// this is the same as the branch on-disk econding, but prefixed with the
+// btree's weight
 
 // 3 leb128 + 1 crc32c => 19 bytes (worst case)
-#define LFSR_BTREE_DSIZE (5+5+5+4)
+#define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
 #define LFSR_DATA_FROMBTREE(_btree, _buffer) \
     lfsr_data_frombtree(_btree, _buffer)
@@ -3853,20 +3910,12 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_rbyd_t *btree,
     LFS_ASSERT(!lfsr_btree_isinlined((const lfsr_btree_t*)btree));
     lfs_ssize_t d = 0;
 
-    lfs_ssize_t d_ = lfs_toleb128(btree->block, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(btree->weight, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(btree->trunk, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
-    d += d_;
-
-    d_ = lfs_toleb128(btree->weight, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
-    d += d_;
-
-    lfs_tole32_(btree->cksum, &buffer[d]);
-    d += 4;
+    lfsr_data_t data = lfsr_data_frombranch(btree, &buffer[d]);
+    d += lfsr_data_size(&data);
 
     return LFSR_DATA_BUF(buffer, d);
 }
@@ -3889,26 +3938,13 @@ static int lfsr_data_readbtreeinlined(lfs_t *lfs, lfsr_data_t *data,
 
 static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
         lfsr_rbyd_t *btree) {
-    // setting off to 0 here will trigger asserts if we try to append
-    // without fetching first
-    btree->eoff = 0;
-
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&btree->block);
+    lfsr_bid_t weight;
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&weight);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&btree->trunk);
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_data_readleb128(lfs, data, &btree->weight);
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_data_readle32(lfs, data, &btree->cksum);
+    err = lfsr_data_readbranch(lfs, data, weight, btree);
     if (err) {
         return err;
     }
@@ -3975,12 +4011,12 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
         }
 
         // found another branch
-        if (tag__ == LFSR_TAG_BTREE) {
+        if (tag__ == LFSR_TAG_BRANCH) {
             // adjust rid with subtree's weight
             rid -= (rid__ - (weight__-1));
 
             // fetch the next branch
-            err = lfsr_data_readbtree(lfs, &data__, &branch);
+            err = lfsr_data_readbranch(lfs, &data__, weight__, &branch);
             if (err) {
                 return err;
             }
@@ -4077,7 +4113,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         // didn't find our child?
-        if (tag__ != LFSR_TAG_BTREE) {
+        if (tag__ != LFSR_TAG_BRANCH) {
             return LFS_ERR_NOENT;
         }
 
@@ -4086,7 +4122,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 
         // fetch the next branch
         lfsr_rbyd_t branch_;
-        err = lfsr_data_readbtree(lfs, &data__, &branch_);
+        err = lfsr_data_readbranch(lfs, &data__, weight__, &branch_);
         if (err) {
             return err;
         }
@@ -4216,8 +4252,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
     // we need some scratch space for tail-recursive attrs here
     lfsr_attr_t scratch_attrs[4];
-    uint8_t scratch_buf[LFSR_BTREE_DSIZE];
-    uint8_t scratch_buf_[LFSR_BTREE_DSIZE];
+    uint8_t scratch_buf[LFSR_BRANCH_DSIZE];
+    uint8_t scratch_buf_[LFSR_BRANCH_DSIZE];
 
     // tail-recursively commit to btree
     while (true) {
@@ -4306,10 +4342,12 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                 // try looking up the sibling
                 lfsr_srid_t sibling_rid;
                 lfsr_tag_t sibling_tag;
+                lfsr_rid_t sibling_weight;
                 lfsr_data_t sibling_data;
                 err = lfsr_rbyd_lookupnext(lfs, &parent,
                         rid+1, LFSR_TAG_NAME,
-                        &sibling_rid, &sibling_tag, NULL, &sibling_data);
+                        &sibling_rid, &sibling_tag, &sibling_weight,
+                        &sibling_data);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
@@ -4325,8 +4363,9 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                     }
                 }
 
-                LFS_ASSERT(sibling_tag == LFSR_TAG_BTREE);
-                err = lfsr_data_readbtree(lfs, &sibling_data, &sibling);
+                LFS_ASSERT(sibling_tag == LFSR_TAG_BRANCH);
+                err = lfsr_data_readbranch(lfs, &sibling_data, sibling_weight,
+                        &sibling);
                 if (err) {
                     return err;
                 }
@@ -4351,10 +4390,12 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                 // try looking up the sibling
                 lfsr_srid_t sibling_rid;
                 lfsr_tag_t sibling_tag;
+                lfsr_rid_t sibling_weight;
                 lfsr_data_t sibling_data;
                 err = lfsr_rbyd_lookupnext(lfs, &parent,
                         rid-rbyd.weight, LFSR_TAG_NAME,
-                        &sibling_rid, &sibling_tag, NULL, &sibling_data);
+                        &sibling_rid, &sibling_tag, &sibling_weight,
+                        &sibling_data);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
@@ -4370,8 +4411,9 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                     }
                 }
 
-                LFS_ASSERT(sibling_tag == LFSR_TAG_BTREE);
-                err = lfsr_data_readbtree(lfs, &sibling_data, &sibling);
+                LFS_ASSERT(sibling_tag == LFSR_TAG_BRANCH);
+                err = lfsr_data_readbranch(lfs, &sibling_data, sibling_weight,
+                        &sibling);
                 if (err) {
                     return err;
                 }
@@ -4559,19 +4601,19 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_attr_t *attrs_ = scratch_attrs;
         if (rbyd.weight == 0) {
             *attrs_++ = LFSR_ATTR(bid,
-                    BTREE, +rbyd_.weight, FROMBTREE(&rbyd_, scratch_buf));
+                    BRANCH, +rbyd_.weight, FROMBRANCH(&rbyd_, scratch_buf));
         } else {
             *attrs_++ = LFSR_ATTR(bid+rid,
-                    BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
+                    BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buf));
             *attrs_++ = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL);
         }
         *attrs_++ = LFSR_ATTR(bid+rid - rbyd.weight + rbyd_.weight + 1,
-                BTREE, +sibling.weight, FROMBTREE(&sibling, scratch_buf_));
+                BRANCH, +sibling.weight, FROMBRANCH(&sibling, scratch_buf_));
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
             *attrs_++ = LFSR_ATTR(
                     bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
-                    BRANCH, 0, DATA(split_data));
+                    BNAME, 0, DATA(split_data));
         }
         attrs = scratch_attrs;
         attr_count = attrs_ - scratch_attrs;
@@ -4664,7 +4706,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         *attrs_++ = LFSR_ATTR(bid+rid+sibling.weight,
                 RM, -sibling.weight, NULL);
         *attrs_++ = LFSR_ATTR(bid+rid,
-                BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
+                BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buf));
         *attrs_++ = LFSR_ATTR(bid+rid,
                 GROW, -rbyd.weight + rbyd_.weight, NULL);
         attrs = scratch_attrs;
@@ -4699,7 +4741,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                     RM, -rbyd.weight, NULL);
         } else {
             *attrs_++ = LFSR_ATTR(bid+rid,
-                    BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
+                    BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buf));
             *attrs_++ = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL);
         }
@@ -4762,12 +4804,12 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         // found another branch
-        if (tag__ == LFSR_TAG_BTREE) {
+        if (tag__ == LFSR_TAG_BRANCH) {
             // update our bid
             bid += rid__ - (weight__-1);
 
             // fetch the next branch
-            err = lfsr_data_readbtree(lfs, &data__, &branch);
+            err = lfsr_data_readbranch(lfs, &data__, weight__, &branch);
             if (err) {
                 return err;
             }
@@ -4851,7 +4893,7 @@ static int lfsr_btraversal_read(lfs_t *lfs, const lfsr_btree_t *btree,
 
             if (traversal->rid == 0) {
                 binfo->bid = lfsr_btree_weight(btree)-1;
-                binfo->tag = LFSR_TAG_BTREE;
+                binfo->tag = LFSR_TAG_BRANCH;
                 binfo->weight = traversal->branch.weight;
                 binfo->u.rbyd = traversal->branch;
                 return 0;
@@ -4885,12 +4927,13 @@ static int lfsr_btraversal_read(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         // found another branch
-        if (tag__ == LFSR_TAG_BTREE) {
+        if (tag__ == LFSR_TAG_BRANCH) {
             // adjust rid with subtree's weight
             traversal->rid -= (rid__ - (weight__-1));
 
             // fetch the next branch
-            err = lfsr_data_readbtree(lfs, &data__, &traversal->branch);
+            err = lfsr_data_readbranch(lfs, &data__, weight__,
+                    &traversal->branch);
             if (err) {
                 return err;
             }
@@ -4900,7 +4943,7 @@ static int lfsr_btraversal_read(lfs_t *lfs, const lfsr_btree_t *btree,
             // seen them
             if (traversal->rid == 0) {
                 binfo->bid = traversal->bid + (rid__ - traversal->rid);;
-                binfo->tag = LFSR_TAG_BTREE;
+                binfo->tag = LFSR_TAG_BRANCH;
                 binfo->weight = traversal->branch.weight;
                 binfo->u.rbyd = traversal->branch;
                 return 0;
@@ -6211,7 +6254,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 LFSR_ATTR(mdir_.mid | lfsr_midrmask(lfs),
                     MDIR, 0, FROMMPTR(mdir_.u.m.blocks, mdir_buf)),
                 LFSR_ATTR((mdir_.mid | lfsr_midrmask(lfs))+1,
-                    BRANCH, +lfsr_mleafweight(lfs), DATA(split_data)),
+                    BNAME, +lfsr_mleafweight(lfs), DATA(split_data)),
                 LFSR_ATTR(msibling_.mid | lfsr_midrmask(lfs),
                     MDIR, 0, FROMMPTR(msibling_.u.m.blocks, msibling_buf))));
         if (err) {
@@ -7034,7 +7077,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 traversal->state = LFSR_TRAVERSAL_MTREE;
                 traversal->u.mtraversal = LFSR_BTRAVERSAL();
 
-                tinfo->tag = LFSR_TAG_BTREE;
+                tinfo->tag = LFSR_TAG_BRANCH;
                 return 0;
 
             } else {
@@ -7066,13 +7109,13 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // uninitialized in mountinited and 2. stack really matters since
             // we're at the bottom of lfs_alloc)
             if (lfsr_btree_isinlined(&lfs->mtree)
-                    || (binfo.tag == LFSR_TAG_BTREE
+                    || (binfo.tag == LFSR_TAG_BRANCH
                             && binfo.u.rbyd.block == lfs->mtree.u.rbyd.block)) {
                 continue;
             }
 
             // inner btree nodes already decoded
-            if (binfo.tag == LFSR_TAG_BTREE) {
+            if (binfo.tag == LFSR_TAG_BRANCH) {
                 // validate our btree nodes if requested, this just means we
                 // need to do a full rbyd fetch and make sure the checksums
                 // match
@@ -7086,7 +7129,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                     }
                 }
 
-                tinfo->tag = LFSR_TAG_BTREE;
+                tinfo->tag = LFSR_TAG_BRANCH;
                 tinfo->u.rbyd = binfo.u.rbyd;
                 return 0;
 
@@ -7233,7 +7276,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             }
 
             // found an inner btree node?
-            if (binfo.tag == LFSR_TAG_BTREE) {
+            if (binfo.tag == LFSR_TAG_BRANCH) {
                 // validate our btree nodes if requested, this just means we
                 // need to do a full rbyd fetch and make sure the checksums
                 // match
@@ -7247,7 +7290,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                     }
                 }
 
-                tinfo->tag = LFSR_TAG_BTREE;
+                tinfo->tag = LFSR_TAG_BRANCH;
                 tinfo->u.rbyd = binfo.u.rbyd;
                 return 0;
 
@@ -7764,7 +7807,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
             }
 
         // found an mtree inner-node?
-        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+        } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             // found the root of the mtree?
             if (lfsr_btree_isnull(&lfs->mtree)) {
                 lfs->mtree.u.rbyd = tinfo.u.rbyd;
@@ -8014,7 +8057,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
                 lfs_alloc_setinuse(lfs, tinfo.u.mdir.u.m.blocks[1]);
                 lfs_alloc_setinuse(lfs, tinfo.u.mdir.u.m.blocks[0]);
 
-            } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            } else if (tinfo.tag == LFSR_TAG_BRANCH) {
                 lfs_alloc_setinuse(lfs, tinfo.u.rbyd.block);
 
             } else if (tinfo.tag == LFSR_TAG_BLOCK) {

@@ -25,7 +25,7 @@ TAG_UATTRLIMIT  = 0x000e
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
-TAG_BRANCH      = 0x0200
+TAG_BNAME       = 0x0200
 TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
@@ -34,10 +34,11 @@ TAG_INLINED     = 0x0300
 TAG_TRUNK       = 0x0304
 TAG_BLOCK       = 0x0308
 TAG_BTREE       = 0x030c
-TAG_MDIR        = 0x0311
-TAG_MTREE       = 0x0314
-TAG_MROOT       = 0x0318
-TAG_DID         = 0x031c
+TAG_BRANCH      = 0x0314
+TAG_MDIR        = 0x0321
+TAG_MTREE       = 0x0324
+TAG_MROOT       = 0x0329
+TAG_DID         = 0x032c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0600
 TAG_SHRUB       = 0x1000
@@ -120,13 +121,18 @@ def frommdir(data):
         d += d_
     return blocks
 
-def frombtree(data):
+def frombranch(data):
     d = 0
     block, d_ = fromleb128(data[d:]); d += d_
     trunk, d_ = fromleb128(data[d:]); d += d_
-    w, d_ = fromleb128(data[d:]); d += d_
     cksum = fromle32(data[d:]); d += 4
-    return block, trunk, w, cksum
+    return block, trunk, cksum
+
+def frombtree(data):
+    d = 0
+    w, d_ = fromleb128(data[d:]); d += d_
+    block, trunk, cksum = frombranch(data[d:])
+    return w, block, trunk, cksum
 
 def popc(x):
     return bin(x).count('1')
@@ -175,7 +181,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xef00) == TAG_NAME:
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
-            'branch' if (tag & 0xfff) == TAG_BRANCH
+            'bname' if (tag & 0xfff) == TAG_BNAME
                 else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'reg' if (tag & 0xfff) == TAG_REG
                 else 'dir' if (tag & 0xfff) == TAG_DIR
@@ -189,6 +195,7 @@ def tagrepr(tag, w, size, off=None):
                 else 'trunk' if (tag & 0xfff) == TAG_TRUNK
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
                 else 'btree' if (tag & 0xfff) == TAG_BTREE
+                else 'branch' if (tag & 0xfff) == TAG_BRANCH
                 else 'mdir' if (tag & 0xfff) == TAG_MDIR
                 else 'mtree' if (tag & 0xfff) == TAG_MTREE
                 else 'mroot' if (tag & 0xfff) == TAG_MROOT
@@ -557,7 +564,7 @@ class Rbyd:
                     rid_, w = rid__, w_
 
                 # catch any branches
-                if tag == TAG_BTREE:
+                if tag == TAG_BRANCH:
                     branch = (tag, j, d, data)
 
                 tags.append((tag, j, d, data))
@@ -569,7 +576,7 @@ class Rbyd:
             if branch is not None and (
                     not depth or depth_ < depth):
                 tag, j, d, data = branch
-                block, trunk, _, cksum = frombtree(data)
+                block, trunk, cksum = frombranch(data)
                 rbyd = Rbyd.fetch(f, block_size, block, trunk)
 
                 # corrupted? bail here so we can keep traversing the tree
@@ -664,7 +671,7 @@ class Rbyd:
                     ))
 
                 d_ += max(bdepths.get(d, 0), 1)
-                leaf = (bid-(w-1), d, rid-(w-1), TAG_BTREE)
+                leaf = (bid-(w-1), d, rid-(w-1), TAG_BRANCH)
 
         # remap branches to leaves if we aren't showing inner branches
         if not inner:
@@ -849,7 +856,7 @@ def main(disk, mroots=None, *,
         if not args.get('depth') or mdepth < args.get('depth'):
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
             if not done and rid == -1 and tag == TAG_MTREE:
-                block, trunk, w, cksum = frombtree(data)
+                w, block, trunk, cksum = frombtree(data)
                 mtree = Rbyd.fetch(f, block_size, block, trunk)
 
                 bweight = w
@@ -1506,7 +1513,7 @@ def main(disk, mroots=None, *,
         if not args.get('depth') or mdepth < args.get('depth'):
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
             if not done and rid == -1 and tag == TAG_MTREE:
-                block, trunk, w, cksum = frombtree(data)
+                w, block, trunk, cksum = frombtree(data)
                 mtree = Rbyd.fetch(f, block_size, block, trunk)
 
                 # traverse entries

@@ -34,7 +34,7 @@ TAG_UATTRLIMIT  = 0x000e
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
-TAG_BRANCH      = 0x0200
+TAG_BNAME       = 0x0200
 TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
@@ -43,10 +43,11 @@ TAG_INLINED     = 0x0300
 TAG_TRUNK       = 0x0304
 TAG_BLOCK       = 0x0308
 TAG_BTREE       = 0x030c
-TAG_MDIR        = 0x0311
-TAG_MTREE       = 0x0314
-TAG_MROOT       = 0x0318
-TAG_DID         = 0x031c
+TAG_BRANCH      = 0x0314
+TAG_MDIR        = 0x0321
+TAG_MTREE       = 0x0324
+TAG_MROOT       = 0x0329
+TAG_DID         = 0x032c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0600
 TAG_SHRUB       = 0x1000
@@ -167,7 +168,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xef00) == TAG_NAME:
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
-            'branch' if (tag & 0xfff) == TAG_BRANCH
+            'bname' if (tag & 0xfff) == TAG_BNAME
                 else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'reg' if (tag & 0xfff) == TAG_REG
                 else 'dir' if (tag & 0xfff) == TAG_DIR
@@ -181,6 +182,7 @@ def tagrepr(tag, w, size, off=None):
                 else 'trunk' if (tag & 0xfff) == TAG_TRUNK
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
                 else 'btree' if (tag & 0xfff) == TAG_BTREE
+                else 'branch' if (tag & 0xfff) == TAG_BRANCH
                 else 'mdir' if (tag & 0xfff) == TAG_MDIR
                 else 'mtree' if (tag & 0xfff) == TAG_MTREE
                 else 'mroot' if (tag & 0xfff) == TAG_MROOT
