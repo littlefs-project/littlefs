@@ -31,15 +31,16 @@ TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
-TAG_INLINED     = 0x0300
-TAG_TRUNK       = 0x0304
-TAG_BLOCK       = 0x0308
-TAG_BTREE       = 0x030c
-TAG_BRANCH      = 0x0314
+TAG_DATA        = 0x0300
+TAG_SLICE       = 0x0304
+TAG_TRUNK       = 0x0308
+TAG_DID         = 0x030c
+TAG_BLOCK       = 0x0310
+TAG_BTREE       = 0x0314
 TAG_MDIR        = 0x0321
 TAG_MTREE       = 0x0324
 TAG_MROOT       = 0x0329
-TAG_DID         = 0x032c
+TAG_BRANCH      = 0x032c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0600
 TAG_SHRUB       = 0x1000
@@ -192,15 +193,16 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xef00) == TAG_STRUCT:
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
-            'inlined' if (tag & 0xfff) == TAG_INLINED
+            'data' if (tag & 0xfff) == TAG_DATA
+                else 'slice' if (tag & 0xfff) == TAG_SLICE
                 else 'trunk' if (tag & 0xfff) == TAG_TRUNK
+                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
                 else 'btree' if (tag & 0xfff) == TAG_BTREE
-                else 'branch' if (tag & 0xfff) == TAG_BRANCH
                 else 'mdir' if (tag & 0xfff) == TAG_MDIR
                 else 'mtree' if (tag & 0xfff) == TAG_MTREE
                 else 'mroot' if (tag & 0xfff) == TAG_MROOT
-                else 'did' if (tag & 0xfff) == TAG_DID
+                else 'branch' if (tag & 0xfff) == TAG_BRANCH
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
@@ -1194,10 +1196,18 @@ def frepr(mdir, rid, tag):
         size = 0
         structs = []
         # sprout?
-        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_INLINED)
-        if not done and rid_ == rid and tag_ == TAG_INLINED:
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DATA)
+        if not done and rid_ == rid and tag_ == TAG_DATA:
             size = max(size, len(data))
-            structs.append('inlined 0x%x.%x %d' % (mdir.block, j+d, len(data)))
+            structs.append('data 0x%x.%x %d' % (mdir.block, j+d, len(data)))
+        # sliced sprout?
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_SLICE)
+        if not done and rid_ == rid and tag_ == TAG_SLICE:
+            d = 0
+            size_, d_ = fromleb128(data[d:]); d += d_
+            off, d_ = fromleb128(data[d:]); d += d_
+            size = max(size, size_)
+            structs.append('slice 0x%x.%x %d' % (mdir.block, off, size_))
         # shrub?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
         if not done and rid_ == rid and tag_ == TAG_TRUNK:
@@ -1230,7 +1240,7 @@ def frepr(mdir, rid, tag):
     else:
         return 'type 0x%02x' % (tag & 0xff)
 
-def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
+def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         m_width=0,
         color=False,
         args={}):
@@ -1238,7 +1248,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
     # the entry itself is a single-element btree
 
     # sprout?
-    if tag == TAG_INLINED:
+    if tag == TAG_DATA:
         btree = Rbyd(
             mdir.block,
             mdir.data,
@@ -1247,6 +1257,19 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
             j,
             0)
         w = len(data)
+    # sliced sprout?
+    elif tag == TAG_SLICE:
+        btree = Rbyd(
+            mdir.block,
+            mdir.data,
+            mdir.rev,
+            mdir.eoff,
+            j,
+            0)
+        d = 0
+        size, d_ = fromleb128(data[d:]); d += d_
+        off, d_ = fromleb128(data[d:]); d += d_
+        w = size
     # shrub?
     elif tag == TAG_TRUNK:
         d = 0
@@ -1300,15 +1323,22 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
             a_bid, a_bd, a_rid, a_tag = branch.a
             b_bid, b_bd, b_rid, b_tag = branch.b
             tree_.add(TBranch(
-                a=(a_bid, a_bd, a_rid, a_tag, a_tag == TAG_BLOCK),
-                b=(b_bid, b_bd, b_rid, b_tag, b_tag == TAG_BLOCK),
+                a=(a_bid, a_bd, a_rid, a_tag,
+                    (a_tag & 0xfff) == TAG_SLICE
+                        or (a_tag & 0xfff) == TAG_BLOCK),
+                b=(b_bid, b_bd, b_rid, b_tag,
+                    (b_tag & 0xfff) == TAG_SLICE
+                        or (b_tag & 0xfff) == TAG_BLOCK),
                 d=branch.d + (1 if args.get('inner') else 0),
                 c=branch.c,
             ))
         tree = tree_
 
         # connect our source tag if we are showing inner nodes
-        if tag != TAG_INLINED and tag != TAG_BLOCK and args.get('inner'):
+        if (tag != TAG_DATA
+                and tag != TAG_SLICE
+                and tag != TAG_BLOCK
+                and args.get('inner')):
             if tree:
                 branch = min(tree, key=lambda branch: branch.d)
                 a_bid, a_bd, a_rid, a_tag, a_block = branch.a
@@ -1438,7 +1468,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
                     else '%d-%d' % (bid-(w-1), bid) if w > 1
                     else bid if w > 0
                     else ''),
-                21+w_width, tagrepr(tag, w if i == 0 else 0, len(data), None),
+                21+2*w_width, tagrepr(tag, w if i == 0 else 0, len(data), None),
                 next(xxd(data, 8), '')
                     if not args.get('raw') and not args.get('no_truncate')
                     else ''))
@@ -1486,7 +1516,10 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
             '%*s ' % (2*w_width+1, '%d-%d' % (bid-(w-1), bid) if w > 1
                 else bid if w > 0
                 else ''),
-            21+w_width, 'block%s 0x%x.%x %d' % (
+            21+2*w_width, '%s%s%s 0x%x.%x %d' % (
+                'shrub' if tag & TAG_SHRUB else '',
+                'slice' if (tag & 0xfff) == TAG_SLICE
+                    else 'block',
                 ' w%d' % w if w else '',
                 block, off, size),
             next(xxd(data, 8), '')
@@ -1526,7 +1559,8 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
         if args.get('raw') or args.get('no_truncate'):
             for o, line in enumerate(xxd(data)):
                 print('%11s: %*s %*s%s%s' % (
-                    '%04x.%04x' % (block, off + o*16) if o == 0
+                    '%04x.%04x' % (block, off + o*16)
+                        if o == 0 and block != prbyd.block
                         else '%04x' % (off + o*16),
                     m_width, '',
                     t_width, '',
@@ -1534,11 +1568,12 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
                     line))
             # if we show non-truncated file contents we need to
             # reset the rbyd address
-            prbyd = None
+            if block != prbyd.block:
+                prbyd = None
 
     # show our source tag? note the big hack here of pretending our
     # entry is a single-element btree
-    if tag == TAG_INLINED or tag == TAG_BLOCK or args.get('inner'):
+    if tag == TAG_DATA or tag == TAG_BLOCK or args.get('inner'):
         dbg_branch(w-1, w, Rbyd(
             mdir.block,
             mdir.data,
@@ -1605,36 +1640,53 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, inlined=False, *,
                     for tag, j, d, data in tags
                     if tag & 0x7f00 != TAG_NAME]
 
-        # found a block in the tags?
+        # found a slice or block in the tags?
+        slice = None
         bptr = None
         if (not args.get('struct_depth')
                 or len(path) < args.get('struct_depth')):
+            slice = next(((tag, j, d, data)
+                for tag, j, d, data in tags
+                if (tag & 0xfff) == TAG_SLICE),
+                None)
             bptr = next(((tag, j, d, data)
                 for tag, j, d, data in tags
-                if tag == TAG_BLOCK),
+                if (tag & 0xfff) == TAG_BLOCK),
                 None)
 
         # show other btree entries
-        if args.get('inner') or not bptr:
+        if args.get('inner') or (not slice and not bptr):
             dbg_branch(bid, w, rbyd, rid, tags, len(path)-1)
 
-        if not bptr:
-            continue
+        if slice:
+            # decode slice
+            _, _, _, data = slice
+            d = 0
+            size, d_ = fromleb128(data[d:]); d += d_
+            off, d_ = fromleb128(data[d:]); d += d_
 
-        # decode block pointer
-        _, _, _, data = bptr
-        d = 0
-        size, d_ = fromleb128(data[d:]); d += d_
-        block, d_ = fromleb128(data[d:]); d += d_
-        off, d_ = fromleb128(data[d:]); d += d_
+            # slices reference our rbyd
+            data = rbyd.data[off:off+size]
 
-        # go ahead and read the data
-        f.seek(block*block_size + min(off, block_size))
-        data = f.read(min(size, block_size - min(off, block_size)))
+            # show the slice
+            dbg_block(bid, w, rbyd, rid, slice,
+                rbyd.block, off, size, data, len(path)-1)
 
-        # show the block
-        dbg_block(bid, w, rbyd, rid, bptr,
-            block, off, size, data, len(path)-1)
+        if bptr:
+            # decode block pointer
+            _, _, _, data = bptr
+            d = 0
+            size, d_ = fromleb128(data[d:]); d += d_
+            block, d_ = fromleb128(data[d:]); d += d_
+            off, d_ = fromleb128(data[d:]); d += d_
+
+            # go ahead and read the data
+            f.seek(block*block_size + min(off, block_size))
+            data = f.read(min(size, block_size - min(off, block_size)))
+
+            # show the block
+            dbg_block(bid, w, rbyd, rid, bptr,
+                block, off, size, data, len(path)-1)
 
 
 
@@ -2075,8 +2127,8 @@ def main(disk, mroots=None, *,
                     if tag == TAG_REG and args.get('structs'):
                         # sprout?
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
-                            rid, TAG_INLINED)
-                        if not done and rid_ == rid and tag_ == TAG_INLINED:
+                            rid, TAG_DATA)
+                        if not done and rid_ == rid and tag_ == TAG_DATA:
                             dbg_fstruct(f, block_size,
                                 mdir, rid_, tag_, j, d, data,
                                 m_width=2*w_width+1,

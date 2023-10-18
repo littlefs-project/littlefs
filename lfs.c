@@ -608,15 +608,16 @@ enum lfsr_tag_type {
     LFSR_TAG_DIR            = 0x0203,
 
     LFSR_TAG_STRUCT         = 0x0300,
-    LFSR_TAG_INLINED        = 0x0300,
-    LFSR_TAG_TRUNK          = 0x0304,
-    LFSR_TAG_BLOCK          = 0x0308,
-    LFSR_TAG_BTREE          = 0x030c,
-    LFSR_TAG_BRANCH         = 0x0314,
+    LFSR_TAG_DATA           = 0x0300,
+    LFSR_TAG_SLICE          = 0x0304,
+    LFSR_TAG_TRUNK          = 0x0308,
+    LFSR_TAG_DID            = 0x030c,
+    LFSR_TAG_BLOCK          = 0x0310,
+    LFSR_TAG_BTREE          = 0x0314,
     LFSR_TAG_MDIR           = 0x0321,
     LFSR_TAG_MTREE          = 0x0324,
     LFSR_TAG_MROOT          = 0x0329,
-    LFSR_TAG_DID            = 0x032c,
+    LFSR_TAG_BRANCH         = 0x032c,
 
     LFSR_TAG_UATTR          = 0x0400,
     LFSR_TAG_SATTR          = 0x0600,
@@ -1517,7 +1518,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
                 }
-                LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
+                LFS_ASSERT(tag == LFSR_TAG_SHRUB(DATA));
                 LFS_ASSERT(lfsr_data_size(&data) <= weight);
 
                 if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
@@ -2057,6 +2058,56 @@ static int lfsr_data_readtrunk(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
+    return 0;
+}
+
+
+// data slices on-disk encoding
+
+// 2 leb128s => 10 bytes (worst case)
+#define LFSR_SLICE_DSIZE (5+5)
+
+#define LFSR_DATA_FROMSLICE(_slice, _buffer) \
+    lfsr_data_fromslice(_slice, _buffer)
+
+static lfsr_data_t lfsr_data_fromslice(const lfsr_data_t *slice,
+        uint8_t buffer[static LFSR_SLICE_DSIZE]) {
+    LFS_ASSERT(lfsr_data_ondisk(slice));
+    lfs_ssize_t d = 0;
+
+    // write the offset and size
+    lfs_ssize_t d_ = lfs_toleb128(lfsr_data_size(slice), &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    d_ = lfs_toleb128(slice->u.disk.off, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+static int lfsr_data_readslice(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_data_t *slice) {
+    // bit of a hack here, but we can assume the slice is on the same
+    // block as our data
+    LFS_ASSERT(lfsr_data_ondisk(data));
+    lfs_block_t block = data->u.disk.block;
+
+    // read the block, offset, and size
+    lfs_size_t size;
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&size);
+    if (err) {
+        return err;
+    }
+
+    lfs_size_t off;
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&off);
+    if (err) {
+        return err;
+    }
+
+    *slice = LFSR_DATA_DISK(block, off, size);
     return 0;
 }
 
@@ -5657,7 +5708,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
         // found an inlined data? we can just copy this like normal but
         // we need to update any opened inlined files
-        if (tag == LFSR_TAG_INLINED) {
+        if (tag == LFSR_TAG_DATA) {
             // write the tag
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.rbyd,
                     tag, weight, data);
@@ -5783,7 +5834,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             } else if (lfsr_inlined_hassprout(&file->inlined)) {
                 // write the data as a shrub tag
                 err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.rbyd,
-                        LFSR_TAG_SHRUB(INLINED), 0, file->inlined.u.data);
+                        LFSR_TAG_SHRUB(DATA), 0, file->inlined.u.data);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
@@ -7295,7 +7346,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 return 0;
 
             // found inlined data? ignore this
-            } else if (binfo.tag == LFSR_TAG_INLINED) {
+            } else if (binfo.tag == LFSR_TAG_DATA) {
                 continue;
 
             // found an indirect block?
@@ -8536,25 +8587,23 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
         lfsr_tag_t tag;
         lfsr_data_t data;
         err = lfsr_mdir_lookupnext(lfs, mdir,
-                mid, LFSR_TAG_INLINED,
+                mid, LFSR_TAG_DATA,
                 &tag, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
         // may be a sprout (simple inlined data)
-        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_INLINED) {
+        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
             info->size = lfsr_data_size(&data);
 
-        // or a shrub (inlined tree)
-        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_TRUNK) {
-            lfsr_rbyd_t trunk;
-            err = lfsr_data_readtrunk(lfs, &data, &trunk);
+        // or a slice/shrub, size is always first field here
+        } else if (err != LFS_ERR_NOENT && (
+                tag == LFSR_TAG_SLICE || tag == LFSR_TAG_TRUNK)) {
+            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&info->size);
             if (err) {
                 return err;
             }
-
-            info->size = trunk.weight;
         }
 
         // btree?
@@ -8565,26 +8614,16 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
             return err;
         }
 
-        // may be a direct block
-        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
-            lfsr_bptr_t bptr;
-            err = lfsr_data_readbptr(lfs, &data, &bptr);
+        // may be a block/btree, size is always first field here
+        if (err != LFS_ERR_NOENT && (
+                tag == LFSR_TAG_BLOCK || tag == LFSR_TAG_BTREE)) {
+            lfs_off_t size;
+            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&size);
             if (err) {
                 return err;
             }
 
-            info->size = lfs_max32(info->size, bptr.size);
-
-        // or a full btree
-        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
-            // TODO why does this not take a btree?
-            lfsr_btree_t btree;
-            err = lfsr_data_readbtree(lfs, &data, &btree.u.rbyd);
-            if (err) {
-                return err;
-            }
-
-            info->size = lfs_max32(info->size, lfsr_btree_weight(&btree));
+            info->size = lfs_max32(info->size, size);
         }
     }
 
@@ -8950,7 +8989,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             lfsr_tag_t tag;
             lfsr_data_t data;
             err = lfsr_mdir_lookupnext(lfs, &file->m.mdir,
-                    file->m.mdir.mid, LFSR_TAG_INLINED,
+                    file->m.mdir.mid, LFSR_TAG_DATA,
                     &tag, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -8961,9 +9000,16 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // Should we at least be consistent in this codebase?
 
             // may be a sprout (simple inlined data)
-            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_INLINED) {
+            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
                 file->inlined.u.data = data;
                 file->size = lfsr_data_size(&file->inlined.u.data);
+
+            // or a slice (indirect inlined data)
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_SLICE) {
+                err = lfsr_data_readslice(lfs, &data, &file->inlined.u.data);
+                if (err) {
+                    return err;
+                }
 
             // or a shrub (inlined tree)
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_TRUNK) {
@@ -9063,8 +9109,131 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     return err;
 }
 
-// common iterator over all of the different places data can live in a file
-static int lfsr_file_next(lfs_t *lfs, const lfsr_file_t *file,
+// convert tagged data into a direct reference to the underlying data
+static int lfsr_data_deref(lfs_t *lfs, lfsr_tag_t tag, lfsr_data_t data,
+        lfsr_data_t *slice_, lfsr_bptr_t *bptr_) {
+    LFS_ASSERT(lfsr_data_ondisk(&data));
+
+    // data? do nothing, data is data
+    if (lfsr_tag_key(tag) == LFSR_TAG_DATA) {
+        if (slice_) {
+            *slice_ = data;
+        }
+
+    // follow slices
+    } else if (lfsr_tag_key(tag) == LFSR_TAG_SLICE) {
+        lfsr_data_t slice;
+        int err = lfsr_data_readslice(lfs, &data, &slice);
+        if (err) {
+            return err;
+        }
+
+        if (slice_) {
+            *slice_ = slice;
+        }
+
+    // follow block pointers
+    } else if (lfsr_tag_key(tag) == LFSR_TAG_BLOCK) {
+        lfsr_bptr_t bptr;
+        int err = lfsr_data_readbptr(lfs, &data, &bptr);
+        if (err) {
+            return err;
+        }
+
+        // TODO should bptr just contain a data field?
+        // TODO should lfsr_data_deref eventually just return a bptr?
+        if (slice_) {
+            *slice_ = LFSR_DATA_DISK(
+                    bptr.block,
+                    bptr.off,
+                    bptr.size);
+        }
+        if (bptr_) {
+            *bptr_ = bptr;
+        }
+    }
+
+    return 0;
+}
+
+static int lfsr_data_derefsize(lfs_t *lfs, lfsr_tag_t tag, lfsr_data_t data,
+        lfs_off_t *size_) {
+    LFS_ASSERT(lfsr_data_ondisk(&data));
+
+    // data is our one special case, where size is implicit
+    if (lfsr_tag_key(tag) == LFSR_TAG_DATA) {
+        *size_ = lfsr_data_size(&data);
+        return 0;
+
+    // all other data types are prefixed with a size field
+    } else {
+        int err = lfsr_data_readleb128(lfs, &data, (int32_t*)size_);
+        if (err) {
+            return err;
+        }
+        return 0;
+    }
+}
+
+// common iterator over data elements in a rbyd/btree
+static int lfsr_btree_readnext(lfs_t *lfs, const lfsr_btree_t *btree,
+        lfs_off_t pos, lfs_off_t size,
+        lfs_off_t *weight_, lfsr_data_t *data_) {
+    lfsr_bid_t bid;
+    lfsr_tag_t tag;
+    lfsr_bid_t weight;
+    lfsr_data_t data;
+    int err = lfsr_btree_lookupnext(lfs, btree, pos,
+            &bid, &tag, &weight, &data);
+    if (err) {
+        return err;
+    }
+    LFS_ASSERT(lfsr_tag_key(tag) == LFSR_TAG_DATA
+            || lfsr_tag_key(tag) == LFSR_TAG_SLICE
+            || lfsr_tag_key(tag) == LFSR_TAG_BLOCK);
+
+    // follow any indirect slices/block pointers
+    err = lfsr_data_deref(lfs, tag, data, &data, NULL);
+    if (err) {
+        return err;
+    }
+    LFS_ASSERT(lfsr_data_size(&data) <= weight);
+
+    if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
+        // note one important side-effect here is any reads to this
+        // data get a strict read hint
+        lfs_off_t d = lfs_min32(
+                size,
+                lfsr_data_size(&data) - (pos - (bid-(weight-1))));
+
+        if (weight_) {
+            *weight_ = d;
+        }
+        if (data_) {
+            *data_ = LFSR_DATA_DISK(
+                    data.u.disk.block,
+                    data.u.disk.off + (pos - (bid-(weight-1))),
+                    d);
+        }
+        return 0;
+    }
+
+    // found a hole, just make sure next leaf takes priority
+    lfs_off_t d = lfs_min32(size, bid+1 - pos);
+
+    // TODO should we have a special LFSR_DATA_HOLE representation?
+
+    // found a hole?
+    if (weight_) {
+        *weight_ = d;
+    }
+    if (data_) {
+        *data_ = LFSR_DATA_NULL;
+    }
+    return 0;
+}
+
+static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t size,
         lfs_off_t *weight_, lfsr_data_t *data_) {
     // past end of file?
@@ -9073,9 +9242,7 @@ static int lfsr_file_next(lfs_t *lfs, const lfsr_file_t *file,
     }
 
     // keep track of the next highest priority data offset
-    lfs_ssize_t d = lfs_min32(
-            size,
-            file->size - pos);
+    lfs_ssize_t d = size;
 
     // any data in our write buffer?
     if (pos < file->buffer_pos + file->buffer_size) {
@@ -9122,40 +9289,30 @@ static int lfsr_file_next(lfs_t *lfs, const lfsr_file_t *file,
     // has a shrub?
     } else if (lfsr_file_hasshrub(file)
             && pos < lfsr_file_inlinedsize(file)) {
-        lfsr_srid_t rid;
-        lfsr_tag_t tag;
-        lfsr_rid_t weight;
+        // we can pretend the shrub is a single-rbyd btree
+        lfs_off_t weight;
         lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd, pos, 0,
-                &rid, &tag, &weight, &data);
+        int err = lfsr_btree_readnext(lfs,
+                (const lfsr_btree_t*)&file->inlined.u.rbyd, pos, d,
+                &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
-        LFS_ASSERT(lfsr_data_size(&data) <= weight);
 
-        if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
-            // note one important side-effect here is any reads to this
-            // data get a strict read hint
-            d = lfs_min32(
-                    d,
-                    lfsr_data_size(&data) - (pos - (rid-(weight-1))));
-
+        // found data?
+        if (lfsr_data_size(&data) > 0) {
             if (weight_) {
-                *weight_ = d;
+                *weight_ = weight;
             }
             if (data_) {
-                *data_ = LFSR_DATA_DISK(
-                        data.u.disk.block,
-                        data.u.disk.off + (pos - (rid-(weight-1))),
-                        d);
+                *data_ = data;
             }
             return 0;
         }
 
         // found a hole, just make sure next leaf takes priority
-        d = lfs_min32(d, rid+1 - pos);
+        d = lfs_min32(d, weight);
     }
 
     // has a direct block?
@@ -9179,67 +9336,29 @@ static int lfsr_file_next(lfs_t *lfs, const lfsr_file_t *file,
     // has an indirect btree?
     } else if (lfsr_file_hasbtree(file)
             && pos < lfsr_file_bsize(file)) {
-        lfsr_bid_t bid;
-        lfsr_tag_t tag;
-        lfsr_bid_t weight;
+        // we can pretend our shrub is a small btree to save a bit of code
+        lfs_off_t weight;
         lfsr_data_t data;
-        int err = lfsr_btree_lookupnext(lfs, &file->u.btree, pos,
-                &bid, &tag, &weight, &data);
+        int err = lfsr_btree_readnext(lfs, &file->u.btree, pos, d,
+                &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        LFS_ASSERT(tag == LFSR_TAG_INLINED
-                || tag == LFSR_TAG_BLOCK);
 
-        if (tag == LFSR_TAG_INLINED) {
-            LFS_ASSERT(lfsr_data_size(&data) <= weight);
-            if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
-                // note one important side-effect here is any reads to this
-                // data get a strict read hint
-                d = lfs_min32(
-                        d,
-                        lfsr_data_size(&data) - (pos - (bid-(weight-1))));
-
-                if (weight_) {
-                    *weight_ = d;
-                }
-                if (data_) {
-                    *data_ = LFSR_DATA_DISK(
-                            data.u.disk.block,
-                            data.u.disk.off + (pos - (bid-(weight-1))),
-                            d);
-                }
-                return 0;
+        // found data?
+        if (lfsr_data_size(&data) > 0) {
+            if (weight_) {
+                *weight_ = weight;
             }
-        } else if (tag == LFSR_TAG_BLOCK) {
-            lfsr_bptr_t bptr;
-            err = lfsr_data_readbptr(lfs, &data, &bptr);
-            if (err) {
-                return err;
+            if (data_) {
+                *data_ = data;
             }
-            LFS_ASSERT(bptr.size <= weight);
-
-            if (pos < bid-(weight-1) + bptr.size) {
-                d = lfs_min32(
-                        d,
-                        bptr.size - (pos - (bid-(weight-1))));
-
-                if (weight_) {
-                    *weight_ = d;
-                }
-                if (data_) {
-                    *data_ = LFSR_DATA_DISK(
-                            bptr.block,
-                            bptr.off + (pos - (bid-(weight-1))),
-                            d);
-                }
-                return 0;
-            }
+            return 0;
         }
 
         // found a hole, just make sure next leaf takes priority
-        d = lfs_min32(d, bid+1 - pos);
+        d = lfs_min32(d, weight);
     }
 
     // TODO should we have a special LFSR_DATA_HOLE representation?
@@ -9254,7 +9373,6 @@ static int lfsr_file_next(lfs_t *lfs, const lfsr_file_t *file,
     return 0;
 }
 
-
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_ASSERT(lfsr_file_isreadable(file));
@@ -9266,7 +9384,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         // read each data/hole
         lfs_off_t weight;
         lfsr_data_t data;
-        int err = lfsr_file_next(lfs, file, pos, size,
+        int err = lfsr_file_readnext(lfs, file, pos, size,
                 &weight, &data);
         if (err) {
             // hit end of file?
@@ -9304,272 +9422,608 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
     return read;
 }
 
-// TODO deduplicate carveshrub and flushinlined
-// TODO buildcarveshrub?
+// we build a variable -- but bounded -- number of attributes when we carve
+#define LFSR_CARVE_ATTRS 4
+
+#define LFSR_CARVE_DSIZE ( \
+        2*((LFSR_SLICE_DSIZE > LFSR_BPTR_DSIZE) \
+            ? LFSR_SLICE_DSIZE \
+            : LFSR_BPTR_DSIZE))
+
+static lfs_ssize_t lfsr_btree_buildcarve(lfs_t *lfs, const lfsr_btree_t *btree,
+        lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
+        lfsr_tag_t tag, lfsr_data_t data,
+        lfs_soff_t *estimate_,
+        lfsr_attr_t attrs[static LFSR_CARVE_ATTRS],
+        uint8_t buffer[static LFSR_CARVE_DSIZE]) {
+    // TODO need size?
+    // we should never try to shove more data than can fit in a given weight
+    LFS_ASSERT(lfsr_data_size(&data) <= weight + delta);
+
+    // allocate attrs/buffer as necessary
+    lfs_size_t attr_count = 0;
+    lfs_size_t buffer_off = 0;
+
+    // keeep track of removed data, we combined this into a single attr,
+    // and keep track of how our changes will affect our size estimate
+    lfs_off_t rm = 0;
+    lfs_soff_t estimate = 0;
+    // if we're creating a new btree, add any inlined data to our estimate
+    if (lfsr_btree_isinlined(btree)) {
+        estimate += lfsr_btree_weight(btree);
+    }
+
+    // try to carve any existing data
+    lfs_off_t pos_ = pos;
+    while (pos_ < lfs_min32(pos+weight, lfsr_btree_weight(btree))) {
+        lfsr_bid_t bid_;
+        lfsr_tag_t tag_;
+        lfsr_bid_t weight_;
+        lfsr_data_t data_;
+        // the btree may be aliased to either a sprout or block pointer if
+        // we're creating a new btree, assume sprout if we're a shrub,
+        // otherwise a block pointer
+        if (lfsr_btree_isinlined(btree) && lfsr_tag_isshrub(tag)) {
+            const lfsr_data_t *slice = (const lfsr_data_t*)btree;
+            bid_ = lfsr_data_size(slice)-1;
+            tag_ = tag;
+            weight_ = lfsr_data_size(slice);
+            data_ = *slice;
+        } else if (lfsr_btree_isinlined(btree)) {
+            // TODO
+            LFS_ASSERT(false);
+        } else {
+            int err = lfsr_btree_lookupnext(lfs, btree, pos_,
+                    &bid_, &tag_, &weight_, &data_);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+        }
+        LFS_ASSERT(lfsr_tag_key(tag_) == LFSR_TAG_DATA
+                || lfsr_tag_key(tag_) == LFSR_TAG_SLICE
+                || lfsr_tag_key(tag_) == LFSR_TAG_BLOCK);
+
+        // go ahead and dereference to get to the actual data
+        lfsr_data_t slice_;
+        lfsr_bptr_t bptr_;
+        int err = lfsr_data_deref(lfs, tag_, data_, &slice_, &bptr_);
+        if (err) {
+            return err;
+        }
+        LFS_ASSERT(lfsr_data_size(&slice_) <= weight_);
+
+//        // get the physical data size
+//        lfs_size_t size_;
+//        err = lfsr_data_derefsize(lfs, tag_, data_, &size_);
+//        if (err) {
+//            return err;
+//        }
+//        LFS_ASSERT(size_ <= weight_);
+
+        // note an entry can be both a left and right sibling!
+
+        // found left sibling?
+        if (pos > bid_-(weight_-1)) {
+            lfs_off_t overlap_ = (bid_+1) - pos;
+            LFS_ASSERT((lfs_soff_t)overlap_ >= 0);
+
+            // carve in-rbyd data?
+            if (lfsr_tag_key(tag_) == LFSR_TAG_DATA
+                    || lfsr_tag_key(tag_) == LFSR_TAG_SLICE) {
+                lfsr_data_t slice__ = LFSR_DATA_DISK(
+                        slice_.u.disk.block,
+                        slice_.u.disk.off,
+                        lfs_min32(
+                            weight_ - overlap_,
+                            lfsr_data_size(&slice_)));
+
+                // some special cases require a new tag: if we're creating a
+                // new btree
+                if (lfsr_btree_isinlined(btree)) {
+                    attrs[attr_count++] = LFSR_ATTR(0,
+                            TAG(lfsr_tag_mode(tag)
+                                | LFSR_TAG_SLICE), +(weight_ - overlap_),
+                            FROMSLICE(&slice__, &buffer[buffer_off]));
+                    buffer += LFSR_SLICE_DSIZE;
+                } else {
+                    attrs[attr_count++] = LFSR_ATTR(bid_,
+                            TAG(lfsr_tag_mode(tag)
+                                | LFSR_TAG_GROW(WIDE(SLICE))), -overlap_,
+                            FROMSLICE(&slice__, &buffer[buffer_off]));
+                    buffer += LFSR_SLICE_DSIZE;
+                }
+
+                // update our estimate
+                estimate -= lfsr_data_size(&slice_) - lfsr_data_size(&slice__);
+                // we may remove a hole here
+                if (lfsr_data_size(&slice_) < weight_
+                        && lfsr_data_size(&slice__) == weight_ - overlap_) {
+                    estimate -= LFSR_ATTR_ESTIMATE;
+                }
+
+            // carve block pointer?
+            } else if (lfsr_tag_key(tag_) == LFSR_TAG_BLOCK) {
+                // TODO
+                LFS_ASSERT(false);
+//                lfsr_bptr_t bptr_;
+//                int err = lfsr_data_readbptr(lfs, &data_, &bptr_);
+//                if (err) {
+//                    return err;
+//                }
+//                LFS_ASSERT(bptr_.size <= weight_);
+//
+//                // are we carving the block too small?
+//                if (bptr_.size <= lfs->cfg->crystallize_size) {
+//                    attrs[attr_count++] = LFSR_ATTR(bid_,
+//                            GROW(), -overlap_, DATA(
+//                                data_.u.disk.block,
+//                                data_.u.disk.off,
+//                                weight_ - overlap_}));
+//                } else {
+//                    attrs[attr_count++] = LFSR_ATTR(bid_,
+//                            GROW(), -overlap_, FROMBPTR(
+//                                (&(lfsr_bptr_t){
+//                                    .block=data_.u.disk.block,
+//                                    .off=data_.u.disk.off,
+//                                    .size=weight_ - overlap_}),
+//                                &buffer[buffer_off]));
+//                    buffer += LFSR_BPTR_DSIZE;
+//                }
+            }
+
+            // TODO wait is this the same on all branches?
+            pos_ = bid_+1;
+        }
+
+        // found right sibling?
+        if (pos + weight < bid_+1) {
+            lfs_off_t overlap_ = (pos + weight) - (bid_-(weight_-1));
+            LFS_ASSERT((lfs_soff_t)overlap_ >= 0);
+
+            // carve in-rbyd data?
+            if (lfsr_tag_key(tag_) == LFSR_TAG_DATA
+                    || lfsr_tag_key(tag_) == LFSR_TAG_SLICE) {
+                lfsr_data_t slice__ = LFSR_DATA_DISK(
+                        slice_.u.disk.block,
+                        slice_.u.disk.off + lfs_min32(
+                            overlap_,
+                            lfsr_data_size(&slice_)),
+                        lfsr_data_size(&slice_) - lfs_min32(
+                            overlap_,
+                            lfsr_data_size(&slice_)));
+
+                // some special cases require a new tag: if we're creating a
+                // new btree, or if left/right siblings are the same
+                if (lfsr_btree_isinlined(btree) || overlap_ > weight) {
+                    attrs[attr_count++] = LFSR_ATTR(pos,
+                            TAG(lfsr_tag_mode(tag)
+                                | LFSR_TAG_SLICE), +(weight_ - overlap_),
+                            FROMSLICE(&slice__, &buffer[buffer_off]));
+                    buffer += LFSR_SLICE_DSIZE;
+
+                } else {
+                    // we need to account for changes to left sibling here
+                    attrs[attr_count++] = LFSR_ATTR(pos+rm+weight_-1,
+                            TAG(lfsr_tag_mode(tag)
+                                | LFSR_TAG_GROW(WIDE(SLICE))), -overlap_,
+                            FROMSLICE(&slice__, &buffer[buffer_off]));
+                    buffer += LFSR_SLICE_DSIZE;
+                }
+
+                // update our estimate
+                estimate -= lfsr_data_size(&slice_) - lfsr_data_size(&slice__);
+                // if we split, we may actually create a hole
+                if (lfsr_data_size(&slice_) < weight_
+                        && overlap_ > weight) {
+                    estimate += LFSR_ATTR_ESTIMATE;
+                }
+
+            // carve block pointer?
+            } else if (lfsr_tag_key(tag_) == LFSR_TAG_BLOCK) {
+                // TODO
+                // TODO note this needs to handle both siblings being
+                // larger than crystallize size (force one to crystallize)
+                LFS_ASSERT(false);
+            }
+
+            pos_ = bid_+1;
+        }
+
+        // found fully overwritten data?
+        if (pos <= bid_-(weight_-1) && pos + weight >= bid_+1) {
+            // combine all rms into a single attr
+            rm += weight_;
+
+            // update estimate
+            estimate -= lfsr_data_size(&slice_);
+            // include any removed holes
+            if (lfsr_data_size(&slice_) < weight_) {
+                estimate -= LFSR_ATTR_ESTIMATE;
+            }
+
+            pos_ = bid_+1;
+        }
+    }
+
+    // write the combined rm attribute
+    if (rm > 0) {
+        attrs[attr_count++] = LFSR_ATTR(pos+rm-1,
+                TAG(lfsr_tag_mode(tag)
+                    | LFSR_TAG_RM), -rm,
+                NULL);
+    }
+
+    // TODO make sure data-less holes get coalesced, though not we don't
+    // accurately track coalesced holes with our estimate because it simplifies
+    // things... document?
+
+    // there's a few cases we need to append an extra tag: we're appended data
+    // past the end of our btree and need a hole, or we're creating a new
+    // btree and didn't carve the existing data
+    if (lfsr_btree_isinlined(btree)
+            && lfsr_btree_weight(btree) > 0
+            && (pos >= lfsr_btree_weight(btree)
+                || pos + weight == 0)) {
+        // note we never grow and rm a btree at the same time
+        LFS_ASSERT(rm == 0);
+
+        attrs[attr_count++] = LFSR_ATTR(0,
+                TAG(lfsr_tag_mode(tag)
+                    | LFSR_TAG_DATA), +lfs_max32(pos, lfsr_btree_weight(btree)),
+                DATA(*(const lfsr_data_t*)btree));
+
+        // we may be making a hole here
+        if (pos > lfsr_btree_weight(btree)) {
+            estimate += LFSR_ATTR_ESTIMATE;
+        }
+
+    // need a hole?
+    } else if (pos > lfsr_btree_weight(btree)) {
+        // note we never grow and rm a btree at the same time
+        LFS_ASSERT(rm == 0);
+
+        attrs[attr_count++] = LFSR_ATTR(lfsr_btree_weight(btree),
+                TAG(lfsr_tag_mode(tag)
+                    | LFSR_TAG_DATA), +(pos - lfsr_btree_weight(btree)),
+                NULL);
+
+        // turns out making a hole, makes a hole
+        estimate += LFSR_ATTR_ESTIMATE;
+    }
+
+    // finally append our data
+    if (weight + delta > 0) {
+        attrs[attr_count++] = LFSR_ATTR(pos,
+                TAG(tag), +(weight + delta), DATA(data));
+
+        // update our estimate
+        estimate += lfsr_data_size(&data);
+        // include the overhead of any new holes
+        if (lfsr_data_size(&data) < weight + delta) {
+            estimate += LFSR_ATTR_ESTIMATE;
+        }
+    }
+
+    LFS_ASSERT(attr_count <= LFSR_CARVE_ATTRS);
+    LFS_ASSERT(buffer_off <= LFSR_CARVE_DSIZE);
+    if (estimate_) {
+        *estimate_ = estimate;
+    }
+    return attr_count;
+}
+
 static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
-        lfsr_data_t data) {
-    // we should never try to shove more data into less weight
-    LFS_ASSERT(lfsr_data_size(&data) <= weight);
-
-    // build up attributes that flush our buffer, at this point
-    // this has basically turned into a tiny compiler
-    lfsr_attr_t scratch_attrs[4];
-    lfsr_attr_t *attrs_ = scratch_attrs;
-    lfsr_data_t scratch_datas[4];
-    lfsr_data_t *datas_ = scratch_datas;
-    *datas_++ = data;
-
-    // TODO what happens if another driver wrote a zero-weight shrub? need
-    // to test this...
-
-    // keep track of how our changes affect our estimate
-    lfs_off_t estimate;
-
-    // and any overlap that we need to adjust for when we remove data
-    lfs_soff_t left_overlap;
-    lfs_soff_t right_overlap;
-
-    // TODO is there a better way to do this?
-
-    // to handle sprout->shrub transitions, we set estimate to zero and
-    // pretend we've overlapped the entire data
-    if (!lfsr_file_hasshrub(file)) {
-        estimate = 0;
-        left_overlap = lfsr_file_inlinedsize(file);
-        right_overlap = lfsr_file_inlinedsize(file);
-    } else {
-        estimate = file->inlined.u.shrub.estimate;
-        left_overlap = 0;
-        right_overlap = 0;
+        lfsr_tag_t tag, lfsr_data_t data) {
+    // we can pretend our shrub is a small btree to save a bit of code, we
+    // just need to commit the generated attributes through lfsr_mdir_commit
+    lfsr_attr_t attrs[LFSR_CARVE_ATTRS];
+    uint8_t attr_buf[LFSR_CARVE_DSIZE];
+    lfs_soff_t estimate;
+    lfs_ssize_t attr_count = lfsr_btree_buildcarve(lfs,
+            (const lfsr_btree_t*)&file->inlined.u.rbyd,
+            pos, weight, delta,
+            tag, data,
+            &estimate,
+            attrs, attr_buf);
+    if (attr_count < 0) {
+        return attr_count;
     }
 
-    // has left sibling?
-    if (pos > 0) {
-        lfsr_srid_t left_rid;
-        lfsr_rid_t left_weight;
-        lfsr_data_t left_data;
-        if (!lfsr_file_hasshrub(file)) {
-            left_rid = lfsr_data_size(&file->inlined.u.data)-1;
-            left_weight = lfsr_data_size(&file->inlined.u.data);
-            left_data = file->inlined.u.data;
-        } else {
-            lfsr_tag_t left_tag;
-            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                    lfs_min32(
-                        pos,
-                        file->inlined.u.rbyd.weight)-1, 0,
-                    &left_rid, &left_tag, &left_weight, &left_data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-            LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
-            LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
-        }
-
-        // note this can be negative!
-        left_overlap = (left_rid+1) - pos;
-        LFS_ASSERT(left_overlap >= 0
-                || lfsr_file_inlinedsize(file) < pos);
-
-        // can we coalesce left data?
-        if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
-                    >= pos
-                && pos+weight+delta - (left_rid-(left_weight-1))
-                    <= lfs->cfg->coalesce_size) {
-            scratch_datas[0] = LFSR_DATA_DISK(
-                    left_data.u.disk.block,
-                    left_data.u.disk.off,
-                    left_weight - left_overlap);
-            scratch_datas[1] = data;
-            datas_ = &scratch_datas[2];
-            data = lfsr_data_fromcat(&scratch_datas[0], 2);
-            weight += left_weight - left_overlap;
-            pos = left_rid-(left_weight-1);
-            // only zero overlap if we're not transitioning from a sprout
-            if (lfsr_file_hasshrub(file)) {
-                left_overlap = 0;
-            }
-
-        // need to append left data? this can happend if we're
-        // transitioning from a sprout to a shrub
-        } else if (!lfsr_file_hasshrub(file)) {
-            *attrs_++ = LFSR_ATTR(left_rid-(left_weight-1),
-                    SHRUB(INLINED), +left_weight - left_overlap, DISK(
-                        left_data.u.disk.block,
-                        left_data.u.disk.off,
-                        left_weight - lfs_smax32(left_overlap, 0)));
-
-            estimate += LFSR_ATTR_ESTIMATE
-                    + (left_weight - lfs_smax32(left_overlap, 0));
-
-        // need to carve out left data?
-        } else if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
-                > pos) {
-            *attrs_++ = LFSR_ATTR(left_rid,
-                    SHRUB(GROW(INLINED)), -left_overlap,
-                    DISK(
-                        left_data.u.disk.block,
-                        left_data.u.disk.off,
-                        left_weight - left_overlap));
-
-            estimate -= left_rid-(left_weight-1)
-                    + lfsr_data_size(&left_data)
-                    - pos;
-
-        // adjust left sibling with a grow attr, avoiding a data copy
-        } else if (left_overlap != 0) {
-            *attrs_++ = LFSR_ATTR(left_rid,
-                    SHRUB(GROW), -left_overlap, NULL);
-        }
-    }
-
-    // has right sibling?
-    if (pos + weight < lfsr_file_inlinedsize(file)) {
-        lfsr_srid_t right_rid;
-        lfsr_rid_t right_weight;
-        lfsr_data_t right_data;
-        if (!lfsr_file_hasshrub(file)) {
-            right_rid = lfsr_data_size(&file->inlined.u.data)-1;
-            right_weight = lfsr_data_size(&file->inlined.u.data);
-            right_data = file->inlined.u.data;
-        } else {
-            lfsr_tag_t right_tag;
-            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                    pos + weight, 0,
-                    &right_rid, &right_tag, &right_weight, &right_data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-            LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
-            LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
-        }
-
-        right_overlap = (pos + weight) - (right_rid-(right_weight-1));
-        LFS_ASSERT(right_overlap >= 0);
-
-        // can we coalesce right data?
-        if ((lfsr_data_size(&data) == weight + delta
-                    && (lfs_soff_t)(lfsr_data_size(&data)
-                            + lfsr_data_size(&right_data)
-                            - right_overlap)
-                        <= (lfs_soff_t)lfs->cfg->coalesce_size)
-                || lfsr_data_size(&right_data) - right_overlap == 0) {
-            *datas_++ = LFSR_DATA_DISK(
-                    right_data.u.disk.block,
-                    right_data.u.disk.off + right_overlap,
-                    lfsr_data_size(&right_data) - lfs_min32(
-                        right_overlap,
-                        lfsr_data_size(&right_data)));
-            data = lfsr_data_fromcat(
-                    scratch_datas,
-                    datas_ - scratch_datas);
-            weight += right_weight - right_overlap;
-            // only zero overlap if we're not transitioning from a sprout
-            if (lfsr_file_hasshrub(file)) {
-                right_overlap = 0;
-            }
-
-        // need to append right data? this can happen if we're
-        // transitioning from sprout to shrub, or left and right sibling
-        // are the same
-        } else if (!lfsr_file_hasshrub(file)
-                || right_overlap > (lfs_soff_t)weight) {
-            *attrs_++ = LFSR_ATTR(right_rid - left_overlap + 1,
-                    SHRUB(INLINED), +right_weight - right_overlap,
-                    DISK(
-                        right_data.u.disk.block,
-                        right_data.u.disk.off + right_overlap,
-                        lfsr_data_size(&right_data) - lfs_min32(
-                            right_overlap,
-                            lfsr_data_size(&right_data))));
-
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfsr_data_size(&right_data) - lfs_min32(
-                        right_overlap,
-                        lfsr_data_size(&right_data));
-
-        // need to carve out right data?
-        } else if (right_overlap > 0) {
-            *attrs_++ = LFSR_ATTR(right_rid - left_overlap,
-                    SHRUB(GROW(INLINED)), -right_overlap,
-                    DISK(
-                        right_data.u.disk.block,
-                        right_data.u.disk.off + right_overlap,
-                        lfsr_data_size(&right_data) - lfs_min32(
-                            right_overlap,
-                            lfsr_data_size(&right_data))));
-
-            estimate -= right_overlap;
-        }
-    }
-
-    // remove any data we're overwriting, accounting for sibling changes
-    lfs_soff_t rm = lfs_smin32(
-                weight,
-                lfsr_file_inlinedsize(file) - pos)
-            - left_overlap
-            - right_overlap;
-    if (rm > 0) {
-        // we shouldn't remove anything if we're transitioning from a sprout
-        LFS_ASSERT(lfsr_file_hasshrub(file));
-
-        // range remove any remaining attrs
-        *attrs_++ = LFSR_ATTR(pos+rm-1, SHRUB(RM), -rm, NULL);
-
-        // updating our estimate gets a bit tricky here
-        lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
-                &file->inlined.u.rbyd,
-                pos + left_overlap,
-                pos + left_overlap + rm,
-                NULL);
-        if (rm_estimate < 0) {
-            return rm_estimate;
-        }
-        estimate -= rm_estimate;
-    }
-
-    // append our buffer
-    if (weight + delta > 0) {
-        *attrs_++ = LFSR_ATTR(pos,
-                SHRUB(INLINED), +weight + delta, DATA(data));
-
-        estimate += LFSR_ATTR_ESTIMATE
-                + lfsr_data_size(&data);
-    }
-
-    // TODO can this happen? should we even have special handling here?
-    // this is a noop?
-    if (attrs_ == scratch_attrs) {
-        return 0;
-    }
-
-    // TODO
-    // we can't let our inline shrub overflow our inline size, so if our
-    // estimate overflows, we need to flush inlined data
-    LFS_ASSERT((lfs_soff_t)estimate >= 0);
-    // TODO can truncate/fruncate trigger this? say fruncate creates a hole,
-    // should carveinlined just call flushinlined if we overflow?
-    if (estimate > lfs->cfg->inline_size) {
-        return LFS_ERR_RANGE;
+    // do our attributes push us past our inline_size? we need to flush
+    // our shrub then
+    LFS_ASSERT(estimate >= -(lfs_soff_t)file->inlined.u.shrub.estimate);
+    if (file->inlined.u.shrub.estimate + estimate > lfs->cfg->inline_size) {
+        // TODO
+        // return LFS_ERR_RANGE;
     }
 
     // commit our attributes
-    // TODO can we ever end up with no attrs here?
     int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-            LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
-                scratch_attrs,
-                attrs_ - scratch_attrs))));
+            LFSR_ATTR_(file->m.mdir.mid,
+                SHRUBATTRS, 0, SHRUBATTRS(file, attrs, attr_count))));
     if (err) {
         return err;
     }
 
-    // update estimate
-    file->inlined.u.shrub.estimate = estimate;
+    // update our estimate
+    file->inlined.u.shrub.estimate += estimate;
     return 0;
 }
+
+//// TODO deduplicate carveshrub and flushinlined
+//// TODO buildcarveshrub?
+//static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
+//        lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
+//        lfsr_data_t data) {
+//    // we should never try to shove more data into less weight
+//    LFS_ASSERT(lfsr_data_size(&data) <= weight);
+//
+//    // build up attributes that flush our buffer, at this point
+//    // this has basically turned into a tiny compiler
+//    lfsr_attr_t scratch_attrs[4];
+//    lfsr_attr_t *attrs_ = scratch_attrs;
+//    lfsr_data_t scratch_datas[4];
+//    lfsr_data_t *datas_ = scratch_datas;
+//    *datas_++ = data;
+//
+//    // TODO does this need to be cleaned up?
+//    uint8_t scratch_buf[LFSR_SLICE_DSIZE];
+//    uint8_t scratch_buf_[LFSR_SLICE_DSIZE];
+//
+//    // TODO what happens if another driver wrote a zero-weight shrub? need
+//    // to test this...
+//
+//    // keep track of how our changes affect our estimate
+//    lfs_off_t estimate;
+//
+//    // and any overlap that we need to adjust for when we remove data
+//    lfs_soff_t left_overlap;
+//    lfs_soff_t right_overlap;
+//
+//    // TODO is there a better way to do this?
+//
+//    // to handle sprout->shrub transitions, we set estimate to zero and
+//    // pretend we've overlapped the entire data
+//    if (!lfsr_file_hasshrub(file)) {
+//        estimate = 0;
+//        left_overlap = lfsr_file_inlinedsize(file);
+//        right_overlap = lfsr_file_inlinedsize(file);
+//    } else {
+//        estimate = file->inlined.u.shrub.estimate;
+//        left_overlap = 0;
+//        right_overlap = 0;
+//    }
+//
+//    // has left sibling?
+//    if (pos > 0) {
+//        lfsr_srid_t left_rid;
+//        lfsr_rid_t left_weight;
+//        lfsr_data_t left_data;
+//        if (!lfsr_file_hasshrub(file)) {
+//            left_rid = lfsr_data_size(&file->inlined.u.data)-1;
+//            left_weight = lfsr_data_size(&file->inlined.u.data);
+//            left_data = file->inlined.u.data;
+//        } else {
+//            lfsr_tag_t left_tag;
+//            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+//                    lfs_min32(
+//                        pos,
+//                        file->inlined.u.rbyd.weight)-1, 0,
+//                    &left_rid, &left_tag, &left_weight, &left_data);
+//            if (err) {
+//                LFS_ASSERT(err != LFS_ERR_NOENT);
+//                return err;
+//            }
+//            LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(DATA));
+//            LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
+//        }
+//
+//        // note this can be negative!
+//        left_overlap = (left_rid+1) - pos;
+//        LFS_ASSERT(left_overlap >= 0
+//                || lfsr_file_inlinedsize(file) < pos);
+//
+//        // can we coalesce left data?
+//        if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
+//                    >= pos
+//                && pos+weight+delta - (left_rid-(left_weight-1))
+//                    <= lfs->cfg->coalesce_size) {
+//            scratch_datas[0] = LFSR_DATA_DISK(
+//                    left_data.u.disk.block,
+//                    left_data.u.disk.off,
+//                    left_weight - left_overlap);
+//            scratch_datas[1] = data;
+//            datas_ = &scratch_datas[2];
+//            data = lfsr_data_fromcat(&scratch_datas[0], 2);
+//            weight += left_weight - left_overlap;
+//            pos = left_rid-(left_weight-1);
+//            // only zero overlap if we're not transitioning from a sprout
+//            if (lfsr_file_hasshrub(file)) {
+//                left_overlap = 0;
+//            }
+//
+//        // need to append left data? this can happend if we're
+//        // transitioning from a sprout to a shrub
+//        } else if (!lfsr_file_hasshrub(file)) {
+//            *attrs_++ = LFSR_ATTR(left_rid-(left_weight-1),
+//                    SHRUB(DATA), +left_weight - left_overlap, DISK(
+//                        left_data.u.disk.block,
+//                        left_data.u.disk.off,
+//                        left_weight - lfs_smax32(left_overlap, 0)));
+//
+//            estimate += LFSR_ATTR_ESTIMATE
+//                    + (left_weight - lfs_smax32(left_overlap, 0));
+//
+//        // need to carve out left data?
+//        } else if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
+//                > pos) {
+//            *attrs_++ = LFSR_ATTR(left_rid,
+//                    SHRUB(GROW(SLICE)), -left_overlap,
+//                    FROMSLICE(&LFSR_DATA_DISK(
+//                            left_data.u.disk.block,
+//                            left_data.u.disk.off,
+//                            left_weight - left_overlap),
+//                        scratch_buf));
+//
+//            estimate -= left_rid-(left_weight-1)
+//                    + lfsr_data_size(&left_data)
+//                    - pos;
+//
+//        // adjust left sibling with a grow attr, avoiding a data copy
+//        } else if (left_overlap != 0) {
+//            *attrs_++ = LFSR_ATTR(left_rid,
+//                    SHRUB(GROW), -left_overlap, NULL);
+//        }
+//    }
+//
+//    // has right sibling?
+//    if (pos + weight < lfsr_file_inlinedsize(file)) {
+//        lfsr_srid_t right_rid;
+//        lfsr_rid_t right_weight;
+//        lfsr_data_t right_data;
+//        if (!lfsr_file_hasshrub(file)) {
+//            right_rid = lfsr_data_size(&file->inlined.u.data)-1;
+//            right_weight = lfsr_data_size(&file->inlined.u.data);
+//            right_data = file->inlined.u.data;
+//        } else {
+//            lfsr_tag_t right_tag;
+//            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+//                    pos + weight, 0,
+//                    &right_rid, &right_tag, &right_weight, &right_data);
+//            if (err) {
+//                LFS_ASSERT(err != LFS_ERR_NOENT);
+//                return err;
+//            }
+//            LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(DATA));
+//            LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
+//        }
+//
+//        right_overlap = (pos + weight) - (right_rid-(right_weight-1));
+//        LFS_ASSERT(right_overlap >= 0);
+//
+//        // can we coalesce right data?
+//        if ((lfsr_data_size(&data) == weight + delta
+//                    && (lfs_soff_t)(lfsr_data_size(&data)
+//                            + lfsr_data_size(&right_data)
+//                            - right_overlap)
+//                        <= (lfs_soff_t)lfs->cfg->coalesce_size)
+//                || lfsr_data_size(&right_data) - right_overlap == 0) {
+//            *datas_++ = LFSR_DATA_DISK(
+//                    right_data.u.disk.block,
+//                    right_data.u.disk.off + right_overlap,
+//                    lfsr_data_size(&right_data) - lfs_min32(
+//                        right_overlap,
+//                        lfsr_data_size(&right_data)));
+//            data = lfsr_data_fromcat(
+//                    scratch_datas,
+//                    datas_ - scratch_datas);
+//            weight += right_weight - right_overlap;
+//            // only zero overlap if we're not transitioning from a sprout
+//            if (lfsr_file_hasshrub(file)) {
+//                right_overlap = 0;
+//            }
+//
+//        // need to append right data? this can happen if we're
+//        // transitioning from sprout to shrub, or left and right sibling
+//        // are the same
+//        } else if (!lfsr_file_hasshrub(file)
+//                || right_overlap > (lfs_soff_t)weight) {
+//            *attrs_++ = LFSR_ATTR(right_rid - left_overlap + 1,
+//                    SHRUB(DATA), +right_weight - right_overlap,
+//                    DISK(
+//                        right_data.u.disk.block,
+//                        right_data.u.disk.off + right_overlap,
+//                        lfsr_data_size(&right_data) - lfs_min32(
+//                            right_overlap,
+//                            lfsr_data_size(&right_data))));
+//
+//            estimate += LFSR_ATTR_ESTIMATE
+//                    + lfsr_data_size(&right_data) - lfs_min32(
+//                        right_overlap,
+//                        lfsr_data_size(&right_data));
+//
+//        // need to carve out right data?
+//        } else if (right_overlap > 0) {
+//            *attrs_++ = LFSR_ATTR(right_rid - left_overlap,
+//                    SHRUB(GROW(SLICE)), -right_overlap,
+//                    FROMSLICE(&LFSR_DATA_DISK(
+//                            right_data.u.disk.block,
+//                            right_data.u.disk.off + right_overlap,
+//                            lfsr_data_size(&right_data) - lfs_min32(
+//                                right_overlap,
+//                                lfsr_data_size(&right_data))),
+//                        scratch_buf_));
+//
+//            estimate -= right_overlap;
+//        }
+//    }
+//
+//    // remove any data we're overwriting, accounting for sibling changes
+//    lfs_soff_t rm = lfs_smin32(
+//                weight,
+//                lfsr_file_inlinedsize(file) - pos)
+//            - left_overlap
+//            - right_overlap;
+//    if (rm > 0) {
+//        // we shouldn't remove anything if we're transitioning from a sprout
+//        LFS_ASSERT(lfsr_file_hasshrub(file));
+//
+//        // range remove any remaining attrs
+//        *attrs_++ = LFSR_ATTR(pos+rm-1, SHRUB(RM), -rm, NULL);
+//
+//        // updating our estimate gets a bit tricky here
+//        lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
+//                &file->inlined.u.rbyd,
+//                pos + left_overlap,
+//                pos + left_overlap + rm,
+//                NULL);
+//        if (rm_estimate < 0) {
+//            return rm_estimate;
+//        }
+//        estimate -= rm_estimate;
+//    }
+//
+//    // append our buffer
+//    if (weight + delta > 0) {
+//        *attrs_++ = LFSR_ATTR(pos,
+//                SHRUB(DATA), +weight + delta, DATA(data));
+//
+//        estimate += LFSR_ATTR_ESTIMATE
+//                + lfsr_data_size(&data);
+//    }
+//
+//    // TODO can this happen? should we even have special handling here?
+//    // this is a noop?
+//    if (attrs_ == scratch_attrs) {
+//        return 0;
+//    }
+//
+//    // TODO
+//    // we can't let our inline shrub overflow our inline size, so if our
+//    // estimate overflows, we need to flush inlined data
+//    LFS_ASSERT((lfs_soff_t)estimate >= 0);
+//    // TODO can truncate/fruncate trigger this? say fruncate creates a hole,
+//    // should carveinlined just call flushinlined if we overflow?
+//    if (estimate > lfs->cfg->inline_size) {
+//        return LFS_ERR_RANGE;
+//    }
+//
+//    // commit our attributes
+//    // TODO can we ever end up with no attrs here?
+//    int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+//            LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
+//                scratch_attrs,
+//                attrs_ - scratch_attrs))));
+//    if (err) {
+//        return err;
+//    }
+//
+//    // update estimate
+//    file->inlined.u.shrub.estimate = estimate;
+//    return 0;
+//}
 
 static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
@@ -9611,7 +10065,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        LFS_ASSERT(tag == LFSR_TAG_INLINED
+        LFS_ASSERT(tag == LFSR_TAG_DATA
                 || tag == LFSR_TAG_BLOCK);
 
         // found left sibling?
@@ -9621,12 +10075,12 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(overlap_ >= 0
                     || pos > lfsr_btree_weight(&file->u.btree));
 
-            if (tag_ == LFSR_TAG_INLINED) {
+            if (tag_ == LFSR_TAG_DATA) {
                 LFS_ASSERT(lfsr_data_size(&data_) <= weight_);
 
                 // can we coalesce left data? this is only possible if our
                 // new data is not a block and there is no hole on the left
-                if (tag == LFSR_TAG_INLINED
+                if (tag == LFSR_TAG_DATA
                         && pos <= bid_-(weight_-1)+lfsr_data_size(&data_)
                         && lfsr_data_size(&data) + (weight_ - overlap_)
                             <= lfs->cfg->crystallize_size) {
@@ -9662,7 +10116,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
                 } else {
                     err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
                             LFSR_ATTR(bid_,
-                                GROW(INLINED), -overlap_,
+                                GROW(DATA), -overlap_,
                                 DISK(
                                     data_.u.disk.block,
                                     data_.u.disk.off,
@@ -9677,7 +10131,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
                     // did we split actual data?
                     if (pos+weight < bid_-(weight_-1)+lfsr_data_size(&data_)) {
                         // we MUST coalesce here, otherwise we risk dagging
-                        LFS_ASSERT(tag == LFSR_TAG_INLINED);
+                        LFS_ASSERT(tag == LFSR_TAG_DATA);
                         LFS_ASSERT(lfsr_data_size(&data_)
                                 <= lfs->cfg->crystallize_size);
                         LFS_ASSERT(datas_ - scratch_datas == 2);
@@ -9712,7 +10166,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
 
                 // can we coalesce left data? this is only possible if our
                 // new data is not a block and there is no hole on the left
-                if (tag == LFSR_TAG_INLINED
+                if (tag == LFSR_TAG_DATA
                         && pos <= bid_-(weight_-1)+bptr_.size
                         && lfsr_data_size(&data) + (weight_ - overlap_)
                             <= lfs->cfg->crystallize_size) {
@@ -9763,7 +10217,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
                     // did we split actual data?
                     if (pos+weight < bid_-(weight_-1)+bptr_.size) {
                         // we MUST coalesce here, otherwise we risk dagging
-                        LFS_ASSERT(tag == LFSR_TAG_INLINED);
+                        LFS_ASSERT(tag == LFSR_TAG_DATA);
                         LFS_ASSERT(bptr_.size <= lfs->cfg->crystallize_size);
                         LFS_ASSERT(datas_ - scratch_datas == 2);
 
@@ -9796,12 +10250,12 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
             lfs_soff_t overlap_ = (pos + weight-rm) - (bid_-(weight_-1));
             LFS_ASSERT(overlap_ >= 0);
 
-            if (tag_ == LFSR_TAG_INLINED) {
+            if (tag_ == LFSR_TAG_DATA) {
                 LFS_ASSERT(lfsr_data_size(&data_) <= weight_);
 
                 // can we coalesce right data? this is only possible if our
                 // new data is not a block, or our right data has no data
-                if ((tag == LFSR_TAG_INLINED
+                if ((tag == LFSR_TAG_DATA
                             && lfsr_data_size(&data) == weight + delta
                             && lfsr_data_size(&data)
                                     + lfsr_data_size(&data_)
@@ -9833,7 +10287,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
                 } else {
                     err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
                             LFSR_ATTR(bid_,
-                                GROW(INLINED), -overlap_,
+                                GROW(DATA), -overlap_,
                                 DISK(
                                     data_.u.disk.block,
                                     data_.u.disk.off + overlap_,
@@ -9855,7 +10309,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
 
                 // can we coalesce right data? this is only possible if our
                 // new data is not a block, or our right data has no data
-                if ((tag == LFSR_TAG_INLINED
+                if ((tag == LFSR_TAG_DATA
                             && lfsr_data_size(&data) == weight + delta
                             && lfsr_data_size(&data)
                                     + bptr_.size
@@ -9923,7 +10377,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
 
         int err = lfsr_btree_commit(lfs, &file->u.btree, LFSR_ATTRS(
                 LFSR_ATTR(lfsr_btree_weight(&file->u.btree),
-                    INLINED, +(pos - lfsr_btree_weight(&file->u.btree)),
+                    DATA, +(pos - lfsr_btree_weight(&file->u.btree)),
                     NULL)));
         if (err) {
             return err;
@@ -9949,7 +10403,7 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
         lfsr_data_t inlined_data;
 
         // TODO would it make more sense to move this into a separate function?
-        // TODO lfsr_file_inlinednext maybe? and call from lfsr_file_next?
+        // TODO lfsr_file_inlinednext maybe? and call from lfsr_file_readnext?
 
         // any data in our write buffer?
         if (inlined_pos < file->buffer_pos + file->buffer_size) {
@@ -9995,7 +10449,7 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
-            LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
+            LFS_ASSERT(tag == LFSR_TAG_SHRUB(DATA));
             LFS_ASSERT(lfsr_data_size(&data) <= weight);
 
             if (inlined_pos < rid-(weight-1) + lfsr_data_size(&data)) {
@@ -10056,12 +10510,12 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
                 }
-                LFS_ASSERT(left_tag == LFSR_TAG_INLINED
+                LFS_ASSERT(left_tag == LFSR_TAG_DATA
                         || left_tag == LFSR_TAG_BLOCK);
 
                 lfs_off_t left_size;
                 // is inlined data?
-                if (left_tag == LFSR_TAG_INLINED) {
+                if (left_tag == LFSR_TAG_DATA) {
                     left_size = lfsr_data_size(&left_data);
                     LFS_ASSERT(left_size <= left_weight);
 
@@ -10093,7 +10547,7 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
                     && crystal_pos + crystal_size < file->size) {
                 lfs_off_t weight;
                 lfsr_data_t data;
-                int err = lfsr_file_next(lfs, file,
+                int err = lfsr_file_readnext(lfs, file,
                         crystal_pos + crystal_size, file->size,
                         &weight, &data);
                 if (err) {
@@ -10120,7 +10574,7 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
             // write inlined data into our tree
             int err = lfsr_file_carvebtree(lfs, file,
                     inlined_pos, lfsr_data_size(&inlined_data), 0,
-                    LFSR_TAG_INLINED, inlined_data);
+                    LFSR_TAG_DATA, inlined_data);
             if (err) {
                 return err;
             }
@@ -10149,7 +10603,7 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
             while (size > 0) {
                 lfs_off_t weight;
                 lfsr_data_t data;
-                err = lfsr_file_next(lfs, file, pos, size,
+                err = lfsr_file_readnext(lfs, file, pos, size,
                         &weight, &data);
                 if (err) {
                     // end of file?
@@ -10220,6 +10674,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         // try to flush our buffer into our shrub
         int err = lfsr_file_carveinlined(lfs, file,
                 file->buffer_pos, file->buffer_size, 0,
+                LFSR_TAG_SHRUB(DATA),
                 LFSR_DATA_BUF(file->buffer, file->buffer_size));
         if (err) {
             // uh oh, doesn't fit? flush inlined data and try again
@@ -10345,7 +10800,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                     (file->buffer_size > 0
                         ? LFSR_ATTR(file->m.mdir.mid,
-                            WIDE(INLINED), 0, BUF(
+                            WIDE(DATA), 0, BUF(
                                 file->buffer, file->buffer_size))
                         : LFSR_ATTR(file->m.mdir.mid,
                             WIDE(RM(STRUCT)), 0, NULL))));
@@ -10361,7 +10816,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 // we need to look up the inlined data again...
                 // TODO deduplicate?
                 err = lfsr_mdir_lookup(lfs, &file->m.mdir,
-                        file->m.mdir.mid, LFSR_TAG_INLINED,
+                        file->m.mdir.mid, LFSR_TAG_DATA,
                         NULL, &file->inlined.u.data);
                 if (err) {
                     return err;
@@ -10489,6 +10944,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 lfs_min32(file->size, size),
                 file->size - lfs_min32(file->size, size),
                 +size - file->size,
+                LFSR_TAG_SHRUB(DATA),
                 LFSR_DATA_NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -10538,6 +10994,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 0,
                 lfs_smax32(file->size - size, 0),
                 +size - file->size,
+                LFSR_TAG_SHRUB(DATA),
                 LFSR_DATA_NULL);
         if (err) {
             return err;
