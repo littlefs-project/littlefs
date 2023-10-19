@@ -520,9 +520,9 @@ typedef struct lfs_file {
     const struct lfs_file_config *cfg;
 } lfs_file_t;
 
-typedef struct lfsr_inlined {
+typedef struct lfsr_shrub {
     union {
-        // note sign bit indicates if data is a single inlined data, or an
+        // the sign bit indicates if data is a single inlined data, or an
         // inlined tree, this works because inlined data is always on disk,
         // so data.size always has sign=1
         lfs_soff_t weight;
@@ -534,7 +534,17 @@ typedef struct lfsr_inlined {
             lfs_off_t estimate;
         } shrub;
     } u;
-} lfsr_inlined_t;
+} lfsr_shrub_t;
+
+typedef struct lfsr_tree {
+    union {
+        // the sign bit indicates if this is a direct block pointer or
+        // indirect tree of block pointers/inlined datas
+        lfs_soff_t size;
+        lfsr_bptr_t bptr;
+        lfsr_btree_t btree;
+    } u;
+} lfsr_tree_t;
 
 typedef struct lfsr_file {
     lfsr_openedmdir_t m;
@@ -546,17 +556,13 @@ typedef struct lfsr_file {
     uint8_t *buffer;
     lfs_size_t buffer_size;
 
-    // we need copies of inlined references in case of mdir compaction, this
-    // exists here instead of on the stack becuase we don't know how many
-    // inlined files may be opened
-    lfsr_inlined_t inlined;
-    lfsr_inlined_t inlined_;
+    // we need a staging copy of each shrubs during mdir compaction, we put
+    // this in the file struct directly, since we don't know how many files
+    // may be opened
+    lfsr_shrub_t shrub;
+    lfsr_shrub_t shrub_;
 
-    union {
-        lfs_soff_t size;
-        lfsr_bptr_t bptr;
-        lfsr_btree_t btree;
-    } u;
+    lfsr_tree_t tree;
 
     const struct lfs_file_config *cfg;
 } lfsr_file_t;
