@@ -3460,11 +3460,28 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             break;
         }
 
+        // special handling for slice tags, we dereference these
+        if (lfsr_tag_key(tag) == LFSR_TAG_SLICE) {
+            lfsr_data_t slice;
+            err = lfsr_data_readslice(lfs, &data, &slice);
+            if (err) {
+                return err;
+            }
+
+            err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
+                    lfsr_tag_mode(tag) | LFSR_TAG_DATA, weight, slice);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
         // write the tag
-        err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        } else {
+            err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
         }
     }
 
@@ -3663,8 +3680,20 @@ static lfs_ssize_t lfsr_rbyd_estimate_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         rid = rid__;
         weight += weight_;
 
+        // special handling for slice tags, we dereference these
+        if (lfsr_tag_key(tag) == LFSR_TAG_SLICE) {
+            lfsr_data_t slice;
+            err = lfsr_data_readslice(lfs, &data, &slice);
+            if (err) {
+                return err;
+            }
+
+            dsize += LFSR_ATTR_ESTIMATE + lfsr_data_size(&slice);
+
         // include the cost of this tag
-        dsize += LFSR_ATTR_ESTIMATE + lfsr_data_size(&data);
+        } else {
+            dsize += LFSR_ATTR_ESTIMATE + lfsr_data_size(&data);
+        }
     }
 
     if (rid_) {
@@ -5905,12 +5934,22 @@ static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
             break;
         }
 
+        // special handling for slice tags, we dereference these
+        if (lfsr_tag_key(tag) == LFSR_TAG_SLICE) {
+            lfsr_data_t slice;
+            err = lfsr_data_readslice(lfs, &data, &slice);
+            if (err) {
+                return err;
+            }
+
+            dsize += LFSR_ATTR_ESTIMATE + lfsr_data_size(&slice);
+
         // special handling for shrub trunks, we need to include the compacted
         // cost of the shrub in our estimate
         //
         // this is what would make lfsr_rbyd_estimate recursive, and why we
         // need a second function...
-        if (tag == LFSR_TAG_TRUNK) {
+        } else if (tag == LFSR_TAG_TRUNK) {
             lfsr_rbyd_t shrub;
             err = lfsr_data_readtrunk(lfs, &data, &shrub);
             if (err) {
@@ -9448,10 +9487,6 @@ static lfs_ssize_t lfsr_btree_buildcarve(lfs_t *lfs, const lfsr_btree_t *btree,
     // and keep track of how our changes will affect our size estimate
     lfs_off_t rm = 0;
     lfs_soff_t estimate = 0;
-    // if we're creating a new btree, add any inlined data to our estimate
-    if (lfsr_btree_isinlined(btree)) {
-        estimate += lfsr_btree_weight(btree);
-    }
 
     // try to carve any existing data
     lfs_off_t pos_ = pos;
@@ -9526,20 +9561,25 @@ static lfs_ssize_t lfsr_btree_buildcarve(lfs_t *lfs, const lfsr_btree_t *btree,
                                 | LFSR_TAG_SLICE), +(weight_ - overlap_),
                             FROMSLICE(&slice__, &buffer[buffer_off]));
                     buffer += LFSR_SLICE_DSIZE;
+
+                    // update our estimate
+                    estimate += lfsr_data_size(&slice__);
+
                 } else {
                     attrs[attr_count++] = LFSR_ATTR(bid_,
                             TAG(lfsr_tag_mode(tag)
                                 | LFSR_TAG_GROW(WIDE(SLICE))), -overlap_,
                             FROMSLICE(&slice__, &buffer[buffer_off]));
                     buffer += LFSR_SLICE_DSIZE;
-                }
 
-                // update our estimate
-                estimate -= lfsr_data_size(&slice_) - lfsr_data_size(&slice__);
-                // we may remove a hole here
-                if (lfsr_data_size(&slice_) < weight_
-                        && lfsr_data_size(&slice__) == weight_ - overlap_) {
-                    estimate -= LFSR_ATTR_ESTIMATE;
+                    // update our estimate
+                    estimate -= (lfsr_data_size(&slice_)
+                            - lfsr_data_size(&slice__));
+                    // we may remove a hole here
+                    if (lfsr_data_size(&slice_) < weight_
+                            && lfsr_data_size(&slice__) == weight_ - overlap_) {
+                        estimate -= LFSR_ATTR_ESTIMATE;
+                    }
                 }
 
             // carve block pointer?
@@ -9602,6 +9642,13 @@ static lfs_ssize_t lfsr_btree_buildcarve(lfs_t *lfs, const lfsr_btree_t *btree,
                             FROMSLICE(&slice__, &buffer[buffer_off]));
                     buffer += LFSR_SLICE_DSIZE;
 
+                    // update our estimate
+                    estimate += lfsr_data_size(&slice__);
+                    // if we split, we may actually create a hole
+                    if (lfsr_data_size(&slice__) < weight_ - overlap_) {
+                        estimate += LFSR_ATTR_ESTIMATE;
+                    }
+
                 } else {
                     // we need to account for changes to left sibling here
                     attrs[attr_count++] = LFSR_ATTR(pos+rm+weight_-1,
@@ -9609,14 +9656,10 @@ static lfs_ssize_t lfsr_btree_buildcarve(lfs_t *lfs, const lfsr_btree_t *btree,
                                 | LFSR_TAG_GROW(WIDE(SLICE))), -overlap_,
                             FROMSLICE(&slice__, &buffer[buffer_off]));
                     buffer += LFSR_SLICE_DSIZE;
-                }
 
-                // update our estimate
-                estimate -= lfsr_data_size(&slice_) - lfsr_data_size(&slice__);
-                // if we split, we may actually create a hole
-                if (lfsr_data_size(&slice_) < weight_
-                        && overlap_ > weight) {
-                    estimate += LFSR_ATTR_ESTIMATE;
+                    // update our estimate
+                    estimate -= (lfsr_data_size(&slice_)
+                            - lfsr_data_size(&slice__));
                 }
 
             // carve block pointer?
@@ -9673,6 +9716,8 @@ static lfs_ssize_t lfsr_btree_buildcarve(lfs_t *lfs, const lfsr_btree_t *btree,
                     | LFSR_TAG_DATA), +lfs_max32(pos, lfsr_btree_weight(btree)),
                 DATA(*(const lfsr_data_t*)btree));
 
+        // update our estimate
+        estimate += lfsr_data_size((const lfsr_data_t*)btree);
         // we may be making a hole here
         if (pos > lfsr_btree_weight(btree)) {
             estimate += LFSR_ATTR_ESTIMATE;
