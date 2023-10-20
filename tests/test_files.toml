@@ -2,7 +2,7 @@
 after = ['test_dtree', 'test_btree']
 
 # test both with and without coalescing
-defines.COALESCE_SIZE = ['0', 'CACHE_SIZE']
+defines.FRAGMENT_SIZE = ['1', 'CACHE_SIZE']
 
 
 # test creation/deletion
