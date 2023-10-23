@@ -4999,7 +4999,7 @@ static int lfs_fs_forceconsistency(lfs_t *lfs) {
 #endif
 
 #ifndef LFS_READONLY
-int lfs_fs_rawmkconsistent(lfs_t *lfs) {
+static int lfs_fs_rawmkconsistent(lfs_t *lfs) {
     // lfs_fs_forceconsistency does most of the work here
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
@@ -5046,7 +5046,7 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
 }
 
 #ifndef LFS_READONLY
-int lfs_fs_rawgrow(lfs_t *lfs, lfs_size_t block_count) {
+static int lfs_fs_rawgrow(lfs_t *lfs, lfs_size_t block_count) {
     // shrinking is not supported
     LFS_ASSERT(block_count >= lfs->block_count);
 
