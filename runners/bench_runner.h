@@ -109,7 +109,7 @@ intmax_t bench_define(size_t define);
 #define CACHE_SIZE_i         5
 #define INLINE_SIZE_i        6
 #define FRAGMENT_SIZE_i      7
-#define CRYSTALLIZE_SIZE_i   8
+#define CRYSTAL_SIZE_i       8
 #define LOOKAHEAD_SIZE_i     9
 #define BLOCK_CYCLES_i       10
 #define ERASE_VALUE_i        11
@@ -125,7 +125,7 @@ intmax_t bench_define(size_t define);
 #define CACHE_SIZE          bench_define(CACHE_SIZE_i)
 #define INLINE_SIZE         bench_define(INLINE_SIZE_i)
 #define FRAGMENT_SIZE       bench_define(FRAGMENT_SIZE_i)
-#define CRYSTALLIZE_SIZE    bench_define(CRYSTALLIZE_SIZE_i)
+#define CRYSTAL_SIZE        bench_define(CRYSTAL_SIZE_i)
 #define LOOKAHEAD_SIZE      bench_define(LOOKAHEAD_SIZE_i)
 #define BLOCK_CYCLES        bench_define(BLOCK_CYCLES_i)
 #define ERASE_VALUE         bench_define(ERASE_VALUE_i)
@@ -143,7 +143,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))) \
     BENCH_DEF(INLINE_SIZE,        BLOCK_SIZE/8                              ) \
     BENCH_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                ) \
-    BENCH_DEF(CRYSTALLIZE_SIZE,   BLOCK_SIZE/4                              ) \
+    BENCH_DEF(CRYSTAL_SIZE,       BLOCK_SIZE/8                              ) \
     BENCH_DEF(LOOKAHEAD_SIZE,     16                                        ) \
     BENCH_DEF(BLOCK_CYCLES,       -1                                        ) \
     BENCH_DEF(ERASE_VALUE,        0xff                                      ) \
@@ -168,7 +168,7 @@ intmax_t bench_define(size_t define);
     .cache_size         = CACHE_SIZE,       \
     .inline_size        = INLINE_SIZE,      \
     .fragment_size      = FRAGMENT_SIZE,    \
-    .crystallize_size   = CRYSTALLIZE_SIZE, \
+    .crystal_size       = CRYSTAL_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,
 
 #define BENCH_BDCFG \

@@ -10592,7 +10592,7 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
         // holes we don't account for, but we generally don't want a bunch of
         // small holes in our files anyways.
         //
-        if (right_align - left_align > lfs->cfg->crystallize_size) {
+        if (right_align - left_align > lfs->cfg->crystal_size) {
             // allocate a new block
             lfs_block_t block;
             int err = lfs_alloc(lfs, &block);

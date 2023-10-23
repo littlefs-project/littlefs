@@ -184,7 +184,7 @@ code = '''
             seen[tinfo.u.mdir.u.m.blocks[0] / 8]
                     |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
 
-        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+        } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
                     tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
@@ -339,7 +339,7 @@ code = '''
             seen[tinfo.u.mdir.u.m.blocks[0] / 8]
                     |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
 
-        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+        } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
                     tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
@@ -484,7 +484,7 @@ code = '''
             seen[tinfo.u.mdir.u.m.blocks[0] / 8]
                     |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
 
-        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+        } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
                     tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
