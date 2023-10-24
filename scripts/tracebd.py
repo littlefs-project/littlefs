@@ -315,12 +315,12 @@ class Block(int):
             c = wear_chars[int(w * (len(wear_chars)-1))]
             f.append(wear_colors[int(w * (len(wear_colors)-1))])
 
-        if erase and self.erased:
-            c = chars[2]
-            f.append(colors[2])
-        elif prog and self.proged:
+        if prog and self.proged:
             c = chars[1]
             f.append(colors[1])
+        elif erase and self.erased:
+            c = chars[2]
+            f.append(colors[2])
         elif read and self.readed:
             c = chars[0]
             f.append(colors[0])
