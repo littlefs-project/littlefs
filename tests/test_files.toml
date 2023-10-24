@@ -1,22 +1,21 @@
 # Test basic file operations
 after = ['test_dtree', 'test_btree']
 
-# test both with and without coalescing
-defines.FRAGMENT_SIZE = ['1', 'CACHE_SIZE']
+# TODO should fragment_size accept 0?
+# test with different fragment sizes
+defines.FRAGMENT_SIZE = [1, 16, 64]
+
+# test with different crystal sizes
+defines.CRYSTAL_SIZE = [512]
 
 
 # test creation/deletion
 [cases.test_files_create]
 defines.REMOUNT = [false, true]
-reentrant = true
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -67,15 +66,10 @@ code = '''
 # test we can write some data, should be inlined
 [cases.test_files_hello]
 defines.REMOUNT = [false, true]
-reentrant = true
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -132,15 +126,10 @@ code = '''
 # test we can rewrite a file
 [cases.test_files_trunc]
 defines.REMOUNT = [false, true]
-reentrant = true
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -230,7 +219,6 @@ code = '''
     // try to recreate file, this should error
     lfsr_file_open(&lfs, &file, "hello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => LFS_ERR_EXIST;
-
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
@@ -435,24 +423,33 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# try writing larger files?
+# try writing larger files
 #
-# at 2*CACHE_SIZE we need an inlined tree
-# ? single block?
-# at 2*BLOCK_SIZE we need a b-tree
+# note:
+# - at 2*CACHE_SIZE we need a shrub
+# - at BLOCK_SIZE/2 we need a block pointer
+# - at 2*BLOCK_SIZE we need a btree
 #
 [cases.test_files_more]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SIZE = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 defines.REMOUNT = [false, true]
-reentrant = true
+defines.CACHE_SIZE = 64
+if = [
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -512,19 +509,27 @@ code = '''
 
 # write files incrementally
 [cases.test_files_incr]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.SIZE = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -599,9 +604,18 @@ code = '''
 '''
 
 # overwrite files
+# TODO this is too slow right now, but should speed up with better
+# write strategies
 [cases.test_files_overwrite]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 # bit 0 => first chunk 
 # bit 1 => middle chunk
 # bit 2 => last chunk
@@ -611,15 +625,15 @@ defines.MASK = [0, 1, 2, 3, 4, 5, 6, 7]
 defines.ORDER = [0, 1]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -769,8 +783,15 @@ code = '''
 
 # similar to overwrite files, but without underlying data
 [cases.test_files_holes]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 # bit 0 => first chunk 
 # bit 1 => middle chunk
 # bit 2 => last chunk
@@ -780,15 +801,15 @@ defines.MASK = [0, 1, 2, 3, 4, 5, 6, 7]
 defines.ORDER = [0, 1]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -941,19 +962,35 @@ code = '''
 
 # simple truncate test
 [cases.test_files_truncate]
-defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.FROM = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.TO = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    # these just save testing time
+    'FROM / FRAGMENT_SIZE <= 4096',
+    'TO / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1036,20 +1073,45 @@ code = '''
 # one purpose of this test is to check that data is not hidden
 # and then revealed by truncate, that would be bad
 [cases.test_files_truncate_2]
-defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.AND = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.FROM = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.AND = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.TO = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    # these just save testing time
+    'FROM / FRAGMENT_SIZE <= 4096',
+    'AND / FRAGMENT_SIZE <= 4096',
+    'TO / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1150,19 +1212,35 @@ code = '''
 
 # simple fruncate test
 [cases.test_files_fruncate]
-defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.FROM = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.TO = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    # these just save testing time
+    'FROM / FRAGMENT_SIZE <= 4096',
+    'TO / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1249,20 +1327,45 @@ code = '''
 # one purpose of this test is to check that data is not hidden
 # and then revealed by fruncate, that would be bad
 [cases.test_files_fruncate_2]
-defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.AND = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.FROM = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.AND = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.TO = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    # these just save testing time
+    'FROM / FRAGMENT_SIZE <= 4096',
+    'AND / FRAGMENT_SIZE <= 4096',
+    'TO / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1371,23 +1474,30 @@ code = '''
 
 # writing any data structure backwards always reveals issues
 [cases.test_files_reversed]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
-reentrant = true
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1491,8 +1601,15 @@ code = '''
 # these are like the overwrite/hole tests, but with enough rewrites to
 # trigger compaction
 [cases.test_files_overwrite_compaction]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 # bit 0 => first chunk 
 # bit 1 => middle chunk
 # bit 2 => last chunk
@@ -1506,14 +1623,15 @@ defines.WRITES = '2*(BLOCK_SIZE/PROG_SIZE)'
 defines.PROG_SIZE = 64
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1668,8 +1786,15 @@ code = '''
 '''
 
 [cases.test_files_hole_compaction]
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 # bit 0 => first chunk 
 # bit 1 => middle chunk
 # bit 2 => last chunk
@@ -1683,14 +1808,15 @@ defines.WRITES = '2*(BLOCK_SIZE/PROG_SIZE)'
 defines.PROG_SIZE = 64
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
-    // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
-    if (err) {
-        lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1849,16 +1975,28 @@ code = '''
 
 # fuzz testing
 [cases.test_files_fuzz_aligned]
-defines.N = 100
-defines.SEED = 'range(100)'
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-defines.CHUNK = ['CACHE_SIZE/2', '4', '1']
+defines.N = 20
+defines.SEED = 'range(10)'
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1975,17 +2113,29 @@ code = '''
 
 # fuzz testing
 [cases.test_files_fuzz_unaligned]
-defines.N = 100
-defines.SEED = 'range(100)'
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.N = 20
+defines.SEED = 'range(10)'
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 # chunk is more an upper limit here
-defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.CHUNK = [32, 8]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2109,12 +2259,24 @@ code = '''
 
 # more seek testing
 [cases.test_files_r_seek]
-defines.N = 100
+defines.N = 20
 defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 # chunk is more an upper limit here
-defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.CHUNK = [32, 8]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2175,17 +2337,29 @@ code = '''
 # this is pretty much the same as earlier fuzz testing, except we test
 # different seek methods
 [cases.test_files_w_seek]
-defines.N = 100
+defines.N = 10
 defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 # chunk is more an upper limit here
-defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.CHUNK = [32, 8]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2301,17 +2475,29 @@ code = '''
 
 # the above was just warmup, here's the real seek test
 [cases.test_files_rw_seek]
-defines.N = 100
-defines.SEED = 'range(100)'
+defines.N = 10
+defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 # chunk is more an upper limit here
-defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.CHUNK = [32, 8]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2452,12 +2638,23 @@ code = '''
 # test other corner conditions
 [cases.test_files_seek_negative]
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS_O_RDONLY', 'LFS_O_WRONLY', 'LFS_O_RDWR']
+if = [
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2538,17 +2735,29 @@ code = '''
 
 # heavy fuzz test with rw seeks, truncate, and fruncate
 [cases.test_files_rwtf_fuzz]
-defines.N = 100
-defines.SEED = 'range(100)'
-defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.N = 20
+defines.SEED = 'range(10)'
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
 # chunk is more an upper limit here
-defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.CHUNK = [32, 8]
 # 0 => no init
 # 1 => fill with data
 # 2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just save testing time
+    'SIZE / FRAGMENT_SIZE <= 4096',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;

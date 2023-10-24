@@ -10227,7 +10227,7 @@ static int lfsr_file_carvetree(lfs_t *lfs, lfsr_file_t *file,
                 lfsr_bptr_t bptr_ = {
                     .block = slice_.u.disk.block,
                     .off = slice_.u.disk.off,
-                    .size = slice_.u.disk.size,
+                    .size = lfsr_data_size(&slice_),
                 };
 
                 uint8_t bptr_buf[LFSR_BPTR_DSIZE];
@@ -10285,7 +10285,7 @@ static int lfsr_file_carvetree(lfs_t *lfs, lfsr_file_t *file,
                     lfsr_bptr_t bptr_ = {
                         .block = slice_.u.disk.block,
                         .off = slice_.u.disk.off,
-                        .size = slice_.u.disk.size,
+                        .size = lfsr_data_size(&slice_),
                     };
 
                     uint8_t bptr_buf[LFSR_BPTR_DSIZE];
@@ -10342,7 +10342,7 @@ static int lfsr_file_carvetree(lfs_t *lfs, lfsr_file_t *file,
                 lfsr_bptr_t bptr_ = {
                     .block = slice_.u.disk.block,
                     .off = slice_.u.disk.off,
-                    .size = slice_.u.disk.size,
+                    .size = lfsr_data_size(&slice_),
                 };
 
                 uint8_t bptr_buf[LFSR_BPTR_DSIZE];
@@ -10377,8 +10377,8 @@ static int lfsr_file_carvetree(lfs_t *lfs, lfsr_file_t *file,
             }
         }
 
-        delta += lfs_min32(weight, weight_);
-        weight -= lfs_min32(weight, weight_);
+        delta += lfs_min32(weight, bid_+1 - pos);
+        weight -= lfs_min32(weight, bid_+1 - pos);
     }
 
     // need a hole?
@@ -10635,9 +10635,9 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
                 // use this via lfsr_data_t hole representation?
                 //
                 // found a hole? fill with zeros
-                } else if (lfsr_data_size(&data) == 0) {
+                } else {
                     for (lfs_size_t j = 0; j < weight; j++) {
-                        err = lfsr_bd_prog(lfs, block, pos_ - left_align,
+                        err = lfsr_bd_prog(lfs, block, pos_ - left_align + j,
                                 &(uint8_t){0}, 1,
                                 NULL);
                         if (err) {
@@ -11855,6 +11855,10 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         file->pos = file->size;
     }
 
+    // TODO is this a good design? how do we abort?
+    // proactively update our file->size, we rely on this internally
+    file->size = lfs_max32(file->size, file->pos + size);
+
     lfs_off_t pos = file->pos;
     const uint8_t *buffer_ = buffer;
     int err;
@@ -11884,6 +11888,10 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             continue;
         }
 
+        // TODO is this the right place for this?
+        // checkpoint the allocator
+        lfs_alloc_ack(lfs);
+
         // flush our buffer so the above can't fail
         err = lfsr_file_flushbuffer(lfs, file);
         if (err) {
@@ -11893,7 +11901,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     lfs_size_t written = pos - file->pos;
     file->pos = pos;
-    file->size = lfs_max32(file->size, pos);
     return written;
 
 failed:;
@@ -11922,6 +11929,10 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // TODO what if buffer_size > inlined_size?
         // TODO should we also update file to be unbuffered after syncing
         // inlined data?
+
+        // TODO is this the right place for this?
+        // checkpoint the allocator
+        lfs_alloc_ack(lfs);
 
         // does buffer contain the entire file? we can create a simple
         // inlined file in that case
@@ -12063,17 +12074,22 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     // mark as unsynced before we commit anything
     file->flags |= LFS_F_UNSYNCED;
 
+    // TODO we should also revert to sprout even if data is not already
+    // in buffer
+    //
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
     lfs_size_t buffer_size = lfs_min32(
             file->buffer_size,
             size - lfs_min32(file->buffer_pos, size));
     if (buffer_size >= size) {
+        // TODO LFSR_SHRUB_NULL/LFSR_TREE_NULL?
         file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
+        file->tree.u.btree = LFSR_BTREE_NULL;
 
     // TODO, wait, could we just update file->size and leave it to
     // lfsr_file_sync to update the shrub?
-    // otherwise, we need to modify our sprout/shrub
+    // otherwise, we need to modify our sprout/shrub/bptr/btree
     } else {
         int err = lfsr_file_carveshrub(lfs, file,
                 lfs_min32(file->size, size),
@@ -12082,12 +12098,25 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 LFSR_TAG_SHRUB(DATA),
                 LFSR_DATA_NULL);
         if (err) {
+            // note, unlike fruncate, truncate will never overflow a shrub
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        // TODO avoid transforming into trees all the time?
+        err = lfsr_file_carvetree(lfs, file,
+                lfs_min32(file->size, size),
+                file->size - lfs_min32(file->size, size),
+                +size - file->size,
+                LFSR_TAG_DATA,
+                LFSR_DATA_NULL);
+        if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
     }
-
-    // TODO update btree?
+    LFS_ASSERT(!lfsr_shrub_hasshrub(&file->shrub)
+            || lfsr_shrub_size(&file->shrub) > 0);
 
     // update our buffer
     file->buffer_size = buffer_size;
@@ -12114,29 +12143,72 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     // mark as unsynced before we commit anything
     file->flags |= LFS_F_UNSYNCED;
 
+    // TODO we should also revert to sprout even if data is not already
+    // in buffer
+    //
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
     lfs_size_t buffer_size = file->buffer_size - lfs_min32(
             lfs_smax32(file->size - size - file->buffer_pos, 0),
             file->buffer_size);
-    if (size < file->size
-            && file->size - size >= lfsr_shrub_size(&file->shrub)) {
+    if (buffer_size >= size) {
+        // TODO LFSR_SHRUB_NULL/LFSR_TREE_NULL?
         file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
+        file->tree.u.btree = LFSR_BTREE_NULL;
 
-    // otherwise, we need to modify our sprout/shrub and btree
+    // otherwise, we need to modify our sprout/shrub/bptr/btree
     } else {
-        int err = lfsr_file_carveshrub(lfs, file,
-                0,
-                lfs_smax32(file->size - size, 0),
-                +size - file->size,
-                LFSR_TAG_SHRUB(DATA),
-                LFSR_DATA_NULL);
-        if (err) {
-            return err;
+        // should should this logic and the above sprout logic be
+        // merged somehow?
+        //
+        // revert shrubs if they go to zero
+        if ((lfs_soff_t)(file->size - size)
+                >= (lfs_soff_t)lfsr_shrub_size(&file->shrub)) {
+            file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
+        } else {
+            int err = lfsr_file_carveshrub(lfs, file,
+                    0,
+                    lfs_smax32(file->size - size, 0),
+                    +size - file->size,
+                    LFSR_TAG_SHRUB(DATA),
+                    LFSR_DATA_NULL);
+            if (err && err != LFS_ERR_RANGE) {
+                return err;
+            }
+
+            // if a fruncate would push our shrub out of range, flush, and
+            // then take care of fruncate in carvetree
+            if (err == LFS_ERR_RANGE) {
+                err = lfsr_file_flushshrub(lfs, file);
+                if (err) {
+                    return err;
+                }
+
+                // note! this zeros our buffer
+                buffer_size = 0;
+            }
+        }
+
+        // revert btrees if they go to zero
+        if ((lfs_soff_t)(file->size - size)
+                >= (lfs_soff_t)lfsr_tree_size(&file->tree)) {
+            file->tree.u.btree = LFSR_BTREE_NULL;
+        } else {
+            // TODO avoid transforming into trees all the time?
+            int err = lfsr_file_carvetree(lfs, file,
+                    0,
+                    lfs_smax32(file->size - size, 0),
+                    +size - file->size,
+                    LFSR_TAG_DATA,
+                    LFSR_DATA_NULL);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
         }
     }
-
-    // TODO update btree
+    LFS_ASSERT(!lfsr_shrub_hasshrub(&file->shrub)
+            || lfsr_shrub_size(&file->shrub) > 0);
 
     // update our buffer
     file->buffer_pos -= lfs_smin32(file->size - size, file->buffer_pos);
