@@ -31,7 +31,6 @@ TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
 TAG_DATA        = 0x0300
-TAG_SLICE       = 0x0304
 TAG_TRUNK       = 0x0308
 TAG_DID         = 0x030c
 TAG_BLOCK       = 0x0310
@@ -193,7 +192,6 @@ def tagrepr(tag, w, size, off=None):
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
             'data' if (tag & 0xfff) == TAG_DATA
-                else 'slice' if (tag & 0xfff) == TAG_SLICE
                 else 'trunk' if (tag & 0xfff) == TAG_TRUNK
                 else 'did' if (tag & 0xfff) == TAG_DID
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
