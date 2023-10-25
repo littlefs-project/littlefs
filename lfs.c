@@ -604,7 +604,6 @@ enum lfsr_tag_type {
 
     // name tags
     LFSR_TAG_NAME           = 0x0200,
-    LFSR_TAG_BNAME          = 0x0200,
     LFSR_TAG_BOOKMARK       = 0x0201,
     LFSR_TAG_REG            = 0x0202,
     LFSR_TAG_DIR            = 0x0203,
@@ -3735,7 +3734,7 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // if we have no name or a vestigial name, treat this rid as always lt
         lfs_scmp_t cmp;
-        if ((tag__ == LFSR_TAG_BNAME && rid__-(weight__-1) == 0)
+        if ((tag__ == LFSR_TAG_NAME && rid__-(weight__-1) == 0)
                 || lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
             cmp = LFS_CMP_LT;
 
@@ -4617,7 +4616,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
             *attrs_++ = LFSR_ATTR(
                     bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
-                    BNAME, 0, DATA(split_data));
+                    NAME, 0, DATA(split_data));
         }
         attrs = scratch_attrs;
         attr_count = attrs_ - scratch_attrs;
@@ -6232,7 +6231,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 LFSR_ATTR(mdir_.mid | lfsr_midrmask(lfs),
                     MDIR, 0, FROMMPTR(mdir_.u.m.blocks, mdir_buf)),
                 LFSR_ATTR((mdir_.mid | lfsr_midrmask(lfs))+1,
-                    BNAME, +lfsr_mleafweight(lfs), DATA(split_data)),
+                    NAME, +lfsr_mleafweight(lfs), DATA(split_data)),
                 LFSR_ATTR(msibling_.mid | lfsr_midrmask(lfs),
                     MDIR, 0, FROMMPTR(msibling_.u.m.blocks, msibling_buf))));
         if (err) {

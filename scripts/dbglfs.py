@@ -26,7 +26,6 @@ TAG_UATTRLIMIT  = 0x000e
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
-TAG_BNAME       = 0x0200
 TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
@@ -182,7 +181,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xef00) == TAG_NAME:
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
-            'bname' if (tag & 0xfff) == TAG_BNAME
+            'name' if (tag & 0xfff) == TAG_NAME
                 else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'reg' if (tag & 0xfff) == TAG_REG
                 else 'dir' if (tag & 0xfff) == TAG_DIR
@@ -837,7 +836,7 @@ class Rbyd:
                 break
 
             # treat vestigial names as a catch-all
-            if ((tag == TAG_BNAME and rid-(w-1) == 0)
+            if ((tag == TAG_NAME and rid-(w-1) == 0)
                     or (tag & 0xff00) != TAG_NAME):
                 did_ = 0
                 name_ = b''
