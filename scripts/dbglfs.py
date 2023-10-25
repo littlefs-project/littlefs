@@ -13,16 +13,19 @@ TAG_NULL        = 0x0000
 TAG_CONFIG      = 0x0000
 TAG_MAGIC       = 0x0003
 TAG_VERSION     = 0x0004
-TAG_FLAGS       = 0x0005
-TAG_CKSUMTYPE   = 0x0006
-TAG_REDUNDTYPE  = 0x0007
-TAG_BLOCKLIMIT  = 0x0008
-TAG_DISKLIMIT   = 0x0009
-TAG_MLEAFLIMIT  = 0x000a
+TAG_RFLAGS      = 0x0005
+TAG_WFLAGS      = 0x0006
+TAG_OFLAGS      = 0x0007
+TAG_BLOCKSIZE   = 0x0008
+TAG_BLOCKCOUNT  = 0x0009
+TAG_NAMELIMIT   = 0x000a
 TAG_SIZELIMIT   = 0x000b
-TAG_NAMELIMIT   = 0x000c
-TAG_UTAGLIMIT   = 0x000d
-TAG_UATTRLIMIT  = 0x000e
+TAG_UTAGLIMIT   = 0x000c
+TAG_UATTRLIMIT  = 0x000d
+TAG_STAGLIMIT   = 0x000e
+TAG_SATTRLIMIT  = 0x000f
+TAG_MDIRLIMIT   = 0x0010
+TAG_MTREELIMIT  = 0x0011
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
@@ -158,16 +161,19 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'flags' if (tag & 0xfff) == TAG_FLAGS
-                else 'cksumtype' if (tag & 0xfff) == TAG_CKSUMTYPE
-                else 'redundtype' if (tag & 0xfff) == TAG_REDUNDTYPE
-                else 'blocklimit' if (tag & 0xfff) == TAG_BLOCKLIMIT
-                else 'disklimit' if (tag & 0xfff) == TAG_DISKLIMIT
-                else 'mleaflimit' if (tag & 0xfff) == TAG_MLEAFLIMIT
+                else 'rflags' if (tag & 0xfff) == TAG_RFLAGS
+                else 'wflags' if (tag & 0xfff) == TAG_WFLAGS
+                else 'oflags' if (tag & 0xfff) == TAG_OFLAGS
+                else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
+                else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                 else 'utaglimit' if (tag & 0xfff) == TAG_UTAGLIMIT
                 else 'uattrlimit' if (tag & 0xfff) == TAG_UATTRLIMIT
+                else 'staglimit' if (tag & 0xfff) == TAG_STAGLIMIT
+                else 'sattrlimit' if (tag & 0xfff) == TAG_SATTRLIMIT
+                else 'mdirlimit' if (tag & 0xfff) == TAG_MDIRLIMIT
+                else 'mtreelimit' if (tag & 0xfff) == TAG_MTREELIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
@@ -987,65 +993,44 @@ class Config:
             return (None, None)
 
     @ft.cached_property
-    def flags(self):
-        if TAG_FLAGS in self.config:
-            _, data = self.config[TAG_FLAGS]
-            flags, _ = fromleb128(data)
-            return flags
+    def rflags(self):
+        if TAG_RFLAGS in self.config:
+            _, data = self.config[TAG_RFLAGS]
+            return data
         else:
             return None
 
     @ft.cached_property
-    def cksum_type(self):
-        if TAG_CKSUMTYPE in self.config:
-            _, data = self.config[TAG_CKSUMTYPE]
-            cksum_type, _ = fromleb128(data)
-            return cksum_type
+    def wflags(self):
+        if TAG_WFLAGS in self.config:
+            _, data = self.config[TAG_WFLAGS]
+            return data
         else:
             return None
 
     @ft.cached_property
-    def redund_type(self):
-        if TAG_REDUNDTYPE in self.config:
-            _, data = self.config[TAG_REDUNDTYPE]
-            redund_type, _ = fromleb128(data)
-            return redund_type
+    def oflags(self):
+        if TAG_OFLAGS in self.config:
+            _, data = self.config[TAG_OFLAGS]
+            return data
         else:
             return None
 
     @ft.cached_property
-    def block_limit(self):
-        if TAG_BLOCKLIMIT in self.config:
-            _, data = self.config[TAG_BLOCKLIMIT]
-            block_limit, _ = fromleb128(data)
-            return block_limit
+    def block_size(self):
+        if TAG_BLOCKSIZE in self.config:
+            _, data = self.config[TAG_BLOCKSIZE]
+            block_size, _ = fromleb128(data)
+            return block_size
         else:
             return None
 
     @ft.cached_property
-    def disk_limit(self):
-        if TAG_DISKLIMIT in self.config:
-            _, data = self.config[TAG_DISKLIMIT]
-            disk_limit, _ = fromleb128(data)
-            return disk_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def mleaf_limit(self):
-        if TAG_MLEAFLIMIT in self.config:
-            _, data = self.config[TAG_MLEAFLIMIT]
-            mleaf_limit, _ = fromleb128(data)
-            return mleaf_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def size_limit(self):
-        if TAG_SIZELIMIT in self.config:
-            _, data = self.config[TAG_SIZELIMIT]
-            size_limit, _ = fromleb128(data)
-            return size_limit
+    def block_count(self):
+        if TAG_BLOCKCOUNT in self.config:
+            _, data = self.config[TAG_BLOCKCOUNT]
+            block_count, _ = fromleb128(data)
+            return block_count
         else:
             return None
 
@@ -1055,6 +1040,15 @@ class Config:
             _, data = self.config[TAG_NAMELIMIT]
             name_limit, _ = fromleb128(data)
             return name_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def size_limit(self):
+        if TAG_SIZELIMIT in self.config:
+            _, data = self.config[TAG_SIZELIMIT]
+            size_limit, _ = fromleb128(data)
+            return size_limit
         else:
             return None
 
@@ -1076,6 +1070,42 @@ class Config:
         else:
             return None
 
+    @ft.cached_property
+    def stag_limit(self):
+        if TAG_STAGLIMIT in self.config:
+            _, data = self.config[TAG_STAGLIMIT]
+            stag_limit, _ = fromleb128(data)
+            return stag_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def sattr_limit(self):
+        if TAG_SATTRLIMIT in self.config:
+            _, data = self.config[TAG_SATTRLIMIT]
+            sattr_limit, _ = fromleb128(data)
+            return sattr_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def mdir_limit(self):
+        if TAG_MDIRLIMIT in self.config:
+            _, data = self.config[TAG_MDIRLIMIT]
+            mdir_limit, _ = fromleb128(data)
+            return mdir_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def mtree_limit(self):
+        if TAG_MTREELIMIT in self.config:
+            _, data = self.config[TAG_MTREELIMIT]
+            mtree_limit, _ = fromleb128(data)
+            return mtree_limit
+        else:
+            return None
+
     def repr(self):
         def crepr(tag, data):
             if tag == TAG_MAGIC:
@@ -1084,18 +1114,19 @@ class Config:
                     for b in map(chr, self.magic))
             elif tag == TAG_VERSION:
                 return 'version v%d.%d' % self.version
-            elif tag == TAG_FLAGS:
-                return 'flags 0x%x' % self.flags
-            elif tag == TAG_CKSUMTYPE:
-                return 'cksumtype %d' % self.cksum_type
-            elif tag == TAG_REDUNDTYPE:
-                return 'redundtype %d' % self.redund_type
-            elif tag == TAG_BLOCKLIMIT:
-                return 'blocklimit %d' % self.block_limit
-            elif tag == TAG_DISKLIMIT:
-                return 'disklimit %d' % self.disk_limit
-            elif tag == TAG_MLEAFLIMIT:
-                return 'mleaflimit %d' % self.mleaf_limit
+            elif tag == TAG_RFLAGS:
+                return 'rflags 0x%s' % ''.join(
+                    '%02x' % f for f in reversed(self.rflags))
+            elif tag == TAG_WFLAGS:
+                return 'wflags 0x%s' % ''.join(
+                    '%02x' % f for f in reversed(self.wflags))
+            elif tag == TAG_OFLAGS:
+                return 'oflags 0x%s' % ''.join(
+                    '%02x' % f for f in reversed(self.oflags))
+            elif tag == TAG_BLOCKSIZE:
+                return 'blocksize %d' % self.block_size
+            elif tag == TAG_BLOCKCOUNT:
+                return 'blockcount %d' % self.block_count
             elif tag == TAG_SIZELIMIT:
                 return 'sizelimit %d' % self.size_limit
             elif tag == TAG_NAMELIMIT:
@@ -1104,6 +1135,14 @@ class Config:
                 return 'utaglimit %d' % self.utag_limit
             elif tag == TAG_UATTRLIMIT:
                 return 'uattrlimit %d' % self.uattr_limit
+            elif tag == TAG_STAGLIMIT:
+                return 'staglimit %d' % self.stag_limit
+            elif tag == TAG_SATTRLIMIT:
+                return 'sattrlimit %d' % self.sattr_limit
+            elif tag == TAG_MDIRLIMIT:
+                return 'mdirlimit %d' % self.mdir_limit
+            elif tag == TAG_MTREELIMIT:
+                return 'mtreelimit %d' % self.mtree_limit
             else:
                 return 'config 0x%02x %d' % (tag, len(data))
 
@@ -1850,7 +1889,7 @@ def main(disk, mroots=None, *,
             config.version[0] if config.version[0] is not None else '?',
             config.version[1] if config.version[1] is not None else '?',
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight,
-            (config.block_limit or -1)+1, (config.disk_limit or -1)+1))
+            (config.block_size or -1)+1, (config.block_count or -1)+1))
 
         # dynamically size the id field
         w_width = max(

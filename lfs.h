@@ -82,6 +82,16 @@ typedef int32_t  lfsr_sdid_t;
 //#define LFS_ATTR_MAX 1022
 //#endif
 
+// TODO document
+#ifndef LFS_UATTR_MAX
+#define LFS_UATTR_MAX 255
+#endif
+
+#ifndef LFS_SATTR_MAX
+#define LFS_SATTR_MAX 255
+#endif
+
+
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
@@ -264,6 +274,10 @@ struct lfs_config {
     // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
     lfs_size_t size_limit;
+
+    // TODO document
+    lfs_size_t uattr_limit;
+    lfs_size_t sattr_limit;
 
 // TODO rm me
 //    // Optional upper limit on custom attributes in bytes. No downside for
@@ -610,6 +624,8 @@ typedef struct lfs {
     const struct lfs_config *cfg;
     lfs_size_t name_limit;
     lfs_off_t size_limit;
+    lfs_size_t uattr_limit;
+    lfs_size_t sattr_limit;
 
     // begin lfsr things
     lfsr_grm_t grm;

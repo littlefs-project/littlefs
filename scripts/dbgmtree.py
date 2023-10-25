@@ -12,16 +12,19 @@ TAG_NULL        = 0x0000
 TAG_CONFIG      = 0x0000
 TAG_MAGIC       = 0x0003
 TAG_VERSION     = 0x0004
-TAG_FLAGS       = 0x0005
-TAG_CKSUMTYPE   = 0x0006
-TAG_REDUNDTYPE  = 0x0007
-TAG_BLOCKLIMIT  = 0x0008
-TAG_DISKLIMIT   = 0x0009
-TAG_MLEAFLIMIT  = 0x000a
+TAG_RFLAGS      = 0x0005
+TAG_WFLAGS      = 0x0006
+TAG_OFLAGS      = 0x0007
+TAG_BLOCKSIZE   = 0x0008
+TAG_BLOCKCOUNT  = 0x0009
+TAG_NAMELIMIT   = 0x000a
 TAG_SIZELIMIT   = 0x000b
-TAG_NAMELIMIT   = 0x000c
-TAG_UTAGLIMIT   = 0x000d
-TAG_UATTRLIMIT  = 0x000e
+TAG_UTAGLIMIT   = 0x000c
+TAG_UATTRLIMIT  = 0x000d
+TAG_STAGLIMIT   = 0x000e
+TAG_SATTRLIMIT  = 0x000f
+TAG_MDIRLIMIT   = 0x0010
+TAG_MTREELIMIT  = 0x0011
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
@@ -157,16 +160,19 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'flags' if (tag & 0xfff) == TAG_FLAGS
-                else 'cksumtype' if (tag & 0xfff) == TAG_CKSUMTYPE
-                else 'redundtype' if (tag & 0xfff) == TAG_REDUNDTYPE
-                else 'blocklimit' if (tag & 0xfff) == TAG_BLOCKLIMIT
-                else 'disklimit' if (tag & 0xfff) == TAG_DISKLIMIT
-                else 'mleaflimit' if (tag & 0xfff) == TAG_MLEAFLIMIT
+                else 'rflags' if (tag & 0xfff) == TAG_RFLAGS
+                else 'wflags' if (tag & 0xfff) == TAG_WFLAGS
+                else 'oflags' if (tag & 0xfff) == TAG_OFLAGS
+                else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
+                else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                 else 'utaglimit' if (tag & 0xfff) == TAG_UTAGLIMIT
                 else 'uattrlimit' if (tag & 0xfff) == TAG_UATTRLIMIT
+                else 'staglimit' if (tag & 0xfff) == TAG_STAGLIMIT
+                else 'sattrlimit' if (tag & 0xfff) == TAG_SATTRLIMIT
+                else 'mdirlimit' if (tag & 0xfff) == TAG_MDIRLIMIT
+                else 'mtreelimit' if (tag & 0xfff) == TAG_MTREELIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
