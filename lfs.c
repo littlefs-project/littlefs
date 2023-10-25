@@ -1970,13 +1970,12 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
 
     // first encode the number of grms, this can be 0, 1, or 2 and may
     // be extended to a general purpose leb128 type field in the future
-    // encode no-rm as zero-size
-    uint8_t count = lfsr_grm_count(grm);
+    uint8_t mode = lfsr_grm_count(grm);
     lfs_ssize_t d = 0;
-    buffer[d] = count;
+    buffer[d] = mode;
     d += 1;
 
-    for (int i = 0; i < count; i++) {
+    for (uint8_t i = 0; i < mode; i++) {
         lfs_ssize_t d_ = lfs_toleb128(grm->rms[i], &buffer[d], 5);
         LFS_ASSERT(d_ >= 0);
         d += d_;
@@ -1995,16 +1994,20 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
     grm->rms[0] = -1;
     grm->rms[1] = -1;
 
-    // get the count from the first byte
-    uint8_t count;
-    lfs_ssize_t d = lfsr_data_read(lfs, data, &count, 1);
-    if (d < 0) {
-        return d;
+    // first read the mode field
+    lfs_size_t mode;
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&mode);
+    if (err) {
+        return err;
     }
 
-    LFS_ASSERT(count <= 2);
-    for (int i = 0; i < count; i++) {
-        int err = lfsr_data_readleb128(lfs, data, &grm->rms[i]);
+    // unknown mode? return an error, we may be able to mount read-only
+    if (mode > 2) {
+        return LFS_ERR_INVAL;
+    }
+
+    for (uint8_t i = 0; i < mode; i++) {
+        err = lfsr_data_readleb128(lfs, data, &grm->rms[i]);
         if (err) {
             return err;
         }
@@ -7881,6 +7884,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     int err = lfsr_data_readgrm(lfs, &LFSR_DATA_BUF(lfs->ggrm, LFSR_GRM_DSIZE),
             &lfs->grm);
     if (err) {
+        // TODO switch to read-only?
         return err;
     }
 
