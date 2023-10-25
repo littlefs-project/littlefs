@@ -583,7 +583,7 @@ enum lfsr_tag_type {
     // the null tag is reserved
     LFSR_TAG_NULL           = 0x0000,
 
-    // "normal" tags
+    // config tags
     LFSR_TAG_CONFIG         = 0x0000,
     LFSR_TAG_MAGIC          = 0x0003,
     LFSR_TAG_VERSION        = 0x0004,
@@ -598,26 +598,30 @@ enum lfsr_tag_type {
     LFSR_TAG_UTAGLIMIT      = 0x000d,
     LFSR_TAG_UATTRLIMIT     = 0x000e,
 
+    // global-state tags
     LFSR_TAG_GSTATE         = 0x0100,
     LFSR_TAG_GRM            = 0x0100,
 
+    // name tags
     LFSR_TAG_NAME           = 0x0200,
     LFSR_TAG_BNAME          = 0x0200,
     LFSR_TAG_BOOKMARK       = 0x0201,
     LFSR_TAG_REG            = 0x0202,
     LFSR_TAG_DIR            = 0x0203,
 
+    // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
     LFSR_TAG_DATA           = 0x0300,
-    LFSR_TAG_TRUNK          = 0x0308,
-    LFSR_TAG_DID            = 0x030c,
-    LFSR_TAG_BLOCK          = 0x0310,
-    LFSR_TAG_BTREE          = 0x0314,
+    LFSR_TAG_TRUNK          = 0x0304,
+    LFSR_TAG_BLOCK          = 0x0308,
+    LFSR_TAG_BTREE          = 0x030c,
+    LFSR_TAG_BRANCH         = 0x031c,
     LFSR_TAG_MDIR           = 0x0321,
     LFSR_TAG_MTREE          = 0x0324,
     LFSR_TAG_MROOT          = 0x0329,
-    LFSR_TAG_BRANCH         = 0x032c,
+    LFSR_TAG_DID            = 0x032c,
 
+    // user/sys attributes
     LFSR_TAG_UATTR          = 0x0400,
     LFSR_TAG_SATTR          = 0x0600,
 

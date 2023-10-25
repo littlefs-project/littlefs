@@ -31,14 +31,14 @@ TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
 TAG_DATA        = 0x0300
-TAG_TRUNK       = 0x0308
-TAG_DID         = 0x030c
-TAG_BLOCK       = 0x0310
-TAG_BTREE       = 0x0314
+TAG_TRUNK       = 0x0304
+TAG_BLOCK       = 0x0308
+TAG_BTREE       = 0x030c
+TAG_BRANCH      = 0x031c
 TAG_MDIR        = 0x0321
 TAG_MTREE       = 0x0324
 TAG_MROOT       = 0x0329
-TAG_BRANCH      = 0x032c
+TAG_DID         = 0x032c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0600
 TAG_SHRUB       = 0x1000
@@ -178,13 +178,13 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'data' if (tag & 0xfff) == TAG_DATA
                 else 'trunk' if (tag & 0xfff) == TAG_TRUNK
-                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
                 else 'btree' if (tag & 0xfff) == TAG_BTREE
+                else 'branch' if (tag & 0xfff) == TAG_BRANCH
                 else 'mdir' if (tag & 0xfff) == TAG_MDIR
                 else 'mtree' if (tag & 0xfff) == TAG_MTREE
                 else 'mroot' if (tag & 0xfff) == TAG_MROOT
-                else 'branch' if (tag & 0xfff) == TAG_BRANCH
+                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
