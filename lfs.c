@@ -636,8 +636,8 @@ enum lfsr_tag_type {
     LFSR_TAG_R              = 0x1000,
 
     // checksum tags
-    LFSR_TAG_CKSUM          = 0x2000,
-    LFSR_TAG_ECKSUM         = 0x2100,
+    LFSR_TAG_CKSUM          = 0x3000,
+    LFSR_TAG_ECKSUM         = 0x3100,
 
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
@@ -723,7 +723,7 @@ static inline bool lfsr_tag_isshrub(lfsr_tag_t tag) {
 }
 
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
-    return (tag & 0xe000) != 0x2000;
+    return lfsr_tag_mode(tag) != LFSR_TAG_CKSUM;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {

@@ -51,8 +51,8 @@ TAG_DID         = 0x032c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0600
 TAG_SHRUB       = 0x1000
-TAG_CKSUM       = 0x2000
-TAG_ECKSUM      = 0x2100
+TAG_CKSUM       = 0x3000
+TAG_ECKSUM      = 0x3100
 TAG_ALT         = 0x4000
 TAG_GT          = 0x2000
 TAG_R           = 0x1000
@@ -339,12 +339,12 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 j_ += size
 
             # evaluate trunks
-            if (tag & 0xe000) != TAG_CKSUM:
+            if (tag & 0xf000) != TAG_CKSUM:
                 if not wastrunk:
                     wastrunk = True
                     lower_, upper_ = 0, 0
 
-                if (tag & 0xe000) == TAG_ALT:
+                if (tag & 0xf000) == TAG_ALT:
                     lower_ += w
                 else:
                     upper_ += w
@@ -356,7 +356,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                     weight_ = lower_+upper_
                     rid = lower_ + w-1
 
-            if (tag & 0xe000) != TAG_CKSUM and not tag & TAG_ALT:
+            if (tag & 0xf000) != TAG_CKSUM and not tag & TAG_ALT:
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
@@ -468,7 +468,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             j_ += size
 
         # evaluate trunks
-        if (tag & 0xe000) != TAG_CKSUM:
+        if (tag & 0xf000) != TAG_CKSUM:
             if not wastrunk:
                 wastrunk = True
                 weight__ = 0
@@ -516,7 +516,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             j_ += size
 
         # evaluate trunks
-        if (tag & 0xe000) != TAG_CKSUM:
+        if (tag & 0xf000) != TAG_CKSUM:
             if not wastrunk:
                 wastrunk = True
                 lower_, upper_ = 0, 0
@@ -923,7 +923,7 @@ def main(disk, blocks=None, *,
                     weight = weight_
 
             # evaluate trunks
-            if (tag & 0xe000) != TAG_CKSUM and (
+            if (tag & 0xf000) != TAG_CKSUM and (
                     not trunk or trunk >= j_-d or wastrunk):
                 # new trunk?
                 if not wastrunk:

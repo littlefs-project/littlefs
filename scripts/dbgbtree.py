@@ -42,8 +42,8 @@ TAG_DID         = 0x032c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0600
 TAG_SHRUB       = 0x1000
-TAG_CKSUM       = 0x2000
-TAG_ECKSUM      = 0x2100
+TAG_CKSUM       = 0x3000
+TAG_ECKSUM      = 0x3100
 TAG_ALT         = 0x4000
 TAG_GT          = 0x2000
 TAG_R           = 0x1000
@@ -320,7 +320,7 @@ class Rbyd:
                     weight = weight_
 
             # evaluate trunks
-            if (tag & 0xe000) != TAG_CKSUM and (
+            if (tag & 0xf000) != TAG_CKSUM and (
                     not trunk or trunk >= j_-d or wastrunk):
                 # new trunk?
                 if not wastrunk:
