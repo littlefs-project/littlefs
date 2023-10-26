@@ -446,52 +446,52 @@ typedef struct lfs_mdir {
     lfs_block_t tail[2];
 } lfs_mdir_t;
 
-// either an on-disk or in-device data pointer
+// Either an on-disk or in-device data pointer
+//
+// The sign-bit of the size field indicates if the data is
+// in-device or on-disk.
+//
+// After removing the sign bit, the size always encodes the
+// resulting size on-disk.
+//
+// The exact representation of in-device data also depends on the
+// mode field:
+// - pointer to a RAM-backed buffer
+// - implicitly zero-filled holes
+// - inlined data able to fit at least 1 leb128
+// - an array of concatenated datas
+//
+// Note concatenated datas can only be 1 level deep. Concatenating
+// concatenated datas would require recursion to resolve.
+//
 typedef struct lfsr_data {
     union {
-        // The sign-bit of the size field indicates if the data is in-device
-        // or on-disk.
-        //
-        // After removing the sign bit, the size always encodes the resulting
-        // size on-disk.
-        //
-        // After this the count field indicates the in-device representation,
-        // which has a few forms:
-        // - count == 0 => data inlined in data struct
-        // - count == 1 => direct pointer to data
-        // - count >= 2 => indirect pointer to array of datas
-        //
-        // The indirect pointer can point to inlined/direct datas or even
-        // on-disk datas, but not more indirect datas as that would require
-        // recursion.
-        //
         lfs_ssize_t size;
-        struct {
-            lfs_ssize_t size;
-            uint8_t count;
-            uint8_t buf[5];
-        } inlined;
-        struct {
-            lfs_ssize_t size;
-            uint8_t count;
-            const uint8_t *buffer;
-        } direct;
-        struct {
-            lfs_ssize_t size;
-            uint8_t count;
-            const struct lfsr_data *datas;
-        } indirect;
         struct {
             lfs_ssize_t size;
             lfs_block_t block;
             lfs_size_t off;
         } disk;
-        // TODO doc
         struct {
             lfs_ssize_t size;
-            lfs_off_t pos;
-            const struct lfsr_file *file;
-        } file;
+            uint8_t mode;
+            const uint8_t *buffer;
+        } buf;
+        struct {
+            lfs_ssize_t size;
+            uint8_t mode;
+        } hole;
+        struct {
+            lfs_ssize_t size;
+            uint8_t mode;
+            uint8_t buf[5];
+        } imm;
+        struct {
+            lfs_ssize_t size;
+            uint8_t mode;
+            uint8_t count;
+            const struct lfsr_data *datas;
+        } cat;
     } u;
 } lfsr_data_t;
 
