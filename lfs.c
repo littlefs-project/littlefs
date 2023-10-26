@@ -9024,7 +9024,7 @@ static int lfsr_shrub_lookupnext(lfs_t *lfs, const lfsr_shrub_t *shrub,
 
 static int lfsr_shrub_readnext(lfs_t *lfs, const lfsr_shrub_t *shrub,
         lfs_off_t pos, lfs_off_t size,
-        lfs_off_t *weight_, lfsr_data_t *data_) {
+        lfsr_data_t *data_) {
     lfsr_rid_t rid;
     lfsr_tag_t tag;
     lfsr_rid_t weight;
@@ -9041,10 +9041,6 @@ static int lfsr_shrub_readnext(lfs_t *lfs, const lfsr_shrub_t *shrub,
         lfs_off_t d = lfs_min32(
                 size,
                 lfsr_data_size(&data) - (pos - (rid-(weight-1))));
-
-        if (weight_) {
-            *weight_ = d;
-        }
         if (data_) {
             *data_ = LFSR_DATA_DISK(
                     data.u.disk.block,
@@ -9056,15 +9052,8 @@ static int lfsr_shrub_readnext(lfs_t *lfs, const lfsr_shrub_t *shrub,
 
     // found a hole, just make sure next leaf takes priority
     lfs_off_t d = lfs_min32(size, rid+1 - pos);
-
-    // TODO should we have a special LFSR_DATA_HOLE representation?
-
-    // found a hole?
-    if (weight_) {
-        *weight_ = d;
-    }
     if (data_) {
-        *data_ = LFSR_DATA_NULL;
+        *data_ = LFSR_DATA_HOLE(d);
     }
     return 0;
 }
@@ -9147,7 +9136,7 @@ static int lfsr_tree_lookupnext(lfs_t *lfs, const lfsr_tree_t *tree,
 
 static int lfsr_tree_readnext(lfs_t *lfs, const lfsr_tree_t *tree,
         lfs_off_t pos, lfs_off_t size,
-        lfs_off_t *weight_, lfsr_data_t *data_) {
+        lfsr_data_t *data_) {
     lfsr_bid_t bid;
     lfsr_tag_t tag;
     lfsr_bid_t weight;
@@ -9164,10 +9153,6 @@ static int lfsr_tree_readnext(lfs_t *lfs, const lfsr_tree_t *tree,
         lfs_off_t d = lfs_min32(
                 size,
                 lfsr_data_size(&data) - (pos - (bid-(weight-1))));
-
-        if (weight_) {
-            *weight_ = d;
-        }
         if (data_) {
             *data_ = LFSR_DATA_DISK(
                     data.u.disk.block,
@@ -9179,22 +9164,15 @@ static int lfsr_tree_readnext(lfs_t *lfs, const lfsr_tree_t *tree,
 
     // found a hole, just make sure next leaf takes priority
     lfs_off_t d = lfs_min32(size, bid+1 - pos);
-
-    // TODO should we have a special LFSR_DATA_HOLE representation?
-
-    // found a hole?
-    if (weight_) {
-        *weight_ = d;
-    }
     if (data_) {
-        *data_ = LFSR_DATA_NULL;
+        *data_ = LFSR_DATA_HOLE(d);
     }
     return 0;
 }
 
 static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t size,
-        lfs_off_t *weight_, lfsr_data_t *data_) {
+        lfsr_data_t *data_) {
     // past end of file?
     if (pos >= file->size) {
         return LFS_ERR_NOENT;
@@ -9209,10 +9187,6 @@ static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
             d = lfs_min32(
                     d,
                     file->buffer_size - (pos - file->buffer_pos));
-
-            if (weight_) {
-                *weight_ = d;
-            }
             if (data_) {
                 *data_ = LFSR_DATA_BUF(
                         &file->buffer[pos - file->buffer_pos],
@@ -9227,20 +9201,16 @@ static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
 
     // any data in our shrub?
     if (pos < lfsr_shrub_size(&file->shrub)) {
-        lfs_off_t weight;
         lfsr_data_t data;
         int err = lfsr_shrub_readnext(lfs, &file->shrub, pos, d,
-                &weight, &data);
+                &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
         // found data?
-        if (lfsr_data_size(&data) > 0) {
-            if (weight_) {
-                *weight_ = weight;
-            }
+        if (!lfsr_data_ishole(&data)) {
             if (data_) {
                 *data_ = data;
             }
@@ -9248,25 +9218,21 @@ static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // found a hole, just make sure next leaf takes priority
-        d = lfs_min32(d, weight);
+        d = lfs_min32(d, lfsr_data_size(&data));
     }
 
     // any data in our tree?
     if (pos < lfsr_tree_size(&file->tree)) {
-        lfs_off_t weight;
         lfsr_data_t data;
         int err = lfsr_tree_readnext(lfs, &file->tree, pos, d,
-                &weight, &data);
+                &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
         // found data?
-        if (lfsr_data_size(&data) > 0) {
-            if (weight_) {
-                *weight_ = weight;
-            }
+        if (!lfsr_data_ishole(&data)) {
             if (data_) {
                 *data_ = data;
             }
@@ -9274,17 +9240,12 @@ static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // found a hole, just make sure next leaf takes priority
-        d = lfs_min32(d, weight);
+        d = lfs_min32(d, lfsr_data_size(&data));
     }
-
-    // TODO should we have a special LFSR_DATA_HOLE representation?
 
     // found a hole?
-    if (weight_) {
-        *weight_ = d;
-    }
     if (data_) {
-        *data_ = LFSR_DATA_NULL;
+        *data_ = LFSR_DATA_HOLE(d);
     }
     return 0;
 }
@@ -9297,11 +9258,10 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
     lfs_off_t pos = file->pos;
     uint8_t *buffer_ = buffer;
     while (size > 0) {
-        // read each data/hole
-        lfs_off_t weight;
+        // find a data/hole
         lfsr_data_t data;
         int err = lfsr_file_readnext(lfs, file, pos, size,
-                &weight, &data);
+                &data);
         if (err) {
             // hit end of file?
             if (err == LFS_ERR_NOENT) {
@@ -9309,28 +9269,18 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             }
             return err;
         }
-        LFS_ASSERT(weight > 0);
+        LFS_ASSERT(lfsr_data_size(&data) > 0);
 
-        // found data?
-        if (lfsr_data_size(&data) > 0) {
-            lfs_ssize_t d = lfsr_data_read(lfs, &data,
-                    buffer_, size);
-            if (d < 0) {
-                return d;
-            }
-
-            pos += d;
-            buffer_ += d;
-            size -= d;
-
-        // found a hole? just fill with zeros
-        } else {
-            memset(buffer_, 0, weight);
-
-            pos += weight;
-            buffer_ += weight;
-            size -= weight;
+        // read from disk
+        lfs_ssize_t d = lfsr_data_read(lfs, &data,
+                buffer_, size);
+        if (d < 0) {
+            return d;
         }
+
+        pos += d;
+        buffer_ += d;
+        size -= d;
     }
 
     lfs_size_t read = pos - file->pos;
@@ -9978,22 +9928,21 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
 
         // any data in our shrub?
         if (pos < lfsr_shrub_size(&file->shrub)) {
-            lfs_off_t weight;
             int err = lfsr_shrub_readnext(lfs, &file->shrub, pos, d,
-                    &weight, &data);
+                    &data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
 
             // found data?
-            if (lfsr_data_size(&data) > 0) {
+            if (!lfsr_data_ishole(&data)) {
                 d = lfsr_data_size(&data);
                 goto flush;
             }
 
             // found a hole, just make sure next leaf takes priority
-            d = lfs_min32(d, weight);
+            d = lfs_min32(d, lfsr_data_size(&data));
         }
 
         // found a hole? skip
@@ -10083,10 +10032,9 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             // copy any data underneath our block into our block
             lfs_off_t pos_ = left_align;
             while (pos_ < right_align) {
-                lfs_off_t weight;
                 lfsr_data_t data;
                 err = lfsr_file_readnext(lfs, file, pos_, right_align - pos_,
-                        &weight, &data);
+                        &data);
                 if (err) {
                     // end of file?
                     if (err == LFS_ERR_NOENT) {
@@ -10094,33 +10042,17 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
                     }
                     return err;
                 }
-                LFS_ASSERT(weight > 0);
+                LFS_ASSERT(lfsr_data_size(&data) > 0);
 
-                // found data? prog
-                if (lfsr_data_size(&data) > 0) {
-                    err = lfsr_bd_progdata(lfs, block, pos_ - left_align,
-                            data,
-                            NULL);
-                    if (err) {
-                        return err;
-                    }
-
-                // TODO can we do this more efficiently? lfsr_bd_progzero?
-                // use this via lfsr_data_t hole representation?
-                //
-                // found a hole? fill with zeros
-                } else {
-                    for (lfs_size_t j = 0; j < weight; j++) {
-                        err = lfsr_bd_prog(lfs, block, pos_ - left_align + j,
-                                &(uint8_t){0}, 1,
-                                NULL);
-                        if (err) {
-                            return err;
-                        }
-                    }
+                // prog data/hole
+                err = lfsr_bd_progdata(lfs, block, pos_ - left_align,
+                        data,
+                        NULL);
+                if (err) {
+                    return err;
                 }
 
-                pos_ += weight;
+                pos_ += lfsr_data_size(&data);
             }
 
             // TODO validate?
