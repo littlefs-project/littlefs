@@ -21,15 +21,13 @@ import threading as th
 import time
 
 
-CHARS = 'rpe.'
-COLORS = ['42', '45', '44', '']
+CHARS = 'rpe-'
+COLORS = ['32', '35', '34', '']
 
-WEAR_CHARS = '0123456789'
-WEAR_CHARS_SUBSCRIPTS = '.₁₂₃₄₅₆789'
+WEAR_CHARS = '-123456789'
 WEAR_COLORS = ['', '', '', '', '', '', '', '35', '35', '1;31']
 
 CHARS_DOTS = " .':"
-COLORS_DOTS = ['32', '35', '34', '']
 CHARS_BRAILLE = (
     '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
     '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
@@ -50,6 +48,67 @@ def openio(path, mode='r', buffering=-1):
             return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
+
+# some ways of block geometry representations
+# 512      -> 512
+# 512x16   -> (512, 16)
+# 0x200x10 -> (512, 16)
+def bdgeom(s):
+    s = s.strip()
+    b = 10
+    if s.startswith('0x') or s.startswith('0X'):
+        s = s[2:]
+        b = 16
+    elif s.startswith('0o') or s.startswith('0O'):
+        s = s[2:]
+        b = 8
+    elif s.startswith('0b') or s.startswith('0B'):
+        s = s[2:]
+        b = 2
+
+    if 'x' in s:
+        s, s_ = s.split('x', 1)
+        return (int(s, b), int(s_, b))
+    else:
+        return int(s, b)
+
+# parse some rbyd addr encodings
+# 0xa       -> [0xa]
+# 0xa.c     -> [(0xa, 0xc)]
+# 0x{a,b}   -> [0xa, 0xb]
+# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+def rbydaddr(s):
+    s = s.strip()
+    b = 10
+    if s.startswith('0x') or s.startswith('0X'):
+        s = s[2:]
+        b = 16
+    elif s.startswith('0o') or s.startswith('0O'):
+        s = s[2:]
+        b = 8
+    elif s.startswith('0b') or s.startswith('0B'):
+        s = s[2:]
+        b = 2
+
+    trunk = None
+    if '.' in s:
+        s, s_ = s.split('.', 1)
+        trunk = int(s_, b)
+
+    if s.startswith('{') and '}' in s:
+        ss = s[1:s.find('}')].split(',')
+    else:
+        ss = [s]
+
+    addr = []
+    for s in ss:
+        if trunk is not None:
+            addr.append((int(s, b), trunk))
+        else:
+            addr.append(int(s, b))
+
+    return addr
+
 
 class LinesIO:
     def __init__(self, maxlen=None):
@@ -203,7 +262,7 @@ def lebesgue_curve(width, height):
     return curve
 
 
-class Block(int):
+class Pixel(int):
     __slots__ = ()
     def __new__(cls, state=0, *,
             wear=0,
@@ -234,19 +293,19 @@ class Block(int):
         return (self & 4) != 0
 
     def read(self):
-        return Block(int(self) | 1)
+        return Pixel(int(self) | 1)
 
     def prog(self):
-        return Block(int(self) | 2)
+        return Pixel(int(self) | 2)
 
     def erase(self):
-        return Block((int(self) | 4) + 8)
+        return Pixel((int(self) | 4) + 8)
 
     def clear(self):
-        return Block(int(self) & ~7)
+        return Pixel(int(self) & ~7)
 
     def __or__(self, other):
-        return Block(
+        return Pixel(
             (int(self) | int(other)) & 7,
             wear=max(self.wear, other.wear))
 
@@ -269,7 +328,6 @@ class Block(int):
             wear=False,
             block_cycles=None,
             color=True,
-            subscripts=False,
             dots=False,
             braille=False,
             chars=None,
@@ -284,18 +342,12 @@ class Block(int):
             chars = chars + CHARS[len(chars):]
 
         if colors is None:
-            if braille or dots:
-                colors = COLORS_DOTS
-            else:
-                colors = COLORS
+            colors = COLORS
         if len(colors) < len(COLORS):
             colors = colors + COLORS[len(colors):]
 
         if wear_chars is None:
-            if subscripts:
-                wear_chars = WEAR_CHARS_SUBSCRIPTS
-            else:
-                wear_chars = WEAR_CHARS
+            wear_chars = WEAR_CHARS
 
         if wear_colors is None:
             wear_colors = WEAR_COLORS
@@ -340,112 +392,109 @@ class Block(int):
 
 class Bd:
     def __init__(self, *,
-            size=1,
-            count=1,
+            block_size=1,
+            block_count=1,
             width=None,
             height=1,
-            blocks=None):
+            pixels=None):
         if width is None:
-            width = count
+            width = block_count
 
-        if blocks is None:
-            self.blocks = [Block() for _ in range(width*height)]
+        if pixels is None:
+            self.pixels = [Pixel() for _ in range(width*height)]
         else:
-            self.blocks = blocks
-        self.size = size
-        self.count = count
+            self.pixels = pixels
+        self.block_size = block_size
+        self.block_count = block_count
         self.width = width
         self.height = height
 
     def _op(self, f, block=None, off=None, size=None):
         if block is None:
-            range_ = range(len(self.blocks))
+            range_ = range(len(self.pixels))
         else:
             if off is None:
-                off, size = 0, self.size
+                off, size = 0, self.block_size
             elif size is None:
                 off, size = 0, off
 
-            # update our geometry? this will do nothing if we haven't changed
-            self.resize(
-                size=max(self.size, off+size),
-                count=max(self.count, block+1))
+            # update our geometry?
+            if off+size > self.block_size or block >= self.block_count:
+                self.resize(
+                    block_size=max(self.block_size, off+size),
+                    block_count=max(self.block_count, block+1))
 
             # map to our block space
-            start = (block*self.size + off) / (self.size*self.count)
-            stop = (block*self.size + off+size) / (self.size*self.count)
-
-            range_ = range(
-                m.floor(start*len(self.blocks)),
-                m.ceil(stop*len(self.blocks)))
+            start = block*self.block_size + off
+            stop = block*self.block_size + off+size
+            start = ((start*len(self.pixels))
+                // (self.block_size*self.block_count))
+            stop = ((stop*len(self.pixels))
+                // (self.block_size*self.block_count))
+            stop = max(stop, start+1)
+            range_ = range(start, stop)
 
         # apply the op
         for i in range_:
-            self.blocks[i] = f(self.blocks[i])
+            self.pixels[i] = f(self.pixels[i])
 
     def read(self, block=None, off=None, size=None):
-        self._op(Block.read, block, off, size)
+        self._op(Pixel.read, block, off, size)
 
     def prog(self, block=None, off=None, size=None):
-        self._op(Block.prog, block, off, size)
+        self._op(Pixel.prog, block, off, size)
 
     def erase(self, block=None, off=None, size=None):
-        self._op(Block.erase, block, off, size)
+        self._op(Pixel.erase, block, off, size)
 
     def clear(self, block=None, off=None, size=None):
-        self._op(Block.clear, block, off, size)
+        self._op(Pixel.clear, block, off, size)
 
     def copy(self):
         return Bd(
-            blocks=self.blocks.copy(),
-            size=self.size,
-            count=self.count,
+            pixels=self.pixels.copy(),
+            block_size=self.block_size,
+            block_count=self.block_count,
             width=self.width,
             height=self.height)
 
     def resize(self, *,
-            size=None,
-            count=None,
+            block_size=None,
+            block_count=None,
             width=None,
             height=None):
-        size = size if size is not None else self.size
-        count = count if count is not None else self.count
+        block_size = (block_size if block_size is not None
+            else self.block_size)
+        block_count = (block_count if block_count is not None
+            else self.block_count)
         width = width if width is not None else self.width
         height = height if height is not None else self.height
 
-        if (size == self.size
-                and count == self.count
+        if (block_size == self.block_size
+                and block_count == self.block_count
                 and width == self.width
                 and height == self.height):
             return
 
-        # transform our blocks
-        blocks = []
+        # transform our pixels
+        pixels = []
         for x in range(width*height):
-            # map from new bd space
-            start = m.floor(x * (size*count)/(width*height))
-            stop = m.ceil((x+1) * (size*count)/(width*height))
-            start_block = start // size
-            start_off = start % size
-            stop_block = stop // size
-            stop_off = stop % size
-            # map to old bd space
-            start = start_block*self.size + start_off
-            stop = stop_block*self.size + stop_off
-            start = m.floor(start * len(self.blocks)/(self.size*self.count))
-            stop = m.ceil(stop * len(self.blocks)/(self.size*self.count))
+            # map into our old bd space
+            start = (x*(block_size*block_count)) // (width*height)
+            stop = ((x+1)*(block_size*block_count)) // (width*height)
+            stop = max(stop, start+1)
 
             # aggregate state
-            blocks.append(ft.reduce(
-                Block.__or__,
-                self.blocks[start:stop],
-                Block()))
+            pixels.append(ft.reduce(
+                Pixel.__or__,
+                self.pixels[start:stop],
+                Pixel()))
             
-        self.size = size
-        self.count = count
+        self.block_size = block_size
+        self.block_count = block_count
         self.width = width
         self.height = height
-        self.blocks = blocks
+        self.pixels = pixels
 
     def draw(self, row, *,
             read=False,
@@ -460,23 +509,23 @@ class Bd:
         # find max wear?
         max_wear = None
         if wear:
-            max_wear = max(b.wear for b in self.blocks)
+            max_wear = max(p.wear for p in self.pixels)
 
         # fold via a curve?
         if hilbert:
             grid = [None]*(self.width*self.height)
-            for (x,y), b in zip(
+            for (x,y), p in zip(
                     hilbert_curve(self.width, self.height),
-                    self.blocks):
-                grid[x + y*self.width] = b
+                    self.pixels):
+                grid[x + y*self.width] = p
         elif lebesgue:
             grid = [None]*(self.width*self.height)
-            for (x,y), b in zip(
+            for (x,y), p in zip(
                     lebesgue_curve(self.width, self.height),
-                    self.blocks):
-                grid[x + y*self.width] = b
+                    self.pixels):
+                grid[x + y*self.width] = p
         else:
-            grid = self.blocks
+            grid = self.pixels
 
         # need to wait for more trace output before rendering
         #
@@ -493,7 +542,7 @@ class Bd:
 
             grid = list(it.chain.from_iterable(
                 # did we resize?
-                it.islice(it.chain(h, it.repeat(Block())),
+                it.islice(it.chain(h, it.repeat(Pixel())),
                     self.width*self.height)
                 for h in self.history))
             self.history = []
@@ -502,21 +551,21 @@ class Bd:
         if braille:
             # encode into a byte
             for x in range(0, self.width, 2):
-                byte_b = 0
-                best_b = Block()
+                byte_p = 0
+                best_p = Pixel()
                 for i in range(2*4):
-                    b = grid[x+(2-1-(i%2)) + ((row*4)+(4-1-(i//2)))*self.width]
-                    best_b |= b
-                    if ((read and b.readed)
-                            or (prog and b.proged)
-                            or (erase and b.erased)
+                    p = grid[x+(2-1-(i%2)) + ((row*4)+(4-1-(i//2)))*self.width]
+                    best_p |= p
+                    if ((read and p.readed)
+                            or (prog and p.proged)
+                            or (erase and p.erased)
                             or (not read and not prog and not erase
-                                and wear and b.worn(max_wear, **args) >= 0.7)):
-                        byte_b |= 1 << i
+                                and wear and p.worn(max_wear, **args) >= 0.7)):
+                        byte_p |= 1 << i
 
-                line.append(best_b.draw(
+                line.append(best_p.draw(
                     max_wear,
-                    CHARS_BRAILLE[byte_b],
+                    CHARS_BRAILLE[byte_p],
                     braille=True,
                     read=read,
                     prog=prog,
@@ -526,21 +575,21 @@ class Bd:
         elif dots:
             # encode into a byte
             for x in range(self.width):
-                byte_b = 0
-                best_b = Block()
+                byte_p = 0
+                best_p = Pixel()
                 for i in range(2):
-                    b = grid[x + ((row*2)+(2-1-i))*self.width]
-                    best_b |= b
-                    if ((read and b.readed)
-                            or (prog and b.proged)
-                            or (erase and b.erased)
+                    p = grid[x + ((row*2)+(2-1-i))*self.width]
+                    best_p |= p
+                    if ((read and p.readed)
+                            or (prog and p.proged)
+                            or (erase and p.erased)
                             or (not read and not prog and not erase
-                                and wear and b.worn(max_wear, **args) >= 0.7)):
-                        byte_b |= 1 << i
+                                and wear and p.worn(max_wear, **args) >= 0.7)):
+                        byte_p |= 1 << i
 
-                line.append(best_b.draw(
+                line.append(best_p.draw(
                     max_wear,
-                    CHARS_DOTS[byte_b],
+                    CHARS_DOTS[byte_p],
                     dots=True,
                     read=read,
                     prog=prog,
@@ -561,16 +610,16 @@ class Bd:
 
 
 
-def main(path='-', *,
+def main(path='-', block=None, *,
+        off=None,
+        size=None,
+        block_size=None,
+        block_count=None,
+        block_cycles=None,
         read=False,
         prog=False,
         erase=False,
         wear=False,
-        block=(None,None),
-        off=(None,None),
-        block_size=None,
-        block_count=None,
-        block_cycles=None,
         reset=False,
         color='auto',
         dots=False,
@@ -616,37 +665,58 @@ def main(path='-', *,
         else:
             lines = 5
 
-    # allow ranges for blocks/offs
-    block_start = block[0]
-    block_stop = block[1] if len(block) > 1 else block[0]+1
-    off_start = off[0]
-    off_stop = off[1] if len(off) > 1 else off[0]+1
+    # is bd geometry specified?
+    if isinstance(block_size, tuple):
+        block_size, block_count_ = block_size
+        if block_count is None:
+            block_count = block_count_
 
-    if block_start is None:
-        block_start = 0
-    if block_stop is None and block_count is not None:
-        block_stop = block_count
-    if off_start is None:
-        off_start = 0
-    if off_stop is None and block_size is not None:
-        off_stop = block_size
+    # allow ranges for blocks/offs
+    if not isinstance(block, tuple):
+        block = (block,)
+    if any(isinstance(block, list) and len(block) > 1 for block in block):
+        print("error: More than one block address?")
+        sys.exit(-1)
+    block = tuple(
+        block[0] if isinstance(block, list) else block
+        for block in block)
+    if not isinstance(off, tuple):
+        off = (off,)
+    if not isinstance(size, tuple):
+        size = (size,)
+
+    block_start = (
+        block[0][0] if isinstance(block[0], tuple)
+        else block[0] if block[0] is not None
+        else 0)
+    block_stop = (
+        block[1][0] if len(block) > 1 and isinstance(block[1], tuple)
+        else block[1] if len(block) > 1 and block[1] is not None
+        else block_start+1 if len(block) == 1 and block[0] is not None
+        else block_count)
+    off_start = (
+        off[0] if off[0] is not None
+        else block[0][1] if isinstance(block[0], tuple)
+        else block[1][1] if len(block) > 1 and isinstance(block[1], tuple)
+        else size[0] if len(size) > 1 and size[0] is not None
+        else 0)
+    off_stop = (
+        off_start + size[0] if len(size) == 1 and size[0] is not None
+        else off[1] if len(off) > 1 and off[1] is not None
+        else size[1] if len(size) > 1 and size[1] is not None
+        else block_size)
 
     # create a block device representation
     bd = Bd()
 
-    def resize(*, size=None, count=None):
+    def resize(*, block_size=None, block_count=None):
         nonlocal bd
 
         # size may be overriden by cli args
-        if block_size is not None:
-            size = block_size
-        elif off_stop is not None:
-            size = off_stop-off_start
-
-        if block_count is not None:
-            count = block_count
-        elif block_stop is not None:
-            count = block_stop-block_start
+        if off_stop is not None:
+            block_size = off_stop-off_start
+        if block_stop is not None:
+            block_count = block_stop-block_start
 
         # figure out best width/height
         if width is None:
@@ -664,8 +734,8 @@ def main(path='-', *,
             height_ = shutil.get_terminal_size((80, 5))[1]
 
         bd.resize(
-            size=size,
-            count=count,
+            block_size=block_size,
+            block_count=block_count,
             # scale if we're printing with dots or braille
             width=2*width_ if braille else width_,
             height=max(1,
@@ -714,14 +784,14 @@ def main(path='-', *,
 
         if m.group('create'):
             # update our block size/count
-            size = int(m.group('block_size'), 0)
-            count = int(m.group('block_count'), 0)
+            block_size = int(m.group('block_size'), 0)
+            block_count = int(m.group('block_count'), 0)
 
-            resize(size=size, count=count)
+            resize(block_size=block_size, block_count=block_count)
             if reset:
                 bd = Bd(
-                    size=bd.size,
-                    count=bd.count,
+                    block_size=bd.block_size,
+                    block_count=bd.block_count,
                     width=bd.width,
                     height=bd.height)
             return True
@@ -731,14 +801,15 @@ def main(path='-', *,
             off = int(m.group('read_off'), 0)
             size = int(m.group('read_size'), 0)
 
-            if block_stop is not None and block >= block_stop:
+            if ((block_stop is not None and block >= block_stop)
+                    or block < block_start
+                    or (off_stop is not None and off >= off_stop)
+                    or off+size <= off_start):
                 return False
             block -= block_start
-            if off_stop is not None:
-                if off >= off_stop:
-                    return False
-                size = min(size, off_stop-off)
-            off -= off_start
+            size = ((min(off+size, off_stop)
+                    if off_stop is not None else off+size)
+                - max(off, off_start))
 
             bd.read(block, off, size)
             return True
@@ -748,28 +819,33 @@ def main(path='-', *,
             off = int(m.group('prog_off'), 0)
             size = int(m.group('prog_size'), 0)
 
-            if block_stop is not None and block >= block_stop:
+            if ((block_stop is not None and block >= block_stop)
+                    or block < block_start
+                    or (off_stop is not None and off >= off_stop)
+                    or off+size <= off_start):
                 return False
             block -= block_start
-            if off_stop is not None:
-                if off >= off_stop:
-                    return False
-                size = min(size, off_stop-off)
-            off -= off_start
+            size = ((min(off+size, off_stop)
+                    if off_stop is not None else off+size)
+                - max(off, off_start))
 
             bd.prog(block, off, size)
             return True
 
         elif m.group('erase') and (erase or wear):
             block = int(m.group('erase_block'), 0)
+            off = 0
             size = int(m.group('erase_size'), 0)
 
-            if block_stop is not None and block >= block_stop:
+            if ((block_stop is not None and block >= block_stop)
+                    or block < block_start
+                    or (off_stop is not None and off >= off_stop)
+                    or off+size <= off_start):
                 return False
             block -= block_start
-            if off_stop is not None:
-                size = min(size, off_stop)
-            off = -off_start
+            size = ((min(off+size, off_stop)
+                    if off_stop is not None else off+size)
+                - max(off, off_start))
 
             bd.erase(block, off, size)
             return True
@@ -877,6 +953,37 @@ if __name__ == "__main__":
         nargs='?',
         help="Path to read from.")
     parser.add_argument(
+        'block',
+        nargs='?',
+        type=lambda x: tuple(
+            rbydaddr(x) if x.strip() else None
+            for x in x.split(',')),
+        help="Optional block to show, may be a range.")
+    parser.add_argument(
+        '-B', '--block-size',
+        type=bdgeom,
+        help="Block size/geometry in bytes.")
+    parser.add_argument(
+        '--block-count',
+        type=lambda x: int(x, 0),
+        help="Block count in blocks.")
+    parser.add_argument(
+        '-C', '--block-cycles',
+        type=lambda x: int(x, 0),
+        help="Assumed maximum number of erase cycles when measuring wear.")
+    parser.add_argument(
+        '--off',
+        type=lambda x: tuple(
+            int(x, 0) if x.strip() else None
+            for x in x.split(',')),
+        help="Show a specific offset, may be a range.")
+    parser.add_argument(
+        '--size',
+        type=lambda x: tuple(
+            int(x, 0) if x.strip() else None
+            for x in x.split(',')),
+        help="Show this many bytes, may be a range.")
+    parser.add_argument(
         '-r', '--read',
         action='store_true',
         help="Render reads.")
@@ -893,30 +1000,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Render wear.")
     parser.add_argument(
-        '-b', '--block',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show a specific block or range of blocks.")
-    parser.add_argument(
-        '-i', '--off',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show a specific offset or range of offsets.")
-    parser.add_argument(
-        '-B', '--block-size',
-        type=lambda x: int(x, 0),
-        help="Assume a specific block size.")
-    parser.add_argument(
-        '--block-count',
-        type=lambda x: int(x, 0),
-        help="Assume a specific block count.")
-    parser.add_argument(
-        '-C', '--block-cycles',
-        type=lambda x: int(x, 0),
-        help="Assumed maximum number of erase cycles when measuring wear.")
-    parser.add_argument(
         '-R', '--reset',
         action='store_true',
         help="Reset wear on block device initialization.")
@@ -925,10 +1008,6 @@ if __name__ == "__main__":
         choices=['never', 'always', 'auto'],
         default='auto',
         help="When to use terminal colors. Defaults to 'auto'.")
-    parser.add_argument(
-        '--subscripts',
-        action='store_true',
-        help="Use unicode subscripts for showing wear.")
     parser.add_argument(
         '-:', '--dots',
         action='store_true',

@@ -51,10 +51,34 @@ TAG_GT          = 0x2000
 TAG_R           = 0x1000
 
 
+# some ways of block geometry representations
+# 512      -> 512
+# 512x16   -> (512, 16)
+# 0x200x10 -> (512, 16)
+def bdgeom(s):
+    s = s.strip()
+    b = 10
+    if s.startswith('0x') or s.startswith('0X'):
+        s = s[2:]
+        b = 16
+    elif s.startswith('0o') or s.startswith('0O'):
+        s = s[2:]
+        b = 8
+    elif s.startswith('0b') or s.startswith('0B'):
+        s = s[2:]
+        b = 2
+
+    if 'x' in s:
+        s, s_ = s.split('x', 1)
+        return (int(s, b), int(s_, b))
+    else:
+        return int(s, b)
+
 # parse some rbyd addr encodings
-# 0xa     -> [0xa]
-# 0xa.b   -> ([0xa], b)
-# 0x{a,b} -> [0xa, 0xb]
+# 0xa       -> [0xa]
+# 0xa.c     -> [(0xa, 0xc)]
+# 0x{a,b}   -> [0xa, 0xb]
+# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -788,6 +812,7 @@ class Rbyd:
 
 def main(disk, mroots=None, *,
         block_size=None,
+        block_count=None,
         mleaf_weight=None,
         color='auto',
         **args):
@@ -798,6 +823,12 @@ def main(disk, mroots=None, *,
         color = True
     else:
         color = False
+
+    # is bd geometry specified?
+    if isinstance(block_size, tuple):
+        block_size, block_count_ = block_size
+        if block_count is None:
+            block_count = block_count_
 
     # flatten mroots, default to 0x{0,1}
     if not mroots:
@@ -1635,8 +1666,12 @@ if __name__ == "__main__":
         help="Block address of the mroots. Defaults to 0x{0,1}.")
     parser.add_argument(
         '-B', '--block-size',
+        type=bdgeom,
+        help="Block size/geometry in bytes.")
+    parser.add_argument(
+        '--block-count',
         type=lambda x: int(x, 0),
-        help="Block size in bytes.")
+        help="Block count in blocks.")
     parser.add_argument(
         '-M', '--mleaf-weight',
         type=lambda x: int(x, 0),

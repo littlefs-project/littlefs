@@ -3,10 +3,34 @@
 import os
 
 
+# some ways of block geometry representations
+# 512      -> 512
+# 512x16   -> (512, 16)
+# 0x200x10 -> (512, 16)
+def bdgeom(s):
+    s = s.strip()
+    b = 10
+    if s.startswith('0x') or s.startswith('0X'):
+        s = s[2:]
+        b = 16
+    elif s.startswith('0o') or s.startswith('0O'):
+        s = s[2:]
+        b = 8
+    elif s.startswith('0b') or s.startswith('0B'):
+        s = s[2:]
+        b = 2
+
+    if 'x' in s:
+        s, s_ = s.split('x', 1)
+        return (int(s, b), int(s_, b))
+    else:
+        return int(s, b)
+
 # parse some rbyd addr encodings
-# 0xa     -> [0xa]
-# 0xa.b   -> ([0xa], b)
-# 0x{a,b} -> [0xa, 0xb]
+# 0xa       -> [0xa]
+# 0xa.c     -> [(0xa, 0xc)]
+# 0x{a,b}   -> [0xa, 0xb]
+# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -51,8 +75,15 @@ def xxd(data, width=16):
 
 def main(disk, block=None, *,
         block_size=None,
-        seek=None,
+        block_count=None,
+        off=None,
         size=None):
+    # is bd geometry specified?
+    if isinstance(block_size, tuple):
+        block_size, block_count_ = block_size
+        if block_count is None:
+            block_count = block_count_
+
     # flatten block, default to block 0
     if not block:
         block = [0]
@@ -72,10 +103,16 @@ def main(disk, block=None, *,
         # block may also encode an offset
         block, off, size = (
             block[0] if isinstance(block, tuple) else block,
-            seek if seek is not None
+            off[0] if isinstance(off, tuple)
+                else off if off is not None
+                else size[0] if isinstance(size, tuple) and len(size) > 1
                 else block[1] if isinstance(block, tuple)
                 else None,
-            size if size is not None else block_size)
+            size[1] - size[0] if isinstance(size, tuple) and len(size) > 1
+                else size[0] if isinstance(size, tuple)
+                else size if size is not None
+                else off[1] - off[0] if isinstance(off, tuple) and len(off) > 1
+                else block_size)
 
         print('block %s, size %d' % (
             '0x%x.%x' % (block, off)
@@ -107,16 +144,24 @@ if __name__ == "__main__":
         help="Block address.")
     parser.add_argument(
         '-B', '--block-size',
-        type=lambda x: int(x, 0),
-        help="Block size in bytes.")
+        type=bdgeom,
+        help="Block size/geometry in bytes.")
     parser.add_argument(
-        '-s', '--seek',
+        '--block-count',
         type=lambda x: int(x, 0),
-        help="Start at this offset.")
+        help="Block count in blocks.")
+    parser.add_argument(
+        '--off',
+        type=lambda x: tuple(
+            int(x, 0) if x.strip() else None
+            for x in x.split(',')),
+        help="Show a specific offset, may be a range.")
     parser.add_argument(
         '-n', '--size',
-        type=lambda x: int(x, 0),
-        help="Show this many bytes.")
+        type=lambda x: tuple(
+            int(x, 0) if x.strip() else None
+            for x in x.split(',')),
+        help="Show this many bytes, may be a range.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
