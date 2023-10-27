@@ -534,7 +534,7 @@ class Bd:
             needed_height = 4 if braille else 2
 
             self.history = getattr(self, 'history', [])
-            self.history.append(grid)
+            self.history.append(grid.copy())
 
             if len(self.history)*self.height < needed_height:
                 # skip for now
