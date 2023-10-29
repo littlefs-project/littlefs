@@ -8,6 +8,23 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
+// Configuration Sanity Check
+#if (LFS_NAME_MAX <= 0) || (LFS_NAME_MAX > 1022)
+#error "LFS_NAME_MAX must be in the range (0, 1022]"
+#endif
+
+#if (LFS_FILE_MAX <= 0) || (LFS_FILE_MAX > 4294967296)
+#error "LFS_FILE_MAX must be in the range (0, 4294967296]"
+#endif
+
+#if (LFS_FILE_MAX > 2147483647)
+#warning "LFS_FILE_MAX>2147483647; lfs_file_seek, lfs_file_size, and lfs_file_tell will not function properly."
+#endif
+
+#if (LFS_ATTR_MAX < 0) || (LFS_ATTR_MAX > 1022)
+#error "LFS_ATTR_MAX must be in the range [0, 1022]"
+#endif
+
 
 // some constants used throughout the code
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
