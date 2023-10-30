@@ -13,8 +13,8 @@
 #error "LFS_NAME_MAX must be in the range (0, 1022]"
 #endif
 
-#if (LFS_FILE_MAX <= 0) || (LFS_FILE_MAX > 4294967296)
-#error "LFS_FILE_MAX must be in the range (0, 4294967296]"
+#if (LFS_FILE_MAX <= 0) || (LFS_FILE_MAX > 4294967295)
+#error "LFS_FILE_MAX must be in the range (0, 4294967295]"
 #endif
 
 #if (LFS_FILE_MAX > 2147483647)
