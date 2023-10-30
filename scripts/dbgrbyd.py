@@ -128,6 +128,9 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
+def popc(x):
+    return bin(x).count('1')
+
 def fromle32(data):
     return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
 
@@ -146,9 +149,6 @@ def fromtag(data):
     weight, d = fromleb128(data[2:])
     size, d_ = fromleb128(data[2+d:])
     return tag>>15, tag&0x7fff, weight, size, 2+d+d_
-
-def popc(x):
-    return bin(x).count('1')
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):

@@ -119,6 +119,9 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
+def popc(x):
+    return bin(x).count('1')
+
 def fromle32(data):
     return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
 
@@ -159,9 +162,6 @@ def frombtree(data):
     w, d_ = fromleb128(data[d:]); d += d_
     block, trunk, cksum = frombranch(data[d:])
     return w, block, trunk, cksum
-
-def popc(x):
-    return bin(x).count('1')
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):
@@ -1646,8 +1646,8 @@ def main(disk, mroots=None, *,
                         # force next btree entry to be shown
                         prbyd = None
 
-        if args.get('error_on_corrupt') and corrupted:
-            sys.exit(2)
+    if args.get('error_on_corrupt') and corrupted:
+        sys.exit(2)
 
 
 if __name__ == "__main__":
@@ -1715,7 +1715,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-e', '--error-on-corrupt',
         action='store_true',
-        help="Error if B-tree is corrupt.")
+        help="Error if the filesystem is corrupt.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

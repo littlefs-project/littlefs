@@ -22,10 +22,10 @@ import time
 
 
 CHARS = 'rpe-'
-COLORS = ['32', '35', '34', '']
+COLORS = ['32', '35', '34', '90']
 
 WEAR_CHARS = '-123456789'
-WEAR_COLORS = ['', '', '', '', '', '', '', '35', '35', '1;31']
+WEAR_COLORS = ['90', '', '', '', '', '', '', '35', '35', '1;31']
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
@@ -390,24 +390,51 @@ class Pixel(int):
         return c
 
 
-class Bd:
+class Bmap:
     def __init__(self, *,
             block_size=1,
             block_count=1,
+            block_window=None,
+            off_window=None,
             width=None,
             height=1,
             pixels=None):
+        # default width to block_window or block_size
         if width is None:
-            width = block_count
+            if block_window is not None:
+                width = len(block_window)
+            else:
+                width = block_count
 
+        # allocate pixels if not provided
         if pixels is None:
-            self.pixels = [Pixel() for _ in range(width*height)]
-        else:
-            self.pixels = pixels
+            pixels = [Pixel() for _ in range(width*height)]
+
+        self.pixels = pixels
         self.block_size = block_size
         self.block_count = block_count
+        self.block_window = block_window
+        self.off_window = off_window
         self.width = width
         self.height = height
+
+    @property
+    def _block_window(self):
+        if self.block_window is None:
+            return range(0, self.block_count)
+        else:
+            return self.block_window
+
+    @property
+    def _off_window(self):
+        if self.off_window is None:
+            return range(0, self.block_size)
+        else:
+            return self.off_window
+
+    @property
+    def _window(self):
+        return len(self._off_window)*len(self._block_window)
 
     def _op(self, f, block=None, off=None, size=None):
         if block is None:
@@ -418,21 +445,31 @@ class Bd:
             elif size is None:
                 off, size = 0, off
 
-            # update our geometry?
-            if off+size > self.block_size or block >= self.block_count:
-                self.resize(
-                    block_size=max(self.block_size, off+size),
-                    block_count=max(self.block_count, block+1))
+            # map into our window
+            if block not in self._block_window:
+                return
+            block -= self._block_window.start
+
+            size = (max(self._off_window.start,
+                    min(self._off_window.stop, off+size))
+                - max(self._off_window.start,
+                    min(self._off_window.stop, off)))
+            off = (max(self._off_window.start,
+                min(self._off_window.stop, off))
+                - self._off_window.start)
+            if size == 0:
+                return
 
             # map to our block space
-            start = block*self.block_size + off
-            stop = block*self.block_size + off+size
-            start = ((start*len(self.pixels))
-                // (self.block_size*self.block_count))
-            stop = ((stop*len(self.pixels))
-                // (self.block_size*self.block_count))
-            stop = max(stop, start+1)
-            range_ = range(start, stop)
+            range_ = range(
+                block*len(self._off_window) + off,
+                block*len(self._off_window) + off+size)
+            range_ = range(
+                (range_.start*len(self.pixels)) // self._window,
+                (range_.stop*len(self.pixels)) // self._window)
+            range_ = range(
+                range_.start,
+                max(range_.stop, range_.start+1))
 
         # apply the op
         for i in range_:
@@ -449,14 +486,6 @@ class Bd:
 
     def clear(self, block=None, off=None, size=None):
         self._op(Pixel.clear, block, off, size)
-
-    def copy(self):
-        return Bd(
-            pixels=self.pixels.copy(),
-            block_size=self.block_size,
-            block_count=self.block_count,
-            width=self.width,
-            height=self.height)
 
     def resize(self, *,
             block_size=None,
@@ -477,21 +506,25 @@ class Bd:
             return
 
         # transform our pixels
+        self.block_size = block_size
+        self.block_count = block_count
+
         pixels = []
         for x in range(width*height):
             # map into our old bd space
-            start = (x*(block_size*block_count)) // (width*height)
-            stop = ((x+1)*(block_size*block_count)) // (width*height)
-            stop = max(stop, start+1)
+            range_ = range(
+                (x*self._window) // (width*height),
+                ((x+1)*self._window) // (width*height))
+            range_ = range(
+                range_.start,
+                max(range_.stop, range_.start+1))
 
             # aggregate state
             pixels.append(ft.reduce(
                 Pixel.__or__,
-                self.pixels[start:stop],
+                self.pixels[range_.start:range_.stop],
                 Pixel()))
             
-        self.block_size = block_size
-        self.block_count = block_count
         self.width = width
         self.height = height
         self.pixels = pixels
@@ -610,17 +643,19 @@ class Bd:
 
 
 
-def main(path='-', block=None, *,
-        off=None,
-        size=None,
+def main(path='-', *,
         block_size=None,
         block_count=None,
         block_cycles=None,
+        block=None,
+        off=None,
+        size=None,
         read=False,
         prog=False,
         erase=False,
         wear=False,
         reset=False,
+        no_header=False,
         color='auto',
         dots=False,
         braille=False,
@@ -671,52 +706,64 @@ def main(path='-', block=None, *,
         if block_count is None:
             block_count = block_count_
 
-    # allow ranges for blocks/offs
+    # try to simplify the block/off/size arguments a bit
     if not isinstance(block, tuple):
-        block = (block,)
-    if any(isinstance(block, list) and len(block) > 1 for block in block):
+        block = block,
+    if isinstance(off, tuple) and len(off) == 1:
+        off, = off
+    if isinstance(size, tuple) and len(size) == 1:
+        if off is None:
+            off, = size
+        size = None
+
+    if any(isinstance(b, list) and len(b) > 1 for b in block):
         print("error: More than one block address?")
         sys.exit(-1)
-    block = tuple(
-        block[0] if isinstance(block, list) else block
-        for block in block)
-    if not isinstance(off, tuple):
-        off = (off,)
-    if not isinstance(size, tuple):
-        size = (size,)
+    if isinstance(block[0], list):
+        block = (block[0][0], *block[1:])
+    if len(block) > 1 and isinstance(block[1], list):
+        block = (block[0], block[1][0])
+    if isinstance(block[0], tuple):
+        block, off_ = (block[0][0], *block[1:]), block[0][1]
+        if off is None:
+            off = off_
+    if len(block) > 1 and isinstance(block[1], tuple):
+        block = (block[0], block[1][0])
+    if len(block) == 1:
+        block, = block
 
-    block_start = (
-        block[0][0] if isinstance(block[0], tuple)
-        else block[0] if block[0] is not None
-        else 0)
-    block_stop = (
-        block[1][0] if len(block) > 1 and isinstance(block[1], tuple)
-        else block[1] if len(block) > 1 and block[1] is not None
-        else block_start+1 if len(block) == 1 and block[0] is not None
-        else block_count)
-    off_start = (
-        off[0] if off[0] is not None
-        else block[0][1] if isinstance(block[0], tuple)
-        else block[1][1] if len(block) > 1 and isinstance(block[1], tuple)
-        else size[0] if len(size) > 1 and size[0] is not None
-        else 0)
-    off_stop = (
-        off_start + size[0] if len(size) == 1 and size[0] is not None
-        else off[1] if len(off) > 1 and off[1] is not None
-        else size[1] if len(size) > 1 and size[1] is not None
-        else block_size)
+    if isinstance(off, tuple):
+        off, size_ = off[0], off[1] - off[0]
+        if size is None:
+            size = size_
+    if isinstance(size, tuple):
+        off_, size = off[0], off[1] - off[0]
+        if off is None:
+            off = off_
 
-    # create a block device representation
-    bd = Bd()
+    # is a block window specified?
+    block_window = None
+    if block is not None:
+        if isinstance(block, tuple):
+            block_window = range(*block)
+        else:
+            block_window = range(block, block+1)
 
-    def resize(*, block_size=None, block_count=None):
-        nonlocal bd
+    off_window = None
+    if off is not None or size is not None:
+        off_ = off if off is not None else 0
+        size_ = size if size is not None else 1
+        off_window = range(off_, off_+size_)
 
-        # size may be overriden by cli args
-        if off_stop is not None:
-            block_size = off_stop-off_start
-        if block_stop is not None:
-            block_count = block_stop-block_start
+    # create our block device representation
+    bmap = Bmap(
+        block_size=block_size,
+        block_count=block_count,
+        block_window=block_window,
+        off_window=off_window)
+
+    def resize():
+        nonlocal bmap
 
         # figure out best width/height
         if width is None:
@@ -733,16 +780,21 @@ def main(path='-', block=None, *,
         else:
             height_ = shutil.get_terminal_size((80, 5))[1]
 
-        bd.resize(
-            block_size=block_size,
-            block_count=block_count,
-            # scale if we're printing with dots or braille
-            width=2*width_ if braille else width_,
-            height=max(1,
-                4*height_ if braille
-                else 2*height_ if dots
-                else height_))
+        # terminal size changed?
+        if width_ != bmap.width or height_ != bmap.height:
+            bmap.resize(
+                # scale if we're printing with dots or braille
+                width=2*width_ if braille else width_,
+                height=max(1,
+                    4*height_ if braille
+                    else 2*height_ if dots
+                    else height_))
     resize()
+
+    # keep track of some extra info
+    readed = 0
+    proged = 0
+    erased = 0
 
     # parse a line of trace output
     pattern = re.compile(
@@ -771,7 +823,10 @@ def main(path='-', block=None, *,
             '|' '(?P<sync>sync)\('
                 '\s*(?P<sync_ctx>\w+)' '\s*\)' ')\s*$')
     def parse(line):
-        nonlocal bd
+        nonlocal bmap
+        nonlocal readed
+        nonlocal proged
+        nonlocal erased
 
         # string searching is much faster than the regex here, and this
         # actually has a big impact given how much trace output comes
@@ -787,13 +842,20 @@ def main(path='-', block=None, *,
             block_size = int(m.group('block_size'), 0)
             block_count = int(m.group('block_count'), 0)
 
-            resize(block_size=block_size, block_count=block_count)
             if reset:
-                bd = Bd(
-                    block_size=bd.block_size,
-                    block_count=bd.block_count,
-                    width=bd.width,
-                    height=bd.height)
+                bmap = Bmap(
+                    block_size=block_size,
+                    block_count=block_count,
+                    block_window=bmap.block_window,
+                    off_window=bmap.off_window,
+                    width=bmap.width,
+                    height=bmap.height)
+            else:
+                if (block_size != bmap.block_size
+                        or block_count != bmap.block_count):
+                    bmap.resize(
+                        block_size=block_size,
+                        block_count=block_count)
             return True
 
         elif m.group('read') and read:
@@ -801,17 +863,13 @@ def main(path='-', block=None, *,
             off = int(m.group('read_off'), 0)
             size = int(m.group('read_size'), 0)
 
-            if ((block_stop is not None and block >= block_stop)
-                    or block < block_start
-                    or (off_stop is not None and off >= off_stop)
-                    or off+size <= off_start):
-                return False
-            block -= block_start
-            size = ((min(off+size, off_stop)
-                    if off_stop is not None else off+size)
-                - max(off, off_start))
+            if block >= bmap.block_count or off+size > bmap.block_size:
+                bmap.resize(
+                    block_size=max(off+size, bmap.block_size),
+                    block_count=max(block+1, bmap.block_count))
 
-            bd.read(block, off, size)
+            bmap.read(block, off, size)
+            readed += size
             return True
 
         elif m.group('prog') and prog:
@@ -819,35 +877,26 @@ def main(path='-', block=None, *,
             off = int(m.group('prog_off'), 0)
             size = int(m.group('prog_size'), 0)
 
-            if ((block_stop is not None and block >= block_stop)
-                    or block < block_start
-                    or (off_stop is not None and off >= off_stop)
-                    or off+size <= off_start):
-                return False
-            block -= block_start
-            size = ((min(off+size, off_stop)
-                    if off_stop is not None else off+size)
-                - max(off, off_start))
+            if block >= bmap.block_count or off+size > bmap.block_size:
+                bmap.resize(
+                    block_size=max(off+size, bmap.block_size),
+                    block_count=max(block+1, bmap.block_count))
 
-            bd.prog(block, off, size)
+            bmap.prog(block, off, size)
+            proged += size
             return True
 
         elif m.group('erase') and (erase or wear):
             block = int(m.group('erase_block'), 0)
-            off = 0
             size = int(m.group('erase_size'), 0)
 
-            if ((block_stop is not None and block >= block_stop)
-                    or block < block_start
-                    or (off_stop is not None and off >= off_stop)
-                    or off+size <= off_start):
-                return False
-            block -= block_start
-            size = ((min(off+size, off_stop)
-                    if off_stop is not None else off+size)
-                - max(off, off_start))
+            if block >= bmap.block_count or size > bmap.block_size:
+                bmap.resize(
+                    block_size=max(off+size, bmap.block_size),
+                    block_count=max(block+1, bmap.block_count))
 
-            bd.erase(block, off, size)
+            bmap.erase(block, size)
+            erased += size
             return True
 
         else:
@@ -855,17 +904,49 @@ def main(path='-', block=None, *,
 
     # print trace output
     def draw(f):
+        nonlocal readed
+        nonlocal proged
+        nonlocal erased
+
         def writeln(s=''):
             f.write(s)
             f.write('\n')
         f.writeln = writeln
 
+        # print some information about read/prog/erases
+        if not no_header:
+            # compute total ops
+            total = readed+proged+erased
+
+            # compute stddev of wear using our bmap, this is a bit different
+            # from read/prog/erase which ignores any bmap window, but it's
+            # what we have
+            if wear:
+                mean = (sum(p.wear for p in bmap.pixels)
+                    / max(len(bmap.pixels), 1))
+                stddev = m.sqrt(sum((p.wear - mean)**2 for p in bmap.pixels)
+                    / max(len(bmap.pixels), 1))
+                worst = max((p.wear for p in bmap.pixels), default=0)
+
+            f.writeln('bd %dx%d%s%s%s%s' % (
+                block_size, block_count,
+                ', %6s read' % ('%.1f%%' % (100*readed  / max(total, 1)))
+                    if read else '',
+                ', %6s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
+                    if prog else '',
+                ', %6s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
+                    if erase else '',
+                ', %13s wear' % ('%.1fσ (%.1f%%)' % (
+                    worst / max(stddev, 1),
+                    100*stddev / max(worst, 1)))
+                    if wear else ''))
+
         # don't forget we've scaled this for braille/dots!
         for row in range(
-                m.ceil(bd.height/4) if braille
-                else m.ceil(bd.height/2) if dots
-                else bd.height):
-            line = bd.draw(row,
+                m.ceil(bmap.height/4) if braille
+                else m.ceil(bmap.height/2) if dots
+                else bmap.height):
+            line = bmap.draw(row,
                 read=read,
                 prog=prog,
                 erase=erase,
@@ -880,7 +961,10 @@ def main(path='-', block=None, *,
             if line:
                 f.writeln(line)
 
-        bd.clear()
+        bmap.clear()
+        readed = 0
+        proged = 0
+        erased = 0
         resize()
 
 
@@ -888,7 +972,7 @@ def main(path='-', block=None, *,
     if cat:
         ring = sys.stdout
     else:
-        ring = LinesIO(lines)
+        ring = LinesIO(lines + (1 if not no_header else 0))
 
     # if sleep print in background thread to avoid getting stuck in a read call
     event = th.Event()
@@ -945,20 +1029,13 @@ if __name__ == "__main__":
     import sys
     import argparse
     parser = argparse.ArgumentParser(
-        description="Display operations on block devices based on "
+        description="Render operations on block devices based on "
             "trace output.",
         allow_abbrev=False)
     parser.add_argument(
         'path',
         nargs='?',
         help="Path to read from.")
-    parser.add_argument(
-        'block',
-        nargs='?',
-        type=lambda x: tuple(
-            rbydaddr(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Optional block to show, may be a range.")
     parser.add_argument(
         '-B', '--block-size',
         type=bdgeom,
@@ -971,6 +1048,13 @@ if __name__ == "__main__":
         '-C', '--block-cycles',
         type=lambda x: int(x, 0),
         help="Assumed maximum number of erase cycles when measuring wear.")
+    parser.add_argument(
+        '-@', '--block',
+        nargs='?',
+        type=lambda x: tuple(
+            rbydaddr(x) if x.strip() else None
+            for x in x.split(',')),
+        help="Optional block to show, may be a range.")
     parser.add_argument(
         '--off',
         type=lambda x: tuple(
@@ -1003,6 +1087,10 @@ if __name__ == "__main__":
         '-R', '--reset',
         action='store_true',
         help="Reset wear on block device initialization.")
+    parser.add_argument(
+        '-N', '--no-header',
+        action='store_true',
+        help="Don't show the header.")
     parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],

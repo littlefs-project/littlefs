@@ -119,6 +119,9 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
+def popc(x):
+    return bin(x).count('1')
+
 def fromle32(data):
     return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
 
@@ -144,9 +147,6 @@ def frombranch(data):
     trunk, d_ = fromleb128(data[d:]); d += d_
     cksum = fromle32(data[d:]); d += 4
     return block, trunk, cksum
-
-def popc(x):
-    return bin(x).count('1')
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):
@@ -994,8 +994,8 @@ def main(disk, roots=None, *,
             # show the branch
             dbg_branch(bid, w, rbyd, rid, tags, len(path)-1)
 
-        if args.get('error_on_corrupt') and corrupted:
-            sys.exit(2)
+    if args.get('error_on_corrupt') and corrupted:
+        sys.exit(2)
 
 
 if __name__ == "__main__":

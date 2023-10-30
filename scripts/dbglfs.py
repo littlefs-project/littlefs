@@ -120,6 +120,9 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
+def popc(x):
+    return bin(x).count('1')
+
 def fromle32(data):
     return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
 
@@ -148,6 +151,12 @@ def frommdir(data):
         d += d_
     return blocks
 
+def fromshrub(data):
+    d = 0
+    weight, d_ = fromleb128(data[d:]); d += d_
+    trunk, d_ = fromleb128(data[d:]); d += d_
+    return weight, trunk
+
 def frombranch(data):
     d = 0
     block, d_ = fromleb128(data[d:]); d += d_
@@ -161,8 +170,12 @@ def frombtree(data):
     block, trunk, cksum = frombranch(data[d:])
     return w, block, trunk, cksum
 
-def popc(x):
-    return bin(x).count('1')
+def frombptr(data):
+    d = 0
+    size, d_ = fromleb128(data[d:]); d += d_
+    block, d_ = fromleb128(data[d:]); d += d_
+    off, d_ = fromleb128(data[d:]); d += d_
+    return size, block, off
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):
@@ -1263,28 +1276,19 @@ def frepr(mdir, rid, tag):
         # shrub?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
         if not done and rid_ == rid and tag_ == TAG_TRUNK:
-            d = 0
-            weight, d_ = fromleb128(data[d:]); d += d_
-            trunk, d_ = fromleb128(data[d:]); d += d_
+            weight, trunk = fromshrub(data)
             size = max(size, weight)
             structs.append('trunk 0x%x.%x %d' % (mdir.block, trunk, weight))
         # direct block?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BLOCK)
         if not done and rid_ == rid and tag_ == TAG_BLOCK:
-            d = 0
-            size_, d_ = fromleb128(data[d:]); d += d_
-            block, d_ = fromleb128(data[d:]); d += d_
-            off, d_ = fromleb128(data[d:]); d += d_
+            size_, block, off = frombptr(data)
             size = max(size, size_)
             structs.append('block 0x%x.%x %d' % (block, off, size_))
         # indirect btree?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BTREE)
         if not done and rid_ == rid and tag_ == TAG_BTREE:
-            d = 0
-            weight, d_ = fromleb128(data[d:]); d += d_
-            block, d_ = fromleb128(data[d:]); d += d_
-            trunk, d_ = fromleb128(data[d:]); d += d_
-            cksum = fromle32(data[d:]); d += 4
+            weight, block, trunk, cksum = frombtree(data)
             size = max(size, weight)
             structs.append('btree 0x%x.%x %d' % (block, trunk, weight))
         return 'reg %s' % ', '.join(it.chain(['%d' % size], structs))
@@ -1311,9 +1315,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         w = len(data)
     # shrub?
     elif tag == TAG_TRUNK:
-        d = 0
-        weight, d_ = fromleb128(data[d:]); d += d_
-        trunk, d_ = fromleb128(data[d:]); d += d_
+        weight, trunk = fromshrub(data)
         btree = Rbyd.fetch(f, block_size, mdir.block, trunk)
         w = weight
     # direct block?
@@ -1325,18 +1327,11 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             mdir.eoff,
             j,
             0)
-        d = 0
-        size, d_ = fromleb128(data[d:]); d += d_
-        block, d_ = fromleb128(data[d:]); d += d_
-        off, d_ = fromleb128(data[d:]); d += d_
+        size, block, off = frombptr(data)
         w = size
     # indirect btree?
     elif tag == TAG_BTREE:
-        d = 0
-        weight, d_ = fromleb128(data[d:]); d += d_
-        block, d_ = fromleb128(data[d:]); d += d_
-        trunk, d_ = fromleb128(data[d:]); d += d_
-        cksum = fromle32(data[d:]); d += 4
+        weight, block, trunk, cksum = frombtree(data)
         btree = Rbyd.fetch(f, block_size, block, trunk)
         w = weight
 
@@ -2202,8 +2197,8 @@ def main(disk, mroots=None, *,
 
             rec_dir(0, args.get('depth') or m.inf)
 
-        if args.get('error_on_corrupt') and corrupted:
-            sys.exit(2)
+    if args.get('error_on_corrupt') and corrupted:
+        sys.exit(2)
 
 
 if __name__ == "__main__":
@@ -2305,7 +2300,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-e', '--error-on-corrupt',
         action='store_true',
-        help="Error if B-tree is corrupt.")
+        help="Error if the filesystem is corrupt.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
