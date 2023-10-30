@@ -1272,25 +1272,25 @@ def frepr(mdir, rid, tag):
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DATA)
         if not done and rid_ == rid and tag_ == TAG_DATA:
             size = max(size, len(data))
-            structs.append('data 0x%x.%x %d' % (mdir.block, j+d, len(data)))
+            structs.append('data 0x%x.%x' % (mdir.block, j+d))
         # shrub?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
         if not done and rid_ == rid and tag_ == TAG_TRUNK:
             weight, trunk = fromshrub(data)
             size = max(size, weight)
-            structs.append('trunk 0x%x.%x %d' % (mdir.block, trunk, weight))
+            structs.append('trunk 0x%x.%x' % (mdir.block, trunk))
         # direct block?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BLOCK)
         if not done and rid_ == rid and tag_ == TAG_BLOCK:
             size_, block, off = frombptr(data)
             size = max(size, size_)
-            structs.append('block 0x%x.%x %d' % (block, off, size_))
+            structs.append('block 0x%x.%x' % (block, off))
         # indirect btree?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BTREE)
         if not done and rid_ == rid and tag_ == TAG_BTREE:
             weight, block, trunk, cksum = frombtree(data)
             size = max(size, weight)
-            structs.append('btree 0x%x.%x %d' % (block, trunk, weight))
+            structs.append('btree 0x%x.%x' % (block, trunk))
         return 'reg %s' % ', '.join(it.chain(['%d' % size], structs))
 
     else:
