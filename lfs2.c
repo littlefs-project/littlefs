@@ -4999,7 +4999,7 @@ static int lfs2_fs_forceconsistency(lfs2_t *lfs2) {
 #endif
 
 #ifndef LFS2_READONLY
-int lfs2_fs_rawmkconsistent(lfs2_t *lfs2) {
+static int lfs2_fs_rawmkconsistent(lfs2_t *lfs2) {
     // lfs2_fs_forceconsistency does most of the work here
     int err = lfs2_fs_forceconsistency(lfs2);
     if (err) {
@@ -5046,7 +5046,7 @@ static lfs2_ssize_t lfs2_fs_rawsize(lfs2_t *lfs2) {
 }
 
 #ifndef LFS2_READONLY
-int lfs2_fs_rawgrow(lfs2_t *lfs2, lfs2_size_t block_count) {
+static int lfs2_fs_rawgrow(lfs2_t *lfs2, lfs2_size_t block_count) {
     // shrinking is not supported
     LFS2_ASSERT(block_count >= lfs2->block_count);
 
