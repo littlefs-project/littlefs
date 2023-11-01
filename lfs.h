@@ -595,6 +595,19 @@ typedef struct lfs_gstate {
     lfs_block_t pair[2];
 } lfs_gstate_t;
 
+typedef struct lfsr_mtree {
+    union {
+        // the sign bit indicates if this is an inlined mdir/direct mdir
+        // pointer or a full mtree
+        lfsr_smid_t weight;
+        struct {
+            lfsr_smid_t weight;
+            lfs_block_t blocks[2];
+        } mptr;
+        lfsr_btree_t btree;
+    } u;
+} lfsr_mtree_t;
+
 // The littlefs filesystem type
 typedef struct lfs {
     lfs_cache_t rcache;
@@ -634,7 +647,7 @@ typedef struct lfs {
 
     uint8_t mleaf_bits;
     lfsr_mdir_t mroot;
-    lfsr_btree_t mtree;
+    lfsr_mtree_t mtree;
 
     // linked-lists of opened mdirs, we keep a separate linked-list
     // for each type since these need to be handled a bit differently
