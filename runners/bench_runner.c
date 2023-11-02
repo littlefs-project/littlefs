@@ -587,6 +587,11 @@ uint32_t bench_prng(uint32_t *state) {
     // A simple xorshift32 generator, easily reproducible. Keep in mind
     // determinism is much more important than actual randomness here.
     uint32_t x = *state;
+    // must be non-zero, use uintmax here so that seed=0 is different
+    // from seed=1 and seed=range(0,n) makes a bit more sense
+    if (x == 0) {
+        x = -1;
+    }
     x ^= x << 13;
     x ^= x >> 17;
     x ^= x << 5;
