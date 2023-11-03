@@ -1224,7 +1224,11 @@ if __name__ == "__main__":
         '-D', '--define',
         dest='defines',
         action='append',
-        type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
+        type=lambda x: (
+            lambda k, vs: (
+                k.strip(),
+                {v.strip() for v in vs.split(',')})
+            )(*x.split('=', 1)),
         help="Only include results where this field is this value.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):

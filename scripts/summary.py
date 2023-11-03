@@ -741,7 +741,10 @@ if __name__ == "__main__":
         '-b', '--by',
         action='append',
         type=lambda x: (
-            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            lambda k, vs=None: (
+                k.strip(),
+                tuple(v.strip() for v in vs.split(','))
+                    if vs is not None else ())
             )(*x.split('=', 1)),
         help="Group by this field. Can rename fields with new_name=old_name.")
     parser.add_argument(
@@ -749,14 +752,21 @@ if __name__ == "__main__":
         dest='fields',
         action='append',
         type=lambda x: (
-            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            lambda k, vs=None: (
+                k.strip(),
+                tuple(v.strip() for v in vs.split(','))
+                    if vs is not None else ())
             )(*x.split('=', 1)),
         help="Show this field. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-D', '--define',
         dest='defines',
         action='append',
-        type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
+        type=lambda x: (
+            lambda k, vs: (
+                k.strip(),
+                {v.strip() for v in vs.split(',')})
+            )(*x.split('=', 1)),
         help="Only include results where this field is this value. May include "
             "comma-separated options.")
     class AppendSort(argparse.Action):
