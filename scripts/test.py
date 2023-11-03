@@ -28,7 +28,7 @@ import time
 import toml
 
 
-RUNNER_PATH = './runners/test_runner'
+RUNNER_PATH = ['./runners/test_runner']
 HEADER_PATH = 'runners/test_runner.h'
 
 GDB_PATH = ['gdb']
@@ -271,15 +271,11 @@ def compile(test_paths, **args):
         if os.path.isdir(path):
             path = path + '/*.toml'
 
-        for path in glob.glob(path):
+        if '*' in path:
+            for path in glob.glob(path):
+                paths.append(path)
+        else:
             paths.append(path)
-
-    if not paths:
-        print('%serror:%s no test suites found in %r?' % (
-            '\x1b[01;31m' if args['color'] else '',
-            '\x1b[m' if args['color'] else '',
-            test_paths))
-        sys.exit(-1)
 
     # load the suites
     suites = [TestSuite(path, args) for path in paths]
@@ -604,13 +600,15 @@ def compile(test_paths, **args):
                 # will be linked
                 for suite in suites:
                     f.writeln('extern const struct test_suite '
-                        '__test__%s__suite;' % suite.name);
+                        '__test__%s__suite;' % suite.name)
                 f.writeln()
 
                 f.writeln('__attribute__((weak))')
-                f.writeln('const struct test_suite *const test_suites[] = {');
+                f.writeln('const struct test_suite *const test_suites[] = {')
                 for suite in suites:
-                    f.writeln(4*' '+'&__test__%s__suite,' % suite.name);
+                    f.writeln(4*' '+'&__test__%s__suite,' % suite.name)
+                if len(suites) == 0:
+                    f.writeln(4*' '+'0,')
                 f.writeln('};')
                 f.writeln('__attribute__((weak))')
                 f.writeln('const size_t test_suite_count = %d;' % len(suites))
@@ -1464,6 +1462,7 @@ if __name__ == "__main__":
     test_parser.add_argument(
         '-R', '--runner',
         type=lambda x: x.split(),
+        default=RUNNER_PATH,
         help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
     test_parser.add_argument(
         '-Y', '--summary',
@@ -1671,11 +1670,9 @@ if __name__ == "__main__":
         '-o', '--output',
         help="Output file.")
 
-    # runner/test_paths overlap, so need to do some munging here
+    # do the thing
     args = parser.parse_intermixed_args()
-    args.test_paths = [' '.join(args.runner or [])] + args.test_ids
-    args.runner = args.runner or [RUNNER_PATH]
-
+    args.test_paths = args.test_ids
     sys.exit(main(**{k: v
         for k, v in vars(args).items()
         if v is not None}))

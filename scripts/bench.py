@@ -28,7 +28,7 @@ import time
 import toml
 
 
-RUNNER_PATH = './runners/bench_runner'
+RUNNER_PATH = ['./runners/bench_runner']
 HEADER_PATH = 'runners/bench_runner.h'
 
 GDB_PATH = ['gdb']
@@ -266,15 +266,11 @@ def compile(bench_paths, **args):
         if os.path.isdir(path):
             path = path + '/*.toml'
 
-        for path in glob.glob(path):
+        if '*' in path:
+            for path in glob.glob(path):
+                paths.append(path)
+        else:
             paths.append(path)
-
-    if not paths:
-        print('%serror:%s no bench suites found in %r?' % (
-            '\x1b[01;31m' if args['color'] else '',
-            '\x1b[m' if args['color'] else '',
-            bench_paths))
-        sys.exit(-1)
 
     # load the suites
     suites = [BenchSuite(path, args) for path in paths]
@@ -597,13 +593,15 @@ def compile(bench_paths, **args):
                 # will be linked
                 for suite in suites:
                     f.writeln('extern const struct bench_suite '
-                        '__bench__%s__suite;' % suite.name);
+                        '__bench__%s__suite;' % suite.name)
                 f.writeln()
 
                 f.writeln('__attribute__((weak))')
                 f.writeln('const struct bench_suite *const bench_suites[] = {');
                 for suite in suites:
-                    f.writeln(4*' '+'&__bench__%s__suite,' % suite.name);
+                    f.writeln(4*' '+'&__bench__%s__suite,' % suite.name)
+                if len(suites) == 0:
+                    f.writeln(4*' '+'0,')
                 f.writeln('};')
                 f.writeln('__attribute__((weak))')
                 f.writeln('const size_t bench_suite_count = %d;' % len(suites))
@@ -1541,6 +1539,7 @@ if __name__ == "__main__":
     bench_parser.add_argument(
         '-R', '--runner',
         type=lambda x: x.split(),
+        default=RUNNER_PATH,
         help="Bench runner to use for benching. Defaults to %r." % RUNNER_PATH)
     bench_parser.add_argument(
         '-Y', '--summary',
@@ -1729,11 +1728,9 @@ if __name__ == "__main__":
         '-o', '--output',
         help="Output file.")
 
-    # runner/bench_paths overlap, so need to do some munging here
+    # do the thing
     args = parser.parse_intermixed_args()
-    args.bench_paths = [' '.join(args.runner or [])] + args.bench_ids
-    args.runner = args.runner or [RUNNER_PATH]
-
+    args.bench_paths = args.bench_ids
     sys.exit(main(**{k: v
         for k, v in vars(args).items()
         if v is not None}))
