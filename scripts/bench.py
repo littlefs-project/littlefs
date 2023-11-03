@@ -944,6 +944,54 @@ class BenchOutput:
                 for row in self.rows:
                     self.writer.writerow(row)
 
+    def avg(self):
+        # compute min/max/avg
+        ops = ['bench_readed', 'bench_proged', 'bench_erased']
+        results = co.defaultdict(lambda: {
+            'sums': {op: 0 for op in ops},
+            'mins': {op: +m.inf for op in ops},
+            'maxs': {op: -m.inf for op in ops},
+            'count': 0})
+
+        for row in self.rows:
+            # we only care about results with a BENCH_SEED entry
+            if 'BENCH_SEED' not in row:
+                continue
+
+            # figure our a key for each row, this is everything but the bench
+            # results/seed reencoded as a big tuple-tuple for hashability
+            key = (row['bench_meas'], tuple(sorted(
+                (k, v) for k, v in row.items()
+                if k != 'BENCH_SEED'
+                    and k != 'bench_meas'
+                    and k != 'bench_agg'
+                    and k not in ops)))
+            # find sum/min/max/etc
+            result = results[key]
+            for op in ops:
+                result['sums'][op] += row[op]
+                result['mins'][op] = min(result['mins'][op], row[op])
+                result['maxs'][op] = max(result['maxs'][op], row[op])
+            result['count'] += 1
+
+        # append results to output
+        for (meas, key), result in results.items():
+            self.writerow({
+                'bench_meas': meas+'+avg',
+                'bench_agg': 'avg',
+                **{k: v for k, v in key},
+                **{op: result['sums'][op] / result['count'] for op in ops}})
+            self.writerow({
+                'bench_meas': meas+'+min',
+                'bench_agg': 'bnd',
+                **{k: v for k, v in key},
+                **{op: result['mins'][op] for op in ops}})
+            self.writerow({
+                'bench_meas': meas+'+max',
+                'bench_agg': 'bnd',
+                **{k: v for k, v in key},
+                **{op: result['maxs'][op] for op in ops}})
+
 # A bench failure
 class BenchFailure(Exception):
     def __init__(self, id, returncode, stdout, assert_=None):
@@ -951,6 +999,35 @@ class BenchFailure(Exception):
         self.returncode = returncode
         self.stdout = stdout
         self.assert_ = assert_
+
+# computer extra result stuff, this includes averages and amortized results
+def bench_results(results):
+    ops = ['readed', 'proged', 'erased']
+
+    # first compute amortized results
+    amors = {}
+    for meas in set(meas for meas, _ in results.keys()):
+        # keep a running sum
+        sums = {op: 0 for op in ops}
+        size = 0
+        for i, (iter, result) in enumerate(sorted(
+                (iter, result) for (meas_, iter), result in results.items()
+                if meas_ == meas)):
+            for op in ops:
+                sums[op] += result.get(op, 0)
+            size += result.get('size', 1)
+
+            # find amortized results
+            amors[meas+'+amor', iter] = {
+                'size': result.get('size', 1),
+                **{op: sums[op] / (i+1) for op in ops}}
+            # also find per-byte results
+            amors[meas+'+div', iter] = {
+                'size': result.get('size', 1),
+                **{op: result.get(op, 0) / size for op in ops}}
+
+    return results | amors
+
 
 def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
@@ -970,13 +1047,17 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     killed = False
 
     pattern = re.compile('^(?:'
-            '(?P<op>running|finished|skipped|powerloss)'
+            '(?P<op>running|finished|skipped)'
                 ' (?P<id>(?P<case>[^:]+)[^\s]*)'
-                '(?: (?P<readed>\d+))?'
-                '(?: (?P<proged>\d+))?'
-                '(?: (?P<erased>\d+))?'
             '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
                 ' *(?P<message>.*)'
+            '|' '(?P<op__>benched)'
+                ' (?P<meas>[^\s]+)'
+                ' (?P<iter>\d+)'
+                ' (?P<size>\d+)'
+                '(?: (?P<readed>[\d\.]+))?'
+                '(?: (?P<proged>[\d\.]+))?'
+                '(?: (?P<erased>[\d\.]+))?'
         ')$')
     locals = th.local()
     children = set()
@@ -1004,6 +1085,8 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_id = None
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
+        if output_:
+            last_results = {}
         try:
             while True:
                 # parse a line for state changes
@@ -1025,35 +1108,39 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
 
                 m = pattern.match(line)
                 if m:
-                    op = m.group('op') or m.group('op_')
+                    op = m.group('op') or m.group('op_') or m.group('op__')
                     if op == 'running':
                         locals.seen_perms += 1
                         last_id = m.group('id')
                         last_stdout.clear()
                         last_assert = None
+                        if output_:
+                            last_results = {}
                     elif op == 'finished':
                         case = m.group('case')
                         suite = case_suites[case]
-                        readed_ = int(m.group('readed'))
-                        proged_ = int(m.group('proged'))
-                        erased_ = int(m.group('erased'))
                         passed_suite_perms[suite] += 1
                         passed_case_perms[case] += 1
                         passed_perms += 1
-                        readed += readed_
-                        proged += proged_
-                        erased += erased_
                         if output_:
                             # get defines and write to csv
                             defines = find_defines(
                                 runner, m.group('id'), **args)
-                            output_.writerow({
-                                'suite': suite,
-                                'case': case,
-                                'bench_readed': readed_,
-                                'bench_proged': proged_,
-                                'bench_erased': erased_,
-                                **defines})
+                            # compute extra measurements here
+                            last_results = bench_results(last_results)
+                            for (meas, iter), result in (
+                                    last_results.items()):
+                                output_.writerow({
+                                    'suite': suite,
+                                    'case': case,
+                                    **defines,
+                                    'bench_meas': meas,
+                                    'bench_agg': 'raw',
+                                    'bench_iter': iter,
+                                    'bench_size': result['size'],
+                                    'bench_readed': result['readed'],
+                                    'bench_proged': result['proged'],
+                                    'bench_erased': result['erased']})
                     elif op == 'skipped':
                         locals.seen_perms += 1
                     elif op == 'assert':
@@ -1064,6 +1151,32 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         # go ahead and kill the process, aborting takes a while
                         if args.get('keep_going'):
                             proc.kill()
+                    elif op == 'benched':
+                        meas = m.group('meas')
+                        iter = int(m.group('iter'))
+                        size = int(m.group('size'))
+                        result = {'size': size}
+                        for op in ['readed', 'proged', 'erased']:
+                            if m.group(op) is None:
+                                result[op] = 0
+                            elif '.' in m.group(op):
+                                result[op] = float(m.group(op))
+                            else:
+                                result[op] = int(m.group(op))
+                        # keep track of per-perm results
+                        if output_:
+                            # if we've already seen this measurement, sum
+                            result_ = last_results.get((meas, iter))
+                            if result_ is not None:
+                                result['readed'] += result_['readed']
+                                result['proged'] += result_['proged']
+                                result['erased'] += result_['erased']
+                                result['size'] += result_['size']
+                            last_results[meas, iter] = result
+                        # keep track of total for summary
+                        readed += result['readed']
+                        proged += result['proged']
+                        erased += result['erased']
         except KeyboardInterrupt:
             raise BenchFailure(last_id, 1, list(last_stdout))
         finally:
@@ -1102,17 +1215,6 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                 start += locals.seen_perms*step
 
             except BenchFailure as failure:
-                # keep track of failures
-                if output_:
-                    case, _ = failure.id.split(':', 1)
-                    suite = case_suites[case]
-                    # get defines and write to csv
-                    defines = find_defines(runner, failure.id, **args)
-                    output_.writerow({
-                        'suite': suite,
-                        'case': case,
-                        **defines})
-
                 # race condition for multiple failures?
                 if failures and not args.get('keep_going'):
                     break
@@ -1236,7 +1338,8 @@ def run(runner, bench_ids=[], **args):
     if args.get('output'):
         output = BenchOutput(args['output'],
             ['suite', 'case'],
-            ['bench_readed', 'bench_proged', 'bench_erased'])
+            ['bench_meas', 'bench_iter', 'bench_size',
+                'bench_readed', 'bench_proged', 'bench_erased'])
 
     # measure runtime
     start = time.time()
@@ -1287,6 +1390,8 @@ def run(runner, bench_ids=[], **args):
         except BrokenPipeError:
             pass
     if output:
+        # computer averages?
+        output.avg()
         output.close()
 
     # show summary

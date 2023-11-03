@@ -677,10 +677,12 @@ enum lfsr_tag_type {
 
 #define LFSR_TAG_UATTR(attr) \
     (LFSR_TAG_UATTR \
+        | ((0x80 & (lfsr_tag_t)(attr)) << 1) \
         | (0x7f & (lfsr_tag_t)(attr)))
 
 #define LFSR_TAG_SATTR(attr) \
     (LFSR_TAG_SATTR \
+        | ((0x80 & (lfsr_tag_t)(attr)) << 1) \
         | (0x7f & (lfsr_tag_t)(attr)))
 
 // tag type operations
@@ -8046,6 +8048,43 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         }
     }
 }
+
+
+/// Other filesystem traversal things  ///
+
+lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
+    lfs_size_t count = 0;
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(LFSR_TRAVERSAL_ALL);
+    while (true) {
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(lfs, &traversal, &tinfo);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+
+        // TODO add block pointers here?
+
+        // count the number of blocks we see, yes this may result in duplicates
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            count += 2;
+
+        } else if (tinfo.tag == LFSR_TAG_BRANCH) {
+            count += 1;
+
+        } else if (tinfo.tag == LFSR_TAG_BLOCK) {
+            count += 1;
+
+        } else {
+            LFS_UNREACHABLE();
+        }
+    }
+
+    return count;
+}
+
 
 
 /// Prepare the filesystem for mutation ///

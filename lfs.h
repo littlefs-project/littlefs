@@ -948,6 +948,7 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir);
 //
 // Returns the number of allocated blocks, or a negative error code on failure.
 lfs_ssize_t lfs_fs_size(lfs_t *lfs);
+lfs_ssize_t lfsr_fs_size(lfs_t *lfs);
 
 // Traverse through all blocks in use by the filesystem
 //

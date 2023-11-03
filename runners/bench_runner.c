@@ -637,24 +637,27 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 
 
 // bench recording state
+typedef struct bench_record {
+    const char *meas;
+    uintmax_t iter;
+    uintmax_t size;
+    lfs_emubd_io_t last_readed;
+    lfs_emubd_io_t last_proged;
+    lfs_emubd_io_t last_erased;
+} bench_record_t;
+
 static struct lfs_config *bench_cfg = NULL;
-static lfs_emubd_io_t bench_last_readed = 0;
-static lfs_emubd_io_t bench_last_proged = 0;
-static lfs_emubd_io_t bench_last_erased = 0;
-lfs_emubd_io_t bench_readed = 0;
-lfs_emubd_io_t bench_proged = 0;
-lfs_emubd_io_t bench_erased = 0;
+static bench_record_t *bench_records;
+size_t bench_record_count;
+size_t bench_record_capacity;
 
-void bench_reset(void) {
-    bench_readed = 0;
-    bench_proged = 0;
-    bench_erased = 0;
-    bench_last_readed = 0;
-    bench_last_proged = 0;
-    bench_last_erased = 0;
+void bench_reset(struct lfs_config *cfg) {
+    bench_cfg = cfg;
+    bench_record_count = 0;
 }
 
-void bench_start(void) {
+void bench_start(const char *meas, uintmax_t iter, uintmax_t size) {
+    // measure current read/prog/erase
     assert(bench_cfg);
     lfs_emubd_sio_t readed = lfs_emubd_readed(bench_cfg);
     assert(readed >= 0);
@@ -663,12 +666,22 @@ void bench_start(void) {
     lfs_emubd_sio_t erased = lfs_emubd_erased(bench_cfg);
     assert(erased >= 0);
 
-    bench_last_readed = readed;
-    bench_last_proged = proged;
-    bench_last_erased = erased;
+    // allocate a new record
+    bench_record_t *record = mappend(
+            (void**)&bench_records,
+            sizeof(bench_record_t),
+            &bench_record_count,
+            &bench_record_capacity);
+    record->meas = meas;
+    record->iter = iter;
+    record->size = size;
+    record->last_readed = readed;
+    record->last_proged = proged;
+    record->last_erased = erased;
 }
 
-void bench_stop(void) {
+void bench_stop(const char *meas) {
+    // measure current read/prog/erase
     assert(bench_cfg);
     lfs_emubd_sio_t readed = lfs_emubd_readed(bench_cfg);
     assert(readed >= 0);
@@ -677,9 +690,52 @@ void bench_stop(void) {
     lfs_emubd_sio_t erased = lfs_emubd_erased(bench_cfg);
     assert(erased >= 0);
 
-    bench_readed += readed - bench_last_readed;
-    bench_proged += proged - bench_last_proged;
-    bench_erased += erased - bench_last_erased;
+    // find our record
+    for (size_t i = 0; i < bench_record_count; i++) {
+        if (strcmp(bench_records[i].meas, meas) == 0) {
+            // print results
+            printf("benched %s %zd %zd %"PRIu64" %"PRIu64" %"PRIu64"\n",
+                    bench_records[i].meas,
+                    bench_records[i].iter,
+                    bench_records[i].size,
+                    readed - bench_records[i].last_readed,
+                    proged - bench_records[i].last_proged,
+                    erased - bench_records[i].last_erased);
+
+            // remove our record
+            memmove(&bench_records[i],
+                    &bench_records[i+1],
+                    bench_record_count-(i+1));
+            bench_record_count -= 1;
+            return;
+        }
+    }
+
+    // not found?
+    fprintf(stderr, "error: bench stopped before it was started (%s)\n",
+            meas);
+    assert(false);
+    exit(-1);
+}
+
+void bench_result(const char *meas, uintmax_t iter, uintmax_t size,
+        uintmax_t result) {
+    // we just print these directly
+    printf("benched %s %zd %zd %"PRIu64"\n",
+            meas,
+            iter,
+            size,
+            result);
+}
+
+void bench_fresult(const char *meas, uintmax_t iter, uintmax_t size,
+        double result) {
+    // we just print these directly
+    printf("benched %s %zd %zd %.6f\n",
+            meas,
+            iter,
+            size,
+            result);
 }
 
 
@@ -1404,8 +1460,7 @@ void perm_run(
     }
 
     // run the bench
-    bench_cfg = &cfg;
-    bench_reset();
+    bench_reset(&cfg);
     printf("running ");
     perm_printid(suite, case_);
     printf("\n");
@@ -1414,10 +1469,6 @@ void perm_run(
 
     printf("finished ");
     perm_printid(suite, case_);
-    printf(" %"PRIu64" %"PRIu64" %"PRIu64,
-        bench_readed,
-        bench_proged,
-        bench_erased);
     printf("\n");
 
     // cleanup
