@@ -239,6 +239,43 @@ TYPES = co.OrderedDict([
 ])
 
 
+def openio(path, mode='r', buffering=-1):
+    # allow '-' for stdin/stdout
+    if path == '-':
+        if 'r' in mode:
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
+    else:
+        return open(path, mode, buffering)
+
+def collect(csv_paths, renames=[], defines=[]):
+    # collect results from CSV files
+    results = []
+    for path in csv_paths:
+        try:
+            with openio(path) as f:
+                reader = csv.DictReader(f, restval='')
+                for r in reader:
+                    # apply any renames
+                    if renames:
+                        # make a copy so renames can overlap
+                        r_ = {}
+                        for new_k, old_k in renames:
+                            if old_k in r:
+                                r_[new_k] = r[old_k]
+                        r.update(r_)
+
+                    # filter by matching defines
+                    if not all(k in r and r[k] in vs for k, vs in defines):
+                        continue
+
+                    results.append(r)
+        except FileNotFoundError:
+            pass
+
+    return results
+
 def infer(results, *,
         by=None,
         fields=None,
@@ -346,18 +383,18 @@ def infer(results, *,
 
 def fold(Result, results, *,
         by=None,
-        defines=None,
+        defines=[],
         **_):
     if by is None:
         by = Result._by
 
-    for k in it.chain(by or [], (k for k, _ in defines or [])):
+    for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
             print("error: could not find field %r?" % k)
             sys.exit(-1)
 
     # filter by matching defines
-    if defines is not None:
+    if defines:
         results_ = []
         for r in results:
             if all(getattr(r, k) in vs for k, vs in defines):
@@ -550,20 +587,10 @@ def table(Result, results, diff_results=None, *,
             line[-1]))
 
 
-def openio(path, mode='r', buffering=-1):
-    # allow '-' for stdin/stdout
-    if path == '-':
-        if 'r' in mode:
-            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
-        else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
-    else:
-        return open(path, mode, buffering)
-
 def main(csv_paths, *,
         by=None,
         fields=None,
-        defines=None,
+        defines=[],
         sort=None,
         **args):
     # separate out renames
@@ -608,24 +635,7 @@ def main(csv_paths, *,
         ops.update(ops_)
 
     # find CSV files
-    results = []
-    for path in csv_paths:
-        try:
-            with openio(path) as f:
-                reader = csv.DictReader(f, restval='')
-                for r in reader:
-                    # rename fields?
-                    if renames:
-                        # make a copy so renames can overlap
-                        r_ = {}
-                        for new_k, old_k in renames:
-                            if old_k in r:
-                                r_[new_k] = r[old_k]
-                        r.update(r_)
-
-                    results.append(r)
-        except FileNotFoundError:
-            pass
+    results = collect(csv_paths, renames=renames, defines=defines)
 
     # homogenize
     Result = infer(results,
@@ -672,31 +682,19 @@ def main(csv_paths, *,
 
     # find previous results?
     if args.get('diff'):
-        diff_results = []
-        try:
-            with openio(args['diff']) as f:
-                reader = csv.DictReader(f, restval='')
-                for r in reader:
-                    # rename fields?
-                    if renames:
-                        # make a copy so renames can overlap
-                        r_ = {}
-                        for new_k, old_k in renames:
-                            if old_k in r:
-                                r_[new_k] = r[old_k]
-                        r.update(r_)
-
-                    if not any(k in r and r[k].strip()
-                            for k in Result._fields):
-                        continue
-                    try:
-                        diff_results.append(Result(**{
-                            k: r[k] for k in Result._by + Result._fields
-                            if k in r and r[k].strip()}))
-                    except TypeError:
-                        pass
-        except FileNotFoundError:
-            pass
+        diff_results = collect([args['diff']], renames=renames, defines=defines)
+        diff_results_ = []
+        for r in diff_results:
+            if not any(k in r and r[k].strip()
+                    for k in Result._fields):
+                continue
+            try:
+                diff_results_.append(Result(**{
+                    k: r[k] for k in Result._by + Result._fields
+                    if k in r and r[k].strip()}))
+            except TypeError:
+                pass
+        diff_results = diff_results_
 
         # fold
         diff_results = fold(Result, diff_results, by=by, defines=defines)

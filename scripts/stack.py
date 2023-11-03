@@ -275,18 +275,18 @@ def collect(ci_paths, *,
 
 def fold(Result, results, *,
         by=None,
-        defines=None,
+        defines=[],
         **_):
     if by is None:
         by = Result._by
 
-    for k in it.chain(by or [], (k for k, _ in defines or [])):
+    for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
             print("error: could not find field %r?" % k)
             sys.exit(-1)
 
     # filter by matching defines
-    if defines is not None:
+    if defines:
         results_ = []
         for r in results:
             if all(getattr(r, k) in vs for k, vs in defines):
@@ -548,7 +548,7 @@ def table(Result, results, diff_results=None, *,
 def main(ci_paths,
         by=None,
         fields=None,
-        defines=None,
+        defines=[],
         sort=None,
         **args):
     if args.get('depth') is None:
@@ -564,6 +564,10 @@ def main(ci_paths,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                # filter by matching defines
+                if not all(k in r and r[k] in vs for k, vs in defines):
+                    continue
+
                 if not any('stack_'+k in r and r['stack_'+k].strip()
                         for k in StackResult._fields):
                     continue
@@ -611,6 +615,10 @@ def main(ci_paths,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    # filter by matching defines
+                    if not all(k in r and r[k] in vs for k, vs in defines):
+                        continue
+
                     if not any('stack_'+k in r and r['stack_'+k].strip()
                             for k in StackResult._fields):
                         continue

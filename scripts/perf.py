@@ -629,18 +629,18 @@ def collect(perf_paths, *,
 
 def fold(Result, results, *,
         by=None,
-        defines=None,
+        defines=[],
         **_):
     if by is None:
         by = Result._by
 
-    for k in it.chain(by or [], (k for k, _ in defines or [])):
+    for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
             print("error: could not find field %r?" % k)
             sys.exit(-1)
 
     # filter by matching defines
-    if defines is not None:
+    if defines:
         results_ = []
         for r in results:
             if all(getattr(r, k) in vs for k, vs in defines):
@@ -1037,7 +1037,7 @@ def annotate(Result, results, *,
 def report(perf_paths, *,
         by=None,
         fields=None,
-        defines=None,
+        defines=[],
         sort=None,
         branches=False,
         caches=False,
@@ -1062,6 +1062,10 @@ def report(perf_paths, *,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                # filter by matching defines
+                if not all(k in r and r[k] in vs for k, vs in defines):
+                    continue
+
                 if not any('perf_'+k in r and r['perf_'+k].strip()
                         for k in PerfResult._fields):
                     continue
@@ -1109,6 +1113,10 @@ def report(perf_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    # filter by matching defines
+                    if not all(k in r and r[k] in vs for k, vs in defines):
+                        continue
+
                     if not any('perf_'+k in r and r['perf_'+k].strip()
                             for k in PerfResult._fields):
                         continue

@@ -443,7 +443,7 @@ class Plot:
         return ''.join(row_)
 
 
-def collect(csv_paths, renames=[]):
+def collect(csv_paths, renames=[], defines=[]):
     # collect results from CSV files
     results = []
     for path in csv_paths:
@@ -451,64 +451,33 @@ def collect(csv_paths, renames=[]):
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    # apply any renames
+                    if renames:
+                        # make a copy so renames can overlap
+                        r_ = {}
+                        for new_k, old_k in renames:
+                            if old_k in r:
+                                r_[new_k] = r[old_k]
+                        r.update(r_)
+
+                    # filter by matching defines
+                    if not all(k in r and r[k] in vs for k, vs in defines):
+                        continue
+
                     results.append(r)
         except FileNotFoundError:
             pass
 
-    if renames:
-        for r in results:
-            # make a copy so renames can overlap
-            r_ = {}
-            for new_k, old_k in renames:
-                if old_k in r:
-                    r_[new_k] = r[old_k]
-            r.update(r_)
-
     return results
 
-def dataset(results, x=None, y=None, define=[]):
-    # organize by 'by', x, and y
-    dataset = []
-    i = 0
-    for r in results:
-        # filter results by matching defines
-        if not all(k in r and r[k] in vs for k, vs in define):
-            continue
-
-        # find xs
-        if x is not None:
-            if x not in r:
-                continue
-            try:
-                x_ = dat(r[x])
-            except ValueError:
-                continue
-        else:
-            x_ = i
-            i += 1
-
-        # find ys
-        if y is not None:
-            if y not in r:
-                continue
-            try:
-                y_ = dat(r[y])
-            except ValueError:
-                continue
-        else:
-            y_ = None
-
-        dataset.append((x_, y_))
-
-    return dataset
-
-def datasets(results, by=None, x=None, y=None, define=[]):
-    # filter results by matching defines
-    results_ = []
-    for r in results:
-        if all(k in r and r[k] in vs for k, vs in define):
-            results_.append(r)
-    results = results_
+def fold(results, by=None, x=None, y=None, defines=[]):
+    # filter by matching defines
+    if defines:
+        results_ = []
+        for r in results:
+            if all(k in r and r[k] in vs for k, vs in defines):
+                results_.append(r)
+        results = results_
 
     # if y not specified, try to guess from data
     if not y:
@@ -535,16 +504,46 @@ def datasets(results, by=None, x=None, y=None, define=[]):
     for ks_ in (ks if by else [()]):
         for x_ in (x if x else [None]):
             for y_ in y:
+                # organize by 'by', x, and y
+                dataset = []
+                i = 0
+                for r in results:
+                    # filter by 'by'
+                    if by and not all(
+                            k in r and r[k] == v
+                            for k, v in zip(by, ks_)):
+                        continue
+
+                    # find xs
+                    if x_ is not None:
+                        if x_ not in r:
+                            continue
+                        try:
+                            x__ = dat(r[x_])
+                        except ValueError:
+                            continue
+                    else:
+                        # fallback to enumeration
+                        x__ = i
+                        i += 1
+
+                    # find ys
+                    if y_ is not None:
+                        if y_ not in r:
+                            continue
+                        try:
+                            y__ = dat(r[y_])
+                        except ValueError:
+                            continue
+                    else:
+                        y__ = None
+
+                    dataset.append((x__, y__))
+
                 # hide x/y if there is only one field
                 k_x = x_ if len(x or []) > 1 else ''
                 k_y = y_ if len(y or []) > 1 or (not ks_ and not k_x) else ''
-
-                datasets[ks_ + (k_x, k_y)] = dataset(
-                    results,
-                    x_,
-                    y_,
-                    [(by_, {k_}) for by_, k_ in zip(by, ks_)]
-                        if by else [])
+                datasets[ks_ + (k_x, k_y)] = dataset
 
     return datasets
 
@@ -898,6 +897,11 @@ def main(csv_paths, *,
     all_by = (by or []) + subplots_get('by', **subplot, subplots=subplots)
     all_x = (x or []) + subplots_get('x', **subplot, subplots=subplots)
     all_y = (y or []) + subplots_get('y', **subplot, subplots=subplots)
+    all_defines = co.defaultdict(lambda: set())
+    for k, vs in it.chain(define or [],
+            subplots_get('define', **subplot, subplots=subplots)):
+        all_defines[k] |= vs
+    all_defines = sorted(all_defines.items())
 
     # separate out renames
     renames = list(it.chain.from_iterable(
@@ -990,10 +994,10 @@ def main(csv_paths, *,
         f.writeln = writeln
 
         # first collect results from CSV files
-        results = collect(csv_paths, renames)
+        results = collect(csv_paths, renames, all_defines)
 
         # then extract the requested datasets
-        datasets_ = datasets(results, all_by, all_x, all_y, define)
+        datasets_ = fold(results, all_by, all_x, all_y)
 
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
@@ -1139,7 +1143,7 @@ def main(csv_paths, *,
 
             # data can be constrained by subplot-specific defines,
             # so re-extract for each plot
-            subdatasets = datasets(results, all_by, all_x, all_y, define_)
+            subdatasets = fold(results, all_by, all_x, all_y, define_)
 
             # filter by subplot x/y
             subdatasets = co.OrderedDict([(name, dataset)
