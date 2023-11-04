@@ -30,10 +30,10 @@ OPS = {
     'prod':    lambda xs: m.prod(xs[1:], start=xs[0]),
     'min':     min,
     'max':     max,
-    'mean':    lambda xs: Float(sum(float(x) for x in xs) / len(xs)),
+    'avg':     lambda xs: Float(sum(float(x) for x in xs) / len(xs)),
     'stddev':  lambda xs: (
-        lambda mean: Float(
-            m.sqrt(sum((float(x) - mean)**2 for x in xs) / len(xs)))
+        lambda avg: Float(
+            m.sqrt(sum((float(x) - avg)**2 for x in xs) / len(xs)))
         )(sum(float(x) for x in xs) / len(xs)),
     'gmean':   lambda xs: Float(m.prod(float(x) for x in xs)**(1/len(xs))),
     'gstddev': lambda xs: (
@@ -817,7 +817,7 @@ if __name__ == "__main__":
         action='append',
         help="Take the maximum of these fields.")
     parser.add_argument(
-        '--mean',
+        '--avg', '--mean',
         action='append',
         help="Average these fields.")
     parser.add_argument(
