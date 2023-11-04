@@ -46,11 +46,15 @@ def dat(x):
 
 def collect(csv_paths, renames=[], defines=[]):
     # collect results from CSV files
+    fields = []
     results = []
     for path in csv_paths:
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
+                fields.extend(
+                    k for k in reader.fieldnames
+                    if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -69,15 +73,15 @@ def collect(csv_paths, renames=[], defines=[]):
         except FileNotFoundError:
             pass
 
-    return results
+    return fields, results
 
 def main(csv_paths, output, *,
         amor=False,
         per=False,
+        by=None,
         meas=None,
         iter=None,
         size=None,
-        by=None,
         fields=None,
         defines=[]):
     # default to amortizing and per-byte results if size is present
@@ -95,40 +99,43 @@ def main(csv_paths, output, *,
     if fields is not None:
         fields = [k for k, _ in fields]
 
+    if by is None and fields is None:
+        print("error: needs --by or --fields to figure out fields")
+        sys.exit(-1)
+
     # collect results from csv files
-    results = collect(csv_paths, renames, defines)
+    fields_, results = collect(csv_paths, renames, defines)
 
-    # if fields not specified, try to guess from data
-    if fields is None:
-        fields = co.OrderedDict()
-        for r in results:
-            for k, v in r.items():
-                if k not in (by or []) and k != iter and v.strip():
-                    try:
-                        dat(v)
-                        fields[k] = True
-                    except ValueError:
-                        fields[k] = False
-        fields = list(k for k,v in fields.items() if v)
-
-    # if by not specified, guess it's anything not in iter/fields and not a
-    # source of a rename
+    # if by not specified, guess it's anything not in
+    # iter/size/fields/renames/defines
     if by is None:
-        by = co.OrderedDict()
-        for r in results:
-            # also ignore None keys, these are introduced by csv.DictReader
-            # when header + row mismatch
-            by.update((k, True) for k in r.keys()
-                if k is not None
-                    and k != iter
-                    and k not in fields
-                    and not any(k == old_k for _, old_k in renames))
-        by = list(by.keys())
+        by = [
+            k for k in fields_
+            if k != iter
+                and k != size
+                and k not in (fields or [])
+                and not any(k == old_k for _, old_k in renames)
+                and not any(k == k_ for k_, _ in defines)]
+
+    # if fields not specified, guess it's anything not in
+    # by/iter/size/renames/defines
+    if fields is None:
+        fields = [
+            k for k in fields_
+            if k not in (by or [])
+                and k != iter
+                and k != size
+                and not any(k == old_k for _, old_k in renames)
+                and not any(k == k_ for k_, _ in defines)]
+
+    # add meas to by if it isn't already present
+    if meas is not None and meas not in by:
+        by.append(meas)
 
     # convert iter/fields to ints/floats
     for r in results:
-        for k in {iter} | set(fields) | ({size} if size is not None else {}):
-            if k in r:
+        for k in it.chain([iter], [size] if size is not None else [], fields):
+            if k in r and isinstance(r[k], str):
                 r[k] = dat(r[k]) if r[k].strip() else 0
 
     # organize by 'by' values
@@ -141,7 +148,7 @@ def main(csv_paths, output, *,
     # for each key compute the amortized results
     amors = []
     for key, rs in results.items():
-        # keep a running sum for each fied
+        # keep a running sum for each field
         sums = {f: 0 for f in fields}
         size_ = 0
         for j, (i, r) in enumerate(sorted(
@@ -171,7 +178,7 @@ def main(csv_paths, output, *,
     # write results to CSV
     with openio(output, 'w') as f:
         writer = csv.DictWriter(f,
-            by + ([meas] if meas not in by else []) + [iter] + fields)
+            by + [iter] + ([size] if size is not None else []) + fields)
         writer.writeheader()
         for r in amors:
             writer.writerow(r)
@@ -200,6 +207,16 @@ if __name__ == "__main__":
         action='store_true',
         help="Compute per-byte results.")
     parser.add_argument(
+        '-b', '--by',
+        action='append',
+        type=lambda x: (
+            lambda k, vs=None: (
+                k.strip(),
+                tuple(v.strip() for v in vs.split(','))
+                    if vs is not None else ())
+            )(*x.split('=', 1)),
+        help="Group by this field. Can rename fields with new_name=old_name.")
+    parser.add_argument(
         '-m', '--meas',
         help="Optional name of measurement name field. If provided, the name "
             "will be modified with +amor or +per.")
@@ -210,16 +227,6 @@ if __name__ == "__main__":
     parser.add_argument(
         '-n', '--size',
         help="Optional name of size field.")
-    parser.add_argument(
-        '-b', '--by',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Group by this field. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-f', '--field',
         dest='fields',

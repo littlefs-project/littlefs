@@ -251,11 +251,15 @@ def openio(path, mode='r', buffering=-1):
 
 def collect(csv_paths, renames=[], defines=[]):
     # collect results from CSV files
+    fields = []
     results = []
     for path in csv_paths:
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
+                fields.extend(
+                    k for k in reader.fieldnames
+                    if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -274,49 +278,34 @@ def collect(csv_paths, renames=[], defines=[]):
         except FileNotFoundError:
             pass
 
-    return results
+    return fields, results
 
-def infer(results, *,
+def infer(fields_, results,
         by=None,
         fields=None,
         types={},
         ops={},
         renames=[],
-        **_):
-    # if fields not specified, try to guess from data
-    if fields is None:
-        fields = co.OrderedDict()
-        for r in results:
-            for k, v in r.items():
-                if (by is None or k not in by) and v.strip():
-                    types_ = []
-                    for t in fields.get(k, TYPES.values()):
-                        try:
-                            t(v)
-                            types_.append(t)
-                        except ValueError:
-                            pass
-                    fields[k] = types_
-        fields = list(k for k, v in fields.items() if v)
-
-    # deduplicate fields
-    fields = list(co.OrderedDict.fromkeys(fields).keys())
-
-    # if by not specified, guess it's anything not in fields and not a
-    # source of a rename
+        defines=[]):
+    # if by not specified, guess it's anything not in fields/renames/defines
     if by is None:
-        by = co.OrderedDict()
-        for r in results:
-            # also ignore None keys, these are introduced by csv.DictReader
-            # when header + row mismatch
-            by.update((k, True) for k in r.keys()
-                if k is not None
-                    and k not in fields
-                    and not any(k == old_k for _, old_k in renames))
-        by = list(by.keys())
+        by = [
+            k for k in fields_
+            if k not in (fields or [])
+                and not any(k == old_k for _, old_k in renames)
+                and not any(k == k_ for k_, _ in defines)]
 
-    # deduplicate fields
+    # if fields not specified, guess it's anything not in by/renames/defines
+    if fields is None:
+        fields = [
+            k for k in fields_
+            if k not in (by or [])
+                and not any(k == old_k for _, old_k in renames)
+                and not any(k == k_ for k_, _ in defines)]
+
+    # deduplicate by/fields
     by = list(co.OrderedDict.fromkeys(by).keys())
+    fields = list(co.OrderedDict.fromkeys(fields).keys())
 
     # find best type for all fields
     types_ = {}
@@ -381,10 +370,7 @@ def infer(results, *,
     })
 
 
-def fold(Result, results, *,
-        by=None,
-        defines=[],
-        **_):
+def fold(Result, results, by=None, defines=[]):
     if by is None:
         by = Result._by
 
@@ -634,16 +620,21 @@ def main(csv_paths, *,
                 ops_[new_k] = ops[old_k]
         ops.update(ops_)
 
+    if by is None and fields is None:
+        print("error: needs --by or --fields to figure out fields")
+        sys.exit(-1)
+
     # find CSV files
-    results = collect(csv_paths, renames=renames, defines=defines)
+    fields_, results = collect(csv_paths, renames, defines)
 
     # homogenize
-    Result = infer(results,
+    Result = infer(fields_, results,
         by=by,
         fields=fields,
         types=types,
         ops=ops,
-        renames=renames)
+        renames=renames,
+        defines=defines)
     results_ = []
     for r in results:
         if not any(k in r and r[k].strip()
@@ -682,7 +673,7 @@ def main(csv_paths, *,
 
     # find previous results?
     if args.get('diff'):
-        diff_results = collect([args['diff']], renames=renames, defines=defines)
+        _, diff_results = collect([args['diff']], renames, defines)
         diff_results_ = []
         for r in diff_results:
             if not any(k in r and r[k].strip()

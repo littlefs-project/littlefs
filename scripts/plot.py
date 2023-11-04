@@ -445,11 +445,15 @@ class Plot:
 
 def collect(csv_paths, renames=[], defines=[]):
     # collect results from CSV files
+    fields = []
     results = []
     for path in csv_paths:
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
+                fields.extend(
+                    k for k in reader.fieldnames
+                    if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -468,7 +472,7 @@ def collect(csv_paths, renames=[], defines=[]):
         except FileNotFoundError:
             pass
 
-    return results
+    return fields, results
 
 def fold(results, by=None, x=None, y=None, defines=[]):
     # filter by matching defines
@@ -479,29 +483,16 @@ def fold(results, by=None, x=None, y=None, defines=[]):
                 results_.append(r)
         results = results_
 
-    # if y not specified, try to guess from data
-    if not y:
-        y = co.OrderedDict()
-        for r in results:
-            for k, v in r.items():
-                if (not by or k not in by) and v.strip():
-                    try:
-                        dat(v)
-                        y[k] = True
-                    except ValueError:
-                        y[k] = False
-        y = list(k for k,v in y.items() if v)
-
     if by:
         # find all 'by' values
-        ks = set()
+        keys = set()
         for r in results:
-            ks.add(tuple(r.get(k, '') for k in by))
-        ks = sorted(ks)
+            keys.add(tuple(r.get(k, '') for k in by))
+        keys = sorted(keys)
 
     # collect all datasets
     datasets = co.OrderedDict()
-    for ks_ in (ks if by else [()]):
+    for key in (keys if by else [()]):
         for x_ in (x if x else [None]):
             for y_ in y:
                 # organize by 'by', x, and y
@@ -511,7 +502,7 @@ def fold(results, by=None, x=None, y=None, defines=[]):
                     # filter by 'by'
                     if by and not all(
                             k in r and r[k] == v
-                            for k, v in zip(by, ks_)):
+                            for k, v in zip(by, key)):
                         continue
 
                     # find xs
@@ -542,8 +533,8 @@ def fold(results, by=None, x=None, y=None, defines=[]):
 
                 # hide x/y if there is only one field
                 k_x = x_ if len(x or []) > 1 else ''
-                k_y = y_ if len(y or []) > 1 or (not ks_ and not k_x) else ''
-                datasets[ks_ + (k_x, k_y)] = dataset
+                k_y = y_ if len(y or []) > 1 or (not key and not k_x) else ''
+                datasets[key + (k_x, k_y)] = dataset
 
     return datasets
 
@@ -904,12 +895,16 @@ def main(csv_paths, *,
     all_defines = sorted(all_defines.items())
 
     # separate out renames
-    renames = list(it.chain.from_iterable(
+    all_renames = list(it.chain.from_iterable(
         ((k, v) for v in vs)
         for k, vs in it.chain(all_by, all_x, all_y)))
     all_by = [k for k, _ in all_by]
     all_x = [k for k, _ in all_x]
     all_y = [k for k, _ in all_y]
+
+    if not all_by and not all_y:
+        print("error: needs --by or -y to figure out fields")
+        sys.exit(-1)
 
     # create a grid of subplots
     grid = Grid.fromargs(**subplot, subplots=subplots)
@@ -994,10 +989,19 @@ def main(csv_paths, *,
         f.writeln = writeln
 
         # first collect results from CSV files
-        results = collect(csv_paths, renames, all_defines)
+        fields_, results = collect(csv_paths, all_renames, all_defines)
+
+        # if y not specified, guess it's anything not in by/defines/x/renames
+        all_y_ = all_y
+        if not all_y:
+            all_y_ = [
+                k for k in fields_
+                    if k not in all_by
+                        and not any(k == k_ for k_, _ in all_defines)
+                        and not any(k == old_k for _, old_k in all_renames)]
 
         # then extract the requested datasets
-        datasets_ = fold(results, all_by, all_x, all_y)
+        datasets_ = fold(results, all_by, all_x, all_y_)
 
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
@@ -1143,7 +1147,7 @@ def main(csv_paths, *,
 
             # data can be constrained by subplot-specific defines,
             # so re-extract for each plot
-            subdatasets = fold(results, all_by, all_x, all_y, define_)
+            subdatasets = fold(results, all_by, all_x, all_y_, define_)
 
             # filter by subplot x/y
             subdatasets = co.OrderedDict([(name, dataset)

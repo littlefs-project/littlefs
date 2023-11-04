@@ -46,11 +46,15 @@ def dat(x):
 
 def collect(csv_paths, renames=[], defines=[]):
     # collect results from CSV files
+    fields = []
     results = []
     for path in csv_paths:
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
+                fields.extend(
+                    k for k in reader.fieldnames
+                    if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -69,7 +73,7 @@ def collect(csv_paths, renames=[], defines=[]):
         except FileNotFoundError:
             pass
 
-    return results
+    return fields, results
 
 def main(csv_paths, output, *,
         sum=False,
@@ -81,8 +85,8 @@ def main(csv_paths, output, *,
         stddev=False,
         gmean=False,
         gstddev=False,
-        meas=None,
         by=None,
+        meas=None,
         seeds=None,
         fields=None,
         defines=[]):
@@ -113,40 +117,41 @@ def main(csv_paths, output, *,
     if fields is not None:
         fields = [k for k, _ in fields]
 
+    if by is None and fields is None:
+        print("error: needs --by or --fields to figure out fields")
+        sys.exit(-1)
+
     # collect results from csv files
-    results = collect(csv_paths, renames, defines)
+    fields_, results = collect(csv_paths, renames, defines)
 
-    # if fields not specified, try to guess from data
-    if fields is None:
-        fields = co.OrderedDict()
-        for r in results:
-            for k, v in r.items():
-                if k not in (by or []) and k not in (seeds or []) and v.strip():
-                    try:
-                        dat(v)
-                        fields[k] = True
-                    except ValueError:
-                        fields[k] = False
-        fields = list(k for k,v in fields.items() if v)
-
-    # if by not specified, guess it's anything not in seeds/fields and not a
-    # source of a rename
+    # if by not specified, guess it's anything not in
+    # seeds/fields/renames/defines
     if by is None:
-        by = co.OrderedDict()
-        for r in results:
-            # also ignore None keys, these are introduced by csv.DictReader
-            # when header + row mismatch
-            by.update((k, True) for k in r.keys()
-                if k is not None
-                    and k not in (seeds or [])
-                    and k not in fields
-                    and not any(k == old_k for _, old_k in renames))
-        by = list(by.keys())
+        by = [
+            k for k in fields_
+            if k not in (seeds or [])
+                and k not in (fields or [])
+                and not any(k == old_k for _, old_k in renames)
+                and not any(k == k_ for k_, _ in defines)]
+
+    # if fields not specified, guess it's anything not in
+    # by/seeds/renames/defines
+    if fields is None:
+        fields = [
+            k for k in fields_
+            if k not in (by or [])
+                and k not in (seeds or [])
+                and not any(k == old_k for _, old_k in renames)
+                and not any(k == k_ for k_, _ in defines)]
+
+    # add meas to by if it isn't already present
+    if meas is not None and meas not in by:
+        by.append(meas)
 
     # convert fields to ints/floats
     for r in results:
         for k in fields:
-            if k in r:
+            if k in r and isinstance(r[k], str):
                 r[k] = dat(r[k]) if r[k].strip() else 0
 
     # organize by 'by' values
@@ -162,11 +167,10 @@ def main(csv_paths, output, *,
         vs = {f: [] for f in fields}
         meas__ = None
         for r in rs:
-            if all(k in r and r[k] == v for k, v in zip(by, key)):
-                for f in fields:
-                    vs[f].append(r.get(f, 0))
-                if meas is not None and meas in r:
-                    meas__ = r[meas]
+            for f in fields:
+                vs[f].append(r.get(f, 0))
+            if meas is not None and meas in r:
+                meas__ = r[meas]
 
         def append(meas_, f_):
             avgs.append(
@@ -197,8 +201,7 @@ def main(csv_paths, output, *,
 
     # write results to CSVS
     with openio(output, 'w') as f:
-        writer = csv.DictWriter(f,
-            by + ([meas] if meas not in by else []) + fields)
+        writer = csv.DictWriter(f, by + fields)
         writer.writeheader()
         for r in avgs:
             writer.writerow(r)
@@ -255,10 +258,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Compute the geometric standard deviation.")
     parser.add_argument(
-        '-m', '--meas',
-        help="Optional name of measurement name field. If provided, the name "
-            "will be modified with +amor or +per.")
-    parser.add_argument(
         '-b', '--by',
         action='append',
         type=lambda x: (
@@ -268,6 +267,10 @@ if __name__ == "__main__":
                     if vs is not None else ())
             )(*x.split('=', 1)),
         help="Group by this field. Can rename fields with new_name=old_name.")
+    parser.add_argument(
+        '-m', '--meas',
+        help="Optional name of measurement name field. If provided, the name "
+            "will be modified with +amor or +per.")
     parser.add_argument(
         '-s', '--seed',
         dest='seeds',

@@ -593,10 +593,7 @@ def collect(obj_path, trace_paths, *,
     return results
 
 
-def fold(Result, results, *,
-        by=None,
-        defines=[],
-        **_):
+def fold(Result, results, by=None, defines=[]):
     if by is None:
         by = Result._by
 
