@@ -279,7 +279,8 @@ def fold(Result, results, by=None, defines=[]):
 
     for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
-            print("error: could not find field %r?" % k)
+            print("error: could not find field %r?" % k,
+                file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines

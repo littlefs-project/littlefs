@@ -1363,7 +1363,8 @@ def main(disk, mroots=None, *,
         size = None
 
     if any(isinstance(b, list) and len(b) > 1 for b in block):
-        print("error: More than one block address?")
+        print("error: more than one block address?",
+            file=sys.stderr)
         sys.exit(-1)
     if isinstance(block[0], list):
         block = (block[0][0], *block[1:])

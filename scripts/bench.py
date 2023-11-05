@@ -293,7 +293,8 @@ def compile(bench_paths, **args):
             print('%serror:%s cycle detected in suite ordering: {%s}' % (
                 '\x1b[01;31m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
-                ', '.join(suite.name for suite in pending.values())))
+                ', '.join(suite.name for suite in pending.values())),
+                file=sys.stderr)
             sys.exit(-1)
 
         pending = pending_
@@ -332,7 +333,8 @@ def compile(bench_paths, **args):
             print('%serror:%s compiling more than one bench suite? (%r)' % (
                 '\x1b[01;31m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
-                bench_paths))
+                bench_paths),
+                file=sys.stderr)
             sys.exit(-1)
 
         suite = suites[0]
@@ -708,7 +710,7 @@ def find_perms(runner, bench_ids=[], **args):
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         sys.exit(-1)
 
     # get which suite each case belongs to via paths
@@ -738,7 +740,7 @@ def find_perms(runner, bench_ids=[], **args):
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         sys.exit(-1)
 
     # figure out expected suite perms
@@ -782,7 +784,7 @@ def find_path(runner, id, **args):
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         sys.exit(-1)
 
     return path
@@ -811,7 +813,7 @@ def find_defines(runner, id, **args):
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         sys.exit(-1)
 
     return defines
@@ -863,7 +865,8 @@ def find_ids(runner, bench_ids=[], **args):
             print('%serror:%s no benches match id %r?' % (
                 '\x1b[01;31m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
-                id))
+                id),
+                file=sys.stderr)
             sys.exit(-1)
 
         bench_ids_.extend(bench_ids__)

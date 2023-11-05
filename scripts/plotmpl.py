@@ -745,7 +745,8 @@ def main(csv_paths, output, *,
     all_y = [k for k, _ in all_y]
 
     if not all_by and not all_y:
-        print("error: needs --by or -y to figure out fields")
+        print("error: needs --by or -y to figure out fields",
+            file=sys.stderr)
         sys.exit(-1)
 
     # first collect results from CSV files

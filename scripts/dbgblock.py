@@ -89,7 +89,8 @@ def main(disk, block=None, *,
         block = [0]
 
     if len(block) > 1:
-        print("error: More than one block address?")
+        print("error: more than one block address?",
+            file=sys.stderr)
         sys.exit(-1)
 
     block = block[0]

@@ -118,7 +118,8 @@ def main(csv_paths, output, *,
         fields = [k for k, _ in fields]
 
     if by is None and fields is None:
-        print("error: needs --by or --fields to figure out fields")
+        print("error: needs --by or --fields to figure out fields",
+            file=sys.stderr)
         sys.exit(-1)
 
     # collect results from csv files

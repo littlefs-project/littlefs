@@ -717,7 +717,8 @@ def main(path='-', *,
         size = None
 
     if any(isinstance(b, list) and len(b) > 1 for b in block):
-        print("error: More than one block address?")
+        print("error: more than one block address?",
+            file=sys.stderr)
         sys.exit(-1)
     if isinstance(block[0], list):
         block = (block[0][0], *block[1:])
@@ -1013,7 +1014,8 @@ def main(path='-', *,
             # don't just flood open calls
             time.sleep(sleep or 0.1)
     except FileNotFoundError as e:
-        print("error: file not found %r" % path)
+        print("error: file not found %r" % path,
+            file=sys.stderr)
         sys.exit(-1)
     except KeyboardInterrupt:
         pass

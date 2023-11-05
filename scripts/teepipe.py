@@ -44,7 +44,8 @@ def main(in_path, out_paths, *, keep_open=False):
                     except BrokenPipeError:
                         pass
     except FileNotFoundError as e:
-        print("error: file not found %r" % in_path)
+        print("error: file not found %r" % in_path,
+            file=sys.stderr)
         sys.exit(-1)
     except KeyboardInterrupt:
         pass

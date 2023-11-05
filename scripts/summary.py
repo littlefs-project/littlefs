@@ -324,7 +324,8 @@ def infer(fields_, results,
                     types_[k] = t
                     break
             else:
-                print("error: no type matches field %r?" % k)
+                print("error: no type matches field %r?" % k,
+                    file=sys.stderr)
                 sys.exit(-1)
     types = types_
 
@@ -376,7 +377,8 @@ def fold(Result, results, by=None, defines=[]):
 
     for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
-            print("error: could not find field %r?" % k)
+            print("error: could not find field %r?" % k,
+                file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines
@@ -593,7 +595,8 @@ def main(csv_paths, *,
     for t in TYPES.keys():
         for k in args.get(t, []):
             if k in types:
-                print("error: conflicting type for field %r?" % k)
+                print("error: conflicting type for field %r?" % k,
+                    file=sys.stderr)
                 sys.exit(-1)
             types[k] = TYPES[t]
     # rename types?
@@ -609,7 +612,8 @@ def main(csv_paths, *,
     for o in OPS.keys():
         for k in args.get(o, []):
             if k in ops:
-                print("error: conflicting op for field %r?" % k)
+                print("error: conflicting op for field %r?" % k,
+                    file=sys.stderr)
                 sys.exit(-1)
             ops[k] = OPS[o]
     # rename ops?
@@ -621,7 +625,8 @@ def main(csv_paths, *,
         ops.update(ops_)
 
     if by is None and fields is None:
-        print("error: needs --by or --fields to figure out fields")
+        print("error: needs --by or --fields to figure out fields",
+            file=sys.stderr)
         sys.exit(-1)
 
     # find CSV files

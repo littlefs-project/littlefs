@@ -131,7 +131,8 @@ def main(path='-', *, lines=5, cat=False, sleep=None, keep_open=False):
             # don't just flood open calls
             time.sleep(sleep or 0.1)
     except FileNotFoundError as e:
-        print("error: file not found %r" % path)
+        print("error: file not found %r" % path,
+            file=sys.stderr)
         sys.exit(-1)
     except KeyboardInterrupt:
         pass

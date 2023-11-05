@@ -291,7 +291,7 @@ def collect_syms_and_lines(obj_path, *,
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         # assume no debug-info on failure
         pass
 
@@ -361,7 +361,7 @@ def collect_syms_and_lines(obj_path, *,
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         # assume no debug-info on failure
         pass
 
@@ -567,7 +567,7 @@ def collect_decompressed(path, *,
     if proc.returncode != 0:
         if not args.get('verbose'):
             for line in proc.stderr:
-                sys.stdout.write(line)
+                sys.stderr.write(line)
         sys.exit(-1)
 
     # rearrange results into result type
@@ -633,7 +633,8 @@ def fold(Result, results, by=None, defines=[]):
 
     for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
-            print("error: could not find field %r?" % k)
+            print("error: could not find field %r?" % k,
+                file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines
@@ -1361,10 +1362,12 @@ if __name__ == "__main__":
     args.command = args.perf_paths
     if args.record:
         if not args.command:
-            print('error: no command specified?')
+            print('error: no command specified?',
+                file=sys.stderr)
             sys.exit(-1)
         if not args.output:
-            print('error: no output file specified?')
+            print('error: no output file specified?',
+                file=sys.stderr)
             sys.exit(-1)
 
     sys.exit(main(**{k: v

@@ -187,7 +187,7 @@ def collect(obj_paths, *,
         if proc.returncode != 0:
             if not args.get('verbose'):
                 for line in proc.stderr:
-                    sys.stdout.write(line)
+                    sys.stderr.write(line)
             sys.exit(-1)
 
 
@@ -226,7 +226,7 @@ def collect(obj_paths, *,
         if proc.returncode != 0:
             if not args.get('verbose'):
                 for line in proc.stderr:
-                    sys.stdout.write(line)
+                    sys.stderr.write(line)
             # do nothing on error, we don't need objdump to work, source files
             # may just be inaccurate
             pass
@@ -268,7 +268,7 @@ def collect(obj_paths, *,
         if proc.returncode != 0:
             if not args.get('verbose'):
                 for line in proc.stderr:
-                    sys.stdout.write(line)
+                    sys.stderr.write(line)
             # do nothing on error, we don't need objdump to work, source files
             # may just be inaccurate
             pass
@@ -321,7 +321,8 @@ def fold(Result, results, by=None, defines=[]):
 
     for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
-            print("error: could not find field %r?" % k)
+            print("error: could not find field %r?" % k,
+                file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines
