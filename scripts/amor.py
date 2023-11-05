@@ -84,11 +84,9 @@ def main(csv_paths, output, *,
         size=None,
         fields=None,
         defines=[]):
-    # default to amortizing and per-byte results if size is present
+    # default to amortizing
     if not amor and not per:
         amor = True
-        if size is not None:
-            per = True
 
     # separate out renames
     renames = list(it.chain.from_iterable(
@@ -163,7 +161,7 @@ def main(csv_paths, output, *,
             # find amortized results
             if amor:
                 amors.append(r
-                    | {f: sums[f] / (j+1) for f in fields}
+                    | {f: sums[f] / size_ for f in fields}
                     | ({} if meas is None
                         else {meas: r[meas]+'+amor'} if meas in r
                         else {meas: 'amor'}))
