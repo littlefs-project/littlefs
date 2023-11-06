@@ -474,7 +474,7 @@ def collect(csv_paths, renames=[], defines=[]):
 
     return fields, results
 
-def fold(results, by=None, x=None, y=None, defines=[]):
+def fold(results, by=None, x=None, y=None, defines=[], labels=None):
     # filter by matching defines
     if defines:
         results_ = []
@@ -532,9 +532,20 @@ def fold(results, by=None, x=None, y=None, defines=[]):
                     dataset.append((x__, y__))
 
                 # hide x/y if there is only one field
-                k_x = x_ if len(x or []) > 1 else ''
-                k_y = y_ if len(y or []) > 1 or (not key and not k_x) else ''
-                datasets[key + (k_x, k_y)] = dataset
+                key_ = key
+                if len(x or []) > 1:
+                    key_ += (x_,)
+                if len(y or []) > 1 or not key_:
+                    key_ += (y_,)
+                datasets[key_] = dataset
+
+    # filter/order by labels
+    if labels:
+        datasets_ = co.OrderedDict()
+        for _, key in labels:
+            if key in datasets:
+                datasets_[key] = datasets[key]
+        datasets = datasets_
 
     return datasets
 
@@ -804,12 +815,12 @@ def main(csv_paths, *,
         x=None,
         y=None,
         define=[],
+        label=None,
         color=False,
         braille=False,
         colors=None,
         chars=None,
         line_chars=None,
-        labels=None,
         points=False,
         points_and_lines=False,
         width=None,
@@ -864,11 +875,6 @@ def main(csv_paths, *,
     else:
         line_chars_ = [False]
 
-    if labels is not None:
-        labels_ = labels
-    else:
-        labels_ = [None]
-
     # allow escape codes in labels/titles
     title = escape(title).splitlines() if title is not None else []
     xlabel = escape(xlabel).splitlines() if xlabel is not None else []
@@ -893,6 +899,8 @@ def main(csv_paths, *,
             subplots_get('define', **subplot, subplots=subplots)):
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
+    all_labels = ((label or [])
+        + subplots_get('label', **subplot, subplots=subplots))
 
     # separate out renames
     all_renames = list(it.chain.from_iterable(
@@ -1002,7 +1010,7 @@ def main(csv_paths, *,
                         and not any(k == old_k for _, old_k in all_renames)]
 
         # then extract the requested datasets
-        datasets_ = fold(results, all_by, all_x, all_y_)
+        datasets_ = fold(results, all_by, all_x, all_y_, None, all_labels)
 
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
@@ -1015,25 +1023,24 @@ def main(csv_paths, *,
         dataline_chars_ = {
             name: line_chars_[i % len(line_chars_)]
             for i, name in enumerate(datasets_.keys())}
-        datalabels_ = {
-            name: labels_[i % len(labels_)]
-            for i, name in enumerate(datasets_.keys())}
 
         # build legend?
         legend_width = 0
         if legend_right or legend_above or legend_below:
             legend_ = []
-            for i, k in enumerate(datasets_.keys()):
-                if datalabels_[k] is not None and not datalabels_[k]:
+            if all_labels:
+                all_labels_ = {key: l for l, key in all_labels}
+            for i, name in enumerate(datasets_.keys()):
+                if all_labels and not all_labels_[name]:
                     continue
                 label = '%s%s' % (
-                    '%s ' % datachars_[k]
-                        if chars is not None
-                        else '%s ' % dataline_chars_[k]
-                        if line_chars is not None
+                    '%s ' % datachars_[name]
+                            if chars is not None
+                        else '%s ' % dataline_chars_[name]
+                            if line_chars is not None
                         else '',
-                    datalabels_[k]
-                        or ','.join(k_ for k_ in k if k_))
+                    all_labels_[name] if all_labels
+                        else ','.join(name))
 
                 if label:
                     legend_.append((label, colors_[i % len(colors_)]))
@@ -1148,13 +1155,15 @@ def main(csv_paths, *,
 
             # data can be constrained by subplot-specific defines,
             # so re-extract for each plot
-            subdatasets = fold(results, all_by, all_x, all_y_, define_)
+            subdatasets = fold(results,
+                all_by, all_x, all_y_, define_, all_labels)
 
             # filter by subplot x/y
             subdatasets = co.OrderedDict([(name, dataset)
                 for name, dataset in subdatasets.items()
-                if not name[-2] or name[-2] in x_
-                if not name[-1] or name[-1] in y_])
+                if len(all_x) <= 1
+                    or name[-(1 if len(all_y_) <= 1 else 2)] in x_
+                if len(all_y_) <= 1 or name[-1] in y_])
 
             # find actual xlim/ylim
             xlim_ = (
@@ -1467,6 +1476,17 @@ if __name__ == "__main__":
         help="Only include results where this field is this value. May include "
             "comma-separated options.")
     parser.add_argument(
+        '-L', '--label',
+        action='append',
+        type=lambda x: (
+            lambda k, vs: (
+                re.sub(r'\\([=\\])', r'\1', k.strip()),
+                tuple(v.strip() for v in vs.split(',')))
+            )(*re.split(r'(?<!\\)=', x, 1)),
+        help="Use this label for a given group, where a group is roughly the "
+            "comma-separated values in the -b/--by, -x, and -y fields. Also "
+            "provides an ordering. Accepts escaped equals.")
+    parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],
         default='auto',
@@ -1494,12 +1514,6 @@ if __name__ == "__main__":
     parser.add_argument(
         '--line-chars',
         help="Characters to use for lines.")
-    parser.add_argument(
-        '--labels',
-        type=lambda x: [x.strip().replace('\,',',')
-            for x in re.split(r'(?<!\\),', x)],
-        help="Comma-separated legend labels. Allows '\,' as an "
-            "alternative for a literal ','.")
     parser.add_argument(
         '-W', '--width',
         nargs='?',
@@ -1555,14 +1569,14 @@ if __name__ == "__main__":
         help="Add a label to the y-axis.")
     parser.add_argument(
         '--xticklabels',
-        type=lambda x: [x.strip().replace('\,',',')
+        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
                 for x in re.split(r'(?<!\\),', x)]
             if x.strip() else [],
         help="Comma separated xticklabels. Allows '\,' as an "
             "alternative for a literal ','.")
     parser.add_argument(
         '--yticklabels',
-        type=lambda x: [x.strip().replace('\,',',')
+        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
                 for x in re.split(r'(?<!\\),', x)]
             if x.strip() else [],
         help="Comma separated yticklabels. Allows '\,' as an "
