@@ -805,7 +805,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Show uncovered branches.")
     parser.add_argument(
-        '-c', '--context',
+        '-C', '--context',
         type=lambda x: int(x, 0),
         default=3,
         help="Show n additional lines of context. Defaults to 3.")

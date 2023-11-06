@@ -1289,7 +1289,7 @@ if __name__ == "__main__":
         help="Show lines with samples above this threshold as a percent of "
             "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
-        '-c', '--context',
+        '-C', '--context',
         type=lambda x: int(x, 0),
         default=3,
         help="Show n additional lines of context. Defaults to 3.")

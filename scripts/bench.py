@@ -1578,7 +1578,7 @@ if __name__ == "__main__":
         default=3,
         help="Show this many test failures. Defaults to 3.")
     bench_parser.add_argument(
-        '--context',
+        '-C', '--context',
         type=lambda x: int(x, 0),
         default=5,
         help="Show this many lines of stdout on bench failure. "
