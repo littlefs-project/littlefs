@@ -974,6 +974,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
     passed_perms = 0
+    failed_perms = 0
     powerlosses = 0
     failures = []
     killed = False
@@ -1078,6 +1079,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                 last_assert)
 
     def run_job(start=None, step=None):
+        nonlocal failed_perms
         nonlocal failures
         nonlocal killed
         nonlocal locals
@@ -1117,7 +1119,13 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                 if failures and not args.get('keep_going'):
                     break
 
-                failures.append(failure)
+                # keep track of how many failed
+                failed_perms += 1
+
+                # do not store more failures than we need to, otherwise we
+                # quickly explode RAM when a common bug fails a bunch of cases
+                if len(failures) < args.get('failures', 3):
+                    failures.append(failure)
 
                 if args.get('keep_going') and not killed:
                     # resume after failed test
@@ -1149,7 +1157,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
                 '\r\x1b[K' if args['color'] else '',
                 '\x1b[?7l' if not done else '',
-                ('\x1b[32m' if not failures else '\x1b[31m')
+                ('\x1b[32m' if not failed_perms else '\x1b[31m')
                     if args['color'] else '',
                 name,
                 '\x1b[m' if args['color'] else '',
@@ -1170,10 +1178,10 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                         if powerlosses else None,
                     '%s%d/%d failures%s' % (
                             '\x1b[31m' if args['color'] else '',
-                            len(failures),
+                            failed_perms,
                             expected_perms,
                             '\x1b[m' if args['color'] else '')
-                        if failures else None])),
+                        if failed_perms else None])),
                 '\x1b[?7h' if not done else '\n'))
             sys.stdout.flush()
 
@@ -1197,6 +1205,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     return (
         expected_perms,
         passed_perms,
+        failed_perms,
         powerlosses,
         failures,
         killed)
@@ -1244,12 +1253,14 @@ def run(runner, test_ids=[], **args):
     # spawn runners
     expected = 0
     passed = 0
+    failed = 0
     powerlosses = 0
     failures = []
     for by in (test_ids if test_ids else [None]):
         # spawn jobs for stage
         (expected_,
             passed_,
+            failed_,
             powerlosses_,
             failures_,
             killed) = run_stage(
@@ -1263,9 +1274,14 @@ def run(runner, test_ids=[], **args):
         # collect passes/failures
         expected += expected_
         passed += passed_
+        failed += failed_
         powerlosses += powerlosses_
-        failures.extend(failures_)
-        if (failures and not args.get('keep_going')) or killed:
+        # do not store more failures than we need to, otherwise we
+        # quickly explode RAM when a common bug fails a bunch of cases
+        failures.extend(failures_[:max(
+            args.get('failures', 3) - len(failures),
+            0)])
+        if (failed and not args.get('keep_going')) or killed:
             break
 
     stop = time.time()
@@ -1286,18 +1302,18 @@ def run(runner, test_ids=[], **args):
     # show summary
     print()
     print('%sdone:%s %s' % (
-        ('\x1b[32m' if not failures else '\x1b[31m')
+        ('\x1b[32m' if not failed else '\x1b[31m')
             if args['color'] else '',
         '\x1b[m' if args['color'] else '',
         ', '.join(filter(None, [
             '%d/%d passed' % (passed, expected),
-            '%d/%d failed' % (len(failures), expected),
+            '%d/%d failed' % (failed, expected),
             '%dpls!' % powerlosses if powerlosses else None,
             'in %.2fs' % (stop-start)]))))
     print()
 
     # print each failure
-    for failure in failures:
+    for failure in failures[:args.get('failures', 3)]:
         assert failure.id is not None, '%s broken? %r' % (
             ' '.join(shlex.quote(c) for c in find_runner(runner, **args)),
             failure)
@@ -1320,7 +1336,7 @@ def run(runner, test_ids=[], **args):
             stdout = failure.stdout
             if failure.assert_ is not None:
                 stdout = stdout[:-1]
-            for line in stdout[-args.get('context', 5):]:
+            for line in stdout[len(stdout)-args.get('context', 5):]:
                 sys.stdout.write(line)
 
         if failure.assert_ is not None:
@@ -1408,7 +1424,7 @@ def run(runner, test_ids=[], **args):
             print(' '.join(shlex.quote(c) for c in cmd))
         os.execvp(cmd[0], cmd)
 
-    return 1 if failures else 0
+    return 1 if failed else 0
 
 
 def main(**args):
@@ -1570,6 +1586,11 @@ if __name__ == "__main__":
         '-B', '--by-cases',
         action='store_true',
         help="Step through tests by case.")
+    test_parser.add_argument(
+        '-F', '--failures',
+        type=lambda x: int(x, 0),
+        default=3,
+        help="Show this many test failures. Defaults to 3.")
     test_parser.add_argument(
         '--context',
         type=lambda x: int(x, 0),
