@@ -592,7 +592,6 @@ def main(csv_paths, output, *,
         dark=False,
         ggplot=False,
         xkcd=False,
-        github=False,
         font=None,
         font_size=FONT_SIZE,
         font_color=None,
@@ -607,25 +606,6 @@ def main(csv_paths, output, *,
             png = True
         else:
             svg = True
-
-    # some shortcuts for color schemes
-    if github:
-        ggplot = True
-        if font_color is None:
-            if dark:
-                font_color = '#e6edf3'
-            else:
-                font_color = '#1f2328'
-        if foreground is None:
-            if dark:
-                foreground = '#1f242c'
-            else:
-                foreground = '#eaeef2'
-        if background is None:
-            if dark:
-                background = '#0d1117'
-            else:
-                background = '#ffffff'
 
     # what colors/alphas/formats to use?
     if colors is not None:
@@ -1284,10 +1264,6 @@ if __name__ == "__main__":
         '--xkcd',
         action='store_true',
         help="Use the xkcd style.")
-    parser.add_argument(
-        '--github',
-        action='store_true',
-        help="Use the ggplot style with GitHub colors.")
     parser.add_argument(
         '--font',
         type=lambda x: [x.strip() for x in x.split(',')],
