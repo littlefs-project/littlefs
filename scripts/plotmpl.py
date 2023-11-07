@@ -613,14 +613,14 @@ def main(csv_paths, output, *,
         ggplot = True
         if font_color is None:
             if dark:
-                font_color = '#c9d1d9'
+                font_color = '#e6edf3'
             else:
-                font_color = '#24292f'
+                font_color = '#1f2328'
         if foreground is None:
             if dark:
-                foreground = '#343942'
+                foreground = '#1f242c'
             else:
-                foreground = '#eff1f3'
+                foreground = '#eaeef2'
         if background is None:
             if dark:
                 background = '#0d1117'
