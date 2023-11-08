@@ -2038,6 +2038,16 @@ static inline bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
     return !(rbyd->eoff == 0 && rbyd->trunk > 0);
 }
 
+static inline int lfsr_rbyd_cmp(
+        const lfsr_rbyd_t *a,
+        const lfsr_rbyd_t *b) {
+    if (a->block != b->block) {
+        return a->block - b->block;
+    } else {
+        return a->trunk - b->trunk;
+    }
+}
+
 static inline void lfsr_rbyd_unerase(lfsr_rbyd_t *rbyd) {
     rbyd->eoff = -1;
 }
@@ -3657,51 +3667,14 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
 // convenience operations
 
-// use sign bit to indicate if btree is inlined
-#define LFSR_BTREE_INLINED 0x80000000
-
-// TODO need null btrees?
-#define LFSR_BTREE_NULL ((lfsr_btree_t){.u.weight=0x80000000})
-
-static inline bool lfsr_btree_isinlined(const lfsr_btree_t *btree) {
-    return btree->u.weight & LFSR_BTREE_INLINED;
-}
-
-static inline lfsr_bid_t lfsr_btree_weight(const lfsr_btree_t *btree) {
-    return btree->u.weight & ~LFSR_BTREE_INLINED;
-}
-
-static inline bool lfsr_btree_isnull(const lfsr_btree_t *btree) {
-    return (lfsr_bid_t)btree->u.weight == (LFSR_BTREE_INLINED | 0);
-}
-
 static inline int lfsr_btree_cmp(
         const lfsr_btree_t *a,
         const lfsr_btree_t *b) {
-    if (a->u.weight != b->u.weight) {
-        return a->u.weight - b->u.weight;
-    } else if (lfsr_btree_isinlined(a)) {
-        if (a->u.inlined.tag != b->u.inlined.tag) {
-            return a->u.inlined.tag - b->u.inlined.tag;
-        } else if (a->u.inlined.size != b->u.inlined.size) {
-            return a->u.inlined.size - b->u.inlined.size;
-        } else {
-            return memcmp(a->u.inlined.buf, b->u.inlined.buf,
-                    a->u.inlined.size);
-        }
-    } else {
-        if (a->u.rbyd.block != b->u.rbyd.block) {
-            return a->u.rbyd.block - b->u.rbyd.block;
-        } else {
-            return a->u.rbyd.trunk - b->u.rbyd.trunk;
-        }
-    }
+    return lfsr_rbyd_cmp(a, b);
 }
 
 static inline void lfsr_btree_unerase(lfsr_btree_t *btree) {
-    if (!lfsr_btree_isinlined(btree)) {
-        lfsr_rbyd_unerase(&btree->u.rbyd);
-    }
+    lfsr_rbyd_unerase(btree);
 }
 
 
@@ -3768,12 +3741,9 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_DATA_FROMBTREE(_btree, _buffer) \
     lfsr_data_frombtree(_btree, _buffer)
 
-static lfsr_data_t lfsr_data_frombtree(const lfsr_rbyd_t *btree,
+static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]) {
-    // upper layers must take care of encoding inlined btrees
-    LFS_ASSERT(!lfsr_btree_isinlined((const lfsr_btree_t*)btree));
     lfs_ssize_t d = 0;
-
     lfs_ssize_t d_ = lfs_toleb128(btree->weight, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
@@ -3784,24 +3754,8 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_rbyd_t *btree,
     return LFSR_DATA_BUF(buffer, d);
 }
 
-static int lfsr_data_readbtreeinlined(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_tag_t tag, lfsr_bid_t weight,
-        lfsr_btree_t *btree) {
-    LFS_ASSERT(lfsr_data_size(data) <= LFSR_BTREE_INLINESIZE);
-    // mark as inlined
-    btree->u.inlined.weight = weight | LFSR_BTREE_INLINED;
-    btree->u.inlined.tag = tag;
-    lfs_ssize_t size = lfsr_data_read(lfs, data,
-            btree->u.inlined.buf, LFSR_BTREE_INLINESIZE);
-    if (size < 0) {
-        return size;
-    }
-    btree->u.inlined.size = size;
-    return 0;
-}
-
 static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_rbyd_t *btree) {
+        lfsr_btree_t *btree) {
     lfsr_bid_t weight;
     int err = lfsr_data_readleb128(lfs, data, (int32_t*)&weight);
     if (err) {
@@ -3819,49 +3773,26 @@ static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
 
 // B-tree operations
 
+static int lfsr_btree_alloc(lfs_t *lfs, lfsr_btree_t *btree) {
+    return lfsr_rbyd_alloc(lfs, btree);
+}
+
 static int lfsr_btree_lookupnext_(lfs_t *lfs,
         const lfsr_btree_t *btree, lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
-    // in range?
-    if (bid >= lfsr_btree_weight(btree)) {
-        return LFS_ERR_NOENT;
-    }
-
-    // inlined?
-    if (lfsr_btree_isinlined(btree)) {
-        // TODO how many of these should be conditional?
-        if (bid_) {
-            *bid_ = lfsr_btree_weight(btree)-1;
-        }
-        if (tag_) {
-            *tag_ = btree->u.inlined.tag;
-        }
-        if (weight_) {
-            *weight_ = lfsr_btree_weight(btree);
-        }
-        if (data_) {
-            *data_ = LFSR_DATA_BUF(btree->u.inlined.buf, btree->u.inlined.size);
-        }
-        return 0;
-    }
-
     // descend down the btree looking for our bid
-    lfsr_rbyd_t branch = btree->u.rbyd;
+    lfsr_rbyd_t branch = *btree;
     lfsr_srid_t rid = bid;
     while (true) {
         // each branch is a pair of optional name + on-disk structure
         lfsr_srid_t rid__;
         lfsr_tag_t tag__;
-        // TODO do we really need to fetch weight__ if we get it in our
-        // btree struct?
-        // TODO maybe only when validating?
         lfsr_rid_t weight__;
         lfsr_data_t data__;
         int err = lfsr_rbyd_lookupnext(lfs, &branch, rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
@@ -3942,22 +3873,17 @@ static int lfsr_btree_lookup(lfs_t *lfs, const lfsr_btree_t *btree,
 static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid, const lfsr_rbyd_t *child,
         lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_) {
-    // we only call this when we actually have parents
-    LFS_ASSERT(bid < lfsr_btree_weight(btree));
-    LFS_ASSERT(!lfsr_btree_isinlined(btree));
-    LFS_ASSERT(!(btree->u.rbyd.block == child->block
-            && btree->u.rbyd.trunk == child->trunk));
+    // we should only call this when we actually have parents
+    LFS_ASSERT(bid < (lfsr_bid_t)btree->weight);
+    LFS_ASSERT(lfsr_rbyd_cmp(btree, child) != 0);
 
     // descend down the btree looking for our rid
-    lfsr_rbyd_t branch = btree->u.rbyd;
+    lfsr_rbyd_t branch = *btree;
     lfsr_srid_t rid = bid;
     while (true) {
         // each branch is a pair of optional name + on-disk structure
         lfsr_srid_t rid__;
         lfsr_tag_t tag__;
-        // TODO do we really need to fetch weight__ if we get it in our
-        // btree struct?
-        // TODO maybe only when validating?
         lfsr_rid_t weight__;
         lfsr_data_t data__;
         int err = lfsr_rbyd_lookupnext(lfs, &branch, rid, 0,
@@ -4011,99 +3937,25 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 // core btree algorithm
 static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // first find the effective bid and any changes to the number of tags
+    // TODO should we just use the first bid?
+    // first find the effective bid
     lfsr_bid_t bid = -1;
-    lfsr_srid_t tag_delta = 0;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // note unsigned min here chooses non-negative bids
         bid = lfs_min32(bid, attrs[i].rid);
-
-        // non-grow tags with deltas change the number of tags
-        if (!lfsr_tag_isgrow(attrs[i].tag)) {
-            tag_delta += lfs_sclamp32(attrs[i].delta, -1, +1);
-        }
     }
-    LFS_ASSERT(bid <= lfsr_btree_weight(btree));
-
-    // inlined btree? staying inlined?
-    if (lfsr_btree_isinlined(btree)) {
-        // staying inlined?
-        if (lfs_clamp32(lfsr_btree_weight(btree), 0, 1) + tag_delta <= 1) {
-            for (lfs_size_t i = 0; i < attr_count; i++) {
-                // update our inlined tag, make sure to strip wide/grow bits
-                if (lfsr_tag_suptype(lfsr_tag_key(attrs[i].tag))
-                        == LFSR_TAG_STRUCT) {
-                    LFS_ASSERT(lfsr_data_size(&attrs[i].data)
-                            <= LFSR_BTREE_INLINESIZE);
-                    btree->u.inlined.tag = lfsr_tag_key(attrs[i].tag);
-
-                    lfsr_data_t data_ = attrs[i].data;
-                    lfs_ssize_t d = lfsr_data_read(lfs, &data_,
-                            btree->u.inlined.buf, LFSR_BTREE_INLINESIZE);
-                    if (d < 0) {
-                        return d;
-                    }
-                    btree->u.inlined.size = d;
-                }
-
-                // update our btree weight
-                LFS_ASSERT((lfsr_sbid_t)lfsr_btree_weight(btree)
-                        + attrs[i].delta >= 0);
-                btree->u.inlined.weight += attrs[i].delta;
-            }
-            return 0;
-
-        // uninlining?
-        } else {
-            // allocate a root rbyd
-            lfsr_rbyd_t rbyd;
-            int err = lfsr_rbyd_alloc(lfs, &rbyd);
-            if (err) {
-                return err;
-            }
-
-            // prepend inlined tag if we have one
-            if (lfsr_btree_weight(btree) > 0) {
-                err = lfsr_rbyd_appendattr(lfs, &rbyd, 0,
-                        btree->u.inlined.tag, +lfsr_btree_weight(btree),
-                        LFSR_DATA_BUF(
-                            btree->u.inlined.buf, btree->u.inlined.size));
-                if (err) {
-                    return err;
-                }
-            }
-
-            // commit our attrs
-            err = lfsr_rbyd_appendattrs(lfs, &rbyd, -1, -1,
-                    attrs, attr_count);
-            if (err) {
-                return err;
-            }
-
-            err = lfsr_rbyd_appendcksum(lfs, &rbyd);
-            if (err) {
-                return err;
-            }
-
-            // save our new root
-            btree->u.rbyd = rbyd;
-            return 0;
-        }
-    }
+    LFS_ASSERT(bid <= (lfsr_bid_t)btree->weight);
 
     // lookup in which leaf our bids resides
     //
     // for lfsr_btree_commit operations to work out, we need to
     // limit our bid to an rid in the tree, which is what this min
     // is doing
-    //
-    // note it's entirely possible for our btree to have a weight of
-    // zero here
-    lfsr_rbyd_t rbyd = btree->u.rbyd;
-    if (lfsr_btree_weight(btree) > 0) {
+    lfsr_rbyd_t rbyd = *btree;
+    if (btree->weight > 0) {
         lfsr_srid_t rid;
         int err = lfsr_btree_lookupnext_(lfs, btree,
-                lfs_min32(bid, lfsr_btree_weight(btree)-1),
+                lfs_min32(bid, btree->weight-1),
                 &bid, &rbyd, &rid, NULL, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4125,8 +3977,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t parent;
         lfsr_srid_t rid;
         // are we root?
-        if ((lfsr_bid_t)rbyd.weight == lfsr_btree_weight(btree)
-                || rbyd.weight == 0) {
+        if (rbyd.weight == btree->weight || rbyd.weight == 0) {
             // mark rid as -1 if we have no parent
             rid = -1;
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -4556,10 +4407,9 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // we must have a parent at this point, but is our parent the root
         // and is the root degenerate?
         LFS_ASSERT(rid != -1);
-        if ((lfsr_bid_t)(rbyd.weight+sibling.weight)
-                == lfsr_btree_weight(btree)) {
+        if (rbyd.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
-            btree->u.rbyd = rbyd_;
+            *btree = rbyd_;
             return 0;
         }
 
@@ -4583,14 +4433,14 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // done?
         if (rid == -1) {
             LFS_ASSERT(bid == 0);
-            btree->u.rbyd = rbyd_;
+            *btree = rbyd_;
             return 0;
         }
 
         // is our parent the root and is the root degenerate?
-        if ((lfsr_bid_t)rbyd.weight == lfsr_btree_weight(btree)) {
+        if (rbyd.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
-            btree->u.rbyd = rbyd_;
+            *btree = rbyd_;
             return 0;
         }
 
@@ -4622,30 +4472,12 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t *bid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     // an empty tree?
-    if (lfsr_btree_weight(btree) == 0) {
+    if (btree->weight == 0) {
         return LFS_ERR_NOENT;
     }
 
-    // inlined?
-    if (lfsr_btree_isinlined(btree)) {
-        // TODO how many of these should be conditional?
-        if (bid_) {
-            *bid_ = lfsr_btree_weight(btree)-1;
-        }
-        if (tag_) {
-            *tag_ = btree->u.inlined.tag;
-        }
-        if (weight_) {
-            *weight_ = lfsr_btree_weight(btree);
-        }
-        if (data_) {
-            *data_ = LFSR_DATA_BUF(btree->u.inlined.buf, btree->u.inlined.size);
-        }
-        return 0;
-    }
-
     // descend down the btree looking for our name
-    lfsr_rbyd_t branch = btree->u.rbyd;
+    lfsr_rbyd_t branch = *btree;
     lfsr_bid_t bid = 0;
     while (true) {
         // lookup our name in the rbyd via binary search
@@ -4731,32 +4563,18 @@ static int lfsr_btraversal_read(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_binfo_t *binfo) {
     while (true) {
         // in range?
-        if (traversal->bid >= lfsr_btree_weight(btree)) {
+        if (traversal->bid >= (lfsr_bid_t)btree->weight) {
             return LFS_ERR_NOENT;
-        }
-
-        // inlined?
-        if (lfsr_btree_isinlined(btree)) {
-            // setup traversal to terminate next call
-            traversal->bid = lfsr_btree_weight(btree);
-
-            binfo->bid = lfsr_btree_weight(btree)-1;
-            binfo->tag = btree->u.inlined.tag;
-            binfo->weight = lfsr_btree_weight(btree);
-            binfo->u.data = LFSR_DATA_BUF(
-                    btree->u.inlined.buf,
-                    btree->u.inlined.size);
-            return 0;
         }
 
         // restart from the root
         if (traversal->rid >= traversal->branch.weight) {
             traversal->bid += traversal->branch.weight;
             traversal->rid = traversal->bid;
-            traversal->branch = btree->u.rbyd;
+            traversal->branch = *btree;
 
             if (traversal->rid == 0) {
-                binfo->bid = lfsr_btree_weight(btree)-1;
+                binfo->bid = btree->weight-1;
                 binfo->tag = LFSR_TAG_BRANCH;
                 binfo->weight = traversal->branch.weight;
                 binfo->u.rbyd = traversal->branch;
@@ -6108,7 +5926,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // new mtree?
         if (lfsr_mtree_ismptr(&mtree_)) {
-            mtree_.u.btree = LFSR_BTREE_NULL;
+            err = lfsr_btree_alloc(lfs, &mtree_.u.btree);
+            if (err) {
+                return err;
+            }
 
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             uint8_t msibling_buf[LFSR_MPTR_DSIZE];
@@ -6277,7 +6098,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             mtree_data = lfsr_data_frommptr(mtree_.u.mptr.blocks, mtree_buf);  
         }  else {
             mtree_tag = LFSR_TAG_WIDE(MTREE);
-            mtree_data = lfsr_data_frombtree(&mtree_.u.btree.u.rbyd, mtree_buf);
+            mtree_data = lfsr_data_frombtree(&mtree_.u.btree, mtree_buf);
         }
 
         err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL, LFSR_ATTRS(
@@ -7019,7 +6840,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // uninitialized in mountinited and 2. stack really matters since
             // we're at the bottom of lfs_alloc)
             if (binfo.tag == LFSR_TAG_BRANCH
-                    && binfo.u.rbyd.block == lfs->mtree.u.btree.u.rbyd.block) {
+                    && binfo.u.rbyd.block == lfs->mtree.u.btree.block) {
                 continue;
             }
 
@@ -7106,7 +6927,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // found a btree?
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
                 err = lfsr_data_readbtree(lfs, &data,
-                        &traversal->btree.u.rbyd);
+                        &traversal->btree);
                 if (err) {
                     return err;
                 }
@@ -7783,7 +7604,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             // found the root of the mtree?
             if (lfsr_mtree_isnull(&lfs->mtree)) {
-                lfs->mtree.u.btree.u.rbyd = tinfo.u.rbyd;
+                lfs->mtree.u.btree = tinfo.u.rbyd;
             }
 
         } else {
@@ -8780,6 +8601,8 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 // sprout/shrub stuff
 #define LFSR_SHRUB_SPROUT 0x80000000
 
+#define LFSR_SHRUB_NULL ((lfsr_shrub_t){.u.data=LFSR_DATA_DISK(0, 0, 0)})
+
 static inline bool lfsr_shrub_isnull(const lfsr_shrub_t *shrub) {
     return (lfs_off_t)shrub->u.weight == (LFSR_SHRUB_SPROUT | 0);
 }
@@ -8799,6 +8622,8 @@ static inline lfs_off_t lfsr_shrub_size(const lfsr_shrub_t *shrub) {
 
 // block/btree stuff
 #define LFSR_TREE_BPTR 0x80000000
+
+#define LFSR_TREE_NULL ((lfsr_tree_t){.u.size=(LFSR_TREE_BPTR | 0)})
 
 static inline bool lfsr_tree_isnull(const lfsr_tree_t *tree) {
     return (lfs_off_t)tree->u.size == (LFSR_TREE_BPTR | 0);
@@ -8900,9 +8725,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->pos = 0;
     file->size = 0;
     // default inlined state
-    file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
+    file->shrub = LFSR_SHRUB_NULL;
     // default btree state
-    file->tree.u.btree = LFSR_BTREE_NULL;
+    file->tree = LFSR_TREE_NULL;
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -9021,13 +8846,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
                 // TODO why does this not take a btree?
                 err = lfsr_data_readbtree(lfs, &data,
-                        &file->tree.u.btree.u.rbyd);
+                        &file->tree.u.btree);
                 if (err) {
                     return err;
                 }
 
                 file->size = lfs_max32(file->size,
-                        lfsr_btree_weight(&file->tree.u.btree));
+                        file->tree.u.btree.weight);
             }
         }
     }
@@ -9751,7 +9576,7 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
     if (!lfsr_tree_hasbtree(tree)) {
         // TODO btree alloc?
         lfsr_btree_t btree_;
-        int err = lfsr_rbyd_alloc(lfs, &btree_.u.rbyd);
+        int err = lfsr_btree_alloc(lfs, &btree_);
         if (err) {
             return err;
         }
@@ -10288,8 +10113,7 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // at this point both buffer and shrub should be flushed
-    // TODO LFSR_SHRUB_NULL?
-    file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
+    file->shrub = LFSR_SHRUB_NULL;
     file->buffer_size = 0;
     return 0;
 }
@@ -10463,7 +10287,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                     : lfsr_tree_hasbtree(&file->tree)
                         ? LFSR_ATTR(file->m.mdir.mid,
                             BTREE, 0, FROMBTREE(
-                                &file->tree.u.btree.u.rbyd,
+                                &file->tree.u.btree,
                                 b_buf))
                         : LFSR_ATTR_NOOP)));
             if (err) {
@@ -10548,9 +10372,8 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             file->buffer_size,
             size - lfs_min32(file->buffer_pos, size));
     if (buffer_size >= size) {
-        // TODO LFSR_SHRUB_NULL/LFSR_TREE_NULL?
-        file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
-        file->tree.u.btree = LFSR_BTREE_NULL;
+        file->shrub = LFSR_SHRUB_NULL;
+        file->tree = LFSR_TREE_NULL;
 
     // TODO, wait, could we just update file->size and leave it to
     // lfsr_file_sync to update the shrub?
@@ -10617,9 +10440,8 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             lfs_smax32(file->size - size - file->buffer_pos, 0),
             file->buffer_size);
     if (buffer_size >= size) {
-        // TODO LFSR_SHRUB_NULL/LFSR_TREE_NULL?
-        file->shrub.u.data = LFSR_DATA_DISK(0, 0, 0);
-        file->tree.u.btree = LFSR_BTREE_NULL;
+        file->shrub = LFSR_SHRUB_NULL;
+        file->tree = LFSR_TREE_NULL;
 
     // otherwise, we need to modify our sprout/shrub/bptr/btree
     } else {
@@ -10657,7 +10479,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         // revert btrees if they go to zero
         if ((lfs_soff_t)(file->size - size)
                 >= (lfs_soff_t)lfsr_tree_size(&file->tree)) {
-            file->tree.u.btree = LFSR_BTREE_NULL;
+            file->tree = LFSR_TREE_NULL;
         } else {
             // TODO avoid transforming into trees all the time?
             int err = lfsr_tree_carve(lfs, &file->tree,

@@ -25,7 +25,7 @@ code = '''
     static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
             lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
             lfsr_data_t data) {
-        LFS_ASSERT(bid <= lfsr_btree_weight(btree));
+        LFS_ASSERT(bid <= btree->weight);
         return lfsr_btree_commit(lfs, btree, LFSR_ATTRS(
                 LFSR_ATTR(bid, TAG(tag), +weight, DATA(data))));
     }
@@ -33,8 +33,8 @@ code = '''
     static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
             lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
             lfsr_data_t data) {
-        LFS_ASSERT(bid < lfsr_btree_weight(btree));
-        LFS_ASSERT(lfsr_btree_weight(btree) > 0);
+        LFS_ASSERT(bid < btree->weight);
+        LFS_ASSERT(btree->weight > 0);
 
         // lookup weight to compute deltas
         lfs_size_t weight_;
@@ -53,8 +53,8 @@ code = '''
     }
 
     static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
-        LFS_ASSERT(bid < lfsr_btree_weight(btree));
-        LFS_ASSERT(lfsr_btree_weight(btree) > 0);
+        LFS_ASSERT(bid < btree->weight);
+        LFS_ASSERT(btree->weight > 0);
 
         // lookup weight to compute deltas
         lfs_size_t weight_;
@@ -72,8 +72,8 @@ code = '''
             lfs_size_t bid, lfsr_data_t name,
             lfsr_tag_t tag1, lfs_size_t weight1, lfsr_data_t data1,
             lfsr_tag_t tag2, lfs_size_t weight2, lfsr_data_t data2) {
-        LFS_ASSERT(bid < lfsr_btree_weight(btree));
-        LFS_ASSERT(lfsr_btree_weight(btree) > 0);
+        LFS_ASSERT(bid < btree->weight);
+        LFS_ASSERT(btree->weight > 0);
 
         // lookup weight to compute deltas
         lfs_size_t weight_;
@@ -114,12 +114,13 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create an empty tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 0);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 0);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -145,14 +146,15 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -184,16 +186,17 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("b", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -230,16 +233,17 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("b", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -277,7 +281,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
@@ -285,10 +290,10 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("c", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 3);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -331,7 +336,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("c", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
@@ -339,10 +345,10 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 3);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -388,7 +394,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -402,10 +409,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -440,7 +447,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -454,10 +462,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -495,7 +503,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // set up a simulation to compare against
     //
@@ -537,10 +546,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -578,7 +587,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -592,10 +602,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n*W);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -650,7 +660,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // set up a simulation to compare against
     //
@@ -713,15 +724,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -788,17 +799,18 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     // update the tree
     lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("A", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -829,7 +841,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
@@ -840,10 +853,10 @@ code = '''
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("B", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -880,7 +893,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
@@ -895,10 +909,10 @@ code = '''
     lfsr_btree_set(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("C", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 3);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -942,7 +956,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (lfs_size_t i = 0; i < N; i++) {
@@ -951,9 +966,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -965,18 +980,18 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == N);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == N);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1016,16 +1031,17 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
                 LFSR_DATA_BUF(&alphas[i % 26], 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1070,10 +1086,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == N);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == N);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -1110,7 +1126,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (lfs_size_t i = 0; i < N; i++) {
@@ -1119,9 +1136,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1133,18 +1150,18 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == N*W);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == N*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1200,16 +1217,17 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
                 LFSR_DATA_BUF(&alphas[i % 26], 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1273,15 +1291,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < N; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -1349,16 +1367,17 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     // pop!
     lfsr_btree_pop(&lfs, &btree, 0) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 0);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 0);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1372,10 +1391,10 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("A", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     lfsr_btree_get(&lfs, &btree, 0,
@@ -1402,7 +1421,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
@@ -1410,10 +1430,10 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 1) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1433,10 +1453,10 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("B", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     lfsr_btree_get(&lfs, &btree, 0,
@@ -1469,7 +1489,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
@@ -1477,10 +1498,10 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 0) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1500,10 +1521,10 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("A", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     lfsr_btree_get(&lfs, &btree, 0,
@@ -1536,7 +1557,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("a", 1)) => 0;
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
@@ -1546,10 +1568,10 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 2) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1575,10 +1597,10 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("C", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 3);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     lfsr_btree_get(&lfs, &btree, 0,
@@ -1620,7 +1642,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
@@ -1628,9 +1651,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1641,19 +1664,19 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
     }
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == REMAINING);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == REMAINING);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1711,7 +1734,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
@@ -1719,9 +1743,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1732,18 +1756,18 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == REMAINING);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == REMAINING);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1804,16 +1828,17 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
                 LFSR_DATA_BUF(&alphas[i % 26], 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1859,10 +1884,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -1901,7 +1926,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
@@ -1909,9 +1935,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -1922,18 +1948,18 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == REMAINING*W);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == REMAINING*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2021,7 +2047,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // set up a simulation to compare against
     //
@@ -2049,9 +2076,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.rbyd.weight,
-                    btree.u.rbyd.block,
-                    btree.u.rbyd.trunk);
+                    btree.weight,
+                    btree.block,
+                    btree.trunk);
             return;
         }
         assert(err == 0);
@@ -2106,15 +2133,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -2180,7 +2207,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF(&alphas[0 % 26], 1)) => 0;
@@ -2197,10 +2225,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2239,7 +2267,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("_", 1)) => 0;
 
@@ -2286,10 +2315,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -2327,7 +2356,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
             LFSR_DATA_BUF(&alphas[0 % 26], 1)) => 0;
@@ -2344,10 +2374,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n*W);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2387,7 +2417,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
             LFSR_DATA_BUF("_", 1)) => 0;
 
@@ -2445,7 +2476,7 @@ code = '''
         for (lfs_size_t j = 0; j < sim_size; j++) {
             total_weight += sim_weights[j];
         }
-        assert(lfsr_btree_weight(&btree) == total_weight);
+        assert(btree.weight == total_weight);
 
         uint8_t buffer[4];
         lfsr_tag_t tag_;
@@ -2484,15 +2515,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -2560,7 +2591,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // force it to split
 
@@ -2575,21 +2607,21 @@ code = '''
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
     // force compaction
-    btree.u.rbyd.eoff = -1;
+    btree.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF(buf2, SIZE)) => 0;
-    assert(lfsr_btree_weight(&btree) == 2);
+    assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down to zero,
     // this should force one of the blocks to drop
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfsr_tag_t tag_;
@@ -2622,7 +2654,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // force it to split
 
@@ -2637,24 +2670,24 @@ code = '''
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
     // force compaction
-    btree.u.rbyd.eoff = -1;
+    btree.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF(buf2, SIZE)) => 0;
-    assert(lfsr_btree_weight(&btree) == 2);
+    assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down this zero,
     // this should force one of the blocks to drop
     //
     // do this while forcing a compaction
-    btree.u.rbyd.eoff = -1;
+    btree.eoff = -1;
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfsr_tag_t tag_;
@@ -2687,7 +2720,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // force it to split
 
@@ -2707,14 +2741,14 @@ code = '''
     //
     // messy, isn't it? this is why we need an explicit test
     //
-    btree.u.rbyd.eoff = -1;
+    btree.eoff = -1;
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfsr_tag_t tag_;
@@ -2747,7 +2781,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // force it to split
 
@@ -2762,11 +2797,11 @@ code = '''
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
     // force compaction
-    btree.u.rbyd.eoff = -1;
+    btree.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF(buf2, SIZE)) => 0;
-    assert(lfsr_btree_weight(&btree) == 2);
+    assert(btree.weight == 2);
 
     // now make both entries small so they should be merged if either compacts
     lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
@@ -2776,14 +2811,14 @@ code = '''
 
     // force compaction, while removing one entry, this drops the rbyd
     // down to zero while also triggering a merge
-    btree.u.rbyd.eoff = -1;
+    btree.eoff = -1;
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfsr_tag_t tag_;
@@ -2819,7 +2854,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // set up a simulation to compare against
     //
@@ -2893,10 +2929,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -2936,7 +2972,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // set up a simulation to compare against
     //
@@ -3034,15 +3071,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -3107,12 +3144,13 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a zero-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 0);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 0);
 
     // try to find tags
     lfsr_tag_t tag_;
@@ -3140,14 +3178,15 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("0", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 1);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3189,7 +3228,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("0", 1)) => 0;
     lfsr_btree_split(&lfs, &btree, 0,
@@ -3197,10 +3237,10 @@ code = '''
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF("0", 1),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 2);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3250,7 +3290,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("0", 1)) => 0;
     lfsr_btree_split(&lfs, &btree, 0,
@@ -3262,10 +3303,10 @@ code = '''
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF("2", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 3);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3323,7 +3364,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("0", 1)) => 0;
     lfsr_btree_split(&lfs, &btree, 0,
@@ -3335,10 +3377,10 @@ code = '''
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF("0", 1),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == 3);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3397,7 +3439,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *nums = "0123456789";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
@@ -3419,10 +3462,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3465,7 +3508,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("_", 1)) => 0;
 
@@ -3531,10 +3575,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -3575,7 +3619,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *nums = "0123456789";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
@@ -3597,10 +3642,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n*W);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n*W);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3644,7 +3689,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
             LFSR_DATA_BUF("_", 1)) => 0;
 
@@ -3737,15 +3783,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -3795,7 +3841,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
             LFSR_DATA_BUF("_", 1)) => 0;
 
@@ -3925,10 +3972,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -3970,7 +4017,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
             LFSR_DATA_BUF("_", 1)) => 0;
 
@@ -4139,15 +4187,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
+            btree.weight,
+            btree.block,
+            btree.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(lfsr_btree_weight(&btree) == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -4195,7 +4243,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -4209,10 +4258,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == n);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -4238,7 +4287,7 @@ code = '''
     lfsr_btraversal_t traversal = LFSR_BTRAVERSAL();
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*N);
+        assert(i <= 2*N);
 
         lfsr_binfo_t binfo;
         int err = lfsr_btraversal_read(&lfs, &btree, &traversal, &binfo);
@@ -4319,7 +4368,8 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_t btree;
+    lfsr_btree_alloc(&lfs, &btree) => 0;
 
     // set up a simulation to compare against
     //
@@ -4361,10 +4411,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
@@ -4389,7 +4439,7 @@ code = '''
     lfsr_btraversal_t traversal = LFSR_BTRAVERSAL();
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*N);
+        assert(i <= 2*N);
 
         lfsr_binfo_t binfo;
         int err = lfsr_btraversal_read(&lfs, &btree, &traversal, &binfo);
@@ -4450,10 +4500,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.rbyd.weight,
-            btree.u.rbyd.block,
-            btree.u.rbyd.trunk);
-    assert(lfsr_btree_weight(&btree) == sim_size);
+            btree.weight,
+            btree.block,
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     for (lfs_size_t i = 0; i < sim_size; i++) {
         lfsr_btree_get(&lfs, &btree, i,

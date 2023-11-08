@@ -380,29 +380,7 @@ typedef struct lfsr_bptr {
     // TODO how do we track ecksum?
 } lfsr_bptr_t;
 
-// The maximum size of inlined pointers in a btree, this depends on littlefs's
-// on-disk pointer representations (there are several), but doesn't change at
-// runtime.
-//
-// Pointers we store:
-// - block addresses => 1 leb128 => 5 bytes (worst case)
-// - mdir addresses  => 2 leb128 => 10 bytes (worst case)
-#define LFSR_BTREE_INLINESIZE 10
-
-typedef struct lfsr_btree {
-    union {
-        // weight is common to both representations and its sign-bit indicates
-        // if the btree is inlined
-        lfsr_sbid_t weight;
-        struct {
-            lfsr_sbid_t weight;
-            lfsr_tag_t tag;
-            uint8_t size;
-            uint8_t buf[LFSR_BTREE_INLINESIZE];
-        } inlined;
-        lfsr_rbyd_t rbyd;
-    } u;
-} lfsr_btree_t;
+typedef lfsr_rbyd_t lfsr_btree_t;
 
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
