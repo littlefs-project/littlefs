@@ -3565,29 +3565,21 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 //
 // names in littlefs are tuples of directory-ids + ascii/utf8 strings
 
-// binary search an rbyd for a name, leaving the rid_/weight_ with the best
-// matching name if not found
-static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+// binary search an rbyd for a name, leaving the rid_/tag_/weight_/data_
+// with the best matching name if not found
+static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfsr_data_t *data_) {
-    // if we have an empty mdir, default to rid = -1
-    if (rid_) {
-        *rid_ = -1;
-    }
-    if (tag_) {
-        *tag_ = 0;
-    }
-    if (weight_) {
-        *weight_ = 0;
-    }
-    if (data_) {
-        *data_ = LFSR_DATA_NULL;
+    // empty rbyd? leave it up to upper layers to handle this
+    if (rbyd->weight == 0) {
+        return LFS_ERR_NOENT;
     }
 
     // binary search for our name
     lfsr_srid_t lower = 0;
     lfsr_srid_t upper = rbyd->weight;
+    lfs_scmp_t cmp;
     while (lower < upper) {
         lfsr_tag_t tag__;
         lfsr_srid_t rid__;
@@ -3603,10 +3595,8 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             return err;
         }
 
-        // if we have no name or a vestigial name, treat this rid as always lt
-        lfs_scmp_t cmp;
-        if ((tag__ == LFSR_TAG_NAME && rid__-(weight__-1) == 0)
-                || lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
+        // if we have no name, treat this rid as always lt
+        if (lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
             cmp = LFS_CMP_LT;
 
         // compare names
@@ -3621,10 +3611,27 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         if (lfs_cmp(cmp) > 0) {
             upper = rid__ - (weight__-1);
 
+            // only keep track of best-match rids > our target if we haven't
+            // seen an rid < our target
+            if (lower == 0) {
+                if (rid_) {
+                    *rid_ = rid__;
+                }
+                if (tag_) {
+                    *tag_ = tag__;
+                }
+                if (weight_) {
+                    *weight_ = weight__;
+                }
+                if (data_) {
+                    *data_ = data__;
+                }
+            }
+
         } else if (lfs_cmp(cmp) < 0) {
             lower = rid__ + 1;
 
-            // keep track of best-matching rid >= our target
+            // keep track of best-matching rid < our target
             if (rid_) {
                 *rid_ = rid__;
             }
@@ -3652,13 +3659,14 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             if (data_) {
                 *data_ = data__;
             }
-            return 0;
+            return LFS_CMP_EQ;
         }
     }
 
-    // no match, at least update rid_/tag_/weight_/data_ with the best
-    // match so far
-    return LFS_ERR_NOENT;
+    // no match, return if found name was lt/gt expect
+    //
+    // this will always be lt unless all rids are gt
+    return (lower == 0) ? LFS_CMP_GT : LFS_CMP_LT;
 }
 
 
@@ -4362,33 +4370,6 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // bring in name that previously split the siblings
-        err = lfsr_rbyd_lookupnext(lfs, &parent,
-                rid+1, LFSR_TAG_NAME,
-                NULL, &split_tag, NULL, &split_data);
-        if (err) {
-            return err;
-        }
-
-        if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-            // lookup the rid (weight really) of the previously-split entry
-            lfsr_srid_t split_rid;
-            err = lfsr_rbyd_lookupnext(lfs, &rbyd_,
-                    rbyd.weight, LFSR_TAG_NAME,
-                    &split_rid, NULL, NULL, NULL);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-
-            err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                    split_rid, split_tag, 0, split_data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-        }
-
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
         err = lfsr_rbyd_appendattrs(lfs, &rbyd_, bid, -1,
@@ -4467,7 +4448,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 }
 
 // lookup in a btree by name
-static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
+static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_bid_t *bid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
@@ -4483,16 +4464,18 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         // lookup our name in the rbyd via binary search
         lfsr_srid_t rid__;
         lfsr_rid_t weight__;
-        int err = lfsr_rbyd_namelookup(lfs, &branch, did, name, name_size,
+        lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &branch,
+                did, name, name_size,
                 &rid__, NULL, &weight__, NULL);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
+        if (cmp < 0) {
+            LFS_ASSERT(cmp != LFS_ERR_NOENT);
+            return cmp;
         }
 
         // the name may not match exactly, but indicates which branch to follow
         lfsr_tag_t tag__;
         lfsr_data_t data__;
-        err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDE(STRUCT),
+        int err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDE(STRUCT),
                 &tag__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4525,7 +4508,7 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
             if (data_) {
                 *data_ = data__;
             }
-            return 0;
+            return cmp;
         }
     }
 }
@@ -6366,23 +6349,39 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 }
 
 
-// lookup names in our mtree 
+// lookup names in an mdir
+//
+// if not found, rid will be the best place to insert
+//
 static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    int err = lfsr_rbyd_namelookup(lfs, &mdir->u.rbyd,
-            did, name, name_size,
-            rid_, tag_, NULL, data_);
-
-    // When not found, lfsr_rbyd_namelookup returns the rid smaller than our
-    // expected name. This is correct for btree lookups, but not correct for
-    // mdir insertions. For mdirs we need to adjust this by 1 so we insert
-    // _after_ the smaller rid.
-    if (rid_ && err == LFS_ERR_NOENT) {
-        *rid_ += 1;
+    // empty mdir? make sure rid_ = 0 at least
+    if (mdir->u.m.weight == 0) {
+        if (rid_) {
+            *rid_ = 0;
+        }
+        return LFS_ERR_NOENT;
     }
 
-    return err;
+    lfsr_srid_t rid;
+    lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &mdir->u.rbyd,
+            did, name, name_size,
+            &rid, tag_, NULL, data_);
+    if (cmp < 0) {
+        LFS_ASSERT(cmp != LFS_ERR_NOENT);
+        return cmp;
+    }
+
+    // adjust rid if necessary
+    if (lfs_cmp(cmp) < 0) {
+        rid += 1;
+    }
+
+    if (rid_) {
+        *rid_ = rid;
+    }
+    return (lfs_cmp(cmp) == 0) ? 0 : LFS_ERR_NOENT;
 }
 
 // note if we fail, we at least leave mdir_/rid_ with the best place to insert
@@ -6409,17 +6408,18 @@ static int lfsr_mtree_namelookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfsr_tag_t tag;
         lfsr_bid_t weight;
         lfsr_data_t data;
-        int err = lfsr_btree_namelookup(lfs, &lfs->mtree.u.btree,
+        lfs_scmp_t cmp = lfsr_btree_namelookup(lfs, &lfs->mtree.u.btree,
                 did, name, name_size,
                 &bid, &tag, &weight, &data);
-        if (err) {
-            return err;
+        if (cmp < 0) {
+            LFS_ASSERT(cmp != LFS_ERR_NOENT);
+            return cmp;
         }
         LFS_ASSERT(tag == LFSR_TAG_MDIR);
         LFS_ASSERT(weight == lfsr_mleafweight(lfs));
 
         // decode mdir
-        err = lfsr_data_readmptr(lfs, &data, mdir.u.m.blocks);
+        int err = lfsr_data_readmptr(lfs, &data, mdir.u.m.blocks);
         if (err) {
             return err;
         }

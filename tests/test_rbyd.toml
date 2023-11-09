@@ -13,6 +13,7 @@ defines.ERASE_VALUE = [0xff, 0x00, 0x1b]
 # waste time when testing
 defines.BLOCK_SIZE = 32768
 
+# TODO we should eventually replace these with lfsr_rbyd_lookup
 # some internal helpers
 in = 'lfs.c'
 code = '''
