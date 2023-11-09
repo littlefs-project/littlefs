@@ -6352,7 +6352,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 // lookup names in an mdir
 //
 // if not found, rid will be the best place to insert
-//
 static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
@@ -6384,7 +6383,9 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     return (lfs_cmp(cmp) == 0) ? 0 : LFS_ERR_NOENT;
 }
 
-// note if we fail, we at least leave mdir_/rid_ with the best place to insert
+// lookup names in our mtree
+//
+// if not found, rid will be the best place to insert
 static int lfsr_mtree_namelookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
@@ -6464,7 +6465,8 @@ enum {
 //
 // if not found, mdir_/did_/name_ will at least be set up
 // with what should be the parent
-static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
+static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
+        const char *path,
         // TODO originally path itself was a double pointer, is that a
         // better design?
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_,
@@ -6552,7 +6554,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         }
 
         // lookup up this name in the mtree
-        int err = lfsr_mtree_namelookup(lfs, &lfs->mtree, did, name, name_size,
+        int err = lfsr_mtree_namelookup(lfs, mtree, did, name, name_size,
                 &mdir, &tag, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -7992,7 +7994,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     lfsr_did_t did;
     const char *name;
     lfs_size_t name_size;
-    err = lfsr_mtree_pathlookup(lfs, path,
+    err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, NULL,
             &did, &name, &name_size);
     if (err && (err != LFS_ERR_NOENT || lfsr_mdir_isroot(&mdir))) {
@@ -8117,7 +8119,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     // lookup our entry
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
-    err = lfsr_mtree_pathlookup(lfs, path,
+    err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             NULL, NULL, NULL);
     if (err) {
@@ -8205,7 +8207,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // lookup old entry
     lfsr_mdir_t old_mdir;
     lfsr_tag_t old_tag;
-    err = lfsr_mtree_pathlookup(lfs, old_path,
+    err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, old_path,
             &old_mdir, &old_tag,
             NULL, NULL, NULL);
     if (err) {
@@ -8222,7 +8224,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     lfsr_did_t new_did;
     const char *new_name;
     lfs_size_t new_name_size;
-    err = lfsr_mtree_pathlookup(lfs, new_path,
+    err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, new_path,
             &new_mdir, &new_tag,
             &new_did, &new_name, &new_name_size);
     if (err && (err != LFS_ERR_NOENT || lfsr_mdir_isroot(&new_mdir))) {
@@ -8422,7 +8424,7 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfsr_tag_t tag;
     const char *name;
     lfs_size_t name_size;
-    int err = lfsr_mtree_pathlookup(lfs, path,
+    int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             NULL, &name, &name_size);
     if (err && err != LFS_ERR_INVAL) {
@@ -8444,7 +8446,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     // lookup our directory
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
-    int err = lfsr_mtree_pathlookup(lfs, path,
+    int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             NULL, NULL, NULL);
     if (err && err != LFS_ERR_INVAL) {
@@ -8734,7 +8736,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     lfsr_did_t did;
     const char *name;
     lfs_size_t name_size;
-    int err = lfsr_mtree_pathlookup(lfs, path,
+    int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &file->m.mdir, &tag,
             &did, &name, &name_size);
     if (err && err != LFS_ERR_NOENT) {
