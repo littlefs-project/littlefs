@@ -9885,72 +9885,136 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
         continue;
 
     flush:;
-        // first we need to figure out the best block alignment, to do this
-        // we try to find a block to our left, at least one block_size away
-        lfs_off_t left_align;
-        if ((lfs_soff_t)(pos - lfs->cfg->block_size) < 0) {
-            // left block impossible? align to 0
-            left_align = 0;
-        } else if ((lfs_soff_t)(pos - lfs->cfg->block_size)
-                >= (lfs_soff_t)lfsr_tree_size(&file->tree)) {
-            // tree too small? align arbitrarily
-            left_align = pos;
+        // first we need to figure out our current crystal, we do this
+        // heuristically.
+        //
+        // note that we may end up including holes in our crystal, but this
+        // is fine. we don't want small holes breaking up blocks anyways
+        //
+        lfs_off_t crystal_start;
+        // at beginning of file?
+        if (pos < lfs->cfg->crystal_size) {
+            crystal_start = 0;
+
+        // beyond the end of the tree?
+        } else if (pos - lfs->cfg->crystal_size
+                >= lfsr_tree_size(&file->tree)) {
+            crystal_start = pos;
+
+        // find left crystal neighbor
         } else {
             lfsr_bid_t bid_;
+            lfsr_tag_t tag_;
             lfsr_bid_t weight_;
+            lfsr_data_t data_;
             int err = lfsr_tree_lookupnext(lfs, &file->tree,
-                    pos - lfs->cfg->block_size,
-                    &bid_, NULL, &weight_, NULL);
+                    pos - lfs->cfg->crystal_size,
+                    &bid_, &tag_, &weight_, &data_);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
+            LFS_ASSERT(tag_ == LFSR_TAG_DATA
+                    || tag_ == LFSR_TAG_BLOCK);
 
-            // our current pos can't belong in the left block, so align to next
-            // theoretical block
-            left_align = lfs_min32(bid_+1, pos);
+            // if left crystal neighbor is a fragment and there is no hole
+            // between our own crystal and our neighbor, include as a part of
+            // our crystal
+            if (tag_ == LFSR_TAG_DATA
+                    && bid_-(weight_-1)+lfsr_data_size(&data_)
+                        >= pos - lfs->cfg->crystal_size) {
+                crystal_start = bid_-(weight_-1);
+
+            // otherwise our neighbor determines our crystal boundary
+            } else {
+                crystal_start = lfs_min32(bid_+1, pos);
+            }
         }
 
-        // from our left alignment, try to find right alignment, this may
-        // squish us into less than a full block
-        lfs_off_t right_align;
-        if (left_align + lfs->cfg->block_size >= lfsr_tree_size(&file->tree)) {
-            // tree too small? align to end of tree
-            right_align = lfsr_tree_size(&file->tree);
-        } else {
+        // if we haven't already exceeded our crystallization threshold,
+        // find right crystal neighbor
+        lfs_off_t crystal_end = pos + d;
+        if (crystal_end - crystal_start <= lfs->cfg->crystal_size
+                && crystal_start + lfs->cfg->crystal_size
+                    < lfsr_tree_size(&file->tree)) {
             lfsr_bid_t bid_;
+            lfsr_tag_t tag_;
             lfsr_bid_t weight_;
+            lfsr_data_t data_;
             int err = lfsr_tree_lookupnext(lfs, &file->tree,
-                    left_align + lfs->cfg->block_size,
-                    &bid_, NULL, &weight_, NULL);
+                    crystal_start + lfs->cfg->crystal_size,
+                    &bid_, &tag_, &weight_, &data_);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
+            LFS_ASSERT(tag_ == LFSR_TAG_DATA
+                    || tag_ == LFSR_TAG_BLOCK);
 
-            // our block can't reside in the right block, so squish our block
-            // to match its alignment
-            right_align = bid_-(weight_-1);
+            // if right crystal neighbor is a fragment, include as a part
+            // of our crystal
+            if (tag_ == LFSR_TAG_DATA) {
+                crystal_end = lfs_max32(
+                        bid_-(weight_-1)+lfsr_data_size(&data_),
+                        pos + d);
+
+            // otherwise treat as crystal boundary
+            } else {
+                crystal_end = lfs_max32(
+                        bid_-(weight_-1),
+                        pos + d);
+            }
         }
 
-        // bump right alignment to always include pending data
-        right_align = lfs_max32(
-                right_align,
-                lfs_min32(pos + d, left_align + lfs->cfg->block_size));
-
-        LFS_ASSERT(pos >= left_align);
-        LFS_ASSERT(pos < right_align);
-
-        // TODO check for becksums somewhere?
-
-        // does our block exceed our crystallization threshold? need to
+        // has our crystal exceeded our crystallization threshold? time to
         // compact into a new block
-        //
-        // Note this is a just a heuristic. This block may end up containing
-        // holes we don't account for, but we generally don't want a bunch of
-        // small holes in our files anyways.
-        //
-        if (right_align - left_align > lfs->cfg->crystal_size) {
+        if (crystal_end - crystal_start > lfs->cfg->crystal_size) {
+            // TODO check for becksums somewhere?
+
+            // before we can compact we need to figure out the best block
+            // alignment, we use the entry immediately to the left of our
+            // crystal for this
+            lfs_off_t block_off;
+            // some corner cases where we align arbitrarily
+            if (crystal_start == 0 || lfsr_tree_size(&file->tree) == 0) {
+                block_off = crystal_start;
+
+            // find left block neighbor
+            } else {
+                lfsr_bid_t bid_;
+                lfsr_tag_t tag_;
+                lfsr_bid_t weight_;
+                lfsr_data_t data_;
+                int err = lfsr_tree_lookupnext(lfs, &file->tree,
+                        lfs_min32(
+                            crystal_start-1,
+                            lfsr_tree_size(&file->tree)-1),
+                        &bid_, &tag_, &weight_, &data_);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    return err;
+                }
+                LFS_ASSERT(tag_ == LFSR_TAG_DATA
+                        || tag_ == LFSR_TAG_BLOCK);
+
+                // is our left neighbor in the same block?
+                if (crystal_start - (bid_-(weight_-1)) < lfs->cfg->block_size
+                        && lfsr_data_size(&data_) > 0) {
+                    block_off = bid_-(weight_-1);
+
+                // no? is our left neighbor at least our left block neighbor?
+                // align to block alignment
+                } else if (crystal_start - (bid_-(weight_-1))
+                            < 2*lfs->cfg->block_size
+                        && lfsr_data_size(&data_) > 0) {
+                    block_off = bid_-(weight_-1) + lfs->cfg->block_size;
+
+                // no!? file is sparse, align arbitrarily
+                } else {
+                    block_off = crystal_start;
+                }
+            }
+
             // allocate a new block
             lfs_block_t block;
             int err = lfs_alloc(lfs, &block);
@@ -9965,10 +10029,11 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             }
 
             // copy any data underneath our block into our block
-            lfs_off_t pos_ = left_align;
-            while (pos_ < right_align) {
+            lfs_off_t pos_ = block_off;
+            while (pos_ < block_off + lfs->cfg->block_size) {
                 lfsr_data_t data;
-                err = lfsr_file_readnext(lfs, file, pos_, right_align - pos_,
+                err = lfsr_file_readnext(lfs, file, pos_,
+                        block_off + lfs->cfg->block_size - pos_,
                         &data);
                 if (err) {
                     // end of file?
@@ -9979,8 +10044,16 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
                 }
                 LFS_ASSERT(lfsr_data_size(&data) > 0);
 
+                // found a hole that goes all the way to the end? terminate
+                // early
+                if (lfsr_data_ishole(&data)
+                        && pos_ + lfsr_data_size(&data)
+                            >= block_off + lfs->cfg->block_size) {
+                    break;
+                }
+
                 // prog data/hole
-                err = lfsr_bd_progdata(lfs, block, pos_ - left_align,
+                err = lfsr_bd_progdata(lfs, block, pos_ - block_off,
                         data,
                         NULL);
                 if (err) {
@@ -9989,6 +10062,7 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
 
                 pos_ += lfsr_data_size(&data);
             }
+            lfs_off_t block_size = pos_ - block_off;
 
             // TODO validate?
             // finalize our write
@@ -10001,19 +10075,21 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             lfsr_bptr_t bptr = {
                 .block = block,
                 .off = 0,
-                .size = right_align - left_align,
+                .size = block_size,
             };
 
             // and write it into our tree
             uint8_t bptr_buf[LFSR_BPTR_DSIZE];
             err = lfsr_tree_carve(lfs, &file->tree,
-                    left_align, right_align - left_align, 0,
+                    block_off, block_size, 0,
                     LFSR_TAG_BLOCK, lfsr_data_frombptr(&bptr, bptr_buf));
             if (err) {
                 return err;
             }
 
-            pos = right_align;
+            // note due to block alignment we may not actually make progress
+            // here until a second pass
+            pos = lfs_max32(pos, block_off + block_size);
 
         // fits in crystallization threshold? just append a fragment
         } else {
@@ -10024,6 +10100,13 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             lfsr_data_t datas[3];
             lfs_size_t data_count = 0;
             datas[data_count++] = data;
+
+            // TODO we should really coalesce fragments in our shrub here,
+            // otherwise unaligned fragments risk a bunch of rewrites
+            //
+            // we can probably do this as a part of figuring out the first
+            // fragment's alignment and not need to increase the maximum
+            // number of concatenated datas
 
             // do we have a left sibling?
             if (pos > 0 && lfsr_tree_size(&file->tree) >= pos) {
