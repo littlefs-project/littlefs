@@ -9523,7 +9523,8 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             // can we coalesce?
             if (pos+lfsr_data_size(&data)
                         < rid_-(weight_-1) + lfsr_data_size(&data_)
-                    && lfsr_data_size(&data) + lfsr_data_size(&data_)
+                    && lfsr_data_size(&data)
+                            + lfsr_data_size(&data_)
                             - (pos+lfsr_data_size(&data) - (rid_-(weight_-1)))
                         <= lfs->cfg->fragment_size) {
                 datas[data_count++] = lfsr_data_fruncate(data_,
@@ -9974,20 +9975,15 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             // before we can compact we need to figure out the best block
             // alignment, we use the entry immediately to the left of our
             // crystal for this
-            lfs_off_t block_off;
-            // some corner cases where we align arbitrarily
-            if (crystal_start == 0 || lfsr_tree_size(&file->tree) == 0) {
-                block_off = crystal_start;
-
-            // find left block neighbor
-            } else {
+            lfs_off_t block_start = crystal_start;
+            if (block_start > 0 && lfsr_tree_size(&file->tree) > 0) {
                 lfsr_bid_t bid_;
                 lfsr_tag_t tag_;
                 lfsr_bid_t weight_;
                 lfsr_data_t data_;
                 int err = lfsr_tree_lookupnext(lfs, &file->tree,
                         lfs_min32(
-                            crystal_start-1,
+                            block_start-1,
                             lfsr_tree_size(&file->tree)-1),
                         &bid_, &tag_, &weight_, &data_);
                 if (err) {
@@ -9998,21 +9994,49 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
                         || tag_ == LFSR_TAG_BLOCK);
 
                 // is our left neighbor in the same block?
-                if (crystal_start - (bid_-(weight_-1)) < lfs->cfg->block_size
+                if (block_start - (bid_-(weight_-1)) < lfs->cfg->block_size
                         && lfsr_data_size(&data_) > 0) {
-                    block_off = bid_-(weight_-1);
+                    block_start = bid_-(weight_-1);
 
                 // no? is our left neighbor at least our left block neighbor?
                 // align to block alignment
-                } else if (crystal_start - (bid_-(weight_-1))
+                } else if (block_start - (bid_-(weight_-1))
                             < 2*lfs->cfg->block_size
                         && lfsr_data_size(&data_) > 0) {
-                    block_off = bid_-(weight_-1) + lfs->cfg->block_size;
-
-                // no!? file is sparse, align arbitrarily
-                } else {
-                    block_off = crystal_start;
+                    block_start = bid_-(weight_-1) + lfs->cfg->block_size;
                 }
+            }
+
+            // if we have space in our block, lookup right block neighbors
+            // to see if we can merge
+            lfs_off_t block_end = lfs_min32(
+                    crystal_end,
+                    block_start + lfs->cfg->block_size);
+            while (block_end - block_start < lfs->cfg->block_size
+                    && block_end < lfsr_tree_size(&file->tree)) {
+                lfsr_bid_t bid_;
+                lfsr_tag_t tag_;
+                lfsr_bid_t weight_;
+                lfsr_data_t data_;
+                int err = lfsr_tree_lookupnext(lfs, &file->tree,
+                        block_end,
+                        &bid_, &tag_, &weight_, &data_);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    return err;
+                }
+                LFS_ASSERT(tag_ == LFSR_TAG_DATA
+                        || tag_ == LFSR_TAG_BLOCK);
+
+                // can we merge?
+                if (bid_-(weight_-1)+lfsr_data_size(&data_) <= block_end
+                        || bid_-(weight_-1)+lfsr_data_size(&data_)
+                                - block_start
+                            > lfs->cfg->block_size) {
+                    break;
+                }
+
+                block_end = bid_-(weight_-1)+lfsr_data_size(&data_);
             }
 
             // allocate a new block
@@ -10029,11 +10053,10 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             }
 
             // copy any data underneath our block into our block
-            lfs_off_t pos_ = block_off;
-            while (pos_ < block_off + lfs->cfg->block_size) {
+            lfs_off_t pos_ = block_start;
+            while (pos_ < block_end) {
                 lfsr_data_t data;
-                err = lfsr_file_readnext(lfs, file, pos_,
-                        block_off + lfs->cfg->block_size - pos_,
+                err = lfsr_file_readnext(lfs, file, pos_, block_end - pos_,
                         &data);
                 if (err) {
                     // end of file?
@@ -10044,16 +10067,8 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
                 }
                 LFS_ASSERT(lfsr_data_size(&data) > 0);
 
-                // found a hole that goes all the way to the end? terminate
-                // early
-                if (lfsr_data_ishole(&data)
-                        && pos_ + lfsr_data_size(&data)
-                            >= block_off + lfs->cfg->block_size) {
-                    break;
-                }
-
                 // prog data/hole
-                err = lfsr_bd_progdata(lfs, block, pos_ - block_off,
+                err = lfsr_bd_progdata(lfs, block, pos_ - block_start,
                         data,
                         NULL);
                 if (err) {
@@ -10062,7 +10077,6 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
 
                 pos_ += lfsr_data_size(&data);
             }
-            lfs_off_t block_size = pos_ - block_off;
 
             // TODO validate?
             // finalize our write
@@ -10075,13 +10089,13 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
             lfsr_bptr_t bptr = {
                 .block = block,
                 .off = 0,
-                .size = block_size,
+                .size = block_end - block_start,
             };
 
             // and write it into our tree
             uint8_t bptr_buf[LFSR_BPTR_DSIZE];
             err = lfsr_tree_carve(lfs, &file->tree,
-                    block_off, block_size, 0,
+                    block_start, block_end - block_start, 0,
                     LFSR_TAG_BLOCK, lfsr_data_frombptr(&bptr, bptr_buf));
             if (err) {
                 return err;
@@ -10089,7 +10103,7 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
 
             // note due to block alignment we may not actually make progress
             // here until a second pass
-            pos = lfs_max32(pos, block_off + block_size);
+            pos = lfs_max32(pos, block_end);
 
         // fits in crystallization threshold? just append a fragment
         } else {
@@ -10168,7 +10182,7 @@ static int lfsr_file_flushshrub(lfs_t *lfs, lfsr_file_t *file) {
                 if (pos+lfsr_data_size(&data)
                             < bid_-(weight_-1) + lfsr_data_size(&data_)
                         && lfsr_data_size(&data)
-                                    + lfsr_data_size(&data_)
+                                + lfsr_data_size(&data_)
                                 - (pos+lfsr_data_size(&data)
                                     - (bid_-(weight_-1)))
                             <= lfs->cfg->fragment_size) {
