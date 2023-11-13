@@ -396,7 +396,7 @@ class Bmap:
             block_count=1,
             block_window=None,
             off_window=None,
-            width=None,
+            width=1,
             height=1,
             pixels=None):
         # default width to block_window or block_size
@@ -758,8 +758,8 @@ def main(path='-', *,
 
     # create our block device representation
     bmap = Bmap(
-        block_size=block_size,
-        block_count=block_count,
+        block_size=block_size if block_size is not None else 1,
+        block_count=block_count if block_count is not None else 1,
         block_window=block_window,
         off_window=off_window)
 
@@ -840,23 +840,26 @@ def main(path='-', *,
 
         if m.group('create'):
             # update our block size/count
-            block_size = int(m.group('block_size'), 0)
-            block_count = int(m.group('block_count'), 0)
+            block_size_ = int(m.group('block_size'), 0)
+            block_count_ = int(m.group('block_count'), 0)
 
             if reset:
                 bmap = Bmap(
-                    block_size=block_size,
-                    block_count=block_count,
+                    block_size=block_size_,
+                    block_count=block_count_,
                     block_window=bmap.block_window,
                     off_window=bmap.off_window,
                     width=bmap.width,
                     height=bmap.height)
-            else:
-                if (block_size != bmap.block_size
-                        or block_count != bmap.block_count):
-                    bmap.resize(
-                        block_size=block_size,
-                        block_count=block_count)
+            elif ((block_size is None
+                        and block_size_ != bmap.block_size)
+                    or (block_count is None
+                        and block_count_ != bmap.block_count)):
+                bmap.resize(
+                    block_size=block_size if block_size is not None
+                        else block_size_,
+                    block_count=block_count if block_count is not None
+                        else block_count_)
             return True
 
         elif m.group('read') and read:
@@ -864,10 +867,13 @@ def main(path='-', *,
             off = int(m.group('read_off'), 0)
             size = int(m.group('read_size'), 0)
 
-            if block >= bmap.block_count or off+size > bmap.block_size:
+            if ((block_size is None and off+size > bmap.block_size)
+                    or (block_count is None and block >= bmap.block_count)):
                 bmap.resize(
-                    block_size=max(off+size, bmap.block_size),
-                    block_count=max(block+1, bmap.block_count))
+                    block_size=block_size if block_size is not None
+                        else max(off+size, bmap.block_size),
+                    block_count=block_count if block_count is not None
+                        else max(block+1, bmap.block_count))
 
             bmap.read(block, off, size)
             readed += size
@@ -878,10 +884,13 @@ def main(path='-', *,
             off = int(m.group('prog_off'), 0)
             size = int(m.group('prog_size'), 0)
 
-            if block >= bmap.block_count or off+size > bmap.block_size:
+            if ((block_size is None and off+size > bmap.block_size)
+                    or (block_count is None and block >= bmap.block_count)):
                 bmap.resize(
-                    block_size=max(off+size, bmap.block_size),
-                    block_count=max(block+1, bmap.block_count))
+                    block_size=block_size if block_size is not None
+                        else max(off+size, bmap.block_size),
+                    block_count=block_count if block_count is not None
+                        else max(block+1, bmap.block_count))
 
             bmap.prog(block, off, size)
             proged += size
@@ -891,10 +900,13 @@ def main(path='-', *,
             block = int(m.group('erase_block'), 0)
             size = int(m.group('erase_size'), 0)
 
-            if block >= bmap.block_count or size > bmap.block_size:
+            if ((block_size is None and size > bmap.block_size)
+                    or (block_count is None and block >= bmap.block_count)):
                 bmap.resize(
-                    block_size=max(off+size, bmap.block_size),
-                    block_count=max(block+1, bmap.block_count))
+                    block_size=block_size if block_size is not None
+                        else max(size, bmap.block_size),
+                    block_count=block_count if block_count is not None
+                        else max(block+1, bmap.block_count))
 
             bmap.erase(block, size)
             erased += size
@@ -913,34 +925,6 @@ def main(path='-', *,
             f.write(s)
             f.write('\n')
         f.writeln = writeln
-
-        # print some information about read/prog/erases
-        if not no_header:
-            # compute total ops
-            total = readed+proged+erased
-
-            # compute stddev of wear using our bmap, this is a bit different
-            # from read/prog/erase which ignores any bmap window, but it's
-            # what we have
-            if wear:
-                mean = (sum(p.wear for p in bmap.pixels)
-                    / max(len(bmap.pixels), 1))
-                stddev = m.sqrt(sum((p.wear - mean)**2 for p in bmap.pixels)
-                    / max(len(bmap.pixels), 1))
-                worst = max((p.wear for p in bmap.pixels), default=0)
-
-            f.writeln('bd %dx%d%s%s%s%s' % (
-                block_size, block_count,
-                ', %6s read' % ('%.1f%%' % (100*readed  / max(total, 1)))
-                    if read else '',
-                ', %6s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
-                    if prog else '',
-                ', %6s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
-                    if erase else '',
-                ', %13s wear' % ('%.1fσ (%.1f%%)' % (
-                    worst / max(stddev, 1),
-                    100*stddev / max(worst, 1)))
-                    if wear else ''))
 
         # don't forget we've scaled this for braille/dots!
         for row in range(
@@ -961,6 +945,40 @@ def main(path='-', *,
                 **args)
             if line:
                 f.writeln(line)
+
+        # print some information about read/prog/erases
+        #
+        # cat implies no-header, because a header wouldn't really make sense
+        if not no_header and not cat:
+            # compute total ops
+            total = readed+proged+erased
+
+            # compute stddev of wear using our bmap, this is a bit different
+            # from read/prog/erase which ignores any bmap window, but it's
+            # what we have
+            if wear:
+                mean = (sum(p.wear for p in bmap.pixels)
+                    / max(len(bmap.pixels), 1))
+                stddev = m.sqrt(sum((p.wear - mean)**2 for p in bmap.pixels)
+                    / max(len(bmap.pixels), 1))
+                worst = max((p.wear for p in bmap.pixels), default=0)
+
+            # a bit of a hack here, but this forces our header to always be
+            # at row zero
+            if len(f.lines) == 0:
+                f.lines.append('')
+            f.lines[0] = 'bd %dx%d%s%s%s%s' % (
+                bmap.block_size, bmap.block_count,
+                ', %6s read' % ('%.1f%%' % (100*readed  / max(total, 1)))
+                    if read else '',
+                ', %6s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
+                    if prog else '',
+                ', %6s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
+                    if erase else '',
+                ', %13s wear' % ('%.1fσ (%.1f%%)' % (
+                    worst / max(stddev, 1),
+                    100*stddev / max(worst, 1)))
+                    if wear else '')
 
         bmap.clear()
         readed = 0
