@@ -9229,6 +9229,9 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_shrub_carve(lfs_t *lfs, lfsr_file_t *file, lfsr_shrub_t *shrub,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         lfsr_tag_t tag, lfsr_data_t data) {
+    // note! we take special care to make sure our shrub size doesn't
+    // overflow, even temporarily
+
     // only inlined data is supported in shrubs
     LFS_ASSERT(tag == LFSR_TAG_SHRUB(DATA));
     // we should never try to shove more data than can fit in a given weight
@@ -9569,9 +9572,11 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
     // this is basically the same as lfsr_shrub_carve, except we apply
     // changes immediately since we can't commit attrs across rbyds
     //
-    // we also need to handle bptrs here, and even fragment bptrs if they
-    // get too small
+    // we also need to handle bptrs here, and even break up bptrs into
+    // fragments if they get too small
     //
+    // note! we take special care to make sure our btree size doesn't
+    // overflow, even temporarily
 
     // TODO do we ever create direct bptrs with this strategy?
 
@@ -9636,7 +9641,7 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
 
             // carve bptr?
             } else if (tag_ == LFSR_TAG_BLOCK
-                    && lfsr_data_size(&slice_) > lfs->cfg->fragment_size) {
+                    && lfsr_data_size(&slice_) > lfs->cfg->crystal_size) {
                 lfsr_bptr_t bptr_ = {
                     .block = slice_.u.disk.block,
                     .off = slice_.u.disk.off,
@@ -9652,22 +9657,38 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
                     return err;
                 }
 
-            // TODO should we fragment into many fragments when we drop below
-            // our crystallize threshold? need to think about this
-            //
-            // // otherwise we fragment and carve, this has the affect of
-            // // converting bptrs into fragements if they fall below our
-            // // crystallize threshold
-            //
-            // otherwise we carve, potentially converting a bptr into
-            // a fragment
+            // break into multiple fragments and carve if bptr/fragment is
+            // below our crystal size
             } else {
+                // write the last fragment first to avoid overflow issues
                 err = lfsr_btree_commit(lfs, &tree->u.btree, LFSR_ATTRS(
                         LFSR_ATTR(bid_,
-                            GROW(WIDE(DATA)), -overlap_,
-                            DATA(slice_))));
+                            GROW(WIDE(DATA)), -overlap_ - lfs_aligndown(
+                                lfsr_data_size(&slice_)-1,
+                                lfs->cfg->fragment_size),
+                            DATA(lfsr_data_add(slice_,
+                                lfs_aligndown(
+                                    lfsr_data_size(&slice_)-1,
+                                    lfs->cfg->fragment_size))))));
                 if (err) {
                     return err;
+                }
+
+                for (lfs_size_t i = 0;
+                        i < lfs_aligndown(
+                            lfsr_data_size(&slice_)-1,
+                            lfs->cfg->fragment_size);
+                        i += lfs->cfg->fragment_size) {
+                    err = lfsr_btree_commit(lfs, &tree->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_-(weight_-1) + i,
+                                DATA, +lfs->cfg->fragment_size,
+                                DISK(
+                                    slice_.u.disk.block,
+                                    slice_.u.disk.off + i,
+                                    lfs->cfg->fragment_size))));
+                    if (err) {
+                        return err;
+                    }
                 }
             }
 
@@ -9690,7 +9711,7 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
 
                 // carve bptr?
                 } else if (tag_ == LFSR_TAG_BLOCK
-                        && lfsr_data_size(&slice_) > lfs->cfg->fragment_size) {
+                        && lfsr_data_size(&slice_) > lfs->cfg->crystal_size) {
                     lfsr_bptr_t bptr_ = {
                         .block = slice_.u.disk.block,
                         .off = slice_.u.disk.off,
@@ -9707,16 +9728,40 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
                         return err;
                     }
 
-                // otherwise we carve, potentially converting a bptr into
-                // a fragment
+                // break into multiple fragments and carve if bptr/fragment is
+                // below our crystal size
                 } else {
-                    err = lfsr_btree_commit(lfs, &tree->u.btree,
-                            LFSR_ATTRS(
-                                LFSR_ATTR(pos,
-                                    DATA, +(weight_ - overlap_),
-                                    DATA(slice_))));
+                    // TODO can this be simplified a bit?
+                    // write the last fragment first to avoid overflow issues
+                    err = lfsr_btree_commit(lfs, &tree->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(pos,
+                                DATA, +weight_ - overlap_
+                                    - lfs_aligndown(
+                                        lfsr_data_size(&slice_)-1,
+                                        lfs->cfg->fragment_size),
+                                DATA(lfsr_data_add(slice_,
+                                    lfs_aligndown(
+                                        lfsr_data_size(&slice_)-1,
+                                        lfs->cfg->fragment_size))))));
                     if (err) {
                         return err;
+                    }
+
+                    for (lfs_size_t i = 0;
+                            i < lfs_aligndown(
+                                lfsr_data_size(&slice_)-1,
+                                lfs->cfg->fragment_size);
+                            i += lfs->cfg->fragment_size) {
+                        err = lfsr_btree_commit(lfs, &tree->u.btree, LFSR_ATTRS(
+                                LFSR_ATTR(pos + i,
+                                    DATA, +lfs->cfg->fragment_size,
+                                    DISK(
+                                        slice_.u.disk.block,
+                                        slice_.u.disk.off + i,
+                                        lfs->cfg->fragment_size))));
+                        if (err) {
+                            return err;
+                        }
                     }
                 }
             }
@@ -9743,7 +9788,7 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
 
             // carve bptr?
             } else if (tag_ == LFSR_TAG_BLOCK
-                    && lfsr_data_size(&slice_) > lfs->cfg->fragment_size) {
+                    && lfsr_data_size(&slice_) > lfs->cfg->crystal_size) {
                 lfsr_bptr_t bptr_ = {
                     .block = slice_.u.disk.block,
                     .off = slice_.u.disk.off,
@@ -9759,15 +9804,38 @@ static int lfsr_tree_carve(lfs_t *lfs, lfsr_tree_t *tree,
                     return err;
                 }
 
-            // otherwise we carve, potentially converting a bptr into
-            // a fragment
+            // break into multiple fragments and carve if bptr/fragment is
+            // below our crystal size
             } else {
+                // write the last fragment first to avoid overflow issues
                 err = lfsr_btree_commit(lfs, &tree->u.btree, LFSR_ATTRS(
                         LFSR_ATTR(bid_,
-                            GROW(WIDE(DATA)), -overlap_,
-                            DATA(slice_))));
+                            GROW(WIDE(DATA)), -overlap_ - lfs_aligndown(
+                                lfsr_data_size(&slice_)-1,
+                                lfs->cfg->fragment_size),
+                            DATA(lfsr_data_add(slice_,
+                                lfs_aligndown(
+                                    lfsr_data_size(&slice_)-1,
+                                    lfs->cfg->fragment_size))))));
                 if (err) {
                     return err;
+                }
+
+                for (lfs_size_t i = 0;
+                        i < lfs_aligndown(
+                            lfsr_data_size(&slice_)-1,
+                            lfs->cfg->fragment_size);
+                        i += lfs->cfg->fragment_size) {
+                    err = lfsr_btree_commit(lfs, &tree->u.btree, LFSR_ATTRS(
+                            LFSR_ATTR(bid_-(weight_-1) + i,
+                                DATA, +lfs->cfg->fragment_size,
+                                DISK(
+                                    slice_.u.disk.block,
+                                    slice_.u.disk.off + i,
+                                    lfs->cfg->fragment_size))));
+                    if (err) {
+                        return err;
+                    }
                 }
             }
 
