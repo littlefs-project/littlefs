@@ -981,6 +981,10 @@ def main(disk, blocks=None, *,
                         # keep track of eoff for best matching trunk
                         if trunk and j_ + size > trunk:
                             trunkeoff = j_ + size
+                            eoff = trunkeoff
+                            cksum = cksum_
+                            trunk_ = trunk__
+                            weight = weight_
 
             if not tag & TAG_ALT:
                 j_ += size

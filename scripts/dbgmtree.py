@@ -386,6 +386,9 @@ class Rbyd:
                         # keep track of eoff for best matching trunk
                         if trunk and j_ + size > trunk:
                             trunkeoff = j_ + size
+                            cksum = cksum_
+                            trunk_ = trunk__
+                            weight = weight_
 
             if not tag & TAG_ALT:
                 j_ += size
