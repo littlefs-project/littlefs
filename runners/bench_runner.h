@@ -112,7 +112,7 @@ intmax_t bench_define(size_t define);
 
 // a few preconfigured defines that control how benches run
 
-#define BENCH_IMPLICIT_DEFINE_COUNT 15
+#define BENCH_IMPLICIT_DEFINE_COUNT 16
 #define BENCH_GEOMETRY_DEFINE_COUNT 3
 
 #define READ_SIZE_i          0
@@ -122,14 +122,15 @@ intmax_t bench_define(size_t define);
 #define DISK_SIZE_i          4
 #define CACHE_SIZE_i         5
 #define INLINE_SIZE_i        6
-#define FRAGMENT_SIZE_i      7
-#define CRYSTAL_SIZE_i       8
-#define LOOKAHEAD_SIZE_i     9
-#define BLOCK_CYCLES_i       10
-#define ERASE_VALUE_i        11
-#define ERASE_CYCLES_i       12
-#define BADBLOCK_BEHAVIOR_i  13
-#define POWERLOSS_BEHAVIOR_i 14
+#define SHRUB_SIZE_i         7
+#define FRAGMENT_SIZE_i      8
+#define CRYSTAL_SIZE_i       9
+#define LOOKAHEAD_SIZE_i     10
+#define BLOCK_CYCLES_i       11
+#define ERASE_VALUE_i        12
+#define ERASE_CYCLES_i       13
+#define BADBLOCK_BEHAVIOR_i  14
+#define POWERLOSS_BEHAVIOR_i 15
 
 #define READ_SIZE           bench_define(READ_SIZE_i)
 #define PROG_SIZE           bench_define(PROG_SIZE_i)
@@ -138,6 +139,7 @@ intmax_t bench_define(size_t define);
 #define DISK_SIZE           bench_define(DISK_SIZE_i)
 #define CACHE_SIZE          bench_define(CACHE_SIZE_i)
 #define INLINE_SIZE         bench_define(INLINE_SIZE_i)
+#define SHRUB_SIZE          bench_define(SHRUB_SIZE_i)
 #define FRAGMENT_SIZE       bench_define(FRAGMENT_SIZE_i)
 #define CRYSTAL_SIZE        bench_define(CRYSTAL_SIZE_i)
 #define LOOKAHEAD_SIZE      bench_define(LOOKAHEAD_SIZE_i)
@@ -156,6 +158,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(DISK_SIZE,          1024*1024                                 ) \
     BENCH_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))) \
     BENCH_DEF(INLINE_SIZE,        BLOCK_SIZE/8                              ) \
+    BENCH_DEF(SHRUB_SIZE,         INLINE_SIZE                               ) \
     BENCH_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                ) \
     BENCH_DEF(CRYSTAL_SIZE,       BLOCK_SIZE/8                              ) \
     BENCH_DEF(LOOKAHEAD_SIZE,     16                                        ) \
@@ -181,6 +184,7 @@ intmax_t bench_define(size_t define);
     .block_cycles       = BLOCK_CYCLES,     \
     .cache_size         = CACHE_SIZE,       \
     .inline_size        = INLINE_SIZE,      \
+    .shrub_size         = SHRUB_SIZE,       \
     .fragment_size      = FRAGMENT_SIZE,    \
     .crystal_size       = CRYSTAL_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,

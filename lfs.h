@@ -293,6 +293,7 @@ struct lfs_config {
 
     // TODO document
     lfs_size_t inline_size;
+    lfs_size_t shrub_size;
     lfs_size_t fragment_size;
     lfs_size_t crystal_size;
 };
@@ -512,31 +513,22 @@ typedef struct lfs_file {
     const struct lfs_file_config *cfg;
 } lfs_file_t;
 
-typedef struct lfsr_shrub {
-    union {
-        // the sign bit indicates if data is a single inlined data, or an
-        // inlined tree, this works because inlined data is always on disk,
-        // so data.size always has sign=1
-        lfs_soff_t weight;
-        lfsr_data_t data;
-        lfsr_rbyd_t rbyd;
-        struct {
-            lfs_soff_t weight;
-            lfs_size_t trunk;
-            lfs_off_t estimate;
-        } shrub;
-    } u;
-} lfsr_shrub_t;
+// bsprouts must always be associated with an mdir
+typedef struct lfsr_bsprout {
+    lfsr_data_t data;
+    // copy for staging
+    lfsr_data_t data_;
+} lfsr_bsprout_t;
 
-typedef struct lfsr_tree {
-    union {
-        // the sign bit indicates if this is a direct block pointer or
-        // indirect tree of block pointers/inlined datas
-        lfs_soff_t size;
-        lfsr_bptr_t bptr;
-        lfsr_btree_t btree;
-    } u;
-} lfsr_tree_t;
+// bshrubs must always be associated with an mdir
+//
+// btree.block == mdir.blocks[0] => bshrub
+// btree.block != mdir.blocks[0] => btree
+typedef struct lfsr_bshrub {
+    lfsr_btree_t btree;
+    // copy for staging
+    lfsr_btree_t btree_;
+} lfsr_bshrub_t;
 
 typedef struct lfsr_file {
     lfsr_openedmdir_t m;
@@ -548,13 +540,12 @@ typedef struct lfsr_file {
     uint8_t *buffer;
     lfs_size_t buffer_size;
 
-    // we need a staging copy of each shrubs during mdir compaction, we put
-    // this in the file struct directly, since we don't know how many files
-    // may be opened
-    lfsr_shrub_t shrub;
-    lfsr_shrub_t shrub_;
-
-    lfsr_tree_t tree;
+    union {
+        lfsr_bsprout_t bsprout;
+        lfsr_bptr_t bptr;
+        lfsr_bshrub_t bshrub;
+        lfsr_btree_t btree;
+    } u;
 
     const struct lfs_file_config *cfg;
 } lfsr_file_t;

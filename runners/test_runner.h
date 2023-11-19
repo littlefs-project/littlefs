@@ -98,7 +98,7 @@ intmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 
-#define TEST_IMPLICIT_DEFINE_COUNT 15
+#define TEST_IMPLICIT_DEFINE_COUNT 16
 #define TEST_GEOMETRY_DEFINE_COUNT 3
 
 #define READ_SIZE_i          0
@@ -108,14 +108,15 @@ intmax_t test_define(size_t define);
 #define DISK_SIZE_i          4
 #define CACHE_SIZE_i         5
 #define INLINE_SIZE_i        6
-#define FRAGMENT_SIZE_i      7
-#define CRYSTAL_SIZE_i       8
-#define LOOKAHEAD_SIZE_i     9
-#define BLOCK_CYCLES_i       10
-#define ERASE_VALUE_i        11
-#define ERASE_CYCLES_i       12
-#define BADBLOCK_BEHAVIOR_i  13
-#define POWERLOSS_BEHAVIOR_i 14
+#define SHRUB_SIZE_i         7
+#define FRAGMENT_SIZE_i      8
+#define CRYSTAL_SIZE_i       9
+#define LOOKAHEAD_SIZE_i     10
+#define BLOCK_CYCLES_i       11
+#define ERASE_VALUE_i        12
+#define ERASE_CYCLES_i       13
+#define BADBLOCK_BEHAVIOR_i  14
+#define POWERLOSS_BEHAVIOR_i 15
 
 #define READ_SIZE           TEST_DEFINE(READ_SIZE_i)
 #define PROG_SIZE           TEST_DEFINE(PROG_SIZE_i)
@@ -124,6 +125,7 @@ intmax_t test_define(size_t define);
 #define DISK_SIZE           TEST_DEFINE(DISK_SIZE_i)
 #define CACHE_SIZE          TEST_DEFINE(CACHE_SIZE_i)
 #define INLINE_SIZE         TEST_DEFINE(INLINE_SIZE_i)
+#define SHRUB_SIZE          TEST_DEFINE(SHRUB_SIZE_i)
 #define FRAGMENT_SIZE       TEST_DEFINE(FRAGMENT_SIZE_i)
 #define CRYSTAL_SIZE        TEST_DEFINE(CRYSTAL_SIZE_i)
 #define LOOKAHEAD_SIZE      TEST_DEFINE(LOOKAHEAD_SIZE_i)
@@ -142,6 +144,7 @@ intmax_t test_define(size_t define);
     TEST_DEF(DISK_SIZE,          1024*1024                                  ) \
     TEST_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE)) ) \
     TEST_DEF(INLINE_SIZE,        BLOCK_SIZE/8                               ) \
+    TEST_DEF(SHRUB_SIZE,         INLINE_SIZE                                ) \
     TEST_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                 ) \
     TEST_DEF(CRYSTAL_SIZE,       BLOCK_SIZE/8                               ) \
     TEST_DEF(LOOKAHEAD_SIZE,     16                                         ) \
@@ -167,6 +170,7 @@ intmax_t test_define(size_t define);
     .block_cycles       = BLOCK_CYCLES,     \
     .cache_size         = CACHE_SIZE,       \
     .inline_size        = INLINE_SIZE,      \
+    .shrub_size         = SHRUB_SIZE,       \
     .fragment_size      = FRAGMENT_SIZE,    \
     .crystal_size       = CRYSTAL_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,
