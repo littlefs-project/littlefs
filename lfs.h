@@ -522,12 +522,14 @@ typedef struct lfsr_bsprout {
 
 // bshrubs must always be associated with an mdir
 //
-// btree.block == mdir.blocks[0] => bshrub
-// btree.block != mdir.blocks[0] => btree
+// rbyd.block == mdir.blocks[0] => bshrub
+// rbyd.block != mdir.blocks[0] => btree
 typedef struct lfsr_bshrub {
-    lfsr_btree_t btree;
+    lfsr_rbyd_t rbyd;
     // copy for staging
-    lfsr_btree_t btree_;
+    lfsr_rbyd_t rbyd_;
+    // an upper-bound estimate on the on-disk shrub size
+    lfs_size_t progged;
 } lfsr_bshrub_t;
 
 typedef struct lfsr_file {

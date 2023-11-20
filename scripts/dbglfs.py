@@ -1271,23 +1271,23 @@ def frepr(mdir, rid, tag):
     elif tag == TAG_REG:
         size = 0
         structs = []
-        # sprout?
+        # inlined data?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DATA)
         if not done and rid_ == rid and tag_ == TAG_DATA:
             size = max(size, len(data))
             structs.append('data 0x%x.%x' % (mdir.block, j+d))
-        # shrub?
-        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
-        if not done and rid_ == rid and tag_ == TAG_TRUNK:
-            weight, trunk = fromshrub(data)
-            size = max(size, weight)
-            structs.append('trunk 0x%x.%x' % (mdir.block, trunk))
         # direct block?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BLOCK)
         if not done and rid_ == rid and tag_ == TAG_BLOCK:
             size_, block, off = frombptr(data)
             size = max(size, size_)
             structs.append('block 0x%x.%x' % (block, off))
+        # inlined bshrub?
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
+        if not done and rid_ == rid and tag_ == TAG_TRUNK:
+            weight, trunk = fromshrub(data)
+            size = max(size, weight)
+            structs.append('trunk 0x%x.%x' % (mdir.block, trunk))
         # indirect btree?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BTREE)
         if not done and rid_ == rid and tag_ == TAG_BTREE:
@@ -1306,7 +1306,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
     # first decode possible rbyds/btrees, for sprouts/direct blocks we pretend
     # the entry itself is a single-element btree
 
-    # sprout?
+    # inlined data?
     if tag == TAG_DATA:
         btree = Rbyd(
             mdir.block,
@@ -1316,11 +1316,6 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             j,
             0)
         w = len(data)
-    # shrub?
-    elif tag == TAG_TRUNK:
-        weight, trunk = fromshrub(data)
-        btree = Rbyd.fetch(f, block_size, mdir.block, trunk)
-        w = weight
     # direct block?
     elif tag == TAG_BLOCK:
         btree = Rbyd(
@@ -1332,6 +1327,11 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             0)
         size, block, off = frombptr(data)
         w = size
+    # inlined bshrub?
+    elif tag == TAG_TRUNK:
+        weight, trunk = fromshrub(data)
+        btree = Rbyd.fetch(f, block_size, mdir.block, trunk)
+        w = weight
     # indirect btree?
     elif tag == TAG_BTREE:
         weight, block, trunk, cksum = frombtree(data)
@@ -2144,20 +2144,10 @@ def main(disk, mroots=None, *,
 
                     # print file contents?
                     if tag == TAG_REG and args.get('structs'):
-                        # sprout?
+                        # inlined sprout?
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
                             rid, TAG_DATA)
                         if not done and rid_ == rid and tag_ == TAG_DATA:
-                            dbg_fstruct(f, block_size,
-                                mdir, rid_, tag_, j, d, data,
-                                m_width=2*w_width+1,
-                                color=color,
-                                args=args)
-
-                        # shrub?
-                        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
-                            rid, TAG_TRUNK)
-                        if not done and rid_ == rid and tag_ == TAG_TRUNK:
                             dbg_fstruct(f, block_size,
                                 mdir, rid_, tag_, j, d, data,
                                 m_width=2*w_width+1,
@@ -2168,6 +2158,16 @@ def main(disk, mroots=None, *,
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
                             rid, TAG_BLOCK)
                         if not done and rid_ == rid and tag_ == TAG_BLOCK:
+                            dbg_fstruct(f, block_size,
+                                mdir, rid_, tag_, j, d, data,
+                                m_width=2*w_width+1,
+                                color=color,
+                                args=args)
+
+                        # inlined bshrub?
+                        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
+                            rid, TAG_TRUNK)
+                        if not done and rid_ == rid and tag_ == TAG_TRUNK:
                             dbg_fstruct(f, block_size,
                                 mdir, rid_, tag_, j, d, data,
                                 m_width=2*w_width+1,
