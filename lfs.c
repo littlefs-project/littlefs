@@ -352,7 +352,6 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
     LFS_ASSERT(block < lfs->cfg->block_count);
 
     // make sure any caches are outdated appropriately here
-    LFS_ASSERT(lfs->pcache.block != block);
     if (lfs->rcache.block == block) {
         lfs_cache_drop(lfs, &lfs->rcache);
     }
@@ -4644,7 +4643,9 @@ static int lfsr_btree_traversalread(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_binfo_t *binfo) {
     while (true) {
         // in range?
-        if (btraversal->bid >= (lfsr_bid_t)btree->weight) {
+        if (btraversal->bid >= (lfsr_bid_t)btree->weight
+                // make sure we traverse the root even if weight=0
+                && btraversal->branch.trunk != 0) {
             return LFS_ERR_NOENT;
         }
 
@@ -4654,6 +4655,7 @@ static int lfsr_btree_traversalread(lfs_t *lfs, const lfsr_btree_t *btree,
             btraversal->rid = btraversal->bid;
             btraversal->branch = *btree;
 
+            // traverse the root
             if (btraversal->rid == 0) {
                 binfo->bid = btree->weight-1;
                 binfo->tag = LFSR_TAG_BRANCH;
@@ -6310,6 +6312,21 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
+    // update any staged bsprout/bshrub changes, note the order here
+    // matters since issprout/isbshrub depends on file mdir
+    //
+    // TODO merge with below? maybe?
+    for (lfsr_openedmdir_t *opened = lfs->opened[LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (lfsr_file_isbsprout(file)) {
+            file->u.bsprout.data = file->u.bsprout.data_;
+        } else if (lfsr_file_isbshrub(file)) {
+            file->u.bshrub.rbyd = file->u.bshrub.rbyd_;
+        }
+    }
+
     // update any opened mdirs
     for (int type = LFS_TYPE_REG; type < LFS_TYPE_REG+3; type++) {
         for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
@@ -6417,20 +6434,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
             }
     next:;
-        }
-    }
-
-    // update any staged bsprout/bshrub changes
-    //
-    // TODO merge with above? maybe?
-    for (lfsr_openedmdir_t *opened = lfs->opened[LFS_TYPE_REG-LFS_TYPE_REG];
-            opened;
-            opened = opened->next) {
-        lfsr_file_t *file = (lfsr_file_t*)opened;
-        if (lfsr_file_isbsprout(file)) {
-            file->u.bsprout.data = file->u.bsprout.data_;
-        } else if (lfsr_file_isbshrub(file)) {
-            file->u.bshrub.rbyd = file->u.bshrub.rbyd_;
         }
     }
 
