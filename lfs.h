@@ -383,6 +383,10 @@ typedef struct lfsr_bptr {
 
 typedef lfsr_rbyd_t lfsr_btree_t;
 
+typedef struct lfsr_mptr {
+    lfs_block_t blocks[2];
+} lfsr_mptr_t;
+
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
     union {
@@ -573,7 +577,7 @@ typedef struct lfsr_mtree {
         lfsr_smid_t weight;
         struct {
             lfsr_smid_t weight;
-            lfs_block_t blocks[2];
+            lfsr_mptr_t mptr;
         } mptr;
         lfsr_btree_t btree;
     } u;
