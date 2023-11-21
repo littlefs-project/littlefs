@@ -596,7 +596,7 @@ class Rbyd:
                     rid_, w = rid__, w_
 
                 # catch any branches
-                if tag == TAG_BRANCH:
+                if tag & 0xfff == TAG_BRANCH:
                     branch = (tag, j, d, data)
 
                 tags.append((tag, j, d, data))
@@ -703,7 +703,10 @@ class Rbyd:
                     ))
 
                 d_ += max(bdepths.get(d, 0), 1)
-                leaf = (bid-(w-1), d, rid-(w-1), TAG_BRANCH)
+                leaf = (bid-(w-1), d, rid-(w-1),
+                    next((tag for tag, _, _, _ in tags
+                            if tag & 0xfff == TAG_BRANCH),
+                        TAG_BRANCH))
 
         # remap branches to leaves if we aren't showing inner branches
         if not inner:

@@ -4016,9 +4016,10 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         lfsr_rbyd_t parent = {.trunk=0, .weight=0};
         lfsr_srid_t rid;
         // are we root?
-        if (rbyd.trunk == 0 || rbyd.weight == btree->weight) {
-            // are we root and shrub? yield root updates to shrub commit
-            if (shrub) {
+        if (rbyd.block == btree->block || rbyd.trunk == 0) {
+            // new root? shrub root? yield creation of new roots to
+            // higher-level bshrub/btree logic
+            if (shrub || rbyd.trunk == 0) {
                 *btree = rbyd;
                 if (attrs_) {
                     *attrs_ = attrs;
@@ -4027,14 +4028,6 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
                     *attr_count_ = attr_count;
                 }
                 return 0;
-            }
-
-            // need a new root? this happens if we split
-            if (rbyd.trunk == 0) {
-                int err = lfsr_rbyd_alloc(lfs, &rbyd);
-                if (err) {
-                    return err;
-                }
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -4512,15 +4505,42 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
     lfsr_attr_t scratch_attrs[4];
     uint8_t scratch_buf[2*LFSR_BRANCH_DSIZE];
 
-    lfs_ssize_t attr_count_ = lfsr_btree_commit_(lfs, btree, false,
+    // try to commit to the btree
+    int err = lfsr_btree_commit_(lfs, btree, false,
             scratch_attrs, scratch_buf,
             attrs, attr_count,
-            NULL, NULL);
-    if (attr_count_ < 0) {
-        return attr_count_;
+            &attrs, &attr_count);
+    if (err) {
+        return err;
     }
 
-    LFS_ASSERT(attr_count_ == 0);
+    // needs a new root?
+    if (attr_count > 0) {
+        // TODO do we need to be this careful with backup copies?
+        lfsr_rbyd_t rbyd;
+        err = lfsr_rbyd_alloc(lfs, &rbyd);
+        if (err) {
+            return err;
+        }
+
+        // TODO should we just use rbyd commit? it allocates _another_ 
+        // redundant copy which is a bit much...
+        err = lfsr_rbyd_appendattrs(lfs, &rbyd, -1, -1,
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        err = lfsr_rbyd_appendcksum(lfs, &rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        *btree = rbyd;
+    }
+
     LFS_ASSERT(btree->trunk != 0);
     return 0;
 }
@@ -6762,63 +6782,74 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return estimate;
             }
             bshrub->progged = estimate;
+
+            // do we overflow shrub_size/2? the 1/2 here prevents runaway
+            // performance when the shrub is near full
+            if (bshrub->progged > lfs->cfg->shrub_size/2) {
+                goto evict;
+            }
         }
 
-        // do we overflow shrub_size/2? the 1/2 here prevents runaway
-        // performance when the shrub is near full
-        if (bshrub->progged > lfs->cfg->shrub_size/2) {
-            // TODO am I missing a simpler function here? at least use
-            // lfsr_rbyd_commit once it doesn't maintain a copy...
-
-            // convert to btree
-            err = lfsr_rbyd_alloc(lfs, &bshrub->rbyd_);
-            if (err) {
-                return err;
-            }
-
-            err = lfsr_rbyd_appendcompactrbyd(lfs, &bshrub->rbyd_, false,
-                    -1, -1, &bshrub->rbyd);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_rbyd_compact(lfs, &bshrub->rbyd_, false,
-                    sizeof(uint32_t));
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_rbyd_appendattrs(lfs, &bshrub->rbyd_, -1, -1,
-                    attrs, attr_count);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_rbyd_appendcksum(lfs, &bshrub->rbyd_);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            bshrub->rbyd = bshrub->rbyd_;
-
-        // otherwise commit to shrub like normal
-        } else {
-            int err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
-                    LFSR_ATTR(mdir->mid,
-                        BSHRUBCOMMIT, 0, BSHRUBCOMMIT(
-                            bshrub, attrs, attr_count))));
-            if (err) {
-                return err;
-            }
-
-            bshrub->progged += progged;
+        // if our shrub is a new root, we need to set the correct block
+        LFS_ASSERT(bshrub->rbyd.trunk == 0
+                || bshrub->rbyd.block == mdir->u.rbyd.block);
+        if (bshrub->rbyd.trunk == 0) {
+            bshrub->rbyd.block = mdir->u.rbyd.block;
         }
+
+        // commit to shrub
+        err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
+                LFSR_ATTR(mdir->mid,
+                    BSHRUBCOMMIT, 0, BSHRUBCOMMIT(
+                        bshrub, attrs, attr_count))));
+        if (err) {
+            return err;
+        }
+
+        bshrub->progged += progged;
     }
 
+    LFS_ASSERT(bshrub->rbyd.trunk != 0);
+    return 0;
+
+evict:;
+    // TODO am I missing a simpler function here? at least use
+    // lfsr_rbyd_commit once it doesn't maintain a copy...
+
+    // convert to btree
+    err = lfsr_rbyd_alloc(lfs, &bshrub->rbyd_);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_rbyd_appendcompactrbyd(lfs, &bshrub->rbyd_, false,
+            -1, -1, &bshrub->rbyd);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    err = lfsr_rbyd_compact(lfs, &bshrub->rbyd_, false,
+            sizeof(uint32_t));
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    err = lfsr_rbyd_appendattrs(lfs, &bshrub->rbyd_, -1, -1,
+            attrs, attr_count);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    err = lfsr_rbyd_appendcksum(lfs, &bshrub->rbyd_);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    bshrub->rbyd = bshrub->rbyd_;
     LFS_ASSERT(bshrub->rbyd.trunk != 0);
     return 0;
 }
