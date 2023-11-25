@@ -620,7 +620,7 @@ typedef struct lfs {
     uint8_t ggrm[LFSR_GRM_DSIZE];
     uint8_t dgrm[LFSR_GRM_DSIZE];
 
-    uint8_t mleaf_bits;
+    uint8_t mbits;
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
 
