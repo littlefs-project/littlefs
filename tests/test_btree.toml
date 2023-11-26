@@ -51,7 +51,7 @@ code = '''
         // the struct tag
         return lfsr_btree_commit(lfs, btree, LFSR_ATTRS(
                 LFSR_ATTR(bid, WIDE(TAG(tag)), 0, DATA(data)),
-                LFSR_ATTR(bid, GROW, weight - weight_, NULL)));
+                LFSR_ATTR(bid, GROW, weight - weight_, NULL())));
     }
 
     static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
@@ -67,7 +67,7 @@ code = '''
         }
 
         return lfsr_btree_commit(lfs, btree, LFSR_ATTRS(
-                LFSR_ATTR(bid, RM, -weight_, NULL)));
+                LFSR_ATTR(bid, RM, -weight_, NULL())));
     }
 
     static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
@@ -86,12 +86,12 @@ code = '''
         }
 
         return lfsr_btree_commit(lfs, btree, LFSR_ATTRS(
-                LFSR_ATTR(bid, GROW, +weight1-weight_, NULL),
+                LFSR_ATTR(bid, GROW, +weight1-weight_, NULL()),
                 LFSR_ATTR(bid-(weight_-1)+weight1-1, TAG(tag1), 0, DATA(data1)),
                 (lfsr_data_size(&name) > 0
                     ? LFSR_ATTR(bid-(weight_-1)+weight1,
                         NAME, +weight2, DATA(name))
-                    : LFSR_ATTR_NOOP),
+                    : LFSR_ATTR_NOOP()),
                 (lfsr_data_size(&name) > 0
                     ? LFSR_ATTR(bid-(weight_-1)+weight1+weight2-1,
                         TAG(tag2), 0, DATA(data2))
@@ -2216,7 +2216,7 @@ code = '''
             LFSR_DATA_BUF(&alphas[0 % 26], 1)) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        int err = lfsr_btree_split(&lfs, &btree, i-1, LFSR_DATA_NULL,
+        int err = lfsr_btree_split(&lfs, &btree, i-1, LFSR_DATA_NULL(),
                 LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&alphas[(i-1) % 26], 1),
                 LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&alphas[(i-0) % 26], 1));
         // ignore space issues
@@ -2289,7 +2289,7 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // split btree
-        int err = lfsr_btree_split(&lfs, &btree, bid, LFSR_DATA_NULL,
+        int err = lfsr_btree_split(&lfs, &btree, bid, LFSR_DATA_NULL(),
                 LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&alphas[i % 26], 1),
                 LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&uppers[i % 26], 1));
         // ignore space issues
@@ -2365,7 +2365,7 @@ code = '''
             LFSR_DATA_BUF(&alphas[0 % 26], 1)) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, LFSR_DATA_NULL,
+        int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, LFSR_DATA_NULL(),
                 LFSR_TAG_DATA, W, LFSR_DATA_BUF(&alphas[(i-1) % 26], 1),
                 LFSR_TAG_DATA, W, LFSR_DATA_BUF(&alphas[(i-0) % 26], 1));
         // ignore space issues
@@ -2452,7 +2452,7 @@ code = '''
 
         // split btree
         int err = lfsr_btree_split(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_DATA_NULL,
+                weighted_bid+sim_weights[bid]-1, LFSR_DATA_NULL(),
                 LFSR_TAG_DATA, weight1,
                     LFSR_DATA_BUF(&alphas[i % 26], 1),
                 LFSR_TAG_DATA, weight2,
@@ -2605,7 +2605,7 @@ code = '''
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
     // force compaction
@@ -2668,7 +2668,7 @@ code = '''
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
     // force compaction
@@ -2734,7 +2734,7 @@ code = '''
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
 
@@ -2795,7 +2795,7 @@ code = '''
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
             LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
     // force compaction

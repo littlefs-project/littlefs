@@ -1004,7 +1004,7 @@ enum {
 // through the LFSR_ATTR macro
 #define LFSR_DATA_DATA(_data) (_data)
 
-#define LFSR_DATA_NULL \
+#define LFSR_DATA_NULL() \
     ((lfsr_data_t){ \
         .u.buf.size=0, \
         .u.buf.mode=LFSR_DATA_BUF, \
@@ -1487,7 +1487,7 @@ typedef struct lfsr_attr {
         _delta, \
         LFSR_DATA_##_data})
 
-#define LFSR_ATTR_NOOP LFSR_ATTR(-1, GROW, 0, NULL)
+#define LFSR_ATTR_NOOP() LFSR_ATTR(-1, GROW, 0, NULL())
 
 // TODO make this const again eventually
 #define LFSR_ATTRS(...) \
@@ -2051,10 +2051,6 @@ static inline int lfsr_rbyd_cmp(
     }
 }
 
-static inline void lfsr_rbyd_unerase(lfsr_rbyd_t *rbyd) {
-    rbyd->eoff = -1;
-}
-
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
@@ -2246,7 +2242,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     if (!erased) {
-        lfsr_rbyd_unerase(rbyd);
+        rbyd->eoff = -1;
     }
 
     return 0;
@@ -3193,7 +3189,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // create a copy and mark rbyd as unerased in case of failure
     lfsr_rbyd_t rbyd_ = *rbyd;
-    lfsr_rbyd_unerase(rbyd);
+    rbyd->eoff = -1;
 
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -3426,7 +3422,7 @@ done:;
 // append and consume any pending gstate
 static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // need GRM delta?
-    if (!lfsr_grm_iszero(lfs->dgrm)) {
+    if (!lfsr_grm_iszero(lfs->grm_d)) {
         // calculate our delta
         uint8_t grm_buf[LFSR_GRM_DSIZE];
         memset(grm_buf, 0, LFSR_GRM_DSIZE);
@@ -3446,7 +3442,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         }
 
         err = lfsr_grm_xor(lfs, grm_buf, LFSR_DATA_BUF(
-                &lfs->dgrm, LFSR_GRM_DSIZE));
+                &lfs->grm_d, LFSR_GRM_DSIZE));
         if (err) {
             return err;
         }
@@ -3701,10 +3697,6 @@ static inline int lfsr_btree_cmp(
         const lfsr_btree_t *a,
         const lfsr_btree_t *b) {
     return lfsr_rbyd_cmp(a, b);
-}
-
-static inline void lfsr_btree_unerase(lfsr_btree_t *btree) {
-    lfsr_rbyd_unerase(btree);
 }
 
 
@@ -4023,7 +4015,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
             // mark btree as unerased in case of failure, our btree rbyd and
             // root rbyd can diverge if there's a split, but we would have
             // marked the old root as unerased earlier anyways
-            lfsr_btree_unerase(btree);
+            btree->eoff = -1;
 
         } else {
             int err = lfsr_btree_parent(lfs, btree, bid, &rbyd, &parent, &rid);
@@ -4359,7 +4351,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
             *attrs_++ = LFSR_ATTR(bid+rid,
                     BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buffer));
             *attrs_++ = LFSR_ATTR(bid+rid,
-                    GROW, -rbyd.weight + rbyd_.weight, NULL);
+                    GROW, -rbyd.weight + rbyd_.weight, NULL());
             *attrs_++ = LFSR_ATTR(bid+rid - rbyd.weight + rbyd_.weight + 1,
                     BRANCH, +sibling.weight,
                     FROMBRANCH(&sibling, scratch_buffer + LFSR_BRANCH_DSIZE));
@@ -4435,11 +4427,11 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         attrs_ = scratch_attrs;
         bid -= rid - (rbyd.weight-1);
         *attrs_++ = LFSR_ATTR(bid+rid+sibling.weight,
-                RM, -sibling.weight, NULL);
+                RM, -sibling.weight, NULL());
         *attrs_++ = LFSR_ATTR(bid+rid,
                 BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buffer));
         *attrs_++ = LFSR_ATTR(bid+rid,
-                GROW, -rbyd.weight + rbyd_.weight, NULL);
+                GROW, -rbyd.weight + rbyd_.weight, NULL());
         attrs = scratch_attrs;
         attr_count = attrs_ - scratch_attrs;
 
@@ -4475,12 +4467,12 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         bid -= rid - (rbyd.weight-1);
         if (rbyd_.weight == 0) {
             *attrs_++ = LFSR_ATTR(bid+rid,
-                    RM, -rbyd.weight, NULL);
+                    RM, -rbyd.weight, NULL());
         } else {
             *attrs_++ = LFSR_ATTR(bid+rid,
                     BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buffer));
             *attrs_++ = LFSR_ATTR(bid+rid,
-                    GROW, -rbyd.weight + rbyd_.weight, NULL);
+                    GROW, -rbyd.weight + rbyd_.weight, NULL());
         }
         attrs = scratch_attrs;
         attr_count = attrs_ - scratch_attrs;
@@ -5025,10 +5017,6 @@ static inline bool lfsr_mdir_ismrootanchor(const lfsr_mdir_t *mdir) {
     return lfsr_mptr_ismrootanchor(lfsr_mdir_mptr(mdir));
 }
 
-static inline void lfsr_mdir_unerase(lfsr_mdir_t *mdir) {
-    lfsr_rbyd_unerase(&mdir->u.rbyd);
-}
-
 static inline lfsr_sbid_t lfsr_mdir_bid(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     return lfsr_mid_bid(lfs, mdir->mid);
 }
@@ -5157,7 +5145,7 @@ static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
 // some mdir-related gstate things we need
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
-    memset(lfs->dgrm, 0, LFSR_GRM_DSIZE);
+    memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 }
 
 static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
@@ -5168,7 +5156,7 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     }
 
     if (err != LFS_ERR_NOENT) {
-        err = lfsr_grm_xor(lfs, lfs->dgrm, data);
+        err = lfsr_grm_xor(lfs, lfs->grm_d, data);
         if (err) {
             return err;
         }
@@ -5180,10 +5168,9 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
 
 // mtree is the core tree of mdirs in littlefs
 
-// TODO should other flags have IS* prefix?
 #define LFSR_MTREE_ISMPTR 0x80000000
 
-#define LFSR_MTREE_NULL ((lfsr_mtree_t){ \
+#define LFSR_MTREE_NULL() ((lfsr_mtree_t){ \
     .u.weight=(LFSR_MTREE_ISMPTR | 0)})
 
 #define LFSR_MTREE_MPTR(_mptr, _weight) ((lfsr_mtree_t){ \
@@ -5409,7 +5396,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     // try to append a commit
     lfsr_mdir_t mdir_ = *mdir;
     // mark as erased in case of failure
-    lfsr_mdir_unerase(mdir);
+    mdir->u.rbyd.eoff = -1;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // calculate adjusted rid
         lfsr_srid_t rid = lfsr_mid_rid(lfs, attrs[i].rid);
@@ -6026,7 +6013,7 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfsr_mptr_t *mptr,
 // to the mroot should go through lfsr_mdir_commit with lfs->mroot as
 // a target
 //
-static int lfsr_mroot_commit_(lfs_t *lfs,
+static int lfsr_mroot_commit(lfs_t *lfs,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         lfsr_srid_t *split_rid_,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
@@ -6034,14 +6021,14 @@ static int lfsr_mroot_commit_(lfs_t *lfs,
     lfsr_mdir_t mroot_ = lfs->mroot;
 
     // mark any copies of our mroot as unerased
-    lfsr_mdir_unerase(&lfs->mroot);
+    lfs->mroot.u.rbyd.eoff = -1;
 
     for (int type = LFS_TYPE_REG; type < LFS_TYPE_REG+3; type++) {
         for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
                 opened;
                 opened = opened->next) {
             if (lfsr_mdir_cmp(&opened->mdir, &lfs->mroot) == 0) {
-                lfsr_mdir_unerase(&opened->mdir);
+                opened->mdir.u.rbyd.eoff = -1;
             }
         }
     }
@@ -6205,7 +6192,7 @@ static int lfsr_mtree_commit(lfs_t *lfs,
         mtree_ = lfs->mtree.u.btree;
 
         // mark as unerased in case of failure
-        lfsr_btree_unerase(&lfs->mtree.u.btree);
+        lfs->mtree.u.btree.eoff = -1;
     }
 
     // commit to mtree
@@ -6225,7 +6212,7 @@ static int lfsr_mtree_commit(lfs_t *lfs,
     // layers rely on this.
     //
     uint8_t mtree_buf[LFSR_BTREE_DSIZE];
-    err = lfsr_mroot_commit_(lfs, -1, 0, NULL, LFSR_ATTRS(
+    err = lfsr_mroot_commit(lfs, -1, 0, NULL, LFSR_ATTRS(
             LFSR_ATTR(-1,
                 WIDE(MTREE), 0, FROMBTREE(&mtree_, mtree_buf))));
     if (err) {
@@ -6258,11 +6245,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
             lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.buf.buffer;
-            lfsr_data_fromgrm(grm, lfs->dgrm);
+            lfsr_data_fromgrm(grm, lfs->grm_d);
 
             // xor with our current gstate to find our initial gdelta
-            int err = lfsr_grm_xor(lfs, lfs->dgrm,
-                    LFSR_DATA_BUF(lfs->ggrm, LFSR_GRM_DSIZE));
+            int err = lfsr_grm_xor(lfs, lfs->grm_d,
+                    LFSR_DATA_BUF(lfs->grm_g, LFSR_GRM_DSIZE));
             if (err) {
                 return err;
             }
@@ -6284,7 +6271,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // would force the mroot to always compact
             //
             if (lfsr_mdir_cmp(&opened->mdir, mdir) == 0) {
-                lfsr_mdir_unerase(&opened->mdir);
+                opened->mdir.u.rbyd.eoff = -1;
             }
 
             // stage all bsprouts/bshrubs
@@ -6304,7 +6291,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     int err;
     // mroot? we need special handling to propagate up the mroot chain
     if (lfsr_mdir_cmp(&mdir_, &lfs->mroot) == 0) {
-        err = lfsr_mroot_commit_(lfs, -1, -1, &split_rid,
+        err = lfsr_mroot_commit(lfs, -1, -1, &split_rid,
                 attrs, attr_count);
         if (err && err != LFS_ERR_RANGE
                 && err != LFS_ERR_NOENT) {
@@ -6317,7 +6304,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // otherwise commit normally
     } else {
         // mark our mdir as unerased in case we fail
-        lfsr_mdir_unerase(mdir);
+        mdir->u.rbyd.eoff = -1;
 
         err = lfsr_mdir_commit_(lfs, &mdir_, -1, -1, &split_rid,
                 attrs, attr_count);
@@ -6445,7 +6432,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 //
                 lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.buf.buffer;
                 uint8_t grm_buf[LFSR_GRM_DSIZE];
-                err = lfsr_grm_xor(lfs, lfs->dgrm,
+                err = lfsr_grm_xor(lfs, lfs->grm_d,
                         lfsr_data_fromgrm(grm, grm_buf));
                 if (err) {
                     return err;
@@ -6466,7 +6453,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
                 // xor our fix into our gdelta
-                err = lfsr_grm_xor(lfs, lfs->dgrm,
+                err = lfsr_grm_xor(lfs, lfs->grm_d,
                         lfsr_data_fromgrm(grm, grm_buf));
                 if (err) {
                     return err;
@@ -6548,7 +6535,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 //
                 lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.buf.buffer;
                 uint8_t grm_buf[LFSR_GRM_DSIZE];
-                err = lfsr_grm_xor(lfs, lfs->dgrm,
+                err = lfsr_grm_xor(lfs, lfs->grm_d,
                         lfsr_data_fromgrm(grm, grm_buf));
                 if (err) {
                     return err;
@@ -6562,7 +6549,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
                 // xor our fix into our gdelta
-                err = lfsr_grm_xor(lfs, lfs->dgrm,
+                err = lfsr_grm_xor(lfs, lfs->grm_d,
                         lfsr_data_fromgrm(grm, grm_buf));
                 if (err) {
                     return err;
@@ -6572,20 +6559,20 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // direct mdir?
         if (lfsr_mtree_ismptr(lfs)) {
-            err = lfsr_mroot_commit_(lfs, -1, 0, NULL, LFSR_ATTRS(
+            err = lfsr_mroot_commit(lfs, -1, 0, NULL, LFSR_ATTRS(
                     LFSR_ATTR(-1,
-                        RM(WIDE(STRUCT)), 0, NULL)));
+                        RM(WIDE(STRUCT)), 0, NULL())));
             if (err) {
                 return err;
             }
 
-            lfs->mtree = LFSR_MTREE_NULL;
+            lfs->mtree = LFSR_MTREE_NULL();
 
         // update our mtree
         } else {
             err = lfsr_mtree_commit(lfs, LFSR_ATTRS(
                     LFSR_ATTR(lfsr_mdir_bid(lfs, &mdir_),
-                        RM, -lfsr_mweight(lfs), NULL)));
+                        RM, -lfsr_mweight(lfs), NULL())));
             if (err) {
                 return err;
             }
@@ -6604,7 +6591,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // new mtree?
         if (lfsr_mtree_ismptr(lfs)) {
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
-            err = lfsr_mroot_commit_(lfs, -1, 0, NULL, LFSR_ATTRS(
+            err = lfsr_mroot_commit(lfs, -1, 0, NULL, LFSR_ATTRS(
                     LFSR_ATTR(-1,
                         WIDE(MDIR), 0,
                         FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf))));
@@ -6631,7 +6618,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // success? update in-device state, we must not error at this point
 
     // gstate must have been committed by a lower-level function at this point
-    LFS_ASSERT(lfsr_grm_iszero(lfs->dgrm));
+    LFS_ASSERT(lfsr_grm_iszero(lfs->grm_d));
 
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // update gstate
@@ -6639,7 +6626,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.buf.buffer;
 
             // keep track of the exact encoding on-disk
-            lfsr_data_fromgrm(&lfs->grm, lfs->ggrm);
+            lfsr_data_fromgrm(&lfs->grm, lfs->grm_g);
         }
     }
 
@@ -7571,7 +7558,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // default to no mtree, this is allowed and implies all files are inlined
     // in the mroot
-    lfs->mtree = LFSR_MTREE_NULL;
+    lfs->mtree = LFSR_MTREE_NULL();
 
     // traverse the mtree rooted at mroot 0x{1,0}
     //
@@ -8048,10 +8035,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk
-    memcpy(lfs->ggrm, lfs->dgrm, LFSR_GRM_DSIZE);
+    memcpy(lfs->grm_g, lfs->grm_d, LFSR_GRM_DSIZE);
 
     // decode grm so we can report any removed files as missing
-    int err = lfsr_data_readgrm(lfs, &LFSR_DATA_BUF(lfs->ggrm, LFSR_GRM_DSIZE),
+    int err = lfsr_data_readgrm(lfs, &LFSR_DATA_BUF(lfs->grm_g, LFSR_GRM_DSIZE),
             &lfs->grm);
     if (err) {
         // TODO switch to read-only?
@@ -8363,7 +8350,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         // remove the rid while also updating our grm
         LFS_ASSERT(lfsr_mid_rid(lfs, lfs->grm.rms[0]) < mdir.u.m.weight);
         err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(mdir.mid, RM, -1, NULL),
+                LFSR_ATTR(mdir.mid, RM, -1, NULL()),
                 LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     }
 
@@ -8608,7 +8595,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
     // remove the metadata entry
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid, RM, -1, NULL),
+            LFSR_ATTR(mdir.mid, RM, -1, NULL()),
             LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
         return err;
@@ -8736,8 +8723,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // new rid, while also marking the old rid for removal
     err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_ATTRS(
             (exists
-                ? LFSR_ATTR(new_mdir.mid, RM, -1, NULL)
-                : LFSR_ATTR_NOOP),
+                ? LFSR_ATTR(new_mdir.mid, RM, -1, NULL())
+                : LFSR_ATTR_NOOP()),
             LFSR_ATTR(new_mdir.mid,
                 TAG(old_tag), +1, CAT(
                     LFSR_DATA_LEB128(new_did),
@@ -9003,50 +8990,51 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 /// File operations ///
 
-// sign(weight)=1, data.block==mdir.block => sprout
+// sign(weight)=1, data.block==mdir.block => bsprout
 // sign(weight)=1, data.block!=mdir.block => bptr
 // sign(weight)=0, data.block==mdir.block => bshrub
 // sign(weight)=0, data.block!=mdir.block => btree
 
-#define LFSR_FILE_BSPROUT 0x80000000
-#define LFSR_BSPROUT_NULL ((lfsr_bsprout_t){.data=LFSR_DATA_DISK(0, 0, 0)})
+#define LFSR_FILE_ISDIRECT 0x80000000
+
+#define LFSR_FILE_BNULL() ((lfsr_bsprout_t){.data=LFSR_DATA_DISK(0, 0, 0)})
 
 static inline bool lfsr_file_isbnull(const lfsr_file_t *file) {
     return (lfs_size_t)file->u.bsprout.data.u.disk.size
-            == (LFSR_FILE_BSPROUT | 0);
+            == (LFSR_FILE_ISDIRECT | 0);
 }
 
 static inline bool lfsr_file_isbsprout(const lfsr_file_t *file) {
     return (lfs_size_t)file->u.bsprout.data.u.disk.size
-                > (LFSR_FILE_BSPROUT | 0)
+                > (LFSR_FILE_ISDIRECT | 0)
             && file->u.bsprout.data.u.disk.block
                 == file->m.mdir.u.m.blocks[0];
 }
 
 static inline bool lfsr_file_isbptr(const lfsr_file_t *file) {
     return (lfs_size_t)file->u.bsprout.data.u.disk.size
-                > (LFSR_FILE_BSPROUT | 0)
+                > (LFSR_FILE_ISDIRECT | 0)
             && file->u.bsprout.data.u.disk.block
                 != file->m.mdir.u.m.blocks[0];
 }
 
 static inline bool lfsr_file_isbshrub(const lfsr_file_t *file) {
-    return !(file->u.bsprout.data.u.disk.size & LFSR_FILE_BSPROUT)
+    return !(file->u.bsprout.data.u.disk.size & LFSR_FILE_ISDIRECT)
             && lfsr_bshrub_isbshrub(&file->m.mdir, &file->u.bshrub);
 }
 
 static inline bool lfsr_file_isbtree(const lfsr_file_t *file) {
-    return !(file->u.bsprout.data.u.disk.size & LFSR_FILE_BSPROUT)
+    return !(file->u.bsprout.data.u.disk.size & LFSR_FILE_ISDIRECT)
             && lfsr_bshrub_isbtree(&file->m.mdir, &file->u.bshrub);
 }
 
 static inline bool lfsr_file_isbshruborbtree(const lfsr_file_t *file) {
-    return !(file->u.bsprout.data.u.disk.size & LFSR_FILE_BSPROUT);
+    return !(file->u.bsprout.data.u.disk.size & LFSR_FILE_ISDIRECT);
 }
 
 // the on disk weight lines up to the same word across all unions
 static inline lfs_off_t lfsr_file_uweight(const lfsr_file_t *file) {
-    return file->u.bsprout.data.u.disk.size & ~LFSR_FILE_BSPROUT;
+    return file->u.bsprout.data.u.disk.size & ~LFSR_FILE_ISDIRECT;
 }
 
 // flags
@@ -9132,7 +9120,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->pos = 0;
     file->size = 0;
     // default data state
-    file->u.bsprout = LFSR_BSPROUT_NULL;
+    file->u.bsprout = LFSR_FILE_BNULL();
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -9583,7 +9571,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 err = lfsr_bshrub_commit(lfs,
                         &file->m.mdir, &file->u.bshrub, LFSR_ATTRS(
                             LFSR_ATTR(bid_,
-                                GROW, -overlap_, NULL)));
+                                GROW, -overlap_, NULL())));
                 if (err) {
                     return err;
                 }
@@ -9736,7 +9724,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 err = lfsr_bshrub_commit(lfs,
                         &file->m.mdir, &file->u.bshrub, LFSR_ATTRS(
                             LFSR_ATTR(bid_,
-                                RM, -weight_, NULL)));
+                                RM, -weight_, NULL())));
                 if (err) {
                     return err;
                 }
@@ -9803,7 +9791,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             err = lfsr_bshrub_commit(lfs,
                     &file->m.mdir, &file->u.bshrub, LFSR_ATTRS(
                         LFSR_ATTR(bid_,
-                            RM, -weight_, NULL)));
+                            RM, -weight_, NULL())));
             if (err) {
                 return err;
             }
@@ -9826,7 +9814,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             int err = lfsr_bshrub_commit(lfs,
                     &file->m.mdir, &file->u.bshrub, LFSR_ATTRS(
                         LFSR_ATTR(pos_-1,
-                            GROW, +hole, NULL)));
+                            GROW, +hole, NULL())));
             if (err) {
                 return err;
             }
@@ -9836,7 +9824,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             int err = lfsr_bshrub_commit(lfs,
                     &file->m.mdir, &file->u.bshrub, LFSR_ATTRS(
                         LFSR_ATTR(pos_,
-                            DATA, +hole, NULL)));
+                            DATA, +hole, NULL())));
             if (err) {
                 return err;
             }
@@ -10327,7 +10315,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                             WIDE(DATA), 0, BUF(
                                 file->buffer, file->buffer_size))
                         : LFSR_ATTR(file->m.mdir.mid,
-                            WIDE(RM(STRUCT)), 0, NULL))));
+                            WIDE(RM(STRUCT)), 0, NULL()))));
             if (err) {
                 goto failed;
             }
@@ -10373,7 +10361,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                     (lfsr_file_isbnull(file))
                         ? LFSR_ATTR(file->m.mdir.mid,
-                            WIDE(RM(STRUCT)), 0, NULL)
+                            WIDE(RM(STRUCT)), 0, NULL())
                     : (lfsr_file_isbsprout(file))
                         ? LFSR_ATTR(file->m.mdir.mid,
                             WIDE(DATA), 0, DATA(file->u.bsprout.data))
@@ -10467,7 +10455,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             file->buffer_size,
             size - lfs_min32(file->buffer_pos, size));
     if (buffer_size >= size) {
-        file->u.bsprout = LFSR_BSPROUT_NULL;
+        file->u.bsprout = LFSR_FILE_BNULL();
 
     // TODO, wait, could we just update file->size and leave it to
     // lfsr_file_sync to update the shrub?
@@ -10477,7 +10465,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 lfs_min32(file->size, size),
                 file->size - lfs_min32(file->size, size),
                 +size - file->size,
-                LFSR_TAG_DATA, LFSR_DATA_NULL);
+                LFSR_TAG_DATA, LFSR_DATA_NULL());
         if (err) {
             return err;
         }
@@ -10519,7 +10507,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             lfs_smax32(file->size - size - file->buffer_pos, 0),
             file->buffer_size);
     if (buffer_size >= size) {
-        file->u.bsprout = LFSR_BSPROUT_NULL;
+        file->u.bsprout = LFSR_FILE_BNULL();
 
     // otherwise, we need to modify our sprout/bptr/bshrub/btree
     } else {
@@ -10529,13 +10517,13 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         // revert shrubs if they go to zero
         if ((lfs_soff_t)(file->size - size)
                 >= (lfs_soff_t)lfsr_file_uweight(file)) {
-            file->u.bsprout = LFSR_BSPROUT_NULL;
+            file->u.bsprout = LFSR_FILE_BNULL();
         } else {
             int err = lfsr_file_carve(lfs, file,
                     0,
                     lfs_smax32(file->size - size, 0),
                     +size - file->size,
-                    LFSR_TAG_DATA, LFSR_DATA_NULL);
+                    LFSR_TAG_DATA, LFSR_DATA_NULL());
             if (err) {
                 return err;
             }
@@ -14067,8 +14055,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->opened[LFS_TYPE_INTERNAL - LFS_TYPE_REG] = NULL;
 
     // zero gstate
-    memset(lfs->ggrm, 0, LFSR_GRM_DSIZE);
-    memset(lfs->dgrm, 0, LFSR_GRM_DSIZE);
+    memset(lfs->grm_g, 0, LFSR_GRM_DSIZE);
+    memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 
     return 0;
 

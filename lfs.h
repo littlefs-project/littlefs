@@ -617,8 +617,8 @@ typedef struct lfs {
 
     // begin lfsr things
     lfsr_grm_t grm;
-    uint8_t ggrm[LFSR_GRM_DSIZE];
-    uint8_t dgrm[LFSR_GRM_DSIZE];
+    uint8_t grm_g[LFSR_GRM_DSIZE];
+    uint8_t grm_d[LFSR_GRM_DSIZE];
 
     uint8_t mbits;
     lfsr_mdir_t mroot;
