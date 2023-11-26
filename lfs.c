@@ -2044,8 +2044,8 @@ static inline bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
 static inline int lfsr_rbyd_cmp(
         const lfsr_rbyd_t *a,
         const lfsr_rbyd_t *b) {
-    if (a->block != b->block) {
-        return a->block - b->block;
+    if (a->blocks[0] != b->blocks[0]) {
+        return a->blocks[0] - b->blocks[0];
     } else {
         return a->trunk - b->trunk;
     }
@@ -2055,13 +2055,13 @@ static inline int lfsr_rbyd_cmp(
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .eoff=0, .cksum=0};
-    int err = lfs_alloc(lfs, &rbyd->block);
+    int err = lfs_alloc(lfs, &rbyd->blocks[0]);
     if (err) {
         return err;
     }
             
     // TODO should erase be implicit in alloc eventually?
-    err = lfsr_bd_erase(lfs, rbyd->block);
+    err = lfsr_bd_erase(lfs, rbyd->blocks[0]);
     if (err) {
         return err;
     }
@@ -2079,7 +2079,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return err;
     }
 
-    rbyd->block = block;
+    rbyd->blocks[0] = block;
     rbyd->eoff = 0;
     rbyd->trunk = 0;
 
@@ -2231,7 +2231,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
         uint32_t ecksum_ = 0;
-        err = lfsr_bd_cksum(lfs, rbyd->block, rbyd->eoff, 0, ecksum.size,
+        err = lfsr_bd_cksum(lfs, rbyd->blocks[0], rbyd->eoff, 0, ecksum.size,
                 &ecksum_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -2270,7 +2270,7 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (rbyd->cksum != cksum) {
         LFS_ERROR("Found rbyd cksum mismatch rbyd 0x%"PRIx32".%"PRIx32", "
                 "cksum 0x%08"PRIx32" (!= 0x%08"PRIx32")",
-                rbyd->block, rbyd->trunk, rbyd->cksum, cksum);
+                rbyd->blocks[0], rbyd->trunk, rbyd->cksum, cksum);
         return LFS_ERR_CORRUPT;
     }
 
@@ -2310,7 +2310,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_rid_t weight;
         lfs_size_t jump;
         lfs_ssize_t d = lfsr_bd_readtag(lfs,
-                rbyd->block, branch, 0,
+                rbyd->blocks[0], branch, 0,
                 &alt, &weight, &jump, NULL);
         if (d < 0) {
             return d;
@@ -2353,7 +2353,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 *weight_ = upper - lower;
             }
             if (data_) {
-                *data_ = LFSR_DATA_DISK(rbyd->block, branch + d, jump);
+                *data_ = LFSR_DATA_DISK(rbyd->blocks[0], branch + d, jump);
             }
             return 0;
         }
@@ -2401,7 +2401,7 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     // intentionally allow the revision count to overflow
     uint8_t rev_buf[sizeof(uint32_t)];
     lfs_tole32_(rev, &rev_buf);
-    int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
+    int err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
             &rev_buf, sizeof(uint32_t), &rbyd->cksum);
     if (err) {
         return err;
@@ -2426,7 +2426,7 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             lfsr_rid_t weight = p_weights[3-1-i];
             lfs_size_t jump = rbyd->eoff - p_jumps[3-1-i];
 
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
                     alt, weight, jump,
                     &rbyd->cksum);
             if (d < 0) {
@@ -2652,7 +2652,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_rid_t weight;
         lfs_size_t jump;
         lfs_ssize_t d = lfsr_bd_readtag(lfs,
-                rbyd->block, branch, 0,
+                rbyd->blocks[0], branch, 0,
                 &alt, &weight, &jump, NULL);
         if (d < 0) {
             return d;
@@ -2990,7 +2990,7 @@ leaf:;
     //
     // note we always need a non-alt to terminate the trunk, otherwise we
     // can't find trunks during fetch
-    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
             // rm => null or shrubnull, otherwise strip off control bits
             (lfsr_tag_isrm(tag)
                 ? lfsr_tag_mode(lfsr_tag_shrubkey(tag))
@@ -3004,7 +3004,7 @@ leaf:;
     rbyd->eoff += d;
 
     // don't forget the data!
-    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
+    err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, data,
             &rbyd->cksum);
     if (err) {
         return err;
@@ -3064,7 +3064,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         // read the leading byte in case we need to change the expected
         // value of the next tag's valid bit
         int err = lfsr_bd_read(lfs,
-                rbyd->block, aligned_eoff, lfs->cfg->prog_size,
+                rbyd->blocks[0], aligned_eoff, lfs->cfg->prog_size,
                 &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -3073,7 +3073,8 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         // find the expected ecksum, don't bother avoiding a reread of the
         // perturb byte, as it should still be in our cache
         lfsr_ecksum_t ecksum = {.size=lfs->cfg->prog_size, .cksum=0};
-        err = lfsr_bd_cksum(lfs, rbyd->block, aligned_eoff, lfs->cfg->prog_size,
+        err = lfsr_bd_cksum(lfs,
+                rbyd->blocks[0], aligned_eoff, lfs->cfg->prog_size,
                 lfs->cfg->prog_size,
                 &ecksum.cksum);
         if (err && err != LFS_ERR_CORRUPT) {
@@ -3082,7 +3083,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
         lfsr_data_t ecksum_data = lfsr_data_fromecksum(&ecksum, ecksum_buf);
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
                 LFSR_TAG_ECKSUM, 0, lfsr_data_size(&ecksum_data),
                 &rbyd->cksum);
         if (d < 0) {
@@ -3090,7 +3091,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         }
         rbyd->eoff += d;
 
-        err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, ecksum_data,
+        err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, ecksum_data,
                 &rbyd->cksum);
         if (err) {
             return err;
@@ -3135,7 +3136,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     }
     lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+5]);
 
-    int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
+    int err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
             cksum_buf, 2+1+5+4,
             NULL);
     if (err) {
@@ -3234,7 +3235,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // write the tag
-    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
             tag, weight, lfsr_data_size(&data),
             &rbyd->cksum);
     if (d < 0) {
@@ -3243,7 +3244,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->eoff += d;
 
     // and the data
-    int err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
+    int err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, data,
             &rbyd->cksum);
     if (err) {
         return err;
@@ -3312,7 +3313,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // empty rbyd? write a null tag so our trunk can still point to something
     if (rbyd->eoff == off) {
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
                 shrub ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
                 &rbyd->cksum);
         if (d < 0) {
@@ -3343,7 +3344,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     lfsr_rid_t weight__;
                     lfs_size_t size__;
                     lfs_ssize_t d = lfsr_bd_readtag(lfs,
-                            rbyd->block, off, layer_ - off,
+                            rbyd->blocks[0], off, layer_ - off,
                             &tag__, &weight__, &size__, NULL);
                     if (d < 0) {
                         return d;
@@ -3386,7 +3387,8 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
                 // connect with an altle
-                lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+                lfs_ssize_t d = lfsr_bd_progtag(lfs,
+                        rbyd->blocks[0], rbyd->eoff,
                         LFSR_TAG_ALT(LE, B, lfsr_tag_key(tag)),
                         weight,
                         rbyd->eoff - trunk,
@@ -3398,7 +3400,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // terminate with a null tag
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
                     shrub ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
                     &rbyd->cksum);
             if (d < 0) {
@@ -3711,7 +3713,7 @@ static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
     lfs_ssize_t d = 0;
 
-    lfs_ssize_t d_ = lfs_toleb128(branch->block, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(branch->blocks[0], &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -3733,7 +3735,7 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
     branch->eoff = 0;
     branch->weight = weight;
 
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->block);
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->blocks[0]);
     if (err) {
         return err;
     }
@@ -3940,7 +3942,8 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         // found our child?
-        if (branch_.block == child->block && branch_.trunk == child->trunk) {
+        if (branch_.blocks[0] == child->blocks[0]
+                && branch_.trunk == child->trunk) {
             // TODO how many of these should be conditional?
             if (rbyd_) {
                 *rbyd_ = branch;
@@ -3998,7 +4001,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         lfsr_rbyd_t parent = {.trunk=0, .weight=0};
         lfsr_srid_t rid;
         // are we root?
-        if (rbyd.block == btree->block || rbyd.trunk == 0) {
+        if (rbyd.blocks[0] == btree->blocks[0] || rbyd.trunk == 0) {
             // new root? shrub root? yield creation of new roots to
             // higher-level bshrub/btree logic
             if (shrub || rbyd.trunk == 0) {
@@ -4034,7 +4037,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         // a funny benefit is we cache the root of our btree this way
         if (!lfsr_rbyd_isfetched(&rbyd)) {
             int err = lfsr_rbyd_fetchvalidate(lfs, &rbyd,
-                    rbyd.block, rbyd.trunk, rbyd.weight, rbyd.cksum);
+                    rbyd.blocks[0], rbyd.trunk, rbyd.weight, rbyd.cksum);
             if (err) {
                 return err;
             }
@@ -4728,12 +4731,12 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
 
 static inline bool lfsr_bshrub_isbshrub(
         const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub) {
-    return mdir->blocks[0] == bshrub->rbyd.block;
+    return mdir->rbyd.blocks[0] == bshrub->rbyd.blocks[0];
 }
 
 static inline bool lfsr_bshrub_isbtree(
         const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub) {
-    return mdir->blocks[0] != bshrub->rbyd.block;
+    return mdir->rbyd.blocks[0] != bshrub->rbyd.blocks[0];
 }
 
 static inline int lfsr_bshrub_cmp(
@@ -4747,7 +4750,7 @@ static inline int lfsr_bshrub_cmp(
 static int lfsr_bshrub_alloc(lfs_t *lfs,
         const lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub) {
     (void)lfs;
-    bshrub->rbyd.block = mdir->rbyd.block;
+    bshrub->rbyd.blocks[0] = mdir->rbyd.blocks[0];
     bshrub->rbyd.trunk = 0;
     bshrub->rbyd.weight = 0;
     bshrub->progged = 0;
@@ -4759,7 +4762,7 @@ static int lfsr_bshrub_alloc(lfs_t *lfs,
 static int lfsr_bshrub_fetch(lfs_t *lfs,
         const lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub,
         lfs_size_t trunk, lfsr_rid_t weight) {
-    bshrub->rbyd.block = mdir->rbyd.block;
+    bshrub->rbyd.blocks[0] = mdir->rbyd.blocks[0];
     bshrub->rbyd.trunk = trunk;
     bshrub->rbyd.weight = weight;
 
@@ -5006,7 +5009,7 @@ static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
 
 // mdir convenience functions
 static inline const lfsr_mptr_t *lfsr_mdir_mptr(const lfsr_mdir_t *mdir) {
-    return (const lfsr_mptr_t*)mdir->blocks;
+    return (const lfsr_mptr_t*)mdir->rbyd.blocks;
 }
 
 static inline int lfsr_mdir_cmp(const lfsr_mdir_t *a, const lfsr_mdir_t *b) {
@@ -5027,14 +5030,6 @@ static inline lfsr_srid_t lfsr_mdir_rid(lfs_t *lfs, const lfsr_mdir_t *mdir) {
 
 static inline bool lfsr_mdir_isroot(const lfsr_mdir_t *mdir) {
     return lfsr_mid_isroot(mdir->mid);
-}
-
-// sync on-disk state, note this does not touch the mid
-static inline void lfsr_mdir_sync(lfsr_mdir_t *mdir,
-        const lfsr_mdir_t *mdir_) {
-    mdir->blocks[0] = mdir_->blocks[0];
-    mdir->blocks[1] = mdir_->blocks[1];
-    mdir->rbyd = mdir_->rbyd;
 }
 
 // track opened mdirs that may need to by updated
@@ -5104,10 +5099,9 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         if (err != LFS_ERR_CORRUPT) {
-            // keep track of redund blocks for compactions
             mdir->mid = mid;
-            mdir->blocks[0] = blocks_[0];
-            mdir->blocks[1] = blocks_[1];
+            // keep track of other block for compactions
+            mdir->rbyd.blocks[1] = blocks_[1];
             return 0;
         }
 
@@ -5122,8 +5116,6 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
 static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_smid_t mid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    LFS_ASSERT(mdir->blocks[0] == mdir->rbyd.block);
-
     lfsr_smid_t mid_;
     lfsr_tag_t tag__;
     int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
@@ -5211,8 +5203,6 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
         LFS_ASSERT(mid >= 0);
         LFS_ASSERT(mid < (lfsr_smid_t)lfsr_mweight(lfs));
         mdir_->mid = mid;
-        mdir_->blocks[0] = lfs->mroot.blocks[0];
-        mdir_->blocks[1] = lfs->mroot.blocks[1];
         mdir_->rbyd = lfs->mroot.rbyd;
         return 0;
 
@@ -5297,13 +5287,12 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
 
     // allocate two blocks
     for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &mdir->blocks[i]);
+        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[i]);
         if (err) {
             return err;
         }
     }
 
-    mdir->rbyd.block = mdir->blocks[0];
     mdir->rbyd.weight = 0;
     mdir->rbyd.trunk = 0;
     mdir->rbyd.eoff = 0;
@@ -5314,7 +5303,7 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
     // we use whatever is on-disk to avoid needing to rewrite the
     // redund block
     uint32_t rev;
-    int err = lfsr_bd_read(lfs, mdir->blocks[1], 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[1], 0, sizeof(uint32_t),
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
@@ -5329,7 +5318,7 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
     }
 
     // erase, preparing for compact
-    err = lfsr_bd_erase(lfs, mdir->blocks[0]);
+    err = lfsr_bd_erase(lfs, mdir->rbyd.blocks[0]);
     if (err) {
         return err;
     }
@@ -5351,7 +5340,7 @@ static int lfsr_mdir_swap(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    int err = lfsr_bd_read(lfs, mdir->blocks[0], 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[0], 0, sizeof(uint32_t),
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
@@ -5369,16 +5358,15 @@ static int lfsr_mdir_swap(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     // swap our blocks
-    mdir_->blocks[0] = mdir->blocks[1];
-    mdir_->blocks[1] = mdir->blocks[0];
-    mdir_->rbyd.block = mdir_->blocks[0];
+    mdir_->rbyd.blocks[0] = mdir->rbyd.blocks[1];
+    mdir_->rbyd.blocks[1] = mdir->rbyd.blocks[0];
     mdir_->rbyd.weight = 0;
     mdir_->rbyd.trunk = 0;
     mdir_->rbyd.eoff = 0;
     mdir_->rbyd.cksum = 0;
 
     // erase, preparing for compact
-    err = lfsr_bd_erase(lfs, mdir_->blocks[0]);
+    err = lfsr_bd_erase(lfs, mdir_->rbyd.blocks[0]);
     if (err) {
         return err;
     }
@@ -5408,7 +5396,6 @@ static inline bool lfsr_file_isunsynced(const lfsr_file_t *file);
 static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    LFS_ASSERT(mdir->blocks[0] == mdir->rbyd.block);
     // try to append a commit
     lfsr_mdir_t mdir_ = *mdir;
     // mark as erased in case of failure
@@ -5578,7 +5565,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_mdir_t *mdir) {
-    LFS_ASSERT(mdir_->blocks[0] == mdir_->rbyd.block);
     // this is basically the same as lfsr_rbyd_appendcompactrbyd +
     // lfsr_rbyd_compact, but with special handling for inlined trees.
     //
@@ -5638,7 +5624,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     // this is a bit tricky since we don't know the tag size,
                     // but we have just enough info
                     file->u.bsprout.data = LFSR_DATA_DISK(
-                            mdir_->rbyd.block,
+                            mdir_->rbyd.blocks[0],
                             mdir_->rbyd.eoff - lfsr_data_size(&data),
                             lfsr_data_size(&data));
                 }
@@ -5741,7 +5727,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 // this is a bit tricky since we don't know the tag size,
                 // but we have just enough info
                 file->u.bsprout.data_ = LFSR_DATA_DISK(
-                        mdir_->rbyd.block,
+                        mdir_->rbyd.blocks[0],
                         mdir_->rbyd.eoff
                             - lfsr_data_size(&file->u.bsprout.data),
                         lfsr_data_size(&file->u.bsprout.data));
@@ -6075,8 +6061,8 @@ static int lfsr_mroot_commit(lfs_t *lfs,
 
         LFS_DEBUG("Relocating mroot 0x{%"PRIx32",%"PRIx32"} "
                 "-> 0x{%"PRIx32",%"PRIx32"}",
-                mrootchild.blocks[0], mrootchild.blocks[1],
-                mrootchild_.blocks[0], mrootchild_.blocks[1]);
+                mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
+                mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
 
         mrootchild = mrootparent_;
 
@@ -6102,9 +6088,9 @@ static int lfsr_mroot_commit(lfs_t *lfs,
         LFS_DEBUG("Extending mroot 0x{%"PRIx32",%"PRIx32"}"
                 " -> 0x{%"PRIx32",%"PRIx32"}"
                 ", 0x{%"PRIx32",%"PRIx32"}",
-                mrootchild.blocks[0], mrootchild.blocks[1],
-                mrootchild.blocks[0], mrootchild.blocks[1],
-                mrootchild_.blocks[0], mrootchild_.blocks[1]);
+                mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
+                mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
+                mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
 
         // compact into the new mroot anchor
         lfsr_mdir_t mrootanchor_;
@@ -6180,7 +6166,7 @@ static int lfsr_mroot_commit(lfs_t *lfs,
                 }
 
                 // update any opened mdirs in our mroot
-                lfsr_mdir_sync(&opened->mdir, &mroot_);
+                opened->mdir.rbyd = mroot_.rbyd;
             }
         }
     }
@@ -6316,7 +6302,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // keep mdir_ in sync with mroot
-        lfsr_mdir_sync(&mdir_, &lfs->mroot);
+        mdir_.rbyd = lfs->mroot.rbyd;
 
     // otherwise commit normally
     } else {
@@ -6397,9 +6383,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 "-> 0x{%"PRIx32",%"PRIx32"}, "
                 "0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mbits,
-                mdir->blocks[0], mdir->blocks[1],
-                mdir_.blocks[0], mdir_.blocks[1],
-                msibling_.blocks[0], msibling_.blocks[1]);
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+                mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1],
+                msibling_.rbyd.blocks[0], msibling_.rbyd.blocks[1]);
 
         // because of defered commits, both children can still be reduced
         // to zero, need to catch this here
@@ -6409,11 +6395,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
                     mdir_.mid >> lfs->mbits,
-                    mdir_.blocks[0], mdir_.blocks[1]);
+                    mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
                     msibling_.mid >> lfs->mbits,
-                    msibling_.blocks[0], msibling_.blocks[1]);
+                    msibling_.rbyd.blocks[0], msibling_.rbyd.blocks[1]);
             goto drop;
 
         // one sibling reduced to zero
@@ -6421,7 +6407,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
                     msibling_.mid >> lfs->mbits,
-                    msibling_.blocks[0], msibling_.blocks[1]);
+                    msibling_.rbyd.blocks[0], msibling_.rbyd.blocks[1]);
             goto relocate;
 
         // other sibling reduced to zero
@@ -6429,8 +6415,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
                     mdir_.mid >> lfs->mbits,
-                    mdir_.blocks[0], mdir_.blocks[1]);
-            lfsr_mdir_sync(&mdir_, &msibling_);
+                    mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
+            mdir_.rbyd = msibling_.rbyd;
             goto relocate;
         }
 
@@ -6529,7 +6515,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         LFS_DEBUG("Dropping mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mbits,
-                mdir->blocks[0], mdir->blocks[1]);
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
 
         // consume gstate so we don't lose any info
         err = lfsr_fs_consumegdelta(lfs, mdir);
@@ -6601,8 +6587,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         LFS_DEBUG("Relocating mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} -> 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mbits,
-                mdir->blocks[0], mdir->blocks[1],
-                mdir_.blocks[0], mdir_.blocks[1]);
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+                mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
 
     relocate:;
         // new mtree?
@@ -6705,9 +6691,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             >= mdir_.rbyd.weight) {
                     opened->mdir.mid += lfsr_mweight(lfs)
                             - mdir_.rbyd.weight;
-                    lfsr_mdir_sync(&opened->mdir, &msibling_);
+                    opened->mdir.rbyd = msibling_.rbyd;
                 } else {
-                    lfsr_mdir_sync(&opened->mdir, &mdir_);
+                    opened->mdir.rbyd = mdir_.rbyd;
                 }
             } else if (opened->mdir.mid > mdir->mid) {
                 opened->mdir.mid += mdelta;
@@ -6758,13 +6744,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // update mdir to follow requested rid
     if (mdir->mid == -1) {
-        lfsr_mdir_sync(mdir, &lfs->mroot);
+        mdir->rbyd = lfs->mroot.rbyd;
     } else if (mdelta > 0
             && lfsr_mdir_rid(lfs, mdir) >= mdir_.rbyd.weight) {
         mdir->mid += lfsr_mweight(lfs) - mdir_.rbyd.weight;
-        lfsr_mdir_sync(mdir, &msibling_);
+        mdir->rbyd = msibling_.rbyd;
     } else {
-        lfsr_mdir_sync(mdir, &mdir_);
+        mdir->rbyd = mdir_.rbyd;
     }
 
     return 0;
@@ -7204,7 +7190,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // match
                 if (lfsr_traversal_isvalidate(traversal)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &tinfo->u.rbyd,
-                            tinfo->u.rbyd.block, tinfo->u.rbyd.trunk,
+                            tinfo->u.rbyd.blocks[0], tinfo->u.rbyd.trunk,
                             tinfo->u.rbyd.weight,
                             tinfo->u.rbyd.cksum);
                     if (err) {
@@ -7254,7 +7240,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // uninitialized in mountinited and 2. stack really matters since
             // we're at the bottom of lfs_alloc)
             if (binfo.tag == LFSR_TAG_BRANCH
-                    && binfo.u.rbyd.block == lfs->mtree.u.btree.block) {
+                    && binfo.u.rbyd.blocks[0] == lfs->mtree.u.btree.blocks[0]) {
                 continue;
             }
 
@@ -7265,7 +7251,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // match
                 if (lfsr_traversal_isvalidate(traversal)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &binfo.u.rbyd,
-                            binfo.u.rbyd.block, binfo.u.rbyd.trunk,
+                            binfo.u.rbyd.blocks[0], binfo.u.rbyd.trunk,
                             binfo.u.rbyd.weight,
                             binfo.u.rbyd.cksum);
                     if (err) {
@@ -7442,7 +7428,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // match
                 if (lfsr_traversal_isvalidate(traversal)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &binfo.u.rbyd,
-                            binfo.u.rbyd.block, binfo.u.rbyd.trunk,
+                            binfo.u.rbyd.blocks[0], binfo.u.rbyd.trunk,
                             binfo.u.rbyd.weight,
                             binfo.u.rbyd.cksum);
                     if (err) {
@@ -8084,9 +8070,9 @@ static int lfsr_formatinited(lfs_t *lfs) {
     for (int i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
-        lfsr_rbyd_t rbyd = {.block=i, .eoff=0, .trunk=0};
+        lfsr_rbyd_t rbyd = {.blocks[0]=i, .eoff=0, .trunk=0};
 
-        int err = lfsr_bd_erase(lfs, rbyd.block);
+        int err = lfsr_bd_erase(lfs, rbyd.blocks[0]);
         if (err) {
             return err;
         }
@@ -8153,8 +8139,8 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             "bd %"PRId32"x%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
-            lfs->mroot.blocks[0],
-            lfs->mroot.blocks[1],
+            lfs->mroot.rbyd.blocks[0],
+            lfs->mroot.rbyd.blocks[1],
             lfs->mroot.rbyd.trunk,
             lfsr_mtree_weight(lfs) / lfsr_mweight(lfs),
             lfsr_mweight(lfs),
@@ -8284,11 +8270,11 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
             // mark any blocks we see at in-use, including any btree/mdir blocks
             if (tinfo.tag == LFSR_TAG_MDIR) {
-                lfs_alloc_setinuse(lfs, tinfo.u.mdir.blocks[1]);
-                lfs_alloc_setinuse(lfs, tinfo.u.mdir.blocks[0]);
+                lfs_alloc_setinuse(lfs, tinfo.u.mdir.rbyd.blocks[1]);
+                lfs_alloc_setinuse(lfs, tinfo.u.mdir.rbyd.blocks[0]);
 
             } else if (tinfo.tag == LFSR_TAG_BRANCH) {
-                lfs_alloc_setinuse(lfs, tinfo.u.rbyd.block);
+                lfs_alloc_setinuse(lfs, tinfo.u.rbyd.blocks[0]);
 
             } else if (tinfo.tag == LFSR_TAG_BLOCK) {
                 lfs_alloc_setinuse(lfs, tinfo.u.bptr.block);
@@ -9025,14 +9011,14 @@ static inline bool lfsr_file_isbsprout(const lfsr_file_t *file) {
     return (lfs_size_t)file->u.bsprout.data.u.disk.size
                 > (LFSR_FILE_ISDIRECT | 0)
             && file->u.bsprout.data.u.disk.block
-                == file->mdir.blocks[0];
+                == file->mdir.rbyd.blocks[0];
 }
 
 static inline bool lfsr_file_isbptr(const lfsr_file_t *file) {
     return (lfs_size_t)file->u.bsprout.data.u.disk.size
                 > (LFSR_FILE_ISDIRECT | 0)
             && file->u.bsprout.data.u.disk.block
-                != file->mdir.blocks[0];
+                != file->mdir.rbyd.blocks[0];
 }
 
 static inline bool lfsr_file_isbshrub(const lfsr_file_t *file) {

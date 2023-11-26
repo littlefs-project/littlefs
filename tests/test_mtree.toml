@@ -2741,14 +2741,10 @@ code = '''
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=0,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=1,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -2795,14 +2791,10 @@ code = '''
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=0,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=1,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -2842,14 +2834,10 @@ code = '''
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=0,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=1,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -2891,14 +2879,10 @@ code = '''
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=0,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=1,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -2975,14 +2959,10 @@ code = '''
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=0,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=1,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -3081,14 +3061,10 @@ code = '''
     assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     assert(mdir.rbyd.weight == 3);
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=mdir.mid+0,
-            .blocks={mdir.blocks[0], mdir.blocks[1]},
-            .rbyd=mdir.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=mdir.mid+2,
-            .blocks={mdir.blocks[0], mdir.blocks[1]},
-            .rbyd=mdir.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=mdir.mid+0, .rbyd=mdir.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=mdir.mid+2, .rbyd=mdir.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -3162,14 +3138,10 @@ code = '''
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=0,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=1,
-            .blocks={lfs.mroot.blocks[0], lfs.mroot.blocks[1]},
-            .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -3259,14 +3231,10 @@ code = '''
     assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     assert(mdir.rbyd.weight == 3);
 
-    lfsr_openedmdir_t left_neighbor  = {.mdir={
-            .mid=mdir.mid+0,
-            .blocks={mdir.blocks[0], mdir.blocks[1]},
-            .rbyd=mdir.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {.mdir={
-            .mid=mdir.mid+2,
-            .blocks={mdir.blocks[0], mdir.blocks[1]},
-            .rbyd=mdir.rbyd}};
+    lfsr_openedmdir_t left_neighbor  = {
+            .mdir={.mid=mdir.mid+0, .rbyd=mdir.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=mdir.mid+2, .rbyd=mdir.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
@@ -3542,22 +3510,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -3657,22 +3626,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -3784,22 +3754,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -3903,22 +3874,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -4033,22 +4005,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -4192,22 +4165,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -4289,13 +4263,13 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
         } else {
             // this shouldn't happen

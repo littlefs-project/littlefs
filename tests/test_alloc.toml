@@ -176,22 +176,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else {
             // this shouldn't happen
@@ -332,22 +333,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BLOCK) {
             printf("traversal: 0x%x block 0x%x\n",
@@ -478,22 +480,23 @@ code = '''
         if (tinfo.tag == LFSR_TAG_MDIR) {
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tinfo.tag,
-                    tinfo.u.mdir.blocks[0],
-                    tinfo.u.mdir.blocks[1]);
+                    tinfo.u.mdir.rbyd.blocks[0],
+                    tinfo.u.mdir.rbyd.blocks[1]);
 
             // keep track of seen blocks
-            seen[tinfo.u.mdir.blocks[1] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[1] % 8);
-            seen[tinfo.u.mdir.blocks[0] / 8]
-                    |= 1 << (tinfo.u.mdir.blocks[0] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[1] % 8);
+            seen[tinfo.u.mdir.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BRANCH) {
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tinfo.tag,
-                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
         } else if (tinfo.tag == LFSR_TAG_BLOCK) {
             printf("traversal: 0x%x block 0x%x\n",
