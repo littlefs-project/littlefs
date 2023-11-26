@@ -450,7 +450,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -476,7 +476,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -554,7 +554,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -584,7 +584,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1322,7 +1322,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1348,7 +1348,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1410,7 +1410,7 @@ code = '''
                 mid += lfsr_mweight(&lfs)) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+            for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                     mdir.mid += 1) {
                 uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1449,7 +1449,7 @@ code = '''
                 mid += lfsr_mweight(&lfs)) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+            for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                     mdir.mid += 1) {
                 uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1476,7 +1476,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1523,12 +1523,9 @@ code = '''
         mdir.mid = lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
                 + (mdir.mid % (mdir.u.m.weight+1));
         // choose to create or delete, note we make sure to never delete to zero
-        uint8_t op = (lfsr_mdir_rid(&lfs, &mdir)
-                        == (lfsr_rid_t)mdir.u.m.weight
-                    || (lfsr_mdir_rid(&lfs, &mdir)
-                            == (lfsr_rid_t)mdir.u.m.weight-1
-                        && lfsr_mtree_weight(&lfs)
-                            == lfsr_mweight(&lfs))
+        uint8_t op = (lfsr_mdir_rid(&lfs, &mdir) == mdir.u.m.weight
+                    || (lfsr_mdir_rid(&lfs, &mdir) == mdir.u.m.weight-1
+                        && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs))
                 ? 0
                 : TEST_PRNG(&prng) % 2);
 
@@ -1576,7 +1573,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.u.m.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1610,7 +1607,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.u.m.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -2609,12 +2606,9 @@ code = '''
         mdir.mid = lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
                 + (mdir.mid % (mdir.u.m.weight+1));
         // choose to create or delete, note we make sure to never delete to zero
-        uint8_t op = (lfsr_mdir_rid(&lfs, &mdir)
-                        == (lfsr_rid_t)mdir.u.m.weight
-                    || (lfsr_mdir_rid(&lfs, &mdir)
-                            == (lfsr_rid_t)mdir.u.m.weight-1
-                        && lfsr_mtree_weight(&lfs)
-                            == lfsr_mweight(&lfs))
+        uint8_t op = (lfsr_mdir_rid(&lfs, &mdir) == mdir.u.m.weight
+                    || (lfsr_mdir_rid(&lfs, &mdir) == mdir.u.m.weight-1
+                        && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs))
                 ? 0
                 : TEST_PRNG(&prng) % 3);
 
@@ -2675,7 +2669,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.u.m.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -2709,7 +2703,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.u.m.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -3966,7 +3960,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -4042,7 +4036,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -4120,7 +4114,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -4201,7 +4195,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < (lfsr_rid_t)mdir.u.m.weight;
+        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.u.m.weight;
                 mdir.mid += 1) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
