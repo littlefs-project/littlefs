@@ -363,7 +363,7 @@ typedef struct lfs_cache {
 typedef struct lfsr_rbyd {
     // note this lines up with weight in lfsr_btree_t
     lfsr_srid_t weight;
-    lfs_block_t blocks[2];
+    lfs_block_t block;
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
@@ -388,6 +388,8 @@ typedef struct lfsr_mptr {
 
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
+    // block[0] should always be the active block, block[0]=rbyd.block
+    lfs_block_t blocks[2];
     lfsr_rbyd_t rbyd;
 } lfsr_mdir_t;
 
