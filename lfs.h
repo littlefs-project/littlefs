@@ -398,7 +398,7 @@ typedef struct lfsr_mdir {
             lfs_off_t eoff;
             uint32_t cksum;
             lfs_block_t blocks[2];
-        } m;
+        } mdir;
         lfsr_rbyd_t rbyd;
     } u;
 } lfsr_mdir_t;
@@ -490,7 +490,8 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfsr_dir {
-    lfsr_openedmdir_t m;
+    lfsr_openedmdir_t *next;
+    lfsr_mdir_t mdir;
     lfsr_did_t did;
     lfsr_smid_t bookmark;
     lfs_soff_t pos;
@@ -537,7 +538,8 @@ typedef struct lfsr_bshrub {
 } lfsr_bshrub_t;
 
 typedef struct lfsr_file {
-    lfsr_openedmdir_t m;
+    lfsr_openedmdir_t *next;
+    lfsr_mdir_t mdir;
     uint32_t flags;
     lfs_off_t pos;
     lfs_off_t size;
