@@ -363,14 +363,13 @@ typedef struct lfs_cache {
 typedef struct lfsr_rbyd {
     // note this lines up with weight in lfsr_btree_t
     lfsr_srid_t weight;
+    lfs_block_t blocks[2];
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
     lfs_size_t trunk;
     lfs_size_t eoff;
     uint32_t cksum;
-    // note this lines up with arrays of redundant blocks in lfsr_mdir_t
-    lfs_block_t block;
 } lfsr_rbyd_t;
 
 typedef struct lfsr_bptr {
@@ -389,18 +388,7 @@ typedef struct lfsr_mptr {
 
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
-    union {
-        // here we make sure to line up our block array so it overlaps with
-        // the block stored as the first entry in the rbyd
-        struct {
-            lfsr_srid_t weight;
-            lfs_off_t trunk;
-            lfs_off_t eoff;
-            uint32_t cksum;
-            lfs_block_t blocks[2];
-        } mdir;
-        lfsr_rbyd_t rbyd;
-    } u;
+    lfsr_rbyd_t rbyd;
 } lfsr_mdir_t;
 
 typedef struct lfsr_openedmdir {
