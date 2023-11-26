@@ -5554,7 +5554,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to append a commit
-    lfsr_mdir_t mdir_ = *mdir;
+    lfsr_rbyd_t rbyd_ = mdir->rbyd;
     // mark as erased in case of failure
     mdir->rbyd.eoff = -1;
     for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -5594,7 +5594,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     }
 
                     // append the attr
-                    err = lfsr_rbyd_appendattr(lfs, &mdir_.rbyd,
+                    err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                             rid - lfs_smax32(start_rid, 0),
                             tag, 0, data);
                     if (err) {
@@ -5615,12 +5615,12 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 //
                 // it is important that these rbyds share eoff/cksum/etc
                 //
-                mdir_.rbyd.trunk = bshrubcommit->bshrub->rbyd_.trunk;
-                mdir_.rbyd.weight = bshrubcommit->bshrub->rbyd_.weight;
+                rbyd_.trunk = bshrubcommit->bshrub->rbyd_.trunk;
+                rbyd_.weight = bshrubcommit->bshrub->rbyd_.weight;
 
                 // append any shrub attributes
                 for (lfs_size_t j = 0; j < bshrubcommit->attr_count; j++) {
-                    int err = lfsr_rbyd_appendattr(lfs, &mdir_.rbyd,
+                    int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                             bshrubcommit->attrs[j].rid,
                             LFSR_TAG_SHRUB | bshrubcommit->attrs[j].tag,
                             bshrubcommit->attrs[j].delta,
@@ -5631,10 +5631,10 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
                 // revert mdir to main trunk/weight
-                bshrubcommit->bshrub->rbyd_.trunk = mdir_.rbyd.trunk;
-                bshrubcommit->bshrub->rbyd_.weight = mdir_.rbyd.weight;
-                mdir_.rbyd.trunk = mdir->rbyd.trunk;
-                mdir_.rbyd.weight = mdir->rbyd.weight;
+                bshrubcommit->bshrub->rbyd_.trunk = rbyd_.trunk;
+                bshrubcommit->bshrub->rbyd_.weight = rbyd_.weight;
+                rbyd_.trunk = mdir->rbyd.trunk;
+                rbyd_.weight = mdir->rbyd.weight;
 
             // lazily encode inlined trunks in case they change underneath
             // us due to mdir compactions
@@ -5646,7 +5646,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         = (lfsr_bshrub_t*)attrs[i].data.u.buf.buffer;
 
                 uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
-                int err = lfsr_rbyd_appendattr(lfs, &mdir_.rbyd,
+                int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                         rid - lfs_smax32(start_rid, 0),
                         lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_TRUNK,
                         attrs[i].delta,
@@ -5663,7 +5663,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else {
                 LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
 
-                int err = lfsr_rbyd_appendattr(lfs, &mdir_.rbyd,
+                int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                         rid - lfs_smax32(start_rid, 0),
                         attrs[i].tag, attrs[i].delta, attrs[i].data);
                 if (err) {
@@ -5685,11 +5685,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     // don't finish the commit if our weight dropped to zero!
     //
     // If we finish the commit it becomes immediately visibile, but we really
-    // need to remove this mdir_ from the mtree. Leave the actual remove up to
+    // need to remove this mdir from the mtree. Leave the actual remove up to
     // upper layers.
-    if (mdir_.rbyd.weight == 0
+    if (rbyd_.weight == 0
             // unless we are an mroot
-            && !(mdir_.mid == -1 || lfsr_mdir_cmp(&mdir_, &lfs->mroot) == 0)) {
+            && !(mdir->mid == -1 || lfsr_mdir_cmp(mdir, &lfs->mroot) == 0)) {
         // mark weight as zero, but note! we can not longer read from this mdir
         // as our pcache may get clobbered
         mdir->rbyd.weight = 0;
@@ -5698,14 +5698,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // append any gstate?
     if (start_rid == -1) {
-        int err = lfsr_rbyd_appendgdelta(lfs, &mdir_.rbyd);
+        int err = lfsr_rbyd_appendgdelta(lfs, &rbyd_);
         if (err) {
             return err;
         }
     }
 
     // finalize commit
-    int err = lfsr_rbyd_appendcksum(lfs, &mdir_.rbyd);
+    int err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
     if (err) {
         return err;
     }
@@ -5715,7 +5715,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_fs_flushgdelta(lfs);
     }
 
-    mdir->rbyd = mdir_.rbyd;
+    mdir->rbyd = rbyd_;
     return 0;
 }
 
