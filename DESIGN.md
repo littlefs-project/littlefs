@@ -626,7 +626,7 @@ log&#8322;_n_ pointers that skip to different preceding elements of the
 skip-list.
 
 The name comes from heavy use of the [CTZ instruction][wikipedia-ctz], which
-lets us calculate the power-of-two factors efficiently. For a give block _n_,
+lets us calculate the power-of-two factors efficiently. For a given block _n_,
 that block contains ctz(_n_)+1 pointers.
 
 ```
