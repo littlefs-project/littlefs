@@ -610,6 +610,10 @@ typedef struct lfs {
     uint8_t grm_g[LFSR_GRM_DSIZE];
     uint8_t grm_d[LFSR_GRM_DSIZE];
 
+    // TODO we should put this flag somewhere, should lfs_t have a general
+    // purpose flags field? this has been useful for lfsr_file_t
+    bool hasorphans;
+
     uint8_t mbits;
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
