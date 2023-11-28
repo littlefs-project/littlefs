@@ -6226,6 +6226,116 @@ static int lfsr_mtree_commit(lfs_t *lfs,
     return 0;
 }
 
+// unlike merging btree nodes, mdirs must be explicitly dropped
+//
+// this is atomic updates any opened mdirs, lfs_t, gstate, etc
+//
+static int lfsr_mdir_drop(lfs_t *lfs, const lfsr_mdir_t *mdir) {
+    // mdir should be empty at this point
+    LFS_ASSERT(mdir->rbyd.weight == 0);
+    // yeah, you really shouldn't try to drop the mroot
+    LFS_ASSERT(mdir->mid != -1 && lfsr_mdir_cmp(mdir, &lfs->mroot) != 0);
+
+    LFS_DEBUG("Dropping mdir %"PRId32" "
+            "0x{%"PRIx32",%"PRIx32"}",
+            mdir->mid >> lfs->mbits,
+            mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
+
+    // reset gdelta for new commit
+    lfsr_fs_flushgdelta(lfs);
+
+    // TODO can we avoid this stack allocation somehow?
+    // a bit hacky, but we need to update any pending grms here
+    lfsr_grm_t grm_ = lfs->grm;
+    if (lfsr_grm_hasrm(&grm_)) {
+        // fix any pending grms
+        for (int j = 0; j < lfsr_grm_count(&grm_); j++) {
+            LFS_ASSERT(lfsr_mid_bid(lfs, grm_.rms[j])
+                    != lfsr_mid_bid(lfs, lfs_smax32(mdir->mid, 0)));
+            if (grm_.rms[j] > mdir->mid) {
+                grm_.rms[j] -= lfsr_mweight(lfs);
+            }
+        }
+
+        // xor our fix into our gdelta
+        uint8_t grm_buf[LFSR_GRM_DSIZE];
+        int err = lfsr_grm_xor(lfs, lfs->grm_d,
+                lfsr_data_fromgrm(&grm_, grm_buf));
+        if (err) {
+            return err;
+        }
+
+        err = lfsr_grm_xor(lfs, lfs->grm_d,
+                LFSR_DATA_BUF(lfs->grm_g, LFSR_GRM_DSIZE));
+        if (err) {
+            return err;
+        }
+    }
+
+    // consume mdir's gstate so we don't lose any info
+    int err = lfsr_fs_consumegdelta(lfs, mdir);
+    if (err) {
+        return err;
+    }
+
+// TODO apply this
+//        // we should never drop a direct mdir, because we always have our
+//        // root bookmark
+//        LFS_ASSERT(!lfsr_mtree_ismptr(lfs));
+
+    // direct mdir?
+    if (lfsr_mtree_ismptr(lfs)) {
+        err = lfsr_mroot_commit(lfs, -1, 0, NULL, LFSR_ATTRS(
+                LFSR_ATTR(-1,
+                    RM(WIDE(STRUCT)), 0, NULL())));
+        if (err) {
+            return err;
+        }
+
+        lfs->mtree = LFSR_MTREE_NULL();
+
+    // update our mtree
+    } else {
+        err = lfsr_mtree_commit(lfs, LFSR_ATTRS(
+                LFSR_ATTR(lfsr_mdir_bid(lfs, mdir),
+                    RM, -lfsr_mweight(lfs), NULL())));
+        if (err) {
+            return err;
+        }
+    }
+
+    // success? update in-device state, we must not error at this point
+
+    // gstate must have been committed by a lower-level function at this point
+    LFS_ASSERT(lfsr_grm_iszero(lfs->grm_d));
+
+    // update gstate
+    lfs->grm = grm_;
+    // keep track of the exact encoding on-disk
+    lfsr_data_fromgrm(&lfs->grm, lfs->grm_g);
+
+    for (int type = LFS_TYPE_REG; type < LFS_TYPE_REG+3; type++) {
+        for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
+                opened;
+                opened = opened->next) {
+            // update mids
+            if (opened->mdir.mid > mdir->mid) {
+                opened->mdir.mid -= lfsr_mweight(lfs);
+            }
+
+            // update directory bookmarks
+            if (type == LFS_TYPE_DIR) {
+                lfsr_dir_t *dir = (lfsr_dir_t*)opened;
+                if (dir->bookmark > mdir->mid) {
+                    dir->bookmark -= lfsr_mweight(lfs);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs_t, gstate, etc
@@ -6663,113 +6773,23 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         mdir->rbyd = mdir_.rbyd;
     }
 
-    return 0;
-}
-
-// unlike merging btree nodes, mdirs must be explicitly dropped
-//
-// this is atomic updates any opened mdirs, lfs_t, gstate, etc
-//
-static int lfsr_mdir_drop(lfs_t *lfs, const lfsr_mdir_t *mdir) {
-    // mdir should be empty at this point
-    LFS_ASSERT(mdir->rbyd.weight == 0);
-    // yeah, you really shouldn't try to drop the mroot
-    LFS_ASSERT(mdir->mid != -1 && lfsr_mdir_cmp(mdir, &lfs->mroot) != 0);
-
-    LFS_DEBUG("Dropping mdir %"PRId32" "
-            "0x{%"PRIx32",%"PRIx32"}",
-            mdir->mid >> lfs->mbits,
-            mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
-
-    // reset gdelta for new commit
-    lfsr_fs_flushgdelta(lfs);
-
-    // TODO can we avoid this stack allocation somehow?
-    // a bit hacky, but we need to update any pending grms here
-    lfsr_grm_t grm_ = lfs->grm;
-    if (lfsr_grm_hasrm(&grm_)) {
-        // fix any pending grms
-        for (int j = 0; j < lfsr_grm_count(&grm_); j++) {
-            LFS_ASSERT(lfsr_mid_bid(lfs, grm_.rms[j])
-                    != lfsr_mid_bid(lfs, lfs_smax32(mdir->mid, 0)));
-            if (grm_.rms[j] > mdir->mid) {
-                grm_.rms[j] -= lfsr_mweight(lfs);
-            }
-        }
-
-        // xor our fix into our gdelta
-        uint8_t grm_buf[LFSR_GRM_DSIZE];
-        int err = lfsr_grm_xor(lfs, lfs->grm_d,
-                lfsr_data_fromgrm(&grm_, grm_buf));
+    // we're not quite done, we want to clean up any mdirs that have been
+    // reduced to zero
+    //
+    // This can error, which probably sounds like it invalidates the previous
+    // "don't error" comment, but this is technically a second commit. If we
+    // error at this point, it should be modeled as though we lost power,
+    // mainly, hasorphans should be set.
+    //
+    // We handle drops differently than splits/relocates, since these updates
+    // become visible as soon as the commit completes.
+    //
+    if (lfsr_mdir_cmp(&mdir_, &lfs->mroot) != 0
+            && mdir_.rbyd.weight == 0) {
+        err = lfsr_mdir_drop(lfs, &mdir_);
         if (err) {
+            lfs->hasorphans = true;
             return err;
-        }
-
-        err = lfsr_grm_xor(lfs, lfs->grm_d,
-                LFSR_DATA_BUF(lfs->grm_g, LFSR_GRM_DSIZE));
-        if (err) {
-            return err;
-        }
-    }
-
-    // consume mdir's gstate so we don't lose any info
-    int err = lfsr_fs_consumegdelta(lfs, mdir);
-    if (err) {
-        return err;
-    }
-
-// TODO apply this
-//        // we should never drop a direct mdir, because we always have our
-//        // root bookmark
-//        LFS_ASSERT(!lfsr_mtree_ismptr(lfs));
-
-    // direct mdir?
-    if (lfsr_mtree_ismptr(lfs)) {
-        err = lfsr_mroot_commit(lfs, -1, 0, NULL, LFSR_ATTRS(
-                LFSR_ATTR(-1,
-                    RM(WIDE(STRUCT)), 0, NULL())));
-        if (err) {
-            return err;
-        }
-
-        lfs->mtree = LFSR_MTREE_NULL();
-
-    // update our mtree
-    } else {
-        err = lfsr_mtree_commit(lfs, LFSR_ATTRS(
-                LFSR_ATTR(lfsr_mdir_bid(lfs, mdir),
-                    RM, -lfsr_mweight(lfs), NULL())));
-        if (err) {
-            return err;
-        }
-    }
-
-    // success? update in-device state, we must not error at this point
-
-    // gstate must have been committed by a lower-level function at this point
-    LFS_ASSERT(lfsr_grm_iszero(lfs->grm_d));
-
-    // update gstate
-    lfs->grm = grm_;
-    // keep track of the exact encoding on-disk
-    lfsr_data_fromgrm(&lfs->grm, lfs->grm_g);
-
-    for (int type = LFS_TYPE_REG; type < LFS_TYPE_REG+3; type++) {
-        for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
-                opened;
-                opened = opened->next) {
-            // update mids
-            if (opened->mdir.mid > mdir->mid) {
-                opened->mdir.mid -= lfsr_mweight(lfs);
-            }
-
-            // update directory bookmarks
-            if (type == LFS_TYPE_DIR) {
-                lfsr_dir_t *dir = (lfsr_dir_t*)opened;
-                if (dir->bookmark > mdir->mid) {
-                    dir->bookmark -= lfsr_mweight(lfs);
-                }
-            }
         }
     }
 
@@ -8375,21 +8395,6 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
                 LFSR_ATTR(mdir.mid, RM, -1, NULL()),
                 LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
-
-        // did our mdir go to zero? drop
-        //
-        // it's tempting to move this check before the above commit, but
-        // deferred mdir splits means we would still need to check for
-        // empty mdirs here
-        //
-        if (lfsr_mdir_cmp(&mdir, &lfs->mroot) != 0
-                && mdir.rbyd.weight == 0) {
-            err = lfsr_mdir_drop(lfs, &mdir);
-            if (err) {
-                lfs->hasorphans = true;
-                return err;
-            }
-        }
     }
 
     return 0;
@@ -8693,21 +8698,6 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
         return err;
-    }
-
-    // did our mdir go to zero? drop
-    //
-    // it's tempting to move this check before the above commit, but
-    // deferred mdir splits means we would still need to check for
-    // empty mdirs here
-    //
-    if (lfsr_mdir_cmp(&mdir, &lfs->mroot) != 0
-            && mdir.rbyd.weight == 0) {
-        err = lfsr_mdir_drop(lfs, &mdir);
-        if (err) {
-            lfs->hasorphans = true;
-            return err;
-        }
     }
 
     // if we were a directory, we need to clean up, fortunately we can leave
