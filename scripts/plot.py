@@ -140,30 +140,32 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def inotifywait(paths):
-    # wait for interesting events
-    inotify = inotify_simple.INotify()
-    flags = (inotify_simple.flags.ATTRIB
-        | inotify_simple.flags.CREATE
-        | inotify_simple.flags.DELETE
-        | inotify_simple.flags.DELETE_SELF
-        | inotify_simple.flags.MODIFY
-        | inotify_simple.flags.MOVED_FROM
-        | inotify_simple.flags.MOVED_TO
-        | inotify_simple.flags.MOVE_SELF)
+if inotify_simple is None:
+    Inotify = None
+else:
+    class Inotify(inotify_simple.INotify):
+        def __init__(self, paths):
+            super().__init__()
 
-    # recurse into directories
-    for path in paths:
-        if os.path.isdir(path):
-            for dir, _, files in os.walk(path):
-                inotify.add_watch(dir, flags)
-                for f in files:
-                    inotify.add_watch(os.path.join(dir, f), flags)
-        else:
-            inotify.add_watch(path, flags)
+            # wait for interesting events
+            flags = (inotify_simple.flags.ATTRIB
+                | inotify_simple.flags.CREATE
+                | inotify_simple.flags.DELETE
+                | inotify_simple.flags.DELETE_SELF
+                | inotify_simple.flags.MODIFY
+                | inotify_simple.flags.MOVED_FROM
+                | inotify_simple.flags.MOVED_TO
+                | inotify_simple.flags.MOVE_SELF)
 
-    # wait for event
-    inotify.read()
+            # recurse into directories
+            for path in paths:
+                if os.path.isdir(path):
+                    for dir, _, files in os.walk(path):
+                        self.add_watch(dir, flags)
+                        for f in files:
+                            self.add_watch(os.path.join(dir, f), flags)
+                else:
+                    self.add_watch(path, flags)
 
 class LinesIO:
     def __init__(self, maxlen=None):
@@ -1392,6 +1394,11 @@ def main(csv_paths, *,
     if keep_open:
         try:
             while True:
+                # register inotify before running the command, this avoids
+                # modification race conditions
+                if keep_open and Inotify:
+                    inotify = Inotify(csv_paths)
+
                 if cat:
                     draw(sys.stdout)
                 else:
@@ -1400,11 +1407,12 @@ def main(csv_paths, *,
                     ring.draw()
 
                 # try to inotifywait
-                if inotify_simple is not None:
+                if keep_open and Inotify:
                     ptime = time.time()
-                    inotifywait(csv_paths)
-                    # sleep for a minimum amount of time, this helps issues
-                    # around rapidly updating files
+                    inotify.read()
+                    inotify.close()
+                    # sleep for a minimum amount of time, this helps reduce
+                    # flicker issues
                     time.sleep(max(0, (sleep or 0.01) - (time.time()-ptime)))
                 else:
                     time.sleep(sleep or 0.1)
