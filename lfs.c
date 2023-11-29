@@ -6278,30 +6278,16 @@ static int lfsr_mdir_drop(lfs_t *lfs, const lfsr_mdir_t *mdir) {
         return err;
     }
 
-// TODO apply this
-//        // we should never drop a direct mdir, because we always have our
-//        // root bookmark
-//        LFS_ASSERT(!lfsr_mtree_ismptr(lfs));
-
-    // direct mdir?
-    if (lfsr_mtree_ismptr(lfs)) {
-        err = lfsr_mroot_commit(lfs, -1, 0, NULL, LFSR_ATTRS(
-                LFSR_ATTR(-1,
-                    RM(WIDE(STRUCT)), 0, NULL())));
-        if (err) {
-            return err;
-        }
-
-        lfs->mtree = LFSR_MTREE_NULL();
+    // we should never drop a direct mdir, because we always have our
+    // root bookmark
+    LFS_ASSERT(!lfsr_mtree_ismptr(lfs));
 
     // update our mtree
-    } else {
-        err = lfsr_mtree_commit(lfs, LFSR_ATTRS(
-                LFSR_ATTR(lfsr_mdir_bid(lfs, mdir),
-                    RM, -lfsr_mweight(lfs), NULL())));
-        if (err) {
-            return err;
-        }
+    err = lfsr_mtree_commit(lfs, LFSR_ATTRS(
+            LFSR_ATTR(lfsr_mdir_bid(lfs, mdir),
+                RM, -lfsr_mweight(lfs), NULL())));
+    if (err) {
+        return err;
     }
 
     // success? update in-device state, we must not error at this point

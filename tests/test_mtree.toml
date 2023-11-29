@@ -162,9 +162,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -175,7 +172,7 @@ code = '''
     // create a large entry that needs to be uninlined (but not split!)
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -196,7 +193,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -220,7 +217,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -236,15 +233,12 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -263,7 +257,7 @@ code = '''
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -287,7 +281,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -309,9 +303,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -321,7 +312,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -358,7 +349,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -386,7 +377,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -411,9 +402,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create entries
     lfsr_mdir_t mdir;
@@ -422,6 +410,7 @@ code = '''
                 lfsr_mtree_weight(&lfs) - lfsr_mweight(&lfs),
                 0),
             &mdir) => 0;
+    mdir.mid += 1;
     for (lfs_size_t i = 0; i < N; i++) {
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -452,6 +441,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -478,6 +472,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -503,9 +502,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // at least keep track of the number of entries we expect
     lfs_size_t count = 0;
@@ -513,16 +509,17 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = (lfs_ssize_t)(
-                TEST_PRNG(&prng) % lfs_max32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs)));
+        lfs_ssize_t mid = TEST_PRNG(&prng) % lfs_max32(
+                lfsr_mtree_weight(&lfs),
+                lfsr_mweight(&lfs));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
-        mdir.mid = lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
-                + (mdir.mid % (mdir.rbyd.weight+1));
+        mdir.mid = lfs_max32(
+                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                    + (mdir.mid % (mdir.rbyd.weight+1)),
+                1);
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -556,6 +553,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -586,6 +588,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -614,9 +621,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -626,27 +630,27 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // remove the entry, forcing the mdir to be dropped
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -662,7 +666,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -683,9 +687,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -695,20 +696,20 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // remove the entry, forcing the mdir to be dropped
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     // force mdir to compact while we're removing
@@ -718,7 +719,7 @@ code = '''
             LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -734,7 +735,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -755,9 +756,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -767,139 +765,12 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
 
     // remove the entry as we compact, forcing the mdir to be dropped
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
-    // assert mroot has no entries
-    assert(lfs.mroot.rbyd.weight == 0);
-
-    // assert that our attr is still in the mroot
-    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
-            buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, "a", 1) == 0);
-
-    lfsr_unmount(&lfs) => 0;
-
-
-    // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
-    // assert mroot has no entries
-    assert(lfs.mroot.rbyd.weight == 0);
-
-    // assert that our attr is still in the mroot
-    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
-            buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, "a", 1) == 0);
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-[cases.test_mtree_drop_uninline_split_l]
-# this should be set so only one entry can fit in a metadata block
-defines.SIZE = 'BLOCK_SIZE / 4'
-in = 'lfs.c'
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-    lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // create an mdir that needs to be split
-    uint8_t buffer[SIZE];
-    memset(buffer, 'a', SIZE);
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
-
-    memset(buffer, 'b', SIZE);
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
-
-    // force mroot to compact
-    lfs.mroot.rbyd.eoff = -1;
-
-    // remove the left entry as we compact, forcing the left
-    // mdir to be dropped
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
-    // assert mroot has no entries
-    assert(lfs.mroot.rbyd.weight == 0);
-
-    // assert that one entry is still in the mtree
-    lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
-    assert(mdir.rbyd.weight == 1);
-
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-            buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, "b", 1) == 0);
-
-    lfsr_unmount(&lfs) => 0;
-
-
-    // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
-    // assert mroot has no entries
-    assert(lfs.mroot.rbyd.weight == 0);
-
-    // assert that one entry is still in the mtree
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
-    assert(mdir.rbyd.weight == 1);
-
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-            buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, "b", 1) == 0);
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-[cases.test_mtree_drop_uninline_split_r]
-# this should be set so only one entry can fit in a metadata block
-defines.SIZE = 'BLOCK_SIZE / 4'
-in = 'lfs.c'
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-    lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // create an mdir that needs to be split
-    uint8_t buffer[SIZE];
-    memset(buffer, 'a', SIZE);
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
-
-    memset(buffer, 'b', SIZE);
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
-
-    // force mroot to compact
-    lfs.mroot.rbyd.eoff = -1;
-
-    // remove the right entry as we compact, forcing the right mdir
-    // to be dropped
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, RM, -1, NULL()))) => 0;
 
@@ -908,12 +779,8 @@ code = '''
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
-    // assert that one entry is still in the mtree
-    lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
-    assert(mdir.rbyd.weight == 1);
-
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -928,63 +795,10 @@ code = '''
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
-    // assert that one entry is still in the mtree
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
-    assert(mdir.rbyd.weight == 1);
-
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-[cases.test_mtree_drop_uninline_split_both]
-# this should be set so only one entry can fit in a metadata block
-defines.SIZE = 'BLOCK_SIZE / 4'
-in = 'lfs.c'
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-    lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // create an mdir that needs to be split
-    uint8_t buffer[SIZE];
-    memset(buffer, 'a', SIZE);
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
-
-    memset(buffer, 'b', SIZE);
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
-
-    // force mroot to compact
-    lfs.mroot.rbyd.eoff = -1;
-
-    // remove both entries as we compact, forcing both mdirs to be dropped
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()),
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
-    // assert mroot has no entries
-    assert(lfs.mroot.rbyd.weight == 0);
-
-    lfsr_unmount(&lfs) => 0;
-
-
-    // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
-    // assert mroot has no entries
-    assert(lfs.mroot.rbyd.weight == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -998,9 +812,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -1010,20 +821,20 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to the mdir, forcing a split
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     memset(buffer, 'c', SIZE);
@@ -1035,12 +846,12 @@ code = '''
 
     // remove the left entry as we compact, forcing the left
     // mdir to be dropped
-    mdir.mid = 0*lfsr_mweight(&lfs)+0;
+    mdir.mid = 1*lfsr_mweight(&lfs)+0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(mdir.mid, RM, -1, NULL()))) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1050,7 +861,7 @@ code = '''
     assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1064,7 +875,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1074,7 +885,7 @@ code = '''
     assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1093,9 +904,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -1105,20 +913,20 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to the mdir, forcing a split
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     memset(buffer, 'c', SIZE);
@@ -1131,10 +939,10 @@ code = '''
     // remove the right entry as we compact, forcing the right
     // mdir to be dropped
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(1, RM, -1, NULL()))) => 0;
+            LFSR_ATTR(mdir.mid, RM, -1, NULL()))) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1144,7 +952,7 @@ code = '''
     assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1158,7 +966,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1168,7 +976,7 @@ code = '''
     assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
@@ -1187,9 +995,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -1206,13 +1011,13 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to the mdir, forcing a split
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     memset(buffer, 'c', SIZE);
@@ -1223,12 +1028,13 @@ code = '''
     mdir.rbyd.eoff = -1;
 
     // remove both entries as we compact, forcing both mdirs to be dropped
+    mdir.mid = 1*lfsr_mweight(&lfs)+0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()),
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
+            LFSR_ATTR(mdir.mid, RM, -1, NULL()),
+            LFSR_ATTR(mdir.mid, RM, -1, NULL()))) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1244,7 +1050,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1252,240 +1058,6 @@ code = '''
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# try creating an mtree and then dropping mdirs
-[cases.test_mtree_drop_many]
-defines.N = [5, 10, 20, 40, 80, 160, 320]
-# note we never drop all the way to zero, our mtree does not support this
-defines.REMAINING = [20, 5, 1]
-if = 'N > REMAINING'
-defines.FORCE_COMPACTION = [false, true]
-in = 'lfs.c'
-code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-    lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    // create entries
-    lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs,
-            lfs_smax32(
-                lfsr_mtree_weight(&lfs) - lfsr_mweight(&lfs),
-                0),
-            &mdir) => 0;
-    for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(mdir.mid, REG, +1,
-                    BUF(&alphas[i % 26], 1)))) => 0;
-
-        uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                buffer, 4) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-
-        mdir.mid += 1;
-    }
-
-    // remove entries
-    for (lfs_size_t i = 0; i < N - REMAINING; i++) {
-        lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs,
-                0*lfsr_mweight(&lfs)+0, &mdir) => 0;
-
-        // drop should make sure we never have empty mdirs
-        assert(lfsr_mtree_ismptr(&lfs) || mdir.rbyd.weight > 0);
-
-        // force a compaction?
-        if (FORCE_COMPACTION) {
-            mdir.rbyd.eoff = -1;
-            lfs.mroot.rbyd.eoff = -1;
-        }
-
-        lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-    }
-
-    // try looking up each entry
-    lfs_size_t i = N - REMAINING;
-    for (lfs_ssize_t mid = 0;
-            mid < lfs_smax32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs));
-            mid += lfsr_mweight(&lfs)) {
-        lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
-                mdir.mid += 1) {
-            uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                    buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-            i += 1;
-        }
-    }
-    assert(i == N);
-
-    lfsr_unmount(&lfs) => 0;
-
-
-    // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // try looking up each entry
-    i = N - REMAINING;
-    for (lfs_ssize_t mid = 0;
-            mid < lfs_smax32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs));
-            mid += lfsr_mweight(&lfs)) {
-        lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
-                mdir.mid += 1) {
-            uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                    buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-            i += 1;
-        }
-    }
-    assert(i == N);
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# this one has some pretty nasty corner cases
-[cases.test_mtree_repeated_drop]
-defines.N = [5, 10, 20, 40]
-# note we never drop all the way to zero, our mtree does not support this
-defines.REMAINING = 1
-defines.FORCE_COMPACTION = [false, true]
-defines.CYCLES = 10
-in = 'lfs.c'
-code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-    lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-
-    for (lfs_size_t cycle = 0; cycle < CYCLES; cycle++) {
-        // create entries, note we may have leftovers from the previous cycle
-        lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs,
-                lfs_smax32(
-                    lfsr_mtree_weight(&lfs) - lfsr_mweight(&lfs),
-                    0),
-                &mdir) => 0;
-        for (lfs_size_t i = 0; i < (cycle == 0 ? N : N-1); i++) {
-            lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                    LFSR_ATTR(mdir.mid, REG, +1,
-                        BUF(&alphas[i % 26], 1)))) => 0;
-
-            uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                    buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-
-            mdir.mid += 1;
-        }
-
-        // try looking up each entry
-        lfs_size_t i = 0;
-        for (lfs_ssize_t mid = 0;
-                mid < lfs_smax32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs));
-                mid += lfsr_mweight(&lfs)) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
-                    mdir.mid += 1) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                        buffer, 4) => 1;
-                assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-                i += 1;
-            }
-        }
-        assert(i == N);
-
-        // remove entries
-        for (lfs_size_t i = 0; i < N-1; i++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs,
-                    0*lfsr_mweight(&lfs)+0, &mdir) => 0;
-
-            // drop should make sure we never have empty mdirs
-            assert(lfsr_mtree_ismptr(&lfs) || mdir.rbyd.weight > 0);
-
-            // force a compaction?
-            if (FORCE_COMPACTION) {
-                mdir.rbyd.eoff = -1;
-                lfs.mroot.rbyd.eoff = -1;
-            }
-
-            lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                    LFSR_ATTR(0, RM, -1, NULL()))) => 0;
-        }
-
-        // try looking up each entry
-        i = N - REMAINING;
-        for (lfs_ssize_t mid = 0;
-                mid < lfs_smax32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs));
-                mid += lfsr_mweight(&lfs)) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
-                    mdir.mid += 1) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                        buffer, 4) => 1;
-                assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-                i += 1;
-            }
-        }
-        assert(i == N);
-    }
-
-    lfsr_unmount(&lfs) => 0;
-
-
-    // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // try looking up each entry
-    lfs_size_t i = N - REMAINING;
-    for (lfs_ssize_t mid = 0;
-            mid < lfs_smax32(
-                lfsr_mtree_weight(&lfs),
-                lfsr_mweight(&lfs));
-            mid += lfsr_mweight(&lfs)) {
-        lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
-                mdir.mid += 1) {
-            uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                    buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-            i += 1;
-        }
-    }
-    assert(i == N);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1502,9 +1074,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // at least keep track of the number of entries we expect
     lfs_size_t count = 0;
@@ -1512,16 +1081,17 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = (lfs_ssize_t)(
-                TEST_PRNG(&prng) % lfs_max32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs)));
+        lfs_ssize_t mid = TEST_PRNG(&prng) % lfs_max32(
+                lfsr_mtree_weight(&lfs),
+                lfsr_mweight(&lfs));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
-        mdir.mid = lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
-                + (mdir.mid % (mdir.rbyd.weight+1));
+        mdir.mid = lfs_max32(
+                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                    + (mdir.mid % (mdir.rbyd.weight+1)),
+                1);
         // choose to create or delete, note we make sure to never delete to zero
         uint8_t op = (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight
                     || (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight-1
@@ -1575,6 +1145,11 @@ code = '''
 
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -1609,6 +1184,11 @@ code = '''
 
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -1639,9 +1219,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -1652,7 +1229,7 @@ code = '''
     // create a large entry that needs to be uninlined (but not split!)
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -1675,7 +1252,7 @@ code = '''
     mdir.rbyd.eoff = -1;
     memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid, REG, 0, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(mdir.mid, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
@@ -1689,7 +1266,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "c", 1) == 0);
 
@@ -1716,7 +1293,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "c", 1) == 0);
 
@@ -1734,15 +1311,12 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1769,7 +1343,7 @@ code = '''
     mdir.rbyd.eoff = -1;
     memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid, REG, 0, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(mdir.mid, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
@@ -1777,7 +1351,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "c", 1) == 0);
 
@@ -1804,7 +1378,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "c", 1) == 0);
 
@@ -1828,15 +1402,12 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1871,7 +1442,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -1898,7 +1469,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -1922,9 +1493,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -1981,9 +1549,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -2039,9 +1604,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -2106,9 +1668,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -2119,7 +1678,7 @@ code = '''
     // create a large entry that needs to be uninlined (but not split!)
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -2147,7 +1706,7 @@ code = '''
     mdir.rbyd.eoff = -1;
     memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid, REG, 0, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(mdir.mid, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // assert we relocated our mdir
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
@@ -2164,7 +1723,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "c", 1) == 0);
 
@@ -2194,7 +1753,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "c", 1) == 0);
 
@@ -2212,9 +1771,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -2224,7 +1780,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -2269,7 +1825,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -2301,7 +1857,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -2325,9 +1881,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -2337,14 +1890,14 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 2*lfsr_mweight(&lfs));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2355,14 +1908,14 @@ code = '''
 
     // remove the entry, forcing the mdir to be dropped
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 1*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(mdir.mid, RM, -1, NULL()))) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2381,7 +1934,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs) == 0*lfsr_mweight(&lfs));
+    assert(lfsr_mtree_weight(&lfs) == 1*lfsr_mweight(&lfs));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2407,9 +1960,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // force mroot to compact once, so the second compact below will trigger
     // a relocation
@@ -2425,7 +1975,7 @@ code = '''
     // create a large entry that needs to be uninlined (but not split!)
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact, this should trigger a relocation
     lfsr_mdir_t old_mroot = lfs.mroot;
@@ -2450,7 +2000,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -2477,7 +2027,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -2495,9 +2045,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // force mroot to compact once, so the second compact below will trigger
     // a relocation
@@ -2508,7 +2055,7 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2531,7 +2078,7 @@ code = '''
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -2558,7 +2105,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -2572,7 +2119,7 @@ code = '''
 '''
 
 # this fuzz covers a lot of configuratinos
-[cases.test_mtree_relocating_fuzz]
+[cases.test_mtree_relocate_fuzz]
 defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
 defines.BLOCK_CYCLES = [5, 2, 1]
@@ -2585,9 +2132,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // at least keep track of the number of entries we expect
     lfs_size_t count = 0;
@@ -2595,16 +2139,17 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = (lfs_ssize_t)(
-                TEST_PRNG(&prng) % lfs_max32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs)));
+        lfs_ssize_t mid = TEST_PRNG(&prng) % lfs_max32(
+                lfsr_mtree_weight(&lfs),
+                lfsr_mweight(&lfs));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
-        mdir.mid = lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
-                + (mdir.mid % (mdir.rbyd.weight+1));
+        mdir.mid = lfs_max32(
+                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                    + (mdir.mid % (mdir.rbyd.weight+1)),
+                1);
         // choose to create or delete, note we make sure to never delete to zero
         uint8_t op = (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight
                     || (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight-1
@@ -2671,6 +2216,11 @@ code = '''
 
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -2705,6 +2255,11 @@ code = '''
 
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -2730,41 +2285,38 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
-            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(2, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=2, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(1, REG, +1, BUF("c", 1)))) => 0;
+            LFSR_ATTR(2, REG, +1, BUF("c", 1)))) => 0;
 
     // assert that our entry is still in the mtree
-    assert(lfs.mroot.rbyd.weight == 3);
+    assert(lfs.mroot.rbyd.weight == 4);
 
     uint8_t buffer[1];
-    lfsr_mdir_get(&lfs, &lfs.mroot, 1, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &lfs.mroot, 2, LFSR_TAG_REG,
             buffer, 1) => 1;
     assert(memcmp(buffer, "c", 1) == 0);
 
     // assert that our neighbors were updated correctly
-    assert(left_neighbor.mdir.mid == 0);
+    assert(left_neighbor.mdir.mid == 1);
     assert(memcmp(&left_neighbor.mdir.rbyd, &lfs.mroot.rbyd,
             sizeof(lfs.mroot.rbyd)) == 0);
-    assert(right_neighbor.mdir.mid == 2);
+    assert(right_neighbor.mdir.mid == 3);
     assert(memcmp(&right_neighbor.mdir.rbyd, &lfs.mroot.rbyd,
             sizeof(lfs.mroot.rbyd)) == 0);
 
@@ -2780,34 +2332,31 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
-            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(2, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=2, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // try removing our left entry
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
+            LFSR_ATTR(1, RM, -1, NULL()))) => 0;
 
     // assert that an entry was removed
-    assert(lfs.mroot.rbyd.weight == 1);
+    assert(lfs.mroot.rbyd.weight == 2);
 
     // assert that our neighbors were updated correctly
     assert(left_neighbor.mdir.mid == -1);
-    assert(right_neighbor.mdir.mid == 0);
+    assert(right_neighbor.mdir.mid == 1);
     assert(memcmp(&right_neighbor.mdir.rbyd, &lfs.mroot.rbyd,
             sizeof(lfs.mroot.rbyd)) == 0);
 
@@ -2823,33 +2372,30 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
-            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(2, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=0, .rbyd=lfs.mroot.rbyd}};
-    lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .rbyd=lfs.mroot.rbyd}};
+    lfsr_openedmdir_t right_neighbor = {
+            .mdir={.mid=2, .rbyd=lfs.mroot.rbyd}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
-    // try removing our left entry
+    // try removing our right entry
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(1, RM, -1, NULL()))) => 0;
+            LFSR_ATTR(2, RM, -1, NULL()))) => 0;
 
     // assert that an entry was removed
-    assert(lfs.mroot.rbyd.weight == 1);
+    assert(lfs.mroot.rbyd.weight == 2);
 
     // assert that our neighbors were updated correctly
-    assert(left_neighbor.mdir.mid == 0);
+    assert(left_neighbor.mdir.mid == 1);
     assert(memcmp(&left_neighbor.mdir.rbyd, &lfs.mroot.rbyd,
             sizeof(lfs.mroot.rbyd)) == 0);
     assert(right_neighbor.mdir.mid == -1);
@@ -2868,13 +2414,10 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(0, BOOKMARK, 0, BUF("a", 1)),
             LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
@@ -2948,13 +2491,10 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(0, BOOKMARK, 0, BUF("a", 1)),
             LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
@@ -3023,9 +2563,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -3035,7 +2572,7 @@ code = '''
 
     memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -3091,7 +2628,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "d", 1) == 0);
 
@@ -3127,13 +2664,10 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(0, BOOKMARK, 0, BUF("a", 1)),
             LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_ismptr(&lfs));
@@ -3193,9 +2727,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -3205,7 +2736,7 @@ code = '''
 
     memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -3288,9 +2819,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     //// create a situation where we have 3 mdirs in our tree
 
@@ -3298,7 +2826,7 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
@@ -3383,9 +2911,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     //// create a situation where we have 3 mdirs in our tree
 
@@ -3393,7 +2918,7 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
@@ -3474,19 +2999,16 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF("a", 1)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF("a", 1)))) => 0;
 
     // assert that our entry is still in the mtree
     assert(lfs.mroot.rbyd.weight == 1);
 
     uint8_t buffer[1];
-    lfsr_mdir_get(&lfs, &lfs.mroot, 0, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &lfs.mroot, 0, LFSR_TAG_BOOKMARK,
             buffer, 1) => 1;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -3551,7 +3073,7 @@ code = '''
     // assert that our entry is still in the mtree
     assert(lfs.mroot.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &lfs.mroot, 0, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &lfs.mroot, 0, LFSR_TAG_BOOKMARK,
             buffer, 1) => 1;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -3568,9 +3090,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -3581,7 +3100,7 @@ code = '''
     // create a large entry that needs to be uninlined (but not split!)
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -3602,7 +3121,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -3678,7 +3197,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
 
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "b", 1) == 0);
 
@@ -3695,15 +3214,12 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(0, BOOKMARK, 0, BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3722,7 +3238,7 @@ code = '''
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -3800,7 +3316,7 @@ code = '''
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
+    lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_BOOKMARK,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, "a", 1) == 0);
 
@@ -3826,9 +3342,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -3935,9 +3448,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create entries
     lfsr_mdir_t mdir;
@@ -3946,6 +3456,7 @@ code = '''
                 lfsr_mtree_weight(&lfs) - lfsr_mweight(&lfs),
                 0),
             &mdir) => 0;
+    mdir.mid += 1;
     for (lfs_size_t i = 0; i < N; i++) {
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -3976,6 +3487,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -4054,6 +3570,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -4079,9 +3600,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // at least keep track of the number of entries we expect
     lfs_size_t count = 0;
@@ -4089,16 +3607,17 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = (lfs_ssize_t)(
-                TEST_PRNG(&prng) % lfs_max32(
-                    lfsr_mtree_weight(&lfs),
-                    lfsr_mweight(&lfs)));
+        lfs_ssize_t mid = TEST_PRNG(&prng) % lfs_max32(
+                lfsr_mtree_weight(&lfs),
+                lfsr_mweight(&lfs));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
-        mdir.mid = lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
-                + (mdir.mid % (mdir.rbyd.weight+1));
+        mdir.mid = lfs_max32(
+                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                    + (mdir.mid % (mdir.rbyd.weight+1)),
+                1);
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -4132,6 +3651,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -4215,6 +3739,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
@@ -4426,9 +3955,6 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
-    // remove root bookmark for now
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
 
     // create entries
     lfsr_mdir_t mdir;
@@ -4437,6 +3963,7 @@ code = '''
                 lfsr_mtree_weight(&lfs) - lfsr_mweight(&lfs),
                 0),
             &mdir) => 0;
+    mdir.mid += 1;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
                 LFSR_ATTR(mdir.mid, REG, +1,
@@ -4502,6 +4029,11 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
                 mdir.mid += 1) {
+            // skip the root bookmark
+            if (mdir.mid == 0) {
+                continue;
+            }
+
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
                     buffer, 4) => 1;
