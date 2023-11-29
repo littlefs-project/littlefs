@@ -110,11 +110,6 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
 
 // bench_runner types
 
-typedef struct bench_geometry {
-    const char *name;
-    bench_define_t defines[BENCH_GEOMETRY_DEFINE_COUNT];
-} bench_geometry_t;
-
 typedef struct bench_id {
     const char *name;
     const bench_define_t *defines;
@@ -155,9 +150,9 @@ intmax_t bench_define_lit(void *data, size_t i) {
 #define BENCH_DEFINE_MAP_OVERRIDE    0
 #define BENCH_DEFINE_MAP_EXPLICIT    1
 #define BENCH_DEFINE_MAP_CASE        2
-#define BENCH_DEFINE_MAP_GEOMETRY    3
-#define BENCH_DEFINE_MAP_IMPLICIT    4
-#define BENCH_DEFINE_MAP_COUNT       5
+#define BENCH_DEFINE_MAP_IMPLICIT    3
+
+#define BENCH_DEFINE_MAP_COUNT       4
 
 bench_define_map_t bench_define_maps[BENCH_DEFINE_MAP_COUNT] = {
     [BENCH_DEFINE_MAP_IMPLICIT] = {
@@ -334,14 +329,6 @@ void bench_define_case(
     }
 }
 
-// geometry updates
-const bench_geometry_t *bench_geometry = NULL;
-
-void bench_define_geometry(const bench_geometry_t *geometry) {
-    bench_define_maps[BENCH_DEFINE_MAP_GEOMETRY] = (bench_define_map_t){
-            geometry->defines, BENCH_GEOMETRY_DEFINE_COUNT};
-}
-
 // override updates
 typedef struct bench_override {
     const char *name;
@@ -451,9 +438,6 @@ void bench_define_cleanup(void) {
 
 
 // bench state
-extern const bench_geometry_t *bench_geometries;
-extern size_t bench_geometry_count;
-
 const bench_id_t *bench_ids = (const bench_id_t[]) {
     {NULL, NULL, 0},
 };
@@ -846,23 +830,18 @@ static void case_forperm(
         // define case permutation
         bench_define_case(suite, case_, k);
 
-        for (size_t g = 0; g < bench_geometry_count; g++) {
-            // define geometry
-            bench_define_geometry(&bench_geometries[g]);
+        size_t permutations = bench_define_permutationpermutations();
+        for (size_t p = 0; p < permutations; p++) {
+            // define permutation permutation
+            bench_define_permutation(p);
 
-            size_t permutations = bench_define_permutationpermutations();
-            for (size_t p = 0; p < permutations; p++) {
-                // define permutation permutation
-                bench_define_permutation(p);
-
-                // have we seen this permutation before?
-                bool was_seen = bench_seen_insert(&seen);
-                if (!(k == 0 && g == 0 && p == 0) && was_seen) {
-                    continue;
-                }
-
-                cb(data, suite, case_);
+            // have we seen this permutation before?
+            bool was_seen = bench_seen_insert(&seen);
+            if (!(k == 0 && p == 0) && was_seen) {
+                continue;
             }
+
+            cb(data, suite, case_);
         }
     }
 
@@ -1224,8 +1203,6 @@ void perm_list_permutation_defines(
     }
 }
 
-extern const bench_geometry_t builtin_geometries[];
-
 static void list_defines(void) {
     struct list_defines_defines defines = {NULL, 0, 0};
 
@@ -1324,17 +1301,11 @@ static void list_implicit_defines(void) {
     // yes we do need to define a suite, this does a bit of bookeeping
     // such as setting up the define cache
     bench_define_suite(&(const struct bench_suite){0});
+    bench_define_permutation(0);
 
-    // make sure to include builtin geometries here
-    extern const bench_geometry_t builtin_geometries[];
-    for (size_t g = 0; builtin_geometries[g].name; g++) {
-        bench_define_geometry(&builtin_geometries[g]);
-        bench_define_permutation(0);
-
-        // add implicit defines
-        for (size_t d = 0; d < BENCH_IMPLICIT_DEFINE_COUNT; d++) {
-            list_defines_add(&defines, d);
-        }
+    // add implicit defines
+    for (size_t d = 0; d < BENCH_IMPLICIT_DEFINE_COUNT; d++) {
+        list_defines_add(&defines, d);
     }
 
     for (size_t i = 0; i < defines.define_count; i++) {
@@ -1352,57 +1323,6 @@ static void list_implicit_defines(void) {
         free(defines.defines[i].values);
     }
     free(defines.defines);
-}
-
-
-
-// geometries to bench
-
-const bench_geometry_t builtin_geometries[] = {
-    #define BENCH_GEO(name, read_size, prog_size, block_size) \
-        {name, { \
-            BENCH_CONST(read_size), \
-            BENCH_CONST(prog_size), \
-            BENCH_CONST(block_size), \
-        }},
-
-        BENCH_GEOMETRIES
-    #undef BENCH_GEO
-    {NULL, {{0}, {0}, {0}}},
-};
-
-const bench_geometry_t *bench_geometries = builtin_geometries;
-size_t bench_geometry_count = 5;
-
-static void list_geometries(void) {
-    // at least size so that names fit
-    unsigned name_width = 23;
-    for (size_t g = 0; builtin_geometries[g].name; g++) {
-        size_t len = strlen(builtin_geometries[g].name);
-        if (len > name_width) {
-            name_width = len;
-        }
-    }
-    name_width = 4*((name_width+1+4-1)/4)-1;
-
-    // yes we do need to define a suite, this does a bit of bookeeping
-    // such as setting up the define cache
-    bench_define_suite(&(const struct bench_suite){0});
-
-    printf("%-*s  %7s %7s %7s %7s %11s\n",
-            name_width, "geometry", "read", "prog", "erase", "count", "size");
-    for (size_t g = 0; builtin_geometries[g].name; g++) {
-        bench_define_geometry(&builtin_geometries[g]);
-        bench_define_permutation(0);
-        printf("%-*s  %7ju %7ju %7ju %7ju %11ju\n",
-                name_width,
-                builtin_geometries[g].name,
-                READ_SIZE,
-                PROG_SIZE,
-                BLOCK_SIZE,
-                BLOCK_COUNT,
-                DISK_SIZE);
-    }
 }
 
 
@@ -1522,21 +1442,19 @@ enum opt_flags {
     OPT_LIST_DEFINES             = 3,
     OPT_LIST_PERMUTATION_DEFINES = 4,
     OPT_LIST_IMPLICIT_DEFINES    = 5,
-    OPT_LIST_GEOMETRIES          = 6,
     OPT_DEFINE                   = 'D',
-    OPT_GEOMETRY                 = 'G',
     OPT_STEP                     = 's',
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 7,
-    OPT_TRACE_PERIOD             = 8,
-    OPT_TRACE_FREQ               = 9,
-    OPT_READ_SLEEP               = 10,
-    OPT_PROG_SLEEP               = 11,
-    OPT_ERASE_SLEEP              = 12,
+    OPT_TRACE_BACKTRACE          = 6,
+    OPT_TRACE_PERIOD             = 7,
+    OPT_TRACE_FREQ               = 8,
+    OPT_READ_SLEEP               = 9,
+    OPT_PROG_SLEEP               = 10,
+    OPT_ERASE_SLEEP              = 11,
 };
 
-const char *short_opts = "hYlLD:G:s:d:t:";
+const char *short_opts = "hYlLD:s:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1550,9 +1468,7 @@ const struct option long_opts[] = {
                          no_argument,       NULL, OPT_LIST_PERMUTATION_DEFINES},
     {"list-implicit-defines",
                          no_argument,       NULL, OPT_LIST_IMPLICIT_DEFINES},
-    {"list-geometries",  no_argument,       NULL, OPT_LIST_GEOMETRIES},
     {"define",           required_argument, NULL, OPT_DEFINE},
-    {"geometry",         required_argument, NULL, OPT_GEOMETRY},
     {"step",             required_argument, NULL, OPT_STEP},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
@@ -1575,9 +1491,7 @@ const char *const help_text[] = {
     "List all defines in this bench-runner.",
     "List explicit defines in this bench-runner.",
     "List implicit defines in this bench-runner.",
-    "List the available disk geometries.",
     "Override a bench define.",
-    "Comma-separated list of disk geometries to bench.",
     "Comma-separated range of bench permutations to run (start,stop,step).",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
@@ -1593,7 +1507,6 @@ int main(int argc, char **argv) {
     void (*op)(void) = run;
 
     size_t bench_override_capacity = 0;
-    size_t bench_geometry_capacity = 0;
     size_t bench_id_capacity = 0;
 
     // parse options
@@ -1680,9 +1593,6 @@ int main(int argc, char **argv) {
                 break;
             case OPT_LIST_IMPLICIT_DEFINES:
                 op = list_implicit_defines;
-                break;
-            case OPT_LIST_GEOMETRIES:
-                op = list_geometries;
                 break;
             // configuration
             case OPT_DEFINE: {
@@ -1833,143 +1743,6 @@ int main(int argc, char **argv) {
 invalid_define:
                 fprintf(stderr, "error: invalid define: %s\n", optarg);
                 exit(-1);
-            }
-            case OPT_GEOMETRY: {
-                // reset our geometry scenarios
-                if (bench_geometry_capacity > 0) {
-                    free((bench_geometry_t*)bench_geometries);
-                }
-                bench_geometries = NULL;
-                bench_geometry_count = 0;
-                bench_geometry_capacity = 0;
-
-                // parse the comma separated list of disk geometries
-                while (*optarg) {
-                    // allocate space
-                    bench_geometry_t *geometry = mappend(
-                            (void**)&bench_geometries,
-                            sizeof(bench_geometry_t),
-                            &bench_geometry_count,
-                            &bench_geometry_capacity);
-
-                    // parse the disk geometry
-                    optarg += strspn(optarg, " ");
-
-                    // named disk geometry
-                    size_t len = strcspn(optarg, " ,");
-                    for (size_t i = 0; builtin_geometries[i].name; i++) {
-                        if (len == strlen(builtin_geometries[i].name)
-                                && memcmp(optarg,
-                                    builtin_geometries[i].name,
-                                    len) == 0) {
-                            *geometry = builtin_geometries[i];
-                            optarg += len;
-                            goto geometry_next;
-                        }
-                    }
-
-                    // comma-separated read/prog/erase
-                    if (*optarg == '{') {
-                        lfs_size_t sizes[3];
-                        size_t count = 0;
-
-                        char *s = optarg + 1;
-                        while (count < 3) {
-                            char *parsed = NULL;
-                            sizes[count] = strtoumax(s, &parsed, 0);
-                            count += 1;
-
-                            s = parsed + strspn(parsed, " ");
-                            if (*s == ',') {
-                                s += 1;
-                                continue;
-                            } else if (*s == '}') {
-                                s += 1;
-                                break;
-                            } else {
-                                goto geometry_unknown;
-                            }
-                        }
-
-                        // allow implicit r=p and p=e for common geometries
-                        memset(geometry, 0, sizeof(bench_geometry_t));
-                        if (count >= 3) {
-                            geometry->defines[READ_SIZE_i]
-                                    = BENCH_LIT(sizes[0]);
-                            geometry->defines[PROG_SIZE_i]
-                                    = BENCH_LIT(sizes[1]);
-                            geometry->defines[BLOCK_SIZE_i]
-                                    = BENCH_LIT(sizes[2]);
-                        } else if (count >= 2) {
-                            geometry->defines[PROG_SIZE_i]
-                                    = BENCH_LIT(sizes[0]);
-                            geometry->defines[BLOCK_SIZE_i]
-                                    = BENCH_LIT(sizes[1]);
-                        } else {
-                            geometry->defines[BLOCK_SIZE_i]
-                                    = BENCH_LIT(sizes[0]);
-                        }
-                        optarg = s;
-                        goto geometry_next;
-                    }
-
-                    // leb16-encoded read/prog/erase/count
-                    if (*optarg == ':') {
-                        lfs_size_t sizes[3];
-                        size_t count = 0;
-
-                        char *s = optarg + 1;
-                        while (true) {
-                            char *parsed = NULL;
-                            uintmax_t x = leb16_parse(s, &parsed);
-                            if (parsed == s || count >= 3) {
-                                break;
-                            }
-
-                            sizes[count] = x;
-                            count += 1;
-                            s = parsed;
-                        }
-
-                        // allow implicit r=p and p=e for common geometries
-                        memset(geometry, 0, sizeof(bench_geometry_t));
-                        if (count >= 3) {
-                            geometry->defines[READ_SIZE_i]
-                                    = BENCH_LIT(sizes[0]);
-                            geometry->defines[PROG_SIZE_i]
-                                    = BENCH_LIT(sizes[1]);
-                            geometry->defines[BLOCK_SIZE_i]
-                                    = BENCH_LIT(sizes[2]);
-                        } else if (count >= 2) {
-                            geometry->defines[PROG_SIZE_i]
-                                    = BENCH_LIT(sizes[0]);
-                            geometry->defines[BLOCK_SIZE_i]
-                                    = BENCH_LIT(sizes[1]);
-                        } else {
-                            geometry->defines[BLOCK_SIZE_i]
-                                    = BENCH_LIT(sizes[0]);
-                        }
-                        optarg = s;
-                        goto geometry_next;
-                    }
-
-geometry_unknown:
-                    // unknown scenario?
-                    fprintf(stderr, "error: unknown disk geometry: %s\n",
-                            optarg);
-                    exit(-1);
-
-geometry_next:
-                    optarg += strspn(optarg, " ");
-                    if (*optarg == ',') {
-                        optarg += 1;
-                    } else if (*optarg == '\0') {
-                        break;
-                    } else {
-                        goto geometry_unknown;
-                    }
-                }
-                break;
             }
             case OPT_STEP: {
                 char *parsed = NULL;
@@ -2167,9 +1940,6 @@ getopt_done: ;
             free((void*)bench_overrides[i].define.data);
         }
         free((void*)bench_overrides);
-    }
-    if (bench_geometry_capacity) {
-        free((void*)bench_geometries);
     }
     if (bench_id_capacity) {
         for (size_t i = 0; i < bench_id_count; i++) {

@@ -78,7 +78,7 @@ extern size_t test_pls;
 
 #define TEST_PLS test_pls
 
-// deterministic prng for pseudo-randomness in testes
+// deterministic prng for pseudo-randomness in tests
 uint32_t test_prng(uint32_t *state);
 
 #define TEST_PRNG(state) test_prng(state)
@@ -98,25 +98,24 @@ intmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 
-#define TEST_IMPLICIT_DEFINE_COUNT 16
-#define TEST_GEOMETRY_DEFINE_COUNT 3
+#define READ_SIZE_i                 0
+#define PROG_SIZE_i                 1
+#define BLOCK_SIZE_i                2
+#define BLOCK_COUNT_i               3
+#define DISK_SIZE_i                 4
+#define CACHE_SIZE_i                5
+#define INLINE_SIZE_i               6
+#define SHRUB_SIZE_i                7
+#define FRAGMENT_SIZE_i             8
+#define CRYSTAL_SIZE_i              9
+#define LOOKAHEAD_SIZE_i            10
+#define BLOCK_CYCLES_i              11
+#define ERASE_VALUE_i               12
+#define ERASE_CYCLES_i              13
+#define BADBLOCK_BEHAVIOR_i         14
+#define POWERLOSS_BEHAVIOR_i        15
 
-#define READ_SIZE_i          0
-#define PROG_SIZE_i          1
-#define BLOCK_SIZE_i         2
-#define BLOCK_COUNT_i        3
-#define DISK_SIZE_i          4
-#define CACHE_SIZE_i         5
-#define INLINE_SIZE_i        6
-#define SHRUB_SIZE_i         7
-#define FRAGMENT_SIZE_i      8
-#define CRYSTAL_SIZE_i       9
-#define LOOKAHEAD_SIZE_i     10
-#define BLOCK_CYCLES_i       11
-#define ERASE_VALUE_i        12
-#define ERASE_CYCLES_i       13
-#define BADBLOCK_BEHAVIOR_i  14
-#define POWERLOSS_BEHAVIOR_i 15
+#define TEST_IMPLICIT_DEFINE_COUNT  16
 
 #define READ_SIZE           TEST_DEFINE(READ_SIZE_i)
 #define PROG_SIZE           TEST_DEFINE(PROG_SIZE_i)
@@ -137,9 +136,9 @@ intmax_t test_define(size_t define);
 
 #define TEST_IMPLICIT_DEFINES \
     /*       name                value (overridable)                       */ \
-    TEST_DEF(READ_SIZE,          PROG_SIZE                                  ) \
-    TEST_DEF(PROG_SIZE,          BLOCK_SIZE                                 ) \
-    TEST_DEF(BLOCK_SIZE,         0                                          ) \
+    TEST_DEF(READ_SIZE,          1                                          ) \
+    TEST_DEF(PROG_SIZE,          1                                          ) \
+    TEST_DEF(BLOCK_SIZE,         4096                                       ) \
     TEST_DEF(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                       ) \
     TEST_DEF(DISK_SIZE,          1024*1024                                  ) \
     TEST_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE)) ) \
@@ -153,14 +152,6 @@ intmax_t test_define(size_t define);
     TEST_DEF(ERASE_CYCLES,       0                                          ) \
     TEST_DEF(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR               ) \
     TEST_DEF(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_NOOP                   )
-
-#define TEST_GEOMETRIES \
-    /*        name      read_size  prog_size  block_size   */ \
-    TEST_GEO("default", 16,        16,        512           ) \
-    TEST_GEO("eeprom",  1,         1,         512           ) \
-    TEST_GEO("emmc",    512,       512,       512           ) \
-    TEST_GEO("nor",     1,         1,         4096          ) \
-    TEST_GEO("nand",    4096,      4096,      32768         )
 
 #define TEST_CFG \
     .read_size          = READ_SIZE,        \

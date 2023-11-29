@@ -112,25 +112,24 @@ intmax_t bench_define(size_t define);
 
 // a few preconfigured defines that control how benches run
 
-#define BENCH_IMPLICIT_DEFINE_COUNT 16
-#define BENCH_GEOMETRY_DEFINE_COUNT 3
+#define READ_SIZE_i                 0
+#define PROG_SIZE_i                 1
+#define BLOCK_SIZE_i                2
+#define BLOCK_COUNT_i               3
+#define DISK_SIZE_i                 4
+#define CACHE_SIZE_i                5
+#define INLINE_SIZE_i               6
+#define SHRUB_SIZE_i                7
+#define FRAGMENT_SIZE_i             8
+#define CRYSTAL_SIZE_i              9
+#define LOOKAHEAD_SIZE_i            10
+#define BLOCK_CYCLES_i              11
+#define ERASE_VALUE_i               12
+#define ERASE_CYCLES_i              13
+#define BADBLOCK_BEHAVIOR_i         14
+#define POWERLOSS_BEHAVIOR_i        15
 
-#define READ_SIZE_i          0
-#define PROG_SIZE_i          1
-#define BLOCK_SIZE_i         2
-#define BLOCK_COUNT_i        3
-#define DISK_SIZE_i          4
-#define CACHE_SIZE_i         5
-#define INLINE_SIZE_i        6
-#define SHRUB_SIZE_i         7
-#define FRAGMENT_SIZE_i      8
-#define CRYSTAL_SIZE_i       9
-#define LOOKAHEAD_SIZE_i     10
-#define BLOCK_CYCLES_i       11
-#define ERASE_VALUE_i        12
-#define ERASE_CYCLES_i       13
-#define BADBLOCK_BEHAVIOR_i  14
-#define POWERLOSS_BEHAVIOR_i 15
+#define BENCH_IMPLICIT_DEFINE_COUNT 16
 
 #define READ_SIZE           bench_define(READ_SIZE_i)
 #define PROG_SIZE           bench_define(PROG_SIZE_i)
@@ -151,9 +150,9 @@ intmax_t bench_define(size_t define);
 
 #define BENCH_IMPLICIT_DEFINES \
     /*        name                value (overridable)                      */ \
-    BENCH_DEF(READ_SIZE,          PROG_SIZE                                 ) \
-    BENCH_DEF(PROG_SIZE,          BLOCK_SIZE                                ) \
-    BENCH_DEF(BLOCK_SIZE,         0                                         ) \
+    BENCH_DEF(READ_SIZE,          1                                         ) \
+    BENCH_DEF(PROG_SIZE,          1                                         ) \
+    BENCH_DEF(BLOCK_SIZE,         4096                                      ) \
     BENCH_DEF(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                      ) \
     BENCH_DEF(DISK_SIZE,          1024*1024                                 ) \
     BENCH_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))) \
@@ -167,14 +166,6 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(ERASE_CYCLES,       0                                         ) \
     BENCH_DEF(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR              ) \
     BENCH_DEF(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_NOOP                  )
-
-#define BENCH_GEOMETRIES \
-    /*        name      read_size  prog_size  block_size   */ \
-    BENCH_GEO("default", 16,        16,        512          ) \
-    BENCH_GEO("eeprom",  1,         1,         512          ) \
-    BENCH_GEO("emmc",    512,       512,       512          ) \
-    BENCH_GEO("nor",     1,         1,         4096         ) \
-    BENCH_GEO("nand",    4096,      4096,      32768        )
 
 #define BENCH_CFG \
     .read_size          = READ_SIZE,        \

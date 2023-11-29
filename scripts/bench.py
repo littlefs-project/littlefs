@@ -640,8 +640,6 @@ def find_runner(runner, id=None, **args):
             '-o%s' % args['perf']]))
 
     # other context
-    if args.get('geometry'):
-        cmd.append('-G%s' % args['geometry'])
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -902,7 +900,6 @@ def list_(runner, bench_ids=[], **args):
                                      cmd.append('--list-permutation-defines')
     if args.get('list_implicit_defines'):
                                      cmd.append('--list-implicit-defines')
-    if args.get('list_geometries'):  cmd.append('--list-geometries')
 
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -1439,8 +1436,7 @@ def main(**args):
             or args.get('list_case_paths')
             or args.get('list_defines')
             or args.get('list_permutation_defines')
-            or args.get('list_implicit_defines')
-            or args.get('list_geometries')):
+            or args.get('list_implicit_defines')):
         return list_(**args)
     else:
         return run(**args)
@@ -1509,16 +1505,9 @@ if __name__ == "__main__":
         action='store_true',
         help="List implicit defines in this bench-runner.")
     bench_parser.add_argument(
-        '--list-geometries',
-        action='store_true',
-        help="List the available disk geometries.")
-    bench_parser.add_argument(
         '-D', '--define',
         action='append',
         help="Override a bench define.")
-    bench_parser.add_argument(
-        '-G', '--geometry',
-        help="Comma-separated list of disk geometries to bench.")
     bench_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")

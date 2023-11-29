@@ -647,8 +647,6 @@ def find_runner(runner, id=None, **args):
             '-o%s' % args['perf']]))
 
     # other context
-    if args.get('geometry'):
-        cmd.append('-G%s' % args['geometry'])
     if args.get('powerloss'):
         cmd.append('-P%s' % args['powerloss'])
     if args.get('disk'):
@@ -911,7 +909,6 @@ def list_(runner, test_ids=[], **args):
                                      cmd.append('--list-permutation-defines')
     if args.get('list_implicit_defines'):
                                      cmd.append('--list-implicit-defines')
-    if args.get('list_geometries'):  cmd.append('--list-geometries')
     if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
 
     if args.get('verbose'):
@@ -1446,7 +1443,6 @@ def main(**args):
             or args.get('list_defines')
             or args.get('list_permutation_defines')
             or args.get('list_implicit_defines')
-            or args.get('list_geometries')
             or args.get('list_powerlosses')):
         return list_(**args)
     else:
@@ -1516,10 +1512,6 @@ if __name__ == "__main__":
         action='store_true',
         help="List implicit defines in this test-runner.")
     test_parser.add_argument(
-        '--list-geometries',
-        action='store_true',
-        help="List the available disk geometries.")
-    test_parser.add_argument(
         '--list-powerlosses',
         action='store_true',
         help="List the available power-loss scenarios.")
@@ -1527,9 +1519,6 @@ if __name__ == "__main__":
         '-D', '--define',
         action='append',
         help="Override a test define.")
-    test_parser.add_argument(
-        '-G', '--geometry',
-        help="Comma-separated list of disk geometries to test.")
     test_parser.add_argument(
         '-P', '--powerloss',
         help="Comma-separated list of power-loss scenarios to test.")
