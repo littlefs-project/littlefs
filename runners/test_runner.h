@@ -74,7 +74,7 @@ extern const size_t test_suite_count;
 
 // this variable tracks the number of powerlosses triggered during the
 // current test permutation, this is useful for both tests and debugging
-extern size_t test_pls;
+extern volatile size_t test_pls;
 
 #define TEST_PLS test_pls
 

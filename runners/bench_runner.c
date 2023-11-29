@@ -795,16 +795,15 @@ void bench_seen_cleanup(bench_seen_t *seen) {
 static void case_forperm(
         const struct bench_suite *suite,
         const struct bench_case *case_,
-        const bench_define_t *defines,
-        size_t define_count,
+        const bench_id_t *id,
         void (*cb)(
             void *data,
             const struct bench_suite *suite,
             const struct bench_case *case_),
         void *data) {
     // explicit permutation?
-    if (defines) {
-        bench_define_explicit(defines, define_count);
+    if (id && id->defines) {
+        bench_define_explicit(id->defines, id->define_count);
 
         size_t permutations = bench_define_permutationpermutations();
         for (size_t p = 0; p < permutations; p++) {
@@ -861,7 +860,6 @@ void perm_count(
         const struct bench_case *case_) {
     struct perm_count_state *state = data;
     (void)suite;
-    (void)case_;
 
     state->total += 1;
 
@@ -900,8 +898,7 @@ static void summary(void) {
                 case_forperm(
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
-                        bench_ids[t].defines,
-                        bench_ids[t].define_count,
+                        &bench_ids[t],
                         perm_count,
                         &perms);
             }
@@ -959,8 +956,7 @@ static void list_suites(void) {
                 case_forperm(
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
-                        bench_ids[t].defines,
-                        bench_ids[t].define_count,
+                        &bench_ids[t],
                         perm_count,
                         &perms);
             }
@@ -1018,8 +1014,7 @@ static void list_cases(void) {
                 case_forperm(
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
-                        bench_ids[t].defines,
-                        bench_ids[t].define_count,
+                        &bench_ids[t],
                         perm_count,
                         &perms);
 
@@ -1224,8 +1219,7 @@ static void list_defines(void) {
                 case_forperm(
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
-                        bench_ids[t].defines,
-                        bench_ids[t].define_count,
+                        &bench_ids[t],
                         perm_list_defines,
                         &defines);
             }
@@ -1270,8 +1264,7 @@ static void list_permutation_defines(void) {
                 case_forperm(
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
-                        bench_ids[t].defines,
-                        bench_ids[t].define_count,
+                        &bench_ids[t],
                         perm_list_permutation_defines,
                         &defines);
             }
@@ -1420,8 +1413,7 @@ static void run(void) {
                 case_forperm(
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
-                        bench_ids[t].defines,
-                        bench_ids[t].define_count,
+                        &bench_ids[t],
                         perm_run,
                         NULL);
             }

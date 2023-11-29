@@ -113,8 +113,7 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
 typedef struct test_powerloss {
     const char *name;
     void (*run)(
-            const lfs_emubd_powercycles_t *cycles,
-            size_t cycle_count,
+            const struct test_powerloss *powerloss,
             const struct test_suite *suite,
             const struct test_case *case_);
     const lfs_emubd_powercycles_t *cycles;
@@ -125,8 +124,7 @@ typedef struct test_id {
     const char *name;
     const test_define_t *defines;
     size_t define_count;
-    const lfs_emubd_powercycles_t *cycles;
-    size_t cycle_count;
+    test_powerloss_t powerloss;
 } test_id_t;
 
 
@@ -452,12 +450,8 @@ void test_define_cleanup(void) {
 
 
 // test state
-extern const test_powerloss_t *test_powerlosses;
-extern size_t test_powerloss_count;
-size_t test_pls = 0;
-
 const test_id_t *test_ids = (const test_id_t[]) {
-    {NULL, NULL, 0, NULL, 0},
+    {NULL, NULL, 0, {NULL, NULL, NULL, 0}},
 };
 size_t test_id_count = 1;
 
@@ -477,6 +471,12 @@ uint64_t test_trace_open_time = 0;
 lfs_emubd_sleep_t test_read_sleep = 0.0;
 lfs_emubd_sleep_t test_prog_sleep = 0.0;
 lfs_emubd_sleep_t test_erase_sleep = 0.0;
+
+volatile size_t test_pls = 0;
+
+extern const test_powerloss_t *test_powerlosses;
+extern size_t test_powerloss_count;
+
 
 // this determines both the backtrace buffer and the trace printf buffer, if
 // trace ends up interleaved or truncated this may need to be increased
@@ -654,7 +654,7 @@ static void perm_printid(
     }
 
     // only print power-cycles if any occured
-    if (cycles) {
+    if (cycle_count) {
         printf(":");
         for (size_t i = 0; i < cycle_count; i++) {
             leb16_print(cycles[i]);
@@ -717,13 +717,11 @@ void test_seen_cleanup(test_seen_t *seen) {
 }
 
 static void run_powerloss_none(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_);
 static void run_powerloss_cycles(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_);
 
@@ -731,10 +729,7 @@ static void run_powerloss_cycles(
 static void case_forperm(
         const struct test_suite *suite,
         const struct test_case *case_,
-        const test_define_t *defines,
-        size_t define_count,
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_id_t *id,
         void (*cb)(
             void *data,
             const struct test_suite *suite,
@@ -742,8 +737,8 @@ static void case_forperm(
             const test_powerloss_t *powerloss),
         void *data) {
     // explicit permutation?
-    if (defines) {
-        test_define_explicit(defines, define_count);
+    if (id && id->defines) {
+        test_define_explicit(id->defines, id->define_count);
 
         size_t permutations = test_define_permutationpermutations();
         for (size_t p = 0; p < permutations; p++) {
@@ -751,11 +746,8 @@ static void case_forperm(
             test_define_permutation(p);
 
             // explicit powerloss cycles?
-            if (cycles) {
-                cb(data, suite, case_, &(test_powerloss_t){
-                        .run=run_powerloss_cycles,
-                        .cycles=cycles,
-                        .cycle_count=cycle_count});
+            if (id && id->powerloss.run) {
+                cb(data, suite, case_, &id->powerloss);
             } else {
                 for (size_t p = 0; p < test_powerloss_count; p++) {
                     // skip non-reentrant tests when powerloss testing
@@ -796,11 +788,9 @@ static void case_forperm(
                 continue;
             }
 
-            if (cycles) {
-                cb(data, suite, case_, &(test_powerloss_t){
-                        .run=run_powerloss_cycles,
-                        .cycles=cycles,
-                        .cycle_count=cycle_count});
+            // explicit powerloss cycles?
+            if (id && id->powerloss.run) {
+                cb(data, suite, case_, &id->powerloss);
             } else {
                 for (size_t p = 0; p < test_powerloss_count; p++) {
                     // skip non-reentrant tests when powerloss testing
@@ -832,8 +822,6 @@ void perm_count(
         const test_powerloss_t *powerloss) {
     struct perm_count_state *state = data;
     (void)suite;
-    (void)case_;
-    (void)powerloss;
 
     state->total += 1;
 
@@ -874,10 +862,7 @@ static void summary(void) {
                 case_forperm(
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        test_ids[t].defines,
-                        test_ids[t].define_count,
-                        test_ids[t].cycles,
-                        test_ids[t].cycle_count,
+                        &test_ids[t],
                         perm_count,
                         &perms);
             }
@@ -936,10 +921,7 @@ static void list_suites(void) {
                 case_forperm(
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        test_ids[t].defines,
-                        test_ids[t].define_count,
-                        test_ids[t].cycles,
-                        test_ids[t].cycle_count,
+                        &test_ids[t],
                         perm_count,
                         &perms);
             }
@@ -998,10 +980,7 @@ static void list_cases(void) {
                 case_forperm(
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        test_ids[t].defines,
-                        test_ids[t].define_count,
-                        test_ids[t].cycles,
-                        test_ids[t].cycle_count,
+                        &test_ids[t],
                         perm_count,
                         &perms);
 
@@ -1212,10 +1191,7 @@ static void list_defines(void) {
                 case_forperm(
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        test_ids[t].defines,
-                        test_ids[t].define_count,
-                        test_ids[t].cycles,
-                        test_ids[t].cycle_count,
+                        &test_ids[t],
                         perm_list_defines,
                         &defines);
             }
@@ -1260,10 +1236,7 @@ static void list_permutation_defines(void) {
                 case_forperm(
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        test_ids[t].defines,
-                        test_ids[t].define_count,
-                        test_ids[t].cycles,
-                        test_ids[t].cycle_count,
+                        &test_ids[t],
                         perm_list_permutation_defines,
                         &defines);
             }
@@ -1322,13 +1295,10 @@ static void list_implicit_defines(void) {
 // scenarios to run tests under power-loss
 
 static void run_powerloss_none(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_) {
-    (void)cycles;
-    (void)cycle_count;
-    (void)suite;
+    (void)powerloss;
 
     // create block device and configuration
     lfs_emubd_t bd;
@@ -1384,18 +1354,15 @@ static void powerloss_longjmp(void *c) {
 }
 
 static void run_powerloss_linear(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_) {
-    (void)cycles;
-    (void)cycle_count;
-    (void)suite;
+    // zero pls
+    test_pls = 0;
 
     // create block device and configuration
     lfs_emubd_t bd;
     jmp_buf powerloss_jmp;
-    volatile lfs_emubd_powercycles_t i = 1;
 
     struct lfs_config cfg = {
         .context            = &bd,
@@ -1411,7 +1378,9 @@ static void run_powerloss_linear(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .power_cycles       = i,
+        .power_cycles       = (test_pls < powerloss->cycle_count)
+                ? test_pls+1
+                : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
@@ -1429,9 +1398,6 @@ static void run_powerloss_linear(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
-    // zero pls before first run
-    test_pls = 0;
-
     while (true) {
         if (!setjmp(powerloss_jmp)) {
             // run the test
@@ -1442,16 +1408,15 @@ static void run_powerloss_linear(
         // power-loss!
         printf("powerloss ");
         perm_printid(suite, case_, NULL, 0);
-        printf(":");
-        for (lfs_emubd_powercycles_t j = 1; j <= i; j++) {
-            leb16_print(j);
-        }
+        printf(":x");
+        leb16_print(test_pls+1);
         printf("\n");
 
         // increment pls
         test_pls += 1;
-        i += 1;
-        lfs_emubd_setpowercycles(&cfg, i);
+        lfs_emubd_setpowercycles(&cfg, (test_pls < powerloss->cycle_count)
+                ? test_pls+1
+                : 0);
     }
 
     printf("finished ");
@@ -1467,18 +1432,15 @@ static void run_powerloss_linear(
 }
 
 static void run_powerloss_log(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_) {
-    (void)cycles;
-    (void)cycle_count;
-    (void)suite;
+    // zero pls
+    test_pls = 0;
 
     // create block device and configuration
     lfs_emubd_t bd;
     jmp_buf powerloss_jmp;
-    volatile lfs_emubd_powercycles_t i = 1;
 
     struct lfs_config cfg = {
         .context            = &bd,
@@ -1494,7 +1456,9 @@ static void run_powerloss_log(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .power_cycles       = i,
+        .power_cycles       = (test_pls < powerloss->cycle_count)
+                ? 1 << test_pls
+                : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
@@ -1512,9 +1476,6 @@ static void run_powerloss_log(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
-    // zero pls before first run
-    test_pls = 0;
-
     while (true) {
         if (!setjmp(powerloss_jmp)) {
             // run the test
@@ -1525,16 +1486,15 @@ static void run_powerloss_log(
         // power-loss!
         printf("powerloss ");
         perm_printid(suite, case_, NULL, 0);
-        printf(":");
-        for (lfs_emubd_powercycles_t j = 1; j <= i; j *= 2) {
-            leb16_print(j);
-        }
+        printf(":y");
+        leb16_print(test_pls+1);
         printf("\n");
 
         // increment pls
         test_pls += 1;
-        i *= 2;
-        lfs_emubd_setpowercycles(&cfg, i);
+        lfs_emubd_setpowercycles(&cfg, (test_pls < powerloss->cycle_count)
+                ? 1 << test_pls
+                : 0);
     }
 
     printf("finished ");
@@ -1550,16 +1510,15 @@ static void run_powerloss_log(
 }
 
 static void run_powerloss_cycles(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_) {
-    (void)suite;
+    // zero pls
+    test_pls = 0;
 
     // create block device and configuration
     lfs_emubd_t bd;
     jmp_buf powerloss_jmp;
-    volatile size_t i = 0;
 
     struct lfs_config cfg = {
         .context            = &bd,
@@ -1575,7 +1534,9 @@ static void run_powerloss_cycles(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (i < cycle_count) ? cycles[i] : 0,
+        .power_cycles       = (test_pls < powerloss->cycle_count)
+                ? powerloss->cycles[test_pls]
+                : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
@@ -1593,9 +1554,6 @@ static void run_powerloss_cycles(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
-    // zero pls before first run
-    test_pls = 0;
-
     while (true) {
         if (!setjmp(powerloss_jmp)) {
             // run the test
@@ -1604,16 +1562,16 @@ static void run_powerloss_cycles(
         }
 
         // power-loss!
-        assert(i <= cycle_count);
+        assert(test_pls <= powerloss->cycle_count);
         printf("powerloss ");
-        perm_printid(suite, case_, cycles, i+1);
+        perm_printid(suite, case_, powerloss->cycles, test_pls+1);
         printf("\n");
 
         // increment pls
         test_pls += 1;
-        i += 1;
-        lfs_emubd_setpowercycles(&cfg,
-                (i < cycle_count) ? cycles[i] : 0);
+        lfs_emubd_setpowercycles(&cfg, (test_pls < powerloss->cycle_count)
+                ? powerloss->cycles[test_pls]
+                : 0);
     }
 
     printf("finished ");
@@ -1674,8 +1632,6 @@ static void run_powerloss_exhaustive_layer(
         struct lfs_emubd_config *bdcfg,
         size_t depth,
         size_t pls) {
-    (void)suite;
-
     struct powerloss_exhaustive_state state = {
         .cfg = cfg,
         .branches = NULL,
@@ -1683,13 +1639,13 @@ static void run_powerloss_exhaustive_layer(
         .branch_capacity = 0,
     };
 
+    // make the number of pls currently seen available to tests/debugging
+    test_pls = pls;
+
     // run through the test without additional powerlosses, collecting possible
     // branches as we do so
     lfs_emubd_setpowercycles(state.cfg, depth > 0 ? 1 : 0);
     bdcfg->powerloss_data = &state;
-
-    // make the number of pls currently seen available to tests/debugging
-    test_pls = pls;
 
     // run the tests
     case_->run(cfg);
@@ -1734,13 +1690,9 @@ static void run_powerloss_exhaustive_layer(
 }
 
 static void run_powerloss_exhaustive(
-        const lfs_emubd_powercycles_t *cycles,
-        size_t cycle_count,
+        const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_) {
-    (void)cycles;
-    (void)suite;
-
     // create block device and configuration
     lfs_emubd_t bd;
 
@@ -1779,7 +1731,7 @@ static void run_powerloss_exhaustive(
     run_powerloss_exhaustive_layer(
             &(struct powerloss_exhaustive_cycles){NULL, 0, 0},
             suite, case_,
-            &cfg, &bdcfg, cycle_count, 0);
+            &cfg, &bdcfg, powerloss->cycle_count, 0);
 
     printf("finished ");
     perm_printid(suite, case_, NULL, 0);
@@ -1789,8 +1741,8 @@ static void run_powerloss_exhaustive(
 
 const test_powerloss_t builtin_powerlosses[] = {
     {"none",       run_powerloss_none,       NULL, 0},
-    {"log",        run_powerloss_log,        NULL, 0},
-    {"linear",     run_powerloss_linear,     NULL, 0},
+    {"log",        run_powerloss_log,        NULL, SIZE_MAX},
+    {"linear",     run_powerloss_linear,     NULL, SIZE_MAX},
     {"exhaustive", run_powerloss_exhaustive, NULL, SIZE_MAX},
     {NULL, NULL, NULL, 0},
 };
@@ -1809,7 +1761,7 @@ const char *const builtin_powerlosses_help[] = {
 // running quickly
 const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
     {"none",   run_powerloss_none,   NULL, 0},
-    {"linear", run_powerloss_linear, NULL, 0},
+    {"linear", run_powerloss_linear, NULL, SIZE_MAX},
 };
 size_t test_powerloss_count = 2;
 
@@ -1870,9 +1822,7 @@ void perm_run(
     }
 
     // run the test, possibly under powerloss
-    powerloss->run(
-            powerloss->cycles, powerloss->cycle_count,
-            suite, case_);
+    powerloss->run(powerloss, suite, case_);
 }
 
 static void run(void) {
@@ -1896,10 +1846,7 @@ static void run(void) {
                 case_forperm(
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        test_ids[t].defines,
-                        test_ids[t].define_count,
-                        test_ids[t].cycles,
-                        test_ids[t].cycle_count,
+                        &test_ids[t],
                         perm_run,
                         NULL);
             }
@@ -2295,43 +2242,68 @@ invalid_define:
                         }
 
                         *powerloss = (test_powerloss_t){
-                            .run = run_powerloss_cycles,
-                            .cycles = cycles,
-                            .cycle_count = cycle_count,
-                        };
+                                "explicit",
+                                run_powerloss_cycles,
+                                cycles,
+                                cycle_count};
                         optarg = s;
                         goto powerloss_next;
                     }
 
                     // leb16-encoded permutation
                     if (*optarg == ':') {
-                        lfs_emubd_powercycles_t *cycles = NULL;
-                        size_t cycle_count = 0;
-                        size_t cycle_capacity = 0;
+                        // special case for linear power cycles
+                        if (optarg[1] == 'x') {
+                            size_t cycle_count = leb16_parse(optarg+2, &optarg);
 
-                        char *s = optarg + 1;
-                        while (true) {
-                            char *parsed = NULL;
-                            uintmax_t x = leb16_parse(s, &parsed);
-                            if (parsed == s) {
-                                break;
+                            *powerloss = (test_powerloss_t){
+                                    "linear",
+                                    run_powerloss_linear,
+                                    NULL,
+                                    cycle_count};
+                            goto powerloss_next;
+
+                        // special case for log power cycles
+                        } else if (optarg[1] == 'y') {
+                            size_t cycle_count = leb16_parse(optarg+2, &optarg);
+
+                            *powerloss = (test_powerloss_t){
+                                    "log",
+                                    run_powerloss_log,
+                                    NULL,
+                                    cycle_count};
+                            goto powerloss_next;
+
+                        // otherwise explicit power cycles
+                        } else {
+                            lfs_emubd_powercycles_t *cycles = NULL;
+                            size_t cycle_count = 0;
+                            size_t cycle_capacity = 0;
+
+                            char *s = optarg + 1;
+                            while (true) {
+                                char *parsed = NULL;
+                                uintmax_t x = leb16_parse(s, &parsed);
+                                if (parsed == s) {
+                                    break;
+                                }
+
+                                *(lfs_emubd_powercycles_t*)mappend(
+                                        (void**)&cycles,
+                                        sizeof(lfs_emubd_powercycles_t),
+                                        &cycle_count,
+                                        &cycle_capacity) = x;
+                                s = parsed;
                             }
 
-                            *(lfs_emubd_powercycles_t*)mappend(
-                                    (void**)&cycles,
-                                    sizeof(lfs_emubd_powercycles_t),
-                                    &cycle_count,
-                                    &cycle_capacity) = x;
-                            s = parsed;
+                            *powerloss = (test_powerloss_t){
+                                    "explicit",
+                                    run_powerloss_cycles,
+                                    cycles,
+                                    cycle_count};
+                            optarg = s;
+                            goto powerloss_next;
                         }
-
-                        *powerloss = (test_powerloss_t){
-                            .run = run_powerloss_cycles,
-                            .cycles = cycles,
-                            .cycle_count = cycle_count,
-                        };
-                        optarg = s;
-                        goto powerloss_next;
                     }
 
                     // exhaustive permutations
@@ -2342,10 +2314,10 @@ invalid_define:
                             goto powerloss_unknown;
                         }
                         *powerloss = (test_powerloss_t){
-                            .run = run_powerloss_exhaustive,
-                            .cycles = NULL,
-                            .cycle_count = count,
-                        };
+                                "exhaustive",
+                                run_powerloss_exhaustive,
+                                NULL,
+                                count};
                         optarg = (char*)parsed;
                         goto powerloss_next;
                     }
@@ -2499,8 +2471,7 @@ getopt_done: ;
     for (; argc > optind; optind++) {
         test_define_t *defines = NULL;
         size_t define_count = 0;
-        lfs_emubd_powercycles_t *cycles = NULL;
-        size_t cycle_count = 0;
+        test_powerloss_t powerloss = {NULL, NULL, NULL, 0};
 
         // parse name, can be suite or case
         char *name = argv[optind];
@@ -2550,8 +2521,47 @@ getopt_done: ;
                 defines[d] = TEST_LIT(v);
             }
 
-            if (cycles_) {
+            // special case for linear power cycles
+            if (cycles_ && *cycles_ == 'x') {
+                char *parsed = NULL;
+                size_t cycle_count = leb16_parse(cycles_+1, &parsed);
+                if (parsed == cycles_+1) {
+                    fprintf(stderr, "error: "
+                            "could not parse test cycles: %s\n",
+                            cycles_);
+                    exit(-1);
+                }
+                cycles_ = parsed;
+
+                powerloss = (test_powerloss_t){
+                        "linear",
+                        run_powerloss_linear,
+                        NULL,
+                        cycle_count};
+
+            // special case for log power cycles
+            } else if (cycles_ && *cycles_ == 'y') {
+                char *parsed = NULL;
+                size_t cycle_count = leb16_parse(cycles_+1, &parsed);
+                if (parsed == cycles_+1) {
+                    fprintf(stderr, "error: "
+                            "could not parse test cycles: %s\n",
+                            cycles_);
+                    exit(-1);
+                }
+                cycles_ = parsed;
+
+                powerloss = (test_powerloss_t){
+                        "log",
+                        run_powerloss_log,
+                        NULL,
+                        cycle_count};
+
+            // otherwise explicit power cycles
+            } else if (cycles_) {
                 // parse power cycles
+                lfs_emubd_powercycles_t *cycles = NULL;
+                size_t cycle_count = 0;
                 size_t cycle_capacity = 0;
                 while (*cycles_ != '\0') {
                     char *parsed = NULL;
@@ -2569,6 +2579,12 @@ getopt_done: ;
                     }
                     cycles_ = parsed;
                 }
+
+                powerloss = (test_powerloss_t){
+                        "explicit",
+                        run_powerloss_cycles,
+                        cycles,
+                        cycle_count};
             }
         }
 
@@ -2581,8 +2597,7 @@ getopt_done: ;
             .name = name,
             .defines = defines,
             .define_count = define_count,
-            .cycles = cycles,
-            .cycle_count = cycle_count,
+            .powerloss = powerloss,
         };
     }
 
@@ -2606,7 +2621,7 @@ getopt_done: ;
     if (test_id_capacity) {
         for (size_t i = 0; i < test_id_count; i++) {
             free((void*)test_ids[i].defines);
-            free((void*)test_ids[i].cycles);
+            free((void*)test_ids[i].powerloss.cycles);
         }
         free((void*)test_ids);
     }
