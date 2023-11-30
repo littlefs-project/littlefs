@@ -1,13 +1,13 @@
 # Test the annoying subtle corner cases of directory seeking+reading
 #
-# Note there may be some overlap with test_dtree, since some dir operations
+# Note there may be some overlap with test_dirs, since some dir operations
 # are needed to validate the directory tree works
-after = 'test_dtree'
+after = 'test_dirs'
 
 
 # test some dir functions
 
-[cases.test_dseek_tell]
+[cases.test_dread_tell]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
@@ -58,7 +58,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_rewind]
+[cases.test_dread_rewind]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
@@ -129,7 +129,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_seek]
+[cases.test_dread_seek]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
@@ -202,7 +202,7 @@ code = '''
 
 # test we don't ever get extra entries back after we reach
 # the end of a directory
-[cases.test_dseek_read_idempotent]
+[cases.test_dread_read_idempotent]
 defines.PARENT = [false, true]
 # bit 0x2 = left neighbor
 # bit 0x1 = right neighbor
@@ -289,7 +289,7 @@ code = '''
 '''
 
 # test neighbor changes don't mess with an unrelated dir read
-[cases.test_dseek_read_neighbor_mkdirs]
+[cases.test_dread_read_neighbor_mkdirs]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -410,7 +410,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_read_neighbor_rms]
+[cases.test_dread_read_neighbor_rms]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -541,7 +541,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_read_neighbor_mvs]
+[cases.test_dread_read_neighbor_mvs]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -677,7 +677,7 @@ code = '''
 '''
 
 # test dir read has somewhat reasonable behaviour when the dir is modified
-[cases.test_dseek_read_with_mkdirs]
+[cases.test_dread_read_with_mkdirs]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -772,7 +772,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_read_with_rms]
+[cases.test_dread_read_with_rms]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -871,7 +871,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_read_with_mvs]
+[cases.test_dread_read_with_mvs]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -989,7 +989,7 @@ code = '''
 # dir reads with 2x ops have better chances of catching bugs that depend on
 # invalid dir states
 
-[cases.test_dseek_read_with_2_mkdirs]
+[cases.test_dread_read_with_2_mkdirs]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -1094,7 +1094,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_read_with_2_rms]
+[cases.test_dread_read_with_2_rms]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -1201,7 +1201,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_dseek_read_with_2_mvs]
+[cases.test_dread_read_with_2_mvs]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -1331,7 +1331,7 @@ code = '''
 '''
 
 # test removing the directory we are iterating over
-[cases.test_dseek_read_rm]
+[cases.test_dread_read_rm]
 defines.N = 5
 # where in the dir read do we remove?
 defines.I = 'range(6)'
@@ -1424,7 +1424,7 @@ code = '''
 #
 # This is a useful feature, but it's unintuitive if this should have
 # well-defined behavior, so make sure to test for it
-[cases.test_dseek_recursive_rm]
+[cases.test_dread_recursive_rm]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 # 0 => don't seek
@@ -1546,7 +1546,7 @@ code = '''
 #
 # This is a useful feature, but it's unintuitive if this should have
 # well-defined behavior, so make sure to test for it
-[cases.test_dseek_recursive_mv]
+[cases.test_dread_recursive_mv]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 # 0 => no

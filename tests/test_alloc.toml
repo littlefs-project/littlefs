@@ -7,7 +7,7 @@
 # since you can usually ignore allocator issues temporarily by making the test
 # device really big (-DDISK_SIZE=16777216, etc)
 #
-after = ['test_mtree', 'test_dtree', 'test_files']
+after = ['test_mtree', 'test_dirs', 'test_files']
 
 
 # TODO test all of these with weird block sizes? would be nice to make this
