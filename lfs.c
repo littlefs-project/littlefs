@@ -3528,6 +3528,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 return dsize;
             }
 
+            LFS_ASSERT(weight > 0);
             lower_rid += weight;
             lower_dsize += dsize;
         } else {
@@ -3538,6 +3539,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 return dsize;
             }
 
+            LFS_ASSERT(weight > 0);
             upper_rid -= weight;
             upper_dsize += dsize;
         }
@@ -5593,12 +5595,58 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         return err;
                     }
 
+                    // special case for shrubs, we need to copy these over
+                    if (tag == LFSR_TAG_TRUNK) {
+                        // TODO lfsr_rbyd_appendshrub?
+                        lfsr_rbyd_t shrub = mdir__->rbyd;
+                        err = lfsr_data_readtrunk(lfs, &data,
+                                &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
+                        if (err) {
+                            return err;
+                        }
+
+                        // save our current trunk/weight
+                        lfs_size_t trunk = rbyd_.trunk;
+                        lfsr_srid_t weight = rbyd_.weight;
+
+                        // keep track of the start of our new tree
+                        lfs_size_t off = rbyd_.eoff;
+
+                        // compact our inlined tree
+                        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, true,
+                                -1, -1, &shrub);
+                        if (err) {
+                            return err;
+                        }
+
+                        err = lfsr_rbyd_compact(lfs, &rbyd_, true, off);
+                        if (err) {
+                            return err;
+                        }
+
+                        // restore mdir to the main trunk/weight, write our
+                        // new shrub tag
+                        lfs_swap32(&rbyd_.trunk, &trunk);
+                        lfs_sswap32(&rbyd_.weight, &weight);
+
+                        uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
+                        err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                                rid - lfs_smax32(start_rid, 0),
+                                LFSR_TAG_TRUNK, 0, lfsr_data_fromtrunk(
+                                    trunk, weight,
+                                    trunk_buf));
+                        if (err) {
+                            return err;
+                        }
+
                     // append the attr
-                    err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                            rid - lfs_smax32(start_rid, 0),
-                            tag, 0, data);
-                    if (err) {
-                        return err;
+                    } else {
+                        err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                                rid - lfs_smax32(start_rid, 0),
+                                tag, 0, data);
+                        if (err) {
+                            return err;
+                        }
                     }
                 }
 
@@ -5615,6 +5663,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 //
                 // it is important that these rbyds share eoff/cksum/etc
                 //
+                // TODO does allowing shrub clobbering here save a bit of RAM?
+                lfs_size_t trunk = rbyd_.trunk;
+                lfsr_srid_t weight = rbyd_.weight;
                 rbyd_.trunk = bshrubcommit->bshrub->rbyd_.trunk;
                 rbyd_.weight = bshrubcommit->bshrub->rbyd_.weight;
 
@@ -5630,11 +5681,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     }
                 }
 
-                // revert mdir to main trunk/weight
+                // restore mdir to the main trunk/weight
                 bshrubcommit->bshrub->rbyd_.trunk = rbyd_.trunk;
                 bshrubcommit->bshrub->rbyd_.weight = rbyd_.weight;
-                rbyd_.trunk = mdir->rbyd.trunk;
-                rbyd_.weight = mdir->rbyd.weight;
+                rbyd_.trunk = trunk;
+                rbyd_.weight = weight;
 
             // lazily encode inlined trunks in case they change underneath
             // us due to mdir compactions
