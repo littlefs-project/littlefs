@@ -1862,6 +1862,8 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
 static lfsr_data_t lfsr_data_fromtrunk(lfs_size_t trunk, lfsr_rid_t weight,
         uint8_t buffer[static LFSR_TRUNK_DSIZE]) {
+    // shrub trunks should never be null
+    LFS_ASSERT(trunk != 0);
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
@@ -1890,6 +1892,8 @@ static int lfsr_data_readtrunk(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
+    // shrub trunks should never be null
+    LFS_ASSERT(*trunk != 0);
     return 0;
 }
 
@@ -3267,7 +3271,6 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
                 ((shrub) ? LFSR_TAG_SHRUB : 0) | tag, weight, data);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
     }
@@ -4608,14 +4611,13 @@ typedef struct lfsr_binfo {
 static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_btraversal_t *btraversal,
         lfsr_binfo_t *binfo) {
-    // this shouldn't happen
-    LFS_ASSERT(btree->trunk != 0);
-
     while (true) {
         // in range?
         if (btraversal->bid >= (lfsr_bid_t)btree->weight
                 // make sure we traverse the root even if weight=0
-                && btraversal->branch.trunk != 0) {
+                && (btraversal->branch.trunk != 0
+                    // unless we don't even have a root yet
+                    || btree->trunk == 0)) {
             return LFS_ERR_NOENT;
         }
 
