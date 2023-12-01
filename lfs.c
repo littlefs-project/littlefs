@@ -6950,6 +6950,8 @@ enum {
     LFSR_DID_ROOT = 0,
 };
 
+// TODO this function may need another look over
+//
 // lookup full paths in our mtree
 //
 // if not found, mdir_/did_/name_ will at least be set up
@@ -6960,16 +6962,13 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_,
         lfsr_did_t *did_, const char **name_, lfs_size_t *name_size_) {
     // setup root
-    lfsr_mdir_t mdir;
-    mdir.mid = 0;
+    lfsr_mdir_t mdir = {.mid = 0};
     lfsr_tag_t tag = LFSR_TAG_DIR;
     lfsr_did_t did = LFSR_DID_ROOT;
 
+    // use mid=-1 to indicate we can't even create the path
     if (mdir_) {
-        *mdir_ = mdir;
-    }
-    if (tag_) {
-        *tag_ = tag;
+        mdir_->mid = -1;
     }
     
     // we reduce path to a single name if we can find it
@@ -7013,10 +7012,11 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
 
         // found end of path, we must be done parsing our path now
         if (name[0] == '\0') {
-            // generally we don't allow operations that change our root,
-            // report root as inval, but let upper layers intercept this
-            if (lfsr_mid_isroot(mdir.mid)) {
-                return LFS_ERR_INVAL;
+            if (mdir_) {
+                *mdir_ = mdir;
+            }
+            if (tag_) {
+                *tag_ = tag;
             }
             return 0;
         }
@@ -7048,8 +7048,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             return err;
         }
 
-        // keep track of what we've seen, but only if we're the last name
-        // in our path
+        // keep track of where to insert if we are the last name in our path
         if (strchr(name, '/') == NULL) {
             if (mdir_) {
                 *mdir_ = mdir;
@@ -7068,8 +7067,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             }
         }
 
-        // error if not found, note we update things first so mdir
-        // gets updated with where to insert correctly
+        // error if not found
         if (err == LFS_ERR_NOENT) {
             return LFS_ERR_NOENT;
         }
@@ -8543,11 +8541,11 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, NULL,
             &did, &name, &name_size);
-    if (err && (err != LFS_ERR_NOENT || lfsr_mdir_isroot(&mdir))) {
+    if (err && (err != LFS_ERR_NOENT || mdir.mid == -1)) {
         return err;
     }
 
-    // woah, already exists?
+    // already exists?
     if (err != LFS_ERR_NOENT) {
         return LFS_ERR_EXIST;
     }
@@ -8672,6 +8670,11 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         return err;
     }
 
+    // as funny as it would be, you can't remove the root
+    if (lfsr_mdir_isroot(&mdir)) {
+        return LFS_ERR_INVAL;
+    }
+
     // if we're removing a directory, we need to also remove the
     // bookmark entry
     lfsr_grm_t grm = lfs->grm;
@@ -8759,6 +8762,11 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         return err;
     }
 
+    // as funny as it would be, you can't rename the root
+    if (lfsr_mdir_isroot(&old_mdir)) {
+        return LFS_ERR_INVAL;
+    }
+
     // mark old entry for removal with a grm
     lfsr_grm_t grm = lfs->grm;
     lfsr_grm_pushrm(&grm, old_mdir.mid);
@@ -8772,7 +8780,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     err = lfsr_mtree_pathlookup(lfs, new_path,
             &new_mdir, &new_tag,
             &new_did, &new_name, &new_name_size);
-    if (err && (err != LFS_ERR_NOENT || lfsr_mdir_isroot(&new_mdir))) {
+    if (err && (err != LFS_ERR_NOENT || new_mdir.mid == -1)) {
         return err;
     }
     bool exists = (err != LFS_ERR_NOENT);
@@ -8793,7 +8801,9 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     } else {
         // renaming different types is an error
         if (old_tag != new_tag) {
-            return LFS_ERR_ISDIR;
+            return (new_tag == LFSR_TAG_DIR)
+                    ? LFS_ERR_ISDIR
+                    : LFS_ERR_NOTDIR;
         }
 
         // TODO is it? is this check necessary?
@@ -8953,12 +8963,12 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     int err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, &tag,
             NULL, &name, &name_size);
-    if (err && err != LFS_ERR_INVAL) {
+    if (err) {
         return err;
     }
 
     // special case for root
-    if (err == LFS_ERR_INVAL) {
+    if (lfsr_mdir_isroot(&mdir)) {
         strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
         return 0;
@@ -8975,7 +8985,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     int err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, &tag,
             NULL, NULL, NULL);
-    if (err && err != LFS_ERR_INVAL) {
+    if (err) {
         return err;
     }
 
@@ -8985,7 +8995,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // read our did from the mdir, unless we're root
-    if (err == LFS_ERR_INVAL) {
+    if (lfsr_mdir_isroot(&mdir)) {
         dir->did = 0;
     } else {
         lfsr_data_t data;
@@ -9266,7 +9276,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     int err = lfsr_mtree_pathlookup(lfs, path,
             &file->mdir, &tag,
             &did, &name, &name_size);
-    if (err && err != LFS_ERR_NOENT) {
+    if (err && (err != LFS_ERR_NOENT || file->mdir.mid == -1)) {
         return err;
     }
 
