@@ -9547,7 +9547,11 @@ static int lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t size,
         lfsr_data_t *data_) {
     // past end of file?
-    if (pos >= file->size) {
+    //
+    // note file->size may be out of sync here
+    if (pos >= lfs_max32(
+            buffer_pos + buffer_size,
+            lfsr_file_uweight(file))) {
         return LFS_ERR_NOENT;
     }
 
@@ -10344,16 +10348,13 @@ static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file,
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_ASSERT(lfsr_file_iswriteable(file));
-    // TODO wait, this conflicts with the EFBIG below... should this be
-    // an assert or error?
-    LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
     // would this write make our file larger than our size limit?
     if (size > lfs->size_limit - file->pos) {
         return LFS_ERR_FBIG;
     }
 
-    // size=0 is a bit special and is gauranteed to have no effects on the
+    // size=0 is a bit special and is guaranteed to have no effects on the
     // underlying file, this means no updating file pos or file size
     //
     // since we need to test for this, just return early
@@ -10361,21 +10362,40 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         return 0;
     }
 
+    // checkpoint the allocator
+    lfs_alloc_ack(lfs);
+
     // update pos if we are appending
-    // TODO wait, what does POSIX do here if we've seeked past the eof?
-    if (lfsr_file_isappend(file) && file->pos < file->size) {
+    if (lfsr_file_isappend(file)) {
         file->pos = file->size;
     }
-
-    // TODO is this a good design? how do we abort?
-    // proactively update our file->size, we rely on this internally
-    file->size = lfs_max32(file->size, file->pos + size);
 
     lfs_off_t pos = file->pos;
     const uint8_t *buffer_ = buffer;
     int err;
     while (size > 0) {
-        // TODO skip write buffer sometimes?
+        // bypass write buffer?
+        //
+        // note we flush our buffer before bypassing writes, this isn't
+        // strictly necessary, but enforces a more intuitive write order
+        // and avoids weird cases with low-level write strategies
+        //
+        if (file->buffer_size == 0
+                && size >= lfs->cfg->cache_size) {
+            // TODO can we avoid needing F_UNSYNCED before lfsr_file_flush
+            file->flags |= LFS_F_UNSYNCED;
+
+            err = lfsr_file_flush(lfs, file,
+                    pos, buffer_, size);
+            if (err) {
+                goto failed;
+            }
+
+            pos += size;
+            buffer_ += size;
+            size -= size;
+            continue;
+        }
 
         // try to fill our write buffer
         if (file->buffer_size == 0
@@ -10402,21 +10422,19 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             continue;
         }
 
-        // TODO is this the right place for this?
-        // checkpoint the allocator
-        lfs_alloc_ack(lfs);
-
         // flush our buffer so the above can't fail
         err = lfsr_file_flush(lfs, file,
                 file->buffer_pos, file->buffer, file->buffer_size);
         if (err) {
             goto failed;
         }
+        file->buffer_pos = 0;
         file->buffer_size = 0;
     }
 
     lfs_size_t written = pos - file->pos;
     file->pos = pos;
+    file->size = lfs_max32(file->size, file->pos);
     return written;
 
 failed:;
@@ -10474,6 +10492,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             // TODO wait... can this be handled a bit better up to our
             // fragment size?
             //
+            file->buffer_pos = 0;
             file->buffer_size = 0;
 
             if (file->size > 0) {
@@ -10499,6 +10518,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 if (err) {
                     goto failed;
                 }
+                file->buffer_pos = 0;
                 file->buffer_size = 0;
             }
 
@@ -10599,6 +10619,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     //
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
+    lfs_off_t buffer_pos = lfs_min32(file->buffer_pos, size);
     lfs_size_t buffer_size = lfs_min32(
             file->buffer_size,
             size - lfs_min32(file->buffer_pos, size));
@@ -10622,6 +10643,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             || lfsr_file_uweight(file) > 0);
 
     // update our buffer
+    file->buffer_pos = buffer_pos;
     file->buffer_size = buffer_size;
 
     // update our internal file size
