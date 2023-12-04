@@ -1161,7 +1161,8 @@ static lfsr_data_t lfsr_data_add(lfsr_data_t data, lfs_size_t off) {
 }
 
 static lfsr_data_t lfsr_data_truncate(lfsr_data_t data, lfs_size_t size) {
-    LFS_ASSERT(size <= lfsr_data_size(&data));
+    // limit size to our data range
+    size = lfs_min32(size, lfsr_data_size(&data));
 
     // on-disk? update size
     if (lfsr_data_ondisk(&data)) {
@@ -1188,7 +1189,8 @@ static lfsr_data_t lfsr_data_truncate(lfsr_data_t data, lfs_size_t size) {
 }
 
 static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
-    LFS_ASSERT(size <= lfsr_data_size(&data));
+    // limit size to our data range
+    size = lfs_min32(size, lfsr_data_size(&data));
 
     // lfsr_data_fruncate and lfsr_data_add are basically the same operation
     return lfsr_data_add(data, lfsr_data_size(&data) - size);
@@ -4860,6 +4862,11 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
             }
         }
 
+        // bshrubs need to be manually staged if they aren't in our opened
+        // mdir list, though this is only allowed for new bshrubs due to
+        // mdir compactions
+        bshrub->rbyd_ = bshrub->rbyd;
+
         // commit to shrub
         err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
                 LFSR_ATTR(mdir->mid,
@@ -4869,6 +4876,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
             return err;
         }
 
+        bshrub->rbyd = bshrub->rbyd_;
         bshrub->progged += progged;
     }
 
@@ -9645,52 +9653,61 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         lfsr_tag_t tag, lfsr_data_t data) {
-    // note! we take special care to make sure our btree size doesn't
-    // overflow, even temporarily
+    // Note! This function has some rather special constraints:
+    //
+    // 1. We must never allow our btree size to overflow, even temporarily.
+    //
+    // 2. We must not lose track of bptrs until we no longer need them, to
+    //    prevent incorrect allocation from the block allocator.
+    //
+    // 3. We should avoid copying data fragments as much as possible.
+    //
+    // These requirements end up conflicting a bit...
+    //
+    // The second requirement isn't strictly necessary if we track temporary
+    // copies during file writes, but it is nice to prove this constraint is
+    // possible in case we ever don't track temporary copies. TODO this
+    // currently isn't implemented.
 
     // TODO do we ever create direct bptrs with this strategy?
 
     // always convert to bshrub/btree when this function is called
     if (!lfsr_file_isbshruborbtree(file)) {
-        // note bshrub commits must always be in our opened mdir list
-        //
-        // TODO is this a reasonable design?
-        //
-        lfsr_tag_t tag = 0;
-        lfs_off_t weight;
-        lfsr_data_t data;
-        uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-        // have data?
-        if (lfsr_file_isbsprout(file)) {
-            tag = LFSR_TAG_DATA;
-            weight = lfsr_data_size(&file->u.bsprout.data);
-            data = file->u.bsprout.data;
-
-        // have bptr?
-        } else if (lfsr_file_isbptr(file)) {
-            tag = LFSR_TAG_BLOCK;
-            weight = lfsr_bptr_size(&file->u.bptr);
-            data = lfsr_data_frombptr(&file->u.bptr, bptr_buf);
-        }
-
-        int err = lfsr_bshrub_alloc(lfs, &file->mdir, &file->u.bshrub);
+        lfsr_bshrub_t bshrub;
+        int err = lfsr_bshrub_alloc(lfs, &file->mdir, &bshrub);
         if (err) {
             return err;
         }
 
-        if (tag) {
+        if (lfsr_file_uweight(file) > 0) {
+            uint8_t bptr_buf[LFSR_BPTR_DSIZE];
             err = lfsr_bshrub_commit(lfs,
-                    &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                        LFSR_ATTR(0,
-                            TAG(tag), +weight, DATA(data))));
+                    &file->mdir, &bshrub, LFSR_ATTRS(
+                        (lfsr_file_isbsprout(file))
+                            ? LFSR_ATTR(0,
+                                DATA, +lfsr_file_uweight(file),
+                                DATA(file->u.bsprout.data))
+                            : LFSR_ATTR(0,
+                                BLOCK, +lfsr_file_uweight(file),
+                                FROMBPTR(&file->u.bptr, bptr_buf))));
             if (err) {
                 return err;
             }
         }
+
+        file->u.bshrub = bshrub;
     }
 
+    // TODO adopt this pattern for other scratch attrs
+    //
+    // try to merge commits where possible
+    lfsr_attr_t attrs[3];
+    lfs_size_t attr_count = 0;
+    uint8_t buf[2*LFSR_BPTR_DSIZE];
+    lfs_size_t buf_size = 0;
+
     // try to carve any existing data
-    while (pos < lfsr_file_uweight(file) && weight > 0) {
+    while (pos < lfsr_file_uweight(file)) {
         lfsr_bid_t bid_;
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
@@ -9705,294 +9722,197 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         LFS_ASSERT(tag_ == LFSR_TAG_DATA
                 || tag_ == LFSR_TAG_BLOCK);
 
-        // note an entry can be both a left and right sibling!
+        // note, an entry can be both a left and right sibling
+        lfsr_data_t left_slice_ = lfsr_data_truncate(data_,
+                pos - (bid_-(weight_-1)));
+        lfsr_data_t right_slice_ = lfsr_data_add(data_,
+                pos+weight - (bid_-(weight_-1)));
 
-        // found left sibling?
-        if (pos > bid_-(weight_-1)) {
-            lfs_off_t overlap_ = (bid_+1) - pos;
-            LFS_ASSERT((lfs_soff_t)overlap_ >= 0);
+        // left sibling needs carving but falls underneath our
+        // crystallization threshold? break into fragments
+        while (tag_ == LFSR_TAG_BLOCK
+                && lfsr_data_size(&left_slice_) > lfs->cfg->fragment_size
+                && lfsr_data_size(&left_slice_) <= lfs->cfg->crystal_size) {
+            lfsr_bptr_t bptr_ = {
+                .block = data_.u.disk.block,
+                .off = data_.u.disk.off + lfs->cfg->fragment_size,
+                .size = lfsr_data_size(&data_) - lfs->cfg->fragment_size,
+            };
 
-            lfsr_data_t slice_ = lfsr_data_truncate(data_,
-                    lfs_min32(
-                        weight_ - overlap_,
-                        lfsr_data_size(&data_)));
-
-            // we can get away with a grow attribute in some cases, avoiding
-            // a data copy
-            if (lfsr_data_size(&data_) == lfsr_data_size(&slice_)) {
-                err = lfsr_bshrub_commit(lfs,
-                        &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                GROW, -overlap_, NULL())));
-                if (err) {
-                    return err;
-                }
-
-            // carve bptr?
-            } else if (tag_ == LFSR_TAG_BLOCK
-                    && lfsr_data_size(&slice_) > lfs->cfg->crystal_size) {
-                lfsr_bptr_t bptr_ = {
-                    .block = slice_.u.disk.block,
-                    .off = slice_.u.disk.off,
-                    .size = lfsr_data_size(&slice_),
-                };
-
-                uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-                err = lfsr_bshrub_commit(lfs,
-                        &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                GROW(WIDE(BLOCK)), -overlap_,
-                                FROMBPTR(&bptr_, bptr_buf))));
-                if (err) {
-                    return err;
-                }
-
-            // break into multiple fragments and carve if bptr/fragment is
-            // below our crystal size
-            } else {
-                // write the last fragment first to avoid overflow issues
-                err = lfsr_bshrub_commit(lfs,
-                        &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                GROW(WIDE(DATA)), -overlap_ - lfs_aligndown(
-                                    lfsr_data_size(&slice_)-1,
-                                    lfs->cfg->fragment_size),
-                                DATA(lfsr_data_add(slice_,
-                                    lfs_aligndown(
-                                        lfsr_data_size(&slice_)-1,
-                                        lfs->cfg->fragment_size))))));
-                if (err) {
-                    return err;
-                }
-
-                for (lfs_size_t i = 0;
-                        i < lfs_aligndown(
-                            lfsr_data_size(&slice_)-1,
-                            lfs->cfg->fragment_size);
-                        i += lfs->cfg->fragment_size) {
-                    err = lfsr_bshrub_commit(lfs,
-                            &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                                LFSR_ATTR(bid_-(weight_-1) + i,
-                                    DATA, +lfs->cfg->fragment_size,
-                                    DISK(
-                                        slice_.u.disk.block,
-                                        slice_.u.disk.off + i,
-                                        lfs->cfg->fragment_size))));
-                    if (err) {
-                        return err;
-                    }
-                }
-            }
-
-            // TODO adopt this logic in carveshrub? it avoids a redundant
-            // lookup
-            //
-            // found a split? (left sibing == right sibling)
-            if (overlap_ > weight) {
-                lfs_off_t overlap_ = (pos + weight) - (bid_-(weight_-1));
-                LFS_ASSERT((lfs_soff_t)overlap_ >= 0);
-
-                lfsr_data_t slice_ = lfsr_data_fruncate(data_,
-                        lfsr_data_size(&data_) - lfs_min32(
-                            overlap_,
-                            lfsr_data_size(&data_)));
-
-                // can we coalesce a hole?
-                if (lfsr_data_size(&slice_) == 0) {
-                    delta += bid_+1 - (pos + weight);
-
-                // carve bptr?
-                } else if (tag_ == LFSR_TAG_BLOCK
-                        && lfsr_data_size(&slice_) > lfs->cfg->crystal_size) {
-                    lfsr_bptr_t bptr_ = {
-                        .block = slice_.u.disk.block,
-                        .off = slice_.u.disk.off,
-                        .size = lfsr_data_size(&slice_),
-                    };
-
-                    uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-                    err = lfsr_bshrub_commit(lfs,
-                            &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                                LFSR_ATTR(pos,
-                                    BLOCK, +(weight_ - overlap_),
-                                    FROMBPTR(&bptr_, bptr_buf))));
-                    if (err) {
-                        return err;
-                    }
-
-                // break into multiple fragments and carve if bptr/fragment is
-                // below our crystal size
-                } else {
-                    // TODO can this be simplified a bit?
-                    // write the last fragment first to avoid overflow issues
-                    err = lfsr_bshrub_commit(lfs,
-                            &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                                LFSR_ATTR(pos,
-                                    DATA, +weight_ - overlap_
-                                        - lfs_aligndown(
-                                            lfsr_data_size(&slice_)-1,
-                                            lfs->cfg->fragment_size),
-                                    DATA(lfsr_data_add(slice_,
-                                        lfs_aligndown(
-                                            lfsr_data_size(&slice_)-1,
-                                            lfs->cfg->fragment_size))))));
-                    if (err) {
-                        return err;
-                    }
-
-                    for (lfs_size_t i = 0;
-                            i < lfs_aligndown(
-                                lfsr_data_size(&slice_)-1,
-                                lfs->cfg->fragment_size);
-                            i += lfs->cfg->fragment_size) {
-                        err = lfsr_bshrub_commit(lfs,
-                                &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                                    LFSR_ATTR(pos + i,
-                                        DATA, +lfs->cfg->fragment_size,
-                                        DISK(
-                                            slice_.u.disk.block,
-                                            slice_.u.disk.off + i,
-                                            lfs->cfg->fragment_size))));
-                        if (err) {
-                            return err;
-                        }
-                    }
-                }
-            }
-
-        // found right sibling?
-        } else if (pos + weight < bid_+1) {
-            lfs_off_t overlap_ = (pos + weight) - (bid_-(weight_-1));
-            LFS_ASSERT((lfs_soff_t)overlap_ >= 0);
-
-            lfsr_data_t slice_ = lfsr_data_fruncate(data_,
-                    lfsr_data_size(&data_) - lfs_min32(
-                        overlap_,
-                        lfsr_data_size(&data_)));
-
-            // can we coalesce a hole?
-            if (lfsr_data_size(&slice_) == 0) {
-                delta += bid_+1 - (pos + weight);
-                err = lfsr_bshrub_commit(lfs,
-                        &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                RM, -weight_, NULL())));
-                if (err) {
-                    return err;
-                }
-
-            // carve bptr?
-            } else if (tag_ == LFSR_TAG_BLOCK
-                    && lfsr_data_size(&slice_) > lfs->cfg->crystal_size) {
-                lfsr_bptr_t bptr_ = {
-                    .block = slice_.u.disk.block,
-                    .off = slice_.u.disk.off,
-                    .size = lfsr_data_size(&slice_),
-                };
-
-                uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-                err = lfsr_bshrub_commit(lfs,
-                        &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                GROW(WIDE(BLOCK)), -overlap_,
-                                FROMBPTR(&bptr_, bptr_buf))));
-                if (err) {
-                    return err;
-                }
-
-            // break into multiple fragments and carve if bptr/fragment is
-            // below our crystal size
-            } else {
-                // write the last fragment first to avoid overflow issues
-                err = lfsr_bshrub_commit(lfs,
-                        &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                            LFSR_ATTR(bid_,
-                                GROW(WIDE(DATA)), -overlap_ - lfs_aligndown(
-                                    lfsr_data_size(&slice_)-1,
-                                    lfs->cfg->fragment_size),
-                                DATA(lfsr_data_add(slice_,
-                                    lfs_aligndown(
-                                        lfsr_data_size(&slice_)-1,
-                                        lfs->cfg->fragment_size))))));
-                if (err) {
-                    return err;
-                }
-
-                for (lfs_size_t i = 0;
-                        i < lfs_aligndown(
-                            lfsr_data_size(&slice_)-1,
-                            lfs->cfg->fragment_size);
-                        i += lfs->cfg->fragment_size) {
-                    err = lfsr_bshrub_commit(lfs,
-                            &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                                LFSR_ATTR(bid_-(weight_-1) + i,
-                                    DATA, +lfs->cfg->fragment_size,
-                                    DISK(
-                                        slice_.u.disk.block,
-                                        slice_.u.disk.off + i,
-                                        lfs->cfg->fragment_size))));
-                    if (err) {
-                        return err;
-                    }
-                }
-            }
-
-        // found fully overwritten data?
-        } else {
-            // remove
             err = lfsr_bshrub_commit(lfs,
                     &file->mdir, &file->u.bshrub, LFSR_ATTRS(
                         LFSR_ATTR(bid_,
-                            RM, -weight_, NULL())));
+                            GROW(WIDE(DATA)),
+                                -(weight_ - lfs->cfg->fragment_size),
+                            DATA(lfsr_data_truncate(data_,
+                                lfs->cfg->fragment_size))),
+                        LFSR_ATTR(bid_-(weight_ - lfs->cfg->fragment_size)+1,
+                            BLOCK, +(weight_ - lfs->cfg->fragment_size),
+                            FROMBPTR(&bptr_, buf))));
             if (err) {
                 return err;
+            }
+
+            weight_ -= lfs->cfg->fragment_size;
+            data_ = lfsr_data_add(data_, lfs->cfg->fragment_size);
+            left_slice_ = lfsr_data_truncate(data_,
+                    pos - (bid_-(weight_-1)));
+        }
+
+        // right sibling needs carving but falls underneath our
+        // crystallization threshold? break into fragments
+        while (tag_ == LFSR_TAG_BLOCK
+                && lfsr_data_size(&right_slice_) > lfs->cfg->fragment_size
+                && lfsr_data_size(&right_slice_) <= lfs->cfg->crystal_size) {
+            lfsr_bptr_t bptr_ = {
+                .block = data_.u.disk.block,
+                .off = data_.u.disk.off,
+                .size = lfsr_data_size(&data_) - lfs->cfg->fragment_size,
+            };
+
+            err = lfsr_bshrub_commit(lfs,
+                    &file->mdir, &file->u.bshrub, LFSR_ATTRS(
+                        LFSR_ATTR(bid_,
+                            GROW(WIDE(BLOCK)),
+                                -(weight_ - bptr_.size),
+                            FROMBPTR(&bptr_, buf)),
+                        LFSR_ATTR(bid_-(weight_ - bptr_.size)+1,
+                            DATA, +(weight_ - bptr_.size),
+                            DATA(lfsr_data_fruncate(data_,
+                                lfs->cfg->fragment_size)))));
+            if (err) {
+                return err;
+            }
+
+            bid_ -= (weight_-bptr_.size);
+            weight_ -= (weight_-bptr_.size);
+            data_ = lfsr_data_truncate(data_, bptr_.size);
+            right_slice_ = lfsr_data_add(data_,
+                    pos+weight - (bid_-(weight_-1)));
+        }
+
+        // found left sibling?
+        if (bid_-(weight_-1) < pos) {
+            // can we get away with a grow attribute?
+            if (lfsr_data_size(&data_) == lfsr_data_size(&left_slice_)) {
+                attrs[attr_count++] = LFSR_ATTR(bid_,
+                        GROW, -(bid_+1 - pos), NULL());
+
+            // carve bptr?
+            } else if (tag_ == LFSR_TAG_BLOCK) {
+                lfsr_bptr_t bptr_ = {
+                    .block = left_slice_.u.disk.block,
+                    .off = left_slice_.u.disk.off,
+                    .size = lfsr_data_size(&left_slice_),
+                };
+
+                attrs[attr_count++] = LFSR_ATTR(bid_,
+                        GROW(WIDE(BLOCK)), -(bid_+1 - pos),
+                        FROMBPTR(&bptr_, &buf[buf_size]));
+                buf_size += LFSR_BPTR_DSIZE;
+
+            // carve fragment?
+            } else {
+                attrs[attr_count++] = LFSR_ATTR(bid_,
+                        GROW(WIDE(DATA)), -(bid_+1 - pos),
+                        DATA(left_slice_));
+            }
+
+        // completely overwriting this entry?
+        } else {
+            attrs[attr_count++] = LFSR_ATTR(bid_,
+                    RM, -weight_, NULL());
+        }
+
+        // spans more than one entry? we can't do everything in one commit,
+        // so commit what we have and move on to next entry
+        if (pos+weight > bid_+1) {
+            LFS_ASSERT(lfsr_data_size(&right_slice_) == 0);
+            LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
+            LFS_ASSERT(buf_size <= sizeof(buf));
+
+            err = lfsr_bshrub_commit(lfs,
+                    &file->mdir, &file->u.bshrub,
+                    attrs, attr_count);
+            if (err) {
+                return err;
+            }
+
+            delta += lfs_min32(weight, bid_+1 - pos);
+            weight -= lfs_min32(weight, bid_+1 - pos);
+            attr_count = 0;
+            buf_size = 0;
+            continue;
+        }
+
+        // found right sibling?
+        if (pos+weight < bid_+1) {
+            // can we coalesce a hole?
+            if (lfsr_data_size(&right_slice_) == 0) {
+                delta += bid_+1 - (pos+weight);
+
+            // carve bptr?
+            } else if (tag_ == LFSR_TAG_BLOCK) {
+                lfsr_bptr_t bptr_ = {
+                    .block = right_slice_.u.disk.block,
+                    .off = right_slice_.u.disk.off,
+                    .size = lfsr_data_size(&right_slice_),
+                };
+
+                attrs[attr_count++] = LFSR_ATTR(pos,
+                        BLOCK, +(bid_+1 - (pos+weight)),
+                        FROMBPTR(&bptr_, &buf[buf_size]));
+                buf_size += LFSR_BPTR_DSIZE;
+
+            // carve fragment?
+            } else {
+                attrs[attr_count++] = LFSR_ATTR(pos,
+                        DATA, +(bid_+1 - (pos+weight)),
+                        DATA(right_slice_));
             }
         }
 
         delta += lfs_min32(weight, bid_+1 - pos);
         weight -= lfs_min32(weight, bid_+1 - pos);
+        break;
     }
 
     // need a hole?
-    if (pos > lfsr_file_uweight(file)
-            // if we have no data we can coalesce our hole here
-            || (weight + delta > 0 && lfsr_data_size(&data) == 0)) {
-        lfs_off_t pos_ = lfs_min32(pos, lfsr_file_uweight(file));
-        lfs_off_t hole = pos - pos_
-                + ((lfsr_data_size(&data) == 0) ? weight + delta : 0);
+    if (pos > lfsr_file_uweight(file)) {
+        // can we coalesce?
+        if (lfsr_file_uweight(file) > 0) {
+            attrs[attr_count++] = LFSR_ATTR(lfsr_file_uweight(file)-1,
+                    GROW, +(pos - lfsr_file_uweight(file)), NULL());
 
-        // we can usually get away with a simple grow attribute
-        if (pos_ > 0) {
-            int err = lfsr_bshrub_commit(lfs,
-                    &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                        LFSR_ATTR(pos_-1,
-                            GROW, +hole, NULL())));
-            if (err) {
-                return err;
-            }
-
-        // otherwise we need a hole attr
+        // new hole
         } else {
-            int err = lfsr_bshrub_commit(lfs,
-                    &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                        LFSR_ATTR(pos_,
-                            DATA, +hole, NULL())));
-            if (err) {
-                return err;
-            }
+            attrs[attr_count++] = LFSR_ATTR(lfsr_file_uweight(file),
+                    DATA, +(pos - lfsr_file_uweight(file)), NULL());
         }
     }
 
-    // TODO should both carveshrub and carvetree be optimized so overwriting
-    // a perfectly aligned entry is one tag? -- this is actually very common
-    // since we coalesce one layer up...
-
     // finally append our data
-    if (weight + delta > 0 && lfsr_data_size(&data) != 0) {
+    if (weight + delta > 0) {
+        // can we coalesce a hole?
+        if (pos > 0 && lfsr_data_size(&data) == 0) {
+            attrs[attr_count++] = LFSR_ATTR(pos-1,
+                    GROW, +(weight + delta), NULL());
+
+        // append new data
+        } else {
+            attrs[attr_count++] = LFSR_ATTR(pos,
+                    TAG(tag), +(weight + delta), DATA(data));
+        }
+    }
+
+    // commit pending attrs
+    if (attr_count > 0) {
+        LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
+        LFS_ASSERT(buf_size <= sizeof(buf));
+
         int err = lfsr_bshrub_commit(lfs,
-                &file->mdir, &file->u.bshrub, LFSR_ATTRS(
-                    LFSR_ATTR(pos,
-                        TAG(tag), +(weight + delta), DATA(data))));
+                &file->mdir, &file->u.bshrub,
+                attrs, attr_count);
         if (err) {
             return err;
         }
@@ -10277,10 +10197,8 @@ static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file,
                     datas[0] = lfsr_data_truncate(data_,
                             fragment_start - (bid_-(weight_-1)));
                     datas[1] = lfsr_data_truncate(data,
-                            lfs_min32(
-                                lfsr_data_size(&data),
-                                lfs->cfg->fragment_size
-                                    - (fragment_start - (bid_-(weight_-1)))));
+                            lfs->cfg->fragment_size
+                                - (fragment_start - (bid_-(weight_-1))));
                     data_count = 2;
                     data = lfsr_data_fromcat(datas, data_count);
 
