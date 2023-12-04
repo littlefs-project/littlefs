@@ -10280,17 +10280,20 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         return 0;
     }
 
+    // create a copy and track it so our shrub gets updates
+    lfsr_file_t file_ = *file;
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    int err;
+
     // checkpoint the allocator
     lfs_alloc_ack(lfs);
 
     // update pos if we are appending
-    if (lfsr_file_isappend(file)) {
-        file->pos = file->size;
+    if (lfsr_file_isappend(&file_)) {
+        file_.pos = file_.size;
     }
 
-    lfs_off_t pos = file->pos;
     const uint8_t *buffer_ = buffer;
-    int err;
     while (size > 0) {
         // bypass write buffer?
         //
@@ -10298,64 +10301,83 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write strategies
         //
-        if (file->buffer_size == 0
+        if (file_.buffer_size == 0
                 && size >= lfs->cfg->cache_size) {
             // TODO can we avoid needing F_UNSYNCED before lfsr_file_flush
-            file->flags |= LFS_F_UNSYNCED;
+            file_.flags |= LFS_F_UNSYNCED;
 
-            err = lfsr_file_flush(lfs, file,
-                    pos, buffer_, size);
+            err = lfsr_file_flush(lfs, &file_,
+                    file_.pos, buffer_, size);
             if (err) {
                 goto failed;
             }
 
-            pos += size;
+            file_.pos += size;
             buffer_ += size;
             size -= size;
             continue;
         }
 
         // try to fill our write buffer
-        if (file->buffer_size == 0
-                || (pos >= file->buffer_pos
-                    && pos <= file->buffer_pos + file->buffer_size
-                    && pos < file->buffer_pos + lfs->cfg->cache_size)) {
+        //
+        // This is a bit delicate, since our buffer is shared between our
+        // backup and staging file copies, but note:
+        //
+        // 1. We only write to yet unused buffer memory.
+        //
+        // 2. Bypassing the buffer above means we only write to the
+        //    buffer once, and flush at most twice.
+        //
+        if (file_.buffer_size == 0
+                || (file_.pos >= file_.buffer_pos
+                    && file_.pos <= file_.buffer_pos + file_.buffer_size
+                    && file_.pos < file_.buffer_pos + lfs->cfg->cache_size)) {
             // unused buffer? we can move this where we need it
-            if (file->buffer_size == 0) {
-                file->buffer_pos = pos;
+            if (file_.buffer_size == 0) {
+                file_.buffer_pos = file_.pos;
             }
 
             lfs_size_t d = lfs_min32(
                     size,
-                    lfs->cfg->cache_size - (pos - file->buffer_pos));
-            memcpy(&file->buffer[pos - file->buffer_pos], buffer_, d);
-            file->buffer_size = lfs_max32(
-                    file->buffer_size,
-                    pos+d - file->buffer_pos);
+                    lfs->cfg->cache_size - (file_.pos - file_.buffer_pos));
+            memcpy(&file_.buffer[file_.pos - file_.buffer_pos], buffer_, d);
+            file_.buffer_size = lfs_max32(
+                    file_.buffer_size,
+                    file_.pos+d - file_.buffer_pos);
 
-            pos += d;
+            file_.pos += d;
             buffer_ += d;
             size -= d;
-            file->flags |= LFS_F_UNSYNCED;
+            file_.flags |= LFS_F_UNSYNCED;
             continue;
         }
 
         // flush our buffer so the above can't fail
-        err = lfsr_file_flush(lfs, file,
-                file->buffer_pos, file->buffer, file->buffer_size);
+        err = lfsr_file_flush(lfs, &file_,
+                file_.buffer_pos, file_.buffer, file_.buffer_size);
         if (err) {
             goto failed;
         }
-        file->buffer_pos = 0;
-        file->buffer_size = 0;
+        file_.buffer_pos = 0;
+        file_.buffer_size = 0;
     }
 
-    lfs_size_t written = pos - file->pos;
-    file->pos = pos;
-    file->size = lfs_max32(file->size, file->pos);
+    // update size
+    file_.size = lfs_max32(file_.size, file_.pos);
+
+    // untrack temporary copy
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    // update file and return amount written
+    lfs_size_t written = file_.pos - (
+            (lfsr_file_isappend(&file_)) ? file->size : file->pos);
+    file_.next = file->next;
+    *file = file_;
     return written;
 
 failed:;
+    // untrack temporary copy
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    // mark as errored so lfsr_file_close doesn't write to disk
     file->flags |= LFS_F_ERRORED;
     return err;
 }
@@ -10427,17 +10449,39 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         } else {
             // first make sure to flush our buffer
             //
+            // note that flush does not change the actual file data, so if
+            // flush succeeds but mdir commit fails it's ok to fall back to
+            // our flushed state
+            //
             // TODO can we avoid an extra commit here? this may be too complex
             // to be worth doing...
             //
             if (file->buffer_size > 0) {
-                err = lfsr_file_flush(lfs, file,
-                        file->buffer_pos, file->buffer, file->buffer_size);
+                // TODO dedup into lfsr_file_flush?
+
+                // create a copy and track it so our shrub gets updates
+                lfsr_file_t file_ = *file;
+                lfsr_mdir_addopened(lfs, LFS_TYPE_REG,
+                        (lfsr_openedmdir_t*)&file_);
+
+                // flush
+                err = lfsr_file_flush(lfs, &file_,
+                        file_.buffer_pos, file_.buffer, file_.buffer_size);
                 if (err) {
+                    // make sure to untrack temporary copy
+                    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG,
+                            (lfsr_openedmdir_t*)&file_);
                     goto failed;
                 }
-                file->buffer_pos = 0;
-                file->buffer_size = 0;
+                file_.buffer_pos = 0;
+                file_.buffer_size = 0;
+
+                // untrack temporary copy
+                lfsr_mdir_removeopened(lfs, LFS_TYPE_REG,
+                        (lfsr_openedmdir_t*)&file_);
+                // update file
+                file_.next = file->next;
+                *file = file_;
             }
 
             // now commit our file's metadata
@@ -10527,47 +10571,62 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         return 0;
     }
 
-    // TODO make this recoverable on failure
+    // create a copy and track it so our shrub gets updates
+    lfsr_file_t file_ = *file;
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    int err;
 
     // mark as unsynced before we commit anything
-    file->flags |= LFS_F_UNSYNCED;
+    file_.flags |= LFS_F_UNSYNCED;
 
     // TODO we should also revert to sprout even if data is not already
     // in buffer
     //
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
-    lfs_off_t buffer_pos = lfs_min32(file->buffer_pos, size);
+    lfs_off_t buffer_pos = lfs_min32(file_.buffer_pos, size);
     lfs_size_t buffer_size = lfs_min32(
-            file->buffer_size,
-            size - lfs_min32(file->buffer_pos, size));
+            file_.buffer_size,
+            size - lfs_min32(file_.buffer_pos, size));
     if (buffer_size >= size) {
-        file->u.bsprout = LFSR_FILE_BNULL();
+        file_.u.bsprout = LFSR_FILE_BNULL();
 
-    // TODO, wait, could we just update file->size and leave it to
+    // TODO, wait, could we just update file_.size and leave it to
     // lfsr_file_sync to update the shrub?
     // otherwise, we need to modify our sprout/bptr/bshrub/btree
     } else {
-        int err = lfsr_file_carve(lfs, file,
-                lfs_min32(file->size, size),
-                file->size - lfs_min32(file->size, size),
-                +size - file->size,
+        err = lfsr_file_carve(lfs, &file_,
+                lfs_min32(file_.size, size),
+                file_.size - lfs_min32(file_.size, size),
+                +size - file_.size,
                 LFSR_TAG_DATA, LFSR_DATA_NULL());
         if (err) {
-            return err;
+            goto failed;
         }
     }
-    LFS_ASSERT(!lfsr_file_isbshruborbtree(file)
-            || lfsr_file_uweight(file) > 0);
+    LFS_ASSERT(!lfsr_file_isbshruborbtree(&file_)
+            || lfsr_file_uweight(&file_) > 0);
 
     // update our buffer
-    file->buffer_pos = buffer_pos;
-    file->buffer_size = buffer_size;
+    file_.buffer_pos = buffer_pos;
+    file_.buffer_size = buffer_size;
 
     // update our internal file size
-    file->size = size;
+    file_.size = size;
 
+    // untrack temporary copy
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    // update file
+    file_.next = file->next;
+    *file = file_;
     return 0;
+
+failed:;
+    // untrack temporary copy
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    // mark as errored so lfsr_file_close doesn't write to disk
+    file->flags |= LFS_F_ERRORED;
+    return err;
 }
 
 int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
@@ -10581,21 +10640,24 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         return 0;
     }
 
-    // TODO make this recoverable on failure
+    // create a copy and track it so our shrub gets updates
+    lfsr_file_t file_ = *file;
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    int err;
 
     // mark as unsynced before we commit anything
-    file->flags |= LFS_F_UNSYNCED;
+    file_.flags |= LFS_F_UNSYNCED;
 
     // TODO we should also revert to sprout even if data is not already
     // in buffer
     //
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
-    lfs_size_t buffer_size = file->buffer_size - lfs_min32(
-            lfs_smax32(file->size - size - file->buffer_pos, 0),
-            file->buffer_size);
+    lfs_size_t buffer_size = file_.buffer_size - lfs_min32(
+            lfs_smax32(file_.size - size - file_.buffer_pos, 0),
+            file_.buffer_size);
     if (buffer_size >= size) {
-        file->u.bsprout = LFSR_FILE_BNULL();
+        file_.u.bsprout = LFSR_FILE_BNULL();
 
     // otherwise, we need to modify our sprout/bptr/bshrub/btree
     } else {
@@ -10603,34 +10665,46 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         // merged somehow?
         //
         // revert shrubs if they go to zero
-        if ((lfs_soff_t)(file->size - size)
-                >= (lfs_soff_t)lfsr_file_uweight(file)) {
-            file->u.bsprout = LFSR_FILE_BNULL();
+        if ((lfs_soff_t)(file_.size - size)
+                >= (lfs_soff_t)lfsr_file_uweight(&file_)) {
+            file_.u.bsprout = LFSR_FILE_BNULL();
         } else {
-            int err = lfsr_file_carve(lfs, file,
+            err = lfsr_file_carve(lfs, &file_,
                     0,
-                    lfs_smax32(file->size - size, 0),
-                    +size - file->size,
+                    lfs_smax32(file_.size - size, 0),
+                    +size - file_.size,
                     LFSR_TAG_DATA, LFSR_DATA_NULL());
             if (err) {
-                return err;
+                goto failed;
             }
         }
     }
-    LFS_ASSERT(!lfsr_file_isbshruborbtree(file)
-            || lfsr_file_uweight(file) > 0);
+    LFS_ASSERT(!lfsr_file_isbshruborbtree(&file_)
+            || lfsr_file_uweight(&file_) > 0);
 
     // update our buffer
-    file->buffer_pos -= lfs_smin32(file->size - size, file->buffer_pos);
-    memmove(file->buffer,
-            file->buffer + (file->buffer_size - buffer_size),
+    file_.buffer_pos -= lfs_smin32(file_.size - size, file_.buffer_pos);
+    memmove(file_.buffer,
+            file_.buffer + (file_.buffer_size - buffer_size),
             buffer_size);
-    file->buffer_size = buffer_size;
+    file_.buffer_size = buffer_size;
 
     // update our internal file size
-    file->size = size;
+    file_.size = size;
 
+    // untrack temporary copy
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    // update file
+    file_.next = file->next;
+    *file = file_;
     return 0;
+
+failed:;
+    // untrack temporary copy
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&file_);
+    // mark as errored so lfsr_file_close doesn't write to disk
+    file->flags |= LFS_F_ERRORED;
+    return err;
 }
 
 
