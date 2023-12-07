@@ -3173,26 +3173,19 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // create a copy and mark rbyd as unerased in case of failure
-    lfsr_rbyd_t rbyd_ = *rbyd;
-    rbyd->eoff = -1;
-
     // append each tag to the tree
-    for (lfs_size_t i = 0; i < attr_count; i++) {
-        int err = lfsr_rbyd_appendattr(lfs, &rbyd_, attrs[i].rid,
-                attrs[i].tag, attrs[i].delta, attrs[i].data);
-        if (err) {
-            return err;
-        }
-    }
-
-    // append a cksum, finalizing the commit
-    int err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
+    int err = lfsr_rbyd_appendattrs(lfs, rbyd, -1, -1,
+            attrs, attr_count);
     if (err) {
         return err;
     }
 
-    *rbyd = rbyd_;
+    // append a cksum, finalizing the commit
+    err = lfsr_rbyd_appendcksum(lfs, rbyd);
+    if (err) {
+        return err;
+    }
+
     return 0;
 }
 
@@ -4487,29 +4480,16 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
     // needs a new root?
     if (attr_count > 0) {
-        // TODO do we need to be this careful with backup copies?
-        lfsr_rbyd_t rbyd;
-        err = lfsr_rbyd_alloc(lfs, &rbyd);
+        err = lfsr_rbyd_alloc(lfs, btree);
         if (err) {
             return err;
         }
 
-        // TODO should we just use rbyd commit? it allocates _another_ 
-        // redundant copy which is a bit much...
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd, -1, -1,
-                attrs, attr_count);
+        err = lfsr_rbyd_commit(lfs, btree, attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
-
-        err = lfsr_rbyd_appendcksum(lfs, &rbyd);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        *btree = rbyd;
     }
 
     LFS_ASSERT(btree->trunk != 0);
@@ -4836,18 +4816,17 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         // block_size and rbyds interact, and amortizes the estimate cost.
 
         // figure out how much data this commit progs
-        lfs_size_t progged = 0;
         for (lfs_size_t i = 0; i < attr_count; i++) {
             // only include tag overhead if tag is not a grow tag
             if (!lfsr_tag_isgrow(attrs[i].tag)) {
-                progged += LFSR_ATTR_ESTIMATE;
+                bshrub->progged += LFSR_ATTR_ESTIMATE;
             }
-            progged += lfsr_data_size(&attrs[i].data);
+            bshrub->progged += lfsr_data_size(&attrs[i].data);
         }
 
         // does progged exceed our shrub_size? need to recalculate an
         // accurate our estimate?
-        if (bshrub->progged + progged > lfs->cfg->shrub_size) {
+        if (bshrub->progged > lfs->cfg->shrub_size) {
             lfs_ssize_t estimate = lfsr_rbyd_estimate(lfs,
                     &bshrub->rbyd, -1, -1, NULL);
             if (estimate < 0) {
@@ -4870,17 +4849,12 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         if (err) {
             return err;
         }
-
-        bshrub->progged += progged;
     }
 
     LFS_ASSERT(bshrub->rbyd.trunk != 0);
     return 0;
 
 evict:;
-    // TODO am I missing a simpler function here? at least use
-    // lfsr_rbyd_commit once it doesn't maintain a copy...
-
     // convert to btree
     err = lfsr_rbyd_alloc(lfs, &bshrub->rbyd_);
     if (err) {
@@ -4901,14 +4875,8 @@ evict:;
         return err;
     }
 
-    err = lfsr_rbyd_appendattrs(lfs, &bshrub->rbyd_, -1, -1,
+    err = lfsr_rbyd_commit(lfs, &bshrub->rbyd_,
             attrs, attr_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
-    err = lfsr_rbyd_appendcksum(lfs, &bshrub->rbyd_);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
