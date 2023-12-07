@@ -6007,6 +6007,17 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         }
     }
 
+    // once we've compacted, finish our commit
+    //
+    // upper layers should make sure this can't fail by limiting the
+    // maximum commit size
+    err = lfsr_mdir_commit__(lfs, mdir_, start_rid, end_rid,
+            attrs, attr_count);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
     return 0;
 }
 
@@ -6050,25 +6061,14 @@ compact:;
     }
 
     // compact our mdir
-    err = lfsr_mdir_compact__(lfs, &mdir_, start_rid, end_rid, mdir,
-            attrs, attr_count);
+    err = lfsr_mdir_compact__(lfs, &mdir_, start_rid, end_rid,
+            mdir, attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
-    // we've compacted, try to commit again
-    //
-    // upper layers should make sure this can't fail by limiting the
-    // maximum commit size
     *mdir = mdir_;
-    err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
-            attrs, attr_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
     return 0;
 }
 
@@ -6542,15 +6542,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        err = lfsr_mdir_compact__(lfs, &mdir_, 0, split_rid, mdir,
-                attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid,
-                attrs, attr_count);
+        err = lfsr_mdir_compact__(lfs, &mdir_, 0, split_rid,
+                mdir, attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -6562,15 +6555,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        err = lfsr_mdir_compact__(lfs, &msibling_, split_rid, -1, mdir,
-                attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1,
-                attrs, attr_count);
+        err = lfsr_mdir_compact__(lfs, &msibling_, split_rid, -1,
+                mdir, attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
