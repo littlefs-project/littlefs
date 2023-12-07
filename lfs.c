@@ -3230,14 +3230,14 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->eoff += lfsr_data_size(&data);
 
     // keep track of the total weight, the rbyd is in an unusable
-    // state until lfsr_rbyd_compact anyways
+    // state until lfsr_rbyd_appendcompaction anyways
     rbyd->weight += weight;
 
     return 0;
 }
 
-static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        bool shrub,
+static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs,
+        lfsr_rbyd_t *rbyd_, bool isshrub,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_rbyd_t *rbyd) {
     // copy over tags in the rbyd in order
@@ -3264,7 +3264,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
         // write the tag
         err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-                ((shrub) ? LFSR_TAG_SHRUB : 0) | tag, weight, data);
+                ((isshrub) ? LFSR_TAG_SHRUB : 0) | tag, weight, data);
         if (err) {
             return err;
         }
@@ -3273,12 +3273,14 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     return 0;
 }
 
-static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        bool shrub, lfs_size_t off) {
+static int lfsr_rbyd_appendcompaction(lfs_t *lfs,
+        lfsr_rbyd_t *rbyd, bool isshrub,
+        lfs_size_t off) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
-    // offset must be after the revision count
-    LFS_ASSERT(off >= sizeof(uint32_t));
+
+    // clamp offset to be after the revision count
+    off = lfs_max32(off, sizeof(uint32_t));
 
     // make sure every rbyd starts with a revision count
     if (rbyd->eoff == 0) {
@@ -3291,7 +3293,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // empty rbyd? write a null tag so our trunk can still point to something
     if (rbyd->eoff == off) {
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                shrub ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
+                (isshrub) ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
                 &rbyd->cksum);
         if (d < 0) {
             return d;
@@ -3335,7 +3337,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     // ignore shrub trunks, unless we are actually compacting
                     // a shrub tree
-                    if (!shrub && lfsr_tag_isshrub(tag__)) {
+                    if (!isshrub && lfsr_tag_isshrub(tag__)) {
                         trunk = off;
                         weight = 0;
                         continue;
@@ -3378,7 +3380,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // terminate with a null tag
             lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                    shrub ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
+                    (isshrub) ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
                     &rbyd->cksum);
             if (d < 0) {
                 return d;
@@ -3394,6 +3396,38 @@ done:;
     // after compaction. Leave this to upper layers to take care of this.
     rbyd->trunk = layer;
     rbyd->weight = weight;
+
+    return 0;
+}
+
+static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+        const lfsr_rbyd_t *rbyd,
+        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    // append rbyd
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_, false,
+            -1, -1, rbyd);
+    if (err) {
+        return err;
+    }
+
+    // compact
+    err = lfsr_rbyd_appendcompaction(lfs, rbyd_, false, 0);
+    if (err) {
+        return err;
+    }
+
+    // append a commit
+    err = lfsr_rbyd_appendattrs(lfs, rbyd_, -1, -1,
+            attrs, attr_count);
+    if (err) {
+        return err;
+    }
+
+    // append a cksum, finalizing the commit
+    err = lfsr_rbyd_appendcksum(lfs, rbyd_);
+    if (err) {
+        return err;
+    }
 
     return 0;
 }
@@ -3435,6 +3469,28 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         if (err) {
             return err;
         }
+    }
+
+    return 0;
+}
+
+// append a secondary "shrub" tree
+static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        const lfsr_rbyd_t *shrub) {
+    // keep track of the start of the new tree
+    lfs_size_t off = rbyd->eoff;
+
+    // compact our shrub
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, true,
+            -1, -1, shrub);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_rbyd_appendcompaction(lfs, rbyd, true,
+            off);
+    if (err) {
+        return err;
     }
 
     return 0;
@@ -4180,13 +4236,14 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         }
 
         // try to compact
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, false, -1, -1, &rbyd);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, false,
+                -1, -1, &rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &rbyd_, false, sizeof(uint32_t));
+        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, false, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4234,7 +4291,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &rbyd_, false, sizeof(uint32_t));
+        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, false, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4266,7 +4323,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &sibling, false, sizeof(uint32_t));
+        err = lfsr_rbyd_appendcompaction(lfs, &sibling, false, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4371,7 +4428,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &rbyd_, false, sizeof(uint32_t));
+        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, false, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4861,22 +4918,8 @@ evict:;
         return err;
     }
 
-    err = lfsr_rbyd_appendcompactrbyd(lfs, &bshrub->rbyd_, false,
-            -1, -1, &bshrub->rbyd);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
-    err = lfsr_rbyd_compact(lfs, &bshrub->rbyd_, false,
-            sizeof(uint32_t));
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
-    err = lfsr_rbyd_commit(lfs, &bshrub->rbyd_,
-            attrs, attr_count);
+    err = lfsr_rbyd_compact(lfs, &bshrub->rbyd_,
+            &bshrub->rbyd, attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -5585,17 +5628,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         lfs_size_t trunk = rbyd_.trunk;
                         lfsr_srid_t weight = rbyd_.weight;
 
-                        // keep track of the start of our new tree
-                        lfs_size_t off = rbyd_.eoff;
-
-                        // compact our inlined tree
-                        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, true,
-                                -1, -1, &shrub);
-                        if (err) {
-                            return err;
-                        }
-
-                        err = lfsr_rbyd_compact(lfs, &rbyd_, true, off);
+                        // compact our shrub
+                        err = lfsr_rbyd_appendshrub(lfs, &rbyd_, &shrub);
                         if (err) {
                             return err;
                         }
@@ -5737,11 +5771,11 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_mdir_t *mdir,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // this is basically the same as lfsr_rbyd_appendcompactrbyd +
-    // lfsr_rbyd_compact, but with special handling for inlined trees.
+    // this is basically the same as lfsr_rbyd_compact, but with special
+    // handling for inlined trees.
     //
-    // it's really tempting to deduplicate this via recursion! but we can't
-    // do that here
+    // it's really tempting to deduplicate this via recursion! but we
+    // can't do that here
     //
     // TODO this true?
     // note that any inlined updates here depend on the pre-commit state
@@ -5812,18 +5846,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 return err;
             }
 
-            // keep track of the start of our new tree
-            lfs_size_t off = mdir_->rbyd.eoff;
-
-            // compact our inlined tree
-            err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->rbyd, true,
-                    -1, -1, &shrub);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_rbyd_compact(lfs, &mdir_->rbyd, true, off);
+            // compact our shrub
+            err = lfsr_rbyd_appendshrub(lfs, &mdir_->rbyd, &shrub);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5866,7 +5890,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         }
     }
 
-    int err = lfsr_rbyd_compact(lfs, &mdir_->rbyd, false, sizeof(uint32_t));
+    int err = lfsr_rbyd_appendcompaction(lfs, &mdir_->rbyd, false, 0);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -5889,21 +5913,13 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             const lfsr_bshrubcommit_t *bshrubcommit
                     = (const lfsr_bshrubcommit_t*)
                         attrs[i].data.u.buf.buffer;
-            // save our current off/trunk/weight
-            lfs_size_t off = mdir_->rbyd.eoff;
+            // save our current trunk/weight
             lfs_size_t trunk = mdir_->rbyd.trunk;
             lfsr_srid_t weight = mdir_->rbyd.weight;
 
             // compact our shrub
-            err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->rbyd, true,
-                    -1, -1,
+            err = lfsr_rbyd_appendshrub(lfs, &mdir_->rbyd,
                     &bshrubcommit->bshrub->rbyd);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_rbyd_compact(lfs, &mdir_->rbyd, true, off);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5947,21 +5963,13 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
             // inlined shrub?
             } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
-                // save our current off/trunk/weight
-                lfs_size_t off = mdir_->rbyd.eoff;
+                // save our current trunk/weight
                 lfs_size_t trunk = mdir_->rbyd.trunk;
                 lfsr_srid_t weight = mdir_->rbyd.weight;
 
                 // compact our shrub
-                err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->rbyd, true,
-                        -1, -1,
+                err = lfsr_rbyd_appendshrub(lfs, &mdir_->rbyd,
                         &file->ftree.u.bshrub.rbyd);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-
-                err = lfsr_rbyd_compact(lfs, &mdir_->rbyd, true, off);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
@@ -6195,8 +6203,7 @@ static int lfsr_mroot_commit(lfs_t *lfs,
             }
         }
 
-        err = lfsr_rbyd_compact(lfs, &mrootanchor_.rbyd, false,
-                sizeof(uint32_t));
+        err = lfsr_rbyd_appendcompaction(lfs, &mrootanchor_.rbyd, false, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
