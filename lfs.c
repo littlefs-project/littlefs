@@ -5265,7 +5265,7 @@ static inline bool lfsr_ftree_isbtree(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
 static inline bool lfsr_ftree_isbshruborbtree(const lfsr_ftree_t *ftree);
 static inline lfs_off_t lfsr_ftree_size(const lfsr_ftree_t *ftree);
-static inline bool lfsr_file_isunsynced(const lfsr_file_t *file);
+static inline bool lfsr_o_isunsynced(uint32_t flags);
 
 static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_srid_t rid) {
@@ -5330,7 +5330,7 @@ static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
             opened = opened->next) {
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // belongs to our mdir?
-        if (lfsr_file_isunsynced(file)
+        if (lfsr_o_isunsynced(file->flags)
                 && lfsr_mdir_cmp(&file->mdir, mdir) == 0) {
             // inlined sprout?
             if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
@@ -5954,7 +5954,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             opened = opened->next) {
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // belongs to our mdir?
-        if (lfsr_file_isunsynced(file)
+        if (lfsr_o_isunsynced(file->flags)
                 && lfsr_mdir_cmp(&file->mdir, mdir) == 0
                 && lfsr_mdir_rid(lfs, &file->mdir) >= start_rid
                 && (lfsr_rid_t)lfsr_mdir_rid(lfs, &file->mdir)
@@ -9261,76 +9261,44 @@ static inline lfs_off_t lfsr_ftree_size(const lfsr_ftree_t *ftree) {
             & ~LFSR_FTREE_ISNULLORBSPROUTORBPTR;
 }
 
-// flags
-static inline bool lfsr_flags_isreadable(uint32_t flags) {
+// flag things
+static inline bool lfsr_o_isreadable(uint32_t flags) {
     return (flags & LFS_O_RDONLY) == LFS_O_RDONLY;
 }
 
-static inline bool lfsr_flags_iswriteable(uint32_t flags) {
+static inline bool lfsr_o_iswriteable(uint32_t flags) {
     return (flags & LFS_O_WRONLY) == LFS_O_WRONLY;
 }
 
-static inline bool lfsr_flags_iscreat(uint32_t flags) {
+static inline bool lfsr_o_iscreat(uint32_t flags) {
     return flags & LFS_O_CREAT;
 }
 
-static inline bool lfsr_flags_isexcl(uint32_t flags) {
+static inline bool lfsr_o_isexcl(uint32_t flags) {
     return flags & LFS_O_EXCL;
 }
 
-static inline bool lfsr_flags_istrunc(uint32_t flags) {
+static inline bool lfsr_o_istrunc(uint32_t flags) {
     return flags & LFS_O_TRUNC;
 }
 
-static inline bool lfsr_flags_isappend(uint32_t flags) {
+static inline bool lfsr_o_isappend(uint32_t flags) {
     return flags & LFS_O_APPEND;
 }
 
-static inline bool lfsr_flags_isunsynced(uint32_t flags) {
+static inline bool lfsr_o_isunsynced(uint32_t flags) {
     return flags & LFS_F_UNSYNCED;
 }
 
-static inline bool lfsr_flags_iserrored(uint32_t flags) {
+static inline bool lfsr_o_iserrored(uint32_t flags) {
     return flags & LFS_F_ERRORED;
 }
 
-static inline bool lfsr_file_isreadable(const lfsr_file_t *file) {
-    return lfsr_flags_isreadable(file->flags);
-}
-
-static inline bool lfsr_file_iswriteable(const lfsr_file_t *file) {
-    return lfsr_flags_iswriteable(file->flags);
-}
-
-static inline bool lfsr_file_iscreat(const lfsr_file_t *file) {
-    return lfsr_flags_iscreat(file->flags);
-}
-
-static inline bool lfsr_file_isexcl(const lfsr_file_t *file) {
-    return lfsr_flags_isexcl(file->flags);
-}
-
-static inline bool lfsr_file_istrunc(const lfsr_file_t *file) {
-    return lfsr_flags_istrunc(file->flags);
-}
-
-static inline bool lfsr_file_isappend(const lfsr_file_t *file) {
-    return lfsr_flags_isappend(file->flags);
-}
-
-static inline bool lfsr_file_isunsynced(const lfsr_file_t *file) {
-    return lfsr_flags_isunsynced(file->flags);
-}
-
-static inline bool lfsr_file_iserrored(const lfsr_file_t *file) {
-    return lfsr_flags_iserrored(file->flags);
-}
-
-
+// file operations
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg) {
-    if (lfsr_flags_iswriteable(flags)) {
+    if (lfsr_o_iswriteable(flags)) {
         // prepare our filesystem for writing
         int err = lfsr_fs_preparemutation(lfs);
         if (err) {
@@ -9360,10 +9328,10 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     // creating a new entry?
     if (err == LFS_ERR_NOENT) {
-        if (!lfsr_flags_iscreat(flags)) {
+        if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
-        LFS_ASSERT(lfsr_flags_iswriteable(flags));
+        LFS_ASSERT(lfsr_o_iswriteable(flags));
 
         // check that name fits
         if (name_size > lfs->name_limit) {
@@ -9385,7 +9353,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return err;
         }
     } else {
-        if (lfsr_flags_isexcl(flags)) {
+        if (lfsr_o_isexcl(flags)) {
             // oh, we really wanted to create a new entry
             return LFS_ERR_EXIST;
         }
@@ -9397,7 +9365,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // if we're truncating don't bother to read any state, we're
         // just going to truncate after all
-        if (!lfsr_flags_istrunc(flags)) {
+        if (!lfsr_o_istrunc(flags)) {
             // read any inlined state
             lfsr_tag_t tag;
             lfsr_data_t data;
@@ -10296,7 +10264,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
 // our high-level file operations
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_file_isreadable(file));
+    LFS_ASSERT(lfsr_o_isreadable(file->flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
     lfs_off_t pos = file->pos;
@@ -10337,7 +10305,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_file_iswriteable(file));
+    LFS_ASSERT(lfsr_o_iswriteable(file->flags));
 
     // would this write make our file larger than our size limit?
     if (size > lfs->size_limit - file->pos) {
@@ -10363,7 +10331,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     lfs_alloc_ack(lfs);
 
     // update pos if we are appending
-    if (lfsr_file_isappend(file)) {
+    if (lfsr_o_isappend(file->flags)) {
         pos_ = file->size;
     }
 
@@ -10434,7 +10402,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     // mark as unsynced, update file, and return amount written
     lfs_size_t written = pos_ - (
-            (lfsr_file_isappend(file)) ? file->size : file->pos);
+            (lfsr_o_isappend(file->flags)) ? file->size : file->pos);
     file->flags |= LFS_F_UNSYNCED;
     file->pos = pos_;
     file->size = lfs_max32(file->size, pos_);
@@ -10450,7 +10418,7 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    if (lfsr_file_iserrored(file)) {
+    if (lfsr_o_iserrored(file->flags)) {
         // it's not safe to do anything if our file errored
         return 0;
     }
@@ -10461,12 +10429,12 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // do nothing if our file is readonly
-    if (!lfsr_file_iswriteable(file)) {
+    if (!lfsr_o_iswriteable(file->flags)) {
         return 0;
     }
 
     int err;
-    if (lfsr_file_isunsynced(file)) {
+    if (lfsr_o_isunsynced(file->flags)) {
         // TODO what if buffer_size > inlined_size?
         // TODO should we also update file to be unbuffered after syncing
         // inlined data?
