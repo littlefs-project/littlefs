@@ -9553,45 +9553,8 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
     }
 }
 
-static int lfsr_ftree_readnext(lfs_t *lfs,
-        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
-        lfs_off_t pos, lfs_off_t size,
-        lfsr_data_t *data_) {
-    lfsr_bid_t bid;
-    lfsr_tag_t tag;
-    lfsr_bid_t weight;
-    lfsr_data_t data;
-    int err = lfsr_ftree_lookupnext(lfs, mdir, ftree, pos,
-            &bid, &tag, &weight, &data);
-    if (err) {
-        return err;
-    }
-
-    if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
-        // note one important side-effect here is any reads to this
-        // data get a strict read hint
-        lfs_off_t d = lfs_min32(
-                size,
-                lfsr_data_size(&data) - (pos - (bid-(weight-1))));
-        if (data_) {
-            *data_ = LFSR_DATA_DISK(
-                    data.u.disk.block,
-                    data.u.disk.off + (pos - (bid-(weight-1))),
-                    d);
-        }
-        return 0;
-    }
-
-    // found a hole, just make sure next leaf takes priority
-    lfs_off_t d = lfs_min32(size, bid+1 - pos);
-    if (data_) {
-        *data_ = LFSR_DATA_HOLE(d);
-    }
-    return 0;
-}
-
 // read buffered
-static int lfsr_ftree_bufferedreadnext(lfs_t *lfs,
+static int lfsr_ftree_readnext(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
         lfs_off_t buffer_pos, const uint8_t *buffer, lfs_size_t buffer_size,
         lfs_off_t pos, lfs_off_t size,
@@ -9624,24 +9587,34 @@ static int lfsr_ftree_bufferedreadnext(lfs_t *lfs,
 
     // any data on disk?
     if (pos < lfsr_ftree_size(ftree)) {
+        lfsr_bid_t bid;
+        lfsr_tag_t tag;
+        lfsr_bid_t weight;
         lfsr_data_t data;
-        int err = lfsr_ftree_readnext(lfs, mdir, ftree, pos, d,
-                &data);
+        int err = lfsr_ftree_lookupnext(lfs, mdir, ftree, pos,
+                &bid, &tag, &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
-        // found data?
-        if (!lfsr_data_ishole(&data)) {
+        if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
+            // note one important side-effect here is any reads to this
+            // data get a strict read hint
+            d = lfs_min32(
+                    d,
+                    lfsr_data_size(&data) - (pos - (bid-(weight-1))));
             if (data_) {
-                *data_ = data;
+                *data_ = LFSR_DATA_DISK(
+                        data.u.disk.block,
+                        data.u.disk.off + (pos - (bid-(weight-1))),
+                        d);
             }
             return 0;
         }
 
         // found a hole, just make sure next leaf takes priority
-        d = lfs_min32(d, lfsr_data_size(&data));
+        d = lfs_min32(d, bid+1 - pos);
     }
 
     // found a hole?
@@ -10097,7 +10070,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
             lfs_off_t pos_ = block_start;
             while (pos_ < block_end) {
                 lfsr_data_t data;
-                err = lfsr_ftree_bufferedreadnext(lfs, mdir, ftree,
+                err = lfsr_ftree_readnext(lfs, mdir, ftree,
                         buffer_pos, buffer, buffer_size,
                         pos_, block_end - pos_,
                         &data);
@@ -10272,7 +10245,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
     while (size > 0) {
         // find a data/hole
         lfsr_data_t data;
-        int err = lfsr_ftree_bufferedreadnext(lfs,
+        int err = lfsr_ftree_readnext(lfs,
                 &file->mdir, &file->ftree,
                 file->buffer_pos, file->buffer, file->buffer_size,
                 pos, size,
