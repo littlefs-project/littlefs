@@ -2016,7 +2016,7 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
 
 // predeclare block allocator functions
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block);
-static void lfs_alloc_ack(lfs_t *lfs);
+static void lfs_alloc_ckpoint(lfs_t *lfs);
 
 
 /// Red-black-yellow Dhara tree operations ///
@@ -8310,11 +8310,11 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
 /// Block allocator ///
 
-// Allocations should call this when all allocated blocks are committed to the
-// filesystem, either in the mtree or in tracked mdirs. After an ack, the block
-// allocator may realloc any untracked blocks.
-static void lfs_alloc_ack(lfs_t *lfs) {
-    lfs->lookahead.acked = lfs->cfg->block_count;
+// Allocations should call this when all allocated blocks are committed to
+// the filesystem, either in the mtree or in tracked mdirs. After a
+// checkpoint, the block allocator may realloc any untracked blocks.
+static void lfs_alloc_ckpoint(lfs_t *lfs) {
+    lfs->lookahead.ckpoint = lfs->cfg->block_count;
 }
 
 static inline void lfs_alloc_setinuse(lfs_t *lfs, lfs_block_t block) {
@@ -8338,10 +8338,10 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
                         % lfs->cfg->block_count;
 
                 // eagerly find next free block to maximize how many blocks
-                // lfs_alloc_ack makes available for scanning
+                // lfs_alloc_ckpoint makes available for scanning
                 while (true) {
                     lfs->lookahead.next += 1;
-                    lfs->lookahead.acked -= 1;
+                    lfs->lookahead.ckpoint -= 1;
 
                     if (lfs->lookahead.next >= lfs->lookahead.size
                             || !(lfs->lookahead.buffer[lfs->lookahead.next / 8]
@@ -8352,17 +8352,17 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             }
 
             lfs->lookahead.next += 1;
-            lfs->lookahead.acked -= 1;
+            lfs->lookahead.ckpoint -= 1;
         }
 
         // In order to keep our block allocator from spinning forever when our
         // filesystem is full, we mark points where there are no in-flight
-        // allocations with an "ack" before starting a set of allocaitons.
+        // allocations with a checkpoint before starting a set of allocaitons.
         //
-        // If we've looked at all blocks since the last ack, we report the
-        // filesystem as out of storage.
+        // If we've looked at all blocks since the last checkpoint, we report
+        // the filesystem as out of storage.
         //
-        if (lfs->lookahead.acked <= 0) {
+        if (lfs->lookahead.ckpoint <= 0) {
             LFS_ERROR("No more free space 0x%"PRIx32,
                     (lfs->lookahead.start + lfs->lookahead.next)
                         % lfs->cfg->block_count);
@@ -8373,13 +8373,13 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         // unused blocks in the next lookahead window.
         //
         // note we limit the lookahead window to at most the amount of blocks
-        // acked, this prevents the above math from underflowing
+        // checkpointed, this prevents the above math from underflowing
         //
         lfs->lookahead.start += lfs->lookahead.size;
         lfs->lookahead.next = 0;
         lfs->lookahead.size = lfs_min32(
                 8*lfs->cfg->lookahead_size,
-                lfs->lookahead.acked);
+                lfs->lookahead.ckpoint);
         memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
 
         // traverse the filesystem, building up knowledge of what blocks are
@@ -8533,7 +8533,7 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 
 static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // checkpoint the allocator
-    lfs_alloc_ack(lfs);
+    lfs_alloc_ckpoint(lfs);
 
     // fix pending grms
     bool pl = false;
@@ -8548,7 +8548,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
 
         // checkpoint the allocator again since fixgrm completed
         // some work
-        lfs_alloc_ack(lfs);
+        lfs_alloc_ckpoint(lfs);
     }
 
     // fix orphaned mdirs
@@ -8568,7 +8568,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
 
         // checkpoint the allocator again since fixorphans completed
         // some work
-        lfs_alloc_ack(lfs);
+        lfs_alloc_ckpoint(lfs);
     }
 
     if (pl) {
@@ -10287,7 +10287,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     int err;
 
     // checkpoint the allocator
-    lfs_alloc_ack(lfs);
+    lfs_alloc_ckpoint(lfs);
 
     // update pos if we are appending
     if (lfsr_o_isappend(file->flags)) {
@@ -10400,7 +10400,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
         // TODO is this the right place for this?
         // checkpoint the allocator
-        lfs_alloc_ack(lfs);
+        lfs_alloc_ckpoint(lfs);
 
         // does buffer contain the entire file? we can create a simple
         // inlined file in that case
@@ -14116,7 +14116,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->lookahead.start = 0;
     lfs->lookahead.size = 0;
     lfs->lookahead.next = 0;
-    lfs->lookahead.acked = 0;
+    lfs->lookahead.ckpoint = 0;
 
     // check that the size limits are sane
     LFS_ASSERT(lfs->cfg->name_limit <= LFS_NAME_MAX);

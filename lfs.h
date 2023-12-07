@@ -601,7 +601,7 @@ typedef struct lfs {
         lfs_block_t start;
         lfs_block_t size;
         lfs_block_t next;
-        lfs_block_t acked;
+        lfs_block_t ckpoint;
         uint8_t *buffer;
     } lookahead;
 

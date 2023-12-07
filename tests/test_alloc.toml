@@ -23,7 +23,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // start allocating
-    lfs_alloc_ack(&lfs);
+    lfs_alloc_ckpoint(&lfs);
     lfs_size_t alloced = 0;
     while (true) {
         lfs_block_t block;
@@ -56,7 +56,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // start allocating
-    lfs_alloc_ack(&lfs);
+    lfs_alloc_ckpoint(&lfs);
     lfs_size_t alloced = 0;
     while (true) {
         lfs_block_t block;
@@ -78,7 +78,7 @@ code = '''
     assert(alloced == BLOCK_COUNT-2);
 
     // ack again, effectively releasing all the previously alloced blocks
-    lfs_alloc_ack(&lfs);
+    lfs_alloc_ckpoint(&lfs);
     alloced = 0;
     while (true) {
         lfs_block_t block;
