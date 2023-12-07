@@ -8,47 +8,46 @@ import os
 import struct
 
 
-TAG_NULL        = 0x0000
-TAG_CONFIG      = 0x0000
-TAG_MAGIC       = 0x0003
-TAG_VERSION     = 0x0004
-TAG_RFLAGS      = 0x0005
-TAG_WFLAGS      = 0x0006
-TAG_OFLAGS      = 0x0007
-TAG_BLOCKSIZE   = 0x0008
-TAG_BLOCKCOUNT  = 0x0009
-TAG_NAMELIMIT   = 0x000a
-TAG_SIZELIMIT   = 0x000b
-TAG_UTAGLIMIT   = 0x000c
-TAG_UATTRLIMIT  = 0x000d
-TAG_STAGLIMIT   = 0x000e
-TAG_SATTRLIMIT  = 0x000f
-TAG_MDIRLIMIT   = 0x0010
-TAG_MTREELIMIT  = 0x0011
-TAG_GSTATE      = 0x0100
-TAG_GRM         = 0x0100
-TAG_NAME        = 0x0200
-TAG_BOOKMARK    = 0x0201
-TAG_REG         = 0x0202
-TAG_DIR         = 0x0203
-TAG_STRUCT      = 0x0300
-TAG_DATA        = 0x0300
-TAG_TRUNK       = 0x0304
-TAG_BLOCK       = 0x0308
-TAG_BTREE       = 0x030c
-TAG_BRANCH      = 0x031c
-TAG_MDIR        = 0x0321
-TAG_MTREE       = 0x0324
-TAG_MROOT       = 0x0329
-TAG_DID         = 0x032c
-TAG_UATTR       = 0x0400
-TAG_SATTR       = 0x0600
-TAG_SHRUB       = 0x1000
-TAG_CKSUM       = 0x3000
-TAG_ECKSUM      = 0x3100
-TAG_ALT         = 0x4000
-TAG_GT          = 0x2000
-TAG_R           = 0x1000
+TAG_NULL            = 0x0000
+TAG_CONFIG          = 0x0000
+TAG_MAGIC           = 0x0003
+TAG_VERSION         = 0x0004
+TAG_RCOMPATFLAGS    = 0x0006
+TAG_WCOMPATFLAGS    = 0x0007
+TAG_BLOCKSIZE       = 0x0008
+TAG_BLOCKCOUNT      = 0x0009
+TAG_NAMELIMIT       = 0x000a
+TAG_SIZELIMIT       = 0x000b
+TAG_UTAGLIMIT       = 0x000c
+TAG_UATTRLIMIT      = 0x000d
+TAG_STAGLIMIT       = 0x000e
+TAG_SATTRLIMIT      = 0x000f
+TAG_MDIRLIMIT       = 0x0010
+TAG_MTREELIMIT      = 0x0011
+TAG_GSTATE          = 0x0100
+TAG_GRM             = 0x0100
+TAG_NAME            = 0x0200
+TAG_BOOKMARK        = 0x0201
+TAG_REG             = 0x0202
+TAG_DIR             = 0x0203
+TAG_STRUCT          = 0x0300
+TAG_DATA            = 0x0300
+TAG_TRUNK           = 0x0304
+TAG_BLOCK           = 0x0308
+TAG_BTREE           = 0x030c
+TAG_BRANCH          = 0x031c
+TAG_MDIR            = 0x0321
+TAG_MTREE           = 0x0324
+TAG_MROOT           = 0x0329
+TAG_DID             = 0x032c
+TAG_UATTR           = 0x0400
+TAG_SATTR           = 0x0600
+TAG_SHRUB           = 0x1000
+TAG_CKSUM           = 0x3000
+TAG_ECKSUM          = 0x3100
+TAG_ALT             = 0x4000
+TAG_GT              = 0x2000
+TAG_R               = 0x1000
 
 
 # some ways of block geometry representations
@@ -169,9 +168,8 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'rflags' if (tag & 0xfff) == TAG_RFLAGS
-                else 'wflags' if (tag & 0xfff) == TAG_WFLAGS
-                else 'oflags' if (tag & 0xfff) == TAG_OFLAGS
+                else 'rcompatflags' if (tag & 0xfff) == TAG_RCOMPATFLAGS
+                else 'wcompatflags' if (tag & 0xfff) == TAG_WCOMPATFLAGS
                 else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
                 else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT

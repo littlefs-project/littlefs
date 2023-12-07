@@ -578,7 +578,7 @@ static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
 
 
 // 16-bit metadata tags
-enum lfsr_tag_type {
+enum lfsr_tag {
     // the null tag is reserved
     LFSR_TAG_NULL           = 0x0000,
 
@@ -586,9 +586,8 @@ enum lfsr_tag_type {
     LFSR_TAG_CONFIG         = 0x0000,
     LFSR_TAG_MAGIC          = 0x0003,
     LFSR_TAG_VERSION        = 0x0004,
-    LFSR_TAG_RFLAGS         = 0x0005,
-    LFSR_TAG_WFLAGS         = 0x0006,
-    LFSR_TAG_OFLAGS         = 0x0007,
+    LFSR_TAG_RCOMPATFLAGS   = 0x0006,
+    LFSR_TAG_WCOMPATFLAGS   = 0x0007,
     LFSR_TAG_BLOCKSIZE      = 0x0008,
     LFSR_TAG_BLOCKCOUNT     = 0x0009,
     LFSR_TAG_NAMELIMIT      = 0x000a,
@@ -7656,6 +7655,28 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
 //    return LFSR_DATA_BUF(buffer, d);
 //}
 
+// compatibility flags
+//
+// - WCOMPAT => Must understand to write to the filesystem
+// - RCOMPAT => Must understand to read the filesystem
+//
+// note, "understanding" does not necessarily mean support
+//
+enum lfsr_rcompat {
+    LFSR_RCOMPAT_GRM = 0x01,
+};
+
+typedef uint8_t lfsr_rcompat_t;
+typedef uint8_t lfsr_wcompat_t;
+
+static inline bool lfsr_rcompat_hasgrm(lfsr_rcompat_t rcompat) {
+    return rcompat & LFSR_RCOMPAT_GRM;
+}
+
+static inline bool lfsr_rcompat_hasunknown(lfsr_rcompat_t rcompat) {
+    return rcompat & ~LFSR_RCOMPAT_GRM;
+}
+
 
 /// Filesystem init functions ///
 
@@ -7726,51 +7747,57 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         return LFS_ERR_INVAL;
     }
 
-    // check for any rflags, we must understand these to read
+    // check for any rcompatflags, we must understand these to read
     // the filesystem
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_RFLAGS,
+    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_RCOMPATFLAGS,
             NULL, &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
+    if (err == LFS_ERR_NOENT) {
+        data = LFSR_DATA_NULL();
+    }
 
-    if (err != LFS_ERR_NOENT && lfsr_data_size(&data) > 0) {
-        LFS_ERROR("Incompatible rflag 0x%s%"PRIx32,
-                (lfsr_data_size(&data) > 0) ? "?" : "",
-                0);
+    lfsr_rcompat_t rcompat;
+    lfs_ssize_t size = lfsr_data_read(lfs, &data, &rcompat, 1);
+    if (size < 0) {
+        return size;
+    }
+    if (size < 1) {
+        rcompat = 0;
+    }
+
+    // unknown rcompat flags? flags must be tightly sized
+    if (lfsr_rcompat_hasunknown(rcompat) || lfsr_data_size(&data) > 0) {
+        LFS_ERROR("Incompatible rcompat flags 0x%s%"PRIx8,
+                (lfsr_data_size(&data) > 0) ? "??" : "",
+                rcompat);
         return LFS_ERR_INVAL;
     }
 
-    // check for any wflags, we must understand these to write
+    // grm supported?
+    if (!lfsr_rcompat_hasgrm(rcompat)) {
+        LFS_ERROR("Incompatible rcompat flags, no grm");
+        // TODO switch to read-only? upgrade?
+        return LFS_ERR_INVAL;
+    }
+
+    // check for any wcompatflags, we must understand these to write
     // the filesystem
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_WFLAGS,
+    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_WCOMPATFLAGS,
             NULL, &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
+    if (err == LFS_ERR_NOENT) {
+        data = LFSR_DATA_NULL();
+    }
 
-    if (err != LFS_ERR_NOENT && lfsr_data_size(&data) > 0) {
-        LFS_ERROR("Incompatible wflag 0x%s%"PRIx32,
-                (lfsr_data_size(&data) > 0) ? "?" : "",
-                0);
+    // unknown wcompat flags? flags must be tightly sized
+    if (lfsr_data_size(&data) > 0) {
+        LFS_ERROR("Incompatible wcompat flags 0x??");
         // TODO switch to read-only?
         return LFS_ERR_INVAL;
-    }
-
-    // check for any oflags, these are optional, if we don't
-    // understand an oflag we can simply clear it
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_OFLAGS,
-            NULL, &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    if (err != LFS_ERR_NOENT && lfsr_data_size(&data) > 0) {
-        LFS_DEBUG("Found unknown oflag 0x%s%"PRIx32,
-                (lfsr_data_size(&data) > 0) ? "?" : "",
-                0);
-        // TODO track and clear oflags in mkconsistent?
-        LFS_ASSERT(false);
     }
 
     // check block size
@@ -8198,6 +8225,8 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_ATTR(-1, VERSION,      0, IMM(((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR,
                     LFS_DISK_VERSION_MINOR}), 2)),
+                LFSR_ATTR(-1, RCOMPATFLAGS, 0, IMM((&(uint8_t){
+                    LFSR_RCOMPAT_GRM}), 1)),
                 LFSR_ATTR(-1, BLOCKSIZE,    0, LEB128(lfs->cfg->block_size-1)),
                 LFSR_ATTR(-1, BLOCKCOUNT,   0, LEB128(lfs->cfg->block_count-1)),
                 LFSR_ATTR(-1, NAMELIMIT,    0, LEB128(lfs->name_limit)),
