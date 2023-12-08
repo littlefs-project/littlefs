@@ -586,18 +586,13 @@ enum lfsr_tag {
     LFSR_TAG_CONFIG         = 0x0000,
     LFSR_TAG_MAGIC          = 0x0003,
     LFSR_TAG_VERSION        = 0x0004,
+    LFSR_TAG_OCOMPATFLAGS   = 0x0005,
     LFSR_TAG_RCOMPATFLAGS   = 0x0006,
     LFSR_TAG_WCOMPATFLAGS   = 0x0007,
     LFSR_TAG_BLOCKSIZE      = 0x0008,
     LFSR_TAG_BLOCKCOUNT     = 0x0009,
     LFSR_TAG_NAMELIMIT      = 0x000a,
     LFSR_TAG_SIZELIMIT      = 0x000b,
-    LFSR_TAG_UTAGLIMIT      = 0x000c,
-    LFSR_TAG_UATTRLIMIT     = 0x000d,
-    LFSR_TAG_STAGLIMIT      = 0x000e,
-    LFSR_TAG_SATTRLIMIT     = 0x000f,
-    LFSR_TAG_MDIRLIMIT      = 0x0010,
-    LFSR_TAG_MTREELIMIT     = 0x0011,
 
     // global-state tags
     LFSR_TAG_GDELTA         = 0x0100,
@@ -7912,171 +7907,18 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     lfs->size_limit = size_limit;
 
-    // check the utag limit
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_UTAGLIMIT,
-            NULL, &data);
+    // check for unknown configs
+    lfsr_tag_t tag;
+    err = lfsr_mdir_lookupnext(lfs, mroot, -1, LFSR_TAG_SIZELIMIT+1,
+            &tag, NULL);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
 
-    if (err != LFS_ERR_NOENT) {
-        uint32_t utag_limit;
-        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&utag_limit);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            utag_limit = -1;
-        }
-
-        // only 7-bit utags are supported
-        if (utag_limit != 0x7f) {
-            LFS_ERROR("Incompatible utag limit (%"PRId32" != %"PRId32")",
-                    utag_limit,
-                    0x7f);
-            return LFS_ERR_INVAL;
-        }
-    }
-
-    // read the uattr limit
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_UATTRLIMIT,
-            NULL, &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No uattr limit found");
-            return LFS_ERR_INVAL;
-        }
-        return err;
-    }
-
-    uint32_t uattr_limit;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&uattr_limit);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        uattr_limit = -1;
-    }
-
-    if (uattr_limit > lfs->uattr_limit) {
-        LFS_ERROR("Incompatible uattr limit (%"PRId32" > %"PRId32")",
-                uattr_limit,
-                lfs->uattr_limit);
-        return LFS_ERR_INVAL;
-    }
-
-    lfs->uattr_limit = uattr_limit;
-
-    // check the stag limit
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_STAGLIMIT,
-            NULL, &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    if (err != LFS_ERR_NOENT) {
-        uint32_t stag_limit;
-        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&stag_limit);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            stag_limit = -1;
-        }
-
-        // only 7-bit stags are supported
-        if (stag_limit != 0x7f) {
-            LFS_ERROR("Incompatible stag limit (%"PRId32" != %"PRId32")",
-                    stag_limit,
-                    0x7f);
-            return LFS_ERR_INVAL;
-        }
-    }
-
-    // read the sattr limit
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_SATTRLIMIT,
-            NULL, &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No sattr limit found");
-            return LFS_ERR_INVAL;
-        }
-        return err;
-    }
-
-    uint32_t sattr_limit;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&sattr_limit);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        sattr_limit = -1;
-    }
-
-    if (sattr_limit > lfs->sattr_limit) {
-        LFS_ERROR("Incompatible sattr limit (%"PRId32" > %"PRId32")",
-                sattr_limit,
-                lfs->sattr_limit);
-        return LFS_ERR_INVAL;
-    }
-
-    lfs->sattr_limit = sattr_limit;
-
-    // read the mdir limit
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_MDIRLIMIT,
-            NULL, &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No mdir limit found");
-            return LFS_ERR_INVAL;
-        }
-        return err;
-    }
-
-    uint32_t mdir_limit;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&mdir_limit);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        mdir_limit = -1;
-    }
-
-    // we only support power-of-two-minus-one mdir limits, this is
-    // unlikely to ever to change since mdir limits are arbitrary
-    if (lfs_popc(mdir_limit+1) != 1) {
-        LFS_ERROR("Incompatible mdir limit %"PRId32,
-                mdir_limit);
-        return LFS_ERR_INVAL;
-    }
-
-    lfs->mbits = lfs_nlog2(mdir_limit+1);
-
-    // read the mtree limit
-    err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_MTREELIMIT,
-            NULL, &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No mtree limit found");
-            return LFS_ERR_INVAL;
-        }
-        return err;
-    }
-
-    uint32_t mtree_limit;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&mtree_limit);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        mtree_limit = -1;
-    }
-
-    // TODO should we actually be doing something with mtree_limit?
-    if (mtree_limit != lfs->size_limit) {
-        LFS_ERROR("Incompatible mtree limit (%"PRId32" != %"PRId32")",
-                mtree_limit,
-                LFS_FILE_MAX);
+    if (err != LFS_ERR_NOENT
+            && lfsr_tag_suptype(tag) == LFSR_TAG_CONFIG) {
+        LFS_ERROR("Unknown config 0x%04"PRIx16,
+                tag);
         return LFS_ERR_INVAL;
     }
 
@@ -8234,12 +8076,6 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_ATTR(-1, BLOCKCOUNT,   0, LEB128(lfs->cfg->block_count-1)),
                 LFSR_ATTR(-1, NAMELIMIT,    0, LEB128(lfs->name_limit)),
                 LFSR_ATTR(-1, SIZELIMIT,    0, LEB128(lfs->size_limit)),
-                LFSR_ATTR(-1, UTAGLIMIT,    0, LEB128(0x7f)),
-                LFSR_ATTR(-1, UATTRLIMIT,   0, LEB128(lfs->uattr_limit)),
-                LFSR_ATTR(-1, STAGLIMIT,    0, LEB128(0x7f)),
-                LFSR_ATTR(-1, SATTRLIMIT,   0, LEB128(lfs->sattr_limit)),
-                LFSR_ATTR(-1, MDIRLIMIT,    0, LEB128(lfsr_mweight(lfs)-1)),
-                LFSR_ATTR(-1, MTREELIMIT,   0, LEB128(lfs->size_limit)),
                 LFSR_ATTR(0, BOOKMARK, +1, LEB128(0))));
         if (err) {
             return err;

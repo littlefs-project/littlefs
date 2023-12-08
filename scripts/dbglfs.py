@@ -13,18 +13,13 @@ TAG_NULL            = 0x0000
 TAG_CONFIG          = 0x0000
 TAG_MAGIC           = 0x0003
 TAG_VERSION         = 0x0004
+TAG_OCOMPATFLAGS    = 0x0005
 TAG_RCOMPATFLAGS    = 0x0006
 TAG_WCOMPATFLAGS    = 0x0007
 TAG_BLOCKSIZE       = 0x0008
 TAG_BLOCKCOUNT      = 0x0009
 TAG_NAMELIMIT       = 0x000a
 TAG_SIZELIMIT       = 0x000b
-TAG_UTAGLIMIT       = 0x000c
-TAG_UATTRLIMIT      = 0x000d
-TAG_STAGLIMIT       = 0x000e
-TAG_SATTRLIMIT      = 0x000f
-TAG_MDIRLIMIT       = 0x0010
-TAG_MTREELIMIT      = 0x0011
 TAG_GDELTA          = 0x0100
 TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
@@ -197,18 +192,13 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
+                else 'ocompatflags' if (tag & 0xfff) == TAG_OCOMPATFLAGS
                 else 'rcompatflags' if (tag & 0xfff) == TAG_RCOMPATFLAGS
                 else 'wcompatflags' if (tag & 0xfff) == TAG_WCOMPATFLAGS
                 else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
                 else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
-                else 'utaglimit' if (tag & 0xfff) == TAG_UTAGLIMIT
-                else 'uattrlimit' if (tag & 0xfff) == TAG_UATTRLIMIT
-                else 'staglimit' if (tag & 0xfff) == TAG_STAGLIMIT
-                else 'sattrlimit' if (tag & 0xfff) == TAG_SATTRLIMIT
-                else 'mdirlimit' if (tag & 0xfff) == TAG_MDIRLIMIT
-                else 'mtreelimit' if (tag & 0xfff) == TAG_MTREELIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
@@ -1034,6 +1024,14 @@ class Config:
             return (None, None)
 
     @ft.cached_property
+    def ocompatflags(self):
+        if TAG_OCOMPATFLAGS in self.config:
+            _, data = self.config[TAG_OCOMPATFLAGS]
+            return data
+        else:
+            return None
+
+    @ft.cached_property
     def rcompatflags(self):
         if TAG_RCOMPATFLAGS in self.config:
             _, data = self.config[TAG_RCOMPATFLAGS]
@@ -1085,60 +1083,6 @@ class Config:
         else:
             return None
 
-    @ft.cached_property
-    def utag_limit(self):
-        if TAG_UTAGLIMIT in self.config:
-            _, data = self.config[TAG_UTAGLIMIT]
-            utag_limit, _ = fromleb128(data)
-            return utag_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def uattr_limit(self):
-        if TAG_UATTRLIMIT in self.config:
-            _, data = self.config[TAG_UATTRLIMIT]
-            uattr_limit, _ = fromleb128(data)
-            return uattr_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def stag_limit(self):
-        if TAG_STAGLIMIT in self.config:
-            _, data = self.config[TAG_STAGLIMIT]
-            stag_limit, _ = fromleb128(data)
-            return stag_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def sattr_limit(self):
-        if TAG_SATTRLIMIT in self.config:
-            _, data = self.config[TAG_SATTRLIMIT]
-            sattr_limit, _ = fromleb128(data)
-            return sattr_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def mdir_limit(self):
-        if TAG_MDIRLIMIT in self.config:
-            _, data = self.config[TAG_MDIRLIMIT]
-            mdir_limit, _ = fromleb128(data)
-            return mdir_limit
-        else:
-            return None
-
-    @ft.cached_property
-    def mtree_limit(self):
-        if TAG_MTREELIMIT in self.config:
-            _, data = self.config[TAG_MTREELIMIT]
-            mtree_limit, _ = fromleb128(data)
-            return mtree_limit
-        else:
-            return None
-
     def repr(self):
         def crepr(tag, data):
             if tag == TAG_MAGIC:
@@ -1147,6 +1091,9 @@ class Config:
                     for b in map(chr, self.magic))
             elif tag == TAG_VERSION:
                 return 'version v%d.%d' % self.version
+            elif tag == TAG_OCOMPATFLAGS:
+                return 'ocompatflags 0x%s' % ''.join(
+                    '%02x' % f for f in reversed(self.ocompatflags))
             elif tag == TAG_RCOMPATFLAGS:
                 return 'rcompatflags 0x%s' % ''.join(
                     '%02x' % f for f in reversed(self.rcompatflags))
@@ -1161,18 +1108,6 @@ class Config:
                 return 'sizelimit %d' % self.size_limit
             elif tag == TAG_NAMELIMIT:
                 return 'namelimit %d' % self.name_limit
-            elif tag == TAG_UTAGLIMIT:
-                return 'utaglimit %d' % self.utag_limit
-            elif tag == TAG_UATTRLIMIT:
-                return 'uattrlimit %d' % self.uattr_limit
-            elif tag == TAG_STAGLIMIT:
-                return 'staglimit %d' % self.stag_limit
-            elif tag == TAG_SATTRLIMIT:
-                return 'sattrlimit %d' % self.sattr_limit
-            elif tag == TAG_MDIRLIMIT:
-                return 'mdirlimit %d' % self.mdir_limit
-            elif tag == TAG_MTREELIMIT:
-                return 'mtreelimit %d' % self.mtree_limit
             else:
                 return 'config 0x%02x %d' % (tag, len(data))
 
@@ -1976,9 +1911,9 @@ def main(disk, mroots=None, *,
                 # print gdeltas?
                 if args.get('gdelta'):
                     for mbid, mw, mdir, j, d, data in gstate.gdelta[tag]:
-                        print('%s{%s}: %*s %-*s  %s%s' % (
+                        print('%s%12s %*s %-*s  %s%s' % (
                             '\x1b[90m' if color else '',
-                            ','.join('%04x' % block
+                            '{%s}:' % ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
                             2*w_width+1, '%d.%d' % (mbid//mleaf_weight, -1),
