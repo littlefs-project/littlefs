@@ -25,22 +25,22 @@ TAG_STAGLIMIT       = 0x000e
 TAG_SATTRLIMIT      = 0x000f
 TAG_MDIRLIMIT       = 0x0010
 TAG_MTREELIMIT      = 0x0011
-TAG_GSTATE          = 0x0100
-TAG_GRM             = 0x0100
+TAG_GDELTA          = 0x0100
+TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
-TAG_BOOKMARK        = 0x0201
-TAG_REG             = 0x0202
-TAG_DIR             = 0x0203
+TAG_REG             = 0x0201
+TAG_DIR             = 0x0202
+TAG_BOOKMARK        = 0x0204
 TAG_STRUCT          = 0x0300
 TAG_DATA            = 0x0300
-TAG_TRUNK           = 0x0304
-TAG_BLOCK           = 0x0308
+TAG_BLOCK           = 0x0304
+TAG_BSHRUB          = 0x0308
 TAG_BTREE           = 0x030c
+TAG_DID             = 0x0310
 TAG_BRANCH          = 0x031c
-TAG_MDIR            = 0x0321
-TAG_MTREE           = 0x0324
-TAG_MROOT           = 0x0329
-TAG_DID             = 0x032c
+TAG_MROOT           = 0x0321
+TAG_MDIR            = 0x0325
+TAG_MTREE           = 0x032c
 TAG_UATTR           = 0x0400
 TAG_SATTR           = 0x0600
 TAG_SHRUB           = 0x1000
@@ -212,20 +212,20 @@ def tagrepr(tag, w, size, off=None):
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xef00) == TAG_GSTATE:
+    elif (tag & 0xef00) == TAG_GDELTA:
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
-            'grm' if (tag & 0xfff) == TAG_GRM
-                else 'gstate 0x%02x' % (tag & 0xff),
+            'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
+                else 'gdelta 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xef00) == TAG_NAME:
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
             'name' if (tag & 0xfff) == TAG_NAME
-                else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'reg' if (tag & 0xfff) == TAG_REG
                 else 'dir' if (tag & 0xfff) == TAG_DIR
+                else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'name 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
@@ -233,14 +233,14 @@ def tagrepr(tag, w, size, off=None):
         return '%s%s%s %d' % (
             'shrub' if tag & TAG_SHRUB else '',
             'data' if (tag & 0xfff) == TAG_DATA
-                else 'trunk' if (tag & 0xfff) == TAG_TRUNK
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
+                else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
                 else 'btree' if (tag & 0xfff) == TAG_BTREE
+                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'branch' if (tag & 0xfff) == TAG_BRANCH
+                else 'mroot' if (tag & 0xfff) == TAG_MROOT
                 else 'mdir' if (tag & 0xfff) == TAG_MDIR
                 else 'mtree' if (tag & 0xfff) == TAG_MTREE
-                else 'mroot' if (tag & 0xfff) == TAG_MROOT
-                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
@@ -1188,10 +1188,10 @@ class GState:
         self.mleaf_weight = mleaf_weight
 
     def xor(self, mbid, mw, mdir):
-        tag = TAG_GSTATE-0x1
+        tag = TAG_GDELTA-0x1
         while True:
             done, rid, tag, w, j, d, data, _ = mdir.lookup(-1, tag+0x1)
-            if done or rid != -1 or (tag & 0xff00) != TAG_GSTATE:
+            if done or rid != -1 or (tag & 0xff00) != TAG_GDELTA:
                 break
 
             # keep track of gdeltas
@@ -1208,10 +1208,10 @@ class GState:
     # parsers for some gstate
     @ft.cached_property
     def grm(self):
-        if TAG_GRM not in self.gstate:
+        if TAG_GRMDELTA not in self.gstate:
             return []
 
-        data = self.gstate[TAG_GRM]
+        data = self.gstate[TAG_GRMDELTA]
         d = 0
         count,  d_ = fromleb128(data[d:]); d += d_
         rms = []
@@ -1225,7 +1225,7 @@ class GState:
 
     def repr(self):
         def grepr(tag, data):
-            if tag == TAG_GRM:
+            if tag == TAG_GRMDELTA:
                 count, _ = fromleb128(data)
                 return 'grm %s' % (
                     'none' if count == 0
@@ -1240,25 +1240,7 @@ class GState:
             yield grepr(tag, data), tag, data
 
 def frepr(mdir, rid, tag):
-    if tag == TAG_BOOKMARK:
-        # read the did
-        did = '?'
-        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, tag)
-        if not done and rid_ == rid and tag_ == tag:
-            did, _ = fromleb128(data)
-            did = '0x%x' % did
-        return 'bookmark %s' % did
-
-    elif tag == TAG_DIR:
-        # read the did
-        did = '?'
-        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DID)
-        if not done and rid_ == rid and tag_ == TAG_DID:
-            did, _ = fromleb128(data)
-            did = '0x%x' % did
-        return 'dir %s' % did
-
-    elif tag == TAG_REG:
+    if tag == TAG_REG:
         size = 0
         structs = []
         # inlined data?
@@ -1273,11 +1255,11 @@ def frepr(mdir, rid, tag):
             size = max(size, size_)
             structs.append('block 0x%x.%x' % (block, off))
         # inlined bshrub?
-        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
-        if not done and rid_ == rid and tag_ == TAG_TRUNK:
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BSHRUB)
+        if not done and rid_ == rid and tag_ == TAG_BSHRUB:
             weight, trunk = fromshrub(data)
             size = max(size, weight)
-            structs.append('trunk 0x%x.%x' % (mdir.block, trunk))
+            structs.append('bshrub 0x%x.%x' % (mdir.block, trunk))
         # indirect btree?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BTREE)
         if not done and rid_ == rid and tag_ == TAG_BTREE:
@@ -1285,6 +1267,24 @@ def frepr(mdir, rid, tag):
             size = max(size, weight)
             structs.append('btree 0x%x.%x' % (block, trunk))
         return 'reg %s' % ', '.join(it.chain(['%d' % size], structs))
+
+    elif tag == TAG_DIR:
+        # read the did
+        did = '?'
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DID)
+        if not done and rid_ == rid and tag_ == TAG_DID:
+            did, _ = fromleb128(data)
+            did = '0x%x' % did
+        return 'dir %s' % did
+
+    elif tag == TAG_BOOKMARK:
+        # read the did
+        did = '?'
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, tag)
+        if not done and rid_ == rid and tag_ == tag:
+            did, _ = fromleb128(data)
+            did = '0x%x' % did
+        return 'bookmark %s' % did
 
     else:
         return 'type 0x%02x' % (tag & 0xff)
@@ -1318,7 +1318,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         size, block, off = frombptr(data)
         w = size
     # inlined bshrub?
-    elif tag == TAG_TRUNK:
+    elif tag == TAG_BSHRUB:
         weight, trunk = fromshrub(data)
         btree = Rbyd.fetch(f, block_size, mdir.block, trunk)
         w = weight
@@ -2156,8 +2156,8 @@ def main(disk, mroots=None, *,
 
                         # inlined bshrub?
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
-                            rid, TAG_TRUNK)
-                        if not done and rid_ == rid and tag_ == TAG_TRUNK:
+                            rid, TAG_BSHRUB)
+                        if not done and rid_ == rid and tag_ == TAG_BSHRUB:
                             dbg_fstruct(f, block_size,
                                 mdir, rid_, tag_, j, d, data,
                                 m_width=2*w_width+1,

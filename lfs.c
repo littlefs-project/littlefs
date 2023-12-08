@@ -600,26 +600,26 @@ enum lfsr_tag {
     LFSR_TAG_MTREELIMIT     = 0x0011,
 
     // global-state tags
-    LFSR_TAG_GSTATE         = 0x0100,
-    LFSR_TAG_GRM            = 0x0100,
+    LFSR_TAG_GDELTA         = 0x0100,
+    LFSR_TAG_GRMDELTA       = 0x0100,
 
     // name tags
     LFSR_TAG_NAME           = 0x0200,
-    LFSR_TAG_BOOKMARK       = 0x0201,
-    LFSR_TAG_REG            = 0x0202,
-    LFSR_TAG_DIR            = 0x0203,
+    LFSR_TAG_REG            = 0x0201,
+    LFSR_TAG_DIR            = 0x0202,
+    LFSR_TAG_BOOKMARK       = 0x0204,
 
     // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
     LFSR_TAG_DATA           = 0x0300,
-    LFSR_TAG_TRUNK          = 0x0304,
-    LFSR_TAG_BLOCK          = 0x0308,
+    LFSR_TAG_BLOCK          = 0x0304,
+    LFSR_TAG_BSHRUB         = 0x0308,
     LFSR_TAG_BTREE          = 0x030c,
+    LFSR_TAG_DID            = 0x0310,
     LFSR_TAG_BRANCH         = 0x031c,
-    LFSR_TAG_MDIR           = 0x0321,
-    LFSR_TAG_MTREE          = 0x0324,
-    LFSR_TAG_MROOT          = 0x0329,
-    LFSR_TAG_DID            = 0x032c,
+    LFSR_TAG_MROOT          = 0x0321,
+    LFSR_TAG_MDIR           = 0x0325,
+    LFSR_TAG_MTREE          = 0x032c,
 
     // user/sys attributes
     LFSR_TAG_UATTR          = 0x0400,
@@ -641,9 +641,10 @@ enum lfsr_tag {
 
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
-    LFSR_TAG_MOVE           = 0x0800,
-    LFSR_TAG_BSHRUBCOMMIT   = 0x0801,
-    LFSR_TAG_BSHRUBTRUNK    = 0x0802,
+    LFSR_TAG_GRM            = 0x0800,
+    LFSR_TAG_MOVE           = 0x0801,
+    LFSR_TAG_SHRUBCOMMIT    = 0x0802,
+    LFSR_TAG_SHRUBTRUNK     = 0x0803,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -1052,13 +1053,13 @@ enum {
     ((lfsr_data_t){.u.buf.buffer=(const void*)(lfsr_grm_t*){_grm}})
 
 // writing to an unrelated trunk in the rbyd
-#define LFSR_DATA_BSHRUBCOMMIT(_bshrub, _attrs, _attr_count) \
+#define LFSR_DATA_SHRUBCOMMIT(_bshrub, _attrs, _attr_count) \
     ((lfsr_data_t){.u.buf.buffer=(const void*)&(const lfsr_bshrubcommit_t){ \
         .bshrub=_bshrub, \
         .attrs=_attrs, \
         .attr_count=_attr_count}})
 
-#define LFSR_DATA_BSHRUBTRUNK(_bshrub) \
+#define LFSR_DATA_SHRUBTRUNK(_bshrub) \
     ((lfsr_data_t){.u.buf.buffer=(const void*)(const lfsr_bshrub_t*){_bshrub}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
@@ -1756,7 +1757,7 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
 }
 
 
-// GRM (global remove) things
+// grm (global remove) things
 static inline bool lfsr_grm_hasrm(const lfsr_grm_t *grm) {
     return grm->rms[0] != -1;
 }
@@ -3433,14 +3434,15 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 // append and consume any pending gstate
 static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    // need GRM delta?
+    // need grm delta?
     if (!lfsr_grm_iszero(lfs->grm_d)) {
         // calculate our delta
         uint8_t grm_buf[LFSR_GRM_DSIZE];
         memset(grm_buf, 0, LFSR_GRM_DSIZE);
 
         lfsr_data_t data;
-        int err = lfsr_rbyd_lookup(lfs, rbyd, -1, LFSR_TAG_GRM, NULL, &data);
+        int err = lfsr_rbyd_lookup(lfs, rbyd, -1, LFSR_TAG_GRMDELTA,
+                NULL, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -3463,7 +3465,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         lfs_size_t size = lfsr_grm_size(grm_buf);
         err = lfsr_rbyd_appendattr(lfs, rbyd, -1,
                 // opportunistically remove this tag if delta is all zero
-                (size == 0 ? LFSR_TAG_RM(GRM) : LFSR_TAG_GRM), 0,
+                (size == 0 ? LFSR_TAG_RM(GRMDELTA) : LFSR_TAG_GRMDELTA), 0,
                 LFSR_DATA_BUF(grm_buf, size));
         if (err) {
             return err;
@@ -4817,7 +4819,7 @@ static int lfsr_bshrub_lookup(lfs_t *lfs,
 }
 
 // bshrubs must be updated through lfsr_mdir_commit via the
-// BSHRUBCOMMIT attr
+// SHRUBCOMMIT attr
 typedef struct lfsr_bshrubcommit_t {
     lfsr_bshrub_t *bshrub;
     const lfsr_attr_t *attrs;
@@ -4900,7 +4902,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         // commit to shrub
         err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
                 LFSR_ATTR(mdir->mid,
-                    BSHRUBCOMMIT, 0, BSHRUBCOMMIT(
+                    SHRUBCOMMIT, 0, SHRUBCOMMIT(
                         bshrub, attrs, attr_count))));
         if (err) {
             return err;
@@ -5305,7 +5307,7 @@ static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
         // this is what would make lfsr_rbyd_estimate recursive, and why we
         // need a second function...
         //
-        if (tag == LFSR_TAG_TRUNK) {
+        if (tag == LFSR_TAG_BSHRUB) {
             lfsr_rbyd_t rbyd = mdir->rbyd;
             err = lfsr_data_readtrunk(lfs, &data,
                     &rbyd.trunk, (lfsr_rid_t*)&rbyd.weight);
@@ -5429,7 +5431,8 @@ static void lfsr_fs_flushgdelta(lfs_t *lfs) {
 
 static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     lfsr_data_t data;
-    int err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_GRM, NULL, &data);
+    int err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_GRMDELTA,
+            NULL, &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -5587,9 +5590,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // treat end_rid=-1 as "unbounded" in such a way that rid=-1
                 // is still included
                 && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
-            // this is a bit of a hack, but ignore any gstate tags here,
-            // these need to be handled specially by upper-layers
-            if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
+            // ignore any gstate tags here, these need to be handled
+            // specially by upper-layers
+            if (attrs[i].tag == LFSR_TAG_GRM) {
                 // do nothing
 
             // move tags copy over any tags associated with the source's rid
@@ -5614,7 +5617,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     }
 
                     // special case for shrubs, we need to copy these over
-                    if (tag == LFSR_TAG_TRUNK) {
+                    if (tag == LFSR_TAG_BSHRUB) {
                         // TODO lfsr_rbyd_appendshrub?
                         lfsr_rbyd_t shrub = mdir__->rbyd;
                         err = lfsr_data_readtrunk(lfs, &data,
@@ -5641,7 +5644,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                                 rid - lfs_smax32(start_rid, 0),
-                                LFSR_TAG_TRUNK, 0, lfsr_data_fromtrunk(
+                                LFSR_TAG_BSHRUB, 0, lfsr_data_fromtrunk(
                                     trunk, weight,
                                     trunk_buf));
                         if (err) {
@@ -5661,7 +5664,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
-            } else if (attrs[i].tag == LFSR_TAG_BSHRUBCOMMIT) {
+            } else if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
                 const lfsr_bshrubcommit_t *bshrubcommit
                         = (const lfsr_bshrubcommit_t*)
                             attrs[i].data.u.buf.buffer;
@@ -5701,14 +5704,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // TODO should we preserve mode for all of these?
             // TODO should we do the same for sprouts?
-            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_BSHRUBTRUNK) {
+            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
                 lfsr_bshrub_t *bshrub
                         = (lfsr_bshrub_t*)attrs[i].data.u.buf.buffer;
 
                 uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
                 int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                         rid - lfs_smax32(start_rid, 0),
-                        lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_TRUNK,
+                        lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_BSHRUB,
                         attrs[i].delta,
                         lfsr_data_fromtrunk(
                             // note we use the staged trunk here
@@ -5837,7 +5840,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
         // found an inlined shrub? we need to compact the shrub as well to
         // bring it along with us
-        } else if (tag == LFSR_TAG_TRUNK) {
+        } else if (tag == LFSR_TAG_BSHRUB) {
             lfsr_rbyd_t shrub = mdir->rbyd;
             err = lfsr_data_readtrunk(lfs, &data,
                     &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
@@ -5855,7 +5858,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             // write the new shrub tag
             uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
-                    LFSR_TAG_TRUNK, weight, lfsr_data_fromtrunk(
+                    LFSR_TAG_BSHRUB, weight, lfsr_data_fromtrunk(
                         mdir_->rbyd.trunk, mdir_->rbyd.weight,
                         trunk_buf));
             if (err) {
@@ -5905,7 +5908,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     // lfsr_bshrub_compact__ or something? lfsr_bsprout_compact__?
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // stage any bshrubs
-        if (attrs[i].tag == LFSR_TAG_BSHRUBCOMMIT
+        if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT
                 && lfsr_mid_rid(lfs, attrs[i].rid) >= start_rid
                 && (lfsr_rid_t)lfsr_mid_rid(lfs, attrs[i].rid)
                     < (lfsr_rid_t)end_rid) {
@@ -6431,7 +6434,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
         // stage any bshrubs
-        } else if (attrs[i].tag == LFSR_TAG_BSHRUBCOMMIT) {
+        } else if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
             const lfsr_bshrubcommit_t *bshrubcommit
                     = (const lfsr_bshrubcommit_t*)
                         attrs[i].data.u.buf.buffer;
@@ -6710,7 +6713,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfsr_data_fromgrm(&lfs->grm, lfs->grm_g);
 
         // update any bshrubs
-        } else if (attrs[i].tag == LFSR_TAG_BSHRUBCOMMIT) {
+        } else if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
             const lfsr_bshrubcommit_t *bshrubcommit
                     = (const lfsr_bshrubcommit_t*)
                         attrs[i].data.u.buf.buffer;
@@ -7431,7 +7434,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 return 0;
 
             // found a bshrub (inlined btree)?
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_TRUNK) {
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
                 traversal->bshrub.rbyd = traversal->mdir.rbyd;
                 err = lfsr_data_readtrunk(lfs, &data,
                         &traversal->bshrub.rbyd.trunk,
@@ -9000,7 +9003,7 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
         // or a block/bshrub/btree, size is always first field here
         } else if (err != LFS_ERR_NOENT
                 && (tag == LFSR_TAG_BLOCK
-                    || tag == LFSR_TAG_TRUNK
+                    || tag == LFSR_TAG_BSHRUB
                     || tag == LFSR_TAG_BTREE)) {
             err = lfsr_data_readleb128(lfs, &data, (int32_t*)&info->size);
             if (err) {
@@ -9382,7 +9385,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 }
 
             // or a bshrub (inlined btree)
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_TRUNK) {
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
                 lfs_size_t trunk;
                 lfsr_rid_t weight;
                 err = lfsr_data_readtrunk(lfs, &data, &trunk, &weight);
@@ -10487,8 +10490,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                             WIDE(BLOCK), 0, FROMBPTR(&file->ftree.u.bptr, buf))
                     : (lfsr_ftree_isbshrub(&file->mdir, &file->ftree))
                         ? LFSR_ATTR(file->mdir.mid,
-                            WIDE(BSHRUBTRUNK), 0,
-                            BSHRUBTRUNK(&file->ftree.u.bshrub))
+                            WIDE(SHRUBTRUNK), 0,
+                            SHRUBTRUNK(&file->ftree.u.bshrub))
                         : LFSR_ATTR(file->mdir.mid,
                             WIDE(BTREE), 0,
                             FROMBTREE(&file->ftree.u.btree, buf))));

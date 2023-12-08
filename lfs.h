@@ -116,11 +116,11 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 2,
-    LFS_TYPE_DIR            = 3,
+    LFS_TYPE_REG            = 1,
+    LFS_TYPE_DIR            = 2,
 
     // used internally, don't use this
-    LFS_TYPE_INTERNAL       = 4,
+    LFS_TYPE_INTERNAL       = 3,
 
 //    // internally used types
 //    LFS_TYPE_SPLICE         = 0x400,
