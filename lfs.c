@@ -8106,18 +8106,18 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // TODO this should use any configured values
     LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
+            "%"PRId32"x%"PRId32" "
             "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
-            "w%"PRId32".%"PRId32", "
-            "bd %"PRId32"x%"PRId32,
+            "w%"PRId32".%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->cfg->block_count,
             lfs->mroot.rbyd.blocks[0],
             lfs->mroot.rbyd.blocks[1],
             lfs->mroot.rbyd.trunk,
             lfsr_mtree_weight(lfs) / lfsr_mweight(lfs),
-            lfsr_mweight(lfs),
-            lfs->cfg->block_size,
-            lfs->cfg->block_count);
+            lfsr_mweight(lfs));
 
     return 0;
 }
@@ -8132,8 +8132,8 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32", "
-            "bd %"PRId32"x%"PRId32,
+    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
+            "%"PRId32"x%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,

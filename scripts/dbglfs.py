@@ -1839,11 +1839,11 @@ def main(disk, mroots=None, *,
         #### actual debugging begins here
 
         # print some information about the filesystem
-        print('littlefs v%s.%s %s, rev %d, weight %d.%d, bd %dx%d' % (
+        print('littlefs v%s.%s %dx%d %s, rev %d, weight %d.%d' % (
             config.version[0] if config.version[0] is not None else '?',
             config.version[1] if config.version[1] is not None else '?',
-            mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight,
-            (config.block_size or -1)+1, (config.block_count or -1)+1))
+            (config.block_size or -1)+1, (config.block_count or -1)+1,
+            mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # dynamically size the id field
         w_width = max(
@@ -2133,7 +2133,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Debug littlefs's metadata tree.",
+        description="Debug littlefs stuff.",
         allow_abbrev=False)
     parser.add_argument(
         'disk',
