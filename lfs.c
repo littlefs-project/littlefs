@@ -9292,8 +9292,6 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
 // low-level ftree operations
 
-// TODO need all of these?
-// lookup/read unbuffered
 static int lfsr_ftree_lookupnext(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
         lfs_off_t pos,
@@ -9382,77 +9380,6 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
     }
 }
 
-// read buffered
-static int lfsr_ftree_readnext(lfs_t *lfs,
-        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
-        lfs_off_t buffer_pos, const uint8_t *buffer, lfs_size_t buffer_size,
-        lfs_off_t pos, lfs_off_t size,
-        lfsr_data_t *data_) {
-    // past end of file?
-    //
-    // note file->size may be out of sync here
-    if (pos >= lfs_max32(
-            buffer_pos + buffer_size,
-            lfsr_ftree_size(ftree))) {
-        return LFS_ERR_NOENT;
-    }
-
-    // keep track of the next highest priority data offset
-    lfs_ssize_t d = size;
-
-    // any data in our write buffer?
-    if (pos < buffer_pos + buffer_size) {
-        if (pos >= buffer_pos) {
-            d = lfs_min32(d, buffer_size - (pos - buffer_pos));
-            if (data_) {
-                *data_ = LFSR_DATA_BUF(&buffer[pos - buffer_pos], d);
-            }
-            return 0;
-        }
-
-        // buffered data takes priority
-        d = lfs_min32(d, buffer_pos - pos);
-    }
-
-    // any data on disk?
-    if (pos < lfsr_ftree_size(ftree)) {
-        lfsr_bid_t bid;
-        lfsr_tag_t tag;
-        lfsr_bid_t weight;
-        lfsr_data_t data;
-        int err = lfsr_ftree_lookupnext(lfs, mdir, ftree, pos,
-                &bid, &tag, &weight, &data);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
-            // note one important side-effect here is any reads to this
-            // data get a strict read hint
-            d = lfs_min32(
-                    d,
-                    lfsr_data_size(&data) - (pos - (bid-(weight-1))));
-            if (data_) {
-                *data_ = LFSR_DATA_DISK(
-                        data.u.disk.block,
-                        data.u.disk.off + (pos - (bid-(weight-1))),
-                        d);
-            }
-            return 0;
-        }
-
-        // found a hole, just make sure next leaf takes priority
-        d = lfs_min32(d, bid+1 - pos);
-    }
-
-    // found a hole?
-    if (data_) {
-        *data_ = LFSR_DATA_HOLE(d);
-    }
-    return 0;
-}
-
 static int lfsr_ftree_carve(lfs_t *lfs,
         lfsr_mdir_t *mdir, lfsr_ftree_t *ftree,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
@@ -9522,8 +9449,6 @@ static int lfsr_ftree_carve(lfs_t *lfs,
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        LFS_ASSERT(tag_ == LFSR_TAG_DATA
-                || tag_ == LFSR_TAG_BLOCK);
 
         // note, an entry can be both a left and right sibling
         lfsr_data_t left_slice_ = lfsr_data_truncate(data_,
@@ -9723,7 +9648,7 @@ static int lfsr_ftree_carve(lfs_t *lfs,
 static int lfsr_ftree_flush(lfs_t *lfs,
         lfsr_mdir_t *mdir, lfsr_ftree_t *ftree,
         lfs_off_t buffer_pos, const uint8_t *buffer, lfs_size_t buffer_size) {
-    // this may take a few iterations because of crystal_size/fragment_size
+    // this may take a multiple iterations as we write fragments/blocks
     while (buffer_size > 0) {
         // first we need to figure out our current crystal, we do this
         // heuristically.
@@ -9754,8 +9679,6 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
-            LFS_ASSERT(tag_ == LFSR_TAG_DATA
-                    || tag_ == LFSR_TAG_BLOCK);
 
             // if left crystal neighbor is a fragment and there is no hole
             // between our own crystal and our neighbor, include as a part of
@@ -9788,8 +9711,6 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
-            LFS_ASSERT(tag_ == LFSR_TAG_DATA
-                    || tag_ == LFSR_TAG_BLOCK);
 
             // if right crystal neighbor is a fragment, include as a part
             // of our crystal
@@ -9806,155 +9727,8 @@ static int lfsr_ftree_flush(lfs_t *lfs,
             }
         }
 
-        // has our crystal exceeded our crystallization threshold? time to
-        // compact into a new block
-        if (crystal_end - crystal_start > lfs->cfg->crystal_size) {
-            // TODO check for becksums somewhere?
-
-            // before we can compact we need to figure out the best block
-            // alignment, we use the entry immediately to the left of our
-            // crystal for this
-            lfs_off_t block_start = crystal_start;
-            if (block_start > 0 && lfsr_ftree_size(ftree) > 0) {
-                lfsr_bid_t bid_;
-                lfsr_tag_t tag_;
-                lfsr_bid_t weight_;
-                lfsr_data_t data_;
-                int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
-                        lfs_min32(
-                            block_start-1,
-                            lfsr_ftree_size(ftree)-1),
-                        &bid_, &tag_, &weight_, &data_);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                LFS_ASSERT(tag_ == LFSR_TAG_DATA
-                        || tag_ == LFSR_TAG_BLOCK);
-
-                // is our left neighbor in the same block?
-                if (block_start - (bid_-(weight_-1)) < lfs->cfg->block_size
-                        && lfsr_data_size(&data_) > 0) {
-                    block_start = bid_-(weight_-1);
-
-                // no? is our left neighbor at least our left block neighbor?
-                // align to block alignment
-                } else if (block_start - (bid_-(weight_-1))
-                            < 2*lfs->cfg->block_size
-                        && lfsr_data_size(&data_) > 0) {
-                    block_start = bid_-(weight_-1) + lfs->cfg->block_size;
-                }
-            }
-
-            // TODO we can we lazily find right neighbors as we're
-            // writing out the crystal?
-            //
-            // if we have space in our block, lookup right block neighbors
-            // to see if we can merge
-            lfs_off_t block_end = lfs_min32(
-                    crystal_end,
-                    block_start + lfs->cfg->block_size);
-            while (block_end - block_start < lfs->cfg->block_size
-                    && block_end < lfsr_ftree_size(ftree)) {
-                lfsr_bid_t bid_;
-                lfsr_tag_t tag_;
-                lfsr_bid_t weight_;
-                lfsr_data_t data_;
-                int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
-                        block_end,
-                        &bid_, &tag_, &weight_, &data_);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                LFS_ASSERT(tag_ == LFSR_TAG_DATA
-                        || tag_ == LFSR_TAG_BLOCK);
-
-                // can we merge?
-                if (bid_-(weight_-1)+lfsr_data_size(&data_) <= block_end
-                        || bid_-(weight_-1)+lfsr_data_size(&data_)
-                                - block_start
-                            > lfs->cfg->block_size) {
-                    break;
-                }
-
-                block_end = bid_-(weight_-1)+lfsr_data_size(&data_);
-            }
-
-            // allocate a new block
-            lfs_block_t block;
-            int err = lfs_alloc(lfs, &block);
-            if (err) {
-                return err;
-            }
-
-            // TODO should lfs_alloc handle erase?
-            err = lfsr_bd_erase(lfs, block);
-            if (err) {
-                return err;
-            }
-
-            // copy any data underneath our block into our block
-            // TODO pos_ -> pos
-            lfs_off_t pos_ = block_start;
-            while (pos_ < block_end) {
-                lfsr_data_t data;
-                err = lfsr_ftree_readnext(lfs, mdir, ftree,
-                        buffer_pos, buffer, buffer_size,
-                        pos_, block_end - pos_,
-                        &data);
-                if (err) {
-                    // end of file?
-                    if (err == LFS_ERR_NOENT) {
-                        break;
-                    }
-                    return err;
-                }
-                LFS_ASSERT(lfsr_data_size(&data) > 0);
-
-                // prog data/hole
-                err = lfsr_bd_progdata(lfs, block, pos_ - block_start,
-                        data,
-                        NULL);
-                if (err) {
-                    return err;
-                }
-
-                pos_ += lfsr_data_size(&data);
-            }
-
-            // TODO validate?
-            // finalize our write
-            err = lfsr_bd_flush(lfs);
-            if (err) {
-                return err;
-            }
-
-            // create our block pointer
-            lfsr_bptr_t bptr = {
-                .block = block,
-                .off = 0,
-                .size = block_end - block_start,
-            };
-
-            // and write it into our tree
-            uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-            err = lfsr_ftree_carve(lfs, mdir, ftree,
-                    block_start, block_end - block_start, 0,
-                    LFSR_TAG_BLOCK, lfsr_data_frombptr(&bptr, bptr_buf));
-            if (err) {
-                return err;
-            }
-
-            // note converting crystals -> blocks may not actually make any
-            // progress on flushing the buffer on the first pass
-            lfs_ssize_t d = lfs_max32(buffer_pos, block_end) - buffer_pos;
-            buffer_pos += d;
-            buffer += lfs_min32(d, buffer_size);
-            buffer_size -= lfs_min32(d, buffer_size);
-
-        // fits in crystallization threshold? just append a fragment
-        } else {
+        // below our crystallization threshold? just append a fragment
+        if (crystal_end - crystal_start <= lfs->cfg->crystal_size) {
             // TODO if we failed a crystalization check, can we write fragments
             // in a loop? so no redundent crystalization check?
 
@@ -10057,6 +9831,193 @@ static int lfsr_ftree_flush(lfs_t *lfs,
             buffer_pos += d;
             buffer += lfs_min32(d, buffer_size);
             buffer_size -= lfs_min32(d, buffer_size);
+
+        // exceeded our crystallization threshold? compact into a new block
+        } else {
+            // TODO check for becksums somewhere?
+
+            // before we can compact we need to figure out the best block
+            // alignment, we use the entry immediately to the left of our
+            // crystal for this
+            lfs_off_t block_start = crystal_start;
+            if (block_start > 0 && lfsr_ftree_size(ftree) > 0) {
+                lfsr_bid_t bid_;
+                lfsr_tag_t tag_;
+                lfsr_bid_t weight_;
+                lfsr_data_t data_;
+                int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
+                        lfs_min32(
+                            block_start-1,
+                            lfsr_ftree_size(ftree)-1),
+                        &bid_, &tag_, &weight_, &data_);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    return err;
+                }
+
+                // is our left neighbor in the same block?
+                if (block_start - (bid_-(weight_-1)) < lfs->cfg->block_size
+                        && lfsr_data_size(&data_) > 0) {
+                    block_start = bid_-(weight_-1);
+
+                // no? is our left neighbor at least our left block neighbor?
+                // align to block alignment
+                } else if (block_start - (bid_-(weight_-1))
+                            < 2*lfs->cfg->block_size
+                        && lfsr_data_size(&data_) > 0) {
+                    block_start = bid_-(weight_-1) + lfs->cfg->block_size;
+                }
+            }
+
+            // allocate a new block
+            lfs_block_t block;
+            int err = lfs_alloc(lfs, &block);
+            if (err) {
+                return err;
+            }
+
+            // TODO should lfs_alloc handle erase?
+            err = lfsr_bd_erase(lfs, block);
+            if (err) {
+                return err;
+            }
+
+            // compact data into our new block
+            //
+            // eagerly merge any right neighbors we see unless that would
+            // put us over our block size
+            lfs_off_t pos = block_start;
+            while (pos < lfs_min32(
+                    lfs->cfg->block_size + block_start,
+                    lfs_max32(
+                        buffer_pos + buffer_size,
+                        lfsr_ftree_size(ftree)))) {
+                // keep track of the next highest priority data offset
+                lfs_ssize_t d = lfs_min32(
+                        lfs->cfg->block_size + block_start,
+                        lfs_max32(
+                            buffer_pos + buffer_size,
+                            lfsr_ftree_size(ftree))) - pos;
+
+                // any data in our write buffer?
+                if (pos < buffer_pos + buffer_size) {
+                    if (pos >= buffer_pos) {
+                        lfs_ssize_t d_ = lfs_min32(
+                                d,
+                                buffer_size - (pos - buffer_pos));
+                        err = lfsr_bd_prog(lfs, block, pos - block_start,
+                                &buffer[pos - buffer_pos], d_,
+                                NULL);
+                        if (err) {
+                            return err;
+                        }
+
+                        pos += d_;
+                        d -= d_;
+                    }
+
+                    // buffered data takes priority
+                    d = lfs_min32(d, buffer_pos - pos);
+                }
+
+                // any data on disk?
+                if (pos < lfsr_ftree_size(ftree)) {
+                    lfsr_bid_t bid;
+                    lfsr_tag_t tag;
+                    lfsr_bid_t weight;
+                    lfsr_data_t data;
+                    err = lfsr_ftree_lookupnext(lfs, mdir, ftree, pos,
+                            &bid, &tag, &weight, &data);
+                    if (err) {
+                        LFS_ASSERT(err != LFS_ERR_NOENT);
+                        return err;
+                    }
+
+                    // make sure to include all of our crystal, or else this
+                    // loop may never terminate
+                    if (bid-(weight-1) >= crystal_end
+                            // is this data a pure hole? stop early to better
+                            // leverage becksums in sparse files
+                            && (pos >= bid-(weight-1) + lfsr_data_size(&data)
+                                // does this data exceed our block_size?
+                                // stop early to try to avoid messing up
+                                // block alignment
+                                || bid-(weight-1) + lfsr_data_size(&data)
+                                        - block_start
+                                    > lfs->cfg->block_size)) {
+                        break;
+                    }
+
+                    if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
+                        // TODO should truncate just imply a strict data hint?
+                        // note one important side-effect here is a strict
+                        // data hint
+                        lfs_ssize_t d_ = lfs_min32(
+                                d,
+                                lfsr_data_size(&data)
+                                    - (pos - (bid-(weight-1))));
+                        err = lfsr_bd_progdata(lfs, block, pos - block_start,
+                                LFSR_DATA_DISK(
+                                    data.u.disk.block,
+                                    data.u.disk.off + (pos - (bid-(weight-1))),
+                                    d_),
+                                NULL);
+                        if (err) {
+                            return err;
+                        }
+
+                        pos += d_;
+                        d -= d_;
+                    }
+
+                    // found a hole? just make sure next leaf takes priority
+                    d = lfs_min32(d, bid+1 - pos);
+                }
+
+                // found a hole? write zeros
+                // TODO do something better than byte-level progs here
+                for (lfs_size_t i = 0; i < (lfs_size_t)d; i++) {
+                    err = lfsr_bd_prog(lfs, block, pos - block_start + i,
+                            &(uint8_t){0}, 1,
+                            NULL);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                pos += d;
+            }
+            lfs_off_t block_end = pos;
+
+            // TODO validate?
+            // finalize our write
+            err = lfsr_bd_flush(lfs);
+            if (err) {
+                return err;
+            }
+
+            // create our block pointer
+            lfsr_bptr_t bptr = {
+                .block = block,
+                .off = 0,
+                .size = block_end - block_start,
+            };
+
+            // and write it into our tree
+            uint8_t bptr_buf[LFSR_BPTR_DSIZE];
+            err = lfsr_ftree_carve(lfs, mdir, ftree,
+                    block_start, block_end - block_start, 0,
+                    LFSR_TAG_BLOCK, lfsr_data_frombptr(&bptr, bptr_buf));
+            if (err) {
+                return err;
+            }
+
+            // note compacting fragments -> blocks may not actually make any
+            // progress on flushing the buffer on the first pass
+            lfs_ssize_t d = lfs_max32(buffer_pos, block_end) - buffer_pos;
+            buffer_pos += d;
+            buffer += lfs_min32(d, buffer_size);
+            buffer_size -= lfs_min32(d, buffer_size);
         }
     }
 
@@ -10071,29 +10032,74 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
     lfs_off_t pos = file->pos;
     uint8_t *buffer_ = buffer;
-    while (size > 0) {
-        // find a data/hole
-        lfsr_data_t data;
-        int err = lfsr_ftree_readnext(lfs,
-                &file->mdir, &file->ftree,
-                file->buffer_pos, file->buffer, file->buffer_size,
-                pos, size,
-                &data);
-        if (err) {
-            // hit end of file?
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-        LFS_ASSERT(lfsr_data_size(&data) > 0);
+    while (size > 0 && pos < file->size) {
+        // keep track of the next highest priority data offset
+        lfs_ssize_t d = lfs_min32(size, file->size - pos);
 
-        // read from disk
-        lfs_ssize_t d = lfsr_data_read(lfs, &data,
-                buffer_, size);
-        if (d < 0) {
-            return d;
+        // any data in our write buffer?
+        if (pos < file->buffer_pos + file->buffer_size) {
+            if (pos >= file->buffer_pos) {
+                lfs_ssize_t d_ = lfs_min32(
+                        d,
+                        file->buffer_size - (pos - file->buffer_pos));
+                memcpy(buffer_,
+                        &file->buffer[pos - file->buffer_pos],
+                        d_);
+
+                pos += d_;
+                buffer_ += d_;
+                size -= d_;
+                d -= d_;
+            }
+
+            // buffered data takes priority
+            d = lfs_min32(d, file->buffer_pos - pos);
         }
+
+        // any data on disk?
+        if (pos < lfsr_ftree_size(&file->ftree)) {
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bid_t weight;
+            lfsr_data_t data;
+            int err = lfsr_ftree_lookupnext(lfs,
+                    &file->mdir, &file->ftree, pos,
+                    &bid, &tag, &weight, &data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+
+            if (pos < bid-(weight-1) + lfsr_data_size(&data)) {
+                // TODO should truncate just imply a strict data hint?
+                // note one important side-effect here is a strict
+                // data hint
+                lfs_ssize_t d_ = lfs_min32(
+                        d,
+                        lfsr_data_size(&data)
+                            - (pos - (bid-(weight-1))));
+                d_ = lfsr_data_read(lfs,
+                        &LFSR_DATA_DISK(
+                            data.u.disk.block,
+                            data.u.disk.off + (pos - (bid-(weight-1))),
+                            d_),
+                        buffer_, d_);
+                if (d_ < 0) {
+                    return d_;
+                }
+
+                pos += d_;
+                buffer_ += d_;
+                size -= d_;
+                d -= d_;
+            }
+
+            // found a hole? just make sure next leaf takes priority
+            d = lfs_min32(d, bid+1 - pos);
+        }
+
+        // found a hole? write zeros
+        memset(buffer_, 0, d);
 
         pos += d;
         buffer_ += d;
