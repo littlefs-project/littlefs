@@ -169,7 +169,9 @@ def frombptr(data):
     size, d_ = fromleb128(data[d:]); d += d_
     block, d_ = fromleb128(data[d:]); d += d_
     off, d_ = fromleb128(data[d:]); d += d_
-    return size, block, off
+    cksize, d_ = fromleb128(data[d:]); d += d_
+    cksum = fromle32(data[d:]); d += 4
+    return size, block, off, cksize, cksum
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):
@@ -1186,7 +1188,7 @@ def frepr(mdir, rid, tag):
         # direct block?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BLOCK)
         if not done and rid_ == rid and tag_ == TAG_BLOCK:
-            size_, block, off = frombptr(data)
+            size_, block, off, cksize, cksum = frombptr(data)
             size = max(size, size_)
             structs.append('block 0x%x.%x' % (block, off))
         # inlined bshrub?
@@ -1250,7 +1252,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             mdir.eoff,
             j,
             0)
-        size, block, off = frombptr(data)
+        size, block, off, cksize, cksum = frombptr(data)
         w = size
     # inlined bshrub?
     elif tag == TAG_BSHRUB:
@@ -1425,7 +1427,8 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                     else '%d-%d' % (bid-(w-1), bid) if w > 1
                     else bid if w > 0
                     else ''),
-                21+2*w_width, tagrepr(tag, w if i == 0 else 0, len(data), None),
+                21+2*w_width+1,
+                    tagrepr(tag, w if i == 0 else 0, len(data), None),
                 next(xxd(data, 8), '')
                     if not args.get('raw') and not args.get('no_truncate')
                     else ''))
@@ -1458,29 +1461,37 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                         '%*s ' % (2*w_width+1, ''),
                         line))
 
-    def dbg_block(bid, w, rbyd, rid, bptr, block, off, size, data, bd):
+    def dbg_block(bid, w, rbyd, rid, bptr,
+            block, off, size, cksize, cksum, data, notes,
+            bd):
         nonlocal prbyd
         tag, _, _, _ = bptr
 
         # show human-readable representation
-        print('%12s %*s %s%s%-*s  %s' % (
+        print('%s%12s%s %*s %s%s%s%-*s%s%s' % (
+            '\x1b[31m' if color and notes else '',
             '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                 if prbyd is None or rbyd != prbyd
                 else '',
+            '\x1b[0m' if color and notes else '',
             m_width, '',
             treerepr(bid, w, bd, rid, tag, True)
                 if args.get('tree') or args.get('btree') else '',
+            '\x1b[31m' if color and notes else '',
             '%*s ' % (2*w_width+1, '%d-%d' % (bid-(w-1), bid) if w > 1
                 else bid if w > 0
                 else ''),
-            21+2*w_width, '%s%s%s 0x%x.%x %d' % (
-                'shrub' if tag & TAG_SHRUB else '',
-                'block',
-                ' w%d' % w if w else '',
-                block, off, size),
-            next(xxd(data, 8), '')
-                if not args.get('raw') and not args.get('no_truncate')
-                else ''))
+            56+2*w_width+1, '%-*s  %s' % (
+                21+2*w_width+1, '%s%s%s 0x%x.%x %d' % (
+                    'shrub' if tag & TAG_SHRUB else '',
+                    'block',
+                    ' w%d' % w if w else '',
+                    block, off, size),
+                next(xxd(data, 8), '')
+                    if not args.get('raw') and not args.get('no_truncate')
+                    else ''),
+            ' (%s)' % ', '.join(notes) if notes else '',
+            '\x1b[m' if color and notes else ''))
         prbyd = rbyd
 
         # show in-device representation
@@ -1612,18 +1623,25 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         if bptr:
             # decode block pointer
             _, _, _, data = bptr
-            d = 0
-            size, d_ = fromleb128(data[d:]); d += d_
-            block, d_ = fromleb128(data[d:]); d += d_
-            off, d_ = fromleb128(data[d:]); d += d_
+            size, block, off, cksize, cksum = frombptr(data)
+            notes = []
 
-            # go ahead and read the data
-            f.seek(block*block_size + min(off, block_size))
-            data = f.read(min(size, block_size - min(off, block_size)))
+            # go ahead and read the full block
+            f.seek(block*block_size)
+            data = f.read(block_size)
+
+            # check the checksum
+            cksum_ = crc32c(data[:cksize])
+            if cksum_ != cksum:
+                notes.append('cksum!=%08x' % cksum)
+
+            # slice data
+            data = data[off:size]
 
             # show the block
             dbg_block(bid, w, rbyd, rid, bptr,
-                block, off, size, data, len(path)-1)
+                block, off, size, cksize, cksum, data, notes,
+                len(path)-1)
 
 
 
@@ -2005,7 +2023,9 @@ def main(disk, mroots=None, *,
 
                     # print human readable dtree entry
                     print('%s%12s %*s %-*s  %s%s%s' % (
-                        '\x1b[90m' if color and (grmed or tag == TAG_BOOKMARK)
+                        '\x1b[31m' if color and not grmed and notes
+                            else '\x1b[90m'
+                                if color and (grmed or tag == TAG_BOOKMARK)
                             else '',
                         '{%s}:' % ','.join('%04x' % block
                             for block in it.chain([mdir.block],
@@ -2019,12 +2039,9 @@ def main(disk, mroots=None, *,
                             prefixes[0+(i==len(dir)-1)],
                             name.decode('utf8')),
                         frepr(mdir, rid, tag),
-                        ' %s(%s)%s' % (
-                            '\x1b[31m' if color and not grmed else '',
-                            ', '.join(notes),
-                            '\x1b[m' if color and not grmed else '')
-                            if notes else '',
-                        '\x1b[m' if color and (grmed or tag == TAG_BOOKMARK)
+                        ' (%s)' % ', '.join(notes) if notes else '',
+                        '\x1b[m' if color and (
+                                notes or grmed or tag == TAG_BOOKMARK)
                             else ''))
                     pmbid = mbid
 

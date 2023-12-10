@@ -372,14 +372,6 @@ typedef struct lfsr_rbyd {
     uint32_t cksum;
 } lfsr_rbyd_t;
 
-typedef struct lfsr_bptr {
-    // note size lines up with weight in lfsr_btree_t
-    lfs_off_t size;
-    lfs_block_t block;
-    lfs_size_t off;
-    // TODO how do we track ecksum?
-} lfsr_bptr_t;
-
 typedef lfsr_rbyd_t lfsr_btree_t;
 
 typedef struct lfsr_mptr {
@@ -513,6 +505,14 @@ typedef struct lfsr_bsprout {
     lfsr_data_t data_;
 } lfsr_bsprout_t;
 
+typedef struct lfsr_bptr {
+    // note data.size lines up with weight in lfsr_btree_t
+    lfsr_data_t data;
+    lfs_size_t cksize;
+    uint32_t cksum;
+    // TODO how do we track ecksum?
+} lfsr_bptr_t;
+
 // bshrubs must always be associated with an mdir
 //
 // rbyd.block == mdir.blocks[0] => bshrub
@@ -529,6 +529,7 @@ typedef struct lfsr_bshrub {
 typedef struct lfsr_ftree {
     union {
         lfs_soff_t size;
+        lfsr_data_t data;
         lfsr_bsprout_t bsprout;
         lfsr_bptr_t bptr;
         lfsr_bshrub_t bshrub;

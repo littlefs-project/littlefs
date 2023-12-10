@@ -549,7 +549,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 rid = lower_ + w-1
 
         # show human-readable tag representation
-        print('%s%08x:%s %*s%s%*s %-*s%s%s' % (
+        print('%s%08x:%s %*s%s%*s %-*s%s%s%s' % (
             '\x1b[90m' if color and j >= eoff else '',
             j,
             '\x1b[m' if color and j >= eoff else '',
@@ -558,17 +558,15 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             2*w_width+1, '' if (tag & 0xe000) != 0x0000
                 else '%d-%d' % (rid-(w-1), rid) if w > 1
                 else rid,
-            56+w_width, '%-*s%s' % (
+            56+w_width, '%-*s  %s' % (
                 21+w_width, tagrepr(tag, w, size, j),
-                '  %s' % next(xxd(
-                        data[j+d:j+d+min(size, 8)], 8), '')
+                next(xxd(data[j+d:j+d+min(size, 8)], 8), '')
                     if not args.get('raw') and not args.get('no_truncate')
                         and not tag & TAG_ALT else ''),
+            ' (%s)' % ', '.join(notes) if notes else '',
             '\x1b[m' if color and j >= eoff else '',
-            ' (%s)' % ', '.join(notes) if notes
-            else ' %s' % jumprepr(j)
-                if args.get('jumps')
-            else ''))
+            ' %s' % jumprepr(j)
+                if args.get('jumps') and not notes else ''))
 
         # show in-device representation, including some extra
         # cksum/parity info
@@ -822,18 +820,16 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             break
 
         # show human-readable tag representation
-        print('%08x: %s%s' % (
+        print('%08x: %s%*s %-*s  %s' % (
             j,
             treerepr(rid, tag) if args.get('tree') else '',
-            '%*s %-*s%s' % (
-                2*w_width+1, '%d-%d' % (rid-(w-1), rid)
-                    if w > 1 else rid
-                    if w > 0 or i == 0 else '',
-                21+w_width, tagrepr(tag, w, size, j),
-                '  %s' % next(xxd(
-                        data[j+d:j+d+min(size, 8)], 8), '')
-                    if not args.get('raw') and not args.get('no_truncate')
-                        and not tag & TAG_ALT else '')))
+            2*w_width+1, '%d-%d' % (rid-(w-1), rid)
+                if w > 1 else rid
+                if w > 0 or i == 0 else '',
+            21+w_width, tagrepr(tag, w, size, j),
+            next(xxd(data[j+d:j+d+min(size, 8)], 8), '')
+                if not args.get('raw') and not args.get('no_truncate')
+                    and not tag & TAG_ALT else ''))
 
         # show in-device representation
         if args.get('device'):

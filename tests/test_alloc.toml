@@ -354,10 +354,11 @@ code = '''
         } else if (tinfo.tag == LFSR_TAG_BLOCK) {
             printf("traversal: 0x%x block 0x%x\n",
                     tinfo.tag,
-                    tinfo.u.bptr.block);
+                    tinfo.u.bptr.data.u.disk.block);
 
             // keep track of seen blocks
-            seen[tinfo.u.bptr.block / 8] |= 1 << (tinfo.u.bptr.block % 8);
+            seen[tinfo.u.bptr.data.u.disk.block / 8]
+                    |= 1 << (tinfo.u.bptr.data.u.disk.block % 8);
 
         } else {
             // this shouldn't happen
@@ -501,10 +502,11 @@ code = '''
         } else if (tinfo.tag == LFSR_TAG_BLOCK) {
             printf("traversal: 0x%x block 0x%x\n",
                     tinfo.tag,
-                    tinfo.u.bptr.block);
+                    tinfo.u.bptr.data.u.disk.block);
 
             // keep track of seen blocks
-            seen[tinfo.u.bptr.block / 8] |= 1 << (tinfo.u.bptr.block % 8);
+            seen[tinfo.u.bptr.data.u.disk.block / 8]
+                    |= 1 << (tinfo.u.bptr.data.u.disk.block % 8);
 
         } else {
             // this shouldn't happen
