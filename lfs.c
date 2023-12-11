@@ -1122,30 +1122,37 @@ static inline lfsr_data_t lfsr_data_fromcat(
 }
 
 // note these operations only work on "simple" (not concatenated) datas
-static lfsr_data_t lfsr_data_add(lfsr_data_t data, lfs_size_t off) {
-    // limit our off to data range
-    lfs_size_t off_ = lfs_min32(off, lfsr_data_size(&data));
+static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
+        lfs_ssize_t off, lfs_ssize_t size) {
+    // limit our off/size to data range, note the use of unsigned casts
+    // here to treat -1 as unbounded
+    lfs_size_t off_ = lfs_min32(
+            lfs_smax32(off, 0),
+            lfsr_data_size(&data));
+    lfs_size_t size_ = lfs_min32(
+            (lfs_size_t)size,
+            lfsr_data_size(&data) - off_);
 
     // on-disk? increment
     if (lfsr_data_ondisk(&data)) {
         data.u.disk.off += off_;
-        data.u.disk.size -= off_;
+        data.u.disk.size = LFSR_DATA_ONDISK | size_;
 
     // buffer? increment
     } else if (lfsr_data_isbuf(&data)) {
         data.u.buf.buffer += off_;
-        data.u.buf.size -= off_;
+        data.u.buf.size = size_;
 
     // hole? decrement
     } else if (lfsr_data_ishole(&data)) {
-        data.u.hole.size -= off_;
+        data.u.hole.size = size_;
 
     // inlined? internal memmove
     } else if (lfsr_data_isimm(&data)) {
         memmove(data.u.imm.buf,
                 data.u.imm.buf + off_,
-                data.u.imm.size - off_);
-        data.u.imm.size -= off_;
+                size_);
+        data.u.imm.size = size_;
 
     // concatenated? not supported
     } else {
@@ -1156,39 +1163,15 @@ static lfsr_data_t lfsr_data_add(lfsr_data_t data, lfs_size_t off) {
 }
 
 static lfsr_data_t lfsr_data_truncate(lfsr_data_t data, lfs_size_t size) {
-    // limit size to our data range
-    size = lfs_min32(size, lfsr_data_size(&data));
-
-    // on-disk? update size
-    if (lfsr_data_ondisk(&data)) {
-        data.u.disk.size = LFSR_DATA_ONDISK | size;
-
-    // buffer? update size
-    } else if (lfsr_data_isbuf(&data)) {
-        data.u.buf.size = size;
-
-    // hole? update size
-    } else if (lfsr_data_ishole(&data)) {
-        data.u.hole.size = size;
-
-    // inlined? update size
-    } else if (lfsr_data_isimm(&data)) {
-        data.u.imm.size = size;
-
-    // concatenated? not supported
-    } else {
-        LFS_UNREACHABLE();
-    }
-
-    return data;
+    return lfsr_data_slice(data, -1, size);
 }
 
 static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
-    // limit size to our data range
-    size = lfs_min32(size, lfsr_data_size(&data));
-
-    // lfsr_data_fruncate and lfsr_data_add are basically the same operation
-    return lfsr_data_add(data, lfsr_data_size(&data) - size);
+    return lfsr_data_slice(data,
+            lfsr_data_size(&data) - lfs_min32(
+                size,
+                lfsr_data_size(&data)),
+            -1);
 }
 
 
@@ -1229,7 +1212,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
         LFS_UNREACHABLE();
     }
 
-    *data = lfsr_data_add(*data, d);
+    *data = lfsr_data_slice(*data, d, -1);
     return d;
 }
 
@@ -1268,7 +1251,7 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
         return d;
     }
 
-    *data = lfsr_data_add(*data, d);
+    *data = lfsr_data_slice(*data, d, -1);
     return 0;
 }
 
@@ -9462,17 +9445,21 @@ static int lfsr_ftree_carve(lfs_t *lfs,
         }
 
         // note, an entry can be both a left and right sibling
-        lfsr_data_t left_slice_ = lfsr_data_truncate(bptr_.data,
+        lfsr_data_t left_slice_ = lfsr_data_slice(bptr_.data,
+                -1,
                 pos - (bid_-(weight_-1)));
-        lfsr_data_t right_slice_ = lfsr_data_add(bptr_.data,
-                pos+weight - (bid_-(weight_-1)));
+        lfsr_data_t right_slice_ = lfsr_data_slice(bptr_.data,
+                pos+weight - (bid_-(weight_-1)),
+                -1);
 
         // left sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
         while (tag_ == LFSR_TAG_BLOCK
                 && lfsr_data_size(&left_slice_) > lfs->cfg->fragment_size
                 && lfsr_data_size(&left_slice_) <= lfs->cfg->crystal_size) {
-            bptr_.data = lfsr_data_add(bptr_.data, lfs->cfg->fragment_size);
+            bptr_.data = lfsr_data_slice(bptr_.data,
+                    lfs->cfg->fragment_size,
+                    -1);
 
             err = lfsr_bshrub_commit(lfs, mdir, &ftree->u.bshrub, LFSR_ATTRS(
                     LFSR_ATTR(bid_,
@@ -9488,7 +9475,8 @@ static int lfsr_ftree_carve(lfs_t *lfs,
             }
 
             weight_ -= lfs->cfg->fragment_size;
-            left_slice_ = lfsr_data_truncate(bptr_.data,
+            left_slice_ = lfsr_data_slice(bptr_.data,
+                    -1,
                     pos - (bid_-(weight_-1)));
         }
 
@@ -9515,8 +9503,9 @@ static int lfsr_ftree_carve(lfs_t *lfs,
 
             bid_ -= (weight_-lfsr_data_size(&bptr_.data));
             weight_ -= (weight_-lfsr_data_size(&bptr_.data));
-            right_slice_ = lfsr_data_add(bptr_.data,
-                    pos+weight - (bid_-(weight_-1)));
+            right_slice_ = lfsr_data_slice(bptr_.data,
+                    pos+weight - (bid_-(weight_-1)),
+                    -1);
         }
 
         // found left sibling?
@@ -9954,7 +9943,6 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                     }
 
                     if (pos < bid-(weight-1) + lfsr_data_size(&bptr.data)) {
-                        // TODO should truncate just imply a strict data hint?
                         // note one important side-effect here is a strict
                         // data hint
                         lfs_ssize_t d_ = lfs_min32(
@@ -9962,10 +9950,8 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                                 lfsr_data_size(&bptr.data)
                                     - (pos - (bid-(weight-1))));
                         err = lfsr_bd_progdata(lfs, block, pos - block_start,
-                                LFSR_DATA_DISK(
-                                    bptr.data.u.disk.block,
-                                    bptr.data.u.disk.off
-                                        + (pos - (bid-(weight-1))),
+                                lfsr_data_slice(bptr.data,
+                                    pos - (bid-(weight-1)),
                                     d_),
                                 &cksum);
                         if (err) {
@@ -10079,18 +10065,16 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             }
 
             if (pos < bid-(weight-1) + lfsr_data_size(&bptr.data)) {
-                // TODO should truncate just imply a strict data hint?
                 // note one important side-effect here is a strict
                 // data hint
                 lfs_ssize_t d_ = lfs_min32(
                         d,
                         lfsr_data_size(&bptr.data)
                             - (pos - (bid-(weight-1))));
-                d_ = lfsr_data_read(lfs,
-                        &LFSR_DATA_DISK(
-                            bptr.data.u.disk.block,
-                            bptr.data.u.disk.off + (pos - (bid-(weight-1))),
-                            d_),
+                lfsr_data_t slice = lfsr_data_slice(bptr.data,
+                        pos - (bid-(weight-1)),
+                        d_);
+                d_ = lfsr_data_read(lfs, &slice,
                         buffer_, d_);
                 if (d_ < 0) {
                     return d_;
