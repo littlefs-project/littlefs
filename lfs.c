@@ -990,9 +990,8 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 // in-device data modes
 enum {
     LFSR_DATA_BUF   = 0,
-    LFSR_DATA_HOLE  = 1,
-    LFSR_DATA_IMM   = 2,
-    LFSR_DATA_CAT   = 3,
+    LFSR_DATA_IMM   = 1,
+    LFSR_DATA_CAT   = 2,
 };
 
 // LFSR_DATA_DATA just provides and escape hatch to pass raw datas
@@ -1016,11 +1015,6 @@ enum {
         .u.buf.size=_size, \
         .u.buf.mode=LFSR_DATA_BUF, \
         .u.buf.buffer=(const void*)(_buffer)})
-
-#define LFSR_DATA_HOLE(_size) \
-    ((lfsr_data_t){ \
-        .u.hole.size=_size, \
-        .u.hole.mode=LFSR_DATA_HOLE})
 
 #define LFSR_DATA_IMM(_buffer, _size) \
     lfsr_data_fromimm(_buffer, _size)
@@ -1063,10 +1057,6 @@ static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
 
 static inline bool lfsr_data_isbuf(const lfsr_data_t *data) {
     return !lfsr_data_ondisk(data) && data->u.buf.mode == LFSR_DATA_BUF;
-}
-
-static inline bool lfsr_data_ishole(const lfsr_data_t *data) {
-    return !lfsr_data_ondisk(data) && data->u.buf.mode == LFSR_DATA_HOLE;
 }
 
 static inline bool lfsr_data_isimm(const lfsr_data_t *data) {
@@ -1143,10 +1133,6 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
         data.u.buf.buffer += off_;
         data.u.buf.size = size_;
 
-    // hole? decrement
-    } else if (lfsr_data_ishole(&data)) {
-        data.u.hole.size = size_;
-
     // inlined? internal memmove
     } else if (lfsr_data_isimm(&data)) {
         memmove(data.u.imm.buf,
@@ -1198,10 +1184,6 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
     // buffer?
     } else if (lfsr_data_isbuf(data)) {
         memcpy(buffer, data->u.buf.buffer, d);
-
-    // hole?
-    } else if (lfsr_data_ishole(data)) {
-        memset(buffer, 0, d);
 
     // inlined?
     } else if (lfsr_data_isimm(data)) {
@@ -1271,22 +1253,6 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, const lfsr_data_t *data,
     // buffer?
     } else if (lfsr_data_isbuf(data)) {
         int cmp = memcmp(data->u.buf.buffer, buffer, d);
-        if (cmp < 0) {
-            return LFS_CMP_LT;
-        } else if (cmp > 0) {
-            return LFS_CMP_GT;
-        }
-
-    // hole?
-    } else if (lfsr_data_ishole(data)) {
-        const uint8_t *buffer_ = buffer;
-        int cmp = 0;
-        if (d > 0) {
-            cmp = buffer_[0] - 0;
-            if (cmp == 0) {
-                cmp = memcmp(buffer_, buffer_+1, size-1);
-            }
-        }
         if (cmp < 0) {
             return LFS_CMP_LT;
         } else if (cmp > 0) {
@@ -1369,17 +1335,6 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
                 cksum_);
         if (err) {
             return err;
-        }
-
-    // hole?
-    } else if (lfsr_data_ishole(&data)) {
-        // TODO do something better than byte-level progs here
-        for (lfs_size_t i = 0; i < lfsr_data_size(&data); i++) {
-            int err = lfsr_bd_prog(lfs, block, off+i, &(uint8_t){0}, 1,
-                    cksum_);
-            if (err) {
-                return err;
-            }
         }
 
     // inlined?

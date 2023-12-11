@@ -420,7 +420,6 @@ typedef struct lfs_mdir {
 // The exact representation of in-device data also depends on the
 // mode field:
 // - pointer to a RAM-backed buffer
-// - implicitly zero-filled holes
 // - inlined data able to fit at least 1 leb128
 // - an array of concatenated datas
 //
@@ -440,10 +439,6 @@ typedef struct lfsr_data {
             uint8_t mode;
             const uint8_t *buffer;
         } buf;
-        struct {
-            lfs_ssize_t size;
-            uint8_t mode;
-        } hole;
         struct {
             lfs_ssize_t size;
             uint8_t mode;
