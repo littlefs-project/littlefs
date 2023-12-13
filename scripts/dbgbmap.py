@@ -33,6 +33,7 @@ TAG_BLOCK           = 0x0304
 TAG_BSHRUB          = 0x0308
 TAG_BTREE           = 0x030c
 TAG_DID             = 0x0310
+TAG_BECKSUM         = 0x0314
 TAG_BRANCH          = 0x031c
 TAG_MROOT           = 0x0321
 TAG_MDIR            = 0x0325

@@ -453,6 +453,20 @@ typedef struct lfsr_data {
     } u;
 } lfsr_data_t;
 
+typedef struct lfsr_bptr {
+    // note data.size lines up with weight in lfsr_btree_t
+    lfsr_data_t data;
+    lfs_size_t cksize;
+    uint32_t cksum;
+} lfsr_bptr_t;
+
+// erased-state checksum
+typedef struct lfsr_ecksum {
+    // size=-1 indicates no ecksum
+    lfs_ssize_t size;
+    uint32_t cksum;
+} lfsr_ecksum_t;
+
 // littlefs directory type
 typedef struct lfs_dir {
     struct lfs_dir *next;
@@ -500,13 +514,11 @@ typedef struct lfsr_bsprout {
     lfsr_data_t data_;
 } lfsr_bsprout_t;
 
-typedef struct lfsr_bptr {
-    // note data.size lines up with weight in lfsr_btree_t
-    lfsr_data_t data;
-    lfs_size_t cksize;
-    uint32_t cksum;
-    // TODO how do we track ecksum?
-} lfsr_bptr_t;
+// a bleaf is just a bptr with all optional attrs
+typedef struct lfsr_bleaf {
+    lfsr_bptr_t bptr;
+    lfsr_ecksum_t becksum;
+} lfsr_bleaf_t;
 
 // bshrubs must always be associated with an mdir
 //
@@ -527,6 +539,7 @@ typedef struct lfsr_ftree {
         lfsr_data_t data;
         lfsr_bsprout_t bsprout;
         lfsr_bptr_t bptr;
+        lfsr_bleaf_t bleaf;
         lfsr_bshrub_t bshrub;
         lfsr_btree_t btree;
     } u;

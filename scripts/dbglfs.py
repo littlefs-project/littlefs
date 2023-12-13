@@ -32,6 +32,7 @@ TAG_BLOCK           = 0x0304
 TAG_BSHRUB          = 0x0308
 TAG_BTREE           = 0x030c
 TAG_DID             = 0x0310
+TAG_BECKSUM         = 0x0314
 TAG_BRANCH          = 0x031c
 TAG_MROOT           = 0x0321
 TAG_MDIR            = 0x0325
@@ -229,6 +230,7 @@ def tagrepr(tag, w, size, off=None):
                 else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
                 else 'btree' if (tag & 0xfff) == TAG_BTREE
                 else 'did' if (tag & 0xfff) == TAG_DID
+                else 'becksum' if (tag & 0xfff) == TAG_BECKSUM
                 else 'branch' if (tag & 0xfff) == TAG_BRANCH
                 else 'mroot' if (tag & 0xfff) == TAG_MROOT
                 else 'mdir' if (tag & 0xfff) == TAG_MDIR
@@ -1636,7 +1638,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                 notes.append('cksum!=%08x' % cksum)
 
             # slice data
-            data = data[off:size]
+            data = data[off:off+size]
 
             # show the block
             dbg_block(bid, w, rbyd, rid, bptr,

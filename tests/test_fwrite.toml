@@ -8,6 +8,9 @@ defines.FRAGMENT_SIZE = [1, 16, 64]
 # test with different crystal sizes
 defines.CRYSTAL_SIZE = [512]
 
+# test with different prog sizes
+defines.PROG_SIZE = [1, 16]
+
 # more complex writing patterns to inlined files
 
 # write files incrementally

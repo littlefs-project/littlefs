@@ -15,7 +15,7 @@ code = '''
             lfsr_tag_t *tag_, lfs_size_t *weight_,
             void *buffer, lfs_size_t size) {
         lfsr_data_t data;
-        int err = lfsr_btree_lookup(lfs, btree, bid,
+        int err = lfsr_btree_lookup(lfs, btree, bid, LFSR_TAG_STRUCT,
                 tag_, weight_, &data);
         if (err) {
             return err;
@@ -40,7 +40,7 @@ code = '''
 
         // lookup weight to compute deltas
         lfs_size_t weight_;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid, LFSR_TAG_STRUCT,
                 NULL, NULL, &weight_, NULL);
         if (err) {
             return err;
@@ -60,7 +60,7 @@ code = '''
 
         // lookup weight to compute deltas
         lfs_size_t weight_;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid, LFSR_TAG_STRUCT,
                 NULL, NULL, &weight_, NULL);
         if (err) {
             return err;
@@ -79,7 +79,7 @@ code = '''
 
         // lookup weight to compute deltas
         lfs_size_t weight_;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid, LFSR_TAG_STRUCT,
                 NULL, NULL, &weight_, NULL);
         if (err) {
             return err;
@@ -630,7 +630,7 @@ code = '''
     lfs_size_t bid_ = -1;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == i*W+W-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -639,7 +639,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -767,7 +767,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -776,7 +776,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
@@ -1186,7 +1186,7 @@ code = '''
     lfs_size_t bid_ = -1;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == i*W+W-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -1195,7 +1195,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &uppers[i % 26], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -1334,7 +1334,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -1343,7 +1343,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
@@ -2005,7 +2005,7 @@ code = '''
     lfs_size_t bid_ = -1;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == i*W+W-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -2015,7 +2015,7 @@ code = '''
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
     }
 
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => 0;
     assert(bid_ == REMAINING*W+W-1);
     assert(tag_ == LFSR_TAG_DATA);
@@ -2024,7 +2024,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "R", 1) == 0);
 
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -2176,7 +2176,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -2185,7 +2185,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
@@ -2558,7 +2558,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -2567,7 +2567,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
@@ -3114,7 +3114,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+        lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
                 &bid_, &tag_, &weight_, &data_) => 0;
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(tag_ == LFSR_TAG_DATA);
@@ -3123,7 +3123,7 @@ code = '''
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
-    lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
+    lfsr_btree_lookupnext(&lfs, &btree, bid_+1, LFSR_TAG_STRUCT,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
