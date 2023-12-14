@@ -9505,7 +9505,7 @@ static int lfsr_ftree_carve(lfs_t *lfs,
         // crystallization threshold? break into fragments
         while (tag_ == LFSR_TAG_BLOCK
                 && lfsr_data_size(&left_slice_) > lfs->cfg->fragment_size
-                && lfsr_data_size(&left_slice_) <= lfs->cfg->crystal_size) {
+                && lfsr_data_size(&left_slice_) < lfs->cfg->crystal_thresh) {
             bptr_.data = lfsr_data_slice(bptr_.data,
                     lfs->cfg->fragment_size,
                     -1);
@@ -9533,7 +9533,7 @@ static int lfsr_ftree_carve(lfs_t *lfs,
         // crystallization threshold? break into fragments
         while (tag_ == LFSR_TAG_BLOCK
                 && lfsr_data_size(&right_slice_) > lfs->cfg->fragment_size
-                && lfsr_data_size(&right_slice_) <= lfs->cfg->crystal_size) {
+                && lfsr_data_size(&right_slice_) < lfs->cfg->crystal_thresh) {
             bptr_.data = lfsr_data_truncate(bptr_.data,
                     lfsr_data_size(&bptr_.data) - lfs->cfg->fragment_size);
 
@@ -9735,7 +9735,8 @@ static int lfsr_ftree_flush(lfs_t *lfs,
 
         // within our tree? find left crystal neighbor
         if (pos > 0
-                && (lfs_soff_t)(pos - lfs->cfg->crystal_size)
+                && lfs->cfg->crystal_thresh > 0
+                && (lfs_soff_t)(pos - (lfs->cfg->crystal_thresh-1))
                     < (lfs_soff_t)lfsr_ftree_size(ftree)
                 && lfsr_ftree_size(ftree) > 0
                 // don't bother to lookup left after the first block
@@ -9745,7 +9746,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
             lfsr_bid_t weight;
             lfsr_ecksum_t becksum;
             int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
-                    lfs_smax32(pos - lfs->cfg->crystal_size, 0),
+                    lfs_smax32(pos - (lfs->cfg->crystal_thresh-1), 0),
                     &bid, &tag, &weight, &bptr, &becksum);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -9757,7 +9758,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
             // of our crystal
             if (tag == LFSR_TAG_DATA
                     && bid-(weight-1)+lfsr_data_size(&bptr.data)
-                        >= pos - lfs->cfg->crystal_size) {
+                        >= pos - (lfs->cfg->crystal_thresh-1)) {
                 crystal_start = bid-(weight-1);
 
             // otherwise our neighbor determines our crystal boundary
@@ -9791,14 +9792,14 @@ static int lfsr_ftree_flush(lfs_t *lfs,
 
         // if we haven't already exceeded our crystallization threshold,
         // find right crystal neighbor
-        if (crystal_end - crystal_start <= lfs->cfg->crystal_size
+        if (crystal_end - crystal_start < lfs->cfg->crystal_thresh
                 && lfsr_ftree_size(ftree) > 0) {
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                     lfs_min32(
-                        crystal_start + lfs->cfg->crystal_size,
+                        crystal_start + (lfs->cfg->crystal_thresh-1),
                         lfsr_ftree_size(ftree)-1),
                     &bid, &tag, &weight, &bptr, NULL);
             if (err) {
@@ -9822,7 +9823,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         }
 
         // below our crystallization threshold? fallback to writing fragments
-        if (crystal_end - crystal_start <= lfs->cfg->crystal_size) {
+        if (crystal_end - crystal_start < lfs->cfg->crystal_thresh) {
             break;
         }
 
@@ -10042,7 +10043,6 @@ static int lfsr_ftree_flush(lfs_t *lfs,
 
         // prepare our block pointer
         LFS_ASSERT(bptr.cksize > 0);
-        LFS_ASSERT(bptr.cksize >= lfs->cfg->crystal_size);
         LFS_ASSERT(bptr.cksize <= lfs->cfg->block_size);
         bptr.data = LFSR_DATA_DISK(
                 bptr.data.u.disk.block,

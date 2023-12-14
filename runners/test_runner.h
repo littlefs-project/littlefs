@@ -107,7 +107,7 @@ intmax_t test_define(size_t define);
 #define INLINE_SIZE_i               6
 #define SHRUB_SIZE_i                7
 #define FRAGMENT_SIZE_i             8
-#define CRYSTAL_SIZE_i              9
+#define CRYSTAL_THRESH_i            9
 #define LOOKAHEAD_SIZE_i            10
 #define BLOCK_CYCLES_i              11
 #define ERASE_VALUE_i               12
@@ -126,7 +126,7 @@ intmax_t test_define(size_t define);
 #define INLINE_SIZE         TEST_DEFINE(INLINE_SIZE_i)
 #define SHRUB_SIZE          TEST_DEFINE(SHRUB_SIZE_i)
 #define FRAGMENT_SIZE       TEST_DEFINE(FRAGMENT_SIZE_i)
-#define CRYSTAL_SIZE        TEST_DEFINE(CRYSTAL_SIZE_i)
+#define CRYSTAL_THRESH      TEST_DEFINE(CRYSTAL_THRESH_i)
 #define LOOKAHEAD_SIZE      TEST_DEFINE(LOOKAHEAD_SIZE_i)
 #define BLOCK_CYCLES        TEST_DEFINE(BLOCK_CYCLES_i)
 #define ERASE_VALUE         TEST_DEFINE(ERASE_VALUE_i)
@@ -145,7 +145,7 @@ intmax_t test_define(size_t define);
     TEST_DEF(INLINE_SIZE,        BLOCK_SIZE/8                               ) \
     TEST_DEF(SHRUB_SIZE,         INLINE_SIZE                                ) \
     TEST_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                 ) \
-    TEST_DEF(CRYSTAL_SIZE,       BLOCK_SIZE/8                               ) \
+    TEST_DEF(CRYSTAL_THRESH,     BLOCK_SIZE/8                               ) \
     TEST_DEF(LOOKAHEAD_SIZE,     16                                         ) \
     TEST_DEF(BLOCK_CYCLES,       -1                                         ) \
     TEST_DEF(ERASE_VALUE,        0xff                                       ) \
@@ -163,7 +163,7 @@ intmax_t test_define(size_t define);
     .inline_size        = INLINE_SIZE,      \
     .shrub_size         = SHRUB_SIZE,       \
     .fragment_size      = FRAGMENT_SIZE,    \
-    .crystal_size       = CRYSTAL_SIZE,     \
+    .crystal_thresh     = CRYSTAL_THRESH,   \
     .lookahead_size     = LOOKAHEAD_SIZE,
 
 #define TEST_BDCFG \

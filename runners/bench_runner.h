@@ -121,7 +121,7 @@ intmax_t bench_define(size_t define);
 #define INLINE_SIZE_i               6
 #define SHRUB_SIZE_i                7
 #define FRAGMENT_SIZE_i             8
-#define CRYSTAL_SIZE_i              9
+#define CRYSTAL_THRESH_i            9
 #define LOOKAHEAD_SIZE_i            10
 #define BLOCK_CYCLES_i              11
 #define ERASE_VALUE_i               12
@@ -140,7 +140,7 @@ intmax_t bench_define(size_t define);
 #define INLINE_SIZE         bench_define(INLINE_SIZE_i)
 #define SHRUB_SIZE          bench_define(SHRUB_SIZE_i)
 #define FRAGMENT_SIZE       bench_define(FRAGMENT_SIZE_i)
-#define CRYSTAL_SIZE        bench_define(CRYSTAL_SIZE_i)
+#define CRYSTAL_THRESH      bench_define(CRYSTAL_THRESH_i)
 #define LOOKAHEAD_SIZE      bench_define(LOOKAHEAD_SIZE_i)
 #define BLOCK_CYCLES        bench_define(BLOCK_CYCLES_i)
 #define ERASE_VALUE         bench_define(ERASE_VALUE_i)
@@ -159,7 +159,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(INLINE_SIZE,        BLOCK_SIZE/8                              ) \
     BENCH_DEF(SHRUB_SIZE,         INLINE_SIZE                               ) \
     BENCH_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                ) \
-    BENCH_DEF(CRYSTAL_SIZE,       BLOCK_SIZE/8                              ) \
+    BENCH_DEF(CRYSTAL_THRESH,     BLOCK_SIZE/8                              ) \
     BENCH_DEF(LOOKAHEAD_SIZE,     16                                        ) \
     BENCH_DEF(BLOCK_CYCLES,       -1                                        ) \
     BENCH_DEF(ERASE_VALUE,        0xff                                      ) \
@@ -177,7 +177,7 @@ intmax_t bench_define(size_t define);
     .inline_size        = INLINE_SIZE,      \
     .shrub_size         = SHRUB_SIZE,       \
     .fragment_size      = FRAGMENT_SIZE,    \
-    .crystal_size       = CRYSTAL_SIZE,     \
+    .crystal_thresh     = CRYSTAL_THRESH,   \
     .lookahead_size     = LOOKAHEAD_SIZE,
 
 #define BENCH_BDCFG \

@@ -295,7 +295,7 @@ struct lfs_config {
     lfs_size_t inline_size;
     lfs_size_t shrub_size;
     lfs_size_t fragment_size;
-    lfs_size_t crystal_size;
+    lfs_size_t crystal_thresh;
 };
 
 // File info structure
