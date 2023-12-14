@@ -9419,10 +9419,7 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
 static int lfsr_ftree_carve(lfs_t *lfs,
         lfsr_mdir_t *mdir, lfsr_ftree_t *ftree,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // only <=2 attrs currently supported (bptr+becksum)
-    LFS_ASSERT(attr_count <= 2);
-
+        lfsr_tag_t tag, const lfsr_bptr_t *bptr, const lfsr_ecksum_t *becksum) {
     // Note! This function has some rather special constraints:
     //
     // 1. We must never allow our btree size to overflow, even temporarily.
@@ -9472,7 +9469,7 @@ static int lfsr_ftree_carve(lfs_t *lfs,
     // try to merge commits where possible
     lfsr_attr_t attrs_[5];
     lfs_size_t attr_count_ = 0;
-    uint8_t buf[2*LFSR_BPTR_DSIZE+LFSR_ECKSUM_DSIZE];
+    uint8_t buf[3*LFSR_BPTR_DSIZE+2*LFSR_ECKSUM_DSIZE];
     lfs_size_t buf_size = 0;
 
     // try to carve any existing data
@@ -9663,22 +9660,33 @@ static int lfsr_ftree_carve(lfs_t *lfs,
     // finally append our data
     if (weight + delta > 0) {
         // can we coalesce a hole?
-        if (pos > 0 && attr_count == 0) {
+        if ((!bptr || lfsr_data_size(&bptr->data) == 0) && pos > 0) {
             attrs_[attr_count_++] = LFSR_ATTR(pos-1,
                     GROW, +(weight + delta), NULL());
 
         // need a new hole?
-        } else if (attr_count == 0) {
+        } else if (!bptr || lfsr_data_size(&bptr->data) == 0) {
             attrs_[attr_count_++] = LFSR_ATTR(pos,
                     DATA, +(weight + delta), NULL());
 
-        // append new data
-        } else {
-            for (lfs_size_t i = 0; i < attr_count; i++) {
-                attrs_[attr_count_++] = LFSR_ATTR(
-                        (i == 0) ? pos : pos+weight+delta-1,
-                        TAG(attrs[i].tag), (i == 0) ? +(weight + delta) : 0,
-                        DATA(attrs[i].data));
+        // append new fragment?
+        } else if (tag == LFSR_TAG_DATA) {
+            attrs_[attr_count_++] = LFSR_ATTR(pos,
+                    DATA, +(weight + delta), DATA(bptr->data));
+
+        // append a new block?
+        } else if (tag == LFSR_TAG_BLOCK) {
+            attrs_[attr_count_++] = LFSR_ATTR(pos,
+                    BLOCK, +(weight + delta),
+                    FROMBPTR(bptr, &buf[buf_size]));
+            buf_size += LFSR_BPTR_DSIZE;
+
+            // append becksum?
+            if (becksum && becksum->size != -1) {
+                attrs_[attr_count_++] = LFSR_ATTR(pos+weight+delta-1,
+                        BECKSUM, 0,
+                        FROMECKSUM(becksum, &buf[buf_size]));
+                buf_size += LFSR_ECKSUM_DSIZE;
             }
         }
     }
@@ -10050,16 +10058,9 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         }
 
         // and write it into our tree
-        uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-        uint8_t becksum_buf[LFSR_ECKSUM_DSIZE];
         err = lfsr_ftree_carve(lfs, mdir, ftree,
                 block_start, block_end - block_start, 0,
-                LFSR_ATTRS(
-                    LFSR_ATTR(0, BLOCK, 0, FROMBPTR(&bptr, bptr_buf)),
-                    (becksum.size != -1)
-                        ? LFSR_ATTR(0,
-                            BECKSUM, 0, FROMECKSUM(&becksum, becksum_buf))
-                        : LFSR_ATTR_NOOP()));
+                LFSR_TAG_BLOCK, &bptr, &becksum);
         if (err) {
             return err;
         }
@@ -10166,8 +10167,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         // our tree
         int err = lfsr_ftree_carve(lfs, mdir, ftree,
                 fragment_start, fragment_end - fragment_start, 0,
-                LFSR_ATTRS(
-                    LFSR_ATTR(-1, DATA, 0, DATA(data))));
+                LFSR_TAG_DATA, &(const lfsr_bptr_t){.data=data}, NULL);
         if (err && err != LFS_ERR_RANGE) {
             return err;
         }
@@ -10586,7 +10586,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 lfs_min32(file->size, size),
                 file->size - lfs_min32(file->size, size),
                 +size - file->size,
-                NULL, 0);
+                LFSR_TAG_DATA, NULL, NULL);
         if (err) {
             goto failed;
         }
@@ -10648,7 +10648,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                     0,
                     lfs_smax32(file->size - size, 0),
                     +size - file->size,
-                    NULL, 0);
+                    LFSR_TAG_DATA, NULL, NULL);
             if (err) {
                 goto failed;
             }
