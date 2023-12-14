@@ -3863,59 +3863,29 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs, const lfsr_btree_t *btree,
 }
 
 static int lfsr_btree_lookupnext(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_bid_t bid, lfsr_tag_t tag,
+        lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
         lfsr_data_t *data_) {
-    lfsr_rbyd_t rbyd;
-    lfsr_srid_t rid;
-    lfsr_tag_t tag__;
-    int err = lfsr_btree_lookupnext_(lfs, btree, bid,
-            bid_, &rbyd, &rid, &tag__, weight_, data_);
-    if (err) {
-        return err;
-    }
-
-    // we need to do a bit of extra work if requested tag is not struct
-    if (lfsr_tag_key(tag__) != LFSR_TAG_STRUCT) {
-        err = lfsr_rbyd_lookupnext(lfs, &rbyd, rid, tag,
-                NULL, &tag__, weight_, data_);
-        if (err) {
-            return err;
-        }
-    }
-
-    if (tag_) {
-        *tag_ = tag__;
-    }
-    return 0;
+    return lfsr_btree_lookupnext_(lfs, btree, bid,
+            bid_, NULL, NULL, tag_, weight_, data_);
 }
 
 static int lfsr_btree_lookup(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_bid_t bid, lfsr_tag_t tag,
+        lfsr_bid_t bid,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     lfsr_bid_t bid_;
-    lfsr_tag_t tag__;
-    int err = lfsr_btree_lookupnext(lfs, btree, bid, tag,
-            &bid_, &tag__, weight_, data_);
+    int err = lfsr_btree_lookupnext(lfs, btree, bid,
+            &bid_, tag_, weight_, data_);
     if (err) {
         return err;
     }
 
-    // lookup finds the next-smallest tag, all we need to do is fail if it
-    // picks up the wrong tag
-    //
-    // we accept either exact matches or suptype matches depending on the
-    // wide bit
-    if (bid_ != bid
-            || (lfsr_tag_iswide(tag)
-                ? lfsr_tag_suptype(tag__) != (tag & ~LFSR_TAG_WIDE)
-                : tag__ != tag)) {
+    // lookup finds the next-smallest bid, all we need to do is fail if it
+    // picks up the wrong bid
+    if (bid_ != bid) {
         return LFS_ERR_NOENT;
     }
 
-    if (tag_) {
-        *tag_ = tag__;
-    }
     return 0;
 }
 
@@ -4791,22 +4761,32 @@ static int lfsr_bshrub_fetch(lfs_t *lfs,
     return 0;
 }
 
+static int lfsr_bshrub_lookupnext_(lfs_t *lfs,
+        const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub,
+        lfsr_bid_t bid,
+        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
+        lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
+    (void)mdir;
+    return lfsr_btree_lookupnext_(lfs, &bshrub->rbyd, bid,
+            bid_, rbyd_, rid_, tag_, weight_, data_);
+}
+
 static int lfsr_bshrub_lookupnext(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub,
-        lfsr_bid_t bid, lfsr_tag_t tag,
+        lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
         lfsr_data_t *data_) {
     (void)mdir;
-    return lfsr_btree_lookupnext(lfs, &bshrub->rbyd, bid, tag,
+    return lfsr_btree_lookupnext(lfs, &bshrub->rbyd, bid,
             bid_, tag_, weight_, data_);
 }
 
 static int lfsr_bshrub_lookup(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub,
-        lfsr_bid_t bid, lfsr_tag_t tag,
+        lfsr_bid_t bid,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     (void)mdir;
-    return lfsr_btree_lookup(lfs, &bshrub->rbyd, bid, tag,
+    return lfsr_btree_lookup(lfs, &bshrub->rbyd, bid,
             tag_, weight_, data_);
 }
 
@@ -5495,7 +5475,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
         lfsr_tag_t tag;
         lfsr_data_t data;
         int err = lfsr_btree_lookupnext(lfs, &lfs->mtree.u.btree,
-                mid, LFSR_TAG_STRUCT,
+                mid,
                 &bid, &tag, NULL, &data);
         if (err) {
             return err;
@@ -9360,12 +9340,14 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
     // bshrub/btree?
     } else {
         lfsr_bid_t bid;
+        lfsr_rbyd_t rbyd;
+        lfsr_srid_t rid;
         lfsr_tag_t tag;
         lfsr_bid_t weight;
         lfsr_data_t data;
-        int err = lfsr_bshrub_lookupnext(lfs, mdir,  &ftree->u.bshrub,
-                pos, LFSR_TAG_STRUCT,
-                &bid, &tag, &weight, &data);
+        int err = lfsr_bshrub_lookupnext_(lfs, mdir,  &ftree->u.bshrub,
+                pos,
+                &bid, &rbyd, &rid, &tag, &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -9396,9 +9378,8 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
         }
         if (becksum_) {
             // need an extra lookup to find becksums
-            err = lfsr_bshrub_lookup(lfs, mdir, &ftree->u.bshrub,
-                    bid, LFSR_TAG_BECKSUM,
-                    NULL, NULL, &data);
+            err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_BECKSUM,
+                    NULL, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
