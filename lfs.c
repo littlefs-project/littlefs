@@ -1575,6 +1575,7 @@ static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
 
 static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
+    LFS_ASSERT(ecksum->size != -1);
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(ecksum->size, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
@@ -9469,9 +9470,9 @@ static int lfsr_ftree_carve(lfs_t *lfs,
     // TODO adopt this pattern for other scratch attrs
     //
     // try to merge commits where possible
-    lfsr_attr_t attrs_[4];
+    lfsr_attr_t attrs_[5];
     lfs_size_t attr_count_ = 0;
-    uint8_t buf[2*LFSR_BPTR_DSIZE];
+    uint8_t buf[2*LFSR_BPTR_DSIZE+LFSR_ECKSUM_DSIZE];
     lfs_size_t buf_size = 0;
 
     // try to carve any existing data
@@ -9480,9 +9481,10 @@ static int lfsr_ftree_carve(lfs_t *lfs,
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
+        lfsr_ecksum_t becksum_;
         int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                 pos,
-                &bid_, &tag_, &weight_, &bptr_, NULL);
+                &bid_, &tag_, &weight_, &bptr_, &becksum_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -9622,6 +9624,15 @@ static int lfsr_ftree_carve(lfs_t *lfs,
                         FROMBPTR(&bptr__, &buf[buf_size]));
                 buf_size += LFSR_BPTR_DSIZE;
 
+                // copy over becksum since erase-state is still valid
+                if (becksum_.size != -1) {
+                    attrs_[attr_count_++] = LFSR_ATTR(
+                            pos + (bid_+1 - (pos+weight)) - 1,
+                            BECKSUM, 0,
+                            FROMECKSUM(&becksum_, &buf[buf_size]));
+                    buf_size += LFSR_ECKSUM_DSIZE;
+                }
+
             // carve fragment?
             } else {
                 attrs_[attr_count_++] = LFSR_ATTR(pos,
@@ -9741,11 +9752,13 @@ static int lfsr_ftree_flush(lfs_t *lfs,
 
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
+                        && becksum.size != -1
+                        && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
+                            == bptr.cksize
                         && pos - (bid-(weight-1))
-                            >= lfsr_data_size(&bptr.data)
-                        && lfsr_data_size(&bptr.data) == bptr.cksize
-                        && bptr.cksize < lfs->cfg->block_size
-                        && becksum.size != -1) {
+                            >= lfsr_data_size(&bptr.data)) {
+                    LFS_ASSERT(bptr.cksize + becksum.size
+                            <= lfs->cfg->block_size);
                     err = lfsr_ecksum_validate(lfs, &becksum,
                             bptr.data.u.disk.block, bptr.cksize);
                     if (err && err != LFS_ERR_CORRUPT) {
@@ -9831,11 +9844,14 @@ static int lfsr_ftree_flush(lfs_t *lfs,
 
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
+                        && becksum.size != -1
+                        && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
+                            == bptr.cksize
                         && crystal_start - (bid-(weight-1))
-                            >= lfsr_data_size(&bptr.data)
-                        && lfsr_data_size(&bptr.data) == bptr.cksize
-                        && bptr.cksize < lfs->cfg->block_size
-                        && becksum.size != -1) {
+                            >= lfsr_data_size(&bptr.data)) {
+                    LFS_ASSERT(bptr.cksize + becksum.size
+                            <= lfs->cfg->block_size);
+
                     err = lfsr_ecksum_validate(lfs, &becksum,
                             bptr.data.u.disk.block, bptr.cksize);
                     if (err && err != LFS_ERR_CORRUPT) {
@@ -9881,13 +9897,15 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         // put us over our block size
         lfs_off_t pos_ = block_start + lfsr_data_size(&bptr.data);
         while (pos_ < lfs_min32(
-                block_start + lfs->cfg->block_size,
+                block_start
+                    + (lfs->cfg->block_size - bptr.data.u.disk.off),
                 lfs_max32(
                     pos + size,
                     lfsr_ftree_size(ftree)))) {
             // keep track of the next highest priority data offset
             lfs_ssize_t d = lfs_min32(
-                    block_start + lfs->cfg->block_size,
+                    block_start
+                        + (lfs->cfg->block_size - bptr.data.u.disk.off),
                     lfs_max32(
                         pos + size,
                         lfsr_ftree_size(ftree))) - pos_;
@@ -9903,6 +9921,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                             &buffer[pos_ - pos], d_,
                             &bptr.cksum);
                     if (err) {
+                        LFS_ASSERT(err != LFS_ERR_RANGE);
                         return err;
                     }
 
@@ -9958,6 +9977,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                                 d_),
                             &bptr.cksum);
                     if (err) {
+                        LFS_ASSERT(err != LFS_ERR_RANGE);
                         return err;
                     }
 
@@ -9978,6 +9998,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                         &(uint8_t){0}, 1,
                         &bptr.cksum);
                 if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
                 }
             }
