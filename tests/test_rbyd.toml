@@ -20,7 +20,7 @@ code = '''
     static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
         lfsr_data_t data;
-        int err = lfsr_rbyd_lookup(lfs, rbyd, rid, tag, NULL, &data);
+        int err = lfsr_rbyd_lookup(lfs, rbyd, rid, tag, &data);
         if (err) {
             return err;
         }
@@ -11618,7 +11618,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfsr_tag_t tag_;
             lfsr_data_t data_;
-            lfsr_rbyd_lookup(&lfs, &rbyd, j, LFSR_TAG_WIDE(UATTR),
+            lfsr_rbyd_lookupwide(&lfs, &rbyd, j, LFSR_TAG_UATTR,
                     &tag_, &data_) => 0;
 
             assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
@@ -11748,10 +11748,10 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
-                    lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => LFS_ERR_NOENT;
                 } else {
-                    lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 2);
@@ -11890,7 +11890,7 @@ code = '''
 
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
                     assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
@@ -11983,7 +11983,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfsr_tag_t tag_;
             lfsr_data_t data_;
-            lfsr_rbyd_lookup(&lfs, &rbyd, j, LFSR_TAG_WIDE(UATTR),
+            lfsr_rbyd_lookupwide(&lfs, &rbyd, j, LFSR_TAG_UATTR,
                     &tag_, &data_) => 0;
 
             assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
@@ -12122,10 +12122,10 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
-                    lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => LFS_ERR_NOENT;
                 } else {
-                    lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 2);
@@ -12273,7 +12273,7 @@ code = '''
 
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
                     assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
@@ -12363,7 +12363,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfsr_tag_t tag_;
             lfsr_data_t data_;
-            lfsr_rbyd_lookup(&lfs, &rbyd, j, LFSR_TAG_WIDE(UATTR),
+            lfsr_rbyd_lookupwide(&lfs, &rbyd, j, LFSR_TAG_UATTR,
                     &tag_, &data_) => 0;
 
             assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
@@ -12495,10 +12495,10 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
-                    lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => LFS_ERR_NOENT;
                 } else {
-                    lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 4);
@@ -12629,7 +12629,7 @@ code = '''
 
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDE(UATTR),
+                lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
                     assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));

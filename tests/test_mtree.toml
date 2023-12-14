@@ -11,7 +11,7 @@ code = '''
     static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
             lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
         lfsr_data_t data;
-        int err = lfsr_mdir_lookup(lfs, mdir, rid, tag, NULL, &data);
+        int err = lfsr_mdir_lookup(lfs, mdir, rid, tag, &data);
         if (err) {
             return err;
         }

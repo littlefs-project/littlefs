@@ -2232,12 +2232,11 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
         lfsr_data_t *data_) {
     // these bits should be clear at this point
-    LFS_ASSERT(!lfsr_tag_isrm(tag));
-    LFS_ASSERT(!lfsr_tag_isgrow(tag));
+    LFS_ASSERT(lfsr_tag_mode(tag) == 0);
 
     // make sure we never look up zero tags, the way we create
     // unreachable tags has a hole here
-    tag = lfs_max16(lfsr_tag_key(tag), 0x1);
+    tag = lfs_max16(tag, 0x1);
 
     // keep track of bounds as we descend down the tree
     lfs_size_t branch = rbyd->trunk;
@@ -2307,7 +2306,30 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
+        lfsr_data_t *data_) {
+    lfsr_srid_t rid_;
+    lfsr_tag_t tag_;
+    int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, tag,
+            &rid_, &tag_, NULL, data_);
+    if (err) {
+        return err;
+    }
+
+    // lookup finds the next-smallest tag, all we need to do is fail if it
+    // picks up the wrong tag
+    if (rid_ != rid || tag_ != tag) {
+        return LFS_ERR_NOENT;
+    }
+
+    return 0;
+}
+
+static int lfsr_rbyd_lookupwide(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    // looking up a wide tag with subtype is probably a mistake
+    LFS_ASSERT(lfsr_tag_subtype(tag) == 0);
+
     lfsr_srid_t rid_;
     lfsr_tag_t tag__;
     int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, tag,
@@ -2316,15 +2338,9 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         return err;
     }
 
-    // lookup finds the next-smallest tag, all we need to do is fail if it
-    // picks up the wrong tag
-    //
-    // we accept either exact matches or suptype matches depending on the
-    // wide bit
-    if (rid_ != rid
-            || (lfsr_tag_iswide(tag)
-                ? lfsr_tag_suptype(tag__) != (tag & ~LFSR_TAG_WIDE)
-                : tag__ != tag)) {
+    // the difference between lookup and lookupwide is we accept any
+    // subtype of the requested tag
+    if (rid_ != rid || lfsr_tag_suptype(tag__) != tag) {
         return LFS_ERR_NOENT;
     }
 
@@ -3402,7 +3418,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
         lfsr_data_t data;
         int err = lfsr_rbyd_lookup(lfs, rbyd, -1, LFSR_TAG_GRMDELTA,
-                NULL, &data);
+                &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -3817,7 +3833,7 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDE(STRUCT),
+            err = lfsr_rbyd_lookupwide(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -3914,7 +3930,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDE(STRUCT),
+            err = lfsr_rbyd_lookupwide(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4101,8 +4117,8 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
                 }
 
                 if (sibling_tag == LFSR_TAG_NAME) {
-                    err = lfsr_rbyd_lookup(lfs, &parent,
-                            sibling_rid, LFSR_TAG_WIDE(STRUCT),
+                    err = lfsr_rbyd_lookupwide(lfs, &parent,
+                            sibling_rid, LFSR_TAG_STRUCT,
                             &sibling_tag, &sibling_data);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4149,8 +4165,8 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
                 }
 
                 if (sibling_tag == LFSR_TAG_NAME) {
-                    err = lfsr_rbyd_lookup(lfs, &parent,
-                            sibling_rid, LFSR_TAG_WIDE(STRUCT),
+                    err = lfsr_rbyd_lookupwide(lfs, &parent,
+                            sibling_rid, LFSR_TAG_STRUCT,
                             &sibling_tag, &sibling_data);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4542,7 +4558,7 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         // the name may not match exactly, but indicates which branch to follow
         lfsr_tag_t tag__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDE(STRUCT),
+        int err = lfsr_rbyd_lookupwide(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                 &tag__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4653,8 +4669,8 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &btraversal->branch,
-                    rid__, LFSR_TAG_WIDE(STRUCT),
+            err = lfsr_rbyd_lookupwide(lfs, &btraversal->branch,
+                    rid__, LFSR_TAG_STRUCT,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5130,8 +5146,16 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
 static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_smid_t mid, lfsr_tag_t tag,
-        lfsr_tag_t *tag_, lfsr_data_t *data_) {
+        lfsr_data_t *data_) {
     return lfsr_rbyd_lookup(lfs, &mdir->rbyd,
+            lfsr_mid_rid(lfs, mid), tag,
+            data_);
+}
+
+static int lfsr_mdir_lookupwide(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfsr_smid_t mid, lfsr_tag_t tag,
+        lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    return lfsr_rbyd_lookupwide(lfs, &mdir->rbyd,
             lfsr_mid_rid(lfs, mid), tag,
             tag_, data_);
 }
@@ -5404,7 +5428,7 @@ static void lfsr_fs_flushgdelta(lfs_t *lfs) {
 static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     lfsr_data_t data;
     int err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_GRMDELTA,
-            NULL, &data);
+            &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -6040,7 +6064,8 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfsr_mptr_t *mptr,
 
         // lookup next mroot
         lfsr_data_t data;
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_MROOT, NULL, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_MROOT,
+                &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -6594,7 +6619,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // note we need to do this after playing out pending attrs in
         // case they introduce a new name!
         lfsr_data_t split_data;
-        err = lfsr_rbyd_lookup(lfs, &msibling_.rbyd, 0, LFSR_TAG_WIDE(NAME),
+        err = lfsr_rbyd_lookupwide(lfs, &msibling_.rbyd, 0, LFSR_TAG_NAME,
                 NULL, &split_data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -7034,7 +7059,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         if (!lfsr_mid_isroot(mdir.mid)) {
             lfsr_data_t data;
             int err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
-                    NULL, &data);
+                    &data);
             if (err) {
                 return err;
             }
@@ -7183,8 +7208,8 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // lookup mroot, if we find one this is a fake mroot
             lfsr_tag_t tag;
             lfsr_data_t data;
-            err = lfsr_mdir_lookup(lfs, &traversal->mdir,
-                    -1, LFSR_TAG_WIDE(STRUCT),
+            err = lfsr_mdir_lookupwide(lfs, &traversal->mdir,
+                    -1, LFSR_TAG_STRUCT,
                     &tag, &data);
             if (err) {
                 // if we have no mtree/mdir (inlined mdir), we need to traverse
@@ -7663,7 +7688,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     // has magic string?
     lfsr_data_t data;
     int err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_MAGIC,
-            NULL, &data);
+            &data);
     if (err) {
         if (err == LFS_ERR_NOENT) {
             LFS_ERROR("No littlefs magic found");
@@ -7685,7 +7710,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     // check the disk version
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_VERSION,
-            NULL, &data);
+            &data);
     if (err) {
         if (err == LFS_ERR_NOENT) {
             LFS_ERROR("No littlefs version found");
@@ -7726,7 +7751,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     // check for any rcompatflags, we must understand these to read
     // the filesystem
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_RCOMPATFLAGS,
-            NULL, &data);
+            &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -7761,7 +7786,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     // check for any wcompatflags, we must understand these to write
     // the filesystem
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_WCOMPATFLAGS,
-            NULL, &data);
+            &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -7778,7 +7803,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     // check block size
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_BLOCKSIZE,
-            NULL, &data);
+            &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -7803,7 +7828,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     // check block count
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_BLOCKCOUNT,
-            NULL, &data);
+            &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -7829,7 +7854,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     // read the name limit
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_NAMELIMIT,
-            NULL, &data);
+            &data);
     if (err) {
         if (err == LFS_ERR_NOENT) {
             LFS_ERROR("No name limit found");
@@ -7858,7 +7883,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     // read the size limit
     err = lfsr_mdir_lookup(lfs, mroot, -1, LFSR_TAG_SIZELIMIT,
-            NULL, &data);
+            &data);
     if (err) {
         if (err == LFS_ERR_NOENT) {
             LFS_ERROR("No size limit found");
@@ -8557,7 +8582,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         // first lets figure out the did
         lfsr_data_t data;
         err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
-                NULL, &data);
+                &data);
         if (err) {
             return err;
         }
@@ -8588,8 +8613,8 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
         if (err != LFS_ERR_NOENT) {
             lfsr_tag_t bookmark_tag;
-            err = lfsr_mdir_lookup(lfs, &bookmark_mdir,
-                    bookmark_mdir.mid, LFSR_TAG_WIDE(NAME),
+            err = lfsr_mdir_lookupwide(lfs, &bookmark_mdir,
+                    bookmark_mdir.mid, LFSR_TAG_NAME,
                     &bookmark_tag, NULL);
             if (err) {
                 return err;
@@ -8695,7 +8720,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             lfsr_data_t data;
             err = lfsr_mdir_lookup(lfs, &new_mdir,
                     new_mdir.mid, LFSR_TAG_DID,
-                    NULL, &data);
+                    &data);
             if (err) {
                 return err;
             }
@@ -8726,8 +8751,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
             if (err != LFS_ERR_NOENT) {
                 lfsr_tag_t bookmark_tag;
-                err = lfsr_mdir_lookup(lfs, &bookmark_mdir,
-                        bookmark_mdir.mid, LFSR_TAG_WIDE(NAME),
+                err = lfsr_mdir_lookupwide(lfs, &bookmark_mdir,
+                        bookmark_mdir.mid, LFSR_TAG_NAME,
                         &bookmark_tag, NULL);
                 if (err) {
                     return err;
@@ -8767,7 +8792,7 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
     // lookup our name tag
     lfsr_tag_t tag;
     lfsr_data_t data;
-    int err = lfsr_mdir_lookup(lfs, mdir, mid, LFSR_TAG_WIDE(NAME),
+    int err = lfsr_mdir_lookupwide(lfs, mdir, mid, LFSR_TAG_NAME,
             &tag, &data);
     if (err) {
         return err;
@@ -8875,7 +8900,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     } else {
         lfsr_data_t data;
         err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
-                NULL, &data);
+                &data);
         if (err) {
             return err;
         }
@@ -9379,7 +9404,7 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
         if (becksum_) {
             // need an extra lookup to find becksums
             err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_BECKSUM,
-                    NULL, &data);
+                    &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -10421,7 +10446,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 // TODO deduplicate?
                 err = lfsr_mdir_lookup(lfs, &file->mdir,
                         file->mdir.mid, LFSR_TAG_DATA,
-                        NULL, &file->ftree.u.bsprout.data);
+                        &file->ftree.u.bsprout.data);
                 if (err) {
                     return err;
                 }
