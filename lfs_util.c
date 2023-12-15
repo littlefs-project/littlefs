@@ -195,26 +195,4 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
     return crc;
 }
 
-#ifndef LFS_NO_UNCRC32C
-// Undoes a crc32c
-//
-// like crc32c, but backwards
-uint32_t lfs_uncrc32c(uint32_t crc, const void *buffer, size_t size) {
-    // init with 0xffffffff so prefixed zeros affect the crc
-    const uint8_t *data = buffer;
-    crc ^= 0xffffffff;
-
-    for (size_t i = 0; i < size; i++) {
-        for (size_t j = 0; j < 8; j++) {
-            crc = (crc << 1) ^ ((crc & 0x80000000) ? 0x05ec76f1 : 0);
-        }
-        crc = crc ^ data[size-1-i];
-    }
-
-    // fini with 0xffffffff to cancel out init when called incrementally
-    crc ^= 0xffffffff;
-    return crc;
-}
-#endif
-
 #endif

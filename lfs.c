@@ -9950,12 +9950,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                     err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
                             bptr.cksize,
                             &buffer[pos_ - pos], d_,
-                #ifndef LFS_NO_UNCRC32C
-                            &bptr.cksum, NULL
-                #else 
-                            NULL, &bptr.cksum
-                #endif
-                            );
+                            NULL, &bptr.cksum);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         return err;
@@ -10011,12 +10006,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                             lfsr_data_slice(bptr_.data,
                                 pos_ - (bid_-(weight_-1)),
                                 d_),
-                #ifndef LFS_NO_UNCRC32C
-                            &bptr.cksum, NULL
-                #else 
-                            NULL, &bptr.cksum
-                #endif
-                            );
+                            NULL, &bptr.cksum);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         return err;
@@ -10037,12 +10027,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
                         bptr.cksize + i,
                         &(uint8_t){0}, 1,
-            #ifndef LFS_NO_UNCRC32C
-                        &bptr.cksum, NULL
-            #else 
-                        NULL, &bptr.cksum
-            #endif
-                        );
+                        NULL, &bptr.cksum);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
@@ -10060,22 +10045,12 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         lfs_ssize_t d = bptr.cksize % lfs->cfg->prog_size;
         LFS_ASSERT(d <= lfs->pcache.size);
         lfs->pcache.size -= d;
-    #ifndef LFS_NO_UNCRC32C
-        bptr.cksum = lfs_uncrc32c(bptr.cksum,
-                &lfs->pcache.buffer[lfs->pcache.size],
-                d);
-    #endif
         bptr.cksize -= d;
 
         // TODO validate?
         // finalize our write
         err = lfsr_bd_flush(lfs,
-    #ifndef LFS_NO_UNCRC32C
-                NULL
-    #else
-                &bptr.cksum
-    #endif
-                );
+                &bptr.cksum);
         if (err) {
             return err;
         }

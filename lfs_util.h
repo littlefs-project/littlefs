@@ -361,13 +361,6 @@ uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 //
 uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size);
 
-#ifndef LFS_NO_UNCRC32C
-// Undoes a crc32c
-//
-// like crc32c, but backwards
-uint32_t lfs_uncrc32c(uint32_t crc, const void *buffer, size_t size);
-#endif
-
 
 // Allocate memory, only used if buffers are not provided to littlefs
 // Note, memory must be 64-bit aligned
