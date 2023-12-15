@@ -241,7 +241,8 @@ static int lfs_bd_crc32c(lfs_t *lfs,
 
 #ifndef LFS_READONLY
 static int lfs_bd_flush(lfs_t *lfs,
-        lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
+        lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate,
+        uint32_t *flcksum_) {
     if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
         LFS_ASSERT(pcache->block < lfs->cfg->block_count);
         lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
@@ -267,6 +268,12 @@ static int lfs_bd_flush(lfs_t *lfs,
             }
         }
 
+        // this is when we update the the flushed checksum if requested
+        if (flcksum_) {
+            *flcksum_ = lfs_crc32c(*flcksum_,
+                pcache->buffer, pcache->size);
+        }
+
         lfs_cache_zero(lfs, pcache);
     }
 
@@ -279,7 +286,7 @@ static int lfs_bd_sync(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
     lfs_cache_drop(lfs, rcache);
 
-    int err = lfs_bd_flush(lfs, pcache, rcache, validate);
+    int err = lfs_bd_flush(lfs, pcache, rcache, validate, NULL);
     if (err) {
         return err;
     }
@@ -294,7 +301,8 @@ static int lfs_bd_sync(lfs_t *lfs,
 static int lfs_bd_prog(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate,
         lfs_block_t block, lfs_size_t off,
-        const void *buffer, lfs_size_t size) {
+        const void *buffer, lfs_size_t size,
+        uint32_t *flcksum_) {
     const uint8_t *data = buffer;
     LFS_ASSERT(block == LFS_BLOCK_INLINE || block < lfs->cfg->block_count);
     LFS_ASSERT(off + size <= lfs->cfg->block_size);
@@ -327,7 +335,8 @@ static int lfs_bd_prog(lfs_t *lfs,
             pcache->size = lfs_max(pcache->size, off - pcache->off);
             if (pcache->size == lfs->cfg->cache_size) {
                 // eagerly flush out pcache if we fill up
-                int err = lfs_bd_flush(lfs, pcache, rcache, validate);
+                int err = lfs_bd_flush(lfs, pcache, rcache, validate,
+                        flcksum_);
                 if (err) {
                     return err;
                 }
@@ -422,14 +431,15 @@ static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
 // program data with optional checksum
 static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
-        uint32_t *cksum_) {
+        uint32_t *cksum_, uint32_t *flcksum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
     }
 
     int err = lfs_bd_prog(lfs, &lfs->pcache, &lfs->rcache, false,
-            block, off, buffer, size);
+            block, off, buffer, size,
+            flcksum_);
     if (err) {
         return err;
     }
@@ -442,8 +452,10 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     return 0;
 }
 
-static int lfsr_bd_flush(lfs_t *lfs) {
-    return lfs_bd_flush(lfs, &lfs->pcache, &lfs->rcache, false);
+static int lfsr_bd_flush(lfs_t *lfs,
+        uint32_t *flcksum_) {
+    return lfs_bd_flush(lfs, &lfs->pcache, &lfs->rcache, false,
+            flcksum_);
 }
 
 static int lfsr_bd_sync(lfs_t *lfs) {
@@ -454,7 +466,7 @@ static int lfsr_bd_sync(lfs_t *lfs) {
 // be an optional ifdef?
 static int lfsr_bd_progvalidate(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
-        uint32_t *cksum_) {
+        uint32_t *cksum_, uint32_t *flcksum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         lfs_cache_zero(lfs, &lfs->pcache);
@@ -462,11 +474,13 @@ static int lfsr_bd_progvalidate(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     }
 
     int err = lfs_bd_prog(lfs, &lfs->pcache, &lfs->rcache, true,
-            block, off, buffer, size);
+            block, off, buffer, size,
+            flcksum_);
     if (err) {
         return err;
     }
 
+    // optional checksum
     if (cksum_) {
         *cksum_ = lfs_crc32c(*cksum_, buffer, size);
     }
@@ -974,7 +988,8 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     }
     d += d_;
 
-    int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d, cksum_);
+    int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d,
+            cksum_, NULL);
     if (err) {
         return err;
     }
@@ -1306,7 +1321,7 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, const lfsr_data_t *data,
 
 static int lfsr_bd_progdata_(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfsr_data_t data,
-        uint32_t *cksum_) {
+        uint32_t *cksum_, uint32_t *flcksum_) {
     // on-disk?
     if (lfsr_data_ondisk(&data)) {
         // TODO byte-level copies have been a pain point, works for prototyping
@@ -1323,7 +1338,7 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
             }
 
             err = lfsr_bd_prog(lfs, block, off+i, &dat, 1,
-                    cksum_);
+                    cksum_, flcksum_);
             if (err) {
                 return err;
             }
@@ -1333,7 +1348,7 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
     } else if (lfsr_data_isbuf(&data)) {
         int err = lfsr_bd_prog(lfs, block, off,
                 data.u.buf.buffer, data.u.buf.size,
-                cksum_);
+                cksum_, flcksum_);
         if (err) {
             return err;
         }
@@ -1342,7 +1357,7 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
     } else if (lfsr_data_isimm(&data)) {
         int err = lfsr_bd_prog(lfs, block, off,
                 data.u.imm.buf, data.u.imm.size,
-                cksum_);
+                cksum_, flcksum_);
         if (err) {
             return err;
         }
@@ -1357,11 +1372,11 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
 
 static int lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfsr_data_t data,
-        uint32_t *cksum_) {
+        uint32_t *cksum_, uint32_t *flcksum_) {
     // simple data?
     if (!lfsr_data_iscat(&data)) {
         int err = lfsr_bd_progdata_(lfs, block, off, data,
-                cksum_);
+                cksum_, flcksum_);
         if (err) {
             return err;
         }
@@ -1370,7 +1385,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
     } else {
         for (uint8_t i = 0; i < data.u.cat.count; i++) {
             int err = lfsr_bd_progdata_(lfs, block, off, data.u.cat.datas[i],
-                    cksum_);
+                    cksum_, flcksum_);
             if (err) {
                 return err;
             }
@@ -2363,7 +2378,8 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     uint8_t rev_buf[sizeof(uint32_t)];
     lfs_tole32_(rev, &rev_buf);
     int err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
-            &rev_buf, sizeof(uint32_t), &rbyd->cksum);
+            &rev_buf, sizeof(uint32_t),
+            &rbyd->cksum, NULL);
     if (err) {
         return err;
     }
@@ -2966,7 +2982,7 @@ leaf:;
 
     // don't forget the data!
     err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, data,
-            &rbyd->cksum);
+            &rbyd->cksum, NULL);
     if (err) {
         return err;
     }
@@ -3053,7 +3069,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         rbyd->eoff += d;
 
         err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, ecksum_data,
-                &rbyd->cksum);
+                &rbyd->cksum, NULL);
         if (err) {
             return err;
         }
@@ -3099,7 +3115,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
     int err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
             cksum_buf, 2+1+5+4,
-            NULL);
+            NULL, NULL);
     if (err) {
         return err;
     }
@@ -3199,7 +3215,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // and the data
     int err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, data,
-            &rbyd->cksum);
+            &rbyd->cksum, NULL);
     if (err) {
         return err;
     }
@@ -9934,7 +9950,12 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                     err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
                             bptr.cksize,
                             &buffer[pos_ - pos], d_,
-                            &bptr.cksum);
+                #ifndef LFS_NO_UNCRC32C
+                            &bptr.cksum, NULL
+                #else 
+                            NULL, &bptr.cksum
+                #endif
+                            );
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         return err;
@@ -9990,7 +10011,12 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                             lfsr_data_slice(bptr_.data,
                                 pos_ - (bid_-(weight_-1)),
                                 d_),
-                            &bptr.cksum);
+                #ifndef LFS_NO_UNCRC32C
+                            &bptr.cksum, NULL
+                #else 
+                            NULL, &bptr.cksum
+                #endif
+                            );
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         return err;
@@ -10011,7 +10037,12 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
                         bptr.cksize + i,
                         &(uint8_t){0}, 1,
-                        &bptr.cksum);
+            #ifndef LFS_NO_UNCRC32C
+                        &bptr.cksum, NULL
+            #else 
+                        NULL, &bptr.cksum
+            #endif
+                        );
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
@@ -10026,17 +10057,25 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         // alignment to avoid padding issues. Doing this retroactively to
         // the pcache greatly simplifies the above loop, though we may end
         // up reading more than is strictly necessary.
-        //
-        // TODO how do we handle checksum truncation???
-        // TODO lfs_cache_truncate? aligndown?
-        lfs_ssize_t d = (lfs->pcache.off + lfs->pcache.size)
-                % lfs->cfg->prog_size;
+        lfs_ssize_t d = bptr.cksize % lfs->cfg->prog_size;
+        LFS_ASSERT(d <= lfs->pcache.size);
         lfs->pcache.size -= d;
+    #ifndef LFS_NO_UNCRC32C
+        bptr.cksum = lfs_uncrc32c(bptr.cksum,
+                &lfs->pcache.buffer[lfs->pcache.size],
+                d);
+    #endif
         bptr.cksize -= d;
 
         // TODO validate?
         // finalize our write
-        err = lfsr_bd_flush(lfs);
+        err = lfsr_bd_flush(lfs,
+    #ifndef LFS_NO_UNCRC32C
+                NULL
+    #else
+                &bptr.cksum
+    #endif
+                );
         if (err) {
             return err;
         }

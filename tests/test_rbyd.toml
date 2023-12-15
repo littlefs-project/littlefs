@@ -2495,8 +2495,10 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                NULL) => 0;
 
         // update each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -2783,8 +2785,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(-1, RM(UATTR(j+1)), 0, NULL())))
@@ -2928,8 +2932,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(-1, RM(UATTR(j+1)), 0, NULL()))) => 0;
@@ -3494,8 +3500,10 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                NULL) => 0;
 
         // remove each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -5978,8 +5986,10 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                NULL) => 0;
 
         // update each tag in permutation order
         for (unsigned j = 0; j < N*M; j++) {
@@ -6121,8 +6131,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j/M, RM(UATTR((j%M)+1)), 0, NULL()))) => 0;
@@ -6301,8 +6313,10 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                NULL) => 0;
 
         // remove each tag in permutation order
         for (unsigned j = 0; j < N*M; j++) {
@@ -7189,8 +7203,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j, RM, -1, NULL()))) => 0;
@@ -7349,8 +7365,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j, RM, -1, NULL()))) => 0;
@@ -7532,8 +7550,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j, RM, -1, NULL()))) => 0;
@@ -7662,8 +7682,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j, RM, -1, NULL()))) => 0;
@@ -8030,8 +8052,10 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                NULL) => 0;
 
         // delete each rid in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -8178,8 +8202,10 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                NULL) => 0;
 
         // delete each rid in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -10128,8 +10154,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, RM, +D, NULL()))) => 0;
@@ -10255,8 +10283,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, GROW(REG), +D,
@@ -10391,8 +10421,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, GROW(UATTR(1)), +D,
@@ -10539,8 +10571,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, GROW, -D, NULL()))) => 0;
@@ -10666,8 +10700,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, GROW(REG), -D,
@@ -10802,8 +10838,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, GROW(UATTR(1)), -D,
@@ -10949,8 +10987,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, RM, -W, NULL()))) => 0;
@@ -11104,8 +11144,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j*W+W-1, UATTR(1), 0,
@@ -11712,8 +11754,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -11849,8 +11893,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -12079,8 +12125,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -12225,8 +12273,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -12456,8 +12506,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -12595,8 +12647,10 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
