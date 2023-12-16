@@ -1113,16 +1113,15 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                         **defines})
 
                 # race condition for multiple failures?
-                if failures and not args.get('keep_going'):
-                    break
+                if not failures or args.get('keep_going'):
+                    # keep track of how many failed
+                    failed_perms += 1
 
-                # keep track of how many failed
-                failed_perms += 1
-
-                # do not store more failures than we need to, otherwise we
-                # quickly explode RAM when a common bug fails a bunch of cases
-                if len(failures) < args.get('failures', 3):
-                    failures.append(failure)
+                    # do not store more failures than we need to, otherwise
+                    # we quickly explode RAM when a common bug fails a bunch
+                    # of cases
+                    if len(failures) < args.get('failures', 3):
+                        failures.append(failure)
 
                 if args.get('keep_going') and not killed:
                     # resume after failed test
