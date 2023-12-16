@@ -165,8 +165,9 @@ enum lfs_open_flags {
 #endif
 
     // internally used flags
-    LFS_F_UNSYNCED  = 0x010000, // File's metadata does not match storage
-    LFS_F_ERRORED   = 0x020000, // An error occurred during write
+    LFS_F_UNFLUSHED = 0x010000, // File's data does not match storage
+    LFS_F_UNSYNCED  = 0x020000, // File's metadata does not match storage
+    LFS_F_ERRORED   = 0x040000, // An error occurred during write
 };
 
 // File seek flags
