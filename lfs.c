@@ -9512,7 +9512,7 @@ static lfs_ssize_t lfsr_ftree_readnext(lfs_t *lfs,
         size -= d;
     }
 
-    // found a hole? write zeros
+    // found a hole? fill with zeros
     lfs_ssize_t d = lfs_min32(size, bid+1 - pos_);
     memset(buffer, 0, d);
 
@@ -10123,7 +10123,7 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 d = lfs_min32(d, bid_+1 - pos_);
             }
 
-            // found a hole? write zeros
+            // found a hole? fill with zeros
             // TODO do something better than byte-level progs here
             for (lfs_size_t i = 0; i < (lfs_size_t)d; i++) {
                 err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
@@ -10323,7 +10323,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
         // any data in our buffer?
         if (pos_ < file->buffer_pos + file->buffer_size
-                && file->buffer_size > 0) {
+                && file->buffer_size != 0) {
             if (pos_ >= file->buffer_pos) {
                 lfs_ssize_t d_ = lfs_min32(
                         d,
@@ -10343,34 +10343,38 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             d = lfs_min32(d, file->buffer_pos - pos_);
         }
 
-        // beyond end of ftree? fill with zeros
-        if (pos_ > lfsr_ftree_size(&file->ftree)) {
-            memset(buffer_, 0, d);
-            
-            pos_ += d;
-            buffer_ += d;
-            size -= d;
-            continue;
-        }
+        // any data in our ftree?
+        if (pos_ < lfsr_ftree_size(&file->ftree)) {
+            // bypass buffer?
+            if ((lfs_size_t)d >= lfs->cfg->cache_size) {
+                lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
+                        &file->mdir, &file->ftree,
+                        pos_, buffer_, d);
+                if (d_ < 0) {
+                    LFS_ASSERT(d_ != LFS_ERR_NOENT);
+                    return d_;
+                }
 
-        // bypass buffer?
-        if ((lfs_size_t)d >= lfs->cfg->cache_size) {
-            lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
-                    &file->mdir, &file->ftree,
-                    pos_, buffer_, d);
-            if (d_ < 0) {
-                LFS_ASSERT(d_ != LFS_ERR_NOENT);
-                return d_;
+                pos_ += d_;
+                buffer_ += d_;
+                size -= d_;
+                continue;
             }
 
-            pos_ += d_;
-            buffer_ += d_;
-            size -= d_;
-            continue;
-        }
+            // buffer in use? we need to flush it
+            //
+            // note that flush does not change the actual file data, so if
+            // a read fails it's ok to fall back to our flushed state
+            //
+            if (file->buffer_size != 0) {
+                int err = lfsr_file_flush(lfs, file);
+                if (err) {
+                    return err;
+                }
+                file->buffer_pos = 0;
+                file->buffer_size = 0;
+            }
 
-        // unused buffer? we can move this where we need it
-        if (file->buffer_size == 0) {
             // try to fill our buffer with some data
             lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
                     &file->mdir, &file->ftree,
@@ -10379,23 +10383,17 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
                 LFS_ASSERT(d != LFS_ERR_NOENT);
                 return d_;
             }
-
             file->buffer_pos = pos_;
             file->buffer_size = d_;
             continue;
         }
 
-        // buffer in use? we need to flush it, the above can't fail now
-        //
-        // note that flush does not change the actual file data, so if
-        // a read fails it's ok to fall back to our flushed state
-        //
-        int err = lfsr_file_flush(lfs, file);
-        if (err) {
-            return err;
-        }
-        file->buffer_pos = 0;
-        file->buffer_size = 0;
+        // found a hole? fill with zeros
+        memset(buffer_, 0, d);
+        
+        pos_ += d;
+        buffer_ += d;
+        size -= d;
     }
 
     // update file and return amount read
@@ -10479,15 +10477,9 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // 2. Bypassing the buffer above means we only write to the
         //    buffer once, and flush at most twice.
         //
-        if (buffer_size_ == 0
-                || (pos_ >= buffer_pos_
-                    && pos_ <= buffer_pos_ + buffer_size_
-                    && pos_ < buffer_pos_ + lfs->cfg->cache_size)) {
-            // unused buffer? we can move this where we need it
-            if (buffer_size_ == 0) {
-                buffer_pos_ = pos_;
-            }
-
+        if (pos_ >= buffer_pos_
+                && pos_ <= buffer_pos_ + buffer_size_
+                && pos_ < buffer_pos_ + lfs->cfg->cache_size) {
             lfs_size_t d = lfs_min32(
                     size,
                     lfs->cfg->cache_size - (pos_ - buffer_pos_));
@@ -10508,7 +10500,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         if (err) {
             goto failed;
         }
-        buffer_pos_ = 0;
+        buffer_pos_ = pos_;
         buffer_size_ = 0;
     }
 
@@ -10787,7 +10779,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         if (file->size <= lfs->cfg->cache_size
                 && file->size <= lfs->cfg->inline_size
                 && file->size <= lfs->cfg->fragment_size
-                && file->buffer_size > 0) {
+                && file->buffer_size != 0) {
             file->flags |= LFS_F_UNFLUSHED;
         }
     }
@@ -10902,7 +10894,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         if (file->size <= lfs->cfg->cache_size
                 && file->size <= lfs->cfg->inline_size
                 && file->size <= lfs->cfg->fragment_size
-                && file->buffer_size > 0) {
+                && file->buffer_size != 0) {
             file->flags |= LFS_F_UNFLUSHED;
         }
     }
