@@ -9151,7 +9151,7 @@ static inline bool lfsr_f_iserrored(uint32_t flags) {
 // needed in lfsr_file_opencfg
 static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
-        lfs_off_t pos, uint8_t *buffer, lfs_size_t size, lfs_size_t hint);
+        lfs_off_t pos, uint8_t *buffer, lfs_size_t size);
 
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
@@ -9313,7 +9313,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             && file->size <= lfs->cfg->fragment_size) {
         lfs_ssize_t d = lfsr_ftree_read(lfs,
                 &file->mdir, &file->ftree,
-                0, file->buffer, file->size, file->size);
+                0, file->buffer, file->size);
         if (d < 0) {
             err = d;
             goto failed_with_buffer;
@@ -9474,55 +9474,70 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
     }
 }
 
-static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs,
+static lfs_ssize_t lfsr_ftree_readnext(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
-        lfs_off_t pos, uint8_t *buffer, lfs_size_t size, lfs_size_t hint) {
+        lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
     lfs_off_t pos_ = pos;
-    lfs_ssize_t size_ = size;
-    while (size_ > 0 && pos_ < lfsr_ftree_size(ftree)) {
-        lfsr_bid_t bid;
-        lfsr_tag_t tag;
-        lfsr_bid_t weight;
-        lfsr_bptr_t bptr;
-        int err = lfsr_ftree_lookupnext(lfs,
-                mdir, ftree, pos_,
-                &bid, &tag, &weight, &bptr, NULL);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
+    // read one btree entry
+    lfsr_bid_t bid;
+    lfsr_tag_t tag;
+    lfsr_bid_t weight;
+    lfsr_bptr_t bptr;
+    int err = lfsr_ftree_lookupnext(lfs,
+            mdir, ftree, pos_,
+            &bid, &tag, &weight, &bptr, NULL);
+    if (err) {
+        return err;
+    }
+
+    // any data on disk?
+    if (pos_ < bid-(weight-1) + lfsr_data_size(&bptr.data)) {
+        // note one important side-effect here is a strict
+        // data hint
+        lfs_ssize_t d = lfs_min32(
+                size,
+                lfsr_data_size(&bptr.data)
+                    - (pos_ - (bid-(weight-1))));
+        lfsr_data_t slice = lfsr_data_slice(bptr.data,
+                pos_ - (bid-(weight-1)),
+                d);
+        d = lfsr_data_read(lfs, &slice,
+                buffer, d);
+        if (d < 0) {
+            return d;
         }
-
-        // any data on disk?
-        if (pos_ < bid-(weight-1) + lfsr_data_size(&bptr.data)) {
-            // note one important side-effect here is a strict
-            // data hint
-            lfs_ssize_t d = lfs_min32(
-                    hint,
-                    lfsr_data_size(&bptr.data)
-                        - (pos_ - (bid-(weight-1))));
-            lfsr_data_t slice = lfsr_data_slice(bptr.data,
-                    pos_ - (bid-(weight-1)),
-                    d);
-            d = lfsr_data_read(lfs, &slice,
-                    buffer, d);
-            if (d < 0) {
-                return d;
-            }
-
-            pos_ += d;
-            buffer += d;
-            size_ -= d;
-            hint -= d;
-        }
-
-        // found a hole? write zeros
-        lfs_ssize_t d = lfs_min32(hint, bid+1 - pos_);
-        memset(buffer, 0, d);
 
         pos_ += d;
         buffer += d;
-        size_ -= d;
-        hint -= d;
+        size -= d;
+    }
+
+    // found a hole? write zeros
+    lfs_ssize_t d = lfs_min32(size, bid+1 - pos_);
+    memset(buffer, 0, d);
+
+    pos_ += d;
+    buffer += d;
+    size -= d;
+
+    return pos_ - pos;
+}
+
+static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs,
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
+        lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
+    lfs_off_t pos_ = pos;
+    while (size > 0 && pos_ < lfsr_ftree_size(ftree)) {
+        lfs_ssize_t d = lfsr_ftree_readnext(lfs, mdir, ftree,
+                pos_, buffer, size);
+        if (d < 0) {
+            LFS_ASSERT(d != LFS_ERR_NOENT);
+            return d;
+        }
+
+        pos_ += d;
+        buffer += d;
+        size -= d;
     }
 
     return pos_ - pos;
@@ -10328,42 +10343,44 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             d = lfs_min32(d, file->buffer_pos - pos_);
         }
 
-        // bypass buffer?
-        if ((lfs_size_t)d >= lfs->cfg->cache_size) {
-            // any data in our ftree?
-            if (pos_ < lfsr_ftree_size(&file->ftree)) {
-                lfs_ssize_t d_ = lfsr_ftree_read(lfs,
-                        &file->mdir, &file->ftree,
-                        pos_, buffer_, d, d);
-                if (d_ < 0) {
-                    return d_;
-                }
-
-                pos_ += d_;
-                buffer_ += d_;
-                size -= d_;
-                d -= d_;
-            }
-
-            // found a hole? write zeros
+        // beyond end of ftree? fill with zeros
+        if (pos_ > lfsr_ftree_size(&file->ftree)) {
             memset(buffer_, 0, d);
-
+            
             pos_ += d;
             buffer_ += d;
             size -= d;
             continue;
         }
 
-        // unused buffer? we can move this where we need it
-        if (file->buffer_size == 0) {
-            // try to fill our buffer with some data
-            file->buffer_pos = pos_;
-            lfs_ssize_t d_ = lfsr_ftree_read(lfs, &file->mdir, &file->ftree,
-                    pos_, file->buffer, d, lfs->cfg->cache_size);
+        // bypass buffer?
+        if ((lfs_size_t)d >= lfs->cfg->cache_size) {
+            lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
+                    &file->mdir, &file->ftree,
+                    pos_, buffer_, d);
             if (d_ < 0) {
+                LFS_ASSERT(d_ != LFS_ERR_NOENT);
                 return d_;
             }
 
+            pos_ += d_;
+            buffer_ += d_;
+            size -= d_;
+            continue;
+        }
+
+        // unused buffer? we can move this where we need it
+        if (file->buffer_size == 0) {
+            // try to fill our buffer with some data
+            lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
+                    &file->mdir, &file->ftree,
+                    pos_, file->buffer, d);
+            if (d_ < 0) {
+                LFS_ASSERT(d != LFS_ERR_NOENT);
+                return d_;
+            }
+
+            file->buffer_pos = pos_;
             file->buffer_size = d_;
             continue;
         }
@@ -10725,7 +10742,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
 
             lfs_ssize_t d = lfsr_ftree_read(lfs,
                     &file->mdir, &file->ftree,
-                    0, file->buffer, size, size);
+                    0, file->buffer, size);
             if (d < 0) {
                 err = d;
                 goto failed;
@@ -10824,7 +10841,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             lfs_ssize_t d = lfsr_ftree_read(lfs,
                     &file->mdir, &file->ftree,
                     file->size - lfs_min32(size, file->size),
-                    file->buffer, size, size);
+                    file->buffer, size);
             if (d < 0) {
                 err = d;
                 goto failed;
