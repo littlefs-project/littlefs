@@ -182,7 +182,9 @@ size: $(OBJ)
 ## Generate a ctags file
 .PHONY: tags ctags
 tags ctags:
-	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
+	$(strip $(CTAGS) \
+		--totals --fields=+n --c-types=+p \
+		$(shell find -H -name '*.h') $(SRC))
 
 ## Show this help text
 .PHONY: help
