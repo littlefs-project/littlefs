@@ -3051,8 +3051,8 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         // perturb byte, as it should still be in our cache
         lfsr_ecksum_t ecksum = {.size=lfs->cfg->prog_size};
         err = lfsr_bd_cksum(lfs,
-                rbyd->blocks[0], aligned_eoff, lfs->cfg->prog_size,
-                lfs->cfg->prog_size,
+                rbyd->blocks[0], aligned_eoff, ecksum.size,
+                ecksum.size,
                 &ecksum.cksum);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -9319,6 +9319,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             goto failed_with_buffer;
         }
 
+        // small files remain perpetually unflushed
+        file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = file->size;
         file->ftree = LFSR_FTREE_NULL();
@@ -10170,9 +10172,10 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         lfsr_ecksum_t becksum = {.size=-1};
         if (bptr.cksize < lfs->cfg->block_size) {
             becksum.size = lfs->cfg->prog_size;
-            err = lfsr_bd_cksum(lfs, bptr.data.u.disk.off,
-                    bptr.cksize, lfs->cfg->prog_size,
-                    lfs->cfg->prog_size,
+            becksum.cksum = 0;
+            err = lfsr_bd_cksum(lfs,
+                    bptr.data.u.disk.block, bptr.cksize, becksum.size,
+                    becksum.size,
                     &becksum.cksum);
             if (err && err != LFS_ERR_CORRUPT) {
                 return err;
@@ -10366,7 +10369,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             // note that flush does not change the actual file data, so if
             // a read fails it's ok to fall back to our flushed state
             //
-            if (file->buffer_size != 0) {
+            if (lfsr_f_isunflushed(file->flags)) {
                 int err = lfsr_file_flush(lfs, file);
                 if (err) {
                     return err;
@@ -10421,6 +10424,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     // copy state so we can recover from errors
     lfs_off_t pos_ = file->pos;
+    bool unflushed_ = lfsr_f_isunflushed(file->flags);
     lfs_off_t buffer_pos_ = file->buffer_pos;
     lfs_size_t buffer_size_ = file->buffer_size;
     lfsr_ftree_t ftree_ = file->ftree;
@@ -10439,6 +10443,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             && pos_ <= lfs->cfg->cache_size
             && pos_ <= lfs->cfg->inline_size
             && pos_ <= lfs->cfg->fragment_size) {
+        LFS_ASSERT(unflushed_);
         LFS_ASSERT(file->size == buffer_size_);
         memset(&file->buffer[buffer_size_],
                 0,
@@ -10454,7 +10459,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        if (buffer_size_ == 0 && size >= lfs->cfg->cache_size) {
+        if (!unflushed_ && size >= lfs->cfg->cache_size) {
             err = lfsr_ftree_flush(lfs, &file->mdir, &ftree_,
                     pos_, buffer_, size);
             if (err) {
@@ -10477,9 +10482,16 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // 2. Bypassing the buffer above means we only write to the
         //    buffer once, and flush at most twice.
         //
-        if (pos_ >= buffer_pos_
-                && pos_ <= buffer_pos_ + buffer_size_
-                && pos_ < buffer_pos_ + lfs->cfg->cache_size) {
+        if (!unflushed_
+                || (pos_ >= buffer_pos_
+                    && pos_ <= buffer_pos_ + buffer_size_
+                    && pos_ < buffer_pos_ + lfs->cfg->cache_size)) {
+            // unused buffer? we can move it where we need it
+            if (!unflushed_) {
+                buffer_pos_ = pos_;
+                buffer_size_ = 0;
+            }
+
             lfs_size_t d = lfs_min32(
                     size,
                     lfs->cfg->cache_size - (pos_ - buffer_pos_));
@@ -10488,6 +10500,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     buffer_size_,
                     pos_+d - buffer_pos_);
 
+            unflushed_ = true;
             pos_ += d;
             buffer_ += d;
             size -= d;
@@ -10500,14 +10513,22 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         if (err) {
             goto failed;
         }
-        buffer_pos_ = pos_;
+        unflushed_ = false;
+        buffer_pos_ = 0;
         buffer_size_ = 0;
     }
 
     // mark as unflushed and unsynced, update file, and return amount written
-    lfs_size_t written = pos_ - (
-            (lfsr_o_isappend(file->flags)) ? file->size : file->pos);
-    file->flags |= LFS_F_UNSYNCED | LFS_F_UNFLUSHED;
+    lfs_size_t written;
+    if (lfsr_o_isappend(file->flags)) {
+        written = pos_ - file->size;
+    } else {
+        written = pos_ - file->pos;
+    }
+    file->flags |= LFS_F_UNSYNCED;
+    if (unflushed_) {
+        file->flags |= LFS_F_UNFLUSHED;
+    }
     file->pos = pos_;
     file->size = lfs_max32(file->size, pos_);
     file->buffer_pos = buffer_pos_;
@@ -10524,7 +10545,10 @@ failed:;
 static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // do nothing if our file is readonly
     if (!lfsr_o_iswriteable(file->flags)) {
-        LFS_ASSERT(!lfsr_f_isunflushed(file->flags));
+        LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
+                || (file->size <= lfs->cfg->cache_size
+                    && file->size <= lfs->cfg->inline_size
+                    && file->size <= lfs->cfg->fragment_size));
         return 0;
     }
 
@@ -10533,34 +10557,33 @@ static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
         return 0;
     }
 
-    int err;
-    // if our file is small don't do anything
+    // do nothing if our file is small
+    //
+    // note this means small files remain perpetually unflushed
     if (file->size <= lfs->cfg->cache_size
             && file->size <= lfs->cfg->inline_size
             && file->size <= lfs->cfg->fragment_size) {
         // our file must reside entirely in our buffer
         LFS_ASSERT(file->buffer_pos == 0);
         LFS_ASSERT(file->buffer_size == file->size);
+        return 0;
+    }
 
-    } else {
-        // flush our buffer if it contains any unwritten data
-        if (lfsr_f_isunflushed(file->flags)) {
-            // checkpoint the allocator
-            lfs_alloc_ckpoint(lfs);
+    // checkpoint the allocator
+    lfs_alloc_ckpoint(lfs);
 
-            // copy state so we can recover from errors
-            lfsr_ftree_t ftree_ = file->ftree;
-
-            // flush
-            err = lfsr_ftree_flush(lfs, &file->mdir, &ftree_,
-                    file->buffer_pos, file->buffer, file->buffer_size);
-            if (err) {
-                goto failed;
-            }
-
-            // update file
-            file->ftree = ftree_;
+    int err;
+    // flush our buffer if it contains any unwritten data
+    if (lfsr_f_isunflushed(file->flags) && file->buffer_size != 0) {
+        // copy state so we can recover from errors
+        lfsr_ftree_t ftree_ = file->ftree;
+        // flush
+        err = lfsr_ftree_flush(lfs, &file->mdir, &ftree_,
+                file->buffer_pos, file->buffer, file->buffer_size);
+        if (err) {
+            goto failed;
         }
+        file->ftree = ftree_;
     }
 
     file->flags &= ~LFS_F_UNFLUSHED;
@@ -10584,7 +10607,6 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
     // do nothing if our file is readonly
     if (!lfsr_o_iswriteable(file->flags)) {
-        LFS_ASSERT(!lfsr_f_isunflushed(file->flags));
         LFS_ASSERT(!lfsr_f_isunsynced(file->flags));
         return 0;
     }
@@ -10750,6 +10772,8 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                     size - file->buffer_size);
         }
 
+        // small files remain perpetually unflushed
+        file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = size;
         file->ftree = LFSR_FTREE_NULL();
@@ -10774,14 +10798,6 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         file->buffer_size = lfs_min32(
                 file->buffer_size,
                 size - lfs_min32(file->buffer_pos, size));
-
-        // our file became not small with data in buffer, mark as unflushed
-        if (file->size <= lfs->cfg->cache_size
-                && file->size <= lfs->cfg->inline_size
-                && file->size <= lfs->cfg->fragment_size
-                && file->buffer_size != 0) {
-            file->flags |= LFS_F_UNFLUSHED;
-        }
     }
 
     // mark as unsynced and update our size
@@ -10858,6 +10874,8 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                     size - file->buffer_size);
         }
 
+        // small files remain perpetually unflushed
+        file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = size;
         file->ftree = LFSR_FTREE_NULL();
@@ -10889,14 +10907,6 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 lfs_smax32(file->size - size - file->buffer_pos, 0),
                 file->buffer_size);
         file->buffer_pos -= lfs_smin32(file->size - size, file->buffer_pos);
-
-        // our file became not small with data in buffer, mark as unflushed
-        if (file->size <= lfs->cfg->cache_size
-                && file->size <= lfs->cfg->inline_size
-                && file->size <= lfs->cfg->fragment_size
-                && file->buffer_size != 0) {
-            file->flags |= LFS_F_UNFLUSHED;
-        }
     }
 
     // mark as unsynced and update our size
