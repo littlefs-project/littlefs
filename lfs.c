@@ -10478,7 +10478,13 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
+        // oh, and also avoids issues with out-of-date buffers
+        //
         if (!unflushed_ && size >= lfs->cfg->cache_size) {
+            // clear buffer to avoid out-of-date data
+            buffer_pos_ = 0;
+            buffer_size_ = 0;
+
             err = lfsr_ftree_flush(lfs, &file->mdir, &ftree_,
                     pos_, buffer_, size);
             if (err) {
