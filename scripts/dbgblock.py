@@ -73,11 +73,20 @@ def xxd(data, width=16):
                 b if b >= ' ' and b <= '~' else '.'
                 for b in map(chr, data[i:i+width])))
 
+def crc32c(data, crc=0):
+    crc ^= 0xffffffff
+    for b in data:
+        crc ^= b
+        for j in range(8):
+            crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
+    return 0xffffffff ^ crc
+
 def main(disk, block=None, *,
         block_size=None,
         block_count=None,
         off=None,
-        size=None):
+        size=None,
+        cksum=False):
     # is bd geometry specified?
     if isinstance(block_size, tuple):
         block_size, block_count_ = block_size
@@ -115,6 +124,7 @@ def main(disk, block=None, *,
                 else off[1] - off[0] if isinstance(off, tuple) and len(off) > 1
                 else block_size)
 
+        # print the header
         print('block %s, size %d' % (
             '0x%x.%x' % (block, off)
                 if off is not None
@@ -128,6 +138,11 @@ def main(disk, block=None, *,
         # render the hex view
         for o, line in enumerate(xxd(data)):
             print('%08x: %s' % ((off or 0) + 16*o, line))
+
+        # render the checksum if requested
+        if cksum:
+            cksum = crc32c(data)
+            print('%8s: %08x' % ('crc32c', cksum))
 
 if __name__ == "__main__":
     import argparse
@@ -163,6 +178,10 @@ if __name__ == "__main__":
             int(x, 0) if x.strip() else None
             for x in x.split(',')),
         help="Show this many bytes, may be a range.")
+    parser.add_argument(
+        '-x', '--cksum', '--crc32c',
+        action='store_true',
+        help="Calculate and show the crc32c of the data.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
