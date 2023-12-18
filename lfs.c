@@ -10172,6 +10172,12 @@ static int lfsr_ftree_flush(lfs_t *lfs,
             return err;
         }
 
+        // TODO this is a cludge, but right now our bd layer is a mess,
+        // we need caches to be clean so becksum calculation does not pick
+        // up out-of-date pcaches/rcaches
+        lfs_cache_drop(lfs, &lfs->pcache);
+        lfs_cache_drop(lfs, &lfs->rcache);
+
         // prepare our block pointer
         LFS_ASSERT(bptr.cksize > 0);
         LFS_ASSERT(bptr.cksize <= lfs->cfg->block_size);
