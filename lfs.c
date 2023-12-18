@@ -9888,12 +9888,18 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
                         && becksum.size != -1
+                        // data not truncated?
                         && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
                             == bptr.cksize
-                        && pos - (bid-(weight-1))
-                            >= lfsr_data_size(&bptr.data)) {
+                        // not clobbering data?
+                        && crystal_start - (bid-(weight-1))
+                            >= lfsr_data_size(&bptr.data)
+                        // enough for prog alignment?
+                        && crystal_end - crystal_start
+                            >= lfs->cfg->prog_size) {
                     LFS_ASSERT(bptr.cksize + becksum.size
                             <= lfs->cfg->block_size);
+
                     err = lfsr_ecksum_validate(lfs, &becksum,
                             bptr.data.u.disk.block, bptr.cksize);
                     if (err && err != LFS_ERR_CORRUPT) {
@@ -9943,7 +9949,9 @@ static int lfsr_ftree_flush(lfs_t *lfs,
         }
 
         // below our crystallization threshold? fallback to writing fragments
-        if (crystal_end - crystal_start < lfs->cfg->crystal_thresh) {
+        if (crystal_end - crystal_start < lfs->cfg->crystal_thresh
+                // enough for prog alignment?
+                || crystal_end - crystal_start < lfs->cfg->prog_size) {
             break;
         }
 
@@ -9980,10 +9988,15 @@ static int lfsr_ftree_flush(lfs_t *lfs,
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
                         && becksum.size != -1
+                        // data not truncated?
                         && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
                             == bptr.cksize
+                        // not clobbering data?
                         && crystal_start - (bid-(weight-1))
-                            >= lfsr_data_size(&bptr.data)) {
+                            >= lfsr_data_size(&bptr.data)
+                        // enough for prog alignment?
+                        && crystal_end - crystal_start
+                            >= lfs->cfg->prog_size) {
                     LFS_ASSERT(bptr.cksize + becksum.size
                             <= lfs->cfg->block_size);
 
