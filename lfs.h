@@ -430,13 +430,13 @@ typedef struct lfs {
     lfs_gstate_t gdisk;
     lfs_gstate_t gdelta;
 
-    struct lfs_free {
-        lfs_block_t off;
+    struct lfs_lookahead {
+        lfs_block_t start;
         lfs_block_t size;
-        lfs_block_t i;
-        lfs_block_t ack;
+        lfs_block_t next;
+        lfs_block_t ckpoint;
         uint32_t *buffer;
-    } free;
+    } lookahead;
 
     const struct lfs_config *cfg;
     lfs_size_t block_count;
