@@ -600,7 +600,7 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
             + lfs->block_count) % lfs->block_count;
 
     if (off < lfs->lookahead.size) {
-        lfs->lookahead.buffer[off / 32] |= 1U << (off % 32);
+        lfs->lookahead.buffer[off / 8] |= 1U << (off % 8);
     }
 
     return 0;
@@ -653,8 +653,8 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
         // scan our lookahead buffer for free blocks
         while (lfs->lookahead.next < lfs->lookahead.size) {
-            if (!(lfs->lookahead.buffer[lfs->lookahead.next / 32]
-                    & (1U << (lfs->lookahead.next % 32)))) {
+            if (!(lfs->lookahead.buffer[lfs->lookahead.next / 8]
+                    & (1U << (lfs->lookahead.next % 8)))) {
                 // found a free block
                 *block = (lfs->lookahead.start + lfs->lookahead.next)
                         % lfs->block_count;
@@ -666,8 +666,8 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
                     lfs->lookahead.ckpoint -= 1;
 
                     if (lfs->lookahead.next >= lfs->lookahead.size
-                            || !(lfs->lookahead.buffer[lfs->lookahead.next / 32]
-                                & (1U << (lfs->lookahead.next % 32)))) {
+                            || !(lfs->lookahead.buffer[lfs->lookahead.next / 8]
+                                & (1U << (lfs->lookahead.next % 8)))) {
                         return 0;
                     }
                 }
@@ -4199,10 +4199,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_cache_zero(lfs, &lfs->rcache);
     lfs_cache_zero(lfs, &lfs->pcache);
 
-    // setup lookahead, must be multiple of 64-bits, 32-bit aligned
+    // setup lookahead buffer, note mount finishes initializing this after
+    // we establish a decent pseudo-random seed
     LFS_ASSERT(lfs->cfg->lookahead_size > 0);
-    LFS_ASSERT(lfs->cfg->lookahead_size % 8 == 0 &&
-            (uintptr_t)lfs->cfg->lookahead_buffer % 4 == 0);
     if (lfs->cfg->lookahead_buffer) {
         lfs->lookahead.buffer = lfs->cfg->lookahead_buffer;
     } else {
