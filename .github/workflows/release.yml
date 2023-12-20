@@ -112,7 +112,7 @@ jobs:
             table[$i,$j]=$c_camel
             ((j+=1))
 
-            for s in code stack struct
+            for s in code stack structs
             do
               f=sizes/thumb${c:+-$c}.$s.csv
               [ -e $f ] && table[$i,$j]=$( \
