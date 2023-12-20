@@ -607,9 +607,10 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
 }
 #endif
 
-// indicate allocated blocks have been committed into the filesystem, this
-// is to prevent blocks from being garbage collected in the middle of a
-// commit operation
+// allocations should call this when all allocated blocks are committed to
+// the filesystem
+//
+// after a checkpoint, the block allocator may realloc any untracked blocks
 static void lfs_alloc_ckpoint(lfs_t *lfs) {
     lfs->lookahead.ckpoint = lfs->block_count;
 }
@@ -624,14 +625,16 @@ static void lfs_alloc_drop(lfs_t *lfs) {
 
 #ifndef LFS_READONLY
 static int lfs_fs_rawgc(lfs_t *lfs) {
-    // Move free offset at the first unused block (lfs->lookahead.next)
-    // lfs->lookahead.next is equal lfs->lookahead.size when all blocks are used
+    // move lookahead buffer to the first unused block
+    //
+    // note we limit the lookahead buffer to at most the amount of blocks
+    // checkpointed, this prevents the math in lfs_alloc from underflowing
     lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.next) 
             % lfs->block_count;
+    lfs->lookahead.next = 0;
     lfs->lookahead.size = lfs_min(
             8*lfs->cfg->lookahead_size,
             lfs->lookahead.ckpoint);
-    lfs->lookahead.next = 0;
 
     // find mask of free blocks from tree
     memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
@@ -648,35 +651,48 @@ static int lfs_fs_rawgc(lfs_t *lfs) {
 #ifndef LFS_READONLY
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
-        while (lfs->lookahead.next != lfs->lookahead.size) {
-            lfs_block_t off = lfs->lookahead.next;
-            lfs->lookahead.next += 1;
-            lfs->lookahead.ckpoint -= 1;
-
-            if (!(lfs->lookahead.buffer[off / 32] & (1U << (off % 32)))) {
+        // scan our lookahead buffer for free blocks
+        while (lfs->lookahead.next < lfs->lookahead.size) {
+            if (!(lfs->lookahead.buffer[lfs->lookahead.next / 32]
+                    & (1U << (lfs->lookahead.next % 32)))) {
                 // found a free block
-                *block = (lfs->lookahead.start + off) % lfs->block_count;
+                *block = (lfs->lookahead.start + lfs->lookahead.next)
+                        % lfs->block_count;
 
-                // eagerly find next off so an alloc ack can
-                // discredit old lookahead blocks
-                while (lfs->lookahead.next != lfs->lookahead.size &&
-                        (lfs->lookahead.buffer[lfs->lookahead.next / 32]
-                            & (1U << (lfs->lookahead.next % 32)))) {
+                // eagerly find next free block to maximize how many blocks
+                // lfs_alloc_ckpoint makes available for scanning
+                while (true) {
                     lfs->lookahead.next += 1;
                     lfs->lookahead.ckpoint -= 1;
-                }
 
-                return 0;
+                    if (lfs->lookahead.next >= lfs->lookahead.size
+                            || !(lfs->lookahead.buffer[lfs->lookahead.next / 32]
+                                & (1U << (lfs->lookahead.next % 32)))) {
+                        return 0;
+                    }
+                }
             }
+
+            lfs->lookahead.next += 1;
+            lfs->lookahead.ckpoint -= 1;
         }
 
-        // check if we have looked at all blocks since last ack
-        if (lfs->lookahead.ckpoint == 0) {
-            LFS_ERROR("No more free space %"PRIu32,
-                    lfs->lookahead.next + lfs->lookahead.start);
+        // In order to keep our block allocator from spinning forever when our
+        // filesystem is full, we mark points where there are no in-flight
+        // allocations with a checkpoint before starting a set of allocations.
+        //
+        // If we've looked at all blocks since the last checkpoint, we report
+        // the filesystem as out of storage.
+        //
+        if (lfs->lookahead.ckpoint <= 0) {
+            LFS_ERROR("No more free space 0x%"PRIx32,
+                    (lfs->lookahead.start + lfs->lookahead.next)
+                        % lfs->cfg->block_count);
             return LFS_ERR_NOSPC;
         }
 
+        // No blocks in our lookahead buffer, we need to scan the filesystem for
+        // unused blocks in the next lookahead window.
         int err = lfs_fs_rawgc(lfs);
         if(err) {
             return err;
