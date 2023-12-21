@@ -59,7 +59,7 @@ This leaves us with three major requirements for an embedded filesystem.
    RAM to temporarily store filesystem metadata.
 
    For ROM, this means we need to keep our design simple and reuse code paths
-   were possible. For RAM we have a stronger requirement, all RAM usage is
+   where possible. For RAM we have a stronger requirement, all RAM usage is
    bounded. This means RAM usage does not grow as the filesystem changes in
    size or number of files. This creates a unique challenge as even presumably
    simple operations, such as traversing the filesystem, become surprisingly
@@ -626,7 +626,7 @@ log&#8322;_n_ pointers that skip to different preceding elements of the
 skip-list.
 
 The name comes from heavy use of the [CTZ instruction][wikipedia-ctz], which
-lets us calculate the power-of-two factors efficiently. For a give block _n_,
+lets us calculate the power-of-two factors efficiently. For a given block _n_,
 that block contains ctz(_n_)+1 pointers.
 
 ```

@@ -2151,9 +2151,11 @@ static int lfs2_dir_splittingcompact(lfs2_t *lfs2, lfs2_mdir_t *dir,
             return size;
         }
 
-        // do we have extra space? littlefs can't reclaim this space
-        // by itself, so expand cautiously
-        if ((lfs2_size_t)size < lfs2->block_count/2) {
+        // littlefs cannot reclaim expanded superblocks, so expand cautiously
+        //
+        // if our filesystem is more than ~88% full, don't expand, this is
+        // somewhat arbitrary
+        if (lfs2->block_count - size > lfs2->block_count/8) {
             LFS2_DEBUG("Expanding superblock at rev %"PRIu32, dir->rev);
             int err = lfs2_dir_split(lfs2, dir, attrs, attrcount,
                     source, begin, end);
