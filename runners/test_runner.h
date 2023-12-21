@@ -88,12 +88,13 @@ intmax_t test_define(size_t define);
 #define BLOCK_COUNT_i        5
 #define CACHE_SIZE_i         6
 #define LOOKAHEAD_SIZE_i     7
-#define BLOCK_CYCLES_i       8
-#define ERASE_VALUE_i        9
-#define ERASE_CYCLES_i       10
-#define BADBLOCK_BEHAVIOR_i  11
-#define POWERLOSS_BEHAVIOR_i 12
-#define DISK_VERSION_i       13
+#define COMPACT_THRESH_i     8
+#define BLOCK_CYCLES_i       9
+#define ERASE_VALUE_i        10
+#define ERASE_CYCLES_i       11
+#define BADBLOCK_BEHAVIOR_i  12
+#define POWERLOSS_BEHAVIOR_i 13
+#define DISK_VERSION_i       14
 
 #define READ_SIZE           TEST_DEFINE(READ_SIZE_i)
 #define PROG_SIZE           TEST_DEFINE(PROG_SIZE_i)
@@ -103,6 +104,7 @@ intmax_t test_define(size_t define);
 #define BLOCK_COUNT         TEST_DEFINE(BLOCK_COUNT_i)
 #define CACHE_SIZE          TEST_DEFINE(CACHE_SIZE_i)
 #define LOOKAHEAD_SIZE      TEST_DEFINE(LOOKAHEAD_SIZE_i)
+#define COMPACT_THRESH      TEST_DEFINE(COMPACT_THRESH_i)
 #define BLOCK_CYCLES        TEST_DEFINE(BLOCK_CYCLES_i)
 #define ERASE_VALUE         TEST_DEFINE(ERASE_VALUE_i)
 #define ERASE_CYCLES        TEST_DEFINE(ERASE_CYCLES_i)
@@ -119,6 +121,7 @@ intmax_t test_define(size_t define);
     TEST_DEF(BLOCK_COUNT,        ERASE_COUNT/lfs_max(BLOCK_SIZE/ERASE_SIZE,1)) \
     TEST_DEF(CACHE_SIZE,         lfs_max(64,lfs_max(READ_SIZE,PROG_SIZE))) \
     TEST_DEF(LOOKAHEAD_SIZE,     16) \
+    TEST_DEF(COMPACT_THRESH,     0) \
     TEST_DEF(BLOCK_CYCLES,       -1) \
     TEST_DEF(ERASE_VALUE,        0xff) \
     TEST_DEF(ERASE_CYCLES,       0) \
@@ -127,7 +130,7 @@ intmax_t test_define(size_t define);
     TEST_DEF(DISK_VERSION,       0)
 
 #define TEST_GEOMETRY_DEFINE_COUNT 4
-#define TEST_IMPLICIT_DEFINE_COUNT 14
+#define TEST_IMPLICIT_DEFINE_COUNT 15
 
 
 #endif

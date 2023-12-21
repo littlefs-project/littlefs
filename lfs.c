@@ -593,19 +593,6 @@ static int lfs_rawunmount(lfs_t *lfs);
 
 
 /// Block allocator ///
-#ifndef LFS_READONLY
-static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
-    lfs_t *lfs = (lfs_t*)p;
-    lfs_block_t off = ((block - lfs->lookahead.start)
-            + lfs->block_count) % lfs->block_count;
-
-    if (off < lfs->lookahead.size) {
-        lfs->lookahead.buffer[off / 8] |= 1U << (off % 8);
-    }
-
-    return 0;
-}
-#endif
 
 // allocations should call this when all allocated blocks are committed to
 // the filesystem
@@ -624,7 +611,21 @@ static void lfs_alloc_drop(lfs_t *lfs) {
 }
 
 #ifndef LFS_READONLY
-static int lfs_fs_rawgc(lfs_t *lfs) {
+static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
+    lfs_t *lfs = (lfs_t*)p;
+    lfs_block_t off = ((block - lfs->lookahead.start)
+            + lfs->block_count) % lfs->block_count;
+
+    if (off < lfs->lookahead.size) {
+        lfs->lookahead.buffer[off / 8] |= 1U << (off % 8);
+    }
+
+    return 0;
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_alloc_scan(lfs_t *lfs) {
     // move lookahead buffer to the first unused block
     //
     // note we limit the lookahead buffer to at most the amount of blocks
@@ -693,7 +694,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // No blocks in our lookahead buffer, we need to scan the filesystem for
         // unused blocks in the next lookahead window.
-        int err = lfs_fs_rawgc(lfs);
+        int err = lfs_alloc_scan(lfs);
         if(err) {
             return err;
         }
@@ -4172,6 +4173,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // wear-leveling.
     LFS_ASSERT(lfs->cfg->block_cycles != 0);
 
+    // check that compact_thresh makes sense
+    //
+    // metadata can't be compacted below block_size/2, and metadata can't
+    // exceed a block_size
+    LFS_ASSERT(lfs->cfg->compact_thresh == 0
+            || lfs->cfg->compact_thresh >= lfs->cfg->block_size/2);
+    LFS_ASSERT(lfs->cfg->compact_thresh == (lfs_size_t)-1
+            || lfs->cfg->compact_thresh <= lfs->cfg->block_size);
 
     // setup read cache
     if (lfs->cfg->read_buffer) {
@@ -5062,6 +5071,57 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
 
     return size;
 }
+
+// explicit garbage collection
+#ifndef LFS_READONLY
+static int lfs_fs_rawgc(lfs_t *lfs) {
+    // force consistency, even if we're not necessarily going to write,
+    // because this function is supposed to take care of janitorial work
+    // isn't it?
+    int err = lfs_fs_forceconsistency(lfs);
+    if (err) {
+        return err;
+    }
+
+    // try to compact metadata pairs, note we can't really accomplish
+    // anything if compact_thresh doesn't at least leave a prog_size
+    // available
+    if (lfs->cfg->compact_thresh
+            < lfs->cfg->block_size - lfs->cfg->prog_size) {
+        // iterate over all mdirs
+        lfs_mdir_t mdir = {.tail = {0, 1}};
+        while (!lfs_pair_isnull(mdir.tail)) {
+            err = lfs_dir_fetch(lfs, &mdir, mdir.tail);
+            if (err) {
+                return err;
+            }
+
+            // not erased? exceeds our compaction threshold?
+            if (!mdir.erased || ((lfs->cfg->compact_thresh == 0)
+                    ? mdir.off > lfs->cfg->block_size - lfs->cfg->block_size/8
+                    : mdir.off > lfs->cfg->compact_thresh)) {
+                // the easiest way to trigger a compaction is to mark
+                // the mdir as unerased and add an empty commit
+                mdir.erased = false;
+                err = lfs_dir_commit(lfs, &mdir, NULL, 0);
+                if (err) {
+                    return err;
+                }
+            }
+        }
+    }
+
+    // try to populate the lookahead buffer, unless it's already full
+    if (lfs->lookahead.size < 8*lfs->cfg->lookahead_size) {
+        err = lfs_alloc_scan(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_rawgrow(lfs_t *lfs, lfs_size_t block_count) {
@@ -6269,22 +6329,6 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void *, lfs_block_t), void *data) {
 }
 
 #ifndef LFS_READONLY
-int lfs_fs_gc(lfs_t *lfs) {
-    int err = LFS_LOCK(lfs->cfg);
-    if (err) {
-        return err;
-    }
-    LFS_TRACE("lfs_fs_gc(%p)", (void*)lfs);
-
-    err = lfs_fs_rawgc(lfs);
-
-    LFS_TRACE("lfs_fs_gc -> %d", err);
-    LFS_UNLOCK(lfs->cfg);
-    return err;
-}
-#endif
-
-#ifndef LFS_READONLY
 int lfs_fs_mkconsistent(lfs_t *lfs) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
@@ -6295,6 +6339,22 @@ int lfs_fs_mkconsistent(lfs_t *lfs) {
     err = lfs_fs_rawmkconsistent(lfs);
 
     LFS_TRACE("lfs_fs_mkconsistent -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_fs_gc(lfs_t *lfs) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_gc(%p)", (void*)lfs);
+
+    err = lfs_fs_rawgc(lfs);
+
+    LFS_TRACE("lfs_fs_gc -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }

@@ -229,6 +229,17 @@ struct lfs_config {
     // can track 8 blocks.
     lfs_size_t lookahead_size;
 
+    // Threshold for metadata compaction during lfs_fs_gc in bytes. Metadata
+    // pairs that exceed this threshold will be compacted during lfs_fs_gc.
+    // Defaults to ~88% block_size when zero, though the default may change
+    // in the future.
+    //
+    // Note this only affects lfs_fs_gc. Normal compactions still only occur
+    // when full.
+    //
+    // Set to -1 to disable metadata compaction during lfs_fs_gc.
+    lfs_size_t compact_thresh;
+
     // Optional statically allocated read buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
     void *read_buffer;
@@ -711,18 +722,6 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
-// Attempt to proactively find free blocks
-//
-// Calling this function is not required, but may allowing the offloading of
-// the expensive block allocation scan to a less time-critical code path.
-//
-// Note: littlefs currently does not persist any found free blocks to disk.
-// This may change in the future.
-//
-// Returns a negative error code on failure. Finding no free blocks is
-// not an error.
-int lfs_fs_gc(lfs_t *lfs);
-
 #ifndef LFS_READONLY
 // Attempt to make the filesystem consistent and ready for writing
 //
@@ -733,6 +732,24 @@ int lfs_fs_gc(lfs_t *lfs);
 //
 // Returns a negative error code on failure.
 int lfs_fs_mkconsistent(lfs_t *lfs);
+#endif
+
+#ifndef LFS_READONLY
+// Attempt any janitorial work
+//
+// This currently:
+// 1. Calls mkconsistent if not already consistent
+// 2. Compacts metadata > compact_thresh
+// 3. Populates the block allocator
+//
+// Though additional janitorial work may be added in the future.
+//
+// Calling this function is not required, but may allow the offloading of
+// expensive janitorial work to a less time-critical code path.
+//
+// Returns a negative error code on failure. Accomplishing nothing is not
+// an error.
+int lfs_fs_gc(lfs_t *lfs);
 #endif
 
 #ifndef LFS_READONLY
