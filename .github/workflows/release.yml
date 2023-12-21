@@ -210,8 +210,59 @@ jobs:
             --format="format:[\`%h\`](`
               `https://github.com/$GITHUB_REPOSITORY/commit/%h) %s" \
             > changes.txt
-          echo "CHANGES:"
+          echo >> changes.txt
+
           cat changes.txt
+
+      # find contributors from history/GitHub
+      - name: create-contributors
+        run: |
+          touch contributors_.txt
+          for email in $( \
+            git log "$LFS_PREV_VERSION.." \
+              --grep='^Merge' --invert-grep \
+              --format="%ae" \
+              | sort \
+              | uniq )
+          do
+            curl -sS "$GITHUB_API_URL/search/users?q=$email" \
+              | jq -r '"@"+.items[0].login' >> contributors_.txt || true
+          done
+
+          grep '@' contributors_.txt || exit 0
+
+          # format
+          echo "### Contributors" >> contributors.txt
+          echo >> contributors.txt
+          echo -n "A special thanks to all who proposed PRs: " >> contributors.txt
+          sed -z -e 's/\n/, /g' -e 's/, $/\n/g' contributors_.txt >> contributors.txt
+
+          cat contributors.txt
+
+      # find sponsors from GitHub
+      - name: create-sponsors
+        run: |
+          [ -n "${{vars.SPONSORS_URL}}" ] || exit 0
+          touch sponsors_.txt
+          for ((i=1;; i++))
+          do
+            # SPONSORS_URL should be something like
+            # https://github.com/sponsors/<org>/sponsors_partial?filter=<active|inactive|all>
+            curl -sS "${{vars.SPONSORS_URL}}&page=$i" \
+              | grep -o '"@[^"]*"' \
+              | sed 's/"//g' \
+              | grep '@' >> sponsors_.txt || break
+          done
+
+          grep '@' sponsors_.txt || exit 0
+
+          # format
+          echo "### Sponsors" >> sponsors.txt
+          echo >> sponsors.txt
+          echo -n "A special thanks to littlefs's sponsors: " >> sponsors.txt
+          sed -z -e 's/\n/, /g' -e 's/, $/\n/g' sponsors_.txt >> sponsors.txt
+
+          cat sponsors.txt
 
       # create and update major branches (vN and vN-prefix)
       - name: create-major-branches
@@ -242,10 +293,15 @@ jobs:
         run: |
           # create release and patch version tag (vN.N.N)
           # only draft if not a patch release
-          touch release.txt
+          echo "### Changes" >> release.txt
+          echo >> release.txt
           [ -e table.txt ] && cat table.txt >> release.txt
           echo >> release.txt
           [ -e changes.txt ] && cat changes.txt >> release.txt
+          echo >> release.txt
+          [ -e contributors.txt ] && cat contributors.txt >> release.txt
+          echo >> release.txt
+          [ -e sponsors.txt ] && cat sponsors.txt >> release.txt
           cat release.txt
 
           curl -sS -X POST -H "authorization: token ${{secrets.BOT_TOKEN}}" \
