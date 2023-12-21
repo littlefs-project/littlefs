@@ -272,6 +272,15 @@ struct lfs_config {
     // Defaults to block_size when zero.
     lfs_size_t metadata_max;
 
+    // Optional upper limit on inlined files in bytes. Inlined files live in
+    // metadata and decrease storage requirements, but may be limited to
+    // improve metadata-related performance. Must be <= cache_size, <=
+    // attr_max, and <= block_size/8. Defaults to the largest possible
+    // inline_max when zero.
+    //
+    // Set to -1 to disable inlined files.
+    lfs_size_t inline_max;
+
 #ifdef LFS_MULTIVERSION
     // On-disk version to use when writing in the form of 16-bit major version
     // + 16-bit minor version. This limiting metadata to what is supported by
@@ -451,6 +460,7 @@ typedef struct lfs {
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
+    lfs_size_t inline_max;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;

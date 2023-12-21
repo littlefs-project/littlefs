@@ -3524,11 +3524,7 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     if ((file->flags & LFS_F_INLINE) &&
-            lfs_max(file->pos+nsize, file->ctz.size) >
-            lfs_min(0x3fe, lfs_min(
-                lfs->cfg->cache_size,
-                (lfs->cfg->metadata_max ?
-                    lfs->cfg->metadata_max : lfs->cfg->block_size) / 8))) {
+            lfs_max(file->pos+nsize, file->ctz.size) > lfs->inline_max) {
         // inline file doesn't fit anymore
         int err = lfs_file_outline(lfs, file);
         if (err) {
@@ -3725,10 +3721,7 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     lfs_off_t oldsize = lfs_file_rawsize(lfs, file);
     if (size < oldsize) {
         // revert to inline file?
-        if (size <= lfs_min(0x3fe, lfs_min(
-                lfs->cfg->cache_size,
-                (lfs->cfg->metadata_max ?
-                    lfs->cfg->metadata_max : lfs->cfg->block_size) / 8))) {
+        if (size <= lfs->inline_max) {
             // flush+seek to head
             lfs_soff_t res = lfs_file_rawseek(lfs, file, 0, LFS_SEEK_SET);
             if (res < 0) {
@@ -4259,6 +4252,27 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     LFS_ASSERT(lfs->cfg->metadata_max <= lfs->cfg->block_size);
 
+    LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
+            || lfs->cfg->inline_max <= lfs->cfg->cache_size);
+    LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
+            || lfs->cfg->inline_max <= lfs->attr_max);
+    LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
+            || lfs->cfg->inline_max <= ((lfs->cfg->metadata_max)
+                ? lfs->cfg->metadata_max
+                : lfs->cfg->block_size)/8);
+    lfs->inline_max = lfs->cfg->inline_max;
+    if (lfs->inline_max == (lfs_size_t)-1) {
+        lfs->inline_max = 0;
+    } else if (lfs->inline_max == 0) {
+        lfs->inline_max = lfs_min(
+                lfs->cfg->cache_size,
+                lfs_min(
+                    lfs->attr_max,
+                    ((lfs->cfg->metadata_max)
+                        ? lfs->cfg->metadata_max
+                        : lfs->cfg->block_size)/8));
+    }
+
     // setup default state
     lfs->root[0] = LFS_BLOCK_NULL;
     lfs->root[1] = LFS_BLOCK_NULL;
@@ -4482,6 +4496,9 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 }
 
                 lfs->attr_max = superblock.attr_max;
+
+                // we also need to update inline_max in case attr_max changed
+                lfs->inline_max = lfs_min(lfs->inline_max, lfs->attr_max);
             }
 
             // this is where we get the block_count from disk if block_count=0
