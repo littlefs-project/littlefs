@@ -6019,7 +6019,12 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
-    lfs_ssize_t res = lfs_file_rawwrite(lfs, file, buffer, size);
+    lfs_ssize_t res;
+    if ((file->flags & LFS_O_WRONLY) == 0) {
+        res = LFS_ERR_BADF;
+    } else {
+        res = lfs_file_rawwrite(lfs, file, buffer, size);
+    }
 
     LFS_TRACE("lfs_file_write -> %"PRId32, res);
     LFS_UNLOCK(lfs->cfg);
