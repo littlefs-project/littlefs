@@ -10478,17 +10478,25 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        // oh, and also avoids issues with out-of-date buffers
-        //
         if (!unflushed_ && size >= lfs->cfg->cache_size) {
-            // clear buffer to avoid out-of-date data
-            buffer_pos_ = 0;
-            buffer_size_ = 0;
-
             err = lfsr_ftree_flush(lfs, &file->mdir, &ftree_,
                     pos_, buffer_, size);
             if (err) {
                 goto failed;
+            }
+
+            // update our buffer if we overlap
+            //
+            // but do this after writing so we can't fail
+            if (pos_ < buffer_pos_ + buffer_size_
+                    && pos_ + size > buffer_pos_) {
+                memcpy(&file->buffer[pos_ - lfs_min32(buffer_pos_, pos_)],
+                        &buffer_[buffer_pos_ - lfs_min32(pos_, buffer_pos_)],
+                        lfs_min32(
+                            buffer_size_ - (
+                                pos_ - lfs_min32(buffer_pos_, pos_)),
+                            size - (
+                                buffer_pos_ - lfs_min32(pos_, buffer_pos_))));
             }
 
             pos_ += size;
@@ -10539,8 +10547,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             goto failed;
         }
         unflushed_ = false;
-        buffer_pos_ = 0;
-        buffer_size_ = 0;
     }
 
     // mark as unflushed and unsynced, update file, and return amount written
