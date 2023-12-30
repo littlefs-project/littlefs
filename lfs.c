@@ -3393,30 +3393,17 @@ done:;
 }
 
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_rbyd_t *rbyd,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
+        const lfsr_rbyd_t *rbyd) {
     // append rbyd
     int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_, false,
-            -1, -1, rbyd);
+            start_rid, end_rid, rbyd);
     if (err) {
         return err;
     }
 
     // compact
     err = lfsr_rbyd_appendcompaction(lfs, rbyd_, false, 0);
-    if (err) {
-        return err;
-    }
-
-    // append a commit
-    err = lfsr_rbyd_appendattrs(lfs, rbyd_, -1, -1,
-            attrs, attr_count);
-    if (err) {
-        return err;
-    }
-
-    // append a cksum, finalizing the commit
-    err = lfsr_rbyd_appendcksum(lfs, rbyd_);
     if (err) {
         return err;
     }
@@ -4229,14 +4216,8 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         }
 
         // try to compact
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, false,
-                -1, -1, &rbyd);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, false, 0);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, -1, -1,
+                &rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4277,14 +4258,8 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         }
 
         // copy over tags < split_rid
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, false,
-                -1, split_rid, &rbyd);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, false, 0);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, -1, split_rid,
+                &rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4309,14 +4284,8 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
         }
         
         // copy over tags >= split_rid
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &sibling, false,
-                split_rid, -1, &rbyd);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        err = lfsr_rbyd_appendcompaction(lfs, &sibling, false, 0);
+        err = lfsr_rbyd_compact(lfs, &sibling, split_rid, -1,
+                &rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4923,10 +4892,21 @@ evict:;
         return err;
     }
 
-    err = lfsr_rbyd_compact(lfs, &bshrub->rbyd_,
-            &bshrub->rbyd, attrs, attr_count);
+    err = lfsr_rbyd_compact(lfs, &bshrub->rbyd_, -1, -1,
+            &bshrub->rbyd);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    err = lfsr_rbyd_appendattrs(lfs, &bshrub->rbyd_, -1, -1,
+            attrs, attr_count);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_rbyd_appendcksum(lfs, &bshrub->rbyd_);
+    if (err) {
         return err;
     }
 
@@ -5846,11 +5826,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     return 0;
 }
 
-// TODO should lfsr_mdir_compact__ also commit the attrs?
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        const lfsr_mdir_t *mdir,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+        const lfsr_mdir_t *mdir) {
     // this is basically the same as lfsr_rbyd_compact, but with special
     // handling for inlined trees.
     //
@@ -6073,17 +6051,6 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         }
     }
 
-    // once we've compacted, finish our commit
-    //
-    // upper layers should make sure this can't fail by limiting the
-    // maximum commit size
-    err = lfsr_mdir_commit__(lfs, mdir_, start_rid, end_rid,
-            attrs, attr_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
     return 0;
 }
 
@@ -6128,7 +6095,18 @@ compact:;
 
     // compact our mdir
     err = lfsr_mdir_compact__(lfs, &mdir_, start_rid, end_rid,
-            mdir, attrs, attr_count);
+            mdir);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    // now try to commit again
+    //
+    // upper layers should make sure this can't fail by limiting the
+    // maximum commit size
+    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
+            attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -6599,7 +6577,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         err = lfsr_mdir_compact__(lfs, &mdir_, 0, split_rid,
-                mdir, attrs, attr_count);
+                mdir);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid,
+                attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -6612,7 +6597,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         err = lfsr_mdir_compact__(lfs, &msibling_, split_rid, -1,
-                mdir, attrs, attr_count);
+                mdir);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1,
+                attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
