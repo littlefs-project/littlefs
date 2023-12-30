@@ -535,6 +535,8 @@ typedef struct lfsr_bshrub {
 
 // the lfsr_ftree_t struct is a sort of proto-file
 typedef struct lfsr_ftree {
+    lfsr_openedmdir_t *next;
+    lfsr_mdir_t mdir;
     union {
         lfs_soff_t size;
         lfsr_data_t data;
@@ -547,8 +549,7 @@ typedef struct lfsr_ftree {
 } lfsr_ftree_t;
 
 typedef struct lfsr_file {
-    lfsr_openedmdir_t *next;
-    lfsr_mdir_t mdir;
+    lfsr_ftree_t ftree;
     uint32_t flags;
     lfs_off_t pos;
     lfs_off_t size;
@@ -556,8 +557,6 @@ typedef struct lfsr_file {
     lfs_off_t buffer_pos;
     uint8_t *buffer;
     lfs_size_t buffer_size;
-
-    lfsr_ftree_t ftree;
 
     const struct lfs_file_config *cfg;
 } lfsr_file_t;
