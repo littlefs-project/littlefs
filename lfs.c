@@ -3188,6 +3188,95 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
+
+// determine the upper-bound cost of a single rbyd attr after compaction
+//
+// note that with rebalancing during compaction, we know the number
+// of inner nodes is roughly the same as the number of tags. Each node
+// has two alts and is terminated by a 4-byte null tag.
+//
+#define LFSR_ATTR_ESTIMATE (3*LFSR_TAG_DSIZE + 4)
+
+// Calculate the maximum possible disk usage required by this rbyd after
+// compaction. This uses a conservative estimate so the actual on-disk cost
+// should be smaller.
+//
+// This also returns a good split_rid in case the rbyd needs to be split.
+//
+// TODO do we need to include commit overhead here?
+static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
+        lfsr_srid_t *split_rid_) {
+    // calculate dsize by starting from the outside ids and working inwards,
+    // this naturally gives us a split rid
+    //
+    // TODO adopt this a/b naming scheme in lfsr_rbyd_appendattr?
+    lfsr_srid_t rid = start_rid;
+    lfsr_srid_t other_rid = lfs_min32(rbyd->weight, end_rid);
+    lfs_size_t dsize = 0;
+    lfs_size_t other_dsize = 0;
+    lfs_size_t rbyd_dsize = 0;
+
+    while (rid != other_rid) {
+        if (dsize > other_dsize
+                // bias so lower dsize >= upper dsize
+                || (dsize == other_dsize && rid > other_rid)) {
+            lfs_sswap32(&rid, &other_rid);
+            lfs_swap32(&dsize, &other_dsize);
+        }
+
+        if (rid > other_rid) {
+            rid -= 1;
+        }
+
+        lfsr_tag_t tag = 0;
+        lfsr_rid_t weight = 0;
+        lfs_size_t dsize_ = 0;
+        while (true) {
+            lfsr_srid_t rid_;
+            lfsr_rid_t weight_;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, rbyd,
+                    rid, tag+1,
+                    &rid_, &tag, &weight_, &data);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
+            if (rid_ > rid+lfs_smax32(weight_-1, 0)) {
+                break;
+            }
+
+            // keep track of rid and weight
+            rid = rid_;
+            weight += weight_;
+
+            // include the cost of this tag
+            dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(&data);
+        }
+
+        if (rid == -1) {
+            rbyd_dsize += dsize_;
+        } else {
+            dsize += dsize_;
+        }
+
+        if (rid < other_rid) {
+            rid += 1;
+        } else {
+            rid -= lfs_smax32(weight-1, 0);
+        }
+    }
+
+    if (split_rid_) {
+        *split_rid_ = rid;
+    }
+
+    return rbyd_dsize + dsize + other_dsize;
+}
+
 // appends a raw tag as a part of compaction, note these must
 // be appended in order!
 //
@@ -3481,125 +3570,6 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     return 0;
-}
-
-
-// the following are mostly btree helpers, but since they operate on rbyds,
-// exist in the rbyd namespace
-
-// determine the upper-bound cost of a single rbyd attr after compaction
-//
-// note that with rebalancing during compaction, we know the number
-// of inner nodes is roughly the same as the number of tags. Each node
-// has two alts and is terminated by a 4-byte null tag.
-//
-#define LFSR_ATTR_ESTIMATE (3*LFSR_TAG_DSIZE + 4)
-
-// Calculate the maximum possible disk usage required by this rid after
-// compaction. This uses a conservative estimate so the actual on-disk cost
-// should be smaller.
-//
-static lfs_ssize_t lfsr_rbyd_estimate_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfsr_srid_t rid,
-        lfsr_srid_t *rid_, lfsr_rid_t *weight_) {
-    lfsr_tag_t tag = 0;
-    lfsr_rid_t weight = 0;
-    lfs_size_t dsize = 0;
-    while (true) {
-        lfsr_srid_t rid__;
-        lfsr_rid_t weight_;
-        lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                rid, tag+1,
-                &rid__, &tag, &weight_, &data);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-        if (rid__ > rid+lfs_smax32(weight_-1, 0)) {
-            break;
-        }
-
-        // keep track of rid and weight
-        rid = rid__;
-        weight += weight_;
-
-        // include the cost of this tag
-        dsize += LFSR_ATTR_ESTIMATE + lfsr_data_size(&data);
-    }
-
-    if (rid_) {
-        *rid_ = rid;
-    }
-    if (weight_) {
-        *weight_ = weight;
-    }
-    return dsize;
-}
-
-// Calculate the maximum possible disk usage required by this rid after
-// compaction. This uses a conservative estimate so the actual on-disk cost
-// should be smaller.
-//
-// This also returns a good split_rid in case the rbyd needs to be split.
-//
-// TODO do we need to include commit overhead here?
-static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        lfsr_srid_t *split_rid_) {
-    // calculate dsize by starting from the outside ids and working inwards,
-    // this naturally gives us a split rid
-    //
-    // note that we don't include -1 tags yet, -1 tags are always cleaned up
-    // during a split so they shouldn't affect the split_rid
-    //
-    lfsr_srid_t lower_rid = lfs_smax32(start_rid, 0);
-    lfsr_srid_t upper_rid = lfs_min32(rbyd->weight, end_rid)-1;
-    lfs_size_t lower_dsize = 0;
-    lfs_size_t upper_dsize = 0;
-
-    while (lower_rid <= upper_rid) {
-        if (lower_dsize <= upper_dsize) {
-            lfsr_rid_t weight;
-            lfs_ssize_t dsize = lfsr_rbyd_estimate_(lfs, rbyd, lower_rid,
-                    NULL, &weight);
-            if (dsize < 0) {
-                return dsize;
-            }
-
-            LFS_ASSERT(weight > 0);
-            lower_rid += weight;
-            lower_dsize += dsize;
-        } else {
-            lfsr_rid_t weight;
-            lfs_ssize_t dsize = lfsr_rbyd_estimate_(lfs, rbyd, upper_rid,
-                    NULL, &weight);
-            if (dsize < 0) {
-                return dsize;
-            }
-
-            LFS_ASSERT(weight > 0);
-            upper_rid -= weight;
-            upper_dsize += dsize;
-        }
-    }
-
-    // include -1 tags in our final dsize
-    lfs_ssize_t dsize = 0;
-    if (start_rid == -1) {
-        dsize = lfsr_rbyd_estimate_(lfs, rbyd, -1, NULL, NULL);
-        if (dsize < 0) {
-            return dsize;
-        }
-    }
-
-    if (split_rid_) {
-        *split_rid_ = lower_rid;
-    }
-
-    return dsize + lower_dsize + upper_dsize;
 }
 
 
@@ -4940,319 +4910,6 @@ static int lfsr_mdir_lookupwide(lfs_t *lfs, const lfsr_mdir_t *mdir,
             tag_, data_);
 }
 
-// low-level mdir operations needed by lfsr_mdir_commit
-static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
-    // assign the mid
-    mdir->mid = mid;
-
-    // allocate two blocks
-    for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[i]);
-        if (err) {
-            return err;
-        }
-    }
-
-    mdir->rbyd.weight = 0;
-    mdir->rbyd.trunk = 0;
-    mdir->rbyd.eoff = 0;
-    mdir->rbyd.cksum = 0;
-
-    // read the new revision count
-    //
-    // we use whatever is on-disk to avoid needing to rewrite the
-    // redund block
-    uint32_t rev;
-    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[1], 0, sizeof(uint32_t),
-            &rev, sizeof(uint32_t));
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
-
-    // align revision count in new mdirs to our block_cycles, this makes
-    // sure we don't immediately try to relocate the mdir
-    if (lfs->cfg->block_cycles > 0) {
-        rev = lfs_alignup(rev+1, lfs->cfg->block_cycles)-1;
-    }
-
-    // erase, preparing for compact
-    err = lfsr_bd_erase(lfs, mdir->rbyd.blocks[0]);
-    if (err) {
-        return err;
-    }
-
-    // increment our revision count and write it to our rbyd
-    // TODO rev things
-    err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev + 1);
-    if (err) {
-        return err;
-    }
-
-    return 0;
-}
-
-static int lfsr_mdir_swap(lfs_t *lfs, lfsr_mdir_t *mdir_,
-        const lfsr_mdir_t *mdir, bool force) {
-    // assign the mid
-    mdir_->mid = mdir->mid;
-
-    // first thing we need to do is read our current revision count
-    uint32_t rev;
-    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[0], 0, sizeof(uint32_t),
-            &rev, sizeof(uint32_t));
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
-
-    // decide if we need to relocate
-    if (!force
-            && lfs->cfg->block_cycles > 0
-            // TODO rev things
-            && (rev + 1) % lfs->cfg->block_cycles == 0) {
-        // alloc a new mdir
-        return lfsr_mdir_alloc(lfs, mdir_, mdir->mid);
-    }
-
-    // swap our blocks
-    mdir_->rbyd.blocks[0] = mdir->rbyd.blocks[1];
-    mdir_->rbyd.blocks[1] = mdir->rbyd.blocks[0];
-    mdir_->rbyd.weight = 0;
-    mdir_->rbyd.trunk = 0;
-    mdir_->rbyd.eoff = 0;
-    mdir_->rbyd.cksum = 0;
-
-    // erase, preparing for compact
-    err = lfsr_bd_erase(lfs, mdir_->rbyd.blocks[0]);
-    if (err) {
-        return err;
-    }
-
-    // increment our revision count and write it to our rbyd
-    // TODO rev things
-    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, rev + 1);
-    if (err) {
-        return err;
-    }
-
-    return 0;
-}
-
-// needed in lfsr_mdir_estimate/lfsr_mdir_commit/etc
-static inline bool lfsr_ftree_isnull(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbsprout(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbleaf(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbshrub(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbtree(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbshruborbtree(const lfsr_ftree_t *ftree);
-static int lfsr_bshrub_commit__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bshrub_t *bshrub,
-        lfs_size_t *trunk_, lfsr_srid_t *weight_,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count);
-static lfs_ssize_t lfsr_bsprout_estimate__(lfs_t *lfs,
-        const lfsr_bsprout_t *bsprout);
-static lfs_ssize_t lfsr_bshrub_estimate__(lfs_t *lfs,
-        const lfsr_bshrub_t *bshrub);
-static int lfsr_bsprout_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bsprout_t *bsprout, bool shrub);
-static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bshrub_t *bshrub, bool shrub,
-        lfs_size_t *trunk_, lfsr_srid_t *weight_);
-
-static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfsr_srid_t rid) {
-    // this is basically the same as lfsr_rbyd_estimate_, except we assume all
-    // rids have weight 1 and have extra handling for opened files, shrubs, etc
-    lfsr_tag_t tag = 0;
-    lfs_size_t dsize = 0;
-    while (true) {
-        lfsr_srid_t rid__;
-        lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
-                rid, tag+1,
-                &rid__, &tag, NULL, &data);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-        if (rid__ != rid) {
-            break;
-        }
-
-        // include the cost of this tag
-        dsize += LFSR_ATTR_ESTIMATE;
-
-        // special handling for sprouts, just to avoid duplicate cost
-        if (tag == LFSR_TAG_DATA) {
-            // TODO don't include tag in attr estimate?
-            // we already included the size of the tag in our attr
-            // estimate, undo that for now
-            dsize -= LFSR_TAG_DSIZE;
-
-            lfs_ssize_t dsize_ = lfsr_bsprout_estimate__(lfs,
-                    (const lfsr_bsprout_t*)&data);
-            if (dsize_ < 0) {
-                return dsize_;
-            }
-            dsize += dsize_;
-
-        // special handling for shrub trunks, we need to include the compacted
-        // cost of the shrub in our estimate
-        //
-        // this is what would make lfsr_rbyd_estimate recursive, and why we
-        // need a second function...
-        //
-        } else if (tag == LFSR_TAG_BSHRUB) {
-            // include the cost of this trunk
-            dsize += LFSR_TRUNK_DSIZE;
-
-            lfsr_rbyd_t shrub = mdir->rbyd;
-            err = lfsr_data_readtrunk(lfs, &data,
-                    &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
-            if (err) {
-                return err;
-            }
-
-            lfs_ssize_t dsize_ = lfsr_bshrub_estimate__(lfs,
-                    (const lfsr_bshrub_t*)&shrub);
-            if (dsize_ < 0) {
-                return dsize_;
-            }
-            dsize += dsize_;
-
-        } else {
-            // include the cost of this data
-            dsize += lfsr_data_size(&data);
-        }
-    }
-
-    // include any opened+unsynced inlined files
-    //
-    // this is O(n^2), but littlefs is unlikely to have many open
-    // files, I suppose if this becomes a problem we could sort
-    // opened files by mid
-    for (lfsr_openedmdir_t *opened = lfs->opened[
-                LFS_TYPE_REG-LFS_TYPE_REG];
-            opened;
-            opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-        // belongs to our mdir + rid?
-        if (lfsr_mdir_cmp(&ftree->mdir, mdir) != 0
-                || lfsr_mdir_rid(lfs, &ftree->mdir) != rid) {
-            continue;
-        }
-
-        // inlined sprout?
-        if (lfsr_ftree_isbsprout(ftree)) {
-            lfs_ssize_t dsize_ = lfsr_bsprout_estimate__(lfs,
-                    &ftree->u.bsprout);
-            if (dsize_ < 0) {
-                return dsize_;
-            }
-            dsize += dsize_;
-
-        // inlined shrub?
-        } else if (lfsr_ftree_isbshrub(ftree)) {
-            lfs_ssize_t dsize_ = lfsr_bshrub_estimate__(lfs,
-                    &ftree->u.bshrub);
-            if (dsize_ < 0) {
-                return dsize_;
-            }
-            dsize += dsize_;
-        }
-    }
-
-    return dsize;
-}
-
-// TODO do we need to include commit overhead here?
-static lfs_ssize_t lfsr_mdir_estimate(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        lfsr_srid_t *split_rid_) {
-    // yet another function that is just begging to be deduplicated, but we
-    // can't because it would be recursive
-    //
-    // this is basically the same as lfsr_rbyd_estimate, except we assume all
-    // rids have weight 1 and have extra handling for opened files, shrubs, etc
-
-    // calculate dsize by starting from the outside ids and working inwards,
-    // this naturally gives us a split rid
-    //
-    // note that we don't include -1 tags yet, -1 tags are always cleaned up
-    // during a split so they shouldn't affect the split_rid
-    //
-    lfsr_srid_t lower_rid = lfs_smax32(start_rid, 0);
-    lfsr_srid_t upper_rid = lfs_min32(mdir->rbyd.weight, end_rid)-1;
-    lfs_size_t lower_dsize = 0;
-    lfs_size_t upper_dsize = 0;
-
-    while (lower_rid <= upper_rid) {
-        if (lower_dsize <= upper_dsize) {
-            lfs_ssize_t dsize = lfsr_mdir_estimate_(lfs, mdir, lower_rid);
-            if (dsize < 0) {
-                return dsize;
-            }
-
-            lower_rid += 1;
-            lower_dsize += dsize;
-        } else {
-            lfs_ssize_t dsize = lfsr_mdir_estimate_(lfs, mdir, upper_rid);
-            if (dsize < 0) {
-                return dsize;
-            }
-
-            upper_rid -= 1;
-            upper_dsize += dsize;
-        }
-    }
-
-    // include -1 tags in our final dsize
-    //
-    // go directly to lfsr_rbyd_estimate_ here because lfsr_mdir_estimate_
-    // can't handle -1 rids
-    lfs_ssize_t dsize = 0;
-    if (start_rid == -1) {
-        dsize = lfsr_rbyd_estimate_(lfs, &mdir->rbyd, -1, NULL, NULL);
-        if (dsize < 0) {
-            return dsize;
-        }
-    }
-
-    if (split_rid_) {
-        *split_rid_ = lower_rid;
-    }
-
-    return dsize + lower_dsize + upper_dsize;
-}
-
-// some mdir-related gstate things we need
-static void lfsr_fs_flushgdelta(lfs_t *lfs) {
-    memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
-}
-
-static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
-    lfsr_data_t data;
-    int err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_GRMDELTA,
-            &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_grm_xor(lfs, lfs->grm_d, data);
-        if (err) {
-            return err;
-        }
-    }
-
-    return 0;
-}
-
 
 /// Metadata-tree things ///
 
@@ -5378,6 +5035,151 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
 // this makes lfsr_mdir_commit also responsible for propagating changes
 // up through the mtree/mroot chain, and through any internal structures,
 // making lfsr_mdir_commit quite involved and a bit of a mess.
+
+// needed in lfsr_mdir_commit/estimate/compact/etc
+static inline bool lfsr_ftree_isnull(const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbsprout(const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbleaf(const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbshrub(const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbtree(const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbshruborbtree(const lfsr_ftree_t *ftree);
+static int lfsr_bshrub_commit__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+        const lfsr_bshrub_t *bshrub,
+        lfs_size_t *trunk_, lfsr_srid_t *weight_,
+        const lfsr_attr_t *attrs, lfs_size_t attr_count);
+static lfs_ssize_t lfsr_bsprout_estimate__(lfs_t *lfs,
+        const lfsr_bsprout_t *bsprout);
+static lfs_ssize_t lfsr_bshrub_estimate__(lfs_t *lfs,
+        const lfsr_bshrub_t *bshrub);
+static int lfsr_bsprout_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+        const lfsr_bsprout_t *bsprout, bool shrub);
+static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+        const lfsr_bshrub_t *bshrub, bool shrub,
+        lfs_size_t *trunk_, lfsr_srid_t *weight_);
+
+// some mdir-related gstate things we need
+static void lfsr_fs_flushgdelta(lfs_t *lfs) {
+    memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
+}
+
+static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
+    lfsr_data_t data;
+    int err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_GRMDELTA,
+            &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_grm_xor(lfs, lfs->grm_d, data);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+// low-level mdir operations needed by lfsr_mdir_commit
+static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
+    // assign the mid
+    mdir->mid = mid;
+
+    // allocate two blocks
+    for (int i = 0; i < 2; i++) {
+        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[i]);
+        if (err) {
+            return err;
+        }
+    }
+
+    mdir->rbyd.weight = 0;
+    mdir->rbyd.trunk = 0;
+    mdir->rbyd.eoff = 0;
+    mdir->rbyd.cksum = 0;
+
+    // read the new revision count
+    //
+    // we use whatever is on-disk to avoid needing to rewrite the
+    // redund block
+    uint32_t rev;
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[1], 0, sizeof(uint32_t),
+            &rev, sizeof(uint32_t));
+    if (err && err != LFS_ERR_CORRUPT) {
+        return err;
+    }
+    // note we allow corrupt errors here, as long as they are consistent
+    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+
+    // align revision count in new mdirs to our block_cycles, this makes
+    // sure we don't immediately try to relocate the mdir
+    if (lfs->cfg->block_cycles > 0) {
+        rev = lfs_alignup(rev+1, lfs->cfg->block_cycles)-1;
+    }
+
+    // erase, preparing for compact
+    err = lfsr_bd_erase(lfs, mdir->rbyd.blocks[0]);
+    if (err) {
+        return err;
+    }
+
+    // increment our revision count and write it to our rbyd
+    // TODO rev things
+    err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev + 1);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
+static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
+        const lfsr_mdir_t *mdir, bool force) {
+    // assign the mid
+    mdir_->mid = mdir->mid;
+
+    // first thing we need to do is read our current revision count
+    uint32_t rev;
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[0], 0, sizeof(uint32_t),
+            &rev, sizeof(uint32_t));
+    if (err && err != LFS_ERR_CORRUPT) {
+        return err;
+    }
+    // note we allow corrupt errors here, as long as they are consistent
+    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+
+    // decide if we need to relocate
+    if (!force
+            && lfs->cfg->block_cycles > 0
+            // TODO rev things
+            && (rev + 1) % lfs->cfg->block_cycles == 0) {
+        // alloc a new mdir
+        return lfsr_mdir_alloc__(lfs, mdir_, mdir->mid);
+    }
+
+    // swap our blocks
+    mdir_->rbyd.blocks[0] = mdir->rbyd.blocks[1];
+    mdir_->rbyd.blocks[1] = mdir->rbyd.blocks[0];
+    mdir_->rbyd.weight = 0;
+    mdir_->rbyd.trunk = 0;
+    mdir_->rbyd.eoff = 0;
+    mdir_->rbyd.cksum = 0;
+
+    // erase, preparing for compact
+    err = lfsr_bd_erase(lfs, mdir_->rbyd.blocks[0]);
+    if (err) {
+        return err;
+    }
+
+    // increment our revision count and write it to our rbyd
+    // TODO rev things
+    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, rev + 1);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
 
 // low-level mdir commit, does not handle mtree/mlist/compaction/etc
 static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
@@ -5547,6 +5349,155 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     return 0;
 }
 
+// TODO do we need to include commit overhead here?
+static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
+        lfsr_srid_t *split_rid_) {
+    // yet another function that is just begging to be deduplicated, but we
+    // can't because it would be recursive
+    //
+    // this is basically the same as lfsr_rbyd_estimate, except we assume all
+    // rids have weight 1 and have extra handling for opened files, shrubs, etc
+
+    // calculate dsize by starting from the outside ids and working inwards,
+    // this naturally gives us a split rid
+    lfsr_srid_t rid = start_rid;
+    lfsr_srid_t other_rid = lfs_min32(mdir->rbyd.weight, end_rid);
+    lfs_size_t dsize = 0;
+    lfs_size_t other_dsize = 0;
+    lfs_size_t mdir_dsize = 0;
+
+    while (rid != other_rid) {
+        if (dsize > other_dsize
+                // bias so lower dsize >= upper dsize
+                || (dsize == other_dsize && rid > other_rid)) {
+            lfs_sswap32(&rid, &other_rid);
+            lfs_swap32(&dsize, &other_dsize);
+        }
+
+        if (rid > other_rid) {
+            rid -= 1;
+        }
+
+        lfsr_tag_t tag = 0;
+        lfs_size_t dsize_ = 0;
+        while (true) {
+            lfsr_srid_t rid_;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
+                    rid, tag+1,
+                    &rid_, &tag, NULL, &data);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
+            if (rid_ != rid) {
+                break;
+            }
+
+            // include the cost of this tag
+            dsize_ += LFSR_ATTR_ESTIMATE;
+
+            // special handling for sprouts, just to avoid duplicate cost
+            if (tag == LFSR_TAG_DATA) {
+                // TODO don't include tag in attr estimate?
+                // we already included the size of the tag in our attr
+                // estimate, undo that for now
+                dsize_ -= LFSR_TAG_DSIZE;
+
+                lfs_ssize_t dsize__ = lfsr_bsprout_estimate__(lfs,
+                        (const lfsr_bsprout_t*)&data);
+                if (dsize__ < 0) {
+                    return dsize__;
+                }
+                dsize_ += dsize__;
+
+            // special handling for shrub trunks, we need to include the
+            // compacted cost of the shrub in our estimate
+            //
+            // this is what would make lfsr_rbyd_estimate recursive, and
+            // why we need a second function...
+            //
+            } else if (tag == LFSR_TAG_BSHRUB) {
+                // include the cost of this trunk
+                dsize_ += LFSR_TRUNK_DSIZE;
+
+                lfsr_rbyd_t shrub = mdir->rbyd;
+                err = lfsr_data_readtrunk(lfs, &data,
+                        &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
+                if (err) {
+                    return err;
+                }
+
+                lfs_ssize_t dsize__ = lfsr_bshrub_estimate__(lfs,
+                        (const lfsr_bshrub_t*)&shrub);
+                if (dsize__ < 0) {
+                    return dsize__;
+                }
+                dsize_ += dsize__;
+
+            } else {
+                // include the cost of this data
+                dsize_ += lfsr_data_size(&data);
+            }
+        }
+
+        // include any opened+unsynced inlined files
+        //
+        // this is O(n^2), but littlefs is unlikely to have many open
+        // files, I suppose if this becomes a problem we could sort
+        // opened files by mid
+        for (lfsr_openedmdir_t *opened = lfs->opened[
+                    LFS_TYPE_REG-LFS_TYPE_REG];
+                opened;
+                opened = opened->next) {
+            lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
+            // belongs to our mdir + rid?
+            if (lfsr_mdir_cmp(&ftree->mdir, mdir) != 0
+                    || lfsr_mdir_rid(lfs, &ftree->mdir) != rid) {
+                continue;
+            }
+
+            // inlined sprout?
+            if (lfsr_ftree_isbsprout(ftree)) {
+                lfs_ssize_t dsize__ = lfsr_bsprout_estimate__(lfs,
+                        &ftree->u.bsprout);
+                if (dsize__ < 0) {
+                    return dsize__;
+                }
+                dsize_ += dsize__;
+
+            // inlined shrub?
+            } else if (lfsr_ftree_isbshrub(ftree)) {
+                lfs_ssize_t dsize__ = lfsr_bshrub_estimate__(lfs,
+                        &ftree->u.bshrub);
+                if (dsize__ < 0) {
+                    return dsize__;
+                }
+                dsize_ += dsize__;
+            }
+        }
+
+        if (rid == -1) {
+            mdir_dsize += dsize_;
+        } else {
+            dsize += dsize_;
+        }
+
+        if (rid < other_rid) {
+            rid += 1;
+        }
+    }
+
+    if (split_rid_) {
+        *split_rid_ = rid;
+    }
+
+    return mdir_dsize + dsize + other_dsize;
+}
+
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_mdir_t *mdir) {
@@ -5700,7 +5651,7 @@ compact:;
     // can't commit, try to compact
 
     // check if we're within our compaction threshold
-    lfs_ssize_t estimate = lfsr_mdir_estimate(lfs, mdir, start_rid, end_rid,
+    lfs_ssize_t estimate = lfsr_mdir_estimate__(lfs, mdir, start_rid, end_rid,
             split_rid_);
     if (estimate < 0) {
         return estimate;
@@ -5713,7 +5664,7 @@ compact:;
 
     // swap blocks, increment revision count
     lfsr_mdir_t mdir_;
-    err = lfsr_mdir_swap(lfs, &mdir_, mdir, false);
+    err = lfsr_mdir_swap__(lfs, &mdir_, mdir, false);
     if (err) {
         return err;
     }
@@ -5864,7 +5815,7 @@ static int lfsr_mroot_commit(lfs_t *lfs,
 
         // compact into the new mroot anchor
         lfsr_mdir_t mrootanchor_;
-        err = lfsr_mdir_swap(lfs, &mrootanchor_, &mrootchild, -1);
+        err = lfsr_mdir_swap__(lfs, &mrootanchor_, &mrootchild, -1);
         if (err) {
             return err;
         }
@@ -6196,7 +6147,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // compact into new mdir tags < split_rid
-        err = lfsr_mdir_alloc(lfs, &mdir_, lfs_smax32(mdir->mid, 0));
+        err = lfsr_mdir_alloc__(lfs, &mdir_, lfs_smax32(mdir->mid, 0));
         if (err) {
             return err;
         }
@@ -6216,7 +6167,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // compact into new mdir tags >= split_rid
-        err = lfsr_mdir_alloc(lfs, &msibling_, lfs_smax32(mdir->mid, 0));
+        err = lfsr_mdir_alloc__(lfs, &msibling_, lfs_smax32(mdir->mid, 0));
         if (err) {
             return err;
         }
