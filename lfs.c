@@ -9651,28 +9651,49 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
 
     // always convert to bshrub/btree when this function is called
     if (!lfsr_ftree_isbshruborbtree(ftree)) {
-        lfsr_bshrub_t bshrub;
-        int err = lfsr_bshrub_alloc(lfs, &ftree->mdir, &bshrub);
+        // TODO adopt this pattern for other scratch attrs
+        //
+        // try to merge commits where possible
+        lfsr_attr_t attrs_[2];
+        lfs_size_t attr_count_ = 0;
+        uint8_t buf[LFSR_BPTR_DSIZE+LFSR_ECKSUM_DSIZE];
+        lfs_size_t buf_size = 0;
+
+        // these also check if ftree is non-zero
+        if (lfsr_ftree_isbsprout(ftree)) {
+            attrs_[attr_count_++] = LFSR_ATTR(0,
+                    DATA, +lfsr_ftree_size(ftree),
+                    DATA(ftree->u.bsprout.data));
+
+        } else if (lfsr_ftree_isbleaf(ftree)) {
+            attrs_[attr_count_++] = LFSR_ATTR(0,
+                    BLOCK, +lfsr_ftree_size(ftree),
+                    FROMBPTR(&ftree->u.bptr, &buf[buf_size]));
+            buf_size += LFSR_BPTR_DSIZE;
+
+            // append becksum?
+            if (ftree->u.bleaf.becksum.size != -1) {
+                attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(ftree)-1,
+                        BECKSUM, 0,
+                        FROMECKSUM(&ftree->u.bleaf.becksum, &buf[buf_size]));
+                buf_size += LFSR_ECKSUM_DSIZE;
+            }
+        }
+
+        int err = lfsr_bshrub_alloc(lfs, &ftree->mdir, &ftree->u.bshrub);
         if (err) {
             return err;
         }
 
-        if (lfsr_ftree_size(ftree) > 0) {
-            uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &bshrub, LFSR_ATTRS(
-                    (lfsr_ftree_isbsprout(ftree))
-                        ? LFSR_ATTR(0,
-                            DATA, +lfsr_ftree_size(ftree),
-                            DATA(ftree->u.bsprout.data))
-                        : LFSR_ATTR(0,
-                            BLOCK, +lfsr_ftree_size(ftree),
-                            FROMBPTR(&ftree->u.bptr, bptr_buf))));
+        if (attr_count_ > 0) {
+            LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
+            LFS_ASSERT(buf_size <= sizeof(buf));
+            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
+                    attrs_, attr_count_);
             if (err) {
                 return err;
             }
         }
-
-        ftree->u.bshrub = bshrub;
     }
 
     // TODO adopt this pattern for other scratch attrs
