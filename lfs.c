@@ -6977,12 +6977,13 @@ static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 // lfsr_bshruballoc is a bit of a misnomer, this doesn't alloc, just
 // prepares a new bshrub in the given mdir
 static int lfsr_bshrub_alloc(lfs_t *lfs,
-        const lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub) {
+        const lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub,
+        lfs_size_t estimate) {
     (void)lfs;
     bshrub->rbyd.blocks[0] = mdir->rbyd.blocks[0];
     bshrub->rbyd.trunk = 0;
     bshrub->rbyd.weight = 0;
-    bshrub->progged = 0;
+    bshrub->progged = estimate;
     return 0;
 }
 
@@ -7063,7 +7064,8 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
     if (attr_count > 0) {
         // new bshrub?
         if (bshrub->rbyd.trunk == 0) {
-            err = lfsr_bshrub_alloc(lfs, mdir, bshrub);
+            err = lfsr_bshrub_alloc(lfs, mdir, bshrub,
+                    LFSR_ATTR_ESTIMATE + LFSR_BTREE_DSIZE);
             if (err) {
                 return err;
             }
@@ -9651,25 +9653,25 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
 
     // always convert to bshrub/btree when this function is called
     if (!lfsr_ftree_isbshruborbtree(ftree)) {
-        // TODO adopt this pattern for other scratch attrs
-        //
-        // try to merge commits where possible
         lfsr_attr_t attrs_[2];
         lfs_size_t attr_count_ = 0;
         uint8_t buf[LFSR_BPTR_DSIZE+LFSR_ECKSUM_DSIZE];
         lfs_size_t buf_size = 0;
+        lfs_size_t estimate = 0;
 
         // these also check if ftree is non-zero
         if (lfsr_ftree_isbsprout(ftree)) {
             attrs_[attr_count_++] = LFSR_ATTR(0,
                     DATA, +lfsr_ftree_size(ftree),
                     DATA(ftree->u.bsprout.data));
+            estimate += LFSR_ATTR_ESTIMATE + lfsr_ftree_size(ftree);
 
         } else if (lfsr_ftree_isbleaf(ftree)) {
             attrs_[attr_count_++] = LFSR_ATTR(0,
                     BLOCK, +lfsr_ftree_size(ftree),
                     FROMBPTR(&ftree->u.bptr, &buf[buf_size]));
             buf_size += LFSR_BPTR_DSIZE;
+            estimate += LFSR_ATTR_ESTIMATE + LFSR_BPTR_DSIZE;
 
             // append becksum?
             if (ftree->u.bleaf.becksum.size != -1) {
@@ -9677,10 +9679,12 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
                         BECKSUM, 0,
                         FROMECKSUM(&ftree->u.bleaf.becksum, &buf[buf_size]));
                 buf_size += LFSR_ECKSUM_DSIZE;
+                estimate += LFSR_ATTR_ESTIMATE + LFSR_ECKSUM_DSIZE;
             }
         }
 
-        int err = lfsr_bshrub_alloc(lfs, &ftree->mdir, &ftree->u.bshrub);
+        int err = lfsr_bshrub_alloc(lfs, &ftree->mdir, &ftree->u.bshrub,
+                estimate);
         if (err) {
             return err;
         }
