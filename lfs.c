@@ -6983,7 +6983,7 @@ static int lfsr_bshrub_alloc(lfs_t *lfs,
     bshrub->rbyd.blocks[0] = mdir->rbyd.blocks[0];
     bshrub->rbyd.trunk = 0;
     bshrub->rbyd.weight = 0;
-    bshrub->progged = estimate;
+    bshrub->estimate = estimate;
     return 0;
 }
 
@@ -7003,7 +7003,7 @@ static int lfsr_bshrub_fetch(lfs_t *lfs,
     if (estimate < 0) {
         return estimate;
     }
-    bshrub->progged = estimate;
+    bshrub->estimate = estimate;
 
     return 0;
 }
@@ -7082,19 +7082,19 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         // block_size and rbyds interact, and amortizes the estimate cost.
 
         // figure out how much data this commit progs
-        lfs_size_t progged = 0;
+        lfs_size_t commit_estimate = 0;
         for (lfs_size_t i = 0; i < attr_count; i++) {
             // only include tag overhead if tag is not a grow tag
             if (!lfsr_tag_isgrow(attrs[i].tag)) {
-                progged += LFSR_ATTR_ESTIMATE;
+                commit_estimate += LFSR_ATTR_ESTIMATE;
             }
-            progged += lfsr_data_size(&attrs[i].data);
+            commit_estimate += lfsr_data_size(&attrs[i].data);
         }
 
-        // does progged exceed our shrub_size? need to recalculate an
-        // accurate our estimate?
-        bshrub->progged += progged;
-        if (bshrub->progged > lfs->cfg->shrub_size) {
+        // does our estimate exceed our shrub_size? need to recalculate an
+        // accurate our estimate
+        bshrub->estimate += commit_estimate;
+        if (bshrub->estimate > lfs->cfg->shrub_size) {
             // include all unique sprouts/shrubs related to our file,
             // including the on-disk sprout/shrub
             lfs_size_t estimate = 0;
@@ -7156,11 +7156,11 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
                 }
             }
 
-            bshrub->progged = estimate + progged;
+            bshrub->estimate = estimate + commit_estimate;
 
             // do we overflow shrub_size/2? the 1/2 here prevents runaway
             // performance when the shrub is near full
-            if (bshrub->progged > lfs->cfg->shrub_size/2) {
+            if (bshrub->estimate > lfs->cfg->shrub_size/2) {
                 goto evict;
             }
         }

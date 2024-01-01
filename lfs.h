@@ -530,7 +530,7 @@ typedef struct lfsr_bshrub {
     // copy for staging
     lfsr_rbyd_t rbyd_;
     // an upper-bound estimate on the on-disk shrub size
-    lfs_size_t progged;
+    lfs_size_t estimate;
 } lfsr_bshrub_t;
 
 // the lfsr_ftree_t struct is a sort of proto-file
