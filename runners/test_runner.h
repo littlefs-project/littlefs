@@ -142,7 +142,7 @@ intmax_t test_define(size_t define);
     TEST_DEF(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                       ) \
     TEST_DEF(DISK_SIZE,          1024*1024                                  ) \
     TEST_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE)) ) \
-    TEST_DEF(INLINE_SIZE,        BLOCK_SIZE/8                               ) \
+    TEST_DEF(INLINE_SIZE,        BLOCK_SIZE/4                               ) \
     TEST_DEF(SHRUB_SIZE,         INLINE_SIZE                                ) \
     TEST_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                 ) \
     TEST_DEF(CRYSTAL_THRESH,     BLOCK_SIZE/8                               ) \

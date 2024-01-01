@@ -7080,23 +7080,81 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         // block_size and rbyds interact, and amortizes the estimate cost.
 
         // figure out how much data this commit progs
+        lfs_size_t progged = 0;
         for (lfs_size_t i = 0; i < attr_count; i++) {
             // only include tag overhead if tag is not a grow tag
             if (!lfsr_tag_isgrow(attrs[i].tag)) {
-                bshrub->progged += LFSR_ATTR_ESTIMATE;
+                progged += LFSR_ATTR_ESTIMATE;
             }
-            bshrub->progged += lfsr_data_size(&attrs[i].data);
+            progged += lfsr_data_size(&attrs[i].data);
         }
 
         // does progged exceed our shrub_size? need to recalculate an
         // accurate our estimate?
+        bshrub->progged += progged;
         if (bshrub->progged > lfs->cfg->shrub_size) {
-            lfs_ssize_t estimate = lfsr_rbyd_estimate(lfs,
-                    &bshrub->rbyd, -1, -1, NULL);
-            if (estimate < 0) {
-                return estimate;
+            // include all unique sprouts/shrubs related to our file,
+            // including the on-disk sprout/shrub
+            lfs_size_t estimate = 0;
+            lfsr_tag_t tag;
+            lfsr_data_t data;
+            err = lfsr_mdir_lookupnext(lfs, mdir, mdir->mid, LFSR_TAG_DATA,
+                    &tag, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
             }
-            bshrub->progged = estimate;
+
+            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
+                lfs_ssize_t dsize = lfsr_bsprout_estimate__(lfs,
+                        (const lfsr_bsprout_t*)&data);
+                if (dsize < 0) {
+                    return dsize;
+                }
+                estimate += lfsr_data_size(&data);
+
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+                lfsr_rbyd_t shrub = mdir->rbyd;
+                err = lfsr_data_readtrunk(lfs, &data,
+                        &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
+                if (err) {
+                    return err;
+                }
+
+                lfs_ssize_t dsize = lfsr_bshrub_estimate__(lfs,
+                        (const lfsr_bshrub_t*)&shrub);
+                if (dsize < 0) {
+                    return dsize;
+                }
+                estimate += dsize;
+            }
+
+            // this includes our current shrub
+            for (lfsr_openedmdir_t *opened = lfs->opened[
+                        LFS_TYPE_REG-LFS_TYPE_REG];
+                    opened;
+                    opened = opened->next) {
+                lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
+                if (ftree->mdir.mid == mdir->mid) {
+                    if (lfsr_ftree_isbsprout(ftree)) {
+                        lfs_ssize_t dsize = lfsr_bsprout_estimate__(lfs,
+                                &ftree->u.bsprout);
+                        if (dsize < 0) {
+                            return dsize;
+                        }
+                        estimate += dsize;
+
+                    } else if (lfsr_ftree_isbshrub(ftree)) {
+                        lfs_ssize_t dsize = lfsr_bshrub_estimate__(lfs,
+                                &ftree->u.bshrub);
+                        if (dsize < 0) {
+                            return dsize;
+                        }
+                        estimate += dsize;
+                    }
+                }
+            }
+
+            bshrub->progged = estimate + progged;
 
             // do we overflow shrub_size/2? the 1/2 here prevents runaway
             // performance when the shrub is near full
@@ -10745,7 +10803,23 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         goto failed;
     }
 
+    // mark as synced
     file->flags &= ~LFS_F_UNSYNCED;
+    // update other file handles
+    for (lfsr_openedmdir_t *opened = lfs->opened[
+                LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)opened;
+        if (file_->ftree.mdir.mid == file->ftree.mdir.mid) {
+            file_->size = file->size;
+            file_->ftree.u = file->ftree.u;
+            file_->buffer_pos = file->buffer_pos;
+            memcpy(file_->buffer, file->buffer, file->buffer_size);
+            file_->buffer_size = file->buffer_size;
+        }
+    }
+
     return 0;
 
 failed:;

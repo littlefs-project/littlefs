@@ -156,7 +156,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                      ) \
     BENCH_DEF(DISK_SIZE,          1024*1024                                 ) \
     BENCH_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))) \
-    BENCH_DEF(INLINE_SIZE,        BLOCK_SIZE/8                              ) \
+    BENCH_DEF(INLINE_SIZE,        BLOCK_SIZE/4                              ) \
     BENCH_DEF(SHRUB_SIZE,         INLINE_SIZE                               ) \
     BENCH_DEF(FRAGMENT_SIZE,      CACHE_SIZE                                ) \
     BENCH_DEF(CRYSTAL_THRESH,     BLOCK_SIZE/8                              ) \
