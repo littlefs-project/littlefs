@@ -185,6 +185,7 @@ static int lfs_bd_cmp(lfs_t *lfs,
                 pcache, rcache, hint-i,
                 block, off+i, &dat, diff);
         if (err) {
+            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -908,6 +909,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     lfs_size_t tag_dsize = lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
     int err = lfsr_bd_read(lfs, block, off, hint, &tag_buf, tag_dsize);
     if (err) {
+        LFS_ASSERT(err < 0);
         return err;
     }
 
@@ -991,6 +993,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d,
             cksum_, NULL);
     if (err) {
+        LFS_ASSERT(err < 0);
         return err;
     }
 
@@ -1194,6 +1197,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
                 lfsr_data_size(data),
                 buffer, d);
         if (err) {
+            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -1306,6 +1310,7 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, const lfsr_data_t *data,
     lfsr_did_t did_;
     int err = lfsr_data_readleb128(lfs, &data_, (int32_t*)&did_);
     if (err) {
+        LFS_ASSERT(err < 0);
         return err;
     }
 
@@ -3243,6 +3248,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
+                LFS_ASSERT(err < 0);
                 return err;
             }
             if (rid_ > rid+lfs_smax32(weight_-1, 0)) {
@@ -3604,6 +3610,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
+            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -3952,7 +3959,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 
 
 // core btree algorithm
-static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
+static int lfsr_btree_commit_(lfs_t *lfs,
         lfsr_btree_t *btree, bool shrub,
         lfsr_attr_t scratch_attrs[static 4],
         uint8_t scratch_buffer[static 2*LFSR_BRANCH_DSIZE],
@@ -3991,7 +3998,7 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
     while (true) {
         // we will always need our parent, so go ahead and find it
         lfsr_rbyd_t parent = {.trunk=0, .weight=0};
-        lfsr_srid_t rid;
+        lfsr_srid_t rid = -1;
         // are we root?
         if (rbyd.blocks[0] == btree->blocks[0] || rbyd.trunk == 0) {
             // new root? shrub root? yield creation of new roots to
@@ -4013,7 +4020,8 @@ static lfs_ssize_t lfsr_btree_commit_(lfs_t *lfs,
             btree->eoff = -1;
 
         } else {
-            int err = lfsr_btree_parent(lfs, btree, bid, &rbyd, &parent, &rid);
+            int err = lfsr_btree_parent(lfs, btree, bid, &rbyd,
+                    &parent, &rid);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -4524,6 +4532,7 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
                 &tag__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
+            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -4535,6 +4544,7 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
             // fetch the next branch
             err = lfsr_data_readbranch(lfs, &data__, weight__, &branch);
             if (err) {
+                LFS_ASSERT(err < 0);
                 return err;
             }
 
@@ -5391,6 +5401,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
+                LFS_ASSERT(err < 0);
                 return err;
             }
             if (rid_ != rid) {
@@ -5420,6 +5431,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 err = lfsr_data_readtrunk(lfs, &data,
                         &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
                 if (err) {
+                    LFS_ASSERT(err < 0);
                     return err;
                 }
 
@@ -6506,11 +6518,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    // empty mdir? make sure rid_ = 0 at least
+    // default to rid_ = 0, this blanket assignment is the only way to
+    // keep GCC happy
+    if (rid_) {
+        *rid_ = 0;
+    }
+
+    // empty mdir?
     if (mdir->rbyd.weight == 0) {
-        if (rid_) {
-            *rid_ = 0;
-        }
         return LFS_ERR_NOENT;
     }
 
@@ -6589,11 +6604,16 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     int err = lfsr_mdir_namelookup(lfs, &mdir,
             did, name, name_size,
             &rid, tag_, data_);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+
     // update mdir with best place to insert even if we fail
     mdir.mid += rid;
     if (mdir_) {
         *mdir_ = mdir;
     }
+
     if (err) {
         return err;
     }
@@ -7009,6 +7029,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
     int err = lfsr_mdir_lookupnext(lfs, mdir, mdir->mid, LFSR_TAG_DATA,
             &tag, &data);
     if (err && err != LFS_ERR_NOENT) {
+        LFS_ASSERT(err < 0);
         return err;
     }
 
@@ -7025,6 +7046,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
         err = lfsr_data_readtrunk(lfs, &data,
                 &shrub.trunk, (lfsr_rid_t*)&shrub.weight);
         if (err) {
+            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -10260,7 +10282,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
         // the pcache greatly simplifies the above loop, though we may end
         // up reading more than is strictly necessary.
         lfs_ssize_t d = bptr.cksize % lfs->cfg->prog_size;
-        LFS_ASSERT(d <= lfs->pcache.size);
+        LFS_ASSERT((lfs_size_t)d <= lfs->pcache.size);
         lfs->pcache.size -= d;
         bptr.cksize -= d;
 
