@@ -7093,11 +7093,13 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
 
         // does our estimate exceed our shrub_size? need to recalculate an
         // accurate our estimate
-        bshrub->estimate += commit_estimate;
-        if (bshrub->estimate > lfs->cfg->shrub_size) {
+        lfs_size_t estimate = bshrub->estimate + commit_estimate;
+        if (estimate > lfs->cfg->shrub_size) {
+            // don't forget to include our pending commit
+            estimate = commit_estimate;
+
             // include all unique sprouts/shrubs related to our file,
             // including the on-disk sprout/shrub
-            lfs_size_t estimate = 0;
             lfsr_tag_t tag;
             lfsr_data_t data;
             err = lfsr_mdir_lookupnext(lfs, mdir, mdir->mid, LFSR_TAG_DATA,
@@ -7156,11 +7158,9 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
                 }
             }
 
-            bshrub->estimate = estimate + commit_estimate;
-
             // do we overflow shrub_size/2? the 1/2 here prevents runaway
             // performance when the shrub is near full
-            if (bshrub->estimate > lfs->cfg->shrub_size/2) {
+            if (estimate > lfs->cfg->shrub_size/2) {
                 goto evict;
             }
         }
@@ -7173,6 +7173,20 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         if (err) {
             return err;
         }
+
+        // update _all_ shrubs with the new estimate
+        for (lfsr_openedmdir_t *opened = lfs->opened[
+                    LFS_TYPE_REG-LFS_TYPE_REG];
+                opened;
+                opened = opened->next) {
+            lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
+            if (ftree->mdir.mid == mdir->mid) {
+                if (lfsr_ftree_isbshrub(ftree)) {
+                    ftree->u.bshrub.estimate = estimate;
+                }
+            }
+        }
+        LFS_ASSERT(bshrub->estimate == estimate);
     }
 
     LFS_ASSERT(bshrub->rbyd.trunk != 0);
