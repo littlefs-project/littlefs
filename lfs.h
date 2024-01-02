@@ -162,12 +162,12 @@ enum lfs_open_flags {
     LFS_O_EXCL   = 0x0200,    // Fail if a file already exists
     LFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
     LFS_O_APPEND = 0x0800,    // Move to end of file on every write
+    LFS_O_DESYNC = 0x1000,    // Do not sync or recieve file updates
 #endif
 
     // internally used flags
     LFS_F_UNFLUSHED = 0x010000, // File's data does not match storage
     LFS_F_UNSYNCED  = 0x020000, // File's metadata does not match storage
-    LFS_F_ERRORED   = 0x040000, // An error occurred during write
 };
 
 // File seek flags
@@ -778,8 +778,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
 // Close a file
 //
-// Any pending writes are written out to storage as though
-// sync had been called and releases any allocated resources.
+// If the file is not desynchronized, any pending writes are written out
+// to storage as though sync had been called.
+//
+// Releases any allocated resources, even if there is an error.
+//
+// Readonly and desynchronized files do not touch disk and will always
+// return 0.
 //
 // Returns a negative error code on failure.
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
@@ -787,10 +792,29 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file);
 
 // Synchronize a file on storage
 //
-// Any pending writes are written out to storage.
+// Any pending writes are written out to storage and other open files.
+//
+// If the file was desynchronized, it is now marked as synchronized. It will
+// now recieve file updates and syncs on close.
+//
 // Returns a negative error code on failure.
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file);
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
+
+// Mark a file as desynchronized
+//
+// Desynchronized files do not recieve file updates and do not sync on close.
+// They effectively act as snapshots of the underlying file at that point
+// in time.
+//
+// If an error occurs during a write operation, the file is implicitly marked
+// as desynchronized.
+//
+// An explicit and successful call to lfsr_file_sync reverses this, marking
+// the file as synchronized again.
+//
+// Returns a negative error code on failure.
+int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file);
 
 // Read data from file
 //

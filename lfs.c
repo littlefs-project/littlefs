@@ -9241,16 +9241,16 @@ static inline bool lfsr_o_isappend(uint32_t flags) {
     return flags & LFS_O_APPEND;
 }
 
+static inline bool lfsr_o_isdesync(uint32_t flags) {
+    return flags & LFS_O_DESYNC;
+}
+
 static inline bool lfsr_f_isunflushed(uint32_t flags) {
     return flags & LFS_F_UNFLUSHED;
 }
 
 static inline bool lfsr_f_isunsynced(uint32_t flags) {
     return flags & LFS_F_UNSYNCED;
-}
-
-static inline bool lfsr_f_iserrored(uint32_t flags) {
-    return flags & LFS_F_ERRORED;
 }
 
 // file operations
@@ -9457,7 +9457,15 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
-    int err = lfsr_file_sync(lfs, file);
+    // don't call lfsr_file_sync if we're readonly or desynced
+    int err = 0;
+    if (lfsr_o_iswriteable(file->flags)
+            && !lfsr_o_isdesync(file->flags)) {
+        err = lfsr_file_sync(lfs, file);
+        if (err) {
+            return err;
+        }
+    }
 
     // remove from tracked mdirs
     lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)file);
@@ -10694,8 +10702,8 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 failed:;
     // remove from tracked mdirs
     lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    // mark as errored so lfsr_file_close doesn't write to disk
-    file->flags |= LFS_F_ERRORED;
+    // mark as desync so lfsr_file_close doesn't write to disk
+    file->flags |= LFS_O_DESYNC;
     return err;
 }
 
@@ -10755,17 +10763,12 @@ static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
 failed:;
     // remove from tracked mdirs
     lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    // mark as errored so lfsr_file_close doesn't write to disk
-    file->flags |= LFS_F_ERRORED;
+    // mark as desync so lfsr_file_close doesn't write to disk
+    file->flags |= LFS_O_DESYNC;
     return err;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    // it's not safe to do anything if our file errored
-    if (lfsr_f_iserrored(file->flags)) {
-        return 0;
-    }
-
     // do nothing if our file has been removed
     if (file->ftree.mdir.mid == -1) {
         return 0;
@@ -10774,11 +10777,15 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // do nothing if our file is readonly
     if (!lfsr_o_iswriteable(file->flags)) {
         LFS_ASSERT(!lfsr_f_isunsynced(file->flags));
+        // but do clear desync flag
+        file->flags &= ~LFS_O_DESYNC;
         return 0;
     }
 
     // do nothing if we're already in sync
     if (!lfsr_f_isunsynced(file->flags)) {
+        // but do clear desync flag
+        file->flags &= ~LFS_O_DESYNC;
         return 0;
     }
 
@@ -10839,14 +10846,16 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->flags &= ~LFS_F_UNSYNCED;
+    file->flags &= ~LFS_F_UNSYNCED & ~LFS_O_DESYNC;
     // update other file handles
     for (lfsr_openedmdir_t *opened = lfs->opened[
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)opened;
-        if (file_->ftree.mdir.mid == file->ftree.mdir.mid) {
+        if (file_->ftree.mdir.mid == file->ftree.mdir.mid
+                // don't update desynced file handles
+                && !lfsr_o_isdesync(file_->flags)) {
             file_->size = file->size;
             file_->ftree.u = file->ftree.u;
             file_->buffer_pos = file->buffer_pos;
@@ -10858,8 +10867,14 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     return 0;
 
 failed:;
-    file->flags |= LFS_F_ERRORED;
+    file->flags |= LFS_O_DESYNC;
     return err;
+}
+
+int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
+    (void)lfs;
+    file->flags |= LFS_O_DESYNC;
+    return 0;
 }
 
 lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
@@ -10997,8 +11012,8 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
 failed:;
     // remove from tracked mdirs
     lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    // mark as errored so lfsr_file_close doesn't write to disk
-    file->flags |= LFS_F_ERRORED;
+    // mark as desync so lfsr_file_close doesn't write to disk
+    file->flags |= LFS_O_DESYNC;
     return err;
 }
 
@@ -11112,8 +11127,8 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
 failed:;
     // remove from tracked mdirs
     lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    // mark as errored so lfsr_file_close doesn't write to disk
-    file->flags |= LFS_F_ERRORED;
+    // mark as desync so lfsr_file_close doesn't write to disk
+    file->flags |= LFS_O_DESYNC;
     return err;
 }
 
