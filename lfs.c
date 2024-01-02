@@ -10380,10 +10380,9 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             }
 
             // can we coalesce?
-            if (bid-(weight-1) + lfsr_data_size(&bptr.data)
-                        >= fragment_start
-                    && lfsr_data_size(&bptr.data)
-                        < lfs->cfg->fragment_size) {
+            if (bid-(weight-1) + lfsr_data_size(&bptr.data) >= fragment_start
+                    && fragment_end - (bid-(weight-1))
+                        <= lfs->cfg->fragment_size) {
                 // coalesce, but truncate to our fragment size
                 // TODO this is a bit of a hacky way to prepend data...
                 LFS_ASSERT(data_count == 1);
@@ -10405,8 +10404,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
         // note this may the same as our left sibling 
         if (fragment_end < lfsr_ftree_size(ftree)
                 // don't bother to lookup right if fragment is already full
-                && fragment_end - fragment_start
-                    < lfs->cfg->fragment_size) {
+                && fragment_end - fragment_start < lfs->cfg->fragment_size) {
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
@@ -10420,8 +10418,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             }
 
             // can we coalesce?
-            if (fragment_end < bid-(weight-1)
-                        + lfsr_data_size(&bptr.data)
+            if (fragment_end < bid-(weight-1) + lfsr_data_size(&bptr.data)
                     && bid-(weight-1) + lfsr_data_size(&bptr.data)
                             - fragment_start
                         <= lfs->cfg->fragment_size) {
