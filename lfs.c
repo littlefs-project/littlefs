@@ -9655,7 +9655,6 @@ static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs, const lfsr_ftree_t *ftree,
     return pos_ - pos;
 }
 
-// this is atomic, otherwise write failure would get really weird
 static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         lfsr_tag_t tag, const lfsr_bptr_t *bptr, const lfsr_ecksum_t *becksum) {
@@ -9671,48 +9670,50 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
     // These requirements end up conflicting a bit...
     //
     // The second requirement isn't strictly necessary if we track temporary
-    // copies, but it is nice to prove this constraint is possible in case
-    // we ever don't track temporary copies.
-
-    // copy and track state so we can recover from errors
-    //
-    // if we don't do this, write errors get really weird (data around
-    // file position arbitrarily collapsed)
-    lfsr_ftree_t ftree_ = *ftree;
-    // add to tracked mdirs
-    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    int err;
+    // copies during file writes, but it is nice to prove this constraint is
+    // possible in case we ever don't track temporary copies.
 
     // always convert to bshrub/btree when this function is called
     if (!lfsr_ftree_isbshruborbtree(ftree)) {
-        ftree_.u.bshrub.rbyd.blocks[0] = ftree->mdir.rbyd.blocks[0];
-        ftree_.u.bshrub.rbyd.trunk = 0;
-        ftree_.u.bshrub.rbyd.weight = 0;
-        // force estimate recalculation
-        ftree_.u.bshrub.estimate = -1;
+        lfsr_attr_t attrs_[2];
+        lfs_size_t attr_count_ = 0;
+        uint8_t buf[LFSR_BPTR_DSIZE+LFSR_ECKSUM_DSIZE];
+        lfs_size_t buf_size = 0;
 
-        if (lfsr_ftree_size(ftree) > 0) {
-            uint8_t bptr_buf[LFSR_BPTR_DSIZE];
-            uint8_t becksum_buf[LFSR_ECKSUM_DSIZE];
-            err = lfsr_bshrub_commit(lfs, &ftree_.mdir, &ftree_.u.bshrub,
-                    LFSR_ATTRS(
-                        (lfsr_ftree_isbsprout(ftree))
-                            ? LFSR_ATTR(0,
-                                DATA, +lfsr_ftree_size(ftree),
-                                DATA(ftree->u.bsprout.data))
-                            : LFSR_ATTR(0,
-                                BLOCK, +lfsr_ftree_size(ftree),
-                                FROMBPTR(&ftree->u.bptr, bptr_buf)),
-                        // append becksum?
-                        (lfsr_ftree_isbleaf(ftree)
-                                && ftree->u.bleaf.becksum.size != -1)
-                            ? LFSR_ATTR(lfsr_ftree_size(ftree)-1,
-                                BECKSUM, 0,
-                                FROMECKSUM(&ftree->u.bleaf.becksum,
-                                    becksum_buf))
-                            : LFSR_ATTR_NOOP()));
+        // these also check if ftree is non-zero
+        if (lfsr_ftree_isbsprout(ftree)) {
+            attrs_[attr_count_++] = LFSR_ATTR(0,
+                    DATA, +lfsr_ftree_size(ftree),
+                    DATA(ftree->u.bsprout.data));
+
+        } else if (lfsr_ftree_isbleaf(ftree)) {
+            attrs_[attr_count_++] = LFSR_ATTR(0,
+                    BLOCK, +lfsr_ftree_size(ftree),
+                    FROMBPTR(&ftree->u.bptr, &buf[buf_size]));
+            buf_size += LFSR_BPTR_DSIZE;
+
+            // append becksum?
+            if (ftree->u.bleaf.becksum.size != -1) {
+                attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(ftree)-1,
+                        BECKSUM, 0,
+                        FROMECKSUM(&ftree->u.bleaf.becksum, &buf[buf_size]));
+                buf_size += LFSR_ECKSUM_DSIZE;
+            }
+        }
+
+        ftree->u.bshrub.rbyd.blocks[0] = ftree->mdir.rbyd.blocks[0];
+        ftree->u.bshrub.rbyd.trunk = 0;
+        ftree->u.bshrub.rbyd.weight = 0;
+        // force estimate recalculation
+        ftree->u.bshrub.estimate = -1;
+
+        if (attr_count_ > 0) {
+            LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
+            LFS_ASSERT(buf_size <= sizeof(buf));
+            int err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
+                    attrs_, attr_count_);
             if (err) {
-                goto failed;
+                return err;
             }
         }
     }
@@ -9726,18 +9727,18 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
     lfs_size_t buf_size = 0;
 
     // try to carve any existing data
-    while (pos < lfsr_ftree_size(&ftree_)) {
+    while (pos < lfsr_ftree_size(ftree)) {
         lfsr_bid_t bid_;
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
         lfsr_ecksum_t becksum_;
-        err = lfsr_ftree_lookupnext(lfs, &ftree_,
+        int err = lfsr_ftree_lookupnext(lfs, ftree,
                 pos,
                 &bid_, &tag_, &weight_, &bptr_, &becksum_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
-            goto failed;
+            return err;
         }
 
         // note, an entry can be both a left and right sibling
@@ -9757,7 +9758,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
                     lfs->cfg->fragment_size,
                     -1);
 
-            err = lfsr_bshrub_commit(lfs, &ftree_.mdir, &ftree_.u.bshrub,
+            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
                     LFSR_ATTRS(
                         LFSR_ATTR(bid_,
                             GROW(WIDE(DATA)),
@@ -9768,7 +9769,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
                             BLOCK, +(weight_ - lfs->cfg->fragment_size),
                             FROMBPTR(&bptr_, buf))));
             if (err) {
-                goto failed;
+                return err;
             }
 
             weight_ -= lfs->cfg->fragment_size;
@@ -9785,7 +9786,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
             bptr_.data = lfsr_data_truncate(bptr_.data,
                     lfsr_data_size(&bptr_.data) - lfs->cfg->fragment_size);
 
-            err = lfsr_bshrub_commit(lfs, &ftree_.mdir, &ftree_.u.bshrub,
+            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
                     LFSR_ATTRS(
                         LFSR_ATTR(bid_,
                             GROW(WIDE(BLOCK)),
@@ -9797,7 +9798,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
                             DATA(lfsr_data_fruncate(right_slice_,
                                 lfs->cfg->fragment_size)))));
             if (err) {
-                goto failed;
+                return err;
             }
 
             bid_ -= (weight_-lfsr_data_size(&bptr_.data));
@@ -9846,10 +9847,10 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
             LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
             LFS_ASSERT(buf_size <= sizeof(buf));
 
-            err = lfsr_bshrub_commit(lfs, &ftree_.mdir, &ftree_.u.bshrub,
+            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
                     attrs_, attr_count_);
             if (err) {
-                goto failed;
+                return err;
             }
 
             delta += lfs_min32(weight, bid_+1 - pos);
@@ -9900,16 +9901,16 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
     }
 
     // need a hole?
-    if (pos > lfsr_ftree_size(&ftree_)) {
+    if (pos > lfsr_ftree_size(ftree)) {
         // can we coalesce?
-        if (lfsr_ftree_size(&ftree_) > 0) {
-            attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(&ftree_)-1,
-                    GROW, +(pos - lfsr_ftree_size(&ftree_)), NULL());
+        if (lfsr_ftree_size(ftree) > 0) {
+            attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(ftree)-1,
+                    GROW, +(pos - lfsr_ftree_size(ftree)), NULL());
 
         // new hole
         } else {
-            attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(&ftree_),
-                    DATA, +(pos - lfsr_ftree_size(&ftree_)), NULL());
+            attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(ftree),
+                    DATA, +(pos - lfsr_ftree_size(ftree)), NULL());
         }
     }
 
@@ -9952,23 +9953,14 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
         LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
         LFS_ASSERT(buf_size <= sizeof(buf));
 
-        err = lfsr_bshrub_commit(lfs, &ftree_.mdir, &ftree_.u.bshrub,
+        int err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
                 attrs_, attr_count_);
         if (err) {
-            goto failed;
+            return err;
         }
     }
 
-    // remove from tracked mdirs
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    // update our ftree
-    ftree->u = ftree_.u;
     return 0;
-
-failed:;
-    // remove from tracked mdirs
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
-    return err;
 }
 
 static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
@@ -10574,11 +10566,20 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         return 0;
     }
 
+    // copy state so we can recover from errors
+    lfs_off_t pos_ = file->pos;
+    bool unflushed_ = lfsr_f_isunflushed(file->flags);
+    lfs_off_t buffer_pos_ = file->buffer_pos;
+    lfs_size_t buffer_size_ = file->buffer_size;
+    lfsr_ftree_t ftree_ = file->ftree;
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
+    int err;
+
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
 
     // update pos if we are appending
-    lfs_off_t pos_ = file->pos;
     if (lfsr_o_isappend(file->flags)) {
         pos_ = file->size;
     }
@@ -10588,16 +10589,15 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             && pos_ <= lfs->cfg->cache_size
             && pos_ <= lfs->cfg->inline_size
             && pos_ <= lfs->cfg->fragment_size) {
-        LFS_ASSERT(lfsr_f_isunflushed(file->flags));
-        LFS_ASSERT(file->size == file->buffer_size);
-        memset(&file->buffer[file->buffer_size],
+        LFS_ASSERT(unflushed_);
+        LFS_ASSERT(file->size == buffer_size_);
+        memset(&file->buffer[buffer_size_],
                 0,
-                pos_ - file->buffer_size);
-        file->buffer_size = pos_;
+                pos_ - buffer_size_);
+        buffer_size_ = pos_;
     }
 
     const uint8_t *buffer_ = buffer;
-    int err;
     while (size > 0) {
         // bypass buffer?
         //
@@ -10605,9 +10605,8 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        if (!lfsr_f_isunflushed(file->flags)
-                && size >= lfs->cfg->cache_size) {
-            err = lfsr_ftree_flush(lfs, &file->ftree,
+        if (!unflushed_ && size >= lfs->cfg->cache_size) {
+            err = lfsr_ftree_flush(lfs, &ftree_,
                     pos_, buffer_, size);
             if (err) {
                 goto failed;
@@ -10616,19 +10615,15 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             // update our buffer if we overlap
             //
             // but do this after writing so we can't fail
-            if (pos_ < file->buffer_pos + file->buffer_size
-                    && pos_ + size > file->buffer_pos) {
-                memcpy(&file->buffer[pos_ - lfs_min32(file->buffer_pos, pos_)],
-                        &buffer_[file->buffer_pos - lfs_min32(
-                            pos_,
-                            file->buffer_pos)],
+            if (pos_ < buffer_pos_ + buffer_size_
+                    && pos_ + size > buffer_pos_) {
+                memcpy(&file->buffer[pos_ - lfs_min32(buffer_pos_, pos_)],
+                        &buffer_[buffer_pos_ - lfs_min32(pos_, buffer_pos_)],
                         lfs_min32(
-                            file->buffer_size - (
-                                pos_ - lfs_min32(file->buffer_pos, pos_)),
+                            buffer_size_ - (
+                                pos_ - lfs_min32(buffer_pos_, pos_)),
                             size - (
-                                file->buffer_pos - lfs_min32(
-                                    pos_,
-                                    file->buffer_pos))));
+                                buffer_pos_ - lfs_min32(pos_, buffer_pos_))));
             }
 
             pos_ += size;
@@ -10647,42 +10642,43 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // 2. Bypassing the buffer above means we only write to the
         //    buffer once, and flush at most twice.
         //
-        if (!lfsr_f_isunflushed(file->flags)
-                || (pos_ >= file->buffer_pos
-                    && pos_ <= file->buffer_pos + file->buffer_size
-                    && pos_ < file->buffer_pos + lfs->cfg->cache_size)) {
+        if (!unflushed_
+                || (pos_ >= buffer_pos_
+                    && pos_ <= buffer_pos_ + buffer_size_
+                    && pos_ < buffer_pos_ + lfs->cfg->cache_size)) {
             // unused buffer? we can move it where we need it
-            if (!lfsr_f_isunflushed(file->flags)) {
-                file->buffer_pos = pos_;
-                file->buffer_size = 0;
+            if (!unflushed_) {
+                buffer_pos_ = pos_;
+                buffer_size_ = 0;
             }
 
             lfs_size_t d = lfs_min32(
                     size,
-                    lfs->cfg->cache_size - (pos_ - file->buffer_pos));
-            memcpy(&file->buffer[pos_ - file->buffer_pos], buffer_, d);
-            file->buffer_size = lfs_max32(
-                    file->buffer_size,
-                    pos_+d - file->buffer_pos);
+                    lfs->cfg->cache_size - (pos_ - buffer_pos_));
+            memcpy(&file->buffer[pos_ - buffer_pos_], buffer_, d);
+            buffer_size_ = lfs_max32(
+                    buffer_size_,
+                    pos_+d - buffer_pos_);
 
-            file->flags |= LFS_F_UNFLUSHED;
+            unflushed_ = true;
             pos_ += d;
             buffer_ += d;
             size -= d;
             continue;
         }
 
-        // TODO can this use lfsr_file_flush?
         // flush our buffer so the above can't fail
-        err = lfsr_ftree_flush(lfs, &file->ftree,
-                file->buffer_pos, file->buffer, file->buffer_size);
+        err = lfsr_ftree_flush(lfs, &ftree_,
+                buffer_pos_, file->buffer, buffer_size_);
         if (err) {
             goto failed;
         }
-        file->flags &= ~LFS_F_UNFLUSHED;
+        unflushed_ = false;
     }
 
-    // mark as unsynced, update file, and return amount written
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
+    // mark as unflushed and unsynced, update file, and return amount written
     lfs_size_t written;
     if (lfsr_o_isappend(file->flags)) {
         written = pos_ - file->size;
@@ -10690,13 +10686,19 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         written = pos_ - file->pos;
     }
     file->flags |= LFS_F_UNSYNCED;
+    if (unflushed_) {
+        file->flags |= LFS_F_UNFLUSHED;
+    }
     file->pos = pos_;
     file->size = lfs_max32(file->size, pos_);
+    file->buffer_pos = buffer_pos_;
+    file->buffer_size = buffer_size_;
+    file->ftree.u = ftree_.u;
     return written;
 
 failed:;
-    // at least keep file size up-to-date
-    file->size = lfs_max32(file->size, pos_);
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as desync so lfsr_file_close doesn't write to disk
     file->flags |= LFS_O_DESYNC;
     return err;
@@ -10732,22 +10734,32 @@ static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
 
-    // flush our buffer if it contains any unwritten data
+    // copy state so we can recover from errors
+    lfsr_ftree_t ftree_ = file->ftree;
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     int err;
+
+    // flush our buffer if it contains any unwritten data
     if (lfsr_f_isunflushed(file->flags) && file->buffer_size != 0) {
         // flush
-        err = lfsr_ftree_flush(lfs, &file->ftree,
+        err = lfsr_ftree_flush(lfs, &ftree_,
                 file->buffer_pos, file->buffer, file->buffer_size);
         if (err) {
             goto failed;
         }
     }
 
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as flushed and update our file
+    file->ftree.u = ftree_.u;
     file->flags &= ~LFS_F_UNFLUSHED;
     return 0;
 
 failed:;
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as desync so lfsr_file_close doesn't write to disk
     file->flags |= LFS_O_DESYNC;
     return err;
@@ -10918,8 +10930,13 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
 
-    // does our file become small?
+    // copy state so we can recover from errors
+    lfsr_ftree_t ftree_ = file->ftree;
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     int err;
+
+    // does our file become small?
     if (size <= lfs->cfg->cache_size
             && size <= lfs->cfg->inline_size
             && size <= lfs->cfg->fragment_size) {
@@ -10957,12 +10974,12 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = size;
-        file->ftree.u.size = LFSR_FTREE_NULL;
+        ftree_.u.size = LFSR_FTREE_NULL;
 
     // truncate our file normally
     } else {
         // truncate our ftree
-        err = lfsr_ftree_carve(lfs, &file->ftree,
+        err = lfsr_ftree_carve(lfs, &ftree_,
                 lfs_min32(file->size, size),
                 file->size - lfs_min32(file->size, size),
                 +size - file->size,
@@ -10978,8 +10995,11 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                 size - lfs_min32(file->buffer_pos, size));
     }
 
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as unsynced and update our size
     file->flags |= LFS_F_UNSYNCED;
+    file->ftree.u = ftree_.u;
     file->size = size;
     LFS_ASSERT(file->size == lfs_max32(
             file->buffer_pos + file->buffer_size,
@@ -10987,6 +11007,8 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     return 0;
 
 failed:;
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as desync so lfsr_file_close doesn't write to disk
     file->flags |= LFS_O_DESYNC;
     return err;
@@ -11006,8 +11028,13 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
 
-    // does our file become small?
+    // copy state so we can recover from errors
+    lfsr_ftree_t ftree_ = file->ftree;
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     int err;
+
+    // does our file become small?
     if (size <= lfs->cfg->cache_size
             && size <= lfs->cfg->inline_size
             && size <= lfs->cfg->fragment_size) {
@@ -11055,12 +11082,12 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = size;
-        file->ftree.u.size = LFSR_FTREE_NULL;
+        ftree_.u.size = LFSR_FTREE_NULL;
 
     // fruncate our file normally
     } else {
         // fruncate our ftree
-        err = lfsr_ftree_carve(lfs, &file->ftree,
+        err = lfsr_ftree_carve(lfs, &ftree_,
                 0,
                 lfs_smax32(file->size - size, 0),
                 +size - file->size,
@@ -11083,8 +11110,11 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         file->buffer_pos -= lfs_smin32(file->size - size, file->buffer_pos);
     }
 
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as unsynced and update our size
     file->flags |= LFS_F_UNSYNCED;
+    file->ftree.u = ftree_.u;
     file->size = size;
     LFS_ASSERT(file->size == lfs_max32(
             file->buffer_pos + file->buffer_size,
@@ -11092,6 +11122,8 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     return 0;
 
 failed:;
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, (lfsr_openedmdir_t*)&ftree_);
     // mark as desync so lfsr_file_close doesn't write to disk
     file->flags |= LFS_O_DESYNC;
     return err;

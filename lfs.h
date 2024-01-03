@@ -831,10 +831,6 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 // Takes a buffer and size indicating the data to write. The file will not
 // actually be updated on the storage until either sync or close is called.
 //
-// If an error occurs during a write (including LFS_ERR_NOSPC), the file
-// will be marked as desynchronized, the position will be left unchanged,
-// and some, all, or none of the data may be written.
-//
 // Returns the number of bytes written, or a negative error code on failure.
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size);
