@@ -10684,6 +10684,8 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     file->flags |= LFS_F_UNSYNCED;
     if (unflushed_) {
         file->flags |= LFS_F_UNFLUSHED;
+    } else {
+        file->flags &= ~LFS_F_UNFLUSHED;
     }
     file->pos = pos_;
     file->size = lfs_max32(file->size, pos_);
