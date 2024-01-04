@@ -10612,19 +10612,15 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                 goto failed;
             }
 
-            // update our buffer if we overlap
+            // after success, fill our buffer with the tail of our write
             //
-            // but do this after writing so we can't fail
-            if (pos_ < buffer_pos_ + buffer_size_
-                    && pos_ + size > buffer_pos_) {
-                memcpy(&file->buffer[pos_ - lfs_min32(buffer_pos_, pos_)],
-                        &buffer_[buffer_pos_ - lfs_min32(pos_, buffer_pos_)],
-                        lfs_min32(
-                            buffer_size_ - (
-                                pos_ - lfs_min32(buffer_pos_, pos_)),
-                            size - (
-                                buffer_pos_ - lfs_min32(pos_, buffer_pos_))));
-            }
+            // note we need to clear the buffer anyways to avoid any
+            // out-of-date data
+            memcpy(file->buffer,
+                    &buffer_[size - lfs->cfg->cache_size],
+                    lfs->cfg->cache_size);
+            buffer_pos_ = pos_ + size - lfs->cfg->cache_size;
+            buffer_size_ = lfs->cfg->cache_size;
 
             pos_ += size;
             buffer_ += size;
