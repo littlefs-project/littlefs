@@ -9241,6 +9241,10 @@ static inline bool lfsr_o_isappend(uint32_t flags) {
     return flags & LFS_O_APPEND;
 }
 
+static inline bool lfsr_o_issync(uint32_t flags) {
+    return flags & LFS_O_SYNC;
+}
+
 static inline bool lfsr_o_isdesync(uint32_t flags) {
     return flags & LFS_O_DESYNC;
 }
@@ -10454,6 +10458,74 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
     return 0;
 }
 
+static int lfsr_ftree_sync(lfs_t *lfs, lfsr_ftree_t *ftree, bool unflushed,
+        lfs_off_t buffer_pos, const uint8_t *buffer, lfs_size_t buffer_size) {
+    // note because of small-file caching and our current write
+    // strategy, we never actually end up with only a direct data
+    // or bptr
+    //
+    // this is convenient because bptrs are a bit annoying to commit
+    LFS_ASSERT(!lfsr_ftree_isbsprout(ftree));
+    LFS_ASSERT(!lfsr_ftree_isbleaf(ftree));
+    // small files should start as zero, const prop should optimize this out
+    LFS_ASSERT(!unflushed || buffer_pos == 0);
+    // small files/ftree should be exclusive here
+    LFS_ASSERT(!unflushed || lfsr_ftree_size(ftree) == 0);
+    // small files must be inlined entirely in our buffer
+    LFS_ASSERT(!unflushed
+            || (buffer_size <= lfs->cfg->cache_size
+                && buffer_size <= lfs->cfg->inline_size
+                && buffer_size <= lfs->cfg->fragment_size));
+
+    // commit our file's metadata
+    uint8_t buf[LFSR_BTREE_DSIZE];
+    int err = lfsr_mdir_commit(lfs, &ftree->mdir, LFSR_ATTRS(
+            (unflushed && buffer_size == 0)
+                ? LFSR_ATTR(ftree->mdir.mid,
+                    WIDE(RM(STRUCT)), 0,
+                    NULL())
+            : (unflushed)
+                ? LFSR_ATTR(ftree->mdir.mid,
+                    WIDE(DATA), 0,
+                    BUF(buffer, buffer_size))
+            : (lfsr_ftree_isbshrub(ftree))
+                ? LFSR_ATTR(ftree->mdir.mid,
+                    WIDE(SHRUBTRUNK), 0,
+                    SHRUBTRUNK(&ftree->u.bshrub))
+                : LFSR_ATTR(ftree->mdir.mid,
+                    WIDE(BTREE), 0,
+                    FROMBTREE(&ftree->u.btree, buf))));
+    if (err) {
+        return err;
+    }
+
+    // update other file handles
+    for (lfsr_openedmdir_t *opened = lfs->opened[
+                LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)opened;
+        if (file_->ftree.mdir.mid == ftree->mdir.mid
+                // don't double update
+                && &file_->ftree != ftree
+                // don't update desynced file handles
+                && !lfsr_o_isdesync(file_->flags)) {
+            if (unflushed) {
+                file_->size = buffer_size;
+            } else {
+                file_->size = lfsr_ftree_size(ftree);
+            }
+            file_->ftree.u = ftree->u;
+            file_->buffer_pos = buffer_pos;
+            LFS_ASSERT(buffer_size <= lfs->cfg->cache_size);
+            memcpy(file_->buffer, buffer, buffer_size);
+            file_->buffer_size = buffer_size;
+        }
+    }
+
+    return 0;
+}
+
 // our high-level file operations
 
 // needed in lfsr_file_read
@@ -10567,9 +10639,9 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // copy state so we can recover from errors
-    lfs_off_t pos_ = file->pos;
     bool unflushed_ = lfsr_f_isunflushed(file->flags);
     lfs_off_t buffer_pos_ = file->buffer_pos;
+    const uint8_t *buffer_ = file->buffer;
     lfs_size_t buffer_size_ = file->buffer_size;
     lfsr_ftree_t ftree_ = file->ftree;
     // add to tracked mdirs
@@ -10580,24 +10652,25 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     lfs_alloc_ckpoint(lfs);
 
     // update pos if we are appending
+    lfs_off_t pos__ = file->pos;
     if (lfsr_o_isappend(file->flags)) {
-        pos_ = file->size;
+        pos__ = file->size;
     }
 
     // if we're a small file, we may need to append zeros
-    if (pos_ > file->size
-            && pos_ <= lfs->cfg->cache_size
-            && pos_ <= lfs->cfg->inline_size
-            && pos_ <= lfs->cfg->fragment_size) {
+    if (pos__ > file->size
+            && pos__ <= lfs->cfg->cache_size
+            && pos__ <= lfs->cfg->inline_size
+            && pos__ <= lfs->cfg->fragment_size) {
         LFS_ASSERT(unflushed_);
         LFS_ASSERT(file->size == buffer_size_);
         memset(&file->buffer[buffer_size_],
                 0,
-                pos_ - buffer_size_);
-        buffer_size_ = pos_;
+                pos__ - buffer_size_);
+        buffer_size_ = pos__;
     }
 
-    const uint8_t *buffer_ = buffer;
+    const uint8_t *buffer__ = buffer;
     while (size > 0) {
         // bypass buffer?
         //
@@ -10607,7 +10680,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         //
         if (!unflushed_ && size >= lfs->cfg->cache_size) {
             err = lfsr_ftree_flush(lfs, &ftree_,
-                    pos_, buffer_, size);
+                    pos__, buffer__, size);
             if (err) {
                 goto failed;
             }
@@ -10616,14 +10689,12 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             //
             // note we need to clear the buffer anyways to avoid any
             // out-of-date data
-            memcpy(file->buffer,
-                    &buffer_[size - lfs->cfg->cache_size],
-                    lfs->cfg->cache_size);
-            buffer_pos_ = pos_ + size - lfs->cfg->cache_size;
+            buffer_pos_ = pos__ + size - lfs->cfg->cache_size;
+            buffer_ = &buffer__[size - lfs->cfg->cache_size];
             buffer_size_ = lfs->cfg->cache_size;
 
-            pos_ += size;
-            buffer_ += size;
+            pos__ += size;
+            buffer__ += size;
             size -= size;
             continue;
         }
@@ -10639,37 +10710,73 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         //    buffer once, and flush at most twice.
         //
         if (!unflushed_
-                || (pos_ >= buffer_pos_
-                    && pos_ <= buffer_pos_ + buffer_size_
-                    && pos_ < buffer_pos_ + lfs->cfg->cache_size)) {
+                || (pos__ >= buffer_pos_
+                    && pos__ <= buffer_pos_ + buffer_size_
+                    && pos__ < buffer_pos_ + lfs->cfg->cache_size)) {
             // unused buffer? we can move it where we need it
+            lfs_size_t d;
             if (!unflushed_) {
-                buffer_pos_ = pos_;
-                buffer_size_ = 0;
+                d = lfs_min32(
+                        size,
+                        lfs->cfg->cache_size);
+                buffer_pos_ = pos__;
+                buffer_ = buffer__;
+                buffer_size_ = d;
+            } else {
+                d = lfs_min32(
+                        size,
+                        lfs->cfg->cache_size - (pos__ - buffer_pos_));
+                LFS_ASSERT(file->buffer == buffer_);
+                memcpy(&file->buffer[pos__ - buffer_pos_], buffer__, d);
+                buffer_size_ = lfs_max32(
+                        buffer_size_,
+                        pos__+d - buffer_pos_);
             }
 
-            lfs_size_t d = lfs_min32(
-                    size,
-                    lfs->cfg->cache_size - (pos_ - buffer_pos_));
-            memcpy(&file->buffer[pos_ - buffer_pos_], buffer_, d);
-            buffer_size_ = lfs_max32(
-                    buffer_size_,
-                    pos_+d - buffer_pos_);
-
             unflushed_ = true;
-            pos_ += d;
-            buffer_ += d;
+            pos__ += d;
+            buffer__ += d;
             size -= d;
             continue;
         }
 
         // flush our buffer so the above can't fail
         err = lfsr_ftree_flush(lfs, &ftree_,
-                buffer_pos_, file->buffer, buffer_size_);
+                buffer_pos_, buffer_, buffer_size_);
         if (err) {
             goto failed;
         }
         unflushed_ = false;
+    }
+
+    // sync if requested
+    lfs_off_t size__ = lfs_max32(file->size, pos__);
+    bool unsynced_ = true;
+    if (lfsr_o_issync(file->flags)) {
+        // syncing requires a flush for non-small files
+        if (unflushed_ && !(
+                size__ <= lfs->cfg->cache_size
+                    && size__ <= lfs->cfg->inline_size
+                    && size__ <= lfs->cfg->fragment_size)) {
+            // flush
+            err = lfsr_ftree_flush(lfs, &ftree_,
+                    buffer_pos_, buffer_, buffer_size_);
+            if (err) {
+                goto failed;
+            }
+            unflushed_ = false;
+        }
+
+        // sync
+        err = lfsr_ftree_sync(lfs, &ftree_, unflushed_,
+                buffer_pos_, buffer_, buffer_size_);
+        if (err) {
+            goto failed;
+        }
+
+        // mark as in-sync
+        unsynced_ = false;
+        file->flags &= ~LFS_O_DESYNC;
     }
 
     // remove from tracked mdirs
@@ -10677,19 +10784,27 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // mark as unflushed and unsynced, update file, and return amount written
     lfs_size_t written;
     if (lfsr_o_isappend(file->flags)) {
-        written = pos_ - file->size;
+        written = pos__ - file->size;
     } else {
-        written = pos_ - file->pos;
+        written = pos__ - file->pos;
     }
-    file->flags |= LFS_F_UNSYNCED;
+    if (unsynced_) {
+        file->flags |= LFS_F_UNSYNCED;
+    } else {
+        file->flags &= ~LFS_F_UNSYNCED;
+    }
     if (unflushed_) {
         file->flags |= LFS_F_UNFLUSHED;
     } else {
         file->flags &= ~LFS_F_UNFLUSHED;
     }
-    file->pos = pos_;
-    file->size = lfs_max32(file->size, pos_);
+    file->pos = pos__;
+    file->size = size__;
     file->buffer_pos = buffer_pos_;
+    if (buffer_ != file->buffer) {
+        LFS_ASSERT(buffer_size_ <= lfs->cfg->cache_size);
+        memcpy(file->buffer, buffer_, buffer_size_);
+    }
     file->buffer_size = buffer_size_;
     file->ftree.u = ftree_.u;
     return written;
@@ -10799,66 +10914,20 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // checkpoint the allocator again
     lfs_alloc_ckpoint(lfs);
 
-    // note because of small-file caching and our current write
-    // strategy, we never actually end up with only a direct data
-    // or bptr
-    //
-    // this is convenient because bpts are a bit annoying to commit
-    LFS_ASSERT(!lfsr_ftree_isbsprout(&file->ftree));
-    LFS_ASSERT(!lfsr_ftree_isbleaf(&file->ftree));
     // if this invariant breaks something has gone horribly wrong
     LFS_ASSERT(file->size == lfs_max32(
             file->buffer_pos + file->buffer_size,
             lfsr_ftree_size(&file->ftree)));
-    // small files must be inlined entirely in our buffer
-    LFS_ASSERT(!(file->size <= lfs->cfg->cache_size
-                && file->size <= lfs->cfg->inline_size
-                && file->size <= lfs->cfg->fragment_size)
-            || file->size == file->buffer_size);
 
     // commit our file's metadata
-    uint8_t buf[LFSR_BTREE_DSIZE];
-    err = lfsr_mdir_commit(lfs, &file->ftree.mdir, LFSR_ATTRS(
-            (file->size == 0)
-                ? LFSR_ATTR(file->ftree.mdir.mid,
-                    WIDE(RM(STRUCT)), 0,
-                    NULL())
-            : (file->size <= lfs->cfg->cache_size
-                    && file->size <= lfs->cfg->inline_size
-                    && file->size <= lfs->cfg->fragment_size)
-                ? LFSR_ATTR(file->ftree.mdir.mid,
-                    WIDE(DATA), 0,
-                    BUF(file->buffer, file->size))
-            : (lfsr_ftree_isbshrub(&file->ftree))
-                ? LFSR_ATTR(file->ftree.mdir.mid,
-                    WIDE(SHRUBTRUNK), 0,
-                    SHRUBTRUNK(&file->ftree.u.bshrub))
-                : LFSR_ATTR(file->ftree.mdir.mid,
-                    WIDE(BTREE), 0,
-                    FROMBTREE(&file->ftree.u.btree, buf))));
+    err = lfsr_ftree_sync(lfs, &file->ftree, lfsr_f_isunflushed(file->flags),
+            file->buffer_pos, file->buffer, file->buffer_size);
     if (err) {
         goto failed;
     }
 
-    // mark as synced
-    file->flags &= ~LFS_F_UNSYNCED & ~LFS_O_DESYNC;
-    // update other file handles
-    for (lfsr_openedmdir_t *opened = lfs->opened[
-                LFS_TYPE_REG-LFS_TYPE_REG];
-            opened;
-            opened = opened->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened;
-        if (file_->ftree.mdir.mid == file->ftree.mdir.mid
-                // don't update desynced file handles
-                && !lfsr_o_isdesync(file_->flags)) {
-            file_->size = file->size;
-            file_->ftree.u = file->ftree.u;
-            file_->buffer_pos = file->buffer_pos;
-            memcpy(file_->buffer, file->buffer, file->buffer_size);
-            file_->buffer_size = file->buffer_size;
-        }
-    }
-
+    // mark as in-sync
+    file->flags &= ~LFS_O_SYNC & ~LFS_O_DESYNC;
     return 0;
 
 failed:;
