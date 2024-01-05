@@ -1363,6 +1363,7 @@ def run(runner, test_ids=[], **args):
             # can be helpful
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'break main',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
@@ -1370,12 +1371,14 @@ def run(runner, test_ids=[], **args):
         elif args.get('gdb_perm'):
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
         elif args.get('gdb_pl') is not None:
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'ignore 1 %d' % args['gdb_pl'],
                 '-ex', 'run',
@@ -1388,6 +1391,7 @@ def run(runner, test_ids=[], **args):
                 if failure.id.count(':') >= 2 else 0)
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'ignore 1 %d' % max(powerlosses-1, 0),
                 '-ex', 'run',
@@ -1400,18 +1404,21 @@ def run(runner, test_ids=[], **args):
                 if failure.id.count(':') >= 2 else 0)
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'ignore 1 %d' % powerlosses,
                 '-ex', 'run',
                 '--args']
         elif failure.assert_ is not None:
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'run',
                 '-ex', 'frame function raise',
                 '-ex', 'up 2',
                 '--args']
         else:
             cmd[:0] = args['gdb_path'] + [
+                '-q',
                 '-ex', 'run',
                 '--args']
 
