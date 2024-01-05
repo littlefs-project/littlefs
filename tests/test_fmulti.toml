@@ -6,7 +6,6 @@ after = 'test_fwrite'
 [cases.test_fmulti_rrrr]
 defines.R = 4
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -14,8 +13,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -58,7 +56,6 @@ defines.R = 4
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -66,8 +63,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -118,8 +114,11 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -127,8 +126,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -153,7 +151,9 @@ code = '''
     lfsr_file_t writer;
     lfsr_file_t readers[R];
     lfsr_file_open(&lfs, &writer, "jello",
-            LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello", LFS_O_RDONLY) => 0;
     }
@@ -164,6 +164,9 @@ code = '''
         }
         lfsr_file_write(&lfs, &writer, wbuf, CHUNK) => CHUNK;
         memcpy(&after[i], wbuf, CHUNK);
+        if (FLUSH == 1) {
+            lfsr_file_flush(&lfs, &writer) => 0;
+        }
         if (SYNC == 1) {
             lfsr_file_sync(&lfs, &writer) => 0;
         }
@@ -199,10 +202,13 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -210,8 +216,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -236,7 +241,9 @@ code = '''
     lfsr_file_t writer;
     lfsr_file_t readers[R];
     lfsr_file_open(&lfs, &writer, "jello",
-            LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello", LFS_O_RDONLY) => 0;
     }
@@ -253,6 +260,9 @@ code = '''
         }
         lfsr_file_write(&lfs, &writer, wbuf, size) => size;
         memcpy(&after[off], wbuf, size);
+        if (FLUSH == 1) {
+            lfsr_file_flush(&lfs, &writer) => 0;
+        }
         if (SYNC == 1) {
             lfsr_file_sync(&lfs, &writer) => 0;
         }
@@ -295,8 +305,11 @@ defines.W = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -304,8 +317,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -330,7 +342,9 @@ code = '''
     lfsr_file_t writers[W];
     for (lfs_size_t w = 0; w < W; w++) {
         lfsr_file_open(&lfs, &writers[w], "jello",
-                LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+                LFS_O_WRONLY
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
         for (lfs_size_t w = 0; w < W; w++) {
@@ -344,6 +358,9 @@ code = '''
                     memcpy(&after[i], wbuf, CHUNK);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &writers[w]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &writers[w]) => 0;
                 }
@@ -371,10 +388,13 @@ defines.W = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -382,8 +402,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 32
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -408,7 +427,9 @@ code = '''
     lfsr_file_t writers[W];
     for (lfs_size_t w = 0; w < W; w++) {
         lfsr_file_open(&lfs, &writers[w], "jello",
-                LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+                LFS_O_WRONLY
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
         for (lfs_size_t w = 0; w < W; w++) {
@@ -428,6 +449,9 @@ code = '''
                     memcpy(&after[off], wbuf, size);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &writers[w]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &writers[w]) => 0;
                 }
@@ -457,8 +481,11 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -466,8 +493,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -493,7 +519,9 @@ code = '''
     lfsr_file_t readers[R];
     for (lfs_size_t w = 0; w < W; w++) {
         lfsr_file_open(&lfs, &writers[w], "jello",
-                LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+                LFS_O_WRONLY
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello", LFS_O_RDONLY) => 0;
@@ -510,6 +538,9 @@ code = '''
                     memcpy(&after[i], wbuf, CHUNK);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &writers[w]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &writers[w]) => 0;
                 }
@@ -550,10 +581,13 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -561,8 +595,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 32
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -588,7 +621,9 @@ code = '''
     lfsr_file_t readers[R];
     for (lfs_size_t w = 0; w < W; w++) {
         lfsr_file_open(&lfs, &writers[w], "jello",
-                LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+                LFS_O_WRONLY
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello", LFS_O_RDONLY) => 0;
@@ -611,6 +646,9 @@ code = '''
                     memcpy(&after[off], wbuf, size);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &writers[w]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &writers[w]) => 0;
                 }
@@ -657,8 +695,11 @@ defines.RW = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -666,8 +707,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -696,7 +736,9 @@ code = '''
     lfsr_file_t rdwrs[RW];
     for (lfs_size_t rw = 0; rw < RW; rw++) {
         lfsr_file_open(&lfs, &rdwrs[rw], "jello",
-                LFS_O_RDWR | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+                LFS_O_RDWR
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
         for (lfs_size_t rw = 0; rw < RW; rw++) {
@@ -712,6 +754,9 @@ code = '''
                     memcpy(&after[i], wbuf, CHUNK);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
                 }
@@ -749,10 +794,13 @@ defines.RW = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -760,8 +808,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 32
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -790,7 +837,9 @@ code = '''
     lfsr_file_t rdwrs[RW];
     for (lfs_size_t rw = 0; rw < RW; rw++) {
         lfsr_file_open(&lfs, &rdwrs[rw], "jello",
-                LFS_O_RDWR | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+                LFS_O_RDWR
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
         for (lfs_size_t rw = 0; rw < RW; rw++) {
@@ -811,6 +860,9 @@ code = '''
                     memcpy(&after[off], wbuf, size);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
                 }
@@ -857,8 +909,11 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -866,8 +921,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -894,6 +948,7 @@ code = '''
     lfsr_file_open(&lfs, &writer, "jello",
             LFS_O_WRONLY
                 | LFS_O_DESYNC
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
                 | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello", LFS_O_RDONLY) => 0;
@@ -905,6 +960,9 @@ code = '''
         }
         lfsr_file_write(&lfs, &writer, wbuf, CHUNK) => CHUNK;
         memcpy(&after[i], wbuf, CHUNK);
+        if (FLUSH == 1) {
+            lfsr_file_flush(&lfs, &writer) => 0;
+        }
         if (SYNC == 1) {
             lfsr_file_sync(&lfs, &writer) => 0;
         }
@@ -944,10 +1002,13 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -955,8 +1016,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -983,6 +1043,7 @@ code = '''
     lfsr_file_open(&lfs, &writer, "jello",
             LFS_O_WRONLY
                 | LFS_O_DESYNC
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
                 | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello", LFS_O_RDONLY) => 0;
@@ -1000,6 +1061,9 @@ code = '''
         }
         lfsr_file_write(&lfs, &writer, wbuf, size) => size;
         memcpy(&after[off], wbuf, size);
+        if (FLUSH == 1) {
+            lfsr_file_flush(&lfs, &writer) => 0;
+        }
         if (SYNC == 1) {
             lfsr_file_sync(&lfs, &writer) => 0;
         }
@@ -1046,8 +1110,11 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -1055,8 +1122,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1081,7 +1147,9 @@ code = '''
     lfsr_file_t writer;
     lfsr_file_t readers[R];
     lfsr_file_open(&lfs, &writer, "jello",
-            LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello",
                 LFS_O_RDONLY | LFS_O_DESYNC) => 0;
@@ -1093,6 +1161,9 @@ code = '''
         }
         lfsr_file_write(&lfs, &writer, wbuf, CHUNK) => CHUNK;
         memcpy(&after[i], wbuf, CHUNK);
+        if (FLUSH == 1) {
+            lfsr_file_flush(&lfs, &writer) => 0;
+        }
         if (SYNC == 1) {
             lfsr_file_sync(&lfs, &writer) => 0;
         }
@@ -1124,10 +1195,13 @@ defines.R = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -1135,8 +1209,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1161,7 +1234,9 @@ code = '''
     lfsr_file_t writer;
     lfsr_file_t readers[R];
     lfsr_file_open(&lfs, &writer, "jello",
-            LFS_O_WRONLY | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     for (lfs_size_t r = 0; r < R; r++) {
         lfsr_file_open(&lfs, &readers[r], "jello",
                 LFS_O_RDONLY | LFS_O_DESYNC) => 0;
@@ -1179,6 +1254,9 @@ code = '''
         }
         lfsr_file_write(&lfs, &writer, wbuf, size) => size;
         memcpy(&after[off], wbuf, size);
+        if (FLUSH == 1) {
+            lfsr_file_flush(&lfs, &writer) => 0;
+        }
         if (SYNC == 1) {
             lfsr_file_sync(&lfs, &writer) => 0;
         }
@@ -1217,8 +1295,11 @@ defines.RW = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -1226,8 +1307,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = [32, 8, 1]
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1258,6 +1338,7 @@ code = '''
         lfsr_file_open(&lfs, &rdwrs[rw], "jello",
                 LFS_O_RDWR
                     | LFS_O_DESYNC
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
                     | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
@@ -1274,6 +1355,9 @@ code = '''
                     memcpy(&after[i], wbuf, CHUNK);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
                 }
@@ -1319,10 +1403,13 @@ defines.RW = 4
 # 1 => sync via lfsr_file_sync
 # 2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
 defines.SIZE = [
-    '0',
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -1330,8 +1417,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 32
-if = 'CHUNK <= SIZE'
+defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1362,6 +1448,7 @@ code = '''
         lfsr_file_open(&lfs, &rdwrs[rw], "jello",
                 LFS_O_RDWR
                     | LFS_O_DESYNC
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
                     | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
     }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
@@ -1383,6 +1470,9 @@ code = '''
                     memcpy(&after[off], wbuf, size);
                 }
             } else {
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
                 if (SYNC == 1) {
                     lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
                 }

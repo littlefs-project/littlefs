@@ -164,6 +164,7 @@ enum lfs_open_flags {
     LFS_O_APPEND = 0x0800,    // Move to end of file on every write
     LFS_O_SYNC   = 0x1000,    // Sync metadata on every write
     LFS_O_DESYNC = 0x2000,    // Do not sync or recieve file updates
+    LFS_O_FLUSH  = 0x4000,    // Flush data on every write
 #endif
 
     // internally used flags
@@ -816,6 +817,15 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 //
 // Returns a negative error code on failure.
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file);
+
+// Flush any buffered data
+//
+// This does not update metadata and is called implicitly by lfsr_file_sync.
+// Calling this explicitly may be useful for preventing write errors in
+// read operations.
+//
+// Returns a negative error code on failure.
+int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file);
 
 // Read data from file
 //

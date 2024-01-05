@@ -9249,6 +9249,10 @@ static inline bool lfsr_o_isdesync(uint32_t flags) {
     return flags & LFS_O_DESYNC;
 }
 
+static inline bool lfsr_o_isflush(uint32_t flags) {
+    return flags & LFS_O_FLUSH;
+}
+
 static inline bool lfsr_f_isunflushed(uint32_t flags) {
     return flags & LFS_F_UNFLUSHED;
 }
@@ -10528,9 +10532,6 @@ static int lfsr_ftree_sync(lfs_t *lfs, lfsr_ftree_t *ftree, bool unflushed,
 
 // our high-level file operations
 
-// needed in lfsr_file_read
-static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file);
-
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_ASSERT(lfsr_o_isreadable(file->flags));
@@ -10749,11 +10750,11 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         unflushed_ = false;
     }
 
-    // sync if requested
     lfs_off_t size__ = lfs_max32(file->size, pos__);
     bool unsynced_ = true;
-    if (lfsr_o_issync(file->flags)) {
-        // syncing requires a flush for non-small files
+    // flush if requested
+    if (lfsr_o_isflush(file->flags) || lfsr_o_issync(file->flags)) {
+        // keep small files unflushed
         if (unflushed_ && !(
                 size__ <= lfs->cfg->cache_size
                     && size__ <= lfs->cfg->inline_size
@@ -10766,7 +10767,9 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             }
             unflushed_ = false;
         }
-
+    }
+    // sync if requested
+    if (lfsr_o_issync(file->flags)) {
         // sync
         err = lfsr_ftree_sync(lfs, &ftree_, unflushed_,
                 buffer_pos_, buffer_, buffer_size_);
@@ -10817,7 +10820,7 @@ failed:;
     return err;
 }
 
-static int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
+int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // do nothing if our file is readonly
     if (!lfsr_o_iswriteable(file->flags)) {
         LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
