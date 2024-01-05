@@ -144,15 +144,15 @@ def write_header(f, limit=LIMIT):
     for op, cmp in sorted(CMP.items()):
         f.writeln("#define __PRETTY_ASSERT_INT_%s(lh, rh) do { \\"
             % cmp.upper())
-        f.writeln("    __typeof__(lh) _lh = lh; \\")
-        f.writeln("    __typeof__(lh) _rh = rh; \\")
+        f.writeln("    __typeof__(rh) _lh = lh; \\")
+        f.writeln("    __typeof__(rh) _rh = rh; \\")
         f.writeln("    if (!(_lh %s _rh)) { \\" % op)
         f.writeln("        __pretty_assert_fail( \\")
         f.writeln("                __FILE__, __LINE__, \\")
         f.writeln("                __pretty_assert_print_int, \"%s\", \\"
             % cmp)
-        f.writeln("                &(intmax_t){_lh}, 0, \\")
-        f.writeln("                &(intmax_t){_rh}, 0); \\")
+        f.writeln("                &(intmax_t){(intmax_t)_lh}, 0, \\")
+        f.writeln("                &(intmax_t){(intmax_t)_rh}, 0); \\")
         f.writeln("    } \\")
         f.writeln("} while (0)")
     for op, cmp in sorted(CMP.items()):
