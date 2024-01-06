@@ -2382,6 +2382,7 @@ code = '''
             // truncate the file
             lfsr_file_truncate(&lfs, &file, size_) => 0;
 
+        // fruncating?
         } else if (op == 3) {
             // choose a random new file size
             lfs_off_t size_ = TEST_PRNG(&prng) % SIZE;

@@ -899,6 +899,325 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# Test multiple rw files without fixed size
+[cases.test_fmulti_rwrw_sparse_fuzz]
+defines.RW = 4
+# 0 => no sync, readers not updated
+# 1 => sync via lfsr_file_sync
+# 2 => sync via LFS_O_SYNC
+defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
+defines.SEED = 'range(10)'
+defines.N = 40
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = '(SIZE+16-1) / 16'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+    uint8_t between[RW][SIZE];
+    lfs_size_t between_size[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        between_size[rw] = 0;
+    }
+    uint8_t after[SIZE];
+    lfs_size_t after_size = 0;
+
+    // write RW rdwrs in parallel
+    lfsr_file_t rdwrs[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // open files
+        lfsr_file_open(&lfs, &rdwrs[rw], "jello",
+                LFS_O_RDWR
+                    | LFS_O_CREAT
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        for (lfs_size_t rw = 0; rw < RW; rw++) {
+            // choose a random operation
+            uint8_t op = TEST_PRNG(&prng) % 2;
+
+            // writing?
+            if (op == 0) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                uint8_t wbuf[CHUNK];
+                for (lfs_size_t j = 0; j < size; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+
+                // write
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                lfsr_file_write(&lfs, &rdwrs[rw], wbuf, size) => size;
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
+                if (SYNC == 1) {
+                    lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
+                }
+
+                // update sim
+                if (off > between_size[rw]) {
+                    memset(&between[rw][between_size[rw]],
+                            0,
+                            off - between_size[rw]);
+                }
+                memcpy(&between[rw][off], wbuf, size);
+                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+
+            // reading?
+            } else if (op == 1) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+
+                // read
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                uint8_t rbuf[CHUNK];
+                lfsr_file_read(&lfs, &rdwrs[rw], rbuf, CHUNK) => size;
+                assert(memcmp(rbuf, &between[rw][off], size) == 0);
+            }
+
+            // broadcast sim?
+            if (SYNC) {
+                memcpy(after, between[rw], SIZE);
+                after_size = between_size[rw];
+
+                for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+                    memcpy(between[rw_], between[rw], SIZE);
+                    between_size[rw_] = between_size[rw];
+                }
+            }
+        }
+    }
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // close files
+        lfsr_file_close(&lfs, &rdwrs[rw]) => 0;
+
+        // broadcast sim one last time?
+        memcpy(after, between[rw], SIZE);
+        after_size = between_size[rw];
+
+        for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+            memcpy(between[rw_], between[rw], SIZE);
+            between_size[rw_] = between_size[rw];
+        }
+    }
+
+    // check that file was written as expected
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "jello", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => after_size;
+    assert(memcmp(rbuf, after, after_size) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# Test multiple rw files while also truncating/fruncating
+[cases.test_fmulti_rwtfrwtf_sparse_fuzz]
+defines.RW = 4
+# 0 => no sync, readers not updated
+# 1 => sync via lfsr_file_sync
+# 2 => sync via LFS_O_SYNC
+defines.SYNC = [0, 1, 2]
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
+defines.SEED = 'range(10)'
+defines.N = 40
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = '(SIZE+16-1) / 16'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+    uint8_t between[RW][SIZE];
+    lfs_size_t between_size[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        between_size[rw] = 0;
+    }
+    uint8_t after[SIZE];
+    lfs_size_t after_size = 0;
+
+    // write RW rdwrs in parallel
+    lfsr_file_t rdwrs[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // open files
+        lfsr_file_open(&lfs, &rdwrs[rw], "jello",
+                LFS_O_RDWR
+                    | LFS_O_CREAT
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                    | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        for (lfs_size_t rw = 0; rw < RW; rw++) {
+            // choose a random operation
+            uint8_t op = TEST_PRNG(&prng) % 4;
+
+            // writing?
+            if (op == 0) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                uint8_t wbuf[CHUNK];
+                for (lfs_size_t j = 0; j < size; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+
+                // write
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                lfsr_file_write(&lfs, &rdwrs[rw], wbuf, size) => size;
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
+                if (SYNC == 1) {
+                    lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
+                }
+
+                // update sim
+                if (off > between_size[rw]) {
+                    memset(&between[rw][between_size[rw]],
+                            0,
+                            off - between_size[rw]);
+                }
+                memcpy(&between[rw][off], wbuf, size);
+                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+
+            // reading?
+            } else if (op == 1) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+
+                // read
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                uint8_t rbuf[CHUNK];
+                lfsr_file_read(&lfs, &rdwrs[rw], rbuf, CHUNK) => size;
+                assert(memcmp(rbuf, &between[rw][off], size) == 0);
+
+            // truncating?
+            } else if (op == 2) {
+                // choose a random new file size
+                lfs_off_t size = TEST_PRNG(&prng) % SIZE;
+
+                // truncate
+                lfsr_file_truncate(&lfs, &rdwrs[rw], size) => 0;
+                if (FLUSH == 1) { // (flush does nothing)
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
+                if (SYNC == 1) {
+                    lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
+                }
+
+                // update the sim
+                if (size > between_size[rw]) {
+                    memset(&between[rw][between_size[rw]],
+                            0,
+                            size - between_size[rw]);
+                }
+                between_size[rw] = size;
+
+            // fruncating?
+            } else if (op == 3) {
+                // choose a random new file size
+                lfs_off_t size = TEST_PRNG(&prng) % SIZE;
+
+                // fruncate
+                lfsr_file_fruncate(&lfs, &rdwrs[rw], size) => 0;
+                if (FLUSH == 1) { // (flush does nothing)
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
+                if (SYNC == 1) {
+                    lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
+                }
+
+                // update the sim
+                if (size > between_size[rw]) {
+                    memmove(&between[rw][size - between_size[rw]],
+                            between[rw],
+                            between_size[rw]);
+                    memset(between[rw],
+                            0,
+                            size - between_size[rw]);
+                } else {
+                    memmove(between[rw],
+                            &between[rw][between_size[rw] - size],
+                            size);
+                }
+                between_size[rw] = size;
+            }
+
+            // broadcast sim?
+            if (SYNC) {
+                memcpy(after, between[rw], SIZE);
+                after_size = between_size[rw];
+
+                for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+                    memcpy(between[rw_], between[rw], SIZE);
+                    between_size[rw_] = between_size[rw];
+                }
+            }
+        }
+    }
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // close files
+        lfsr_file_close(&lfs, &rdwrs[rw]) => 0;
+
+        // broadcast sim one last time?
+        memcpy(after, between[rw], SIZE);
+        after_size = between_size[rw];
+
+        for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+            memcpy(between[rw_], between[rw], SIZE);
+            between_size[rw_] = between_size[rw];
+        }
+    }
+
+    // check that file was written as expected
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "jello", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => after_size;
+    assert(memcmp(rbuf, after, after_size) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 # Desynced files make things interesting
 
@@ -1289,7 +1608,7 @@ code = '''
 '''
 
 # Test multiple desynced rd/wrers
-[cases.test_fmulti_rdrd]
+[cases.test_fmulti_rwdrwd]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1397,7 +1716,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_rdrd_fuzz]
+[cases.test_fmulti_rwdrwd_fuzz]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1512,6 +1831,343 @@ code = '''
     } else {
         assert(memcmp(rbuf, after, SIZE) == 0);
     }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# Test multiple rwd files without fixed size
+[cases.test_fmulti_rwdrwd_sparse_fuzz]
+defines.RW = 4
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
+defines.SEED = 'range(10)'
+defines.N = 40
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = '(SIZE+16-1) / 16'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+    uint8_t between[RW][SIZE];
+    lfs_size_t between_size[RW];
+    bool between_desync[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        between_size[rw] = 0;
+        between_desync[rw] = false;
+    }
+    uint8_t after[SIZE];
+    lfs_size_t after_size = 0;
+
+    // write RW rdwrs in parallel
+    lfsr_file_t rdwrs[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // open files
+        lfsr_file_open(&lfs, &rdwrs[rw], "jello",
+                LFS_O_RDWR
+                    | LFS_O_CREAT
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)) => 0;
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        for (lfs_size_t rw = 0; rw < RW; rw++) {
+            // choose a random operation
+            uint8_t op = TEST_PRNG(&prng) % 2;
+            // choose a random sync state
+            uint8_t sync = TEST_PRNG(&prng) % 3;
+
+            // writing?
+            if (op == 0) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                uint8_t wbuf[CHUNK];
+                for (lfs_size_t j = 0; j < size; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+
+                // write
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                lfsr_file_write(&lfs, &rdwrs[rw], wbuf, size) => size;
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
+
+                // update sim
+                if (off > between_size[rw]) {
+                    memset(&between[rw][between_size[rw]],
+                            0,
+                            off - between_size[rw]);
+                }
+                memcpy(&between[rw][off], wbuf, size);
+                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+
+            // reading?
+            } else if (op == 1) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+
+                // read
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                uint8_t rbuf[CHUNK];
+                lfsr_file_read(&lfs, &rdwrs[rw], rbuf, CHUNK) => size;
+                assert(memcmp(rbuf, &between[rw][off], size) == 0);
+            }
+
+            // desync?
+            if (sync == 0) {
+                lfsr_file_desync(&lfs, &rdwrs[rw]) => 0;
+                between_desync[rw] = true;
+
+            // sync?
+            } else if (sync == 1) {
+                lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
+                between_desync[rw] = false;
+
+            // otherwise no change
+            }
+
+            // broadcast sim?
+            if (sync == 1) {
+                memcpy(after, between[rw], SIZE);
+                after_size = between_size[rw];
+
+                for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+                    if (!between_desync[rw_]) {
+                        memcpy(between[rw_], between[rw], SIZE);
+                        between_size[rw_] = between_size[rw];
+                    }
+                }
+            }
+        }
+    }
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // close files
+        lfsr_file_close(&lfs, &rdwrs[rw]) => 0;
+
+        // broadcast sim one last time?
+        if (!between_desync[rw]) {
+            memcpy(after, between[rw], SIZE);
+            after_size = between_size[rw];
+
+            for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+                if (!between_desync[rw_]) {
+                    memcpy(between[rw_], between[rw], SIZE);
+                    between_size[rw_] = between_size[rw];
+                }
+            }
+        }
+    }
+
+    // check that file was written as expected
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "jello", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => after_size;
+    assert(memcmp(rbuf, after, after_size) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# Test multiple rwd files while also truncating/fruncating
+[cases.test_fmulti_rwtfdrwtfd_sparse_fuzz]
+defines.RW = 4
+# 0 => no flush
+# 1 => flush via lfsr_file_flush
+# 2 => flush via LFS_O_FLUSH
+defines.FLUSH = [0, 1, 2]
+defines.SEED = 'range(10)'
+defines.N = 40
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = '(SIZE+16-1) / 16'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+    uint8_t between[RW][SIZE];
+    lfs_size_t between_size[RW];
+    bool between_desync[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        between_size[rw] = 0;
+        between_desync[rw] = false;
+    }
+    uint8_t after[SIZE];
+    lfs_size_t after_size = 0;
+
+    // write RW rdwrs in parallel
+    lfsr_file_t rdwrs[RW];
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // open files
+        lfsr_file_open(&lfs, &rdwrs[rw], "jello",
+                LFS_O_RDWR
+                    | LFS_O_CREAT
+                    | ((FLUSH == 2) ? LFS_O_FLUSH : 0)) => 0;
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        for (lfs_size_t rw = 0; rw < RW; rw++) {
+            // choose a random operation
+            uint8_t op = TEST_PRNG(&prng) % 4;
+            // choose a random sync state
+            uint8_t sync = TEST_PRNG(&prng) % 3;
+
+            // writing?
+            if (op == 0) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                uint8_t wbuf[CHUNK];
+                for (lfs_size_t j = 0; j < size; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+
+                // write
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                lfsr_file_write(&lfs, &rdwrs[rw], wbuf, size) => size;
+                if (FLUSH == 1) {
+                    lfsr_file_flush(&lfs, &rdwrs[rw]) => 0;
+                }
+
+                // update sim
+                if (off > between_size[rw]) {
+                    memset(&between[rw][between_size[rw]],
+                            0,
+                            off - between_size[rw]);
+                }
+                memcpy(&between[rw][off], wbuf, size);
+                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+
+            // reading?
+            } else if (op == 1) {
+                // choose a random offset
+                lfs_off_t off = (between_size[rw] > 0)
+                        ? TEST_PRNG(&prng) % between_size[rw]
+                        : 0;
+                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+
+                // read
+                lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
+                uint8_t rbuf[CHUNK];
+                lfsr_file_read(&lfs, &rdwrs[rw], rbuf, CHUNK) => size;
+                assert(memcmp(rbuf, &between[rw][off], size) == 0);
+
+            // truncating?
+            } else if (op == 2) {
+                // choose a random new file size
+                lfs_off_t size = TEST_PRNG(&prng) % SIZE;
+
+                // truncate
+                lfsr_file_truncate(&lfs, &rdwrs[rw], size) => 0;
+
+                // update the sim
+                if (size > between_size[rw]) {
+                    memset(&between[rw][between_size[rw]],
+                            0,
+                            size - between_size[rw]);
+                }
+                between_size[rw] = size;
+
+            // fruncating?
+            } else if (op == 3) {
+                // choose a random new file size
+                lfs_off_t size = TEST_PRNG(&prng) % SIZE;
+
+                // fruncate
+                lfsr_file_fruncate(&lfs, &rdwrs[rw], size) => 0;
+
+                // update the sim
+                if (size > between_size[rw]) {
+                    memmove(&between[rw][size - between_size[rw]],
+                            between[rw],
+                            between_size[rw]);
+                    memset(between[rw],
+                            0,
+                            size - between_size[rw]);
+                } else {
+                    memmove(between[rw],
+                            &between[rw][between_size[rw] - size],
+                            size);
+                }
+                between_size[rw] = size;
+            }
+
+            // desync?
+            if (sync == 0) {
+                lfsr_file_desync(&lfs, &rdwrs[rw]) => 0;
+                between_desync[rw] = true;
+
+            // sync?
+            } else if (sync == 1) {
+                lfsr_file_sync(&lfs, &rdwrs[rw]) => 0;
+                between_desync[rw] = false;
+
+            // otherwise no change
+            }
+
+            // broadcast sim?
+            if (sync == 1) {
+                memcpy(after, between[rw], SIZE);
+                after_size = between_size[rw];
+
+                for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+                    if (!between_desync[rw_]) {
+                        memcpy(between[rw_], between[rw], SIZE);
+                        between_size[rw_] = between_size[rw];
+                    }
+                }
+            }
+        }
+    }
+    for (lfs_size_t rw = 0; rw < RW; rw++) {
+        // close files
+        lfsr_file_close(&lfs, &rdwrs[rw]) => 0;
+
+        // broadcast sim one last time?
+        if (!between_desync[rw]) {
+            memcpy(after, between[rw], SIZE);
+            after_size = between_size[rw];
+
+            for (lfs_size_t rw_ = 0; rw_ < RW; rw_++) {
+                if (!between_desync[rw_]) {
+                    memcpy(between[rw_], between[rw], SIZE);
+                    between_size[rw_] = between_size[rw];
+                }
+            }
+        }
+    }
+
+    // check that file was written as expected
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "jello", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => after_size;
+    assert(memcmp(rbuf, after, after_size) == 0);
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
