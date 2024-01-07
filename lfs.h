@@ -554,7 +554,6 @@ typedef struct lfsr_file {
     lfsr_ftree_t ftree;
     uint32_t flags;
     lfs_off_t pos;
-    lfs_off_t size;
 
     lfs_off_t buffer_pos;
     uint8_t *buffer;
