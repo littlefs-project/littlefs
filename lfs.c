@@ -5109,10 +5109,9 @@ static lfs_ssize_t lfsr_bsprout_estimate__(lfs_t *lfs,
 static lfs_ssize_t lfsr_bshrub_estimate__(lfs_t *lfs,
         const lfsr_bshrub_t *bshrub);
 static int lfsr_bsprout_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bsprout_t *bsprout, bool shrub);
+        lfsr_bsprout_t *bsprout, bool shrub);
 static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bshrub_t *bshrub, bool shrub,
-        lfsr_rbyd_t *shrub_);
+        lfsr_bshrub_t *bshrub);
 
 // some mdir-related gstate things we need
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
@@ -5284,17 +5283,15 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                     // special case for bshrubs, we need to copy these over
                     if (tag == LFSR_TAG_BSHRUB) {
-                        lfsr_rbyd_t shrub;
+                        lfsr_bshrub_t bshrub;
                         err = lfsr_data_readshrub(lfs, &data, mdir__,
-                                &shrub);
+                                &bshrub.rbyd);
                         if (err) {
                             return err;
                         }
 
                         // compact our bshrub
-                        err = lfsr_bshrub_compact__(lfs, &rbyd_,
-                                (const lfsr_bshrub_t*)&shrub, false,
-                                &shrub);
+                        err = lfsr_bshrub_compact__(lfs, &rbyd_, &bshrub);
                         if (err) {
                             return err;
                         }
@@ -5304,7 +5301,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                                 rid - lfs_smax32(start_rid, 0),
                                 LFSR_TAG_BSHRUB, 0, lfsr_data_fromshrub(
-                                    &shrub, shrub_buf));
+                                    &bshrub.rbyd_, shrub_buf));
                         if (err) {
                             return err;
                         }
@@ -5594,7 +5591,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         if (tag == LFSR_TAG_DATA) {
             LFS_ASSERT(weight == 0);
             err = lfsr_bsprout_compact__(lfs, &mdir_->rbyd,
-                    (const lfsr_bsprout_t*)&data, false);
+                    &(lfsr_bsprout_t){.data=data}, false);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5603,17 +5600,15 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         // found an inlined shrub? we need to compact the shrub as well to
         // bring it along with us
         } else if (tag == LFSR_TAG_BSHRUB) {
-            lfsr_rbyd_t shrub;
+            lfsr_bshrub_t bshrub;
             err = lfsr_data_readshrub(lfs, &data, mdir,
-                    &shrub);
+                    &bshrub.rbyd);
             if (err) {
                 return err;
             }
 
             // compact our shrub
-            err = lfsr_bshrub_compact__(lfs, &mdir_->rbyd,
-                    (const lfsr_bshrub_t*)&shrub, false,
-                    &shrub);
+            err = lfsr_bshrub_compact__(lfs, &mdir_->rbyd, &bshrub);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5623,7 +5618,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
                     tag, weight, lfsr_data_fromshrub(
-                        &shrub,
+                        &bshrub.rbyd_,
                         shrub_buf));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5662,7 +5657,10 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         }
 
         // inlined sprout?
-        if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
+        if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)
+                // only compact once, first compact should stage the new block
+                && file->ftree.u.bsprout.data_.u.disk.block
+                    != mdir_->rbyd.blocks[0]) {
             err = lfsr_bsprout_compact__(lfs, &mdir_->rbyd,
                     &file->ftree.u.bsprout, true);
             if (err) {
@@ -5671,10 +5669,12 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             }
 
         // inlined shrub?
-        } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
+        } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)
+                // only compact once, first compact should stage the new block
+                && file->ftree.u.bshrub.rbyd_.blocks[0]
+                    != mdir_->rbyd.blocks[0]) {
             err = lfsr_bshrub_compact__(lfs, &mdir_->rbyd,
-                    &file->ftree.u.bshrub, true,
-                    NULL);
+                    &file->ftree.u.bshrub);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -6873,19 +6873,21 @@ static lfs_ssize_t lfsr_bsprout_estimate__(lfs_t *lfs,
 }
 
 static int lfsr_bsprout_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bsprout_t *bsprout, bool shrub) {
-    // only compact once, first compact should stage the new block
-    if (shrub && bsprout->data_.u.disk.block == rbyd_->blocks[0]) {
-        return 0;
-    }
-
+        lfsr_bsprout_t *bsprout, bool orphan) {
     // write out bsprout
     int err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-            (shrub) ? LFSR_TAG_SHRUB(DATA) : LFSR_TAG_DATA, 0,
+            (orphan) ? LFSR_TAG_SHRUB(DATA) : LFSR_TAG_DATA, 0,
             bsprout->data);
     if (err) {
         return err;
     }
+
+    // this is a bit tricky since we don't know the tag size,
+    // but we have just enough info
+    bsprout->data_ = LFSR_DATA_DISK(
+            rbyd_->blocks[0],
+            rbyd_->eoff - lfsr_bsprout_size(bsprout),
+            lfsr_bsprout_size(bsprout));
 
     // stage any opened inlined files with their new location so we
     // can update these later if our commit is a success
@@ -6896,12 +6898,7 @@ static int lfsr_bsprout_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_file_t *file = (lfsr_file_t*)opened;
         if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)
                 && lfsr_bsprout_cmp(&file->ftree.u.bsprout, bsprout) == 0) {
-            // this is a bit tricky since we don't know the tag size,
-            // but we have just enough info
-            file->ftree.u.bsprout.data_ = LFSR_DATA_DISK(
-                    rbyd_->blocks[0],
-                    rbyd_->eoff - lfsr_bsprout_size(bsprout),
-                    lfsr_bsprout_size(bsprout));
+            file->ftree.u.bsprout.data_ = bsprout->data_;
         }
     }
 
@@ -6956,23 +6953,23 @@ static lfs_ssize_t lfsr_bshrub_estimate__(lfs_t *lfs,
 }
 
 static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const lfsr_bshrub_t *bshrub, bool shrub,
-        lfsr_rbyd_t *shrub_) {
-    // only compact once, first compact should stage the new block
-    if (shrub && bshrub->rbyd_.blocks[0] == rbyd_->blocks[0]) {
-        return 0;
-    }
-
+        lfsr_bshrub_t *bshrub) {
     // save our current trunk/weight
     lfs_size_t trunk = rbyd_->trunk;
     lfsr_srid_t weight = rbyd_->weight;
 
     // compact our bshrub
-    int err = lfsr_rbyd_appendshrub(lfs, rbyd_,
-            &bshrub->rbyd);
+    int err = lfsr_rbyd_appendshrub(lfs, rbyd_, &bshrub->rbyd);
     if (err) {
         return err;
     }
+
+    // revert rbyd trunk/weight
+    bshrub->rbyd_.blocks[0] = rbyd_->blocks[0];
+    bshrub->rbyd_.trunk = rbyd_->trunk;
+    bshrub->rbyd_.weight = rbyd_->weight;
+    rbyd_->trunk = trunk;
+    rbyd_->weight = weight;
 
     // stage any opened shrubs with their new location so we can
     // update these later if our commit is a success
@@ -6985,17 +6982,9 @@ static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_file_t *file = (lfsr_file_t*)opened;
         if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)
                 && lfsr_bshrub_cmp(&file->ftree.u.bshrub, bshrub) == 0) {
-            file->ftree.u.bshrub.rbyd_ = *rbyd_;
+            file->ftree.u.bshrub.rbyd_ = bshrub->rbyd_;
         }
     }
-
-    // revert rbyd trunk/weight
-    if (shrub_) {
-        shrub_->trunk = rbyd_->trunk;
-        shrub_->weight = rbyd_->weight;
-    }
-    rbyd_->trunk = trunk;
-    rbyd_->weight = weight;
     return 0;
 }
 
