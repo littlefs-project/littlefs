@@ -5055,10 +5055,14 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
 
 // needed in lfsr_mdir_commit/estimate/compact/etc
 static inline bool lfsr_ftree_isnull(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbsprout(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbleaf(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbshrub(const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbtree(const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbsprout(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbleaf(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbshrub(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
+static inline bool lfsr_ftree_isbtree(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
 static inline bool lfsr_ftree_isbshruborbtree(const lfsr_ftree_t *ftree);
 static int lfsr_bshrub_commit__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         const lfsr_bshrub_t *bshrub,
@@ -5474,26 +5478,26 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                     LFS_TYPE_REG-LFS_TYPE_REG];
                 opened;
                 opened = opened->next) {
-            lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
+            lfsr_file_t *file = (lfsr_file_t*)opened;
             // belongs to our mdir + rid?
-            if (lfsr_mdir_cmp(&ftree->mdir, mdir) != 0
-                    || lfsr_mdir_rid(lfs, &ftree->mdir) != rid) {
+            if (lfsr_mdir_cmp(&file->mdir, mdir) != 0
+                    || lfsr_mdir_rid(lfs, &file->mdir) != rid) {
                 continue;
             }
 
             // inlined sprout?
-            if (lfsr_ftree_isbsprout(ftree)) {
+            if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
                 lfs_ssize_t dsize__ = lfsr_bsprout_estimate__(lfs,
-                        &ftree->u.bsprout);
+                        &file->ftree.u.bsprout);
                 if (dsize__ < 0) {
                     return dsize__;
                 }
                 dsize_ += dsize__;
 
             // inlined shrub?
-            } else if (lfsr_ftree_isbshrub(ftree)) {
+            } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
                 lfs_ssize_t dsize__ = lfsr_bshrub_estimate__(lfs,
-                        &ftree->u.bshrub);
+                        &file->ftree.u.bshrub);
                 if (dsize__ < 0) {
                     return dsize__;
                 }
@@ -5618,28 +5622,28 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
+        lfsr_file_t *file = (lfsr_file_t*)opened;
         // belongs to our mdir?
-        if (lfsr_mdir_cmp(&ftree->mdir, mdir) != 0
-                || lfsr_mdir_rid(lfs, &ftree->mdir) < start_rid
-                || (lfsr_rid_t)lfsr_mdir_rid(lfs, &ftree->mdir)
+        if (lfsr_mdir_cmp(&file->mdir, mdir) != 0
+                || lfsr_mdir_rid(lfs, &file->mdir) < start_rid
+                || (lfsr_rid_t)lfsr_mdir_rid(lfs, &file->mdir)
                     >= (lfsr_rid_t)end_rid) {
             continue;
         }
 
         // inlined sprout?
-        if (lfsr_ftree_isbsprout(ftree)) {
+        if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
             err = lfsr_bsprout_compact__(lfs, &mdir_->rbyd,
-                    &ftree->u.bsprout, true);
+                    &file->ftree.u.bsprout, true);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
         // inlined shrub?
-        } else if (lfsr_ftree_isbshrub(ftree)) {
+        } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
             err = lfsr_bshrub_compact__(lfs, &mdir_->rbyd,
-                    &ftree->u.bshrub, true,
+                    &file->ftree.u.bshrub, true,
                     NULL, NULL);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5896,11 +5900,13 @@ static int lfsr_mroot_commit(lfs_t *lfs,
                 // update any bsprouts/bshrubs, note this must happen
                 // before we update the mdir
                 if (type == LFS_TYPE_REG) {
-                    lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-                    if (lfsr_ftree_isbsprout(ftree)) {
-                        ftree->u.bsprout.data = ftree->u.bsprout.data_;
-                    } else if (lfsr_ftree_isbshrub(ftree)) {
-                        ftree->u.bshrub.rbyd = ftree->u.bshrub.rbyd_;
+                    lfsr_file_t *file = (lfsr_file_t*)opened;
+                    if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
+                        file->ftree.u.bsprout.data
+                                = file->ftree.u.bsprout.data_;
+                    } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
+                        file->ftree.u.bshrub.rbyd
+                                = file->ftree.u.bshrub.rbyd_;
                     }
                 }
 
@@ -6111,11 +6117,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // stage any bsprouts/bshrubs
             if (type == LFS_TYPE_REG) {
-                lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-                if (lfsr_ftree_isbsprout(ftree)) {
-                    ftree->u.bsprout.data_ = ftree->u.bsprout.data;
-                } else if (lfsr_ftree_isbshrub(ftree)) {
-                    ftree->u.bshrub.rbyd_ = ftree->u.bshrub.rbyd;
+                lfsr_file_t *file = (lfsr_file_t*)opened;
+                if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
+                    file->ftree.u.bsprout.data_ = file->ftree.u.bsprout.data;
+                } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
+                    file->ftree.u.bshrub.rbyd_ = file->ftree.u.bshrub.rbyd;
                 }
             }
         }
@@ -6389,11 +6395,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // update any bsprouts/bshrubs, note this must happen
             // before we update the mdir
             if (type == LFS_TYPE_REG) {
-                lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-                if (lfsr_ftree_isbsprout(ftree)) {
-                    ftree->u.bsprout.data = ftree->u.bsprout.data_;
-                } else if (lfsr_ftree_isbshrub(ftree)) {
-                    ftree->u.bshrub.rbyd = ftree->u.bshrub.rbyd_;
+                lfsr_file_t *file = (lfsr_file_t*)opened;
+                if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
+                    file->ftree.u.bsprout.data = file->ftree.u.bsprout.data_;
+                } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
+                    file->ftree.u.bshrub.rbyd = file->ftree.u.bshrub.rbyd_;
                 }
             }
 
@@ -6823,10 +6829,10 @@ static lfs_ssize_t lfsr_bsprout_estimate__(lfs_t *lfs,
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-        if (lfsr_ftree_isbsprout(ftree)
-                && lfsr_bsprout_cmp(&ftree->u.bsprout, bsprout) == 0) {
-            last = &ftree->u.bsprout;
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)
+                && lfsr_bsprout_cmp(&file->ftree.u.bsprout, bsprout) == 0) {
+            last = &file->ftree.u.bsprout;
         }
     }
     if (last && bsprout != last) {
@@ -6857,12 +6863,12 @@ static int lfsr_bsprout_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-        if (lfsr_ftree_isbsprout(ftree)
-                && lfsr_bsprout_cmp(&ftree->u.bsprout, bsprout) == 0) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)
+                && lfsr_bsprout_cmp(&file->ftree.u.bsprout, bsprout) == 0) {
             // this is a bit tricky since we don't know the tag size,
             // but we have just enough info
-            ftree->u.bsprout.data_ = LFSR_DATA_DISK(
+            file->ftree.u.bsprout.data_ = LFSR_DATA_DISK(
                     rbyd_->blocks[0],
                     rbyd_->eoff - lfsr_bsprout_size(bsprout),
                     lfsr_bsprout_size(bsprout));
@@ -6943,10 +6949,10 @@ static lfs_ssize_t lfsr_bshrub_estimate__(lfs_t *lfs,
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-        if (lfsr_ftree_isbshrub(ftree)
-                && lfsr_bshrub_cmp(&ftree->u.bshrub, bshrub) == 0) {
-            last = &ftree->u.bshrub;
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)
+                && lfsr_bshrub_cmp(&file->ftree.u.bshrub, bshrub) == 0) {
+            last = &file->ftree.u.bshrub;
         }
     }
     if (last && bshrub != last) {
@@ -6984,10 +6990,10 @@ static int lfsr_bshrub_compact__(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-        if (lfsr_ftree_isbshrub(ftree)
-                && lfsr_bshrub_cmp(&ftree->u.bshrub, bshrub) == 0) {
-            ftree->u.bshrub.rbyd_ = *rbyd_;
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)
+                && lfsr_bshrub_cmp(&file->ftree.u.bshrub, bshrub) == 0) {
+            file->ftree.u.bshrub.rbyd_ = *rbyd_;
         }
     }
 
@@ -7078,19 +7084,19 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, lfsr_mdir_t *mdir) {
                 LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-        if (ftree->mdir.mid == mdir->mid) {
-            if (lfsr_ftree_isbsprout(ftree)) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (file->mdir.mid == mdir->mid) {
+            if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)) {
                 lfs_ssize_t dsize = lfsr_bsprout_estimate__(lfs,
-                        &ftree->u.bsprout);
+                        &file->ftree.u.bsprout);
                 if (dsize < 0) {
                     return dsize;
                 }
                 estimate += dsize;
 
-            } else if (lfsr_ftree_isbshrub(ftree)) {
+            } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
                 lfs_ssize_t dsize = lfsr_bshrub_estimate__(lfs,
-                        &ftree->u.bshrub);
+                        &file->ftree.u.bshrub);
                 if (dsize < 0) {
                     return dsize;
                 }
@@ -7190,10 +7196,10 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
                     LFS_TYPE_REG-LFS_TYPE_REG];
                 opened;
                 opened = opened->next) {
-            lfsr_ftree_t *ftree = (lfsr_ftree_t*)opened;
-            if (ftree->mdir.mid == mdir->mid) {
-                if (lfsr_ftree_isbshrub(ftree)) {
-                    ftree->u.bshrub.estimate = estimate;
+            lfsr_file_t *file = (lfsr_file_t*)opened;
+            if (file->mdir.mid == mdir->mid) {
+                if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
+                    file->ftree.u.bshrub.estimate = estimate;
                 }
             }
         }
@@ -7618,32 +7624,32 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 continue;
             }
 
-            const lfsr_ftree_t *ftree
-                    = (const lfsr_ftree_t*)traversal->u.opened;
+            const lfsr_file_t *file
+                    = (const lfsr_file_t*)traversal->u.opened;
             // found a direct block?
-            if (lfsr_ftree_isbleaf(ftree)) {
-                tinfo->u.bptr = ftree->u.bptr;
+            if (lfsr_ftree_isbleaf(&file->mdir, &file->ftree)) {
+                tinfo->u.bptr = file->ftree.u.bptr;
 
                 // TODO validate?
 
-                // transition to next ftree
-                traversal->u.opened = ftree->next;
+                // transition to next file
+                traversal->u.opened = file->next;
 
                 tinfo->tag = LFSR_TAG_BLOCK;
                 return 0;
 
             // found a bshrub/btree?
-            } else if (lfsr_ftree_isbshruborbtree(ftree)) {
+            } else if (lfsr_ftree_isbshruborbtree(&file->ftree)) {
                 // start traversing
-                traversal->mdir = ftree->mdir;
-                traversal->bshrub = ftree->u.bshrub;
+                traversal->mdir = file->mdir;
+                traversal->bshrub = file->ftree.u.bshrub;
                 traversal->btraversal = LFSR_BTRAVERSAL();
                 traversal->state = LFSR_TRAVERSAL_OPENEDBTREE;
                 continue;
 
-            // no? continue to next ftree
+            // no? continue to next file
             } else {
-                traversal->u.opened = ftree->next;
+                traversal->u.opened = file->next;
                 continue;
             }
 
@@ -9190,35 +9196,40 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 #define LFSR_FTREE_ISNULLORBSPROUTORBLEAF 0x80000000
 
-#define LFSR_FTREE_NULL (LFSR_FTREE_ISNULLORBSPROUTORBLEAF | 0)
+#define LFSR_FTREE_NULL() \
+        ((lfsr_ftree_t){.u.size=(LFSR_FTREE_ISNULLORBSPROUTORBLEAF | 0)})
 
 static inline bool lfsr_ftree_isnull(const lfsr_ftree_t *ftree) {
     return (lfs_size_t)ftree->u.bsprout.data.u.disk.size
             == (LFSR_FTREE_ISNULLORBSPROUTORBLEAF | 0);
 }
 
-static inline bool lfsr_ftree_isbsprout(const lfsr_ftree_t *ftree) {
+static inline bool lfsr_ftree_isbsprout(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
     return (lfs_size_t)ftree->u.bsprout.data.u.disk.size
                 > (LFSR_FTREE_ISNULLORBSPROUTORBLEAF | 0)
-            && lfsr_bsprout_isbsprout(&ftree->mdir, &ftree->u.bsprout);
+            && lfsr_bsprout_isbsprout(mdir, &ftree->u.bsprout);
 }
 
-static inline bool lfsr_ftree_isbleaf(const lfsr_ftree_t *ftree) {
+static inline bool lfsr_ftree_isbleaf(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
     return (lfs_size_t)ftree->u.bsprout.data.u.disk.size
                 > (LFSR_FTREE_ISNULLORBSPROUTORBLEAF | 0)
-            && lfsr_bsprout_isbleaf(&ftree->mdir, &ftree->u.bsprout);
+            && lfsr_bsprout_isbleaf(mdir, &ftree->u.bsprout);
 }
 
-static inline bool lfsr_ftree_isbshrub(const lfsr_ftree_t *ftree) {
+static inline bool lfsr_ftree_isbshrub(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
     return !(ftree->u.bsprout.data.u.disk.size
                 & LFSR_FTREE_ISNULLORBSPROUTORBLEAF)
-            && lfsr_bshrub_isbshrub(&ftree->mdir, &ftree->u.bshrub);
+            && lfsr_bshrub_isbshrub(mdir, &ftree->u.bshrub);
 }
 
-static inline bool lfsr_ftree_isbtree(const lfsr_ftree_t *ftree) {
+static inline bool lfsr_ftree_isbtree(
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
     return !(ftree->u.bsprout.data.u.disk.size
                 & LFSR_FTREE_ISNULLORBSPROUTORBLEAF)
-            && lfsr_bshrub_isbtree(&ftree->mdir, &ftree->u.bshrub);
+            && lfsr_bshrub_isbtree(mdir, &ftree->u.bshrub);
 }
 
 static inline bool lfsr_ftree_isbshruborbtree(const lfsr_ftree_t *ftree) {
@@ -9286,7 +9297,8 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 // file operations
 
 // needed in lfsr_file_opencfg
-static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs, const lfsr_ftree_t *ftree,
+static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs,
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size);
 
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
@@ -9305,7 +9317,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->cfg = cfg;
     file->pos = 0;
     // default data state
-    file->ftree.u.size = LFSR_FTREE_NULL;
+    file->ftree = LFSR_FTREE_NULL();
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -9313,9 +9325,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     const char *name;
     lfs_size_t name_size;
     int err = lfsr_mtree_pathlookup(lfs, path,
-            &file->ftree.mdir, &tag,
+            &file->mdir, &tag,
             &did, &name, &name_size);
-    if (err && (err != LFS_ERR_NOENT || file->ftree.mdir.mid == -1)) {
+    if (err && (err != LFS_ERR_NOENT || file->mdir.mid == -1)) {
         return err;
     }
 
@@ -9337,8 +9349,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // but it's the only way for us to save the file name.
         //
         // TODO or is it? ;)
-        err = lfsr_mdir_commit(lfs, &file->ftree.mdir, LFSR_ATTRS(
-                LFSR_ATTR(file->ftree.mdir.mid,
+        err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
+                LFSR_ATTR(file->mdir.mid,
                     REG, +1, CAT(
                         LFSR_DATA_LEB128(did),
                         LFSR_DATA_BUF(name, name_size)))));
@@ -9362,8 +9374,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // read any inlined state
             lfsr_tag_t tag;
             lfsr_data_t data;
-            err = lfsr_mdir_lookupnext(lfs, &file->ftree.mdir,
-                    file->ftree.mdir.mid, LFSR_TAG_DATA,
+            err = lfsr_mdir_lookupnext(lfs, &file->mdir,
+                    file->mdir.mid, LFSR_TAG_DATA,
                     &tag, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -9388,8 +9400,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 file->ftree.u.bleaf.becksum.size = -1;
                 if (lfsr_o_iswriteable(flags)) {
                     lfsr_data_t data;
-                    err = lfsr_mdir_lookupnext(lfs, &file->ftree.mdir,
-                            file->ftree.mdir.mid, LFSR_TAG_BECKSUM,
+                    err = lfsr_mdir_lookupnext(lfs, &file->mdir,
+                            file->mdir.mid, LFSR_TAG_BECKSUM,
                             NULL, &data);
                     if (err && err != LFS_ERR_NOENT) {
                         return err;
@@ -9412,7 +9424,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 }
 
                 file->ftree.u.bshrub.rbyd.blocks[0]
-                        = file->ftree.mdir.rbyd.blocks[0];
+                        = file->mdir.rbyd.blocks[0];
                 file->ftree.u.bshrub.rbyd.trunk = trunk;
                 file->ftree.u.bshrub.rbyd.weight = weight;
                 // force estimate recalculation if we write to this shrub
@@ -9444,7 +9456,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     if (lfsr_ftree_size(&file->ftree) <= lfs->cfg->cache_size
             && lfsr_ftree_size(&file->ftree) <= lfs->cfg->inline_size
             && lfsr_ftree_size(&file->ftree) <= lfs->cfg->fragment_size) {
-        lfs_ssize_t d = lfsr_ftree_read(lfs, &file->ftree,
+        lfs_ssize_t d = lfsr_ftree_read(lfs, &file->mdir, &file->ftree,
                 0, file->buffer, lfsr_ftree_size(&file->ftree));
         if (d < 0) {
             err = d;
@@ -9455,7 +9467,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = lfsr_ftree_size(&file->ftree);
-        file->ftree.u.size = LFSR_FTREE_NULL;
+        file->ftree = LFSR_FTREE_NULL();
     }
 
     // add to tracked mdirs
@@ -9507,7 +9519,8 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
 // low-level ftree operations
 
-static int lfsr_ftree_lookupnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
+static int lfsr_ftree_lookupnext(lfs_t *lfs,
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
         lfs_off_t pos,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
         lfsr_bptr_t *bptr_, lfsr_ecksum_t *becksum_) {
@@ -9518,7 +9531,7 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
     LFS_ASSERT(!lfsr_ftree_isnull(ftree));
 
     // inlined sprout?
-    if (lfsr_ftree_isbsprout(ftree)) {
+    if (lfsr_ftree_isbsprout(mdir, ftree)) {
         if (bid_) {
             *bid_ = lfsr_data_size(&ftree->u.bsprout.data)-1;
         }
@@ -9537,7 +9550,7 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
         return 0;
 
     // block pointer?
-    } else if (lfsr_ftree_isbleaf(ftree)) {
+    } else if (lfsr_ftree_isbleaf(mdir, ftree)) {
         if (bid_) {
             *bid_ = lfsr_data_size(&ftree->u.bptr.data)-1;
         }
@@ -9564,7 +9577,7 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
         lfsr_bid_t weight;
         lfsr_data_t data;
         int err = lfsr_bshrub_lookupnext_(lfs,
-                &ftree->mdir, &ftree->u.bshrub,
+                mdir, &ftree->u.bshrub,
                 pos,
                 &bid, &rbyd, &rid, &tag, &weight, &data);
         if (err) {
@@ -9616,7 +9629,8 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
     }
 }
 
-static lfs_ssize_t lfsr_ftree_readnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
+static lfs_ssize_t lfsr_ftree_readnext(lfs_t *lfs,
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
     lfs_off_t pos_ = pos;
     // read one btree entry
@@ -9624,7 +9638,7 @@ static lfs_ssize_t lfsr_ftree_readnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
     lfsr_tag_t tag;
     lfsr_bid_t weight;
     lfsr_bptr_t bptr;
-    int err = lfsr_ftree_lookupnext(lfs, ftree, pos_,
+    int err = lfsr_ftree_lookupnext(lfs, mdir, ftree, pos_,
             &bid, &tag, &weight, &bptr, NULL);
     if (err) {
         return err;
@@ -9663,11 +9677,12 @@ static lfs_ssize_t lfsr_ftree_readnext(lfs_t *lfs, const lfsr_ftree_t *ftree,
     return pos_ - pos;
 }
 
-static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs, const lfsr_ftree_t *ftree,
+static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs,
+        const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
     lfs_off_t pos_ = pos;
     while (size > 0 && pos_ < lfsr_ftree_size(ftree)) {
-        lfs_ssize_t d = lfsr_ftree_readnext(lfs, ftree,
+        lfs_ssize_t d = lfsr_ftree_readnext(lfs, mdir, ftree,
                 pos_, buffer, size);
         if (d < 0) {
             LFS_ASSERT(d != LFS_ERR_NOENT);
@@ -9682,7 +9697,8 @@ static lfs_ssize_t lfsr_ftree_read(lfs_t *lfs, const lfsr_ftree_t *ftree,
     return pos_ - pos;
 }
 
-static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
+static int lfsr_ftree_carve(lfs_t *lfs,
+        lfsr_mdir_t *mdir, lfsr_ftree_t *ftree,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         lfsr_tag_t tag, const lfsr_bptr_t *bptr, const lfsr_ecksum_t *becksum) {
     // Note! This function has some rather special constraints:
@@ -9704,19 +9720,19 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
     //
     // before we touch anything, if our file is a btree, we need to mark all
     // other references btree as unerased
-    if (lfsr_ftree_isbtree(ftree)) {
+    if (lfsr_ftree_isbtree(mdir, ftree)) {
         for (lfsr_openedmdir_t *opened_ = lfs->opened[
                     LFS_TYPE_REG-LFS_TYPE_REG];
                 opened_;
                 opened_ = opened_->next) {
-            lfsr_ftree_t *ftree_ = (lfsr_ftree_t*)opened_;
-            if (ftree_ != ftree
-                    && lfsr_ftree_isbtree(ftree_)
+            lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+            if (&file_->ftree != ftree
+                    && lfsr_ftree_isbtree(&file_->mdir, &file_->ftree)
                     && lfsr_btree_cmp(
-                        &ftree_->u.btree,
+                        &file_->ftree.u.btree,
                         &ftree->u.btree) == 0) {
                 // mark as unerased
-                ftree_->u.btree.eoff = -1;
+                file_->ftree.u.btree.eoff = -1;
             }
         }
     }
@@ -9724,7 +9740,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
     // always convert to bshrub/btree when this function is called
     if (!lfsr_ftree_isbshruborbtree(ftree)) {
         lfsr_bshrub_t bshrub;
-        bshrub.rbyd.blocks[0] = ftree->mdir.rbyd.blocks[0];
+        bshrub.rbyd.blocks[0] = mdir->rbyd.blocks[0];
         bshrub.rbyd.trunk = 0;
         bshrub.rbyd.weight = 0;
         // force estimate recalculation
@@ -9735,16 +9751,16 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
             // they have no state that needs to be compacted
             uint8_t bptr_buf[LFSR_BPTR_DSIZE];
             uint8_t becksum_buf[LFSR_ECKSUM_DSIZE];
-            int err = lfsr_bshrub_commit(lfs, &ftree->mdir, &bshrub,
+            int err = lfsr_bshrub_commit(lfs, mdir, &bshrub,
                     LFSR_ATTRS(
-                        (lfsr_ftree_isbsprout(ftree))
+                        (lfsr_ftree_isbsprout(mdir, ftree))
                             ? LFSR_ATTR(0,
                                 DATA, +lfsr_ftree_size(ftree),
                                 DATA(ftree->u.bsprout.data))
                             : LFSR_ATTR(0,
                                 BLOCK, +lfsr_ftree_size(ftree),
                                 FROMBPTR(&ftree->u.bptr, bptr_buf)),
-                        (lfsr_ftree_isbleaf(ftree)
+                        (lfsr_ftree_isbleaf(mdir, ftree)
                                 && ftree->u.bleaf.becksum.size != -1)
                             ? LFSR_ATTR(lfsr_ftree_size(ftree)-1,
                                 BECKSUM, 0,
@@ -9774,7 +9790,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
         lfsr_ecksum_t becksum_;
-        int err = lfsr_ftree_lookupnext(lfs, ftree,
+        int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                 pos,
                 &bid_, &tag_, &weight_, &bptr_, &becksum_);
         if (err) {
@@ -9799,7 +9815,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
                     lfs->cfg->fragment_size,
                     -1);
 
-            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
+            err = lfsr_bshrub_commit(lfs, mdir, &ftree->u.bshrub,
                     LFSR_ATTRS(
                         LFSR_ATTR(bid_,
                             GROW(WIDE(DATA)),
@@ -9827,7 +9843,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
             bptr_.data = lfsr_data_truncate(bptr_.data,
                     lfsr_data_size(&bptr_.data) - lfs->cfg->fragment_size);
 
-            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
+            err = lfsr_bshrub_commit(lfs, mdir, &ftree->u.bshrub,
                     LFSR_ATTRS(
                         LFSR_ATTR(bid_,
                             GROW(WIDE(BLOCK)),
@@ -9888,7 +9904,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
             LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
             LFS_ASSERT(buf_size <= sizeof(buf));
 
-            err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
+            err = lfsr_bshrub_commit(lfs, mdir, &ftree->u.bshrub,
                     attrs_, attr_count_);
             if (err) {
                 return err;
@@ -9994,7 +10010,7 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
         LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
         LFS_ASSERT(buf_size <= sizeof(buf));
 
-        int err = lfsr_bshrub_commit(lfs, &ftree->mdir, &ftree->u.bshrub,
+        int err = lfsr_bshrub_commit(lfs, mdir, &ftree->u.bshrub,
                 attrs_, attr_count_);
         if (err) {
             return err;
@@ -10004,7 +10020,8 @@ static int lfsr_ftree_carve(lfs_t *lfs, lfsr_ftree_t *ftree,
     return 0;
 }
 
-static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
+static int lfsr_ftree_flush(lfs_t *lfs,
+        lfsr_mdir_t *mdir, lfsr_ftree_t *ftree,
         lfs_off_t pos, const uint8_t *buffer, lfs_size_t size) {
     // we can skip some btree lookups if we know we are aligned from a
     // previous iteration, we already do way too many btree lookups
@@ -10036,7 +10053,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_ecksum_t becksum;
-            int err = lfsr_ftree_lookupnext(lfs, ftree,
+            int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                     lfs_smax32(pos - (lfs->cfg->crystal_thresh-1), 0),
                     &bid, &tag, &weight, &bptr, &becksum);
             if (err) {
@@ -10094,7 +10111,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
-            int err = lfsr_ftree_lookupnext(lfs, ftree,
+            int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                     lfs_min32(
                         crystal_start + (lfs->cfg->crystal_thresh-1),
                         lfsr_ftree_size(ftree)-1),
@@ -10140,7 +10157,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_ecksum_t becksum;
-            int err = lfsr_ftree_lookupnext(lfs, ftree,
+            int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                     lfs_min32(
                         crystal_start-1,
                         lfsr_ftree_size(ftree)-1),
@@ -10259,7 +10276,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
                 lfsr_tag_t tag_;
                 lfsr_bid_t weight_;
                 lfsr_bptr_t bptr_;
-                err = lfsr_ftree_lookupnext(lfs, ftree, pos_,
+                err = lfsr_ftree_lookupnext(lfs, mdir, ftree, pos_,
                         &bid_, &tag_, &weight_, &bptr_, NULL);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -10373,7 +10390,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
         }
 
         // and write it into our tree
-        err = lfsr_ftree_carve(lfs, ftree,
+        err = lfsr_ftree_carve(lfs, mdir, ftree,
                 block_start, block_end - block_start, 0,
                 LFSR_TAG_BLOCK, &bptr, &becksum);
         if (err) {
@@ -10412,7 +10429,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
-            int err = lfsr_ftree_lookupnext(lfs, ftree,
+            int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                     fragment_start-1,
                     &bid, &tag, &weight, &bptr, NULL);
             if (err) {
@@ -10450,7 +10467,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
-            int err = lfsr_ftree_lookupnext(lfs, ftree,
+            int err = lfsr_ftree_lookupnext(lfs, mdir, ftree,
                     fragment_end,
                     &bid, &tag, &weight, &bptr, NULL);
             if (err) {
@@ -10477,7 +10494,7 @@ static int lfsr_ftree_flush(lfs_t *lfs, lfsr_ftree_t *ftree,
 
         // once we've figured out what fragment to write, carve it into
         // our tree
-        int err = lfsr_ftree_carve(lfs, ftree,
+        int err = lfsr_ftree_carve(lfs, mdir, ftree,
                 fragment_start, fragment_end - fragment_start, 0,
                 LFSR_TAG_DATA, &(const lfsr_bptr_t){.data=data}, NULL);
         if (err && err != LFS_ERR_RANGE) {
@@ -10534,7 +10551,8 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         if (pos_ < lfsr_ftree_size(&file->ftree)) {
             // bypass buffer?
             if ((lfs_size_t)d >= lfs->cfg->cache_size) {
-                lfs_ssize_t d_ = lfsr_ftree_readnext(lfs, &file->ftree,
+                lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
+                        &file->mdir, &file->ftree,
                         pos_, buffer_, d);
                 if (d_ < 0) {
                     LFS_ASSERT(d_ != LFS_ERR_NOENT);
@@ -10562,7 +10580,8 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // try to fill our buffer with some data
-            lfs_ssize_t d_ = lfsr_ftree_readnext(lfs, &file->ftree,
+            lfs_ssize_t d_ = lfsr_ftree_readnext(lfs,
+                    &file->mdir, &file->ftree,
                     pos_, file->buffer, d);
             if (d_ < 0) {
                 LFS_ASSERT(d != LFS_ERR_NOENT);
@@ -10638,7 +10657,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         //
         if (!lfsr_f_isunflushed(file->flags)
                 && size >= lfs->cfg->cache_size) {
-            err = lfsr_ftree_flush(lfs, &file->ftree,
+            err = lfsr_ftree_flush(lfs, &file->mdir, &file->ftree,
                     pos, buffer_, size);
             if (err) {
                 goto failed;
@@ -10698,7 +10717,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // flush our buffer so the above can't fail
-        err = lfsr_ftree_flush(lfs, &file->ftree,
+        err = lfsr_ftree_flush(lfs, &file->mdir, &file->ftree,
                 file->buffer_pos, file->buffer, file->buffer_size);
         if (err) {
             goto failed;
@@ -10772,7 +10791,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     if (lfsr_f_isunflushed(file->flags)
             && file->buffer_size != 0) {
         // flush
-        err = lfsr_ftree_flush(lfs, &file->ftree,
+        err = lfsr_ftree_flush(lfs, &file->mdir, &file->ftree,
                 file->buffer_pos, file->buffer, file->buffer_size);
         if (err) {
             goto failed;
@@ -10791,7 +10810,7 @@ failed:;
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // do nothing if our file has been removed
-    if (file->ftree.mdir.mid == -1) {
+    if (file->mdir.mid == -1) {
         return 0;
     }
 
@@ -10820,8 +10839,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // or bptr
     //
     // this is convenient because bptrs are a bit annoying to commit
-    LFS_ASSERT(!lfsr_ftree_isbsprout(&file->ftree));
-    LFS_ASSERT(!lfsr_ftree_isbleaf(&file->ftree));
+    LFS_ASSERT(!lfsr_ftree_isbsprout(&file->mdir, &file->ftree));
+    LFS_ASSERT(!lfsr_ftree_isbleaf(&file->mdir, &file->ftree));
     // small files should start as zero, const prop should optimize this out
     LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
             || file->buffer_pos == 0);
@@ -10841,20 +10860,20 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     if (lfsr_f_isunsynced(file->flags)) {
         // commit our file's metadata
         uint8_t buf[LFSR_BTREE_DSIZE];
-        int err = lfsr_mdir_commit(lfs, &file->ftree.mdir, LFSR_ATTRS(
+        int err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
                 (lfsr_f_isunflushed(file->flags) && file->buffer_size == 0)
-                    ? LFSR_ATTR(file->ftree.mdir.mid,
+                    ? LFSR_ATTR(file->mdir.mid,
                         WIDE(RM(STRUCT)), 0,
                         NULL())
                 : (lfsr_f_isunflushed(file->flags))
-                    ? LFSR_ATTR(file->ftree.mdir.mid,
+                    ? LFSR_ATTR(file->mdir.mid,
                         WIDE(DATA), 0,
                         BUF(file->buffer, file->buffer_size))
-                : (lfsr_ftree_isbshrub(&file->ftree))
-                    ? LFSR_ATTR(file->ftree.mdir.mid,
+                : (lfsr_ftree_isbshrub(&file->mdir, &file->ftree))
+                    ? LFSR_ATTR(file->mdir.mid,
                         WIDE(SHRUBTRUNK), 0,
                         SHRUBTRUNK(&file->ftree.u.bshrub))
-                    : LFSR_ATTR(file->ftree.mdir.mid,
+                    : LFSR_ATTR(file->mdir.mid,
                         WIDE(BTREE), 0,
                         FROMBTREE(&file->ftree.u.btree, buf))));
         if (err) {
@@ -10868,7 +10887,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             opened_;
             opened_ = opened_->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)opened_;
-        if (file_->ftree.mdir.mid == file->ftree.mdir.mid
+        if (file_->mdir.mid == file->mdir.mid
                 // don't double update
                 && file_ != file
                 // don't update desynced file handles
@@ -10977,7 +10996,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
             file->buffer_pos = 0;
             file->buffer_size = 0;
 
-            lfs_ssize_t d = lfsr_ftree_read(lfs, &file->ftree,
+            lfs_ssize_t d = lfsr_ftree_read(lfs, &file->mdir, &file->ftree,
                     0, file->buffer, size_);
             if (d < 0) {
                 err = d;
@@ -10998,12 +11017,12 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = size_;
-        file->ftree.u.size = LFSR_FTREE_NULL;
+        file->ftree = LFSR_FTREE_NULL();
 
     // truncate our file normally
     } else {
         // truncate our ftree
-        err = lfsr_ftree_carve(lfs, &file->ftree,
+        err = lfsr_ftree_carve(lfs, &file->mdir, &file->ftree,
                 lfs_min32(size, size_),
                 size - lfs_min32(size, size_),
                 +size_ - size,
@@ -11083,7 +11102,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
             file->buffer_pos = 0;
             file->buffer_size = 0;
 
-            lfs_ssize_t d = lfsr_ftree_read(lfs, &file->ftree,
+            lfs_ssize_t d = lfsr_ftree_read(lfs, &file->mdir, &file->ftree,
                     lfsr_ftree_size(&file->ftree) - lfs_min32(
                         size_,
                         lfsr_ftree_size(&file->ftree)),
@@ -11116,12 +11135,12 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         file->flags |= LFS_F_UNFLUSHED;
         file->buffer_pos = 0;
         file->buffer_size = size_;
-        file->ftree.u.size = LFSR_FTREE_NULL;
+        file->ftree = LFSR_FTREE_NULL();
 
     // fruncate our file normally
     } else {
         // fruncate our ftree
-        err = lfsr_ftree_carve(lfs, &file->ftree,
+        err = lfsr_ftree_carve(lfs, &file->mdir, &file->ftree,
                 0,
                 lfs_smax32(size - size_, 0),
                 +size_ - size,
