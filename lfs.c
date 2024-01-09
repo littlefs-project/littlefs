@@ -1847,13 +1847,13 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 static inline bool lfsr_ftree_isbnull(const lfsr_ftree_t *ftree);
 static inline bool lfsr_ftree_isbsprout(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbleaf(
+static inline bool lfsr_ftree_isbptr(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
 static inline bool lfsr_ftree_isbshrub(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
 static inline bool lfsr_ftree_isbtree(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree);
-static inline bool lfsr_ftree_isbnullorbsproutorbleaf(
+static inline bool lfsr_ftree_isbnullorbsproutorbptr(
         const lfsr_ftree_t *ftree);
 static inline bool lfsr_ftree_isbshruborbtree(
         const lfsr_ftree_t *ftree);
@@ -7292,7 +7292,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // found a direct block?
             if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
                 err = lfsr_data_readbptr(lfs, &data,
-                        &traversal->ftree.u.bleaf.bptr);
+                        &traversal->ftree.u.bptr);
                 if (err) {
                     return err;
                 }
@@ -8872,55 +8872,55 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 /// File operations ///
 
-#define LFSR_FTREE_ISBNULLORBSPROUTORBLEAF 0x80000000
+#define LFSR_FTREE_ISBNULLORBSPROUTORBPTR 0x80000000
 
 #define LFSR_FTREE_BNULL() \
-        ((lfsr_ftree_t){.u.size=(LFSR_FTREE_ISBNULLORBSPROUTORBLEAF | 0)})
+        ((lfsr_ftree_t){.u.size=(LFSR_FTREE_ISBNULLORBSPROUTORBPTR | 0)})
 
 static inline bool lfsr_ftree_isbnull(const lfsr_ftree_t *ftree) {
     return (lfs_size_t)ftree->u.size
-            == (LFSR_FTREE_ISBNULLORBSPROUTORBLEAF | 0);
+            == (LFSR_FTREE_ISBNULLORBSPROUTORBPTR | 0);
 }
 
 static inline bool lfsr_ftree_isbsprout(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
     return (lfs_size_t)ftree->u.size
-                > (LFSR_FTREE_ISBNULLORBSPROUTORBLEAF | 0)
+                > (LFSR_FTREE_ISBNULLORBSPROUTORBPTR | 0)
             && ftree->u.bsprout.u.disk.block == mdir->rbyd.blocks[0];
 }
 
-static inline bool lfsr_ftree_isbleaf(
+static inline bool lfsr_ftree_isbptr(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
     return (lfs_size_t)ftree->u.size
-                > (LFSR_FTREE_ISBNULLORBSPROUTORBLEAF | 0)
+                > (LFSR_FTREE_ISBNULLORBSPROUTORBPTR | 0)
             && ftree->u.bsprout.u.disk.block != mdir->rbyd.blocks[0];
 }
 
 static inline bool lfsr_ftree_isbshrub(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
-    return !(ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBLEAF)
+    return !(ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBPTR)
             && ftree->u.bshrub.blocks[0] == mdir->rbyd.blocks[0];
 }
 
 static inline bool lfsr_ftree_isbtree(
         const lfsr_mdir_t *mdir, const lfsr_ftree_t *ftree) {
-    return !(ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBLEAF)
+    return !(ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBPTR)
             && ftree->u.bshrub.blocks[0] != mdir->rbyd.blocks[0];
 }
 
-static inline bool lfsr_ftree_isbnullorbsproutorbleaf(
+static inline bool lfsr_ftree_isbnullorbsproutorbptr(
         const lfsr_ftree_t *ftree) {
-    return ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBLEAF;
+    return ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBPTR;
 }
 
 static inline bool lfsr_ftree_isbshruborbtree(
         const lfsr_ftree_t *ftree) {
-    return !(ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBLEAF);
+    return !(ftree->u.size & LFSR_FTREE_ISBNULLORBSPROUTORBPTR);
 }
 
 // the on-disk size/weight lines up to the same word across all unions
 static inline lfs_off_t lfsr_ftree_size(const lfsr_ftree_t *ftree) {
-    return ftree->u.size & ~LFSR_FTREE_ISBNULLORBSPROUTORBLEAF;
+    return ftree->u.size & ~LFSR_FTREE_ISBNULLORBSPROUTORBPTR;
 }
 
 // flag things
@@ -9072,27 +9072,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // or a direct block
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
                 err = lfsr_data_readbptr(lfs, &data,
-                        &file->ftree.u.bleaf.bptr);
+                        &file->ftree.u.bptr);
                 if (err) {
                     return err;
-                }
-
-                // also fetch the becksum here if we are writable
-                file->ftree.u.bleaf.becksum.size = -1;
-                if (lfsr_o_iswriteable(flags)) {
-                    lfsr_data_t data;
-                    err = lfsr_mdir_lookupnext(lfs, &file->mdir,
-                            file->mdir.mid, LFSR_TAG_BECKSUM,
-                            NULL, &data);
-                    if (err && err != LFS_ERR_NOENT) {
-                        return err;
-                    }
-
-                    err = lfsr_data_readecksum(lfs, &data,
-                            &file->ftree.u.bleaf.becksum);
-                    if (err) {
-                        return err;
-                    }
                 }
 
             // or a bshrub (inlined btree)
@@ -9291,21 +9273,21 @@ static int lfsr_ftree_lookupnext(lfs_t *lfs,
         return 0;
 
     // block pointer?
-    } else if (lfsr_ftree_isbleaf(mdir, ftree)) {
+    } else if (lfsr_ftree_isbptr(mdir, ftree)) {
         if (bid_) {
-            *bid_ = lfsr_data_size(&ftree->u.bleaf.bptr.data)-1;
+            *bid_ = lfsr_data_size(&ftree->u.bptr.data)-1;
         }
         if (tag_) {
             *tag_ = LFSR_TAG_BLOCK;
         }
         if (weight_) {
-            *weight_ = lfsr_data_size(&ftree->u.bleaf.bptr.data);
+            *weight_ = lfsr_data_size(&ftree->u.bptr.data);
         }
         if (bptr_) {
-            *bptr_ = ftree->u.bleaf.bptr;
+            *bptr_ = ftree->u.bptr;
         }
         if (becksum_) {
-            *becksum_ = ftree->u.bleaf.becksum;
+            becksum_->size = -1;
         }
         return 0;
 
@@ -9382,17 +9364,17 @@ static int lfsr_ftree_traverse(lfs_t *lfs,
     }
 
     // block pointer?
-    if (lfsr_ftree_isbleaf(mdir, ftree)) {
+    if (lfsr_ftree_isbptr(mdir, ftree)) {
         if (btraversal->bid > 0) {
             return LFS_ERR_NOENT;
         }
 
         if (bid_) {
-            *bid_ = lfsr_data_size(&ftree->u.bleaf.bptr.data)-1;
+            *bid_ = lfsr_data_size(&ftree->u.bptr.data)-1;
         }
         if (tinfo_) {
             tinfo_->tag = LFSR_TAG_BLOCK;
-            tinfo_->u.bptr = ftree->u.bleaf.bptr;
+            tinfo_->u.bptr = ftree->u.bptr;
         }
         return 0;
 
@@ -9688,18 +9670,11 @@ static int lfsr_ftree_carve(lfs_t *lfs,
             attrs_[attr_count_++] = LFSR_ATTR(0,
                     DATA, +lfsr_ftree_size(ftree),
                     DATA(ftree->u.bsprout));
-        } else if (lfsr_ftree_isbleaf(mdir, ftree)) {
+        } else if (lfsr_ftree_isbptr(mdir, ftree)) {
             attrs_[attr_count_++] = LFSR_ATTR(0,
                     BLOCK, +lfsr_ftree_size(ftree),
-                    FROMBPTR(&ftree->u.bleaf.bptr, &buf[buf_size]));
+                    FROMBPTR(&ftree->u.bptr, &buf[buf_size]));
             buf_size += LFSR_BPTR_DSIZE;
-
-            if (ftree->u.bleaf.becksum.size != -1) {
-                attrs_[attr_count_++] = LFSR_ATTR(lfsr_ftree_size(ftree)-1,
-                        BECKSUM, 0,
-                        FROMECKSUM(&ftree->u.bleaf.becksum, &buf[buf_size]));
-                buf_size += LFSR_ECKSUM_DSIZE;
-            }
         }
 
         ftree->u.bshrub.blocks[0] = mdir->rbyd.blocks[0];
@@ -10780,7 +10755,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     //
     // this is convenient because bptrs are a bit annoying to commit
     LFS_ASSERT(!lfsr_ftree_isbsprout(&file->mdir, &file->ftree));
-    LFS_ASSERT(!lfsr_ftree_isbleaf(&file->mdir, &file->ftree));
+    LFS_ASSERT(!lfsr_ftree_isbptr(&file->mdir, &file->ftree));
     // small files should start as zero, const prop should optimize this out
     LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
             || file->buffer_pos == 0);

@@ -511,12 +511,6 @@ typedef struct lfsr_bptr {
     uint32_t cksum;
 } lfsr_bptr_t;
 
-// a bleaf is just a bptr with all optional attrs
-typedef struct lfsr_bleaf {
-    lfsr_bptr_t bptr;
-    lfsr_ecksum_t becksum;
-} lfsr_bleaf_t;
-
 // a shrub is a secondary trunk in an mdir, we really only need
 // trunk/weight/block, so we sneak our estimate into some
 // overlapping fields
@@ -540,14 +534,14 @@ typedef struct lfsr_ftree {
     //
     // sign(size)=1, data.size==0           => bnull
     // sign(size)=1, data.block==mdir.block => bsprout
-    // sign(size)=1, data.block!=mdir.block => bleaf
+    // sign(size)=1, data.block!=mdir.block => bptr
     // sign(size)=0, data.block==mdir.block => bshrub
     // sign(size)=0, data.block!=mdir.block => btree
     //
     union {
         lfs_soff_t size;
         lfsr_data_t bsprout;
-        lfsr_bleaf_t bleaf;
+        lfsr_bptr_t bptr;
         lfsr_shrub_t bshrub;
         lfsr_btree_t btree;
     } u, u_;
