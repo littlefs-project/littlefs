@@ -375,6 +375,7 @@ typedef struct lfsr_rbyd {
     uint32_t cksum;
 } lfsr_rbyd_t;
 
+// a btree is just the root rbyd
 typedef lfsr_rbyd_t lfsr_btree_t;
 
 typedef struct lfsr_mptr {
@@ -456,13 +457,6 @@ typedef struct lfsr_data {
     } u;
 } lfsr_data_t;
 
-typedef struct lfsr_bptr {
-    // note data.size lines up with weight in lfsr_btree_t
-    lfsr_data_t data;
-    lfs_size_t cksize;
-    uint32_t cksum;
-} lfsr_bptr_t;
-
 // erased-state checksum
 typedef struct lfsr_ecksum {
     // size=-1 indicates no ecksum
@@ -510,12 +504,12 @@ typedef struct lfs_file {
     const struct lfs_file_config *cfg;
 } lfs_file_t;
 
-// bsprouts must always be associated with an mdir
-typedef struct lfsr_bsprout {
+typedef struct lfsr_bptr {
+    // note data.size lines up with weight in lfsr_btree_t
     lfsr_data_t data;
-    // copy for staging
-    lfsr_data_t data_;
-} lfsr_bsprout_t;
+    lfs_size_t cksize;
+    uint32_t cksum;
+} lfsr_bptr_t;
 
 // a bleaf is just a bptr with all optional attrs
 typedef struct lfsr_bleaf {
@@ -523,29 +517,40 @@ typedef struct lfsr_bleaf {
     lfsr_ecksum_t becksum;
 } lfsr_bleaf_t;
 
-// bshrubs must always be associated with an mdir
-//
-// rbyd.block == mdir.blocks[0] => bshrub
-// rbyd.block != mdir.blocks[0] => btree
-typedef struct lfsr_bshrub {
-    lfsr_rbyd_t rbyd;
-    // copy for staging
-    lfsr_rbyd_t rbyd_;
+// a shrub is a secondary trunk in an mdir, we really only need
+// trunk/weight/block, so we sneak our estimate into some
+// overlapping fields
+typedef struct lfsr_shrub {
+    // this all lines up with lfsr_rbyd_t
+    lfsr_srid_t weight;
+    lfs_block_t blocks[2];
+    lfs_size_t trunk;
+    lfs_size_t eoff;
     // an upper-bound estimate on the on-disk shrub size
     lfs_size_t estimate;
-} lfsr_bshrub_t;
+} lfsr_shrub_t;
 
 // the lfsr_ftree_t struct is a sort of proto-file
 typedef struct lfsr_ftree {
+    // ftrees contain both an active tree and staging tree, to allow
+    // staging files during mdir compacts
+    //
+    // navigating this union is a bit tricky, and relies on related
+    // mdir's block:
+    //
+    // sign(size)=1, data.size==0           => bnull
+    // sign(size)=1, data.block==mdir.block => bsprout
+    // sign(size)=1, data.block!=mdir.block => bleaf
+    // sign(size)=0, data.block==mdir.block => bshrub
+    // sign(size)=0, data.block!=mdir.block => btree
+    //
     union {
         lfs_soff_t size;
-        lfsr_data_t data;
-        lfsr_bsprout_t bsprout;
-        lfsr_bptr_t bptr;
+        lfsr_data_t bsprout;
         lfsr_bleaf_t bleaf;
-        lfsr_bshrub_t bshrub;
+        lfsr_shrub_t bshrub;
         lfsr_btree_t btree;
-    } u;
+    } u, u_;
 } lfsr_ftree_t;
 
 typedef struct lfsr_file {

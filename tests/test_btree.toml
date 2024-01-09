@@ -4294,37 +4294,36 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i <= 2*N);
 
-        lfsr_binfo_t binfo;
-        int err = lfsr_btree_traverse(&lfs, &btree, &traversal, &binfo);
+        lfsr_bid_t bid;
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_btree_traverse(&lfs, &btree, &traversal,
+                &bid, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (binfo.tag == LFSR_TAG_BRANCH) {
-            printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
-                    binfo.bid,
-                    binfo.tag,
-                    binfo.weight,
-                    binfo.u.rbyd.blocks[0], binfo.u.rbyd.trunk);
+        if (tinfo.tag == LFSR_TAG_BRANCH) {
+            printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                    bid,
+                    tinfo.tag,
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[binfo.u.rbyd.blocks[0] / 8]
-                    |= 1 << (binfo.u.rbyd.blocks[0] % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
-        } else if (binfo.tag == LFSR_TAG_DATA) {
-            printf("traversal: %d 0x%x w%d data %d\n",
-                    binfo.bid,
-                    binfo.tag,
-                    binfo.weight,
-                    lfsr_data_size(&binfo.u.data));
+        } else if (tinfo.tag == LFSR_TAG_DATA) {
+            printf("traversal: %d 0x%x data %d\n",
+                    bid,
+                    tinfo.tag,
+                    lfsr_data_size(&tinfo.u.data));
 
         } else {
             // well this shouldn't happen
-            printf("traversal: %d 0x%x w%d\n",
-                    binfo.bid,
-                    binfo.tag,
-                    binfo.weight);
+            printf("traversal: %d 0x%x\n",
+                    bid,
+                    tinfo.tag);
             assert(false);
         }
     }
@@ -4447,37 +4446,36 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i <= 2*N);
 
-        lfsr_binfo_t binfo;
-        int err = lfsr_btree_traverse(&lfs, &btree, &traversal, &binfo);
+        lfsr_bid_t bid;
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_btree_traverse(&lfs, &btree, &traversal,
+                &bid, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (binfo.tag == LFSR_TAG_BRANCH) {
-            printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
-                    binfo.bid,
-                    binfo.tag,
-                    binfo.weight,
-                    binfo.u.rbyd.blocks[0], binfo.u.rbyd.trunk);
+        if (tinfo.tag == LFSR_TAG_BRANCH) {
+            printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                    bid,
+                    tinfo.tag,
+                    tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[binfo.u.rbyd.blocks[0] / 8]
-                    |= 1 << (binfo.u.rbyd.blocks[0] % 8);
+            seen[tinfo.u.rbyd.blocks[0] / 8]
+                    |= 1 << (tinfo.u.rbyd.blocks[0] % 8);
 
-        } else if (binfo.tag == LFSR_TAG_DATA) {
-            printf("traversal: %d 0x%x w%d data %d\n",
-                    binfo.bid,
-                    binfo.tag,
-                    binfo.weight,
-                    lfsr_data_size(&binfo.u.data));
+        } else if (tinfo.tag == LFSR_TAG_DATA) {
+            printf("traversal: %d 0x%x data %d\n",
+                    bid,
+                    tinfo.tag,
+                    lfsr_data_size(&tinfo.u.data));
 
         } else {
             // well this shouldn't happen
-            printf("traversal: %d 0x%x w%d\n",
-                    binfo.bid,
-                    binfo.tag,
-                    binfo.weight);
+            printf("traversal: %d 0x%x\n",
+                    bid,
+                    tinfo.tag);
             assert(false);
         }
     }
