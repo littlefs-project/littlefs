@@ -524,12 +524,8 @@ typedef struct lfsr_shrub {
     lfs_size_t estimate;
 } lfsr_shrub_t;
 
-typedef struct lfsr_file {
-    lfsr_openedmdir_t *next;
-
-    // files contain both an active tree and staging tree, to allow
-    // staging during mdir compacts
-    //
+// the lfsr_ftree_t struct is a sort of proto-file
+typedef struct lfsr_ftree {
     // navigating this union is a bit tricky, and relies on the related
     // mdir's block:
     //
@@ -539,15 +535,22 @@ typedef struct lfsr_file {
     // sign(size)=0, data.block==mdir.block => bshrub
     // sign(size)=0, data.block!=mdir.block => btree
     //
-    lfsr_mdir_t mdir;
     union {
-        lfs_soff_t bsize;
+        lfs_soff_t size;
         lfsr_data_t bsprout;
         lfsr_bptr_t bptr;
         lfsr_shrub_t bshrub;
         lfsr_btree_t btree;
-    } u, u_;
+    } u;
+} lfsr_ftree_t;
 
+typedef struct lfsr_file {
+    lfsr_openedmdir_t *next;
+    lfsr_mdir_t mdir;
+    // files contain both an active tree and staging tree, to allow
+    // staging during mdir compacts
+    lfsr_ftree_t ftree;
+    lfsr_ftree_t ftree_;
     uint32_t flags;
     lfs_off_t pos;
 
