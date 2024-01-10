@@ -116,39 +116,8 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 1,
-    LFS_TYPE_DIR            = 2,
-
-    // used internally, don't use this
-    LFS_TYPE_INTERNAL       = 3,
-
-//    // internally used types
-//    LFS_TYPE_SPLICE         = 0x400,
-//    LFS_TYPE_NAME           = 0x000,
-//    LFS_TYPE_STRUCT         = 0x200,
-//    LFS_TYPE_USERATTR       = 0x300,
-//    LFS_TYPE_FROM           = 0x100,
-//    LFS_TYPE_TAIL           = 0x600,
-//    LFS_TYPE_GLOBALS        = 0x700,
-//    LFS_TYPE_CRC            = 0x500,
-//
-//    // internally used type specializations
-//    LFS_TYPE_CREATE         = 0x401,
-//    LFS_TYPE_DELETE         = 0x4ff,
-//    LFS_TYPE_SUPERBLOCK     = 0x0ff,
-//    LFS_TYPE_DIRSTRUCT      = 0x200,
-//    LFS_TYPE_CTZSTRUCT      = 0x202,
-//    LFS_TYPE_INLINESTRUCT   = 0x201,
-//    LFS_TYPE_SOFTTAIL       = 0x600,
-//    LFS_TYPE_HARDTAIL       = 0x601,
-//    LFS_TYPE_MOVESTATE      = 0x7ff,
-//    LFS_TYPE_CCRC           = 0x500,
-//    LFS_TYPE_FCRC           = 0x5ff,
-//
-//    // internal chip sources
-//    LFS_FROM_NOOP           = 0x000,
-//    LFS_FROM_MOVE           = 0x101,
-//    LFS_FROM_USERATTRS      = 0x102,
+    LFS_TYPE_REG = 1,
+    LFS_TYPE_DIR = 2,
 };
 
 // File open flags
@@ -158,18 +127,18 @@ enum lfs_open_flags {
 #ifndef LFS_READONLY
     LFS_O_WRONLY = 2,         // Open a file as write only
     LFS_O_RDWR   = 3,         // Open a file as read and write
-    LFS_O_CREAT  = 0x0100,    // Create a file if it does not exist
-    LFS_O_EXCL   = 0x0200,    // Fail if a file already exists
-    LFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
-    LFS_O_APPEND = 0x0800,    // Move to end of file on every write
-    LFS_O_SYNC   = 0x1000,    // Sync metadata on every write
-    LFS_O_DESYNC = 0x2000,    // Do not sync or recieve file updates
-    LFS_O_FLUSH  = 0x4000,    // Flush data on every write
+    LFS_O_CREAT  = 0x0004,    // Create a file if it does not exist
+    LFS_O_EXCL   = 0x0008,    // Fail if a file already exists
+    LFS_O_TRUNC  = 0x0010,    // Truncate the existing file to zero size
+    LFS_O_APPEND = 0x0020,    // Move to end of file on every write
+    LFS_O_SYNC   = 0x0040,    // Sync metadata on every write
+    LFS_O_DESYNC = 0x0080,    // Do not sync or recieve file updates
+    LFS_O_FLUSH  = 0x0100,    // Flush data on every write
 #endif
 
     // internally used flags
-    LFS_F_UNFLUSHED = 0x010000, // File's data does not match storage
-    LFS_F_UNSYNCED  = 0x020000, // File's metadata does not match storage
+    LFS_F_UNFLUSHED = 0x1000, // File's data does not match storage
+    LFS_F_UNSYNCED  = 0x2000, // File's metadata does not match storage
 };
 
 // File seek flags
@@ -387,10 +356,12 @@ typedef struct lfsr_mdir {
     lfsr_rbyd_t rbyd;
 } lfsr_mdir_t;
 
-typedef struct lfsr_openedmdir {
-    struct lfsr_openedmdir *next;
+typedef struct lfsr_opened {
+    struct lfsr_opened *next;
+    uint8_t type;
+    uint16_t flags;
     lfsr_mdir_t mdir;
-} lfsr_openedmdir_t;
+} lfsr_opened_t;
 
 // space for:
 // - type   - 1 leb128 - 1 byte (worst case)
@@ -476,8 +447,11 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfsr_dir {
-    lfsr_openedmdir_t *next;
+    struct lfsr_opened *next;
+    uint8_t type;
+    uint16_t flags; // unused
     lfsr_mdir_t mdir;
+
     lfsr_did_t did;
     lfsr_smid_t bookmark;
     lfs_soff_t pos;
@@ -545,13 +519,15 @@ typedef struct lfsr_ftree {
 } lfsr_ftree_t;
 
 typedef struct lfsr_file {
-    lfsr_openedmdir_t *next;
+    struct lfsr_opened *next;
+    uint8_t type;
+    uint16_t flags;
     lfsr_mdir_t mdir;
+
     // files contain both an active tree and staging tree, to allow
     // staging during mdir compacts
     lfsr_ftree_t ftree;
     lfsr_ftree_t ftree_;
-    uint32_t flags;
     lfs_off_t pos;
 
     lfs_off_t buffer_pos;
@@ -633,9 +609,8 @@ typedef struct lfs {
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
 
-    // linked-lists of opened mdirs, we keep a separate linked-list
-    // for each type since these need to be handled a bit differently
-    lfsr_openedmdir_t *opened[3];
+    // linked-list of opened mdirs
+    lfsr_opened_t *opened;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;
