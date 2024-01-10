@@ -5118,20 +5118,6 @@ static int lfsr_mdir_lookupwide(lfs_t *lfs, const lfsr_mdir_t *mdir,
 }
 
 // track opened mdirs to keep state in-sync
-static void lfsr_addopened(lfs_t *lfs, lfsr_opened_t *opened) {
-    opened->next = lfs->opened;
-    lfs->opened = opened;
-}
-
-static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *opened) {
-    for (lfsr_opened_t **p = &lfs->opened; *p; p = &(*p)->next) {
-        if (*p == opened) {
-            *p = (*p)->next;
-            break;
-        }
-    }
-}
-
 static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *opened) {
     for (lfsr_opened_t *p = lfs->opened; p; p = p->next) {
         if (p == opened) {
@@ -5140,6 +5126,22 @@ static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *opened) {
     }
 
     return false;
+}
+
+static void lfsr_addopened(lfs_t *lfs, lfsr_opened_t *opened) {
+    LFS_ASSERT(!lfsr_isopened(lfs, opened));
+    opened->next = lfs->opened;
+    lfs->opened = opened;
+}
+
+static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *opened) {
+    LFS_ASSERT(lfsr_isopened(lfs, opened));
+    for (lfsr_opened_t **p = &lfs->opened; *p; p = &(*p)->next) {
+        if (*p == opened) {
+            *p = (*p)->next;
+            break;
+        }
+    }
 }
 
 
@@ -10415,6 +10417,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
+    // can't read from writeonly files
     LFS_ASSERT(lfsr_o_isreadable(file->flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
@@ -10505,6 +10508,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
+    // can't write to readonly files
     LFS_ASSERT(lfsr_o_iswriteable(file->flags));
 
     // would this write make our file larger than our size limit?
@@ -10655,14 +10659,11 @@ failed:;
 }
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
-    // do nothing if our file is readonly
-    if (!lfsr_o_iswriteable(file->flags)) {
-        LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
-                || (lfsr_file_size_(file) <= lfs->cfg->cache_size
-                    && lfsr_file_size_(file) <= lfs->cfg->inline_size
-                    && lfsr_file_size_(file) <= lfs->cfg->fragment_size));
-        return 0;
-    }
+    // flushing readonly files is not supported
+    //
+    // in theory we could make this a noop, but that would be inconsistent
+    // with lfsr_file_sync
+    LFS_ASSERT(lfsr_o_iswriteable(file->flags));
 
     // do nothing if our file is already flushed
     if (!lfsr_f_isunflushed(file->flags)) {
@@ -10706,16 +10707,14 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
+    // syncing readonly files is not supported
+    //
+    // in theory we could make this a noop, but then syncing desynced
+    // readonly files would require disk writes
+    LFS_ASSERT(lfsr_o_iswriteable(file->flags));
+
     // do nothing if our file has been removed
     if (file->mdir.mid == -1) {
-        return 0;
-    }
-
-    // do nothing if our file is readonly
-    if (!lfsr_o_iswriteable(file->flags)) {
-        LFS_ASSERT(!lfsr_f_isunsynced(file->flags));
-        // but do clear desync flag
-        file->flags &= ~LFS_O_DESYNC;
         return 0;
     }
 
@@ -10750,14 +10749,14 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 && file->buffer_size <= lfs->cfg->inline_size
                 && file->buffer_size <= lfs->cfg->fragment_size));
 
-    // checkpoint the allocator again
-    lfs_alloc_ckpoint(lfs);
-
-    // don't write to disk if disk is already in-sync
+    // don't write to disk if our disk is already in-sync
     if (lfsr_f_isunsynced(file->flags)) {
+        // checkpoint the allocator again
+        lfs_alloc_ckpoint(lfs);
+
         // commit our file's metadata
         uint8_t buf[LFSR_BTREE_DSIZE];
-        int err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
+        err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
                 (lfsr_f_isunflushed(file->flags) && file->buffer_size == 0)
                     ? LFSR_ATTR(file->mdir.mid,
                         WIDE(RM(STRUCT)), 0,
@@ -10774,7 +10773,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                         WIDE(BTREE), 0,
                         FROMBTREE(&file->ftree.u.btree, buf))));
         if (err) {
-            return err;
+            goto failed;
         }
     }
 
@@ -10786,20 +10785,25 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         if (file_->type == LFS_TYPE_REG
                 && file_->mdir.mid == file->mdir.mid
                 // don't double update
-                && file_ != file
-                // don't update desynced file handles
-                && !lfsr_o_isdesync(file_->flags)) {
-            file_->flags &= ~LFS_F_UNSYNCED;
-            if (lfsr_f_isunflushed(file->flags)) {
-                file_->flags |= LFS_F_UNFLUSHED;
+                && file_ != file) {
+            // mark desynced files an unsynced
+            if (lfsr_o_isdesync(file_->flags)) {
+                file_->flags |= LFS_F_UNSYNCED;
+
+            // update synced files
             } else {
-                file_->flags &= ~LFS_F_UNFLUSHED;
+                file_->flags &= ~LFS_F_UNSYNCED;
+                if (lfsr_f_isunflushed(file->flags)) {
+                    file_->flags |= LFS_F_UNFLUSHED;
+                } else {
+                    file_->flags &= ~LFS_F_UNFLUSHED;
+                }
+                file_->ftree = file->ftree;
+                file_->buffer_pos = file->buffer_pos;
+                LFS_ASSERT(file->buffer_size <= lfs->cfg->cache_size);
+                memcpy(file_->buffer, file->buffer, file->buffer_size);
+                file_->buffer_size = file->buffer_size;
             }
-            file_->ftree = file->ftree;
-            file_->buffer_pos = file->buffer_pos;
-            LFS_ASSERT(file->buffer_size <= lfs->cfg->cache_size);
-            memcpy(file_->buffer, file->buffer, file->buffer_size);
-            file_->buffer_size = file->buffer_size;
         }
     }
 
