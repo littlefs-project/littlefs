@@ -3,7 +3,7 @@ after = 'test_fwrite'
 
 
 # Test multiple readers, this shouldn't really have any issues
-[cases.test_fmulti_rrrr]
+[cases.test_fsync_rrrr]
 defines.R = 4
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -51,7 +51,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_rrrr_fuzz]
+[cases.test_fsync_rrrr_fuzz]
 defines.R = 4
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -108,7 +108,7 @@ code = '''
 '''
 
 # Test one writer, multiple readers
-[cases.test_fmulti_wrrr]
+[cases.test_fsync_wrrr]
 defines.R = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -196,7 +196,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_wrrr_fuzz]
+[cases.test_fsync_wrrr_fuzz]
 defines.R = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -299,7 +299,7 @@ code = '''
 '''
 
 # Test multiple writers
-[cases.test_fmulti_wwww]
+[cases.test_fsync_wwww]
 defines.W = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -382,7 +382,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_wwww_fuzz]
+[cases.test_fsync_wwww_fuzz]
 defines.W = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -474,7 +474,7 @@ code = '''
 '''
 
 # Test multiple writers and multiple readers
-[cases.test_fmulti_wwrr]
+[cases.test_fsync_wwrr]
 defines.W = 4
 defines.R = 4
 # 0 => no sync, readers not updated
@@ -574,7 +574,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_wwrr_fuzz]
+[cases.test_fsync_wwrr_fuzz]
 defines.W = 4
 defines.R = 4
 # 0 => no sync, readers not updated
@@ -689,7 +689,7 @@ code = '''
 '''
 
 # Test multiple rd/wrers
-[cases.test_fmulti_rwrw]
+[cases.test_fsync_rwrw]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -788,7 +788,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_rwrw_fuzz]
+[cases.test_fsync_rwrw_fuzz]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -900,7 +900,7 @@ code = '''
 '''
 
 # Test multiple rw files without fixed size
-[cases.test_fmulti_rwrw_sparse_fuzz]
+[cases.test_fsync_rwrw_sparse_fuzz]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1034,7 +1034,7 @@ code = '''
 '''
 
 # Test multiple rw files while also truncating/fruncating
-[cases.test_fmulti_rwtfrwtf_sparse_fuzz]
+[cases.test_fsync_rwtfrwtf_sparse_fuzz]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1222,7 +1222,7 @@ code = '''
 # Desynced files make things interesting
 
 # Test one desynced writer, multiple readers
-[cases.test_fmulti_drrr]
+[cases.test_fsync_drrr]
 defines.R = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1315,7 +1315,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_drrr_fuzz]
+[cases.test_fsync_drrr_fuzz]
 defines.R = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1423,7 +1423,7 @@ code = '''
 '''
 
 # Test one writer, multiple desynced readers
-[cases.test_fmulti_wddd]
+[cases.test_fsync_wddd]
 defines.R = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1508,7 +1508,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_wddd_fuzz]
+[cases.test_fsync_wddd_fuzz]
 defines.R = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1608,7 +1608,7 @@ code = '''
 '''
 
 # Test multiple desynced rd/wrers
-[cases.test_fmulti_rwdrwd]
+[cases.test_fsync_rwdrwd]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1716,7 +1716,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fmulti_rwdrwd_fuzz]
+[cases.test_fsync_rwdrwd_fuzz]
 defines.RW = 4
 # 0 => no sync, readers not updated
 # 1 => sync via lfsr_file_sync
@@ -1837,7 +1837,7 @@ code = '''
 '''
 
 # Test multiple rwd files without fixed size
-[cases.test_fmulti_rwdrwd_sparse_fuzz]
+[cases.test_fsync_rwdrwd_sparse_fuzz]
 defines.RW = 4
 # 0 => no flush
 # 1 => flush via lfsr_file_flush
@@ -1986,7 +1986,7 @@ code = '''
 '''
 
 # Test multiple rwd files while also truncating/fruncating
-[cases.test_fmulti_rwtfdrwtfd_sparse_fuzz]
+[cases.test_fsync_rwtfdrwtfd_sparse_fuzz]
 defines.RW = 4
 # 0 => no flush
 # 1 => flush via lfsr_file_flush
