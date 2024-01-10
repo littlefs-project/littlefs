@@ -9528,39 +9528,43 @@ static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
         // figure out how much data this commit progs
         lfs_size_t commit_estimate = 0;
         for (lfs_size_t i = 0; i < attr_count; i++) {
-            // only include tag overhead if tag is not a grow tag
-            if (!lfsr_tag_isgrow(attrs[i].tag)) {
+            // only include tag overhead if tag is not a grow/rm tag
+            if (!lfsr_tag_isgrow(attrs[i].tag)
+                    && !lfsr_tag_isrm(attrs[i].tag)) {
                 commit_estimate += LFSR_ATTR_ESTIMATE;
             }
             commit_estimate += lfsr_data_size(&attrs[i].data);
         }
 
-        // avoid some overflow issues here
+        // does our estimate exceed our shrub_size? need to recalculate an
+        // accurate estimate
         lfs_ssize_t estimate = (alloc)
                 ? (lfs_size_t)-1
                 : file->ftree.u.bshrub.estimate;
-        if ((lfs_size_t)estimate <= lfs->cfg->shrub_size) {
-            estimate += commit_estimate;
-        }
-
-        // does our estimate exceed our shrub_size? need to recalculate an
-        // accurate our estimate
-        if ((lfs_size_t)estimate > lfs->cfg->shrub_size) {
+        // this double condition avoids overflow issues
+        if ((lfs_size_t)estimate > lfs->cfg->shrub_size
+                || estimate + commit_estimate > lfs->cfg->shrub_size) {
             estimate = lfsr_file_estimate(lfs, file);
             if (estimate < 0) {
                 return estimate;
             }
 
-            // TODO defer this?
-            // don't forget to include our pending commit
-            estimate += commit_estimate;
-
-            // do we overflow shrub_size/2? the 1/2 here prevents runaway
-            // performance when the shrub is near full
-            if ((lfs_size_t)estimate > lfs->cfg->shrub_size/2) {
+            // two cases where we evict:
+            // - overlow shrub_size/2 - don't penalize for commits here
+            // - overlow shrub_size - must include commits or we risk overflow
+            //
+            // the 1/2 here prevents runaway performance with the shrub is
+            // near full, but it's a heuristic, so including the commit would
+            // just be mean
+            //
+            if ((lfs_size_t)estimate > lfs->cfg->shrub_size/2
+                    || estimate + commit_estimate > lfs->cfg->shrub_size) {
                 goto evict;
             }
         }
+
+        // include our pending commit in the new estimate
+        estimate += commit_estimate;
 
         // commit to shrub
         int err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
