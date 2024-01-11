@@ -9150,9 +9150,6 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     if (!lfsr_o_isrdonly(file->flags)
             && !lfsr_o_isdesync(file->flags)) {
         err = lfsr_file_sync(lfs, file);
-        if (err) {
-            return err;
-        }
     }
 
     // remove from tracked mdirs
