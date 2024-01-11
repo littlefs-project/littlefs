@@ -10520,8 +10520,9 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // underlying file, this means no updating file pos or file size
     //
     // since we need to test for this, just return early
+    lfs_size_t written = 0;
     if (size == 0) {
-        return 0;
+        goto noop;
     }
 
     // checkpoint the allocator
@@ -10548,7 +10549,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     }
 
     const uint8_t *buffer_ = buffer;
-    lfs_size_t written = 0;
     while (size > 0) {
         // bypass buffer?
         //
@@ -10631,6 +10631,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // update our pos
     file->pos = pos;
 
+noop:;
     // flush if requested
     //
     // this seems unreachable, but it's possible if we transition from
@@ -10873,7 +10874,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // do nothing if our size does not change
     lfs_off_t size = lfsr_file_size_(file);
     if (lfsr_file_size_(file) == size_) {
-        return 0;
+        goto noop;
     }
 
     // checkpoint the allocator
@@ -10942,6 +10943,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // mark as unsynced
     file->flags |= LFS_F_UNSYNCED;
 
+noop:;
     // flush if requested
     //
     // this seems unreachable, but it's possible if we transition from
@@ -10978,7 +10980,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // do nothing if our size does not change
     lfs_off_t size = lfsr_file_size_(file);
     if (size == size_) {
-        return 0;
+        goto noop;
     }
 
     // checkpoint the allocator
@@ -11075,6 +11077,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // mark as unsynced
     file->flags |= LFS_F_UNSYNCED;
 
+noop:;
     // flush if requested
     //
     // this seems unreachable, but it's possible if we transition from
