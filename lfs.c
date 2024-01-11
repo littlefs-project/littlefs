@@ -8952,12 +8952,12 @@ static inline bool lfsr_o_isflush(uint32_t flags) {
     return flags & LFS_O_FLUSH;
 }
 
-static inline bool lfsr_f_isunflushed(uint32_t flags) {
-    return flags & LFS_F_UNFLUSHED;
+static inline bool lfsr_f_isunflush(uint32_t flags) {
+    return flags & LFS_F_UNFLUSH;
 }
 
-static inline bool lfsr_f_isunsynced(uint32_t flags) {
-    return flags & LFS_F_UNSYNCED;
+static inline bool lfsr_f_isunsync(uint32_t flags) {
+    return flags & LFS_F_UNSYNC;
 }
 
 static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
@@ -9114,7 +9114,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // small files remain perpetually unflushed
-        file->flags |= LFS_F_UNFLUSHED;
+        file->flags |= LFS_F_UNFLUSH;
         file->buffer_pos = 0;
         file->buffer_size = lfsr_ftree_size(&file->ftree);
         file->ftree = LFSR_FTREE_BNULL();
@@ -10471,7 +10471,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             // note that flush does not change the actual file data, so if
             // a read fails it's ok to fall back to our flushed state
             //
-            if (lfsr_f_isunflushed(file->flags)) {
+            if (lfsr_f_isunflush(file->flags)) {
                 int err = lfsr_file_flush(lfs, file);
                 if (err) {
                     return err;
@@ -10539,7 +10539,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             && pos <= lfs->cfg->cache_size
             && pos <= lfs->cfg->inline_size
             && pos <= lfs->cfg->fragment_size) {
-        LFS_ASSERT(lfsr_f_isunflushed(file->flags));
+        LFS_ASSERT(lfsr_f_isunflush(file->flags));
         LFS_ASSERT(lfsr_file_size_(file) == file->buffer_size);
         memset(&file->buffer[file->buffer_size],
                 0,
@@ -10556,7 +10556,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        if (!lfsr_f_isunflushed(file->flags)
+        if (!lfsr_f_isunflush(file->flags)
                 && size >= lfs->cfg->cache_size) {
             err = lfsr_file_flush_(lfs, file,
                     pos, buffer_, size);
@@ -10591,12 +10591,12 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // 2. Bypassing the buffer above means we only write to the
         //    buffer once, and flush at most twice.
         //
-        if (!lfsr_f_isunflushed(file->flags)
+        if (!lfsr_f_isunflush(file->flags)
                 || (pos >= file->buffer_pos
                     && pos <= file->buffer_pos + file->buffer_size
                     && pos < file->buffer_pos + lfs->cfg->cache_size)) {
             // unused buffer? we can move it where we need it
-            if (!lfsr_f_isunflushed(file->flags)) {
+            if (!lfsr_f_isunflush(file->flags)) {
                 file->buffer_pos = pos;
                 file->buffer_size = 0;
             }
@@ -10609,7 +10609,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     file->buffer_size,
                     pos+d - file->buffer_pos);
 
-            file->flags |= LFS_F_UNFLUSHED;
+            file->flags |= LFS_F_UNFLUSH;
             written += d;
             pos += d;
             buffer_ += d;
@@ -10623,11 +10623,11 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         if (err) {
             goto failed;
         }
-        file->flags &= ~LFS_F_UNFLUSHED;
+        file->flags &= ~LFS_F_UNFLUSH;
     }
 
     // mark as unsynced
-    file->flags |= LFS_F_UNSYNCED;
+    file->flags |= LFS_F_UNSYNC;
     // update our pos
     file->pos = pos;
 
@@ -10661,13 +10661,13 @@ failed:;
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // readonly files should do nothing
     LFS_ASSERT(!lfsr_o_isrdonly(file->flags)
-            || !lfsr_f_isunflushed(file->flags)
+            || !lfsr_f_isunflush(file->flags)
             || (lfsr_file_size_(file) <= lfs->cfg->cache_size
                 && lfsr_file_size_(file) <= lfs->cfg->inline_size
                 && lfsr_file_size_(file) <= lfs->cfg->fragment_size));
 
     // do nothing if our file is already flushed
-    if (!lfsr_f_isunflushed(file->flags)) {
+    if (!lfsr_f_isunflush(file->flags)) {
         return 0;
     }
 
@@ -10687,7 +10687,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     int err;
 
     // flush our buffer if it contains any unwritten data
-    if (lfsr_f_isunflushed(file->flags)
+    if (lfsr_f_isunflush(file->flags)
             && file->buffer_size != 0) {
         // flush
         err = lfsr_file_flush_(lfs, file,
@@ -10698,7 +10698,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as flushed
-    file->flags &= ~LFS_F_UNFLUSHED;
+    file->flags &= ~LFS_F_UNFLUSH;
     return 0;
 
 failed:;
@@ -10733,19 +10733,19 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(!lfsr_ftree_isbsprout(&file->mdir, &file->ftree));
     LFS_ASSERT(!lfsr_ftree_isbptr(&file->mdir, &file->ftree));
     // small files should start as zero, const prop should optimize this out
-    LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
+    LFS_ASSERT(!lfsr_f_isunflush(file->flags)
             || file->buffer_pos == 0);
     // small files/btree should be exclusive here
-    LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
+    LFS_ASSERT(!lfsr_f_isunflush(file->flags)
             || lfsr_ftree_size(&file->ftree) == 0);
     // small files must be inlined entirely in our buffer
-    LFS_ASSERT(!lfsr_f_isunflushed(file->flags)
+    LFS_ASSERT(!lfsr_f_isunflush(file->flags)
             || (file->buffer_size <= lfs->cfg->cache_size
                 && file->buffer_size <= lfs->cfg->inline_size
                 && file->buffer_size <= lfs->cfg->fragment_size));
 
     // don't write to disk if our disk is already in-sync
-    if (lfsr_f_isunsynced(file->flags)) {
+    if (lfsr_f_isunsync(file->flags)) {
         // readonly files should do nothing
         //
         // but readonly files _can_ end up unsynced, in the roundabout
@@ -10767,11 +10767,11 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // commit our file's metadata
         uint8_t buf[LFSR_BTREE_DSIZE];
         err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
-                (lfsr_f_isunflushed(file->flags) && file->buffer_size == 0)
+                (lfsr_f_isunflush(file->flags) && file->buffer_size == 0)
                     ? LFSR_ATTR(file->mdir.mid,
                         WIDE(RM(STRUCT)), 0,
                         NULL())
-                : (lfsr_f_isunflushed(file->flags))
+                : (lfsr_f_isunflush(file->flags))
                     ? LFSR_ATTR(file->mdir.mid,
                         WIDE(DATA), 0,
                         BUF(file->buffer, file->buffer_size))
@@ -10798,15 +10798,15 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 && file_ != file) {
             // mark desynced files an unsynced
             if (lfsr_o_isdesync(file_->flags)) {
-                file_->flags |= LFS_F_UNSYNCED;
+                file_->flags |= LFS_F_UNSYNC;
 
             // update synced files
             } else {
-                file_->flags &= ~LFS_F_UNSYNCED;
-                if (lfsr_f_isunflushed(file->flags)) {
-                    file_->flags |= LFS_F_UNFLUSHED;
+                file_->flags &= ~LFS_F_UNSYNC;
+                if (lfsr_f_isunflush(file->flags)) {
+                    file_->flags |= LFS_F_UNFLUSH;
                 } else {
-                    file_->flags &= ~LFS_F_UNFLUSHED;
+                    file_->flags &= ~LFS_F_UNFLUSH;
                 }
                 file_->ftree = file->ftree;
                 file_->buffer_pos = file->buffer_pos;
@@ -10818,7 +10818,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->flags &= ~LFS_F_UNSYNCED & ~LFS_O_DESYNC;
+    file->flags &= ~LFS_F_UNSYNC & ~LFS_O_DESYNC;
     return 0;
 
 failed:;
@@ -10925,7 +10925,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // small files remain perpetually unflushed
-        file->flags |= LFS_F_UNFLUSHED;
+        file->flags |= LFS_F_UNFLUSH;
         file->buffer_pos = 0;
         file->buffer_size = size_;
         file->ftree = LFSR_FTREE_BNULL();
@@ -10950,7 +10950,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // mark as unsynced
-    file->flags |= LFS_F_UNSYNCED;
+    file->flags |= LFS_F_UNSYNC;
 
     // flush if requested
     //
@@ -11043,7 +11043,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // small files remain perpetually unflushed
-        file->flags |= LFS_F_UNFLUSHED;
+        file->flags |= LFS_F_UNFLUSH;
         file->buffer_pos = 0;
         file->buffer_size = size_;
         file->ftree = LFSR_FTREE_BNULL();
@@ -11083,7 +11083,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // mark as unsynced
-    file->flags |= LFS_F_UNSYNCED;
+    file->flags |= LFS_F_UNSYNC;
 
     // flush if requested
     //
