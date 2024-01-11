@@ -10659,11 +10659,12 @@ failed:;
 }
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
-    // flushing readonly files is not supported
-    //
-    // in theory we could make this a noop, but that would be inconsistent
-    // with lfsr_file_sync
-    LFS_ASSERT(lfsr_o_iswriteable(file->flags));
+    // readonly files should do nothing
+    LFS_ASSERT(lfsr_o_iswriteable(file->flags)
+            || !lfsr_f_isunflushed(file->flags)
+            || (lfsr_file_size_(file) <= lfs->cfg->cache_size
+                && lfsr_file_size_(file) <= lfs->cfg->inline_size
+                && lfsr_file_size_(file) <= lfs->cfg->fragment_size));
 
     // do nothing if our file is already flushed
     if (!lfsr_f_isunflushed(file->flags)) {
@@ -10707,12 +10708,6 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    // syncing readonly files is not supported
-    //
-    // in theory we could make this a noop, but then syncing desynced
-    // readonly files would require disk writes
-    LFS_ASSERT(lfsr_o_iswriteable(file->flags));
-
     // do nothing if our file has been removed
     if (file->mdir.mid == -1) {
         return 0;
@@ -10751,6 +10746,21 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
     // don't write to disk if our disk is already in-sync
     if (lfsr_f_isunsynced(file->flags)) {
+        // readonly files should do nothing
+        //
+        // but readonly files _can_ end up unsynced, in the roundabout
+        // case where:
+        //
+        // 1. a file is opened rdonly + desync
+        // 2. the same file is opened and written to
+        // 3. we try to sync our original file handle
+        //
+        // the best thing we can do in this case is return an error
+        if (!lfsr_o_iswriteable(file->flags)) {
+            err = LFS_ERR_INVAL;
+            goto failed;
+        }
+
         // checkpoint the allocator again
         lfs_alloc_ckpoint(lfs);
 
