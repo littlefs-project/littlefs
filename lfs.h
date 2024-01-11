@@ -123,10 +123,10 @@ enum lfs_type {
 // File open flags
 enum lfs_open_flags {
     // open flags
-    LFS_O_RDONLY = 1,         // Open a file as read only
+    LFS_O_RDONLY = 0,         // Open a file as read only
 #ifndef LFS_READONLY
-    LFS_O_WRONLY = 2,         // Open a file as write only
-    LFS_O_RDWR   = 3,         // Open a file as read and write
+    LFS_O_WRONLY = 1,         // Open a file as write only
+    LFS_O_RDWR   = 2,         // Open a file as read and write
     LFS_O_CREAT  = 0x0004,    // Create a file if it does not exist
     LFS_O_EXCL   = 0x0008,    // Fail if a file already exists
     LFS_O_TRUNC  = 0x0010,    // Truncate the existing file to zero size

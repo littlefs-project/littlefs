@@ -8916,12 +8916,12 @@ static inline lfs_off_t lfsr_ftree_size(const lfsr_ftree_t *ftree) {
 }
 
 // flag things
-static inline bool lfsr_o_isreadable(uint32_t flags) {
-    return (flags & LFS_O_RDONLY) == LFS_O_RDONLY;
+static inline bool lfsr_o_isrdonly(uint32_t flags) {
+    return (flags & 3) == LFS_O_RDONLY;
 }
 
-static inline bool lfsr_o_iswriteable(uint32_t flags) {
-    return (flags & LFS_O_WRONLY) == LFS_O_WRONLY;
+static inline bool lfsr_o_iswronly(uint32_t flags) {
+    return (flags & 3) == LFS_O_WRONLY;
 }
 
 static inline bool lfsr_o_iscreat(uint32_t flags) {
@@ -8975,7 +8975,10 @@ static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg) {
-    if (lfsr_o_iswriteable(flags)) {
+    // don't allow the forbidden mode!
+    LFS_ASSERT((flags & 3) != 3);
+
+    if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
         int err = lfsr_fs_preparemutation(lfs);
         if (err) {
@@ -9008,7 +9011,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
-        LFS_ASSERT(lfsr_o_iswriteable(flags));
+        LFS_ASSERT(!lfsr_o_isrdonly(flags));
 
         // check that name fits
         if (name_size > lfs->name_limit) {
@@ -9144,7 +9147,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     // don't call lfsr_file_sync if we're readonly or desynced
     int err = 0;
-    if (lfsr_o_iswriteable(file->flags)
+    if (!lfsr_o_isrdonly(file->flags)
             && !lfsr_o_isdesync(file->flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
@@ -10418,7 +10421,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
     // can't read from writeonly files
-    LFS_ASSERT(lfsr_o_isreadable(file->flags));
+    LFS_ASSERT(!lfsr_o_iswronly(file->flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
     lfs_off_t pos_ = file->pos;
@@ -10509,7 +10512,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
     // can't write to readonly files
-    LFS_ASSERT(lfsr_o_iswriteable(file->flags));
+    LFS_ASSERT(!lfsr_o_isrdonly(file->flags));
 
     // would this write make our file larger than our size limit?
     if (size > lfs->size_limit - file->pos) {
@@ -10660,7 +10663,7 @@ failed:;
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // readonly files should do nothing
-    LFS_ASSERT(lfsr_o_iswriteable(file->flags)
+    LFS_ASSERT(!lfsr_o_isrdonly(file->flags)
             || !lfsr_f_isunflushed(file->flags)
             || (lfsr_file_size_(file) <= lfs->cfg->cache_size
                 && lfsr_file_size_(file) <= lfs->cfg->inline_size
@@ -10756,7 +10759,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // 3. we try to sync our original file handle
         //
         // the best thing we can do in this case is return an error
-        if (!lfsr_o_iswriteable(file->flags)) {
+        if (lfsr_o_isrdonly(file->flags)) {
             err = LFS_ERR_INVAL;
             goto failed;
         }
