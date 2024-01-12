@@ -617,6 +617,7 @@ enum lfsr_tag {
     LFSR_TAG_NAME           = 0x0200,
     LFSR_TAG_REG            = 0x0201,
     LFSR_TAG_DIR            = 0x0202,
+    LFSR_TAG_SCRATCH        = 0x0203,
     LFSR_TAG_BOOKMARK       = 0x0204,
 
     // struct tags
@@ -6939,6 +6940,11 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             return LFS_ERR_NOENT;
         }
 
+        // pretend scratch files don't exist
+        if (tag == LFSR_TAG_SCRATCH) {
+            return LFS_ERR_NOENT;
+        }
+
         // go on to next name
         name += name_size;
 next:;
@@ -7759,9 +7765,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // traverse the mtree rooted at mroot 0x{1,0}
     //
-    // note that lfsr_traversal_next will update our mroot/mtree
-    // based on what mroots it finds
-    //
     // we do validate btree inner nodes here, how can we trust our
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
@@ -7796,23 +7799,33 @@ static int lfsr_mountinited(lfs_t *lfs) {
                             *lfsr_mdir_mptr(&tinfo.u.mdir),
                             lfsr_mweight(lfs));
                 }
-
-                // found an empty non-mroot mdir? this should only happen
-                // if we lost power
-                if (tinfo.u.mdir.rbyd.weight == 0) {
-                    LFS_DEBUG("Found orphaned mdir %"PRId32" "
-                            "0x{%"PRIx32",%"PRIx32"}",
-                            tinfo.u.mdir.mid >> lfs->mbits,
-                            tinfo.u.mdir.rbyd.blocks[0],
-                            tinfo.u.mdir.rbyd.blocks[1]);
-                    lfs->hasorphans = true;
-                }
             }
 
             // collect any gdeltas from this mdir
             err = lfsr_fs_consumegdelta(lfs, &tinfo.u.mdir);
             if (err) {
                 return err;
+            }
+
+            // check for any scratch files
+            for (lfs_size_t i = 0;
+                    i < (lfs_size_t)tinfo.u.mdir.rbyd.weight;
+                    i++) {
+                err = lfsr_mdir_lookup(lfs, &tinfo.u.mdir,
+                        i, LFSR_TAG_SCRATCH,
+                        NULL);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                // found a scratch file? these must be orphaned
+                if (err != LFS_ERR_NOENT) {
+                    LFS_DEBUG("Found orphaned scratch file "
+                            "%"PRId32".%"PRId32,
+                            lfsr_mid_bid(lfs, tinfo.u.mdir.mid) >> lfs->mbits,
+                            i);
+                    lfs->hasorphans = true;
+                }
             }
 
         // found an mtree inner-node?
@@ -8157,44 +8170,54 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
 }
 
 static int lfsr_fs_fixorphans(lfs_t *lfs) {
-    // traverse the filesystem and drop any orphaned mdirs
+    // traverse the filesystem and remove any orphaned scratch files
     //
     // note this never takes longer than lfsr_mount
     //
-    lfsr_traversal_t traversal = LFSR_TRAVERSAL(0);
+    lfsr_mdir_t mdir;
+    int err = lfsr_mtree_lookup(lfs, 0, &mdir);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
+    }
+
     while (true) {
-        lfsr_tinfo_t tinfo;
-        int err = lfsr_traversal_read(lfs, &traversal, &tinfo);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
+        // are we a scratch file?
+        err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_SCRATCH,
+                NULL);
+        if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        // found an orphaned mdir? drop
-        if (tinfo.tag == LFSR_TAG_MDIR
-                && tinfo.u.mdir.mid != -1
-                && tinfo.u.mdir.rbyd.weight == 0) {
-            err = lfsr_mdir_drop(lfs, &tinfo.u.mdir);
+        if (err != LFS_ERR_NOENT) {
+            // remove scratch file
+            err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+                    LFSR_ATTR(mdir.mid, RM, -1, NULL())));
             if (err) {
                 return err;
             }
 
-            // TODO should we have a function for this?
-            // TODO should traversals be "opened" and updated by
-            // lfsr_mdir_commit/drop?
-            //
-            // dropping an orphan changes our mtree, we need to partially
-            // invalidate out traversal
-            LFS_ASSERT(traversal.state == LFSR_TRAVERSAL_MDIR);
-            traversal.state = LFSR_TRAVERSAL_MDIR;
-            traversal.u.mtraversal.bid -= lfsr_mweight(lfs);
-            traversal.u.mtraversal.rid = traversal.u.mtraversal.bid;
-            traversal.u.mtraversal.branch = lfs->mtree.u.btree;
+            // seek in case our mdir was dropped
+            err = lfsr_mtree_seek(lfs, &mdir, 0);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
+        } else {
+            // lookup next entry
+            err = lfsr_mtree_seek(lfs, &mdir, 1);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
         }
     }
 
+    lfs->hasorphans = false;
     return 0;
 }
 
@@ -8218,14 +8241,13 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
         lfs_alloc_ckpoint(lfs);
     }
 
-    // fix orphaned mdirs
+    // fix orphaned scratch files
     //
-    // this must happen after fixgrm, since dropping mdirs risks outdating
-    // the grm, fixgrm can also create temporary orphans, but it should
-    // immediately clean them up
+    // this must happen after fixgrm, since removing scratch files risks
+    // outdating the grm
     //
     if (lfs->hasorphans) {
-        LFS_DEBUG("Fixing orphaned mdirs...");
+        LFS_DEBUG("Fixing orphaned scratch files...");
         pl = true;
 
         int err = lfsr_fs_fixorphans(lfs);
@@ -8608,36 +8630,16 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     return lfsr_fs_fixgrm(lfs);
 }
 
-// common stat function once we have an mdir
-static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
-        lfsr_sdid_t did, struct lfs_info *info) {
-    // lookup our name tag
-    lfsr_tag_t tag;
-    lfsr_data_t data;
-    int err = lfsr_mdir_lookupwide(lfs, mdir, mid, LFSR_TAG_NAME,
-            &tag, &data);
-    if (err) {
-        return err;
-    }
-
-    // get our did
-    lfsr_did_t did_;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did_);
-    if (err) {
-        return err;
-    }
-
-    // did mismatch? this terminates dir reads
-    if (did != -1 && did_ != (lfsr_did_t)did) {
-        return LFS_ERR_NOENT;
-    }
-
+// this just populates the info struct based on what we found
+static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfsr_tag_t tag, lfsr_data_t name,
+        struct lfs_info *info) {
     // get file type from the tag
     info->type = lfsr_tag_subtype(tag);
 
-    // get file name from the name entry
-    LFS_ASSERT(lfsr_data_size(&data) <= LFS_NAME_MAX);
-    lfs_ssize_t name_size = lfsr_data_read(lfs, &data,
+    // read the file name
+    LFS_ASSERT(lfsr_data_size(&name) <= LFS_NAME_MAX);
+    lfs_ssize_t name_size = lfsr_data_read(lfs, &name,
             info->name, LFS_NAME_MAX);
     if (name_size < 0) {
         return name_size;
@@ -8651,7 +8653,7 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
         // inlined?
         lfsr_tag_t tag;
         lfsr_data_t data;
-        err = lfsr_mdir_lookupnext(lfs, mdir, mid, LFSR_TAG_DATA,
+        int err = lfsr_mdir_lookupnext(lfs, mdir, mdir->mid, LFSR_TAG_DATA,
                 &tag, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -8697,7 +8699,9 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     }
 
     // fill out our info struct
-    return lfsr_mdir_stat(lfs, &mdir, mdir.mid, -1, info);
+    return lfsr_stat_(lfs, &mdir,
+            tag, LFSR_DATA_BUF(name, name_size),
+            info);
 }
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
@@ -8779,22 +8783,50 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return err;
     }
 
-    // fill out our info struct
-    //
-    // this will return LFS_ERR_NOENT if our dids mismatch
-    err = lfsr_mdir_stat(lfs, &dir->mdir, dir->mdir.mid, dir->did, info);
-    if (err) {
-        return err;
-    }
+    while (true) {
+        // lookup the next name tag
+        lfsr_tag_t tag;
+        lfsr_data_t data;
+        err = lfsr_mdir_lookupwide(lfs, &dir->mdir,
+                dir->mdir.mid, LFSR_TAG_NAME,
+                &tag, &data);
+        if (err) {
+            return err;
+        }
 
-    // eagerly look up the next entry
-    err = lfsr_mtree_seek(lfs, &dir->mdir, 1);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    dir->pos += 1;
+        // get the did
+        lfsr_did_t did;
+        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did);
+        if (err) {
+            return err;
+        }
 
-    return 0;
+        // did mismatch? this terminates the dir read
+        if (did != dir->did) {
+            return LFS_ERR_NOENT;
+        }
+
+        // skip scratch files, we pretend these don't exist
+        if (tag != LFSR_TAG_SCRATCH) {
+            // fill out our info struct
+            err = lfsr_stat_(lfs, &dir->mdir, tag, data,
+                    info);
+            if (err) {
+                return err;
+            }
+        }
+
+        // eagerly look up the next entry
+        err = lfsr_mtree_seek(lfs, &dir->mdir, 1);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        dir->pos += 1;
+
+        if (tag != LFSR_TAG_SCRATCH) {
+            return 0;
+        }
+    }
 }
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
@@ -8960,6 +8992,10 @@ static inline bool lfsr_f_isunsync(uint32_t flags) {
     return flags & LFS_F_UNSYNC;
 }
 
+static inline bool lfsr_f_isuncreat(uint32_t flags) {
+    return flags & LFS_F_UNCREAT;
+}
+
 static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
     return lfs_max32(
             file->buffer_pos + file->buffer_size,
@@ -8977,6 +9013,15 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const struct lfs_file_config *cfg) {
     // don't allow the forbidden mode!
     LFS_ASSERT((flags & 3) != 3);
+    // these flags require a writable file
+    LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_iscreat(flags));
+    LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isexcl(flags));
+    LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_istrunc(flags));
+    LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isappend(flags));
+    // these flags are internal and shouldn't be provided by the user
+    LFS_ASSERT(!lfsr_f_isunflush(flags));
+    LFS_ASSERT(!lfsr_f_isunsync(flags));
+    LFS_ASSERT(!lfsr_f_isuncreat(flags));
 
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -9018,20 +9063,17 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return LFS_ERR_NAMETOOLONG;
         }
 
-        // create our entry
-        //
-        // note this risks creating a zero-length file if we lose power here,
-        // but it's the only way for us to save the file name.
-        //
-        // TODO or is it? ;)
+        // create a scratch entry, this reserves the mid until first sync
         err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
                 LFSR_ATTR(file->mdir.mid,
-                    REG, +1, CAT(
+                    SCRATCH, +1, CAT(
                         LFSR_DATA_LEB128(did),
                         LFSR_DATA_BUF(name, name_size)))));
         if (err) {
             return err;
         }
+        file->flags |= LFS_F_UNSYNC | LFS_F_UNCREAT;
+
     } else {
         if (lfsr_o_isexcl(flags)) {
             // oh, we really wanted to create a new entry
@@ -10765,23 +10807,59 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         lfs_alloc_ckpoint(lfs);
 
         // commit our file's metadata
+        lfsr_attr_t attrs[2];
+        lfs_size_t attr_count = 0;
         uint8_t buf[LFSR_BTREE_DSIZE];
-        err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
-                (lfsr_f_isunflush(file->flags) && file->buffer_size == 0)
-                    ? LFSR_ATTR(file->mdir.mid,
-                        WIDE(RM(STRUCT)), 0,
-                        NULL())
-                : (lfsr_f_isunflush(file->flags))
-                    ? LFSR_ATTR(file->mdir.mid,
-                        WIDE(DATA), 0,
-                        BUF(file->buffer, file->buffer_size))
-                : (lfsr_ftree_isbshrub(&file->mdir, &file->ftree))
-                    ? LFSR_ATTR(file->mdir.mid,
-                        WIDE(SHRUBTRUNK), 0,
-                        SHRUBTRUNK(&file->ftree_.u.bshrub))
-                    : LFSR_ATTR(file->mdir.mid,
-                        WIDE(BTREE), 0,
-                        FROMBTREE(&file->ftree.u.btree, buf))));
+        lfs_size_t buf_size = 0;
+
+        // not created yet? need to convert scratch file to normal file
+        if (lfsr_f_isuncreat(file->flags)) {
+            lfsr_data_t data;
+            err = lfsr_mdir_lookup(lfs, &file->mdir,
+                    file->mdir.mid, LFSR_TAG_SCRATCH,
+                    &data);
+            if (err) {
+                // we must have a scratch file at this point
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                goto failed;
+            }
+
+            attrs[attr_count++] = LFSR_ATTR(file->mdir.mid,
+                    WIDE(REG), 0, DATA(data));
+        }
+
+        // commit the file state
+
+        // null? no attr?
+        if (lfsr_f_isunflush(file->flags) && file->buffer_size == 0) {
+            attrs[attr_count++] = LFSR_ATTR(file->mdir.mid,
+                    WIDE(RM(STRUCT)), 0,
+                    NULL());
+        // small file inlined in mdir?
+        } else if (lfsr_f_isunflush(file->flags)) {
+            attrs[attr_count++] = LFSR_ATTR(file->mdir.mid,
+                    WIDE(DATA), 0,
+                    BUF(file->buffer, file->buffer_size));
+        // bshrub?
+        } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)) {
+            attrs[attr_count++] = LFSR_ATTR(file->mdir.mid,
+                    WIDE(SHRUBTRUNK), 0,
+                    SHRUBTRUNK(&file->ftree_.u.bshrub));
+        // btree?
+        } else if (lfsr_ftree_isbtree(&file->mdir, &file->ftree)) {
+            attrs[attr_count++] = LFSR_ATTR(file->mdir.mid,
+                    WIDE(BTREE), 0,
+                    FROMBTREE(&file->ftree.u.btree, &buf[buf_size]));
+            buf_size += LFSR_BTREE_DSIZE;
+        } else {
+            LFS_UNREACHABLE();
+        }
+
+        LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
+        LFS_ASSERT(buf_size <= sizeof(buf));
+
+        err = lfsr_mdir_commit(lfs, &file->mdir,
+                attrs, attr_count);
         if (err) {
             goto failed;
         }
@@ -10796,6 +10874,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 && file_->mdir.mid == file->mdir.mid
                 // don't double update
                 && file_ != file) {
+            // notify all files of creation
+            file_->flags &= ~LFS_F_UNCREAT;
+
             // mark desynced files an unsynced
             if (lfsr_o_isdesync(file_->flags)) {
                 file_->flags |= LFS_F_UNSYNC;
@@ -10818,7 +10899,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->flags &= ~LFS_F_UNSYNC & ~LFS_O_DESYNC;
+    file->flags &= ~LFS_F_UNSYNC & ~LFS_F_UNCREAT & ~LFS_O_DESYNC;
     return 0;
 
 failed:;

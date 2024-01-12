@@ -1,0 +1,341 @@
+# Test scratch files and their various use cases
+after = 'test_fwrite'
+
+
+# Some specific tests
+[cases.test_fscratch_create]
+defines.SIZE = '4*BLOCK_SIZE'
+defines.CHUNK = 64
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // check that the file doesn't _really_ exist
+    lfs_t lfs_;
+    lfsr_mount(&lfs_, CFG) => 0;
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs_, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir_;
+    lfsr_dir_open(&lfs_, &dir_, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir_) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_unmount(&lfs_) => 0;
+
+    // write to the file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // check that the file still doesn't _really_ exist
+        lfsr_mount(&lfs_, CFG) => 0;
+        // via stat
+        lfsr_stat(&lfs_, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_open(&lfs_, &dir_, "/") => 0;
+        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs_, &dir_) => 0;
+        // via open
+        lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_unmount(&lfs_) => 0;
+    }
+    
+    if (SYNC) {
+        // sync the file
+        lfsr_file_sync(&lfs, &file) => 0;
+
+        // now it should show up
+        lfsr_mount(&lfs_, CFG) => 0;
+        // via stat
+        lfsr_stat(&lfs_, "gello", &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_open(&lfs_, &dir_, "/") => 0;
+        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs_, &dir_) => 0;
+        // via open
+        lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
+        uint32_t prng_ = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs_, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs_, &file_) => 0;
+        lfsr_unmount(&lfs_) => 0;
+    }
+
+    // close the file
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // now it should show up
+    lfsr_mount(&lfs_, CFG) => 0;
+    // via stat
+    lfsr_stat(&lfs_, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs_, &dir_, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir_) => 0;
+    // via open
+    lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint32_t prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs_, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs_, &file_) => 0;
+    lfsr_unmount(&lfs_) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+
+    // should still be there
+    lfsr_mount(&lfs_, CFG) => 0;
+    // via stat
+    lfsr_stat(&lfs_, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs_, &dir_, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir_) => 0;
+    // via open
+    lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs_, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs_, &file_) => 0;
+    lfsr_unmount(&lfs_) => 0;
+'''
+
+[cases.test_fscratch_create_pl]
+defines.SIZE = 'BLOCK_SIZE'
+defines.CHUNK = 64
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, CFG);
+    if (err) {
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // create a file
+    //
+    // note the excl flag
+    lfsr_file_t file;
+    err = lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
+    assert(!err || err == LFS_ERR_EXIST);
+
+    if (err != LFS_ERR_EXIST) {
+        // write to the file
+        uint32_t prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+        }
+        
+        // close the file
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // we should be able to read the file now
+    lfsr_file_open(&lfs, &file, "gello", LFS_O_RDONLY) => 0;
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // and after remounting
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    lfsr_file_open(&lfs, &file, "gello", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_create_many_pl]
+defines.SIZE = 64
+defines.CHUNK = 8
+defines.N = 128
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, CFG);
+    if (err) {
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // create N files
+    for (lfs_size_t j = 0; j < N; j++) {
+        // note the excl flag
+        char name[256];
+        sprintf(name, "gello%03x", j);
+        lfsr_file_t file;
+        err = lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
+        assert(!err || err == LFS_ERR_EXIST);
+
+        if (err != LFS_ERR_EXIST) {
+            // write to the file
+            uint32_t prng = 42 + j;
+            for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+                uint8_t wbuf[CHUNK];
+                for (lfs_size_t j = 0; j < CHUNK; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+                lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+            }
+            
+            // close the file
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    // we should be able to read the files now
+    for (lfs_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "gello%03x", j);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        uint32_t prng = 42 + j;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // and after remounting
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    for (lfs_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "gello%03x", j);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        uint32_t prng = 42 + j;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''

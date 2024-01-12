@@ -139,6 +139,7 @@ enum lfs_open_flags {
     // internally used flags
     LFS_F_UNFLUSH   = 0x1000,   // File's data does not match storage
     LFS_F_UNSYNC    = 0x2000,   // File's metadata does not match storage
+    LFS_F_UNCREAT   = 0x4000,   // File does not exist yet
 };
 
 // File seek flags

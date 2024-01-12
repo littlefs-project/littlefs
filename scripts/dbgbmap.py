@@ -26,6 +26,7 @@ TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
 TAG_REG             = 0x0201
 TAG_DIR             = 0x0202
+TAG_SCRATCH         = 0x0203
 TAG_BOOKMARK        = 0x0204
 TAG_STRUCT          = 0x0300
 TAG_DATA            = 0x0300
