@@ -1,5 +1,5 @@
 # Test scratch files and their various use cases
-after = 'test_fwrite'
+after = ['test_fwrite', 'test_fsync']
 
 
 # Some specific tests
@@ -24,16 +24,16 @@ code = '''
     struct lfs_info info;
     lfsr_stat(&lfs_, "gello", &info) => LFS_ERR_NOENT;
     // via readdir
-    lfsr_dir_t dir_;
-    lfsr_dir_open(&lfs_, &dir_, "/") => 0;
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs_, &dir, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs_, &dir_) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir) => 0;
     // via open
     lfsr_file_t file_;
     lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
@@ -53,15 +53,15 @@ code = '''
         // via stat
         lfsr_stat(&lfs_, "gello", &info) => LFS_ERR_NOENT;
         // via readdir
-        lfsr_dir_open(&lfs_, &dir_, "/") => 0;
-        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        lfsr_dir_open(&lfs_, &dir, "/") => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
-        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
-        lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs_, &dir_) => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs_, &dir) => 0;
         // via open
         lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
         lfsr_unmount(&lfs_) => 0;
@@ -79,19 +79,19 @@ code = '''
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
-        lfsr_dir_open(&lfs_, &dir_, "/") => 0;
-        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        lfsr_dir_open(&lfs_, &dir, "/") => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
-        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
-        lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
         assert(strcmp(info.name, "gello") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
-        lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs_, &dir_) => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs_, &dir) => 0;
         // via open
         lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
         uint32_t prng_ = 42;
@@ -119,19 +119,19 @@ code = '''
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
-    lfsr_dir_open(&lfs_, &dir_, "/") => 0;
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_open(&lfs_, &dir, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, "gello") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs_, &dir_) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir) => 0;
     // via open
     lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
     uint32_t prng_ = 42;
@@ -157,19 +157,19 @@ code = '''
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
-    lfsr_dir_open(&lfs_, &dir_, "/") => 0;
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_open(&lfs_, &dir, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs_, &dir_, &info) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
     assert(strcmp(info.name, "gello") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_dir_read(&lfs_, &dir_, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs_, &dir_) => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir) => 0;
     // via open
     lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
     prng_ = 42;
@@ -337,5 +337,653 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
     }
 
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_create_sync_wr]
+defines.SIZE = '4*BLOCK_SIZE'
+defines.CHUNK = 64
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // as far as the filesystem is concerned, the file does not exist yet
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // write to the file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    // but we should still recieve sync broadcasts on sync/close
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    if (SYNC) {
+        // sync the file
+        lfsr_file_sync(&lfs, &file) => 0;
+
+        // now it should show up
+        // via stat
+        lfsr_stat(&lfs, "gello", &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        uint32_t prng_ = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file__) => 0;
+        prng_ = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file__, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // close the file
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // now it should show up
+    // via stat
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint32_t prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file__) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file__, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_create_sync_rw]
+defines.SIZE = '4*BLOCK_SIZE'
+defines.CHUNK = 64
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // open a second reference
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // as far as the filesystem is concerned, the file does not exist yet
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // write to the second file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    if (SYNC) {
+        // sync the second file
+        lfsr_file_sync(&lfs, &file__) => 0;
+
+        // now it should show up
+        // via stat
+        lfsr_stat(&lfs, "gello", &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        uint32_t prng_ = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file) => 0;
+        prng_ = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // close the second file
+    lfsr_file_close(&lfs, &file__) => 0;
+
+    // now it should show up
+    // via stat
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint32_t prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_create_desync_wdwr]
+defines.SIZE = '4*BLOCK_SIZE'
+defines.CHUNK = 64
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a desync file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    // open a second reference
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // and a third for checking sync broadcasts
+    lfsr_file_t file___;
+    lfsr_file_open(&lfs, &file___, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // write to the first file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    // write to the second file
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    if (SYNC) {
+        // sync the second file
+        lfsr_file_sync(&lfs, &file__) => 0;
+
+        // now it should show up
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        uint32_t prng_ = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file___) => 0;
+        prng_ = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // close the second file
+    lfsr_file_close(&lfs, &file__) => 0;
+
+    // now it should show up
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint32_t prng_ = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng_ = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    // now sync the first file, this should overwrite what is written
+    lfsr_file_sync(&lfs, &file) => 0;
+
+    // now it should show up
+    // via stat
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    // and close, this shouldn't change anything
+    //
+    // note we must sync to clear the desync flag
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // via stat
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng_ = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file___) => 0;
     lfsr_unmount(&lfs) => 0;
 '''

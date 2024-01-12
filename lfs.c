@@ -5081,22 +5081,29 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
 static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_smid_t mid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    lfsr_smid_t mid_;
+    lfsr_srid_t rid__;
     lfsr_tag_t tag__;
     int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
             lfsr_mid_rid(lfs, mid), tag,
-            &mid_, &tag__, NULL, data_);
+            &rid__, &tag__, NULL, data_);
     if (err) {
         return err;
     }
 
     // this is very similar to lfsr_rbyd_lookupnext, but we error if
     // lookupnext would change mids
-    if (mid_ != lfsr_mid_rid(lfs, mid)) {
+    if (rid__ != lfsr_mid_rid(lfs, mid)) {
         return LFS_ERR_NOENT;
     }
 
     if (tag_) {
+        // intercept pending grms here and pretend they're scratch files
+        //
+        // fortunately pending gmrs/scratch files have roughly the same
+        // semantics, and it's easier to manage the implied mid gap in
+        // higher-levels
+        // TODO
+
         *tag_ = tag__;
     }
     return 0;
@@ -6940,11 +6947,6 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             return LFS_ERR_NOENT;
         }
 
-        // pretend scratch files don't exist
-        if (tag == LFSR_TAG_SCRATCH) {
-            return LFS_ERR_NOENT;
-        }
-
         // go on to next name
         name += name_size;
 next:;
@@ -8691,6 +8693,11 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
         return err;
     }
 
+    // pretend scratch files don't exist
+    if (tag == LFSR_TAG_SCRATCH) {
+        return LFS_ERR_NOENT;
+    }
+
     // special case for root
     if (lfsr_mdir_isroot(&mdir)) {
         strcpy(info->name, "/");
@@ -8717,7 +8724,11 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
 
     // are we a directory?
     if (tag != LFSR_TAG_DIR) {
-        return LFS_ERR_NOTDIR;
+        if (tag == LFSR_TAG_SCRATCH) {
+            return LFS_ERR_NOENT;
+        } else {
+            return LFS_ERR_NOTDIR;
+        }
     }
 
     // setup dir state
@@ -9052,7 +9063,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // creating a new entry?
-    if (err == LFS_ERR_NOENT) {
+    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_SCRATCH) {
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
@@ -9063,15 +9074,24 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return LFS_ERR_NAMETOOLONG;
         }
 
-        // create a scratch entry, this reserves the mid until first sync
-        err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
-                LFSR_ATTR(file->mdir.mid,
-                    SCRATCH, +1, CAT(
-                        LFSR_DATA_LEB128(did),
-                        LFSR_DATA_BUF(name, name_size)))));
-        if (err) {
-            return err;
+        // create a scratch entry if we don't have one, this reserves the
+        // mid until first sync
+        //
+        // note because of the preparemutation call above, there can be
+        // no orphaned scratch files at this point
+        if (err == LFS_ERR_NOENT) {
+            err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
+                    LFSR_ATTR(file->mdir.mid,
+                        SCRATCH, +1, CAT(
+                            LFSR_DATA_LEB128(did),
+                            LFSR_DATA_BUF(name, name_size)))));
+            if (err) {
+                return err;
+            }
         }
+
+        // mark as unsync and uncreat, we need to convert to reg file
+        // first sync
         file->flags |= LFS_F_UNSYNC | LFS_F_UNCREAT;
 
     } else {
