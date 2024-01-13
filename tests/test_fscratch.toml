@@ -987,3 +987,761 @@ code = '''
     lfsr_file_close(&lfs, &file___) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
+
+[cases.test_fscratch_orphan]
+defines.SIZE = '4*BLOCK_SIZE'
+defines.CHUNK = 64
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a desync file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+
+    // write to the file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    // close
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // because the file was desynced, it should still not exist
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // even after a remount
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // because the file was desynced, it should still not exist
+    // via stat
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_orphan_wdwr]
+defines.SIZE = '4*BLOCK_SIZE'
+defines.CHUNK = 64
+# 1 => sync before orphaning
+# 2 => sync after orphaning
+defines.SYNC = [0, 1, 2, 3]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a desync file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    // open a second reference
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // and a third for checking sync broadcasts
+    lfsr_file_t file___;
+    lfsr_file_open(&lfs, &file___, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // write to the first file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    // write to the second file
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    if (SYNC & 0x1) {
+        // sync the second file
+        lfsr_file_sync(&lfs, &file__) => 0;
+
+        // now it should show up
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        uint32_t prng_ = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file___) => 0;
+        prng_ = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // close the first file, this should do nothing but discard the
+    // file contents
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (SYNC & 0x2) {
+        // sync the second file
+        lfsr_file_sync(&lfs, &file__) => 0;
+
+        // now it should show up
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "gello", &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "gello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        uint32_t prng_ = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file___) => 0;
+        prng_ = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // close the second file
+    lfsr_file_close(&lfs, &file__) => 0;
+
+    // now it should show up
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint32_t prng_ = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng_ = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file___) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_orphan_open]
+defines.ORPHANS = [1, 2, 3, 100]
+# 0 => don't remount
+# 1 => remount after write
+# 2 => remount before write
+defines.REMOUNT = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create neighboring orphaned files
+    //
+    // more orphans requires different techniques for cleaning up orphans
+    lfsr_file_t orphans[ORPHANS-1];
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        char name[256];
+        sprintf(name, "fello%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfsr_file_write(&lfs, &orphans[i],
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+
+    // create an orphaned file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &file,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // close all orphans at once, or else the open calls would just
+    // clean up each orphans
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // create a new file over the orphan
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
+            => strlen("hello!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hello!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hello!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
+    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_orphan_mkdir]
+defines.ORPHANS = [1, 2, 3, 100]
+# 0 => don't remount
+# 1 => remount after write
+# 2 => remount before write
+defines.REMOUNT = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create neighboring orphaned files
+    //
+    // more orphans requires different techniques for cleaning up orphans
+    lfsr_file_t orphans[ORPHANS-1];
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        char name[256];
+        sprintf(name, "fello%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfsr_file_write(&lfs, &orphans[i],
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+
+    // create an orphaned file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &file,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // close all orphans at once, or else the open calls would just
+    // clean up each orphans
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // create a new dir over the orphan
+    lfsr_mkdir(&lfs, "gello") => 0;
+
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // make sure the new dir is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_orphan_remove]
+defines.ORPHANS = [1, 2, 3, 100]
+# 0 => don't remount
+# 1 => remount after write
+# 2 => remount before write
+defines.REMOUNT = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create neighboring orphaned files
+    //
+    // more orphans requires different techniques for cleaning up orphans
+    lfsr_file_t orphans[ORPHANS-1];
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        char name[256];
+        sprintf(name, "fello%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfsr_file_write(&lfs, &orphans[i],
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+
+    // create an orphaned file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &file,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // close all orphans at once, or else the open calls would just
+    // clean up each orphans
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // orphans aren't real, so remove should fail
+    lfsr_remove(&lfs, "gello") => LFS_ERR_NOENT;
+
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // just make sure things look ok
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_orphan_rename_dst]
+defines.ORPHANS = [1, 2, 3, 100]
+# 0 => don't remount
+# 1 => remount after write
+# 2 => remount before write
+defines.REMOUNT = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // make our src file before orphans, otherwise open just cleans
+    // things up
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
+            => strlen("hello!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // create neighboring orphaned files
+    //
+    // more orphans requires different techniques for cleaning up orphans
+    lfsr_file_t orphans[ORPHANS-1];
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        char name[256];
+        sprintf(name, "fello%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfsr_file_write(&lfs, &orphans[i],
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+
+    // create an orphaned file
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &file,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // close all orphans at once, or else the open calls would just
+    // clean up each orphans
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // rename onto orphan
+    lfsr_rename(&lfs, "hello", "gello") => 0;
+
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hello!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hello!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
+    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fscratch_orphan_rename_src]
+defines.ORPHANS = [1, 2, 3, 100]
+# 0 => don't remount
+# 1 => remount after write
+# 2 => remount before write
+defines.REMOUNT = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create neighboring orphaned files
+    //
+    // more orphans requires different techniques for cleaning up orphans
+    lfsr_file_t orphans[ORPHANS-1];
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        char name[256];
+        sprintf(name, "fello%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfsr_file_write(&lfs, &orphans[i],
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+
+    // create an orphaned file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &file,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // close all orphans at once, or else the open calls would just
+    // clean up each orphans
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // orphans aren't real, so rename should fail
+    lfsr_rename(&lfs, "gello", "hello") => LFS_ERR_NOENT;
+
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // just make sure things look ok
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''

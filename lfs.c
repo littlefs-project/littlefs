@@ -6163,7 +6163,7 @@ static int lfsr_mtree_commit(lfs_t *lfs,
 //
 // this is atomic updates any opened mdirs, lfs_t, gstate, etc
 //
-static int lfsr_mdir_drop(lfs_t *lfs, const lfsr_mdir_t *mdir) {
+static int lfsr_mdir_drop(lfs_t *lfs, lfsr_mdir_t *mdir) {
     // mdir should be empty at this point
     LFS_ASSERT(mdir->rbyd.weight == 0);
     // yeah, you really shouldn't try to drop the mroot
@@ -6237,18 +6237,21 @@ static int lfsr_mdir_drop(lfs_t *lfs, const lfsr_mdir_t *mdir) {
             opened;
             opened = opened->next) {
         // update mids
-        if (opened->mdir.mid > mdir->mid) {
+        if (opened->mdir.mid >= mdir->mid) {
             opened->mdir.mid -= lfsr_mweight(lfs);
         }
 
         // update directory bookmarks
         if (opened->type == LFS_TYPE_DIR) {
             lfsr_dir_t *dir = (lfsr_dir_t*)opened;
-            if (dir->bookmark > mdir->mid) {
+            if (dir->bookmark >= mdir->mid) {
                 dir->bookmark -= lfsr_mweight(lfs);
             }
         }
     }
+
+    // update our mdir, in case we're using it as an iterator
+    mdir->mid -= lfsr_mweight(lfs);
 
     return 0;
 }
@@ -6554,6 +6557,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // gstate must have been committed by a lower-level function at this point
     LFS_ASSERT(lfsr_grm_iszero(lfs->grm_d));
 
+    // TODO merge with attr updates below?
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // update any gstate
         if (attrs[i].tag == LFSR_TAG_GRM) {
@@ -6688,9 +6692,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // We handle drops differently than splits/relocates, since these updates
     // become visible as soon as the commit completes.
     //
-    if (lfsr_mdir_cmp(&mdir_, &lfs->mroot) != 0
-            && mdir_.rbyd.weight == 0) {
-        err = lfsr_mdir_drop(lfs, &mdir_);
+    if (lfsr_mdir_cmp(mdir, &lfs->mroot) != 0
+            && mdir->rbyd.weight == 0) {
+        err = lfsr_mdir_drop(lfs, mdir);
         if (err) {
             lfs->hasorphans = true;
             return err;
@@ -7810,11 +7814,11 @@ static int lfsr_mountinited(lfs_t *lfs) {
             }
 
             // check for any scratch files
-            for (lfs_size_t i = 0;
-                    i < (lfs_size_t)tinfo.u.mdir.rbyd.weight;
-                    i++) {
+            for (lfs_size_t rid = 0;
+                    rid < (lfs_size_t)tinfo.u.mdir.rbyd.weight;
+                    rid++) {
                 err = lfsr_mdir_lookup(lfs, &tinfo.u.mdir,
-                        i, LFSR_TAG_SCRATCH,
+                        rid, LFSR_TAG_SCRATCH,
                         NULL);
                 if (err && err != LFS_ERR_NOENT) {
                     return err;
@@ -7825,7 +7829,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     LFS_DEBUG("Found orphaned scratch file "
                             "%"PRId32".%"PRId32,
                             lfsr_mid_bid(lfs, tinfo.u.mdir.mid) >> lfs->mbits,
-                            i);
+                            rid);
                     lfs->hasorphans = true;
                 }
             }
@@ -8230,7 +8234,18 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // fix pending grms
     bool pl = false;
     if (lfsr_grm_hasrm(&lfs->grm)) {
-        LFS_DEBUG("Fixing pending grms...");
+        if (lfsr_grm_count(&lfs->grm) == 2) {
+            LFS_DEBUG("Fixing grm "
+                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32"...",
+                    lfsr_mid_bid(lfs, lfs->grm.rms[0]) >> lfs->mbits,
+                    lfsr_mid_rid(lfs, lfs->grm.rms[0]),
+                    lfsr_mid_bid(lfs, lfs->grm.rms[1]) >> lfs->mbits,
+                    lfsr_mid_rid(lfs, lfs->grm.rms[1]));
+        } else {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.rms[0]) >> lfs->mbits,
+                    lfsr_mid_rid(lfs, lfs->grm.rms[0]));
+        }
         pl = true;
 
         int err = lfsr_fs_fixgrm(lfs);
@@ -8249,7 +8264,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // outdating the grm
     //
     if (lfs->hasorphans) {
-        LFS_DEBUG("Fixing orphaned scratch files...");
+        LFS_DEBUG("Fixing orphans...");
         pl = true;
 
         int err = lfsr_fs_fixorphans(lfs);
@@ -9220,6 +9235,38 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     // clean up memory
     if (!file->cfg->buffer) {
         lfs_free(file->buffer);
+    }
+
+    // never synced?
+    if (lfsr_f_isuncreat(file->flags)) {
+        // are we orphaning a scratch file?
+        //
+        // make sure we check _after_ removing ourselves
+        bool orphaned = true;
+        for (lfsr_opened_t *opened = lfs->opened;
+                opened;
+                opened = opened->next) {
+            if (opened->type == LFS_TYPE_REG
+                    && opened->mdir.mid == file->mdir.mid) {
+                orphaned = false;
+                break;
+            }
+        }
+
+        if (orphaned) {
+            // this gets a bit tricky, since we're not able to write to the
+            // filesystem if we're rdonly or desynced, fortunately we have
+            // a few tricks
+
+            // first try to push onto our grm queue
+            if (lfsr_grm_count(&lfs->grm) < 2) {
+                lfsr_grm_pushrm(&lfs->grm, file->mdir.mid);
+
+            // fallback to just marking the filesystem as orphaned
+            } else {
+                lfs->hasorphans = true;
+            }
+        }
     }
 
     return err;
