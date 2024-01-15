@@ -6589,15 +6589,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     && opened->mdir.mid >= attrs[i].rid) {
                 // removed?
                 if (opened->mdir.mid < attrs[i].rid - attrs[i].delta) {
-                    // for dir's second mdir (the position mdir), move
-                    // on to the next rid
-                    if (opened->type == LFS_TYPE_DIR) {
-                        opened->mdir.mid = attrs[i].rid;
-                    // for normal mdirs mark as dropped
-                    } else {
-                        opened->mdir.mid = -1;
-                        goto next;
-                    }
+                    // mark as zombied and move onto the next rid, upper
+                    // layers should handle the repercussions
+                    opened->flags |= LFS_F_ZOMBIE;
+                    opened->mdir.mid = attrs[i].rid;
                 } else {
                     opened->mdir.mid += attrs[i].delta;
                     // adjust dir position?
@@ -8286,6 +8281,9 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
 
 /// Directory operations ///
 
+// needed in lfsr_mkdir
+static inline bool lfsr_f_iszombie(uint32_t flags);
+
 int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // prepare our filesystem for writing
     int err = lfsr_fs_preparemutation(lfs);
@@ -8295,18 +8293,20 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // lookup our parent
     lfsr_mdir_t mdir;
+    lfsr_tag_t tag;
     lfsr_did_t did;
     const char *name;
     lfs_size_t name_size;
     err = lfsr_mtree_pathlookup(lfs, path,
-            &mdir, NULL,
+            &mdir, &tag,
             &did, &name, &name_size);
     if (err && (err != LFS_ERR_NOENT || mdir.mid == -1)) {
         return err;
     }
 
-    // already exists?
-    if (err != LFS_ERR_NOENT) {
+    // already exists? note scratch files don't really exist
+    bool exists = (err != LFS_ERR_NOENT);
+    if (exists && tag != LFSR_TAG_SCRATCH) {
         return LFS_ERR_EXIST;
     }
 
@@ -8386,12 +8386,18 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our new directory into our parent, creating a grm to self-remove
     // in case of powerloss
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid,
+            LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
                 DIR, +1, CAT(
                     LFSR_DATA_LEB128(did),
                     LFSR_DATA_BUF(name, name_size))),
-            LFSR_ATTR(mdir.mid, DID, 0, LEB128(did_)),
-            LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid, -1}})))));
+            LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
+                DID, 0, LEB128(did_)),
+            (exists)
+                ? LFSR_ATTR(mdir.mid, RM, -1, NULL())
+                : LFSR_ATTR_NOOP(),
+            LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{
+                mdir.mid + ((exists) ? 1 : 0),
+                -1}})))));
     if (err) {
         goto failed_with_bookmark;
     }
@@ -8405,6 +8411,18 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{-1, -1}})))));
     if (err) {
         return err;
+    }
+
+    // mark any zombied files as created to avoid a remove from beyond
+    // the grave
+    for (lfsr_opened_t *opened = lfs->opened;
+            opened;
+            opened = opened->next) {
+        if (opened->type == LFS_TYPE_REG
+                && opened->mdir.mid == mdir.mid) {
+            LFS_ASSERT(lfsr_f_iszombie(opened->flags));
+            opened->flags &= ~LFS_F_UNCREAT;
+        }
     }
 
     return 0;
@@ -8424,11 +8442,20 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     // lookup our entry
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
+    lfsr_did_t did;
+    const char *name;
+    lfs_size_t name_size;
     err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, &tag,
-            NULL, NULL, NULL);
+            &did, &name, &name_size);
     if (err) {
         return err;
+    }
+
+    // found a zombie?
+    if (tag == LFSR_TAG_SCRATCH) {
+        // don't worry, zombies aren't real and cannot hurt you
+        return LFS_ERR_NOENT;
     }
 
     // as funny as it would be, you can't remove the root
@@ -8493,12 +8520,45 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         }
     }
 
+    // are we removing an opened file?
+    bool zombie = false;
+    for (lfsr_opened_t *opened = lfs->opened;
+            opened;
+            opened = opened->next) {
+        if (opened->type == LFS_TYPE_REG
+                && opened->mdir.mid == mdir.mid) {
+            zombie = true;
+            break;
+        }
+    }
+
     // remove the metadata entry
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+            // create a scratch file if zombied
+            //
+            // we use a create+delete here to also clear any attrs
+            // and trim the entry size
+            (zombie)
+                ? LFSR_ATTR(mdir.mid+1, SCRATCH, +1, CAT(
+                    LFSR_DATA_LEB128(did),
+                    LFSR_DATA_BUF(name, name_size)))
+                : LFSR_ATTR_NOOP(),
             LFSR_ATTR(mdir.mid, RM, -1, NULL()),
             LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
         return err;
+    }
+
+    // lfsr_mdir_commit implicitly marks removed files as zombied, but
+    // we also need to mark them as uncreate to indicate that the mid
+    // needs to be cleaned up on close
+    for (lfsr_opened_t *opened = lfs->opened;
+            opened;
+            opened = opened->next) {
+        if (opened->type == LFS_TYPE_REG
+                && opened->mdir.mid == mdir.mid) {
+            opened->flags |= LFS_F_UNCREAT;
+        }
     }
 
     // if we were a directory, we need to clean up, fortunately we can leave
@@ -8523,6 +8583,12 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         return err;
     }
 
+    // found a zombie?
+    if (old_tag == LFSR_TAG_SCRATCH) {
+        // don't worry, zombies aren't real and cannot hurt you
+        return LFS_ERR_NOENT;
+    }
+
     // as funny as it would be, you can't rename the root
     if (lfsr_mdir_isroot(&old_mdir)) {
         return LFS_ERR_INVAL;
@@ -8544,6 +8610,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     if (err && (err != LFS_ERR_NOENT || new_mdir.mid == -1)) {
         return err;
     }
+    // already exists?
     bool exists = (err != LFS_ERR_NOENT);
 
     // there are a few cases we need to watch out for
@@ -8561,7 +8628,9 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
     } else {
         // renaming different types is an error
-        if (old_tag != new_tag) {
+        //
+        // unless we found a scratch file, these don't really exist
+        if (old_tag != new_tag && new_tag != LFSR_TAG_SCRATCH) {
             return (new_tag == LFSR_TAG_DIR)
                     ? LFS_ERR_ISDIR
                     : LFS_ERR_NOTDIR;
@@ -8629,17 +8698,30 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
     err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_ATTRS(
-            (exists
-                ? LFSR_ATTR(new_mdir.mid, RM, -1, NULL())
-                : LFSR_ATTR_NOOP()),
-            LFSR_ATTR(new_mdir.mid,
+            LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
                 TAG(old_tag), +1, CAT(
                     LFSR_DATA_LEB128(new_did),
                     LFSR_DATA_BUF(new_name, new_name_size))),
-            LFSR_ATTR(new_mdir.mid, MOVE, 0, MOVE(&old_mdir)),
+            LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
+                MOVE, 0, MOVE(&old_mdir)),
+            (exists)
+                ? LFSR_ATTR(new_mdir.mid, RM, -1, NULL())
+                : LFSR_ATTR_NOOP(),
             LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
         return err;
+    }
+
+    // mark any zombied files as created to avoid a remove from beyond
+    // the grave
+    for (lfsr_opened_t *opened = lfs->opened;
+            opened;
+            opened = opened->next) {
+        if (opened->type == LFS_TYPE_REG
+                && opened->mdir.mid == new_mdir.mid) {
+            LFS_ASSERT(lfsr_f_iszombie(opened->flags));
+            opened->flags &= ~LFS_F_UNCREAT;
+        }
     }
 
     // we need to clean up any pending grms, fortunately we can leave
@@ -9022,6 +9104,10 @@ static inline bool lfsr_f_isuncreat(uint32_t flags) {
     return flags & LFS_F_UNCREAT;
 }
 
+static inline bool lfsr_f_iszombie(uint32_t flags) {
+    return flags & LFS_F_ZOMBIE;
+}
+
 static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
     return lfs_max32(
             file->buffer_pos + file->buffer_size,
@@ -9222,10 +9308,11 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
-    // don't call lfsr_file_sync if we're readonly or desynced
+    // don't call lfsr_file_sync if we're readonly, desynced, or zombied
     int err = 0;
     if (!lfsr_o_isrdonly(file->flags)
-            && !lfsr_o_isdesync(file->flags)) {
+            && !lfsr_o_isdesync(file->flags)
+            && !lfsr_f_iszombie(file->flags)) {
         err = lfsr_file_sync(lfs, file);
     }
 
@@ -10817,9 +10904,9 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    // do nothing if our file has been removed
-    if (file->mdir.mid == -1) {
-        return 0;
+    // removed? we can't sync
+    if (lfsr_f_iszombie(file->flags)) {
+        return LFS_ERR_NOENT;
     }
 
     // first flush any data in our buffer, this is a noop if already
@@ -10852,6 +10939,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             || (file->buffer_size <= lfs->cfg->cache_size
                 && file->buffer_size <= lfs->cfg->inline_size
                 && file->buffer_size <= lfs->cfg->fragment_size));
+    // uncreat files must be unsync
+    LFS_ASSERT(!lfsr_f_isuncreat(file->flags)
+            || lfsr_f_isunsync(file->flags));
 
     // don't write to disk if our disk is already in-sync
     if (lfsr_f_isunsync(file->flags)) {
@@ -10944,8 +11034,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             // notify all files of creation
             file_->flags &= ~LFS_F_UNCREAT;
 
-            // mark desynced files an unsynced
-            if (lfsr_o_isdesync(file_->flags)) {
+            // mark desynced/zombied files an unsynced
+            if (lfsr_o_isdesync(file_->flags)
+                    || lfsr_f_iszombie(file_->flags)) {
                 file_->flags |= LFS_F_UNSYNC;
 
             // update synced files
