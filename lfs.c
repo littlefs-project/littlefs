@@ -4723,15 +4723,17 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
     return LFSR_TAG_DSIZE + lfsr_data_size(sprout);
 }
 
-static int lfsr_sprout_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        lfsr_data_t *sprout_, const lfsr_data_t *sprout, bool orphan) {
-    // write out bsprout
-    int err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-            (orphan) ? LFSR_TAG_SHRUB(DATA) : LFSR_TAG_DATA, 0,
-            *sprout);
-    if (err) {
-        return err;
-    }
+static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
+        lfsr_data_t *sprout_, const lfsr_data_t *sprout) {
+    // this gets a bit weird, since upper layers need to do the actual
+    // compaction, we just update internal state here
+
+    // this is a bit tricky since we don't know the tag size,
+    // but we have just enough info
+    lfsr_data_t sprout__ = LFSR_DATA_DISK(
+            rbyd_->blocks[0],
+            rbyd_->eoff - lfsr_data_size(sprout),
+            lfsr_data_size(sprout));
 
     // stage any opened inlined files with their new location so we
     // can update these later if our commit is a success
@@ -4744,21 +4746,11 @@ static int lfsr_sprout_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 && lfsr_sprout_cmp(
                     &file_->ftree.u.bsprout,
                     sprout) == 0) {
-            // this is a bit tricky since we don't know the tag size,
-            // but we have just enough info
-            file_->ftree_.u.bsprout = LFSR_DATA_DISK(
-                    rbyd_->blocks[0],
-                    rbyd_->eoff - lfsr_data_size(sprout),
-                    lfsr_data_size(sprout));
+            file_->ftree_.u.bsprout = sprout__;
         }
     }
 
-    // this is a bit tricky since we don't know the tag size,
-    // but we have just enough info
-    *sprout_ = LFSR_DATA_DISK(
-            rbyd_->blocks[0],
-            rbyd_->eoff - lfsr_data_size(sprout),
-            lfsr_data_size(sprout));
+    *sprout_ = sprout__;
     return 0;
 }
 
@@ -5427,6 +5419,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // do nothing
 
             // move tags copy over any tags associated with the source's rid
+            // TODO can this be deduplicated with lfsr_mdir_compact__ more?
+            // it _really_ wants to be deduplicated
             } else if (attrs[i].tag == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
                 LFS_ASSERT(attrs[i].delta == 0);
@@ -5447,8 +5441,25 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         return err;
                     }
 
-                    // special case for bshrubs, we need to copy these over
-                    if (tag == LFSR_TAG_BSHRUB) {
+                    // found an inlined sprout? we can just copy this like
+                    // normal but we need to update any opened inlined files
+                    if (tag == LFSR_TAG_DATA) {
+                        err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                                rid - lfs_smax32(start_rid, 0),
+                                tag, 0, data);
+                        if (err) {
+                            return err;
+                        }
+
+                        err = lfsr_sprout_compact(lfs, &rbyd_, &data,
+                                &data);
+                        if (err) {
+                            return err;
+                        }
+
+                    // found an inlined shrub? we need to compact the shrub
+                    // as well to bring it along with us
+                    } else if (tag == LFSR_TAG_BSHRUB) {
                         lfsr_shrub_t shrub;
                         err = lfsr_data_readshrub(lfs, &data, mdir__,
                                 &shrub);
@@ -5479,6 +5490,55 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 rid - lfs_smax32(start_rid, 0),
                                 tag, 0, data);
                         if (err) {
+                            return err;
+                        }
+                    }
+                }
+
+                // we're not quite done! we also need to bring over any
+                // unsynced files
+                for (lfsr_opened_t *opened = lfs->opened;
+                        opened;
+                        opened = opened->next) {
+                    lfsr_file_t *file = (lfsr_file_t*)opened;
+                    // belongs to our mid?
+                    if (file->type != LFS_TYPE_REG
+                            || file->mdir.mid != mdir__->mid) {
+                        continue;
+                    }
+
+                    // inlined sprout?
+                    if (lfsr_ftree_isbsprout(&file->mdir, &file->ftree)
+                            // only compact once, first compact should stage
+                            // the new block
+                            && file->ftree_.u.bsprout.u.disk.block
+                                != rbyd_.blocks[0]) {
+                        int err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_,
+                                LFSR_TAG_SHRUB(DATA), 0,
+                                file->ftree.u.bsprout);
+                        if (err) {
+                            LFS_ASSERT(err != LFS_ERR_RANGE);
+                            return err;
+                        }
+
+                        err = lfsr_sprout_compact(lfs, &rbyd_,
+                                &file->ftree_.u.bsprout,
+                                &file->ftree.u.bsprout);
+                        if (err) {
+                            LFS_ASSERT(err != LFS_ERR_RANGE);
+                            return err;
+                        }
+
+                    // inlined shrub?
+                    } else if (lfsr_ftree_isbshrub(&file->mdir, &file->ftree)
+                            // only compact once, first compact should stage
+                            // the new block
+                            && file->ftree.u.bshrub.blocks[0]
+                                != rbyd_.blocks[0]) {
+                        int err = lfsr_shrub_compact(lfs, &rbyd_,
+                                &file->ftree_.u.bshrub, &file->ftree.u.bshrub);
+                        if (err) {
+                            LFS_ASSERT(err != LFS_ERR_RANGE);
                             return err;
                         }
                     }
@@ -5753,9 +5813,15 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         // found an inlined sprout? we can just copy this like normal but
         // we need to update any opened inlined files
         if (tag == LFSR_TAG_DATA) {
-            LFS_ASSERT(weight == 0);
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
+                    tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
             err = lfsr_sprout_compact(lfs, &mdir_->rbyd, &data,
-                    &data, false);
+                    &data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5825,9 +5891,15 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 // only compact once, first compact should stage the new block
                 && file->ftree_.u.bsprout.u.disk.block
                     != mdir_->rbyd.blocks[0]) {
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
+                    LFSR_TAG_SHRUB(DATA), 0, file->ftree.u.bsprout);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
             err = lfsr_sprout_compact(lfs, &mdir_->rbyd,
-                    &file->ftree_.u.bsprout,
-                    &file->ftree.u.bsprout, true);
+                    &file->ftree_.u.bsprout, &file->ftree.u.bsprout);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -6591,7 +6663,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 if (opened->mdir.mid < attrs[i].rid - attrs[i].delta) {
                     // mark as zombied and move onto the next rid, upper
                     // layers should handle the repercussions
-                    opened->flags |= LFS_F_ZOMBIE;
+                    opened->flags |= LFS_F_ZOMBIE | LFS_F_UNSYNC | LFS_O_DESYNC;
+                    opened->flags &= ~LFS_F_UNCREAT;
                     opened->mdir.mid = attrs[i].rid;
                 } else {
                     opened->mdir.mid += attrs[i].delta;
@@ -8396,7 +8469,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
                 ? LFSR_ATTR(mdir.mid, RM, -1, NULL())
                 : LFSR_ATTR_NOOP(),
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{
-                mdir.mid + ((exists) ? 1 : 0),
+                mdir.mid,
                 -1}})))));
     if (err) {
         goto failed_with_bookmark;
@@ -8411,18 +8484,6 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{-1, -1}})))));
     if (err) {
         return err;
-    }
-
-    // mark any zombied files as created to avoid a remove from beyond
-    // the grave
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        if (opened->type == LFS_TYPE_REG
-                && opened->mdir.mid == mdir.mid) {
-            LFS_ASSERT(lfsr_f_iszombie(opened->flags));
-            opened->flags &= ~LFS_F_UNCREAT;
-        }
     }
 
     return 0;
@@ -8712,15 +8773,15 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         return err;
     }
 
-    // mark any zombied files as created to avoid a remove from beyond
-    // the grave
+    // update moved files with the new mdir
     for (lfsr_opened_t *opened = lfs->opened;
             opened;
             opened = opened->next) {
         if (opened->type == LFS_TYPE_REG
-                && opened->mdir.mid == new_mdir.mid) {
-            LFS_ASSERT(lfsr_f_iszombie(opened->flags));
-            opened->flags &= ~LFS_F_UNCREAT;
+                // TODO should we have lfsr_grm_isrm or something?
+                && (opened->mdir.mid == lfs->grm.rms[0]
+                    || opened->mdir.mid == lfs->grm.rms[1])) {
+            opened->mdir = new_mdir;
         }
     }
 
@@ -9308,11 +9369,10 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
-    // don't call lfsr_file_sync if we're readonly, desynced, or zombied
+    // don't call lfsr_file_sync if we're readonly or desynced
     int err = 0;
     if (!lfsr_o_isrdonly(file->flags)
-            && !lfsr_o_isdesync(file->flags)
-            && !lfsr_f_iszombie(file->flags)) {
+            && !lfsr_o_isdesync(file->flags)) {
         err = lfsr_file_sync(lfs, file);
     }
 
@@ -11034,9 +11094,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             // notify all files of creation
             file_->flags &= ~LFS_F_UNCREAT;
 
-            // mark desynced/zombied files an unsynced
-            if (lfsr_o_isdesync(file_->flags)
-                    || lfsr_f_iszombie(file_->flags)) {
+            // mark desynced files an unsynced
+            if (lfsr_o_isdesync(file_->flags)) {
                 file_->flags |= LFS_F_UNSYNC;
 
             // update synced files

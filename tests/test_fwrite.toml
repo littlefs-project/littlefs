@@ -578,7 +578,7 @@ code = '''
 
 # one purpose of this test is to check that data is not hidden
 # and then revealed by truncate, that would be bad
-[cases.test_fwrite_truncate_2]
+[cases.test_fwrite_truncate_truncate]
 defines.FROM = [
     '0',
     'CACHE_SIZE/2',
@@ -832,7 +832,7 @@ code = '''
 
 # one purpose of this test is to check that data is not hidden
 # and then revealed by fruncate, that would be bad
-[cases.test_fwrite_fruncate_2]
+[cases.test_fwrite_fruncate_fruncate]
 defines.FROM = [
     '0',
     'CACHE_SIZE/2',
