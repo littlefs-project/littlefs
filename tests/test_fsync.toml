@@ -18,6 +18,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_RDONLY) => 0;
 
     // write to a
@@ -120,6 +121,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_WRONLY) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
 
@@ -239,6 +241,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_WRONLY) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
 
@@ -372,6 +375,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_APPEND) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_WRONLY | LFS_O_APPEND) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
 
@@ -1714,6 +1718,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_RDONLY) => 0;
 
     // write to a and sync
@@ -1800,6 +1805,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_RDONLY) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY | LFS_O_DESYNC) => 0;
 
@@ -1881,6 +1887,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_WRONLY) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
 
@@ -2001,6 +2008,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_WRONLY) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
 
@@ -2100,6 +2108,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_RDONLY) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY | LFS_O_DESYNC) => 0;
 
@@ -2203,6 +2212,7 @@ code = '''
     uint8_t rbuf[256];
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_APPEND) => 0;
+    lfsr_file_sync(&lfs, &a) => 0;
     lfsr_file_open(&lfs, &b, "jello", LFS_O_WRONLY | LFS_O_APPEND) => 0;
     lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
 
