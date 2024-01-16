@@ -215,7 +215,9 @@ static inline uint32_t lfs_tobe32(uint32_t a) {
 uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 
 // Allocate memory, only used if buffers are not provided to littlefs
-// Note, memory must be 64-bit aligned
+//
+// littlefs current has no alignment requirements, as it only allocates
+// byte-level buffers.
 static inline void *lfs_malloc(size_t size) {
 #ifndef LFS_NO_MALLOC
     return malloc(size);
