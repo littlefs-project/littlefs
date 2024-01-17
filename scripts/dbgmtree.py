@@ -24,7 +24,7 @@ TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
 TAG_REG             = 0x0201
 TAG_DIR             = 0x0202
-TAG_SCRATCH         = 0x0203
+TAG_ORPHAN          = 0x0203
 TAG_BOOKMARK        = 0x0204
 TAG_STRUCT          = 0x0300
 TAG_DATA            = 0x0300
@@ -203,7 +203,7 @@ def tagrepr(tag, w, size, off=None):
             'name' if (tag & 0xfff) == TAG_NAME
                 else 'reg' if (tag & 0xfff) == TAG_REG
                 else 'dir' if (tag & 0xfff) == TAG_DIR
-                else 'scratch' if (tag & 0xfff) == TAG_SCRATCH
+                else 'orphan' if (tag & 0xfff) == TAG_ORPHAN
                 else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'name 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',

@@ -617,7 +617,7 @@ enum lfsr_tag {
     LFSR_TAG_NAME           = 0x0200,
     LFSR_TAG_REG            = 0x0201,
     LFSR_TAG_DIR            = 0x0202,
-    LFSR_TAG_SCRATCH        = 0x0203,
+    LFSR_TAG_ORPHAN         = 0x0203,
     LFSR_TAG_BOOKMARK       = 0x0204,
 
     // struct tags
@@ -5089,9 +5089,9 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
     }
 
     if (tag_) {
-        // intercept pending grms here and pretend they're scratch files
+        // intercept pending grms here and pretend they're orphaned files
         //
-        // fortunately pending gmrs/scratch files have roughly the same
+        // fortunately pending grms/orphaned files have roughly the same
         // semantics, and it's easier to manage the implied mid gap in
         // higher-levels
         // TODO
@@ -6664,7 +6664,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     // mark as zombied and move onto the next rid, upper
                     // layers should handle the repercussions
                     opened->flags |= LFS_F_ZOMBIE | LFS_F_UNSYNC | LFS_O_DESYNC;
-                    opened->flags &= ~LFS_F_UNCREAT;
+                    opened->flags &= ~LFS_F_ORPHAN;
                     opened->mdir.mid = attrs[i].rid;
                 } else {
                     opened->mdir.mid += attrs[i].delta;
@@ -7881,20 +7881,20 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 return err;
             }
 
-            // check for any scratch files
+            // check for any orphaned files
             for (lfs_size_t rid = 0;
                     rid < (lfs_size_t)tinfo.u.mdir.rbyd.weight;
                     rid++) {
                 err = lfsr_mdir_lookup(lfs, &tinfo.u.mdir,
-                        rid, LFSR_TAG_SCRATCH,
+                        rid, LFSR_TAG_ORPHAN,
                         NULL);
                 if (err && err != LFS_ERR_NOENT) {
                     return err;
                 }
 
-                // found a scratch file? these must be orphaned
+                // found an orphaned file?
                 if (err != LFS_ERR_NOENT) {
-                    LFS_DEBUG("Found orphaned scratch file "
+                    LFS_DEBUG("Found orphaned file "
                             "%"PRId32".%"PRId32,
                             lfsr_mid_bid(lfs, tinfo.u.mdir.mid) >> lfs->mbits,
                             rid);
@@ -8244,7 +8244,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
 }
 
 static int lfsr_fs_fixorphans(lfs_t *lfs) {
-    // traverse the filesystem and remove any orphaned scratch files
+    // traverse the filesystem and remove any orphaned files
     //
     // note this never takes longer than lfsr_mount
     //
@@ -8256,15 +8256,15 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
     }
 
     while (true) {
-        // are we a scratch file?
-        err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_SCRATCH,
+        // are we an orphaned file?
+        err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_ORPHAN,
                 NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
         if (err != LFS_ERR_NOENT) {
-            // remove scratch file
+            // remove orphaned file
             err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
                     LFSR_ATTR(mdir.mid, RM, -1, NULL())));
             if (err) {
@@ -8326,9 +8326,9 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
         lfs_alloc_ckpoint(lfs);
     }
 
-    // fix orphaned scratch files
+    // fix orphaned files
     //
-    // this must happen after fixgrm, since removing scratch files risks
+    // this must happen after fixgrm, since removing orphaned files risks
     // outdating the grm
     //
     if (lfs->hasorphans) {
@@ -8377,9 +8377,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    // already exists? note scratch files don't really exist
+    // already exists? note orphans don't really exist
     bool exists = (err != LFS_ERR_NOENT);
-    if (exists && tag != LFSR_TAG_SCRATCH) {
+    if (exists && tag != LFSR_TAG_ORPHAN) {
         return LFS_ERR_EXIST;
     }
 
@@ -8514,7 +8514,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // found a zombie?
-    if (tag == LFSR_TAG_SCRATCH) {
+    if (tag == LFSR_TAG_ORPHAN) {
         // don't worry, zombies aren't real and cannot hurt you
         return LFS_ERR_NOENT;
     }
@@ -8595,12 +8595,12 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
     // remove the metadata entry
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            // create a scratch file if zombied
+            // create an orphan if zombied
             //
             // we use a create+delete here to also clear any attrs
             // and trim the entry size
             (zombie)
-                ? LFSR_ATTR(mdir.mid+1, SCRATCH, +1, CAT(
+                ? LFSR_ATTR(mdir.mid+1, ORPHAN, +1, CAT(
                     LFSR_DATA_LEB128(did),
                     LFSR_DATA_BUF(name, name_size)))
                 : LFSR_ATTR_NOOP(),
@@ -8618,7 +8618,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             opened = opened->next) {
         if (opened->type == LFS_TYPE_REG
                 && opened->mdir.mid == mdir.mid) {
-            opened->flags |= LFS_F_UNCREAT;
+            opened->flags |= LFS_F_ORPHAN;
         }
     }
 
@@ -8645,7 +8645,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     }
 
     // found a zombie?
-    if (old_tag == LFSR_TAG_SCRATCH) {
+    if (old_tag == LFSR_TAG_ORPHAN) {
         // don't worry, zombies aren't real and cannot hurt you
         return LFS_ERR_NOENT;
     }
@@ -8690,8 +8690,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     } else {
         // renaming different types is an error
         //
-        // unless we found a scratch file, these don't really exist
-        if (old_tag != new_tag && new_tag != LFSR_TAG_SCRATCH) {
+        // unless we found a orphan, these don't really exist
+        if (old_tag != new_tag && new_tag != LFSR_TAG_ORPHAN) {
             return (new_tag == LFSR_TAG_DIR)
                     ? LFS_ERR_ISDIR
                     : LFS_ERR_NOTDIR;
@@ -8851,8 +8851,8 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
         return err;
     }
 
-    // pretend scratch files don't exist
-    if (tag == LFSR_TAG_SCRATCH) {
+    // pretend orphans don't exist
+    if (tag == LFSR_TAG_ORPHAN) {
         return LFS_ERR_NOENT;
     }
 
@@ -8882,7 +8882,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
 
     // are we a directory?
     if (tag != LFSR_TAG_DIR) {
-        if (tag == LFSR_TAG_SCRATCH) {
+        if (tag == LFSR_TAG_ORPHAN) {
             return LFS_ERR_NOENT;
         } else {
             return LFS_ERR_NOTDIR;
@@ -8975,8 +8975,8 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
             return LFS_ERR_NOENT;
         }
 
-        // skip scratch files, we pretend these don't exist
-        if (tag != LFSR_TAG_SCRATCH) {
+        // skip orphans, we pretend these don't exist
+        if (tag != LFSR_TAG_ORPHAN) {
             // fill out our info struct
             err = lfsr_stat_(lfs, &dir->mdir, tag, data,
                     info);
@@ -8992,7 +8992,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         }
         dir->pos += 1;
 
-        if (tag != LFSR_TAG_SCRATCH) {
+        if (tag != LFSR_TAG_ORPHAN) {
             return 0;
         }
     }
@@ -9161,8 +9161,8 @@ static inline bool lfsr_f_isunsync(uint32_t flags) {
     return flags & LFS_F_UNSYNC;
 }
 
-static inline bool lfsr_f_isuncreat(uint32_t flags) {
-    return flags & LFS_F_UNCREAT;
+static inline bool lfsr_f_isorphan(uint32_t flags) {
+    return flags & LFS_F_ORPHAN;
 }
 
 static inline bool lfsr_f_iszombie(uint32_t flags) {
@@ -9194,7 +9194,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     // these flags are internal and shouldn't be provided by the user
     LFS_ASSERT(!lfsr_f_isunflush(flags));
     LFS_ASSERT(!lfsr_f_isunsync(flags));
-    LFS_ASSERT(!lfsr_f_isuncreat(flags));
+    LFS_ASSERT(!lfsr_f_isorphan(flags));
 
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -9225,7 +9225,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // creating a new entry?
-    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_SCRATCH) {
+    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_ORPHAN) {
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
@@ -9236,15 +9236,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return LFS_ERR_NAMETOOLONG;
         }
 
-        // create a scratch entry if we don't have one, this reserves the
+        // create an orphan entry if we don't have one, this reserves the
         // mid until first sync
-        //
-        // note because of the preparemutation call above, there can be
-        // no orphaned scratch files at this point
         if (err == LFS_ERR_NOENT) {
             err = lfsr_mdir_commit(lfs, &file->mdir, LFSR_ATTRS(
                     LFSR_ATTR(file->mdir.mid,
-                        SCRATCH, +1, CAT(
+                        ORPHAN, +1, CAT(
                             LFSR_DATA_LEB128(did),
                             LFSR_DATA_BUF(name, name_size)))));
             if (err) {
@@ -9254,7 +9251,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // mark as unsync and uncreat, we need to convert to reg file
         // first sync
-        file->flags |= LFS_F_UNSYNC | LFS_F_UNCREAT;
+        file->flags |= LFS_F_UNSYNC | LFS_F_ORPHAN;
 
     } else {
         if (lfsr_o_isexcl(flags)) {
@@ -9385,8 +9382,8 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // never synced?
-    if (lfsr_f_isuncreat(file->flags)) {
-        // are we orphaning a scratch file?
+    if (lfsr_f_isorphan(file->flags)) {
+        // are we orphaning a file?
         //
         // make sure we check _after_ removing ourselves
         bool orphaned = true;
@@ -11000,7 +10997,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 && file->buffer_size <= lfs->cfg->inline_size
                 && file->buffer_size <= lfs->cfg->fragment_size));
     // uncreat files must be unsync
-    LFS_ASSERT(!lfsr_f_isuncreat(file->flags)
+    LFS_ASSERT(!lfsr_f_isorphan(file->flags)
             || lfsr_f_isunsync(file->flags));
 
     // don't write to disk if our disk is already in-sync
@@ -11029,14 +11026,14 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         uint8_t buf[LFSR_BTREE_DSIZE];
         lfs_size_t buf_size = 0;
 
-        // not created yet? need to convert scratch file to normal file
-        if (lfsr_f_isuncreat(file->flags)) {
+        // not created yet? need to convert orphan to normal file
+        if (lfsr_f_isorphan(file->flags)) {
             lfsr_data_t data;
             err = lfsr_mdir_lookup(lfs, &file->mdir,
-                    file->mdir.mid, LFSR_TAG_SCRATCH,
+                    file->mdir.mid, LFSR_TAG_ORPHAN,
                     &data);
             if (err) {
-                // we must have a scratch file at this point
+                // we must have an orphan at this point
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 goto failed;
             }
@@ -11092,7 +11089,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 // don't double update
                 && file_ != file) {
             // notify all files of creation
-            file_->flags &= ~LFS_F_UNCREAT;
+            file_->flags &= ~LFS_F_ORPHAN;
 
             // mark desynced files an unsynced
             if (lfsr_o_isdesync(file_->flags)) {
@@ -11116,7 +11113,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->flags &= ~LFS_F_UNSYNC & ~LFS_F_UNCREAT & ~LFS_O_DESYNC;
+    file->flags &= ~LFS_F_UNSYNC & ~LFS_F_ORPHAN & ~LFS_O_DESYNC;
     return 0;
 
 failed:;

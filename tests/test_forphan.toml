@@ -1,9 +1,9 @@
-# Test scratch files and their various use cases
+# Test orphaned files and their various use cases
 after = ['test_fwrite', 'test_fsync']
 
 
 # Some specific tests
-[cases.test_fscratch_create]
+[cases.test_forphan_create]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -193,7 +193,7 @@ code = '''
     lfsr_unmount(&lfs_) => 0;
 '''
 
-[cases.test_fscratch_create_pl]
+[cases.test_forphan_create_pl]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -270,7 +270,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_create_many_pl]
+[cases.test_forphan_create_many_pl]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -357,7 +357,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_create_sync_wr]
+[cases.test_forphan_create_sync_wr]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -539,7 +539,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_create_sync_rw]
+[cases.test_forphan_create_sync_rw]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -720,7 +720,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_create_desync_wdwr]
+[cases.test_forphan_create_desync_wdwr]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -1026,7 +1026,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan]
+[cases.test_forphan_orphan]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -1129,7 +1129,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan_wdwr]
+[cases.test_forphan_orphan_wdwr]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -1395,7 +1395,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan_open]
+[cases.test_forphan_orphan_open]
 defines.ORPHANS = [1, 2, 3, 100]
 # 0 => don't remount
 # 1 => remount after op
@@ -1485,7 +1485,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan_mkdir]
+[cases.test_forphan_orphan_mkdir]
 defines.ORPHANS = [1, 2, 3, 100]
 # 0 => don't remount
 # 1 => remount after op
@@ -1562,7 +1562,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan_remove]
+[cases.test_forphan_orphan_remove]
 defines.ORPHANS = [1, 2, 3, 100]
 # 0 => don't remount
 # 1 => remount after op
@@ -1634,7 +1634,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan_rename_dst]
+[cases.test_forphan_orphan_rename_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -1779,7 +1779,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_orphan_rename_src]
+[cases.test_forphan_orphan_rename_src]
 defines.ORPHANS = [1, 2, 3, 100]
 # 0 => don't remount
 # 1 => remount after op
@@ -1852,7 +1852,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie]
+[cases.test_forphan_zombie]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -1973,7 +1973,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_posthumous]
+[cases.test_forphan_zombie_posthumous]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -2094,7 +2094,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_rwrw]
+[cases.test_forphan_zombie_rwrw]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -2312,7 +2312,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_rwrw_posthumous]
+[cases.test_forphan_zombie_rwrw_posthumous]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -2530,7 +2530,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_zombie_rwrwrw]
+[cases.test_forphan_zombie_zombie_rwrwrw]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -2783,7 +2783,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_zombie_rwrwrw_posthumous]
+[cases.test_forphan_zombie_zombie_rwrwrw_posthumous]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -3036,7 +3036,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_open]
+[cases.test_forphan_zombie_open]
 # 0 => don't close (before end of test)
 # 1 => close after op
 # 2 => close before op
@@ -3139,7 +3139,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_mkdir]
+[cases.test_forphan_zombie_mkdir]
 # 0 => don't close (before end of test)
 # 1 => close after op
 # 2 => close before op
@@ -3228,7 +3228,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_remove]
+[cases.test_forphan_zombie_remove]
 # 0 => don't close (before end of test)
 # 1 => close after op
 # 2 => close before op
@@ -3312,7 +3312,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_rename_dst]
+[cases.test_forphan_zombie_rename_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -3468,7 +3468,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombie_rename_src]
+[cases.test_forphan_zombie_rename_src]
 # 0 => don't close (before end of test)
 # 1 => close after op
 # 2 => close before op
@@ -3553,7 +3553,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombify_mkdir]
+[cases.test_forphan_zombify_mkdir]
 defines.CLOSE = [false, true]
 defines.REMOUNT = [false, true]
 defines.POSTHUMOUS = [false, true]
@@ -3626,7 +3626,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_zombify_rename_dst]
+[cases.test_forphan_zombify_rename_dst]
 defines.ORPHAN = [false, true]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
@@ -3773,7 +3773,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_file_on_zombie_remove]
+[cases.test_forphan_file_on_zombie_remove]
 defines.DIR = [false, true]
 # 0 => don't close (before end of test)
 # 1 => close after op
@@ -3870,7 +3870,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_file_on_zombie_rename_dst]
+[cases.test_forphan_file_on_zombie_rename_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -4040,7 +4040,7 @@ code = '''
 
 # these doesn't really involve scratch files, but we might as well test
 # them here
-[cases.test_fscratch_rename]
+[cases.test_forphan_rename]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -4270,7 +4270,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_rename_postrename]
+[cases.test_forphan_rename_postrename]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -4558,7 +4558,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_rename_rwrw]
+[cases.test_forphan_rename_rwrw]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -4895,7 +4895,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_rename_rwrw_postrename]
+[cases.test_forphan_rename_rwrw_postrename]
 defines.SIZE = [
     'CACHE_SIZE/2',
     '2*CACHE_SIZE',
@@ -5224,7 +5224,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_rename_rename_src]
+[cases.test_forphan_rename_rename_src]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -5382,7 +5382,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_fscratch_file_on_zombie_rename_src]
+[cases.test_forphan_file_on_zombie_rename_src]
 defines.DIR = [false, true]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
