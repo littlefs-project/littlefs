@@ -1139,8 +1139,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = 'lfs_min(64, SIZE)'
-# 1 => sync before orphaning
-# 2 => sync after orphaning
+# 0x1 => sync before orphaning
+# 0x2 => sync after orphaning
 defines.SYNC = [0, 1, 2, 3]
 code = '''
     lfs_t lfs;
@@ -1392,6 +1392,216 @@ code = '''
     }
 
     lfsr_file_close(&lfs, &file___) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphan_orphan_unrelated]
+# different number of orphan require different methods of cleanup
+defines.N = 'range(6)'
+defines.M = 'range(6)'
+defines.SIZE = [
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = 'lfs_min(64, SIZE)'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create N orphans
+    lfsr_file_t orphans[N];
+    for (lfs_size_t o = 0; o < N; o++) {
+        char name[256];
+        sprintf(name, "fello%03x", o);
+        lfsr_file_open(&lfs, &orphans[o], name,
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        uint32_t prng = 42+o;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfsr_file_write(&lfs, &orphans[o], wbuf, CHUNK) => CHUNK;
+        }
+    }
+
+    // and an unrelated file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "gello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint32_t prng = 52;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+    }
+
+    // as far as the filesystem is concerned, none of the orphans exist
+    // via stat
+    struct lfs_info info;
+    for (lfs_size_t o = 0; o < N; o++) {
+        char name[256];
+        sprintf(name, "fello%03x", o);
+        lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
+    }
+    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    for (lfs_size_t o = 0; o < N; o++) {
+        char name[256];
+        sprintf(name, "fello%03x", o);
+        // rdonly rejected
+        lfsr_file_open(&lfs, &file_, name, LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, name, LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, name, LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+    // rdonly rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // but we should still be able to read our orphans
+    for (lfs_size_t o = 0; o < N; o++) {
+        lfsr_file_rewind(&lfs, &orphans[o]) => 0;
+        prng = 42+o;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &orphans[o], rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+    lfsr_file_rewind(&lfs, &file) => 0;
+    prng = 52;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    // close M orphans
+    for (lfs_size_t o = 0; o < M && o < N; o++) {
+        lfsr_file_close(&lfs, &orphans[o]) => 0;
+    }
+
+    // create a new unrelated file, this should trigger
+    // and orphan cleanup
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "hello",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    prng = 62;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+    }
+    lfsr_file_close(&lfs, &file__);
+
+    // and now close our original unrelated file
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // and close the remaining orphans
+    for (lfs_size_t o = M; o < N; o++) {
+        lfsr_file_close(&lfs, &orphans[o]) => 0;
+    }
+
+    // now our file should exist, but none of our orphans
+    // via stat
+    for (lfs_size_t o = 0; o < N; o++) {
+        char name[256];
+        sprintf(name, "fello%03x", o);
+        lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
+    }
+    lfsr_stat(&lfs, "gello", &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "gello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    for (lfs_size_t o = 0; o < N; o++) {
+        char name[256];
+        sprintf(name, "fello%03x", o);
+        // rdonly rejected
+        lfsr_file_open(&lfs, &file_, name, LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, name, LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, name, LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    prng = 52;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+    lfsr_file_open(&lfs, &file_, "hello", LFS_O_RDONLY) => 0;
+    prng = 62;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
     lfsr_unmount(&lfs) => 0;
 '''
 

@@ -8256,38 +8256,54 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
     }
 
     while (true) {
-        // are we an orphaned file?
-        err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_ORPHAN,
-                NULL);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
+        // is this mid opened? skip
+        bool notopened = true;
+        for (lfsr_opened_t *opened = lfs->opened;
+                opened;
+                opened = opened->next) {
+            if (opened->type == LFS_TYPE_REG
+                    && opened->mdir.mid == mdir.mid) {
+                notopened = false;
+                break;
+            }
         }
 
-        if (err != LFS_ERR_NOENT) {
-            // remove orphaned file
-            err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-                    LFSR_ATTR(mdir.mid, RM, -1, NULL())));
-            if (err) {
+        if (notopened) {
+            // are we an orphaned file?
+            err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_ORPHAN,
+                    NULL);
+            if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
 
-            // seek in case our mdir was dropped
-            err = lfsr_mtree_seek(lfs, &mdir, 0);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    break;
+            if (err != LFS_ERR_NOENT) {
+                // remove orphaned file
+                err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+                        LFSR_ATTR(mdir.mid, RM, -1, NULL())));
+                if (err) {
+                    return err;
                 }
-                return err;
-            }
-        } else {
-            // lookup next entry
-            err = lfsr_mtree_seek(lfs, &mdir, 1);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    break;
+
+                // seek in case our mdir was dropped
+                err = lfsr_mtree_seek(lfs, &mdir, 0);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    return err;
                 }
-                return err;
+
+                continue;
             }
+        }
+
+        // lookup next entry
+        err = lfsr_mtree_seek(lfs, &mdir, 1);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
         }
     }
 
