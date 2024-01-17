@@ -52,10 +52,8 @@ typedef uint32_t lfs_block_t;
 #endif
 
 // Maximum size of a file in bytes, may be redefined to limit to support other
-// drivers. Limited on disk to <= 4294967295. However, above 2147483647 the
-// functions lfs_file_seek, lfs_file_size, and lfs_file_tell will return
-// incorrect values due to using signed integers. Stored in superblock and
-// must be respected by other littlefs drivers.
+// drivers. Limited on disk to <= 2147483647. Stored in superblock and must be
+// respected by other littlefs drivers.
 #ifndef LFS_FILE_MAX
 #define LFS_FILE_MAX 2147483647
 #endif

@@ -4112,8 +4112,8 @@ static int lfs_rawremoveattr(lfs_t *lfs, const char *path, uint8_t type) {
 #error "Invalid LFS_NAME_MAX, must be <= 1022"
 #endif
 
-#if LFS_FILE_MAX > 4294967295
-#error "Invalid LFS_FILE_MAX, must be <= 4294967295"
+#if LFS_FILE_MAX > 2147483647
+#error "Invalid LFS_FILE_MAX, must be <= 2147483647"
 #endif
 
 #if LFS_ATTR_MAX > 1022
