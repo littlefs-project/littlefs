@@ -5009,14 +5009,6 @@ static inline bool lfsr_mdir_ismrootanchor(const lfsr_mdir_t *mdir) {
     return lfsr_mptr_ismrootanchor(lfsr_mdir_mptr(mdir));
 }
 
-static inline lfsr_sbid_t lfsr_mdir_bid(lfs_t *lfs, const lfsr_mdir_t *mdir) {
-    return lfsr_mid_bid(lfs, mdir->mid);
-}
-
-static inline lfsr_srid_t lfsr_mdir_rid(lfs_t *lfs, const lfsr_mdir_t *mdir) {
-    return lfsr_mid_rid(lfs, mdir->mid);
-}
-
 // mdir operations
 static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_smid_t mid, const lfsr_mptr_t *mptr) {
@@ -5265,8 +5257,8 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
 
     while (true) {
         // calculate new mid, be careful to avoid rid overflow
-        lfsr_bid_t bid = lfsr_mdir_bid(lfs, mdir);
-        lfsr_srid_t rid = lfsr_mdir_rid(lfs, mdir) + off;
+        lfsr_bid_t bid = lfsr_mid_bid(lfs, mdir->mid);
+        lfsr_srid_t rid = lfsr_mid_rid(lfs, mdir->mid) + off;
         // lookup mdirs until we find our rid, we need to do this because
         // we don't know how many rids are in each mdir until we fetch
         while (rid >= mdir->rbyd.weight) {
@@ -5777,7 +5769,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             // belongs to our mdir + rid?
             if (file->type != LFS_TYPE_REG
                     || lfsr_mdir_cmp(&file->mdir, mdir) != 0
-                    || lfsr_mdir_rid(lfs, &file->mdir) != rid) {
+                    || lfsr_mid_rid(lfs, file->mdir.mid) != rid) {
                 continue;
             }
 
@@ -5925,8 +5917,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         // belongs to our mdir?
         if (file->type != LFS_TYPE_REG
                 || lfsr_mdir_cmp(&file->mdir, mdir) != 0
-                || lfsr_mdir_rid(lfs, &file->mdir) < start_rid
-                || (lfsr_rid_t)lfsr_mdir_rid(lfs, &file->mdir)
+                || lfsr_mid_rid(lfs, file->mdir.mid) < start_rid
+                || (lfsr_rid_t)lfsr_mid_rid(lfs, file->mdir.mid)
                     >= (lfsr_rid_t)end_rid) {
             continue;
         }
@@ -6288,7 +6280,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_ASSERT(mdir->mid == -1
             || lfsr_mtree_isnull(lfs)
             || mdir->rbyd.weight > 0);
-    LFS_ASSERT(lfsr_mdir_rid(lfs, mdir) <= mdir->rbyd.weight);
+    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid) <= mdir->rbyd.weight);
 
     // reset gdelta for new commit
     lfsr_fs_flushgdelta(lfs);
@@ -6542,11 +6534,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             uint8_t msibling_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mtree_commit_(lfs, LFSR_ATTRS(
-                    LFSR_ATTR(lfsr_mdir_bid(lfs, &mdir_),
+                    LFSR_ATTR(lfsr_mid_bid(lfs, mdir_.mid),
                         MDIR, 0, FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf)),
-                    LFSR_ATTR(lfsr_mdir_bid(lfs, &mdir_)+1,
+                    LFSR_ATTR(lfsr_mid_bid(lfs, mdir_.mid)+1,
                         NAME, +lfsr_mweight(lfs), DATA(split_data)),
-                    LFSR_ATTR(lfsr_mdir_bid(lfs, &msibling_),
+                    LFSR_ATTR(lfsr_mid_bid(lfs, msibling_.mid),
                         MDIR, 0,
                         FROMMPTR(lfsr_mdir_mptr(&msibling_), msibling_buf))));
             if (err) {
@@ -6611,7 +6603,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // update our mtree
         err = lfsr_mtree_commit_(lfs, LFSR_ATTRS(
-                LFSR_ATTR(lfsr_mdir_bid(lfs, &mdir_),
+                LFSR_ATTR(lfsr_mid_bid(lfs, mdir_.mid),
                     RM, -lfsr_mweight(lfs), NULL())));
         if (err) {
             return err;
@@ -6646,7 +6638,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // update our mtree
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mtree_commit_(lfs, LFSR_ATTRS(
-                    LFSR_ATTR(lfsr_mdir_bid(lfs, &mdir_),
+                    LFSR_ATTR(lfsr_mid_bid(lfs, mdir_.mid),
                         MDIR, 0, FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf))));
             if (err) {
                 return err;
@@ -6714,7 +6706,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // update any opened mdirs if we had a split or drop
         if (lfsr_mdir_cmp(&opened->mdir, mdir) == 0) {
             if (mdelta > 0
-                    && lfsr_mdir_rid(lfs, &opened->mdir)
+                    && lfsr_mid_rid(lfs, opened->mdir.mid)
                         >= mdir_.rbyd.weight) {
                 opened->mdir.mid += lfsr_mweight(lfs)
                         - mdir_.rbyd.weight;
@@ -6772,7 +6764,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (mdir->mid == -1) {
         mdir->rbyd = lfs->mroot.rbyd;
     } else if (mdelta > 0
-            && lfsr_mdir_rid(lfs, mdir) >= mdir_.rbyd.weight) {
+            && lfsr_mid_rid(lfs, mdir->mid) >= mdir_.rbyd.weight) {
         mdir->mid += lfsr_mweight(lfs) - mdir_.rbyd.weight;
         mdir->rbyd = msibling_.rbyd;
     } else {
@@ -6817,7 +6809,8 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     if (lfs_cmp(cmp) < 0) {
         rid += 1;
     }
-    lfsr_smid_t mid = lfsr_mdir_bid(lfs, mdir)-(lfsr_mweight(lfs)-1) + rid;
+    lfsr_smid_t mid = lfsr_mid_bid(lfs, mdir->mid)-(lfsr_mweight(lfs)-1)
+            + rid;
 
     // intercept pending grms here and pretend they're orphaned files
     //
@@ -7365,7 +7358,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // not traversing all blocks? have we exceeded our mdir's weight?
             // return to mtree traversal
             if (!lfsr_traversal_isall(traversal)
-                    || lfsr_mdir_rid(lfs, &traversal->file.mdir)
+                    || lfsr_mid_rid(lfs, traversal->file.mdir.mid)
                         >= traversal->file.mdir.rbyd.weight) {
                 traversal->state = LFSR_TRAVERSAL_MTREE;
                 continue;
@@ -8258,7 +8251,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         lfsr_grm_poprm(&grm);
 
         // make sure to adjust any remaining grms
-        if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mdir_bid(lfs, &mdir)
+        if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mid_bid(lfs, mdir.mid)
                 && grm.rms[0] >= mdir.mid) {
             LFS_ASSERT(grm.rms[0] != mdir.mid);
             grm.rms[0] -= 1;
@@ -8603,7 +8596,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         }
 
         // adjust rid if grm is on the same mdir as our dir
-        if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mdir_bid(lfs, &mdir)
+        if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mid_bid(lfs, mdir.mid)
                 && grm.rms[0] > mdir.mid) {
             grm.rms[0] -= 1;
         }
@@ -8694,7 +8687,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         }
 
         // adjust old rid if grm is on the same mdir as new rid
-        if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mdir_bid(lfs, &new_mdir)
+        if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mid_bid(lfs, new_mdir.mid)
                 && grm.rms[0] >= new_mdir.mid) {
             grm.rms[0] += 1;
         }

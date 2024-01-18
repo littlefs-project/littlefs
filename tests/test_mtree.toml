@@ -439,7 +439,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -470,7 +470,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -517,7 +517,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
         mdir.mid = lfs_max32(
-                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                lfsr_mid_bid(&lfs, mdir.mid)-(lfsr_mweight(&lfs)-1)
                     + (mdir.mid % (mdir.rbyd.weight+1)),
                 1);
 
@@ -551,7 +551,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -586,7 +586,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -1089,12 +1089,12 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
         mdir.mid = lfs_max32(
-                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                lfsr_mid_bid(&lfs, mdir.mid)-(lfsr_mweight(&lfs)-1)
                     + (mdir.mid % (mdir.rbyd.weight+1)),
                 1);
         // choose to create or delete, note we make sure to never delete to zero
-        uint8_t op = (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight
-                    || (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight-1
+        uint8_t op = (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight
+                    || (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight-1
                         && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs))
                 ? 0
                 : TEST_PRNG(&prng) % 2);
@@ -1143,7 +1143,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.rbyd.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -1182,7 +1182,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.rbyd.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -2147,12 +2147,12 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
         mdir.mid = lfs_max32(
-                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                lfsr_mid_bid(&lfs, mdir.mid)-(lfsr_mweight(&lfs)-1)
                     + (mdir.mid % (mdir.rbyd.weight+1)),
                 1);
         // choose to create or delete, note we make sure to never delete to zero
-        uint8_t op = (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight
-                    || (lfsr_mdir_rid(&lfs, &mdir) == mdir.rbyd.weight-1
+        uint8_t op = (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight
+                    || (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight-1
                         && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs))
                 ? 0
                 : TEST_PRNG(&prng) % 3);
@@ -2214,7 +2214,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.rbyd.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -2253,7 +2253,7 @@ code = '''
         // drop should make sure we never have empty mdirs
         assert(lfsr_mtree_ismptr(&lfs) || mdir.rbyd.weight > 0);
 
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -3485,7 +3485,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -3568,7 +3568,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -3615,7 +3615,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         // limit our mid to our mdir's weight
         mdir.mid = lfs_max32(
-                lfsr_mdir_bid(&lfs, &mdir)-(lfsr_mweight(&lfs)-1)
+                lfsr_mid_bid(&lfs, mdir.mid)-(lfsr_mweight(&lfs)-1)
                     + (mdir.mid % (mdir.rbyd.weight+1)),
                 1);
 
@@ -3649,7 +3649,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
@@ -3737,7 +3737,7 @@ code = '''
             mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; lfsr_mdir_rid(&lfs, &mdir) < mdir.rbyd.weight;
+        for (; lfsr_mid_rid(&lfs, mdir.mid) < mdir.rbyd.weight;
                 mdir.mid += 1) {
             // skip the root bookmark
             if (mdir.mid == 0) {
