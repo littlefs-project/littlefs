@@ -5144,6 +5144,18 @@ static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *opened) {
     }
 }
 
+static bool lfsr_mid_isopened(lfs_t *lfs, lfsr_smid_t mid) {
+    for (lfsr_opened_t *p = lfs->opened; p; p = p->next) {
+        // we really only care about regular open files here, all
+        // others are either transient (dirs) or fake (orphans)
+        if (p->type == LFS_TYPE_REG && p->mdir.mid == mid) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 
 /// Metadata-tree things ///
@@ -8236,18 +8248,7 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 
     while (true) {
         // is this mid opened? skip
-        bool notopened = true;
-        for (lfsr_opened_t *opened = lfs->opened;
-                opened;
-                opened = opened->next) {
-            if (opened->type == LFS_TYPE_REG
-                    && opened->mdir.mid == mdir.mid) {
-                notopened = false;
-                break;
-            }
-        }
-
-        if (notopened) {
+        if (!lfsr_mid_isopened(lfs, mdir.mid)) {
             // are we an orphaned file?
             err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_ORPHAN,
                     NULL);
@@ -8577,16 +8578,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // are we removing an opened file?
-    bool zombie = false;
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        if (opened->type == LFS_TYPE_REG
-                && opened->mdir.mid == mdir.mid) {
-            zombie = true;
-            break;
-        }
-    }
+    bool zombie = lfsr_mid_isopened(lfs, mdir.mid);
 
     // remove the metadata entry
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
@@ -9376,35 +9368,22 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
         lfs_free(file->buffer);
     }
 
-    // never synced?
-    if (lfsr_f_isorphan(file->flags)) {
-        // are we orphaning a file?
-        //
-        // make sure we check _after_ removing ourselves
-        bool orphaned = true;
-        for (lfsr_opened_t *opened = lfs->opened;
-                opened;
-                opened = opened->next) {
-            if (opened->type == LFS_TYPE_REG
-                    && opened->mdir.mid == file->mdir.mid) {
-                orphaned = false;
-                break;
-            }
-        }
+    // are we orphaning a file?
+    //
+    // make sure we check _after_ removing ourselves
+    if (lfsr_f_isorphan(file->flags)
+            && !lfsr_mid_isopened(lfs, file->mdir.mid)) {
+        // this gets a bit tricky, since we're not able to write to the
+        // filesystem if we're rdonly or desynced, fortunately we have
+        // a few tricks
 
-        if (orphaned) {
-            // this gets a bit tricky, since we're not able to write to the
-            // filesystem if we're rdonly or desynced, fortunately we have
-            // a few tricks
+        // first try to push onto our grm queue
+        if (lfsr_grm_count(&lfs->grm) < 2) {
+            lfsr_grm_pushrm(&lfs->grm, file->mdir.mid);
 
-            // first try to push onto our grm queue
-            if (lfsr_grm_count(&lfs->grm) < 2) {
-                lfsr_grm_pushrm(&lfs->grm, file->mdir.mid);
-
-            // fallback to just marking the filesystem as orphaned
-            } else {
-                lfs->hasorphans = true;
-            }
+        // fallback to just marking the filesystem as orphaned
+        } else {
+            lfs->hasorphans = true;
         }
     }
 
