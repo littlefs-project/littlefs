@@ -426,16 +426,16 @@ code = '''
 
     // try reading our root as a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "/", LFS_O_RDONLY) => LFS_ERR_ISDIR;
+    lfsr_file_open(&lfs, &file, "/", LFS_O_RDONLY) => LFS_ERR_INVAL;
 
     // try writing our root as a file
-    lfsr_file_open(&lfs, &file, "/", LFS_O_WRONLY) => LFS_ERR_ISDIR;
+    lfsr_file_open(&lfs, &file, "/", LFS_O_WRONLY) => LFS_ERR_INVAL;
     lfsr_file_open(&lfs, &file, "/",
-            LFS_O_WRONLY | LFS_O_TRUNC) => LFS_ERR_ISDIR;
+            LFS_O_WRONLY | LFS_O_TRUNC) => LFS_ERR_INVAL;
     lfsr_file_open(&lfs, &file, "/",
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
+            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_INVAL;
     lfsr_file_open(&lfs, &file, "/",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => LFS_ERR_ISDIR;
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => LFS_ERR_INVAL;
 
     // try rename a file on top of our directory
     lfsr_file_open(&lfs, &file, "not_hello",
@@ -446,7 +446,7 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
     lfsr_file_close(&lfs, &file) => 0;
 
-    lfsr_rename(&lfs, "not_hello", "/") => LFS_ERR_ISDIR;
+    lfsr_rename(&lfs, "not_hello", "/") => LFS_ERR_INVAL;
 
     // remount?
     if (REMOUNT) {
@@ -1734,7 +1734,7 @@ code = '''
     }
 
     // rename the file
-    lfsr_rename(&lfs, "amethyst", "/") => LFS_ERR_ISDIR;
+    lfsr_rename(&lfs, "amethyst", "/") => LFS_ERR_INVAL;
 
     // remount?
     if (REMOUNT) {
