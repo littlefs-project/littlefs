@@ -1842,6 +1842,10 @@ static inline void lfsr_grm_poprm(lfsr_grm_t *grm) {
     grm->rms[1] = -1;
 }
 
+static inline bool lfsr_grm_isrm(const lfsr_grm_t *grm, lfsr_smid_t mid) {
+    return grm->rms[0] == mid || grm->rms[1] == mid;
+}
+
 static inline bool lfsr_grm_iszero(
         const uint8_t gdelta[static LFSR_GRM_DSIZE]) {
     return lfsr_gdelta_iszero(gdelta, LFSR_GRM_DSIZE);
@@ -5088,14 +5092,17 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         return LFS_ERR_NOENT;
     }
 
-    if (tag_) {
-        // intercept pending grms here and pretend they're orphaned files
-        //
-        // fortunately pending grms/orphaned files have roughly the same
-        // semantics, and it's easier to manage the implied mid gap in
-        // higher-levels
-        // TODO
+    // intercept pending grms here and pretend they're orphaned files
+    //
+    // fortunately pending grms/orphaned files have roughly the same
+    // semantics, and it's easier to manage the implied mid gap in
+    // higher-levels
+    if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME
+            && lfsr_grm_isrm(&lfs->grm, mid)) {
+        tag__ = LFSR_TAG_ORPHAN;
+    }
 
+    if (tag_) {
         *tag_ = tag__;
     }
     return 0;
@@ -5104,17 +5111,45 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
 static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_smid_t mid, lfsr_tag_t tag,
         lfsr_data_t *data_) {
-    return lfsr_rbyd_lookup(lfs, &mdir->rbyd,
-            lfsr_mid_rid(lfs, mid), tag,
-            data_);
+    lfsr_tag_t tag_;
+    int err = lfsr_mdir_lookupnext(lfs, mdir, mid, tag,
+            &tag_, data_);
+    if (err) {
+        return err;
+    }
+
+    // lookup finds the next-smallest tag, all we need to do is fail if it
+    // picks up the wrong tag
+    if (tag_ != tag) {
+        return LFS_ERR_NOENT;
+    }
+
+    return 0;
 }
 
 static int lfsr_mdir_lookupwide(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_smid_t mid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    return lfsr_rbyd_lookupwide(lfs, &mdir->rbyd,
-            lfsr_mid_rid(lfs, mid), tag,
-            tag_, data_);
+    // looking up a wide tag with subtype is probably a mistake
+    LFS_ASSERT(lfsr_tag_subtype(tag) == 0);
+
+    lfsr_tag_t tag__;
+    int err = lfsr_mdir_lookupnext(lfs, mdir, mid, tag,
+            &tag__, data_);
+    if (err) {
+        return err;
+    }
+
+    // the difference between lookup and lookupwide is we accept any
+    // subtype of the requested tag
+    if (lfsr_tag_suptype(tag__) != tag) {
+        return LFS_ERR_NOENT;
+    }
+
+    if (tag_) {
+        *tag_ = tag__;
+    }
+    return 0;
 }
 
 // track opened mdirs to keep state in-sync
@@ -5261,13 +5296,6 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
         }
 
         mdir->mid = bid-(lfsr_mweight(lfs)-1) + rid;
-
-        // wait are we grmed? pretend this mid doesn't exist
-        if (mdir->mid == lfs->grm.rms[0]
-                || mdir->mid == lfs->grm.rms[1]) {
-            continue;
-        }
-
         return 0;
     }
 }
@@ -6772,11 +6800,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 // if not found, rid will be the best place to insert
 static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_did_t did, const char *name, lfs_size_t name_size,
-        lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    // default to rid_ = 0, this blanket assignment is the only way to
+        lfsr_smid_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    // default to mid_ = 0, this blanket assignment is the only way to
     // keep GCC happy
-    if (rid_) {
-        *rid_ = 0;
+    if (mid_) {
+        *mid_ = 0;
     }
 
     // empty mdir?
@@ -6785,21 +6813,35 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     }
 
     lfsr_srid_t rid;
+    lfsr_tag_t tag;
     lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &mdir->rbyd,
             did, name, name_size,
-            &rid, tag_, NULL, data_);
+            &rid, &tag, NULL, data_);
     if (cmp < 0) {
         LFS_ASSERT(cmp != LFS_ERR_NOENT);
         return cmp;
     }
 
-    // adjust rid if necessary
+    // adjust mid if necessary
     if (lfs_cmp(cmp) < 0) {
         rid += 1;
     }
+    lfsr_smid_t mid = lfsr_mdir_bid(lfs, mdir)-(lfsr_mweight(lfs)-1) + rid;
 
-    if (rid_) {
-        *rid_ = rid;
+    // intercept pending grms here and pretend they're orphaned files
+    //
+    // fortunately pending grms/orphaned files have roughly the same
+    // semantics, and it's easier to manage the implied mid gap in
+    // higher-levels
+    if (lfsr_grm_isrm(&lfs->grm, mid)) {
+        tag = LFSR_TAG_ORPHAN;
+    }
+
+    if (mid_) {
+        *mid_ = mid;
+    }
+    if (tag_) {
+        *tag_ = tag;
     }
     return (lfs_cmp(cmp) == 0) ? 0 : LFS_ERR_NOENT;
 }
@@ -6855,31 +6897,21 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     }
 
     // and finally lookup name in our mdir
-    lfsr_srid_t rid;
+    lfsr_smid_t mid;
     int err = lfsr_mdir_namelookup(lfs, &mdir,
             did, name, name_size,
-            &rid, tag_, data_);
+            &mid, tag_, data_);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
 
     // update mdir with best place to insert even if we fail
-    mdir.mid += rid;
+    mdir.mid = mid;
     if (mdir_) {
         *mdir_ = mdir;
     }
 
-    if (err) {
-        return err;
-    }
-
-    // wait are we grmed? pretend this mid doesn't exist
-    if (mdir.mid == lfs->grm.rms[0]
-            || mdir.mid == lfs->grm.rms[1]) {
-        return LFS_ERR_NOENT;
-    }
-
-    return 0;
+    return err;
 }
 
 
@@ -6961,7 +6993,9 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
 
         // only continue if we hit a directory
         if (tag != LFSR_TAG_DIR) {
-            return LFS_ERR_NOTDIR;
+            return (tag == LFSR_TAG_ORPHAN)
+                    ? LFS_ERR_NOENT
+                    : LFS_ERR_NOTDIR;
         }
 
         // read the next did from the mdir if this is not the root
@@ -8765,9 +8799,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             opened;
             opened = opened->next) {
         if (opened->type == LFS_TYPE_REG
-                // TODO should we have lfsr_grm_isrm or something?
-                && (opened->mdir.mid == lfs->grm.rms[0]
-                    || opened->mdir.mid == lfs->grm.rms[1])) {
+                && lfsr_grm_isrm(&lfs->grm, opened->mdir.mid)) {
             opened->mdir = new_mdir;
         }
     }
