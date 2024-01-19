@@ -4108,6 +4108,21 @@ static int lfs_rawremoveattr(lfs_t *lfs, const char *path, uint8_t type) {
 
 
 /// Filesystem operations ///
+
+// compile time checks, see lfs.h for why these limits exist
+#if LFS_NAME_MAX > 1022
+#error "Invalid LFS_NAME_MAX, must be <= 1022"
+#endif
+
+#if LFS_FILE_MAX > 2147483647
+#error "Invalid LFS_FILE_MAX, must be <= 2147483647"
+#endif
+
+#if LFS_ATTR_MAX > 1022
+#error "Invalid LFS_ATTR_MAX, must be <= 1022"
+#endif
+
+// common filesystem initialization
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     lfs->block_count = cfg->block_count;  // May be 0
