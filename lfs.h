@@ -116,8 +116,11 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG = 1,
-    LFS_TYPE_DIR = 2,
+    LFS_TYPE_REG        = 1,
+    LFS_TYPE_DIR        = 2,
+
+    // internally used types
+    LFS_TYPE_BOOKMARK   = 4,
 };
 
 // File open flags
@@ -449,13 +452,9 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfsr_dir {
-    struct lfsr_opened *next;
-    uint8_t type;
-    uint16_t flags; // unused
-    lfsr_mdir_t mdir;
-
+    lfsr_opened_t p; // pos mdir
+    lfsr_opened_t b; // bookmark mdir
     lfsr_did_t did;
-    lfsr_smid_t bookmark;
     lfs_soff_t pos;
 } lfsr_dir_t;
 
