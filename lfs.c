@@ -8450,10 +8450,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // Check if we have a collision. If we do, search for the next
     // available did
-    lfsr_opened_t bookmark;
     while (true) {
         err = lfsr_mtree_namelookup(lfs, did_, NULL, 0,
-                &bookmark.mdir, NULL, NULL);
+                &mdir, NULL, NULL);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -8466,26 +8465,34 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // found a good did, now to commit to the mtree
+    //
+    // A problem: we need to create both:
+    // 1. the metadata entry
+    // 2. the bookmark entry
+    //
+    // To do this atomically, we first create the bookmark entry with a grm
+    // to delete-self in case of powerloss, then create the metadata entry
+    // while atomically cancelling the grm.
 
-    // A problem: we need to create both 1. the metadata entry and 2. the
-    // bookmark entry.
-    //
-    // To do this atomically, we first create the metadata entry with a grm
-    // to delete-self in case of powerloss, then create the bookmark while
-    // atomically cancelling the grm.
-    //
-    // These commits can change the relative mids of each other, so we track
-    // the bookmark mdir as an "open file" temporarily.
-    //
-    // Note! The metadata/bookmark order is important! Attempting to create
-    // the bookmark first risks inserting the bookmark before the metadata
-    // entry, which breaks things.
-    //
-    bookmark.type = 0;
-    lfsr_addopened(lfs, &bookmark);
+    // commit our bookmark and a grm to self-remove in case of powerloss
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+            LFSR_ATTR(mdir.mid, BOOKMARK, +1, LEB128(did_)),
+            LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid, -1}})))));
+    if (err) {
+        return err;
+    }
 
-    // commit our new directory into our parent, creating a grm to self-remove
-    // in case of powerloss
+    // committing our bookmark may have changed the mid of our metadata entry,
+    // we need to look it up again, we can at least avoid the full path walk
+    err = lfsr_mtree_namelookup(lfs, did, name, name_size,
+            &mdir, NULL, NULL);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    LFS_ASSERT((exists) ? !err : err == LFS_ERR_NOENT);
+
+    // commit our new directory into our parent, zeroing the grm in the
+    // process
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
                 DIR, +1, CAT(
@@ -8496,29 +8503,12 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             (exists)
                 ? LFSR_ATTR(mdir.mid, RM, -1, NULL())
                 : LFSR_ATTR_NOOP(),
-            LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{
-                mdir.mid,
-                -1}})))));
-    if (err) {
-        goto failed_with_bookmark;
-    }
-
-    lfsr_removeopened(lfs, &bookmark);
-
-    // commit our bookmark and zero the grm, the bookmark tag is an empty
-    // entry that marks our did as allocated
-    err = lfsr_mdir_commit(lfs, &bookmark.mdir, LFSR_ATTRS(
-            LFSR_ATTR(bookmark.mdir.mid, BOOKMARK, +1, LEB128(did_)),
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{-1, -1}})))));
     if (err) {
         return err;
     }
 
     return 0;
-
-failed_with_bookmark:
-    lfsr_removeopened(lfs, &bookmark);
-    return err;
 }
 
 int lfsr_remove(lfs_t *lfs, const char *path) {
