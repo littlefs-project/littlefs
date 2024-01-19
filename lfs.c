@@ -2235,15 +2235,15 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // unreachable tags has a hole here
     tag = lfs_max16(tag, 0x1);
 
+    // out of bounds? no trunk yet?
+    if (rid >= rbyd->weight || !rbyd->trunk) {
+        return LFS_ERR_NOENT;
+    }
+
     // keep track of bounds as we descend down the tree
     lfs_size_t branch = rbyd->trunk;
     lfsr_srid_t lower = 0;
     lfsr_srid_t upper = rbyd->weight;
-
-    // no trunk yet?
-    if (!branch) {
-        return LFS_ERR_NOENT;
-    }
 
     // descend down tree
     while (true) {
