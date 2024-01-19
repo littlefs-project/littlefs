@@ -520,10 +520,7 @@ typedef struct lfsr_ftree {
 } lfsr_ftree_t;
 
 typedef struct lfsr_file {
-    struct lfsr_opened *next;
-    uint8_t type;
-    uint16_t flags;
-    lfsr_mdir_t mdir;
+    lfsr_opened_t m;
 
     // files contain both an active tree and staging tree, to allow
     // staging during mdir compacts
