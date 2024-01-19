@@ -38,10 +38,12 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_dir_tell(&lfs, &dir) => 2 + i;
         char name[256];
@@ -49,6 +51,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_tell(&lfs, &dir) => 2 + N;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -86,10 +89,12 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_dir_tell(&lfs, &dir) => 2 + i;
         char name[256];
@@ -97,6 +102,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_tell(&lfs, &dir) => 2 + N;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -108,10 +114,12 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_dir_tell(&lfs, &dir) => 2 + i;
         char name[256];
@@ -119,6 +127,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_tell(&lfs, &dir) => 2 + N;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -157,10 +166,12 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_dir_tell(&lfs, &dir) => 2 + i;
         char name[256];
@@ -168,6 +179,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_tell(&lfs, &dir) => 2 + N;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -178,10 +190,12 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_seek(&lfs, &dir, 1) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_dir_seek(&lfs, &dir, 2 + i) => 0;
         char name[256];
@@ -189,6 +203,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_seek(&lfs, &dir, 2 + N) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -242,12 +257,15 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_tell(&lfs, &dir) => 3;
 
@@ -275,12 +293,15 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
 
     lfsr_dir_close(&lfs, &dir) => 0;
@@ -341,9 +362,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -352,6 +375,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // since modification is unrelated, the dir position should go unchanged
@@ -402,6 +426,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -472,9 +497,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -483,6 +510,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // since modification is unrelated, the dir position should go unchanged
@@ -533,6 +561,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -603,9 +632,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -614,6 +645,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // since modification is unrelated, the dir position should go unchanged
@@ -668,6 +700,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -728,9 +761,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -739,6 +774,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // make a dir at J
@@ -764,6 +800,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -823,9 +860,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -834,6 +873,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // remove the dir at J
@@ -863,6 +903,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -930,9 +971,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -941,6 +984,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // rename the dir at J
@@ -977,6 +1021,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     int err = lfsr_dir_read(&lfs, &dir, &info);
@@ -1042,9 +1087,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -1053,6 +1100,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // make a dir at J
@@ -1086,6 +1134,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -1149,9 +1198,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -1160,6 +1211,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // remove the dir at J
@@ -1193,6 +1245,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -1264,9 +1317,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -1275,6 +1330,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // rename the dir at J
@@ -1321,6 +1377,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     int err = lfsr_dir_read(&lfs, &dir, &info);
@@ -1375,9 +1432,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
 
     // read until I
     for (lfs_size_t i = 0; i < I; i++) {
@@ -1386,6 +1445,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     // remove the directory
@@ -1466,6 +1526,7 @@ code = '''
         sprintf(name2, "dir%04d", i);
         assert(strcmp(info.name, name2) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_t dir;
@@ -1474,15 +1535,18 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
@@ -1492,15 +1556,18 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
 
         char path[1024];
         sprintf(path, "%s/%s", (PARENT ? "pricklypear" : ""), info.name);
@@ -1532,9 +1599,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
 
@@ -1609,6 +1678,7 @@ code = '''
             sprintf(name2, "dir%04d", i);
             assert(strcmp(info.name, name2) == 0);
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
         }
 
         lfsr_dir_t dir;
@@ -1617,15 +1687,18 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
         for (lfs_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%04d", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
         }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
@@ -1637,9 +1710,11 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0;; i++) {
         int err = lfsr_dir_read(&lfs, &dir, &info);
         assert(!err || err == LFS_ERR_NOENT);
@@ -1653,6 +1728,7 @@ code = '''
         }
         assert(i < 2*N);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
 
         char old_path[1024];
         sprintf(old_path, "%s/%s", (PARENT ? "pricklypear" : ""), info.name);
@@ -1697,6 +1773,7 @@ code = '''
         sprintf(name2, "%smved%04d", (BEFORE ? "0" : ""), i);
         assert(strcmp(info.name, name2) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
 
     lfsr_dir_open(&lfs, &dir,
@@ -1706,15 +1783,18 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;

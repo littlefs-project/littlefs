@@ -8813,6 +8813,7 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     if (err == LFS_ERR_INVAL) {
         strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
+        info->size = 0;
         return 0;
     }
 
@@ -8901,13 +8902,15 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
     // handle dots specially
     if (dir->pos == 0) {
-        info->type = LFS_TYPE_DIR;
         strcpy(info->name, ".");
+        info->type = LFS_TYPE_DIR;
+        info->size = 0;
         dir->pos += 1;
         return 0;
     } else if (dir->pos == 1) {
-        info->type = LFS_TYPE_DIR;
         strcpy(info->name, "..");
+        info->type = LFS_TYPE_DIR;
+        info->size = 0;
         dir->pos += 1;
         return 0;
     }
