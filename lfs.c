@@ -4564,41 +4564,40 @@ typedef struct lfsr_btraversal {
         .branch.trunk=0, \
         .branch.weight=0})
 
-static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
+static int lfsr_btree_traverse_(lfs_t *lfs,
+        const lfsr_btree_t *btree, bool shrub,
         lfsr_btraversal_t *btraversal,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
-    while (true) {
-        // in range?
-        if (btraversal->bid >= (lfsr_bid_t)btree->weight
-                // make sure we traverse the root even if weight=0
-                && (btraversal->branch.trunk != 0
-                    // unless we don't even have a root yet
-                    || btree->trunk == 0)) {
-            return LFS_ERR_NOENT;
-        }
+    // explicitly traverse the root even if weight=0
+    if (btraversal->branch.trunk == 0
+            // unless we don't even have a root yet
+            && btree->trunk != 0
+            // or are a shrub
+            && !shrub) {
+        btraversal->rid = btraversal->bid;
+        btraversal->branch = *btree;
 
-        // restart from the root
-        if (btraversal->rid >= btraversal->branch.weight) {
-            btraversal->rid = btraversal->bid;
-            btraversal->branch = *btree;
-
-            // traverse the root
-            if (btraversal->rid == 0) {
-                if (bid_) {
-                    *bid_ = btree->weight-1;
-                }
-                if (tinfo_) {
-                    tinfo_->tag = LFSR_TAG_BRANCH;
-                    tinfo_->u.rbyd = btraversal->branch;
-                }
-                return 0;
+        // traverse the root
+        if (btraversal->rid == 0) {
+            if (bid_) {
+                *bid_ = btree->weight-1;
             }
-
-            // continue, mostly for range check
-            continue;
+            if (tinfo_) {
+                tinfo_->tag = LFSR_TAG_BRANCH;
+                tinfo_->u.rbyd = btraversal->branch;
+            }
+            return 0;
         }
+    }
 
-        // descend down the tree
+    // need to restart from the root?
+    if (btraversal->rid >= btraversal->branch.weight) {
+        btraversal->rid = btraversal->bid;
+        btraversal->branch = *btree;
+    }
+
+    // descend down the tree
+    while (true) {
         lfsr_srid_t rid__;
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
@@ -4607,7 +4606,6 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
                 btraversal->rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
@@ -4651,7 +4649,7 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
         } else {
             // move on to the next rid
             //
-            // note the effectively traverses a full leaf without redoing
+            // note this effectively traverses a full leaf without redoing
             // the btree walk
             lfsr_bid_t bid__ = btraversal->bid + (rid__ - btraversal->rid);
             btraversal->bid = bid__ + 1;
@@ -4667,6 +4665,14 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
             return 0;
         }
     }
+}
+
+static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
+        lfsr_btraversal_t *btraversal,
+        lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
+    return lfsr_btree_traverse_(lfs, btree, false,
+            btraversal,
+            bid_, tinfo_);
 }
 
 
@@ -9569,15 +9575,9 @@ static int lfsr_file_traverse(lfs_t *lfs, const lfsr_file_t *file,
 
     // bshrub/btree?
     } else if (lfsr_ftree_isbshruborbtree(&file->ftree)) {
-        // prevent bshrub root from being traversed, since this is
-        // just our mdir
-        if (lfsr_ftree_isbshrub(&file->m.mdir, &file->ftree)
-                && btraversal->branch.trunk == 0) {
-            btraversal->branch = *lfsr_shrub_rbyd(&file->ftree.u.bshrub);
-        }
-
-        int err = lfsr_btree_traverse(lfs,
+        int err = lfsr_btree_traverse_(lfs,
                 lfsr_shrub_rbyd(&file->ftree.u.bshrub),
+                lfsr_ftree_isbshrub(&file->m.mdir, &file->ftree),
                 btraversal,
                 bid_, tinfo_);
         if (err) {
