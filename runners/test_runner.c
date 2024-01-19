@@ -1347,6 +1347,7 @@ static void run_powerloss_none(
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
         .compact_thresh     = COMPACT_THRESH,
+        .inline_max         = INLINE_MAX,
     #ifdef LFS_MULTIVERSION
         .disk_version       = DISK_VERSION,
     #endif
@@ -1424,6 +1425,7 @@ static void run_powerloss_linear(
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
         .compact_thresh     = COMPACT_THRESH,
+        .inline_max         = INLINE_MAX,
     #ifdef LFS_MULTIVERSION
         .disk_version       = DISK_VERSION,
     #endif
@@ -1518,6 +1520,7 @@ static void run_powerloss_log(
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
         .compact_thresh     = COMPACT_THRESH,
+        .inline_max         = INLINE_MAX,
     #ifdef LFS_MULTIVERSION
         .disk_version       = DISK_VERSION,
     #endif
@@ -1610,6 +1613,7 @@ static void run_powerloss_cycles(
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
         .compact_thresh     = COMPACT_THRESH,
+        .inline_max         = INLINE_MAX,
     #ifdef LFS_MULTIVERSION
         .disk_version       = DISK_VERSION,
     #endif
@@ -1800,6 +1804,7 @@ static void run_powerloss_exhaustive(
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
         .compact_thresh     = COMPACT_THRESH,
+        .inline_max         = INLINE_MAX,
     #ifdef LFS_MULTIVERSION
         .disk_version       = DISK_VERSION,
     #endif
