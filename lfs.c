@@ -596,42 +596,48 @@ static int lfs_rawunmount(lfs_t *lfs);
 #ifndef LFS_READONLY
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = (lfs_t*)p;
-    lfs_block_t off = ((block - lfs->free.off)
+    lfs_block_t off = ((block - lfs->lookahead.start)
             + lfs->block_count) % lfs->block_count;
 
-    if (off < lfs->free.size) {
-        lfs->free.buffer[off / 32] |= 1U << (off % 32);
+    if (off < lfs->lookahead.size) {
+        lfs->lookahead.buffer[off / 8] |= 1U << (off % 8);
     }
 
     return 0;
 }
 #endif
 
-// indicate allocated blocks have been committed into the filesystem, this
-// is to prevent blocks from being garbage collected in the middle of a
-// commit operation
-static void lfs_alloc_ack(lfs_t *lfs) {
-    lfs->free.ack = lfs->block_count;
+// allocations should call this when all allocated blocks are committed to
+// the filesystem
+//
+// after a checkpoint, the block allocator may realloc any untracked blocks
+static void lfs_alloc_ckpoint(lfs_t *lfs) {
+    lfs->lookahead.ckpoint = lfs->block_count;
 }
 
 // drop the lookahead buffer, this is done during mounting and failed
 // traversals in order to avoid invalid lookahead state
 static void lfs_alloc_drop(lfs_t *lfs) {
-    lfs->free.size = 0;
-    lfs->free.i = 0;
-    lfs_alloc_ack(lfs);
+    lfs->lookahead.size = 0;
+    lfs->lookahead.next = 0;
+    lfs_alloc_ckpoint(lfs);
 }
 
 #ifndef LFS_READONLY
 static int lfs_fs_rawgc(lfs_t *lfs) {
-    // Move free offset at the first unused block (lfs->free.i)
-    // lfs->free.i is equal lfs->free.size when all blocks are used
-    lfs->free.off = (lfs->free.off + lfs->free.i) % lfs->block_count;
-    lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size, lfs->free.ack);
-    lfs->free.i = 0;
+    // move lookahead buffer to the first unused block
+    //
+    // note we limit the lookahead buffer to at most the amount of blocks
+    // checkpointed, this prevents the math in lfs_alloc from underflowing
+    lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.next) 
+            % lfs->block_count;
+    lfs->lookahead.next = 0;
+    lfs->lookahead.size = lfs_min(
+            8*lfs->cfg->lookahead_size,
+            lfs->lookahead.ckpoint);
 
     // find mask of free blocks from tree
-    memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
+    memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
     int err = lfs_fs_rawtraverse(lfs, lfs_alloc_lookahead, lfs, true);
     if (err) {
         lfs_alloc_drop(lfs);
@@ -645,35 +651,48 @@ static int lfs_fs_rawgc(lfs_t *lfs) {
 #ifndef LFS_READONLY
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
-        while (lfs->free.i != lfs->free.size) {
-            lfs_block_t off = lfs->free.i;
-            lfs->free.i += 1;
-            lfs->free.ack -= 1;
-
-            if (!(lfs->free.buffer[off / 32] & (1U << (off % 32)))) {
+        // scan our lookahead buffer for free blocks
+        while (lfs->lookahead.next < lfs->lookahead.size) {
+            if (!(lfs->lookahead.buffer[lfs->lookahead.next / 8]
+                    & (1U << (lfs->lookahead.next % 8)))) {
                 // found a free block
-                *block = (lfs->free.off + off) % lfs->block_count;
+                *block = (lfs->lookahead.start + lfs->lookahead.next)
+                        % lfs->block_count;
 
-                // eagerly find next off so an alloc ack can
-                // discredit old lookahead blocks
-                while (lfs->free.i != lfs->free.size &&
-                        (lfs->free.buffer[lfs->free.i / 32]
-                            & (1U << (lfs->free.i % 32)))) {
-                    lfs->free.i += 1;
-                    lfs->free.ack -= 1;
+                // eagerly find next free block to maximize how many blocks
+                // lfs_alloc_ckpoint makes available for scanning
+                while (true) {
+                    lfs->lookahead.next += 1;
+                    lfs->lookahead.ckpoint -= 1;
+
+                    if (lfs->lookahead.next >= lfs->lookahead.size
+                            || !(lfs->lookahead.buffer[lfs->lookahead.next / 8]
+                                & (1U << (lfs->lookahead.next % 8)))) {
+                        return 0;
+                    }
                 }
-
-                return 0;
             }
+
+            lfs->lookahead.next += 1;
+            lfs->lookahead.ckpoint -= 1;
         }
 
-        // check if we have looked at all blocks since last ack
-        if (lfs->free.ack == 0) {
-            LFS_ERROR("No more free space %"PRIu32,
-                    lfs->free.i + lfs->free.off);
+        // In order to keep our block allocator from spinning forever when our
+        // filesystem is full, we mark points where there are no in-flight
+        // allocations with a checkpoint before starting a set of allocations.
+        //
+        // If we've looked at all blocks since the last checkpoint, we report
+        // the filesystem as out of storage.
+        //
+        if (lfs->lookahead.ckpoint <= 0) {
+            LFS_ERROR("No more free space 0x%"PRIx32,
+                    (lfs->lookahead.start + lfs->lookahead.next)
+                        % lfs->cfg->block_count);
             return LFS_ERR_NOSPC;
         }
 
+        // No blocks in our lookahead buffer, we need to scan the filesystem for
+        // unused blocks in the next lookahead window.
         int err = lfs_fs_rawgc(lfs);
         if(err) {
             return err;
@@ -2588,7 +2607,7 @@ static int lfs_rawmkdir(lfs_t *lfs, const char *path) {
     }
 
     // build up new directory
-    lfs_alloc_ack(lfs);
+    lfs_alloc_ckpoint(lfs);
     lfs_mdir_t dir;
     err = lfs_dir_alloc(lfs, &dir);
     if (err) {
@@ -3274,7 +3293,7 @@ relocate:
 #ifndef LFS_READONLY
 static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
     file->off = file->pos;
-    lfs_alloc_ack(lfs);
+    lfs_alloc_ckpoint(lfs);
     int err = lfs_file_relocate(lfs, file);
     if (err) {
         return err;
@@ -3537,7 +3556,7 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
                 }
 
                 // extend file with new blocks
-                lfs_alloc_ack(lfs);
+                lfs_alloc_ckpoint(lfs);
                 int err = lfs_ctz_extend(lfs, &file->cache, &lfs->rcache,
                         file->block, file->pos,
                         &file->block, &file->off);
@@ -3580,7 +3599,7 @@ relocate:
         data += diff;
         nsize -= diff;
 
-        lfs_alloc_ack(lfs);
+        lfs_alloc_ckpoint(lfs);
     }
 
     return size;
@@ -4197,15 +4216,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_cache_zero(lfs, &lfs->rcache);
     lfs_cache_zero(lfs, &lfs->pcache);
 
-    // setup lookahead, must be multiple of 64-bits, 32-bit aligned
+    // setup lookahead buffer, note mount finishes initializing this after
+    // we establish a decent pseudo-random seed
     LFS_ASSERT(lfs->cfg->lookahead_size > 0);
-    LFS_ASSERT(lfs->cfg->lookahead_size % 8 == 0 &&
-            (uintptr_t)lfs->cfg->lookahead_buffer % 4 == 0);
     if (lfs->cfg->lookahead_buffer) {
-        lfs->free.buffer = lfs->cfg->lookahead_buffer;
+        lfs->lookahead.buffer = lfs->cfg->lookahead_buffer;
     } else {
-        lfs->free.buffer = lfs_malloc(lfs->cfg->lookahead_size);
-        if (!lfs->free.buffer) {
+        lfs->lookahead.buffer = lfs_malloc(lfs->cfg->lookahead_size);
+        if (!lfs->lookahead.buffer) {
             err = LFS_ERR_NOMEM;
             goto cleanup;
         }
@@ -4262,7 +4280,7 @@ static int lfs_deinit(lfs_t *lfs) {
     }
 
     if (!lfs->cfg->lookahead_buffer) {
-        lfs_free(lfs->free.buffer);
+        lfs_free(lfs->lookahead.buffer);
     }
 
     return 0;
@@ -4282,12 +4300,12 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
         LFS_ASSERT(cfg->block_count != 0);
 
         // create free lookahead
-        memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
-        lfs->free.off = 0;
-        lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size,
+        memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
+        lfs->lookahead.start = 0;
+        lfs->lookahead.size = lfs_min(8*lfs->cfg->lookahead_size,
                 lfs->block_count);
-        lfs->free.i = 0;
-        lfs_alloc_ack(lfs);
+        lfs->lookahead.next = 0;
+        lfs_alloc_ckpoint(lfs);
 
         // create root dir
         lfs_mdir_t root;
@@ -4495,7 +4513,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // setup free lookahead, to distribute allocations uniformly across
     // boots, we start the allocator at a random location
-    lfs->free.off = lfs->seed % lfs->block_count;
+    lfs->lookahead.start = lfs->seed % lfs->block_count;
     lfs_alloc_drop(lfs);
 
     return 0;
@@ -5468,10 +5486,10 @@ static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
         lfs->lfs1->root[1] = LFS_BLOCK_NULL;
 
         // setup free lookahead
-        lfs->free.off = 0;
-        lfs->free.size = 0;
-        lfs->free.i = 0;
-        lfs_alloc_ack(lfs);
+        lfs->lookahead.start = 0;
+        lfs->lookahead.size = 0;
+        lfs->lookahead.next = 0;
+        lfs_alloc_ckpoint(lfs);
 
         // load superblock
         lfs1_dir_t dir;
