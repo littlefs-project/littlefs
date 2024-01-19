@@ -3953,7 +3953,9 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             newoldid += 1;
         }
     } else if (lfs_tag_type3(prevtag) != lfs_tag_type3(oldtag)) {
-        return LFS_ERR_ISDIR;
+        return (lfs_tag_type3(prevtag) == LFS_TYPE_DIR)
+                ? LFS_ERR_ISDIR
+                : LFS_ERR_NOTDIR;
     } else if (samepair && newid == newoldid) {
         // we're renaming to ourselves??
         return 0;
