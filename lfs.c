@@ -1445,8 +1445,6 @@ typedef struct lfsr_attr {
         _delta, \
         LFSR_DATA_##_data})
 
-#define LFSR_ATTR_NOOP() LFSR_ATTR(-1, GROW, 0, NULL())
-
 // TODO make this const again eventually
 #define LFSR_ATTRS(...) \
     (const lfsr_attr_t[]){__VA_ARGS__}, \
@@ -2489,12 +2487,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // we can't do anything if we're not erased
     if (rbyd->eoff >= lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
-    }
-
-    // ignore noops
-    // TODO is there a better way to represent noops?
-    if (!lfsr_tag_iswide(tag) && !lfsr_tag_key(tag) && delta == 0) {
-        return 0;
     }
 
     // make sure every rbyd starts with a revision count
@@ -4072,8 +4064,10 @@ static int lfsr_btree_commit_(lfs_t *lfs,
             attrs__[attr_count++] = LFSR_ATTR(bid+rid,
                     BRANCH, 0, FROMBRANCH(&rbyd_, &buf__[buf_size]));
             buf_size += LFSR_BRANCH_DSIZE;
-            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
-                    GROW, -rbyd.weight + rbyd_.weight, NULL());
+            if (rbyd_.weight != rbyd.weight) {
+                attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                        GROW, -rbyd.weight + rbyd_.weight, NULL());
+            }
         }
         attrs = attrs__;
 
@@ -4355,8 +4349,10 @@ static int lfsr_btree_commit_(lfs_t *lfs,
                     BRANCH, 0,
                     FROMBRANCH(&rbyd_, &buf__[buf_size]));
             buf_size += LFSR_BRANCH_DSIZE;
-            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
-                    GROW, -rbyd.weight + rbyd_.weight, NULL());
+            if (rbyd_.weight != rbyd.weight) {
+                attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                        GROW, -rbyd.weight + rbyd_.weight, NULL());
+            }
             attrs__[attr_count++] = LFSR_ATTR(
                     bid+rid - rbyd.weight + rbyd_.weight + 1,
                     BRANCH, +sibling.weight,
@@ -4436,8 +4432,10 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         attrs__[attr_count++] = LFSR_ATTR(bid+rid,
                 BRANCH, 0, FROMBRANCH(&rbyd_, &buf__[buf_size]));
         buf_size += LFSR_BRANCH_DSIZE;
-        attrs__[attr_count++] = LFSR_ATTR(bid+rid,
-                GROW, -rbyd.weight + rbyd_.weight, NULL());
+        if (rbyd_.weight != rbyd.weight) {
+            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                    GROW, -rbyd.weight + rbyd_.weight, NULL());
+        }
         attrs = attrs__;
 
         rbyd = parent;
@@ -8466,17 +8464,25 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
-                DIR, +1, CAT(
-                    LFSR_DATA_LEB128(did),
-                    LFSR_DATA_BUF(name, name_size))),
-            LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
-                DID, 0, LEB128(did_)),
-            (exists)
-                ? LFSR_ATTR(mdir.mid, RM, -1, NULL())
-                : LFSR_ATTR_NOOP(),
-            LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{-1, -1}})))));
+    lfsr_attr_t attrs[4];
+    lfs_size_t attr_count = 0;
+
+    lfsr_data_t datas[2] = {
+        LFSR_DATA_LEB128(did),
+        LFSR_DATA_BUF(name, name_size)
+    };
+    attrs[attr_count++] = LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
+            DIR, +1, DATA(lfsr_data_fromcat(datas, 2)));
+    attrs[attr_count++] = LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
+            DID, 0, LEB128(did_));
+    if (exists) {
+        attrs[attr_count++] = LFSR_ATTR(mdir.mid, RM, -1, NULL());
+    }
+    lfsr_grm_t grm = {{-1, -1}};
+    attrs[attr_count++] = LFSR_ATTR(-1, GRM, 0, GRM(&grm));
+
+    LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
+    err = lfsr_mdir_commit(lfs, &mdir, attrs, attr_count);
     if (err) {
         return err;
     }
@@ -8569,18 +8575,26 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     bool zombie = lfsr_mid_isopened(lfs, mdir.mid);
 
     // remove the metadata entry
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            // create an orphan if zombied
-            //
-            // we use a create+delete here to also clear any attrs
-            // and trim the entry size
-            (zombie)
-                ? LFSR_ATTR(mdir.mid+1, ORPHAN, +1, CAT(
-                    LFSR_DATA_LEB128(did),
-                    LFSR_DATA_BUF(name, name_size)))
-                : LFSR_ATTR_NOOP(),
-            LFSR_ATTR(mdir.mid, RM, -1, NULL()),
-            LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
+    lfsr_attr_t attrs[3];
+    lfs_size_t attr_count = 0;
+
+    // create an orphan if zombied
+    //
+    // we use a create+delete here to also clear any attrs
+    // and trim the entry size
+    lfsr_data_t datas[2] = {
+        LFSR_DATA_LEB128(did),
+        LFSR_DATA_BUF(name, name_size)
+    };
+    if (zombie) {
+        attrs[attr_count++] = LFSR_ATTR(mdir.mid+1,
+                ORPHAN, +1, DATA(lfsr_data_fromcat(datas, 2)));
+    }
+    attrs[attr_count++] = LFSR_ATTR(mdir.mid, RM, -1, NULL());
+    attrs[attr_count++] = LFSR_ATTR(-1, GRM, 0, GRM(&grm));
+
+    LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
+    err = lfsr_mdir_commit(lfs, &mdir, attrs, attr_count);
     if (err) {
         return err;
     }
@@ -8726,17 +8740,24 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
-    err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_ATTRS(
-            LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
-                TAG(old_tag), +1, CAT(
-                    LFSR_DATA_LEB128(new_did),
-                    LFSR_DATA_BUF(new_name, new_name_size))),
-            LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
-                MOVE, 0, MOVE(&old_mdir)),
-            (exists)
-                ? LFSR_ATTR(new_mdir.mid, RM, -1, NULL())
-                : LFSR_ATTR_NOOP(),
-            LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
+    lfsr_attr_t attrs[4];
+    lfs_size_t attr_count = 0;
+
+    lfsr_data_t datas[2] = {
+        LFSR_DATA_LEB128(new_did),
+        LFSR_DATA_BUF(new_name, new_name_size)
+    };
+    attrs[attr_count++] = LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
+            TAG(old_tag), +1, DATA(lfsr_data_fromcat(datas, 2)));
+    attrs[attr_count++] = LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
+            MOVE, 0, MOVE(&old_mdir));
+    if (exists) {
+        attrs[attr_count++] = LFSR_ATTR(new_mdir.mid, RM, -1, NULL());
+    }
+    attrs[attr_count++] = LFSR_ATTR(-1, GRM, 0, GRM(&grm));
+
+    LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
+    err = lfsr_mdir_commit(lfs, &new_mdir, attrs, attr_count);
     if (err) {
         return err;
     }
