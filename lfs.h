@@ -499,8 +499,8 @@ typedef struct lfsr_shrub {
     lfs_size_t estimate;
 } lfsr_shrub_t;
 
-// the lfsr_ftree_t struct is a sort of proto-file
-typedef struct lfsr_ftree {
+// the lfsr_bshrub_t struct represents the on-disk component of a file
+typedef struct lfsr_bshrub {
     // navigating this union is a bit tricky, and relies on the related
     // mdir's block:
     //
@@ -517,15 +517,15 @@ typedef struct lfsr_ftree {
         lfsr_shrub_t bshrub;
         lfsr_btree_t btree;
     } u;
-} lfsr_ftree_t;
+} lfsr_bshrub_t;
 
 typedef struct lfsr_file {
     lfsr_opened_t m;
 
-    // files contain both an active tree and staging tree, to allow
+    // files contain both an active bshrub and staging bshrub, to allow
     // staging during mdir compacts
-    lfsr_ftree_t ftree;
-    lfsr_ftree_t ftree_;
+    lfsr_bshrub_t bshrub;
+    lfsr_bshrub_t bshrub_;
     lfs_off_t pos;
 
     lfs_off_t buffer_pos;
