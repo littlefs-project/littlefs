@@ -1445,6 +1445,18 @@ typedef struct lfsr_attr {
         _delta, \
         LFSR_DATA_##_data})
 
+#define LFSR_ATTR_NOOP() LFSR_ATTR(-1, NULL, 0, NULL())
+
+#define LFSR_ATTR_IF(_cond, _rid, _type, _delta, _data) \
+    ((_cond) \
+        ? ((const lfsr_attr_t){ \
+            _rid, \
+            LFSR_TAG_##_type, \
+            _delta, \
+            LFSR_DATA_##_data}) \
+        : LFSR_ATTR_NOOP())
+
+
 // TODO make this const again eventually
 #define LFSR_ATTRS(...) \
     (const lfsr_attr_t[]){__VA_ARGS__}, \
@@ -2479,14 +2491,18 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
     // tag must not be internal at this point
     LFS_ASSERT(!lfsr_tag_isinternal(tag));
-    // there shouldn't be any null tags here
-    LFS_ASSERT(tag != 0);
     // reserve bit 7 to allow leb128 subtypes in the future
     LFS_ASSERT(!(tag & 0x80));
 
     // we can't do anything if we're not erased
     if (rbyd->eoff >= lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
+    }
+
+    // ignore noops
+    if (!tag) {
+        LFS_ASSERT(delta == 0);
+        return 0;
     }
 
     // make sure every rbyd starts with a revision count
@@ -8464,25 +8480,16 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
-    lfsr_attr_t attrs[4];
-    lfs_size_t attr_count = 0;
-
-    lfsr_data_t datas[2] = {
-        LFSR_DATA_LEB128(did),
-        LFSR_DATA_BUF(name, name_size)
-    };
-    attrs[attr_count++] = LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
-            DIR, +1, DATA(lfsr_data_fromcat(datas, 2)));
-    attrs[attr_count++] = LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
-            DID, 0, LEB128(did_));
-    if (exists) {
-        attrs[attr_count++] = LFSR_ATTR(mdir.mid, RM, -1, NULL());
-    }
-    lfsr_grm_t grm = {{-1, -1}};
-    attrs[attr_count++] = LFSR_ATTR(-1, GRM, 0, GRM(&grm));
-
-    LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
-    err = lfsr_mdir_commit(lfs, &mdir, attrs, attr_count);
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+            LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
+                DIR, +1, CAT(
+                    LFSR_DATA_LEB128(did),
+                    LFSR_DATA_BUF(name, name_size))),
+            LFSR_ATTR(mdir.mid + ((exists) ? 1 : 0),
+                DID, 0, LEB128(did_)),
+            LFSR_ATTR_IF((exists),
+                mdir.mid, RM, -1, NULL()),
+            LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{-1, -1}})))));
     if (err) {
         return err;
     }
@@ -8575,26 +8582,17 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     bool zombie = lfsr_mid_isopened(lfs, mdir.mid);
 
     // remove the metadata entry
-    lfsr_attr_t attrs[3];
-    lfs_size_t attr_count = 0;
-
-    // create an orphan if zombied
-    //
-    // we use a create+delete here to also clear any attrs
-    // and trim the entry size
-    lfsr_data_t datas[2] = {
-        LFSR_DATA_LEB128(did),
-        LFSR_DATA_BUF(name, name_size)
-    };
-    if (zombie) {
-        attrs[attr_count++] = LFSR_ATTR(mdir.mid+1,
-                ORPHAN, +1, DATA(lfsr_data_fromcat(datas, 2)));
-    }
-    attrs[attr_count++] = LFSR_ATTR(mdir.mid, RM, -1, NULL());
-    attrs[attr_count++] = LFSR_ATTR(-1, GRM, 0, GRM(&grm));
-
-    LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
-    err = lfsr_mdir_commit(lfs, &mdir, attrs, attr_count);
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+            // create an orphan if zombied
+            //
+            // we use a create+delete here to also clear any attrs
+            // and trim the entry size
+            LFSR_ATTR_IF((zombie),
+                mdir.mid+1, ORPHAN, +1, CAT(
+                    LFSR_DATA_LEB128(did),
+                    LFSR_DATA_BUF(name, name_size))),
+            LFSR_ATTR(mdir.mid, RM, -1, NULL()),
+            LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
         return err;
     }
@@ -8740,24 +8738,16 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
-    lfsr_attr_t attrs[4];
-    lfs_size_t attr_count = 0;
-
-    lfsr_data_t datas[2] = {
-        LFSR_DATA_LEB128(new_did),
-        LFSR_DATA_BUF(new_name, new_name_size)
-    };
-    attrs[attr_count++] = LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
-            TAG(old_tag), +1, DATA(lfsr_data_fromcat(datas, 2)));
-    attrs[attr_count++] = LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
-            MOVE, 0, MOVE(&old_mdir));
-    if (exists) {
-        attrs[attr_count++] = LFSR_ATTR(new_mdir.mid, RM, -1, NULL());
-    }
-    attrs[attr_count++] = LFSR_ATTR(-1, GRM, 0, GRM(&grm));
-
-    LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
-    err = lfsr_mdir_commit(lfs, &new_mdir, attrs, attr_count);
+    err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_ATTRS(
+            LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
+                TAG(old_tag), +1, CAT(
+                    LFSR_DATA_LEB128(new_did),
+                    LFSR_DATA_BUF(new_name, new_name_size))),
+            LFSR_ATTR(new_mdir.mid + ((exists) ? 1 : 0),
+                MOVE, 0, MOVE(&old_mdir)),
+            LFSR_ATTR_IF((exists),
+                new_mdir.mid, RM, -1, NULL()),
+            LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
         return err;
     }
