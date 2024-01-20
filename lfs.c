@@ -3932,13 +3932,19 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 
 
 // core btree algorithm
-// this is atomic TODO not yet
+//
+// this commits up to the root, but stops if:
+// 1. we need a new root
+// 2. shrub=true, which means we have a shrub root
+//
 static int lfsr_btree_commit_(lfs_t *lfs,
         lfsr_btree_t *btree, bool shrub,
-        lfsr_attr_t scratch_attrs[static 4],
-        uint8_t scratch_buffer[static 2*LFSR_BRANCH_DSIZE],
-        const lfsr_attr_t *attrs, lfs_size_t attr_count,
-        const lfsr_attr_t **attrs_, lfs_size_t *attr_count_) {
+        const lfsr_attr_t **attrs_, lfs_size_t *attr_count_,
+        lfsr_attr_t attrs__[static 4],
+        uint8_t buf__[static 2*LFSR_BRANCH_DSIZE]) {
+    const lfsr_attr_t *attrs = *attrs_;
+    lfs_size_t attr_count = *attr_count_;
+
     // TODO should we just use the first bid?
     // first find the effective bid
     lfsr_bid_t bid = -1;
@@ -3978,12 +3984,8 @@ static int lfsr_btree_commit_(lfs_t *lfs,
             // new root? shrub root? yield the final root commit to
             // higher-level btree/bshrub logic
             if (rbyd.trunk == 0 || shrub) {
-                if (attrs_) {
-                    *attrs_ = attrs;
-                }
-                if (attr_count_) {
-                    *attr_count_ = attr_count;
-                }
+                *attrs_ = attrs;
+                *attr_count_ = attr_count;
                 return (rbyd.trunk == 0) ? LFS_ERR_RANGE : 0;
             }
 
@@ -4039,7 +4041,44 @@ static int lfsr_btree_commit_(lfs_t *lfs,
             return err;
         }
 
-        goto finalize;
+    finalize:;
+        // done?
+        if (parent.trunk == 0) {
+            LFS_ASSERT(bid == 0);
+            *btree = rbyd_;
+            *attr_count_ = 0;
+            return 0;
+        }
+
+        // is our parent the root and is the root degenerate?
+        if (rbyd.weight == btree->weight) {
+            // collapse the root, decreasing the height of the tree
+            *btree = rbyd_;
+            *attr_count_ = 0;
+            return 0;
+        }
+
+        // prepare commit to parent, tail recursing upwards
+        //
+        // note that since we defer merges to compaction time, we can
+        // end up removing an rbyd here
+        attr_count = 0;
+        lfs_size_t buf_size = 0;
+        bid -= rid - (rbyd.weight-1);
+        if (rbyd_.weight == 0) {
+            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                    RM, -rbyd.weight, NULL());
+        } else {
+            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                    BRANCH, 0, FROMBRANCH(&rbyd_, &buf__[buf_size]));
+            buf_size += LFSR_BRANCH_DSIZE;
+            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                    GROW, -rbyd.weight + rbyd_.weight, NULL());
+        }
+        attrs = attrs__;
+
+        rbyd = parent;
+        continue;
 
     compact:;
         // estimate our compacted size
@@ -4292,36 +4331,44 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         // prepare commit to parent, tail recursing upwards
         LFS_ASSERT(rbyd_.weight > 0);
         LFS_ASSERT(sibling.weight > 0);
-        lfsr_attr_t *attrs_ = scratch_attrs;
+        attr_count = 0;
+        buf_size = 0;
         // new root?
         if (parent.trunk == 0) {
-            *attrs_++ = LFSR_ATTR(0,
-                    BRANCH, +rbyd_.weight, FROMBRANCH(&rbyd_, scratch_buffer));
-            *attrs_++ = LFSR_ATTR(rbyd_.weight,
+            attrs__[attr_count++] = LFSR_ATTR(0,
+                    BRANCH, +rbyd_.weight,
+                    FROMBRANCH(&rbyd_, &buf__[buf_size]));
+            buf_size += LFSR_BRANCH_DSIZE;
+            attrs__[attr_count++] = LFSR_ATTR(rbyd_.weight,
                     BRANCH, +sibling.weight,
-                    FROMBRANCH(&sibling, scratch_buffer + LFSR_BRANCH_DSIZE));
+                    FROMBRANCH(&sibling, &buf__[buf_size]));
+            buf_size += LFSR_BRANCH_DSIZE;
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                *attrs_++ = LFSR_ATTR(rbyd_.weight + sibling.weight - 1,
+                attrs__[attr_count++] = LFSR_ATTR(
+                        rbyd_.weight + sibling.weight - 1,
                         NAME, 0, DATA(split_data));
             }
         // split root?
         } else {
             bid -= rid - (rbyd.weight-1);
-            *attrs_++ = LFSR_ATTR(bid+rid,
-                    BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buffer));
-            *attrs_++ = LFSR_ATTR(bid+rid,
+            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                    BRANCH, 0,
+                    FROMBRANCH(&rbyd_, &buf__[buf_size]));
+            buf_size += LFSR_BRANCH_DSIZE;
+            attrs__[attr_count++] = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL());
-            *attrs_++ = LFSR_ATTR(bid+rid - rbyd.weight + rbyd_.weight + 1,
+            attrs__[attr_count++] = LFSR_ATTR(
+                    bid+rid - rbyd.weight + rbyd_.weight + 1,
                     BRANCH, +sibling.weight,
-                    FROMBRANCH(&sibling, scratch_buffer + LFSR_BRANCH_DSIZE));
+                    FROMBRANCH(&sibling, &buf__[buf_size]));
+            buf_size += LFSR_BRANCH_DSIZE;
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                *attrs_++ = LFSR_ATTR(
+                attrs__[attr_count++] = LFSR_ATTR(
                         bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
                         NAME, 0, DATA(split_data));
             }
         }
-        attrs = scratch_attrs;
-        attr_count = attrs_ - scratch_attrs;
+        attrs = attrs__;
 
         rbyd = parent;
         continue;
@@ -4375,68 +4422,26 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         if (rbyd.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             *btree = rbyd_;
-            if (attr_count_) {
-                *attr_count_ = 0;
-            }
+            *attr_count_ = 0;
             return 0;
         }
 
         // prepare commit to parent, tail recursing upwards
         LFS_ASSERT(rbyd_.weight > 0);
-        attrs_ = scratch_attrs;
+        attr_count = 0;
+        buf_size = 0;
         bid -= rid - (rbyd.weight-1);
-        *attrs_++ = LFSR_ATTR(bid+rid+sibling.weight,
+        attrs__[attr_count++] = LFSR_ATTR(bid+rid+sibling.weight,
                 RM, -sibling.weight, NULL());
-        *attrs_++ = LFSR_ATTR(bid+rid,
-                BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buffer));
-        *attrs_++ = LFSR_ATTR(bid+rid,
+        attrs__[attr_count++] = LFSR_ATTR(bid+rid,
+                BRANCH, 0, FROMBRANCH(&rbyd_, &buf__[buf_size]));
+        buf_size += LFSR_BRANCH_DSIZE;
+        attrs__[attr_count++] = LFSR_ATTR(bid+rid,
                 GROW, -rbyd.weight + rbyd_.weight, NULL());
-        attrs = scratch_attrs;
-        attr_count = attrs_ - scratch_attrs;
+        attrs = attrs__;
 
         rbyd = parent;
         continue;
-
-    finalize:;
-        // done?
-        if (parent.trunk == 0) {
-            LFS_ASSERT(bid == 0);
-            *btree = rbyd_;
-            if (attr_count_) {
-                *attr_count_ = 0;
-            }
-            return 0;
-        }
-
-        // is our parent the root and is the root degenerate?
-        if (rbyd.weight == btree->weight) {
-            // collapse the root, decreasing the height of the tree
-            *btree = rbyd_;
-            if (attr_count_) {
-                *attr_count_ = 0;
-            }
-            return 0;
-        }
-
-        // prepare commit to parent, tail recursing upwards
-        //
-        // note that since we defer merges to compaction time, we can
-        // end up removing an rbyd here
-        attrs_ = scratch_attrs;
-        bid -= rid - (rbyd.weight-1);
-        if (rbyd_.weight == 0) {
-            *attrs_++ = LFSR_ATTR(bid+rid,
-                    RM, -rbyd.weight, NULL());
-        } else {
-            *attrs_++ = LFSR_ATTR(bid+rid,
-                    BRANCH, 0, FROMBRANCH(&rbyd_, scratch_buffer));
-            *attrs_++ = LFSR_ATTR(bid+rid,
-                    GROW, -rbyd.weight + rbyd_.weight, NULL());
-        }
-        attrs = scratch_attrs;
-        attr_count = attrs_ - scratch_attrs;
-
-        rbyd = parent;
     }
 }
 
@@ -4444,14 +4449,13 @@ static int lfsr_btree_commit_(lfs_t *lfs,
 static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // we need some scratch space for tail-recursive attrs
-    lfsr_attr_t scratch_attrs[4];
-    uint8_t scratch_buf[2*LFSR_BRANCH_DSIZE];
+    lfsr_attr_t attrs__[4];
+    uint8_t buffer[2*LFSR_BRANCH_DSIZE];
 
     // try to commit to the btree
     int err = lfsr_btree_commit_(lfs, btree, false,
-            scratch_attrs, scratch_buf,
-            attrs, attr_count,
-            &attrs, &attr_count);
+            &attrs, &attr_count,
+            attrs__, buffer);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -9693,16 +9697,14 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // we need some scratch space for tail-recursive attrs
-    // TODO combined scratch pool?
-    lfsr_attr_t scratch_attrs[4];
-    uint8_t scratch_buf[2*LFSR_BRANCH_DSIZE];
+    lfsr_attr_t attrs__[4];
+    uint8_t buffer[2*LFSR_BRANCH_DSIZE];
 
     // try to commit to the btree
     int err = lfsr_btree_commit_(lfs, &file->bshrub.u.btree,
             lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub),
-            scratch_attrs, scratch_buf,
-            attrs, attr_count,
-            &attrs, &attr_count);
+            &attrs, &attr_count,
+            attrs__, buffer);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -9844,11 +9846,9 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     // copies during file writes, but it is nice to prove this constraint is
     // possible in case we ever don't track temporary copies.
 
-    // TODO adopt this pattern for other scratch attrs
-    //
     // try to merge commits where possible
-    lfsr_attr_t attrs_[5];
-    lfs_size_t attr_count_ = 0;
+    lfsr_attr_t attrs[5];
+    lfs_size_t attr_count = 0;
     uint8_t buf[3*LFSR_BPTR_DSIZE+2*LFSR_ECKSUM_DSIZE];
     lfs_size_t buf_size = 0;
 
@@ -9858,11 +9858,11 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // but note that's already a risk with how file carve deletes
         // data before insertion
         if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
-            attrs_[attr_count_++] = LFSR_ATTR(0,
+            attrs[attr_count++] = LFSR_ATTR(0,
                     DATA, +lfsr_bshrub_size(&file->bshrub),
                     DATA(file->bshrub.u.bsprout));
         } else if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
-            attrs_[attr_count_++] = LFSR_ATTR(0,
+            attrs[attr_count++] = LFSR_ATTR(0,
                     BLOCK, +lfsr_bshrub_size(&file->bshrub),
                     FROMBPTR(&file->bshrub.u.bptr, &buf[buf_size]));
             buf_size += LFSR_BPTR_DSIZE;
@@ -9874,18 +9874,18 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // force estimate recalculation
         file->bshrub.u.bshrub.estimate = -1;
 
-        if (attr_count_ > 0) {
-            LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
+        if (attr_count > 0) {
+            LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
             LFS_ASSERT(buf_size <= sizeof(buf));
 
             int err = lfsr_bshrub_commit(lfs, file,
-                    attrs_, attr_count_);
+                    attrs, attr_count);
             if (err) {
                 return err;
             }
         }
 
-        attr_count_ = 0;
+        attr_count = 0;
         buf_size = 0;
     }
 
@@ -9972,7 +9972,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         if (bid_-(weight_-1) < pos) {
             // can we get away with a grow attribute?
             if (lfsr_data_size(&bptr_.data) == lfsr_data_size(&left_slice_)) {
-                attrs_[attr_count_++] = LFSR_ATTR(bid_,
+                attrs[attr_count++] = LFSR_ATTR(bid_,
                         GROW, -(bid_+1 - pos), NULL());
 
             // carve bptr?
@@ -9982,21 +9982,21 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     .cksize = bptr_.cksize,
                     .cksum = bptr_.cksum,
                 };
-                attrs_[attr_count_++] = LFSR_ATTR(bid_,
+                attrs[attr_count++] = LFSR_ATTR(bid_,
                         GROW(WIDE(BLOCK)), -(bid_+1 - pos),
                         FROMBPTR(&bptr__, &buf[buf_size]));
                 buf_size += LFSR_BPTR_DSIZE;
 
             // carve fragment?
             } else {
-                attrs_[attr_count_++] = LFSR_ATTR(bid_,
+                attrs[attr_count++] = LFSR_ATTR(bid_,
                         GROW(WIDE(DATA)), -(bid_+1 - pos),
                         DATA(left_slice_));
             }
 
         // completely overwriting this entry?
         } else {
-            attrs_[attr_count_++] = LFSR_ATTR(bid_,
+            attrs[attr_count++] = LFSR_ATTR(bid_,
                     RM, -weight_, NULL());
         }
 
@@ -10004,18 +10004,18 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // so commit what we have and move on to next entry
         if (pos+weight > bid_+1) {
             LFS_ASSERT(lfsr_data_size(&right_slice_) == 0);
-            LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
+            LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
             LFS_ASSERT(buf_size <= sizeof(buf));
 
             err = lfsr_bshrub_commit(lfs, file,
-                    attrs_, attr_count_);
+                    attrs, attr_count);
             if (err) {
                 return err;
             }
 
             delta += lfs_min32(weight, bid_+1 - pos);
             weight -= lfs_min32(weight, bid_+1 - pos);
-            attr_count_ = 0;
+            attr_count = 0;
             buf_size = 0;
             continue;
         }
@@ -10033,14 +10033,14 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     .cksize = bptr_.cksize,
                     .cksum = bptr_.cksum,
                 };
-                attrs_[attr_count_++] = LFSR_ATTR(pos,
+                attrs[attr_count++] = LFSR_ATTR(pos,
                         BLOCK, +(bid_+1 - (pos+weight)),
                         FROMBPTR(&bptr__, &buf[buf_size]));
                 buf_size += LFSR_BPTR_DSIZE;
 
                 // copy over becksum since erase-state is still valid
                 if (becksum_.size != -1) {
-                    attrs_[attr_count_++] = LFSR_ATTR(
+                    attrs[attr_count++] = LFSR_ATTR(
                             pos + (bid_+1 - (pos+weight)) - 1,
                             BECKSUM, 0,
                             FROMECKSUM(&becksum_, &buf[buf_size]));
@@ -10049,7 +10049,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
             // carve fragment?
             } else {
-                attrs_[attr_count_++] = LFSR_ATTR(pos,
+                attrs[attr_count++] = LFSR_ATTR(pos,
                         DATA, +(bid_+1 - (pos+weight)),
                         DATA(right_slice_));
             }
@@ -10064,12 +10064,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     if (pos > lfsr_bshrub_size(&file->bshrub)) {
         // can we coalesce?
         if (lfsr_bshrub_size(&file->bshrub) > 0) {
-            attrs_[attr_count_++] = LFSR_ATTR(lfsr_bshrub_size(&file->bshrub)-1,
+            attrs[attr_count++] = LFSR_ATTR(lfsr_bshrub_size(&file->bshrub)-1,
                     GROW, +(pos - lfsr_bshrub_size(&file->bshrub)), NULL());
 
         // new hole
         } else {
-            attrs_[attr_count_++] = LFSR_ATTR(lfsr_bshrub_size(&file->bshrub),
+            attrs[attr_count++] = LFSR_ATTR(lfsr_bshrub_size(&file->bshrub),
                     DATA, +(pos - lfsr_bshrub_size(&file->bshrub)), NULL());
         }
     }
@@ -10078,29 +10078,29 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     if (weight + delta > 0) {
         // can we coalesce a hole?
         if ((!bptr || lfsr_data_size(&bptr->data) == 0) && pos > 0) {
-            attrs_[attr_count_++] = LFSR_ATTR(pos-1,
+            attrs[attr_count++] = LFSR_ATTR(pos-1,
                     GROW, +(weight + delta), NULL());
 
         // need a new hole?
         } else if (!bptr || lfsr_data_size(&bptr->data) == 0) {
-            attrs_[attr_count_++] = LFSR_ATTR(pos,
+            attrs[attr_count++] = LFSR_ATTR(pos,
                     DATA, +(weight + delta), NULL());
 
         // append new fragment?
         } else if (tag == LFSR_TAG_DATA) {
-            attrs_[attr_count_++] = LFSR_ATTR(pos,
+            attrs[attr_count++] = LFSR_ATTR(pos,
                     DATA, +(weight + delta), DATA(bptr->data));
 
         // append a new block?
         } else if (tag == LFSR_TAG_BLOCK) {
-            attrs_[attr_count_++] = LFSR_ATTR(pos,
+            attrs[attr_count++] = LFSR_ATTR(pos,
                     BLOCK, +(weight + delta),
                     FROMBPTR(bptr, &buf[buf_size]));
             buf_size += LFSR_BPTR_DSIZE;
 
             // append becksum?
             if (becksum && becksum->size != -1) {
-                attrs_[attr_count_++] = LFSR_ATTR(pos+weight+delta-1,
+                attrs[attr_count++] = LFSR_ATTR(pos+weight+delta-1,
                         BECKSUM, 0,
                         FROMECKSUM(becksum, &buf[buf_size]));
                 buf_size += LFSR_ECKSUM_DSIZE;
@@ -10109,12 +10109,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // commit pending attrs
-    if (attr_count_ > 0) {
-        LFS_ASSERT(attr_count_ <= sizeof(attrs_)/sizeof(lfsr_attr_t));
+    if (attr_count > 0) {
+        LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
         LFS_ASSERT(buf_size <= sizeof(buf));
 
         int err = lfsr_bshrub_commit(lfs, file,
-                attrs_, attr_count_);
+                attrs, attr_count);
         if (err) {
             return err;
         }
