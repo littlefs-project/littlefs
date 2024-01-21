@@ -489,18 +489,13 @@ typedef struct lfsr_bptr {
     uint32_t cksum;
 } lfsr_bptr_t;
 
-// a shrub is a secondary trunk in an mdir, we really only need
-// trunk/weight/block, so we sneak our estimate into some
-// overlapping fields
-typedef struct lfsr_shrub {
-    // this all lines up with lfsr_rbyd_t
-    lfsr_srid_t weight;
-    lfs_block_t blocks[2];
-    lfs_ssize_t trunk;
-    lfs_size_t eoff;
-    // an upper-bound estimate on the on-disk shrub size
-    lfs_size_t estimate;
-} lfsr_shrub_t;
+// a shrub is a secondary trunk in an mdir
+//
+// note:
+// - sign(trunk)=1 => shrub
+// - we shove our shrub estimate into rbyd.eoff, C makes it too annoying
+//   to union another field
+typedef lfsr_rbyd_t lfsr_shrub_t;
 
 // the lfsr_bshrub_t struct represents the on-disk component of a file
 typedef struct lfsr_bshrub {
