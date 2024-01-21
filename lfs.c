@@ -722,14 +722,6 @@ static inline lfsr_tag_t lfsr_tag_subkey(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
-static inline lfsr_tag_t lfsr_tag_shrubmode(lfsr_tag_t tag) {
-    return tag & 0xe000;
-}
-
-static inline lfsr_tag_t lfsr_tag_shrubkey(lfsr_tag_t tag) {
-    return tag & 0x1fff;
-}
-
 static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
     return tag & LFSR_TAG_ALT;
 }
@@ -1993,9 +1985,23 @@ static void lfs_alloc_ckpoint(lfs_t *lfs);
 
 /// Red-black-yellow Dhara tree operations ///
 
+#define LFSR_RBYD_SHRUB 0x80000000
+
 // helper functions
+static inline bool lfsr_rbyd_isshrub(const lfsr_rbyd_t *rbyd) {
+    return rbyd->trunk & LFSR_RBYD_SHRUB;
+}
+
+static inline lfs_size_t lfsr_rbyd_trunk(const lfsr_rbyd_t *rbyd) {
+    return rbyd->trunk & ~LFSR_RBYD_SHRUB;
+}
+
+static inline bool lfsr_rbyd_hastrunk(const lfsr_rbyd_t *rbyd) {
+    return lfsr_rbyd_trunk(rbyd) != 0;
+}
+
 static inline bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
-    return !(rbyd->eoff == 0 && rbyd->trunk > 0);
+    return !(lfsr_rbyd_hastrunk(rbyd) && rbyd->eoff == 0);
 }
 
 static inline int lfsr_rbyd_cmp(
@@ -2027,7 +2033,7 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 }
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block, lfs_size_t trunk) {
+        lfs_block_t block, lfs_ssize_t trunk) {
     // checksum the revision count to get the cksum started
     uint32_t cksum = 0;
     int err = lfsr_bd_cksum(lfs, block, 0, lfs->cfg->block_size,
@@ -2038,7 +2044,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     rbyd->blocks[0] = block;
     rbyd->eoff = 0;
-    rbyd->trunk = 0;
+    rbyd->trunk = (trunk & LFSR_RBYD_SHRUB) | 0;
+    trunk &= ~LFSR_RBYD_SHRUB;
 
     // temporary state until we validate a cksum
     lfs_size_t off = sizeof(uint32_t);
@@ -2052,7 +2059,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_ecksum_t ecksum = {.size=-1};
 
     // scan tags, checking valid bits, cksums, etc
-    while (off < lfs->cfg->block_size && (!trunk || rbyd->eoff <= trunk)) {
+    while (off < lfs->cfg->block_size
+            && (!trunk || rbyd->eoff <= (lfs_size_t)trunk)) {
         lfsr_tag_t tag;
         lfsr_rid_t weight__;
         lfs_size_t size;
@@ -2133,12 +2141,13 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // save what we've found so far
             rbyd->eoff = off_ + size;
             rbyd->cksum = cksum;
-            rbyd->trunk = trunk_;
+            rbyd->trunk = (LFSR_RBYD_SHRUB & rbyd->trunk) | trunk_;
             rbyd->weight = weight;
         }
 
         // found a trunk of a tree?
-        if (lfsr_tag_istrunk(tag) && (!trunk || trunk >= off || wastrunk)) {
+        if (lfsr_tag_istrunk(tag)
+                && (!trunk || (lfs_size_t)trunk >= off || wastrunk)) {
             // start of trunk?
             if (!wastrunk) {
                 wastrunk = true;
@@ -2177,7 +2186,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // no valid commits?
-    if (!rbyd->trunk) {
+    if (!lfsr_rbyd_hastrunk(rbyd)) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -2202,7 +2211,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 // a more aggressive fetch when checksum is known
 static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block, lfs_size_t trunk, lfsr_rid_t weight,
+        lfs_block_t block, lfs_ssize_t trunk, lfsr_rid_t weight,
         uint32_t cksum) {
     int err = lfsr_rbyd_fetch(lfs, rbyd, block, trunk);
     if (err) {
@@ -2222,13 +2231,13 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (rbyd->cksum != cksum) {
         LFS_ERROR("Found rbyd cksum mismatch rbyd 0x%"PRIx32".%"PRIx32", "
                 "cksum 0x%08"PRIx32" (!= 0x%08"PRIx32")",
-                rbyd->blocks[0], rbyd->trunk, rbyd->cksum, cksum);
+                rbyd->blocks[0], lfsr_rbyd_trunk(rbyd), rbyd->cksum, cksum);
         return LFS_ERR_CORRUPT;
     }
 
     // if trunk/weight mismatch _after_ cksums match, that's not a storage
     // error, that's a programming error
-    LFS_ASSERT(rbyd->trunk == trunk);
+    LFS_ASSERT(lfsr_rbyd_trunk(rbyd) == (lfs_size_t)trunk);
     LFS_ASSERT((lfsr_rid_t)rbyd->weight == weight);
     return 0;
 }
@@ -2246,12 +2255,12 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     tag = lfs_max16(tag, 0x1);
 
     // out of bounds? no trunk yet?
-    if (rid >= rbyd->weight || !rbyd->trunk) {
+    if (rid >= rbyd->weight || !lfsr_rbyd_hastrunk(rbyd)) {
         return LFS_ERR_NOENT;
     }
 
     // keep track of bounds as we descend down the tree
-    lfs_size_t branch = rbyd->trunk;
+    lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
     lfsr_srid_t lower = 0;
     lfsr_srid_t upper = rbyd->weight;
 
@@ -2281,7 +2290,6 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // found end of tree?
         } else {
             // update the tag rid
-            LFS_ASSERT(lfsr_tag_shrubmode(alt) == 0x0000);
             lfsr_srid_t rid__ = upper-1;
             lfsr_tag_t tag__ = lfsr_tag_key(alt);
 
@@ -2574,7 +2582,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // this gets a bit confusing as we also may need to keep
     // track of both the lower and upper bounds of diverging paths
     // in the case of range deletions
-    lfs_size_t branch = rbyd->trunk;
+    lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
     lfsr_srid_t lower_rid = 0;
     lfsr_srid_t upper_rid = rbyd->weight;
     lfsr_tag_t lower_tag = 0;
@@ -2599,7 +2607,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->weight += delta;
 
     // assume we'll update our trunk
-    rbyd->trunk = rbyd->eoff;
+    rbyd->trunk = (rbyd->trunk & LFSR_RBYD_SHRUB) | rbyd->eoff;
 
     // no trunk yet?
     if (!branch) {
@@ -2826,7 +2834,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // note we:
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
-            LFS_ASSERT(lfsr_tag_shrubmode(alt) == 0x0000);
             tag_ = lfsr_tag_mode(tag_ & ~LFSR_TAG_RM) | alt;
 
             // done?
@@ -2958,10 +2965,12 @@ leaf:;
     // note we always need a non-alt to terminate the trunk, otherwise we
     // can't find trunks during fetch
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-            // rm => null or shrubnull, otherwise strip off control bits
-            (lfsr_tag_isrm(tag))
-                ? lfsr_tag_mode(lfsr_tag_shrubkey(tag))
-                : lfsr_tag_shrubkey(tag),
+            // mark as shrub if we are a shrub
+            (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
+                // rm => null, otherwise strip off control bits
+                | ((lfsr_tag_isrm(tag))
+                    ? LFSR_TAG_NULL
+                    : lfsr_tag_key(tag)),
             upper_rid - lower_rid + delta,
             lfsr_data_size(&data),
             &rbyd->cksum);
@@ -3286,7 +3295,10 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // write the tag
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-            tag, weight, lfsr_data_size(&data),
+            // mark as shrub if we are a shrub
+            (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
+                | tag,
+            weight, lfsr_data_size(&data),
             &rbyd->cksum);
     if (d < 0) {
         return d;
@@ -3308,8 +3320,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs,
-        lfsr_rbyd_t *rbyd_, bool isshrub,
+static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_rbyd_t *rbyd) {
     // copy over tags in the rbyd in order
@@ -3335,8 +3346,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs,
         }
 
         // write the tag
-        err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-                ((isshrub) ? LFSR_TAG_SHRUB : 0) | tag, weight, data);
+        err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
         if (err) {
             return err;
         }
@@ -3345,8 +3355,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs,
     return 0;
 }
 
-static int lfsr_rbyd_appendcompaction(lfs_t *lfs,
-        lfsr_rbyd_t *rbyd, bool isshrub,
+static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_size_t off) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
@@ -3365,14 +3374,17 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs,
     // empty rbyd? write a null tag so our trunk can still point to something
     if (rbyd->eoff == off) {
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                (isshrub) ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
+                // mark as shrub if we are a shrub
+                (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
+                    | LFSR_TAG_NULL,
+                0, 0,
                 &rbyd->cksum);
         if (d < 0) {
             return d;
         }
         rbyd->eoff += d;
 
-        rbyd->trunk = off;
+        rbyd->trunk = (rbyd->trunk & LFSR_RBYD_SHRUB) | off;
         rbyd->weight = 0;
         return 0;
     }
@@ -3409,7 +3421,8 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs,
 
                     // ignore shrub trunks, unless we are actually compacting
                     // a shrub tree
-                    if (!isshrub && lfsr_tag_isshrub(tag__)) {
+                    if (!lfsr_rbyd_isshrub(rbyd)
+                            && lfsr_tag_isshrub(tag__)) {
                         trunk = off;
                         weight = 0;
                         continue;
@@ -3452,7 +3465,10 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs,
 
             // terminate with a null tag
             lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                    (isshrub) ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
+                    // mark as shrub if we are a shrub
+                    (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
+                        | LFSR_TAG_NULL,
+                    0, 0,
                     &rbyd->cksum);
             if (d < 0) {
                 return d;
@@ -3466,7 +3482,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs,
 done:;
     // done! just need to update our trunk. Note we could have no trunks
     // after compaction. Leave this to upper layers to take care of this.
-    rbyd->trunk = layer;
+    rbyd->trunk = (rbyd->trunk & LFSR_RBYD_SHRUB) | layer;
     rbyd->weight = weight;
 
     return 0;
@@ -3476,14 +3492,14 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_rbyd_t *rbyd) {
     // append rbyd
-    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_, false,
-            start_rid, end_rid, rbyd);
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_, start_rid, end_rid,
+            rbyd);
     if (err) {
         return err;
     }
 
     // compact
-    err = lfsr_rbyd_appendcompaction(lfs, rbyd_, false, 0);
+    err = lfsr_rbyd_appendcompaction(lfs, rbyd_, 0);
     if (err) {
         return err;
     }
@@ -3542,16 +3558,17 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_shrub_t *shrub) {
     // keep track of the start of the new tree
     lfs_size_t off = rbyd->eoff;
+    // mark as shrub
+    rbyd->trunk |= LFSR_RBYD_SHRUB;
 
     // compact our shrub
-    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, true,
-            -1, -1, lfsr_shrub_rbyd(shrub));
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, -1, -1,
+            lfsr_shrub_rbyd(shrub));
     if (err) {
         return err;
     }
 
-    err = lfsr_rbyd_appendcompaction(lfs, rbyd, true,
-            off);
+    err = lfsr_rbyd_appendcompaction(lfs, rbyd, off);
     if (err) {
         return err;
     }
@@ -3697,7 +3714,7 @@ static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(branch->trunk, &buffer[d], 5);
+    d_ = lfs_toleb128(lfsr_rbyd_trunk(branch), &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -3720,7 +3737,7 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->trunk);
+    err = lfsr_data_readleb128(lfs, data, &branch->trunk);
     if (err) {
         return err;
     }
@@ -3922,8 +3939,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         }
 
         // found our child?
-        if (branch_.blocks[0] == child->blocks[0]
-                && branch_.trunk == child->trunk) {
+        if (lfsr_rbyd_cmp(&branch_, child) == 0) {
             // TODO how many of these should be conditional?
             if (rbyd_) {
                 *rbyd_ = branch;
@@ -3943,10 +3959,9 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 //
 // this commits up to the root, but stops if:
 // 1. we need a new root
-// 2. shrub=true, which means we have a shrub root
+// 2. we have a shrub root
 //
-static int lfsr_btree_commit_(lfs_t *lfs,
-        lfsr_btree_t *btree, bool shrub,
+static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         const lfsr_attr_t **attrs_, lfs_size_t *attr_count_,
         lfsr_attr_t attrs__[static 4],
         uint8_t buf__[static 2*LFSR_BRANCH_DSIZE]) {
@@ -3988,13 +4003,15 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         lfsr_rbyd_t parent = {.trunk=0, .weight=0};
         lfsr_srid_t rid = -1;
         // are we root?
-        if (rbyd.blocks[0] == btree->blocks[0] || rbyd.trunk == 0) {
+        if (rbyd.blocks[0] == btree->blocks[0]
+                || !lfsr_rbyd_hastrunk(&rbyd)) {
             // new root? shrub root? yield the final root commit to
             // higher-level btree/bshrub logic
-            if (rbyd.trunk == 0 || shrub) {
+            if (!lfsr_rbyd_hastrunk(&rbyd)
+                    || lfsr_rbyd_isshrub(btree)) {
                 *attrs_ = attrs;
                 *attr_count_ = attr_count;
-                return (rbyd.trunk == 0) ? LFS_ERR_RANGE : 0;
+                return (!lfsr_rbyd_hastrunk(&rbyd)) ? LFS_ERR_RANGE : 0;
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -4020,7 +4037,8 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         // a funny benefit is we cache the root of our btree this way
         if (!lfsr_rbyd_isfetched(&rbyd)) {
             int err = lfsr_rbyd_fetchvalidate(lfs, &rbyd,
-                    rbyd.blocks[0], rbyd.trunk, rbyd.weight, rbyd.cksum);
+                    rbyd.blocks[0], lfsr_rbyd_trunk(&rbyd), rbyd.weight,
+                    rbyd.cksum);
             if (err) {
                 return err;
             }
@@ -4051,7 +4069,7 @@ static int lfsr_btree_commit_(lfs_t *lfs,
 
     finalize:;
         // done?
-        if (parent.trunk == 0) {
+        if (!lfsr_rbyd_hastrunk(&parent)) {
             LFS_ASSERT(bid == 0);
             *btree = rbyd_;
             *attr_count_ = 0;
@@ -4109,7 +4127,7 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         lfsr_rbyd_t sibling;
         if ((lfs_size_t)estimate <= lfs->cfg->block_size/4
                 // no parent? can't merge
-                && parent.trunk != 0) {
+                && !lfsr_rbyd_hastrunk(&parent)) {
             // try the right sibling
             if (rid+1 < parent.weight) {
                 // try looking up the sibling
@@ -4344,7 +4362,7 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         attr_count = 0;
         buf_size = 0;
         // new root?
-        if (parent.trunk == 0) {
+        if (!lfsr_rbyd_hastrunk(&parent)) {
             attrs__[attr_count++] = LFSR_ATTR(0,
                     BRANCH, +rbyd_.weight,
                     FROMBRANCH(&rbyd_, &buf__[buf_size]));
@@ -4393,21 +4411,19 @@ static int lfsr_btree_commit_(lfs_t *lfs,
         }
 
         // merge the siblings together
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, false,
-                -1, -1, &rbyd);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, -1, -1, &rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, false,
-                -1, -1, &sibling);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, -1, -1, &sibling);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, false, 0);
+        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4430,7 +4446,7 @@ static int lfsr_btree_commit_(lfs_t *lfs,
 
         // we must have a parent at this point, but is our parent the root
         // and is the root degenerate?
-        LFS_ASSERT(parent.trunk != 0);
+        LFS_ASSERT(lfsr_rbyd_hastrunk(&parent) != 0);
         if (rbyd.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             *btree = rbyd_;
@@ -4467,7 +4483,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
     uint8_t buffer[2*LFSR_BRANCH_DSIZE];
 
     // try to commit to the btree
-    int err = lfsr_btree_commit_(lfs, btree, false,
+    int err = lfsr_btree_commit_(lfs, btree,
             &attrs, &attr_count,
             attrs__, buffer);
     if (err && err != LFS_ERR_RANGE) {
@@ -4493,7 +4509,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         *btree = rbyd;
     }
 
-    LFS_ASSERT(btree->trunk != 0);
+    LFS_ASSERT(lfsr_rbyd_hastrunk(btree));
     return 0;
 }
 
@@ -4582,16 +4598,15 @@ typedef struct lfsr_btraversal {
         .branch.trunk=0, \
         .branch.weight=0})
 
-static int lfsr_btree_traverse_(lfs_t *lfs,
-        const lfsr_btree_t *btree, bool shrub,
+static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_btraversal_t *btraversal,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
     // explicitly traverse the root even if weight=0
     if (btraversal->branch.trunk == 0
             // unless we don't even have a root yet
-            && btree->trunk != 0
+            && lfsr_rbyd_trunk(btree) != 0
             // or are a shrub
-            && !shrub) {
+            && !lfsr_rbyd_isshrub(btree)) {
         btraversal->rid = btraversal->bid;
         btraversal->branch = *btree;
 
@@ -4688,8 +4703,7 @@ static int lfsr_btree_traverse_(lfs_t *lfs,
 static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_btraversal_t *btraversal,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
-    return lfsr_btree_traverse_(lfs, btree, false,
-            btraversal,
+    return lfsr_btree_traverse_(lfs, btree, btraversal,
             bid_, tinfo_);
 }
 
@@ -4784,6 +4798,14 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
 
 // shrub things
+static inline lfs_size_t lfsr_shrub_trunk(const lfsr_shrub_t *shrub) {
+    return shrub->trunk & ~LFSR_RBYD_SHRUB;
+}
+
+static inline bool lfsr_shrub_hastrunk(const lfsr_shrub_t *shrub) {
+    return lfsr_shrub_trunk(shrub) != 0;
+}
+
 static inline const lfsr_rbyd_t *lfsr_shrub_rbyd(const lfsr_shrub_t *shrub) {
     return (const lfsr_rbyd_t*)shrub;
 }
@@ -4805,7 +4827,7 @@ static inline int lfsr_shrub_cmp(
 static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
     // shrub trunks should never be null
-    LFS_ASSERT(shrub->trunk != 0);
+    LFS_ASSERT(lfsr_shrub_trunk(shrub) != 0);
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
@@ -4813,7 +4835,7 @@ static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(shrub->trunk, &buffer[d], 5);
+    d_ = lfs_toleb128(lfsr_shrub_trunk(shrub), &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -4833,13 +4855,15 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&shrub->trunk);
+    err = lfsr_data_readleb128(lfs, data, &shrub->trunk);
     if (err) {
         return err;
     }
-
     // shrub trunks should never be null
-    LFS_ASSERT(shrub->trunk != 0);
+    LFS_ASSERT(lfsr_shrub_hastrunk(shrub));
+
+    // set the shrub bit in our trunk
+    shrub->trunk |= LFSR_RBYD_SHRUB;
     return 0;
 }
 
@@ -4869,7 +4893,7 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
 static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_shrub_t *shrub_, const lfsr_shrub_t *shrub) {
     // save our current trunk/weight
-    lfs_size_t trunk = rbyd_->trunk;
+    lfs_ssize_t trunk = rbyd_->trunk;
     lfsr_srid_t weight = rbyd_->weight;
 
     // compact our bshrub
@@ -4919,21 +4943,16 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // things up too much
     //
     // it is important that these rbyds share eoff/cksum/etc
-    lfs_size_t trunk = rbyd_->trunk;
+    lfs_ssize_t trunk = rbyd_->trunk;
     lfsr_srid_t weight = rbyd_->weight;
     rbyd_->trunk = shrub->trunk;
     rbyd_->weight = shrub->weight;
 
     // append any bshrub attributes
-    for (lfs_size_t j = 0; j < attr_count; j++) {
-        int err = lfsr_rbyd_appendattr(lfs, rbyd_,
-                attrs[j].rid,
-                LFSR_TAG_SHRUB | attrs[j].tag,
-                attrs[j].delta,
-                attrs[j].data);
-        if (err) {
-            return err;
-        }
+    int err = lfsr_rbyd_appendattrs(lfs, rbyd_, -1, -1,
+            attrs, attr_count);
+    if (err) {
+        return err;
     }
 
     // restore mdir to the main trunk/weight
@@ -5604,7 +5623,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // extensions are atomic
                 if (attrs[i].tag == LFSR_TAG_SHRUBALLOC) {
                     bshrubcommit->shrub->blocks[0] = rbyd_.blocks[0];
-                    bshrubcommit->shrub->trunk = 0;
+                    bshrubcommit->shrub->trunk = LFSR_RBYD_SHRUB | 0;
                     bshrubcommit->shrub->weight = 0;
                 }
 
@@ -5929,7 +5948,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         }
     }
 
-    int err = lfsr_rbyd_appendcompaction(lfs, &mdir_->rbyd, false, 0);
+    int err = lfsr_rbyd_appendcompaction(lfs, &mdir_->rbyd, 0);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -6203,7 +6222,7 @@ static int lfsr_mroot_commit_(lfs_t *lfs,
             }
         }
 
-        err = lfsr_rbyd_appendcompaction(lfs, &mrootanchor_.rbyd, false, 0);
+        err = lfsr_rbyd_appendcompaction(lfs, &mrootanchor_.rbyd, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -8037,7 +8056,7 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             lfs->cfg->block_count,
             lfs->mroot.rbyd.blocks[0],
             lfs->mroot.rbyd.blocks[1],
-            lfs->mroot.rbyd.trunk,
+            lfsr_rbyd_trunk(&lfs->mroot.rbyd),
             lfsr_mtree_weight(lfs) / lfsr_mweight(lfs),
             lfsr_mweight(lfs));
 
@@ -9594,7 +9613,6 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
     } else if (lfsr_bshrub_isbshruborbtree(&file->bshrub)) {
         int err = lfsr_btree_traverse_(lfs,
                 lfsr_shrub_rbyd(&file->bshrub.u.bshrub),
-                lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub),
                 btraversal,
                 bid_, tinfo_);
         if (err) {
@@ -9713,7 +9731,6 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
 
     // try to commit to the btree
     int err = lfsr_btree_commit_(lfs, &file->bshrub.u.btree,
-            lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub),
             &attrs, &attr_count,
             attrs__, buffer);
     if (err && err != LFS_ERR_RANGE) {
@@ -9803,7 +9820,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
         return 0;
     }
 
-    LFS_ASSERT(file->bshrub.u.bshrub.trunk != 0);
+    LFS_ASSERT(lfsr_shrub_hastrunk(&file->bshrub.u.bshrub));
     return 0;
 
 evict:;
@@ -9880,7 +9897,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         }
 
         file->bshrub.u.bshrub.blocks[0] = file->m.mdir.rbyd.blocks[0];
-        file->bshrub.u.bshrub.trunk = 0;
+        file->bshrub.u.bshrub.trunk = LFSR_RBYD_SHRUB | 0;
         file->bshrub.u.bshrub.weight = 0;
         // force estimate recalculation
         file->bshrub.u.bshrub.estimate = -1;

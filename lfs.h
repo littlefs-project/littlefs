@@ -339,12 +339,15 @@ typedef struct lfs_cache {
 // TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
 typedef struct lfsr_rbyd {
     // note this lines up with weight in lfsr_btree_t
+    // sign(weight)=0 => rbyd
     lfsr_srid_t weight;
     lfs_block_t blocks[2];
+    // sign(trunk)=0    => normal rbyd
+    // sign(trunk)=1    => shrub rbyd
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
-    lfs_size_t trunk;
+    lfs_ssize_t trunk;
     lfs_size_t eoff;
     uint32_t cksum;
 } lfsr_rbyd_t;
@@ -493,7 +496,7 @@ typedef struct lfsr_shrub {
     // this all lines up with lfsr_rbyd_t
     lfsr_srid_t weight;
     lfs_block_t blocks[2];
-    lfs_size_t trunk;
+    lfs_ssize_t trunk;
     lfs_size_t eoff;
     // an upper-bound estimate on the on-disk shrub size
     lfs_size_t estimate;
