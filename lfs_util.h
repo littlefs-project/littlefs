@@ -187,7 +187,7 @@ static inline int32_t lfs_sclamp32(int32_t a, int32_t min, int32_t max) {
 
 // Absolute value of signed numbers
 static inline int32_t lfs_abs32(int32_t a) {
-    return a < 0 ? -a : a;
+    return (a < 0) ? -a : a;
 }
 
 // TODO how many of these do we actually need

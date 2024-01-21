@@ -1095,9 +1095,9 @@ code = '''
         // choose to create or delete, note we make sure to never delete to zero
         uint8_t op = (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight
                     || (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight-1
-                        && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs))
+                        && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs)))
                 ? 0
-                : TEST_PRNG(&prng) % 2);
+                : TEST_PRNG(&prng) % 2;
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -2153,9 +2153,9 @@ code = '''
         // choose to create or delete, note we make sure to never delete to zero
         uint8_t op = (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight
                     || (lfsr_mid_rid(&lfs, mdir.mid) == mdir.rbyd.weight-1
-                        && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs))
+                        && lfsr_mtree_weight(&lfs) == lfsr_mweight(&lfs)))
                 ? 0
-                : TEST_PRNG(&prng) % 3);
+                : TEST_PRNG(&prng) % 3;
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -3017,7 +3017,7 @@ code = '''
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(
-            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+            (VALIDATE) ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3130,7 +3130,7 @@ code = '''
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(
-            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+            (VALIDATE) ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3255,7 +3255,7 @@ code = '''
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(
-            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+            (VALIDATE) ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3372,7 +3372,7 @@ code = '''
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(
-            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+            (VALIDATE) ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3506,7 +3506,7 @@ code = '''
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(
-            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+            (VALIDATE) ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3674,7 +3674,7 @@ code = '''
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(
-            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+            (VALIDATE) ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);

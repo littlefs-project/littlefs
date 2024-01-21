@@ -1211,7 +1211,7 @@ code = '''
 
         // create a directory here
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+        sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
         int err = lfsr_mkdir(&lfs, name);
         assert(!err || err == LFS_ERR_EXIST);
     }
@@ -1227,7 +1227,7 @@ code = '''
     // test that our directories match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), sim[j]);
+        sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         char name2[256];
@@ -1238,7 +1238,7 @@ code = '''
     }
 
     lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    lfsr_dir_open(&lfs, &dir, ((PARENT) ? "pricklypear" : "/")) => 0;
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
@@ -3897,7 +3897,7 @@ code = '''
 
             // create a directory here
             char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             int err = lfsr_mkdir(&lfs, name);
             assert(!err || err == LFS_ERR_EXIST);
 
@@ -3912,7 +3912,7 @@ code = '''
 
             // remove this directory
             char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             lfsr_remove(&lfs, name) => 0;
         }
     }
@@ -3928,7 +3928,7 @@ code = '''
     // test that our directories match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), sim[j]);
+        sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         char name2[256];
@@ -3939,7 +3939,7 @@ code = '''
     }
 
     lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    lfsr_dir_open(&lfs, &dir, ((PARENT) ? "pricklypear" : "/")) => 0;
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
@@ -5393,7 +5393,7 @@ code = '''
 
     // check if we have already started renaming, in case of powerloss
     struct lfs_info info;
-    err = lfsr_stat(&lfs, (BEFORE ? "/0mved0000" : "/mved0000"), &info);
+    err = lfsr_stat(&lfs, ((BEFORE) ? "/0mved0000" : "/mved0000"), &info);
     if (err == LFS_ERR_NOENT) {
         // make this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -5450,7 +5450,7 @@ code = '''
         char old_name[256];
         sprintf(old_name, "dir%04d", i);
         char new_name[256];
-        sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(new_name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
         assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -5466,7 +5466,7 @@ code = '''
     // check that our renames worked
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -5486,7 +5486,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -5516,7 +5516,7 @@ code = '''
 
     // check if we have already started renaming, in case of powerloss
     struct lfs_info info;
-    err = lfsr_stat(&lfs, (BEFORE ? "/0mved0000" : "/mved0000"), &info);
+    err = lfsr_stat(&lfs, ((BEFORE) ? "/0mved0000" : "/mved0000"), &info);
     if (err == LFS_ERR_NOENT) {
         // make this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -5573,7 +5573,7 @@ code = '''
         char old_name[256];
         sprintf(old_name, "dir%04d", i);
         char new_name[256];
-        sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(new_name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
         assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -5589,7 +5589,7 @@ code = '''
     // check that our renames worked
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -5609,7 +5609,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -5639,7 +5639,7 @@ code = '''
 
     // check if we have already started renaming, in case of powerloss
     struct lfs_info info;
-    err = lfsr_stat(&lfs, (BEFORE ? "/0mved0000" : "/mved0000"), &info);
+    err = lfsr_stat(&lfs, ((BEFORE) ? "/0mved0000" : "/mved0000"), &info);
     if (err == LFS_ERR_NOENT) {
         // make this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -5738,7 +5738,7 @@ code = '''
         char old_name[256];
         sprintf(old_name, "dir%04d", i);
         char new_name[256];
-        sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(new_name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
         assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -5753,11 +5753,11 @@ code = '''
         for (lfs_size_t j = 0; j < N; j++) {
             char old_name[256];
             sprintf(old_name, "%smved%04d/child%04d",
-                    (BEFORE ? "0" : ""), i, j);
+                    ((BEFORE) ? "0" : ""), i, j);
             char new_name[256];
             sprintf(new_name, "%smved%04d/%schmved%04d",
-                    (BEFORE ? "0" : ""), i,
-                    (BEFORE ? "0" : ""), j);
+                    ((BEFORE) ? "0" : ""), i,
+                    ((BEFORE) ? "0" : ""), j);
             int err = lfsr_rename(&lfs, old_name, new_name);
             assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -5774,7 +5774,7 @@ code = '''
     // check that our renames worked
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -5784,10 +5784,10 @@ code = '''
         for (lfs_size_t j = 0; j < N; j++) {
             char name[256];
             sprintf(name, "%smved%04d/%schmved%04d",
-                    (BEFORE ? "0" : ""), i, (BEFORE ? "0" : ""), j);
+                    ((BEFORE) ? "0" : ""), i, ((BEFORE) ? "0" : ""), j);
             struct lfs_info info;
             lfsr_stat(&lfs, name, &info) => 0;
-            sprintf(name, "%schmved%04d", (BEFORE ? "0" : ""), j);
+            sprintf(name, "%schmved%04d", ((BEFORE) ? "0" : ""), j);
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_DIR);
             assert(info.size == 0);
@@ -5806,7 +5806,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -5817,7 +5817,7 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_open(&lfs, &dir, name) => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
@@ -5829,7 +5829,7 @@ code = '''
         assert(info.size == 0);
         for (lfs_size_t j = 0; j < N; j++) {
             char name[256];
-            sprintf(name, "%schmved%04d", (BEFORE ? "0" : ""), j);
+            sprintf(name, "%schmved%04d", ((BEFORE) ? "0" : ""), j);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_DIR);
@@ -5860,7 +5860,7 @@ code = '''
 
     // check if we have already started renaming, in case of powerloss
     struct lfs_info info;
-    err = lfsr_stat(&lfs, (BEFORE ? "/0mved0000" : "/mved0000"), &info);
+    err = lfsr_stat(&lfs, ((BEFORE) ? "/0mved0000" : "/mved0000"), &info);
     if (err == LFS_ERR_NOENT) {
         // make this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -6001,7 +6001,7 @@ code = '''
         char old_name[256];
         sprintf(old_name, "dir%04d", i);
         char new_name[256];
-        sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(new_name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
         assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -6016,11 +6016,11 @@ code = '''
         for (lfs_size_t j = 0; j < N; j++) {
             char old_name[256];
             sprintf(old_name, "%smved%04d/child%04d",
-                    (BEFORE ? "0" : ""), i, j);
+                    ((BEFORE) ? "0" : ""), i, j);
             char new_name[256];
             sprintf(new_name, "%smved%04d/%schmved%04d",
-                    (BEFORE ? "0" : ""), i,
-                    (BEFORE ? "0" : ""), j);
+                    ((BEFORE) ? "0" : ""), i,
+                    ((BEFORE) ? "0" : ""), j);
             int err = lfsr_rename(&lfs, old_name, new_name);
             assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -6035,13 +6035,13 @@ code = '''
             for (lfs_size_t k = 0; k < N; k++) {
                 char old_name[256];
                 sprintf(old_name, "%smved%04d/%schmved%04d/grandchild%04d",
-                        (BEFORE ? "0" : ""), i,
-                        (BEFORE ? "0" : ""), j, k);
+                        ((BEFORE) ? "0" : ""), i,
+                        ((BEFORE) ? "0" : ""), j, k);
                 char new_name[256];
                 sprintf(new_name, "%smved%04d/%schmved%04d/%sgrmved%04d",
-                        (BEFORE ? "0" : ""), i,
-                        (BEFORE ? "0" : ""), j,
-                        (BEFORE ? "0" : ""), k);
+                        ((BEFORE) ? "0" : ""), i,
+                        ((BEFORE) ? "0" : ""), j,
+                        ((BEFORE) ? "0" : ""), k);
                 int err = lfsr_rename(&lfs, old_name, new_name);
                 assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -6059,7 +6059,7 @@ code = '''
     // check that our removes worked
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -6069,11 +6069,11 @@ code = '''
         for (lfs_size_t j = 0; j < N; j++) {
             char name[256];
             sprintf(name, "%smved%04d/%schmved%04d",
-                    (BEFORE ? "0" : ""), i,
-                    (BEFORE ? "0" : ""), j);
+                    ((BEFORE) ? "0" : ""), i,
+                    ((BEFORE) ? "0" : ""), j);
             struct lfs_info info;
             lfsr_stat(&lfs, name, &info) => 0;
-            sprintf(name, "%schmved%04d", (BEFORE ? "0" : ""), j);
+            sprintf(name, "%schmved%04d", ((BEFORE) ? "0" : ""), j);
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_DIR);
             assert(info.size == 0);
@@ -6081,12 +6081,12 @@ code = '''
             for (lfs_size_t k = 0; k < N; k++) {
                 char name[256];
                 sprintf(name, "%smved%04d/%schmved%04d/%sgrmved%04d",
-                        (BEFORE ? "0" : ""), i,
-                        (BEFORE ? "0" : ""), j,
-                        (BEFORE ? "0" : ""), k);
+                        ((BEFORE) ? "0" : ""), i,
+                        ((BEFORE) ? "0" : ""), j,
+                        ((BEFORE) ? "0" : ""), k);
                 struct lfs_info info;
                 lfsr_stat(&lfs, name, &info) => 0;
-                sprintf(name, "%sgrmved%04d", (BEFORE ? "0" : ""), k);
+                sprintf(name, "%sgrmved%04d", ((BEFORE) ? "0" : ""), k);
                 assert(strcmp(info.name, name) == 0);
                 assert(info.type == LFS_TYPE_DIR);
                 assert(info.size == 0);
@@ -6106,7 +6106,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -6117,7 +6117,7 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_open(&lfs, &dir, name) => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
@@ -6129,7 +6129,7 @@ code = '''
         assert(info.size == 0);
         for (lfs_size_t j = 0; j < N; j++) {
             char name[256];
-            sprintf(name, "%schmved%04d", (BEFORE ? "0" : ""), j);
+            sprintf(name, "%schmved%04d", ((BEFORE) ? "0" : ""), j);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_DIR);
@@ -6141,8 +6141,8 @@ code = '''
         for (lfs_size_t j = 0; j < N; j++) {
             char name[256];
             sprintf(name, "%smved%04d/%schmved%04d",
-                    (BEFORE ? "0" : ""), i,
-                    (BEFORE ? "0" : ""), j);
+                    ((BEFORE) ? "0" : ""), i,
+                    ((BEFORE) ? "0" : ""), j);
             lfsr_dir_open(&lfs, &dir, name) => 0;
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, ".") == 0);
@@ -6154,7 +6154,7 @@ code = '''
             assert(info.size == 0);
             for (lfs_size_t k = 0; k < N; k++) {
                 char name[256];
-                sprintf(name, "%sgrmved%04d", (BEFORE ? "0" : ""), k);
+                sprintf(name, "%sgrmved%04d", ((BEFORE) ? "0" : ""), k);
                 lfsr_dir_read(&lfs, &dir, &info) => 0;
                 assert(strcmp(info.name, name) == 0);
                 assert(info.type == LFS_TYPE_DIR);
@@ -6186,7 +6186,7 @@ code = '''
 
     // check if we have already started renaming, in case of powerloss
     struct lfs_info info;
-    err = lfsr_stat(&lfs, (BEFORE ? "/0mved0000" : "/mved0000"), &info);
+    err = lfsr_stat(&lfs, ((BEFORE) ? "/0mved0000" : "/mved0000"), &info);
     if (err == LFS_ERR_NOENT) {
         // create this many directory in a sort of linked-list by nesting
         char name[4096];
@@ -6253,7 +6253,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         sprintf(&old_name[strlen(old_name)], "/dir%04d", i);
         sprintf(&new_name[strlen(new_name)], "/%smved%04d",
-                (BEFORE ? "0" : ""), i);
+                ((BEFORE) ? "0" : ""), i);
         err = lfsr_rename(&lfs, old_name, new_name);
         assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
@@ -6273,11 +6273,11 @@ code = '''
     char name[4096];
     memset(name, 0, sizeof(name));
     for (lfs_size_t i = 0; i < N; i++) {
-        sprintf(&name[strlen(name)], "/%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(&name[strlen(name)], "/%smved%04d", ((BEFORE) ? "0" : ""), i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         char name2[256];
-        sprintf(name2, "%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(name2, "%smved%04d", ((BEFORE) ? "0" : ""), i);
         assert(strcmp(info.name, name2) == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
@@ -6285,7 +6285,7 @@ code = '''
 
     memset(name, 0, sizeof(name));
     for (lfs_size_t i = 0; i < N; i++) {
-        sprintf(&name[strlen(name)], "/%smved%04d", (BEFORE ? "0" : ""), i);
+        sprintf(&name[strlen(name)], "/%smved%04d", ((BEFORE) ? "0" : ""), i);
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, name) => 0;
         struct lfs_info info;
@@ -6299,7 +6299,7 @@ code = '''
         assert(info.size == 0);
         if (i < N-1) {
             char name2[256];
-            sprintf(name2, "%smved%04d", (BEFORE ? "0" : ""), i+1);
+            sprintf(name2, "%smved%04d", ((BEFORE) ? "0" : ""), i+1);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name2) == 0);
             assert(info.type == LFS_TYPE_DIR);
@@ -6365,7 +6365,7 @@ code = '''
 
             // create a directory here
             char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             int err = lfsr_mkdir(&lfs, name);
             assert(!err || err == LFS_ERR_EXIST);
 
@@ -6401,9 +6401,9 @@ code = '''
 
             // rename this directory
             char old_name[256];
-            sprintf(old_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(old_name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             char new_name[256];
-            sprintf(new_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), y);
+            sprintf(new_name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), y);
             lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
@@ -6419,7 +6419,7 @@ code = '''
     // test that our directories match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), sim[j]);
+        sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         char name2[256];
@@ -6430,7 +6430,7 @@ code = '''
     }
 
     lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    lfsr_dir_open(&lfs, &dir, ((PARENT) ? "pricklypear" : "/")) => 0;
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
@@ -6510,7 +6510,7 @@ code = '''
 
             // create a directory here
             char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             int err = lfsr_mkdir(&lfs, name);
             assert(!err || err == LFS_ERR_EXIST);
 
@@ -6525,7 +6525,7 @@ code = '''
 
             // remove this directory
             char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             lfsr_remove(&lfs, name) => 0;
 
         } else {
@@ -6560,9 +6560,9 @@ code = '''
 
             // rename this directory
             char old_name[256];
-            sprintf(old_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
+            sprintf(old_name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), x);
             char new_name[256];
-            sprintf(new_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), y);
+            sprintf(new_name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), y);
             lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
@@ -6578,7 +6578,7 @@ code = '''
     // test that our directories match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), sim[j]);
+        sprintf(name, "%s/dir%04d", ((PARENT) ? "pricklypear" : ""), sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         char name2[256];
@@ -6589,7 +6589,7 @@ code = '''
     }
 
     lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    lfsr_dir_open(&lfs, &dir, ((PARENT) ? "pricklypear" : "/")) => 0;
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);

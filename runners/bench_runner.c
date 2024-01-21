@@ -59,7 +59,7 @@ static void leb16_print(uintmax_t x) {
     }
 
     while (true) {
-        char nibble = (x & 0xf) | (x > 0xf ? 0x10 : 0);
+        char nibble = (x & 0xf) | ((x > 0xf) ? 0x10 : 0);
         printf("%c", (nibble < 10) ? '0'+nibble : 'a'+nibble-10);
         if (x <= 0xf) {
             break;
@@ -103,7 +103,7 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
     if (tail) {
         *tail = (char*)s;
     }
-    return neg ? -x : x;
+    return (neg) ? -x : x;
 }
 
 
@@ -228,7 +228,7 @@ size_t bench_define_permutations(size_t define) {
     for (size_t i = 0; i < BENCH_DEFINE_MAP_COUNT; i++) {
         if (define < bench_define_maps[i].count
                 && bench_define_maps[i].defines[define].cb) {
-            return bench_define_maps[i].defines[define].permutations
+            return (bench_define_maps[i].defines[define].permutations)
                     ? bench_define_maps[i].defines[define].permutations
                     : 1;
         }
@@ -267,7 +267,7 @@ intmax_t bench_define(size_t define) {
     } else {
         const char *name = bench_define_name(define);
         fprintf(stderr, "error: undefined define %s (%zd)\n",
-                name ? name : "(unknown)",
+                (name) ? name : "(unknown)",
                 define);
         assert(false);
         exit(-1);
@@ -391,7 +391,7 @@ void bench_define_suite(const struct bench_suite *suite) {
             suite->define_names, suite->define_count};
 
     // set define count
-    bench_define_count = suite->define_count > BENCH_IMPLICIT_DEFINE_COUNT
+    bench_define_count = (suite->define_count > BENCH_IMPLICIT_DEFINE_COUNT)
             ? suite->define_count
             : BENCH_IMPLICIT_DEFINE_COUNT;
 
@@ -824,7 +824,7 @@ static void case_forperm(
     bench_seen_t seen = {NULL, 0, 0};
 
     for (size_t k = 0;
-            k < (case_->permutations ? case_->permutations : 1);
+            k < ((case_->permutations) ? case_->permutations : 1);
             k++) {
         // define case permutation
         bench_define_case(suite, case_, k);

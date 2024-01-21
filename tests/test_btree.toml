@@ -2638,7 +2638,7 @@ code = '''
             &tag_, &weight_, buf1, SIZE) => SIZE;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
-    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+    assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
     lfsr_btree_get(&lfs, &btree, 1,
@@ -2704,7 +2704,7 @@ code = '''
             &tag_, &weight_, buf1, SIZE) => SIZE;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
-    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+    assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
     lfsr_btree_get(&lfs, &btree, 1,
@@ -2765,7 +2765,7 @@ code = '''
             &tag_, &weight_, buf1, SIZE) => SIZE;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
-    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+    assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
     lfsr_btree_get(&lfs, &btree, 1,
@@ -2835,7 +2835,7 @@ code = '''
             &tag_, &weight_, buf1, SIZE) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
-    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+    assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
     lfsr_btree_get(&lfs, &btree, 1,
@@ -3895,7 +3895,7 @@ code = '''
         // choose a pseudo-random op
         uint8_t op = TEST_PRNG(&prng) % 3;
         // choose a pseudo-random bid
-        lfs_size_t bid = TEST_PRNG(&prng) % (sim_size == 0 ? 1 : sim_size);
+        lfs_size_t bid = TEST_PRNG(&prng) % ((sim_size == 0) ? 1 : sim_size);
         // choose a pseudo-random name
         lfs_size_t x = TEST_PRNG(&prng) % (26*26*26);
         char name[3] = {
@@ -4068,7 +4068,7 @@ code = '''
         // choose a pseudo-random op
         uint8_t op = TEST_PRNG(&prng) % 3;
         // choose a pseudo-random bid
-        lfs_size_t bid = TEST_PRNG(&prng) % (sim_size == 0 ? 1 : sim_size);
+        lfs_size_t bid = TEST_PRNG(&prng) % ((sim_size == 0) ? 1 : sim_size);
         // choose a pseudo-random name
         lfs_size_t x = TEST_PRNG(&prng) % (26*26*26);
         char name[3] = {

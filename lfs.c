@@ -191,7 +191,7 @@ static int lfs_bd_cmp(lfs_t *lfs,
 
         int res = memcmp(dat, data + i, diff);
         if (res) {
-            return res < 0 ? LFS_CMP_LT : LFS_CMP_GT;
+            return (res < 0) ? LFS_CMP_LT : LFS_CMP_GT;
         }
     }
 
@@ -2886,7 +2886,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             && (upper_rid-1 < rid-lfs_smax32(-delta, 0)
                 || (upper_rid-1 == rid-lfs_smax32(-delta, 0)
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
-                        || (lfsr_tag_iswide(tag)
+                        || ((lfsr_tag_iswide(tag))
                             ? lfsr_tag_supkey(tag_) < lfsr_tag_supkey(tag)
                             : lfsr_tag_key(tag_) < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
@@ -2898,7 +2898,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // split less than
             alt = LFSR_TAG_ALT(
                     LE,
-                    TAG(!lfsr_tag_hasdiverged(tag_)
+                    TAG((!lfsr_tag_hasdiverged(tag_))
                         ? LFSR_TAG_R
                         : LFSR_TAG_B),
                     lfsr_tag_key(tag_));
@@ -2910,7 +2910,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             && (upper_rid-1 > rid
                 || (upper_rid-1 == rid
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
-                        || (lfsr_tag_iswide(tag)
+                        || ((lfsr_tag_iswide(tag))
                             ? lfsr_tag_supkey(tag_) > lfsr_tag_supkey(tag)
                             : lfsr_tag_key(tag_) > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
@@ -2922,7 +2922,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // split greater than
             alt = LFSR_TAG_ALT(
                     GT,
-                    TAG(!lfsr_tag_hasdiverged(tag_)
+                    TAG((!lfsr_tag_hasdiverged(tag_))
                         ? LFSR_TAG_R
                         : LFSR_TAG_B),
                     lfsr_tag_key(tag));
@@ -2959,9 +2959,9 @@ leaf:;
     // can't find trunks during fetch
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
             // rm => null or shrubnull, otherwise strip off control bits
-            (lfsr_tag_isrm(tag)
+            (lfsr_tag_isrm(tag))
                 ? lfsr_tag_mode(lfsr_tag_shrubkey(tag))
-                : lfsr_tag_shrubkey(tag)),
+                : lfsr_tag_shrubkey(tag),
             upper_rid - lower_rid + delta,
             lfsr_data_size(&data),
             &rbyd->cksum);
@@ -3524,7 +3524,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         lfs_size_t size = lfsr_grm_size(grm_buf);
         err = lfsr_rbyd_appendattr(lfs, rbyd, -1,
                 // opportunistically remove this tag if delta is all zero
-                (size == 0 ? LFSR_TAG_RM(GRMDELTA) : LFSR_TAG_GRMDELTA), 0,
+                (size == 0) ? LFSR_TAG_RM(GRMDELTA) : LFSR_TAG_GRMDELTA, 0,
                 LFSR_DATA_BUF(grm_buf, size));
         if (err) {
             return err;
@@ -5370,7 +5370,7 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
         return err;
     }
     // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+    rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
 
     // align revision count in new mdirs to our block_cycles, this makes
     // sure we don't immediately try to relocate the mdir
@@ -5407,7 +5407,7 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         return err;
     }
     // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+    rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
 
     // decide if we need to relocate
     if (!force

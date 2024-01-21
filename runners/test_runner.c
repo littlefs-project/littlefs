@@ -59,7 +59,7 @@ static void leb16_print(uintmax_t x) {
     }
 
     while (true) {
-        char nibble = (x & 0xf) | (x > 0xf ? 0x10 : 0);
+        char nibble = (x & 0xf) | ((x > 0xf) ? 0x10 : 0);
         printf("%c", (nibble < 10) ? '0'+nibble : 'a'+nibble-10);
         if (x <= 0xf) {
             break;
@@ -103,7 +103,7 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
     if (tail) {
         *tail = (char*)s;
     }
-    return neg ? -x : x;
+    return (neg) ? -x : x;
 }
 
 
@@ -240,7 +240,7 @@ size_t test_define_permutations(size_t define) {
     for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
         if (define < test_define_maps[i].count
                 && test_define_maps[i].defines[define].cb) {
-            return test_define_maps[i].defines[define].permutations
+            return (test_define_maps[i].defines[define].permutations)
                     ? test_define_maps[i].defines[define].permutations
                     : 1;
         }
@@ -279,7 +279,7 @@ intmax_t test_define(size_t define) {
     } else {
         const char *name = test_define_name(define);
         fprintf(stderr, "error: undefined define %s (%zd)\n",
-                name ? name : "(unknown)",
+                (name) ? name : "(unknown)",
                 define);
         assert(false);
         exit(-1);
@@ -403,7 +403,7 @@ void test_define_suite(const struct test_suite *suite) {
             suite->define_names, suite->define_count};
 
     // set define count
-    test_define_count = suite->define_count > TEST_IMPLICIT_DEFINE_COUNT
+    test_define_count = (suite->define_count > TEST_IMPLICIT_DEFINE_COUNT)
             ? suite->define_count
             : TEST_IMPLICIT_DEFINE_COUNT;
 
@@ -772,7 +772,7 @@ static void case_forperm(
     test_seen_t seen = {NULL, 0, 0};
 
     for (size_t k = 0;
-            k < (case_->permutations ? case_->permutations : 1);
+            k < ((case_->permutations) ? case_->permutations : 1);
             k++) {
         // define case permutation
         test_define_case(suite, case_, k);
@@ -1644,7 +1644,7 @@ static void run_powerloss_exhaustive_layer(
 
     // run through the test without additional powerlosses, collecting possible
     // branches as we do so
-    lfs_emubd_setpowercycles(state.cfg, depth > 0 ? 1 : 0);
+    lfs_emubd_setpowercycles(state.cfg, (depth > 0) ? 1 : 0);
     bdcfg->powerloss_data = &state;
 
     // run the tests

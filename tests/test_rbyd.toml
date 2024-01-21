@@ -1963,10 +1963,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -2053,10 +2053,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -2314,10 +2314,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -2385,10 +2385,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -2475,10 +2475,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -2746,10 +2746,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -2893,10 +2893,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -3480,10 +3480,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -4013,10 +4013,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -4114,10 +4114,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -4424,10 +4424,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -4515,10 +4515,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -5166,10 +5166,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -5280,10 +5280,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -5726,10 +5726,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -5836,10 +5836,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -5966,10 +5966,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N*M);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N*M];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N*M);
 
         // print permutation to help debugging
@@ -6079,10 +6079,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -6293,10 +6293,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N*M);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N*M];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N*M);
 
         // print permutation to help debugging
@@ -6488,10 +6488,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -6627,10 +6627,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -7155,10 +7155,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -7311,10 +7311,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -7502,10 +7502,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -7628,10 +7628,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -8032,10 +8032,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -8182,10 +8182,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -8773,10 +8773,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -8860,10 +8860,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -9874,10 +9874,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -9985,10 +9985,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10106,10 +10106,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10235,10 +10235,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10373,10 +10373,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10523,10 +10523,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10652,10 +10652,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10790,10 +10790,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -10939,10 +10939,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -11095,10 +11095,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -11617,10 +11617,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -11704,10 +11704,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -11843,10 +11843,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -11984,10 +11984,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -12073,10 +12073,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -12221,10 +12221,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -12371,10 +12371,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -12457,10 +12457,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
@@ -12598,10 +12598,10 @@ code = '''
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
     for (size_t i = 0;
-            i < (PERMUTATION == -1 ? perm_count : 1);
+            i < ((PERMUTATION == -1) ? perm_count : 1);
             i++) {
         uint32_t perm[N];
-        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
         TEST_PERMUTATION(perm_i, perm, N);
 
         // print permutation to help debugging
