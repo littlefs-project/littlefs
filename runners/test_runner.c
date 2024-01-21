@@ -1945,134 +1945,156 @@ int main(int argc, char **argv) {
     while (true) {
         int c = getopt_long(argc, argv, short_opts, long_opts, NULL);
         switch (c) {
-            // generate help message
-            case OPT_HELP: {
-                printf("usage: %s [options] [test_id]\n", argv[0]);
-                printf("\n");
+        // generate help message
+        case OPT_HELP:;
+            printf("usage: %s [options] [test_id]\n", argv[0]);
+            printf("\n");
 
-                printf("options:\n");
-                size_t i = 0;
-                while (long_opts[i].name) {
-                    size_t indent;
-                    if (long_opts[i].has_arg == no_argument) {
-                        if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
-                            indent = printf("  -%c, --%s ",
-                                    long_opts[i].val,
-                                    long_opts[i].name);
-                        } else {
-                            indent = printf("  --%s ",
-                                    long_opts[i].name);
-                        }
+            printf("options:\n");
+            size_t i = 0;
+            while (long_opts[i].name) {
+                size_t indent;
+                if (long_opts[i].has_arg == no_argument) {
+                    if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
+                        indent = printf("  -%c, --%s ",
+                                long_opts[i].val,
+                                long_opts[i].name);
                     } else {
-                        if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
-                            indent = printf("  -%c %s, --%s %s ",
-                                    long_opts[i].val,
-                                    long_opts[i].name,
-                                    long_opts[i].name,
-                                    long_opts[i].name);
-                        } else {
-                            indent = printf("  --%s %s ",
-                                    long_opts[i].name,
-                                    long_opts[i].name);
-                        }
+                        indent = printf("  --%s ",
+                                long_opts[i].name);
                     }
-
-                    // a quick, hacky, byte-level method for text wrapping
-                    size_t len = strlen(help_text[i]);
-                    size_t j = 0;
-                    if (indent < 24) {
-                        printf("%*s %.80s\n",
-                                (int)(24-1-indent),
-                                "",
-                                &help_text[i][j]);
-                        j += 80;
+                } else {
+                    if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
+                        indent = printf("  -%c %s, --%s %s ",
+                                long_opts[i].val,
+                                long_opts[i].name,
+                                long_opts[i].name,
+                                long_opts[i].name);
                     } else {
-                        printf("\n");
+                        indent = printf("  --%s %s ",
+                                long_opts[i].name,
+                                long_opts[i].name);
                     }
-
-                    while (j < len) {
-                        printf("%24s%.80s\n", "", &help_text[i][j]);
-                        j += 80;
-                    }
-
-                    i += 1;
                 }
 
-                printf("\n");
-                exit(0);
+                // a quick, hacky, byte-level method for text wrapping
+                size_t len = strlen(help_text[i]);
+                size_t j = 0;
+                if (indent < 24) {
+                    printf("%*s %.80s\n",
+                            (int)(24-1-indent),
+                            "",
+                            &help_text[i][j]);
+                    j += 80;
+                } else {
+                    printf("\n");
+                }
+
+                while (j < len) {
+                    printf("%24s%.80s\n", "", &help_text[i][j]);
+                    j += 80;
+                }
+
+                i += 1;
             }
-            // summary/list flags
-            case OPT_SUMMARY:
-                op = summary;
-                break;
-            case OPT_LIST_SUITES:
-                op = list_suites;
-                break;
-            case OPT_LIST_CASES:
-                op = list_cases;
-                break;
-            case OPT_LIST_SUITE_PATHS:
-                op = list_suite_paths;
-                break;
-            case OPT_LIST_CASE_PATHS:
-                op = list_case_paths;
-                break;
-            case OPT_LIST_DEFINES:
-                op = list_defines;
-                break;
-            case OPT_LIST_PERMUTATION_DEFINES:
-                op = list_permutation_defines;
-                break;
-            case OPT_LIST_IMPLICIT_DEFINES:
-                op = list_implicit_defines;
-                break;
-            case OPT_LIST_POWERLOSSES:
-                op = list_powerlosses;
-                break;
-            // configuration
-            case OPT_DEFINE: {
-                // allocate space
-                test_override_t *override = mappend(
-                        (void**)&test_overrides,
-                        sizeof(test_override_t),
-                        &test_override_count,
-                        &test_override_capacity);
 
-                // parse into string key/intmax_t value, cannibalizing the
-                // arg in the process
-                char *sep = strchr(optarg, '=');
-                char *parsed = NULL;
-                if (!sep) {
-                    goto invalid_define;
-                }
-                *sep = '\0';
-                override->name = optarg;
-                optarg = sep+1;
+            printf("\n");
+            exit(0);
 
-                // parse comma-separated permutations
-                {
-                    test_override_value_t *override_values = NULL;
-                    size_t override_value_count = 0;
-                    size_t override_value_capacity = 0;
-                    size_t override_permutations = 0;
-                    while (true) {
+        // summary/list flags
+        case OPT_SUMMARY:;
+            op = summary;
+            break;
+
+        case OPT_LIST_SUITES:;
+            op = list_suites;
+            break;
+
+        case OPT_LIST_CASES:;
+            op = list_cases;
+            break;
+
+        case OPT_LIST_SUITE_PATHS:;
+            op = list_suite_paths;
+            break;
+
+        case OPT_LIST_CASE_PATHS:;
+            op = list_case_paths;
+            break;
+
+        case OPT_LIST_DEFINES:;
+            op = list_defines;
+            break;
+
+        case OPT_LIST_PERMUTATION_DEFINES:;
+            op = list_permutation_defines;
+            break;
+
+        case OPT_LIST_IMPLICIT_DEFINES:;
+            op = list_implicit_defines;
+            break;
+
+        case OPT_LIST_POWERLOSSES:;
+            op = list_powerlosses;
+            break;
+
+        // configuration
+        case OPT_DEFINE:;
+            // allocate space
+            test_override_t *override = mappend(
+                    (void**)&test_overrides,
+                    sizeof(test_override_t),
+                    &test_override_count,
+                    &test_override_capacity);
+
+            // parse into string key/intmax_t value, cannibalizing the
+            // arg in the process
+            char *sep = strchr(optarg, '=');
+            char *parsed = NULL;
+            if (!sep) {
+                goto invalid_define;
+            }
+            *sep = '\0';
+            override->name = optarg;
+            optarg = sep+1;
+
+            // parse comma-separated permutations
+            {
+                test_override_value_t *override_values = NULL;
+                size_t override_value_count = 0;
+                size_t override_value_capacity = 0;
+                size_t override_permutations = 0;
+                while (true) {
+                    optarg += strspn(optarg, " ");
+
+                    if (strncmp(optarg, "range", strlen("range")) == 0) {
+                        // range of values
+                        optarg += strlen("range");
                         optarg += strspn(optarg, " ");
+                        if (*optarg != '(') {
+                            goto invalid_define;
+                        }
+                        optarg += 1;
 
-                        if (strncmp(optarg, "range", strlen("range")) == 0) {
-                            // range of values
-                            optarg += strlen("range");
-                            optarg += strspn(optarg, " ");
-                            if (*optarg != '(') {
-                                goto invalid_define;
-                            }
+                        intmax_t start = strtoumax(optarg, &parsed, 0);
+                        intmax_t stop = -1;
+                        intmax_t step = 1;
+                        // allow empty string for start=0
+                        if (parsed == optarg) {
+                            start = 0;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+
+                        if (*optarg != ',' && *optarg != ')') {
+                            goto invalid_define;
+                        }
+
+                        if (*optarg == ',') {
                             optarg += 1;
-
-                            intmax_t start = strtoumax(optarg, &parsed, 0);
-                            intmax_t stop = -1;
-                            intmax_t step = 1;
-                            // allow empty string for start=0
+                            stop = strtoumax(optarg, &parsed, 0);
+                            // allow empty string for stop=end
                             if (parsed == optarg) {
-                                start = 0;
+                                stop = -1;
                             }
                             optarg = parsed + strspn(parsed, " ");
 
@@ -2082,163 +2104,205 @@ int main(int argc, char **argv) {
 
                             if (*optarg == ',') {
                                 optarg += 1;
-                                stop = strtoumax(optarg, &parsed, 0);
-                                // allow empty string for stop=end
+                                step = strtoumax(optarg, &parsed, 0);
+                                // allow empty string for stop=1
                                 if (parsed == optarg) {
-                                    stop = -1;
+                                    step = 1;
                                 }
                                 optarg = parsed + strspn(parsed, " ");
 
-                                if (*optarg != ',' && *optarg != ')') {
+                                if (*optarg != ')') {
                                     goto invalid_define;
                                 }
-
-                                if (*optarg == ',') {
-                                    optarg += 1;
-                                    step = strtoumax(optarg, &parsed, 0);
-                                    // allow empty string for stop=1
-                                    if (parsed == optarg) {
-                                        step = 1;
-                                    }
-                                    optarg = parsed + strspn(parsed, " ");
-
-                                    if (*optarg != ')') {
-                                        goto invalid_define;
-                                    }
-                                }
-                            } else {
-                                // single value = stop only
-                                stop = start;
-                                start = 0;
                             }
-
-                            if (*optarg != ')') {
-                                goto invalid_define;
-                            }
-                            optarg += 1;
-
-                            // append range
-                            *(test_override_value_t*)mappend(
-                                    (void**)&override_values,
-                                    sizeof(test_override_value_t),
-                                    &override_value_count,
-                                    &override_value_capacity)
-                                    = (test_override_value_t){
-                                .start = start,
-                                .stop = stop,
-                                .step = step,
-                            };
-                            if (step > 0) {
-                                override_permutations += (stop-1 - start)
-                                        / step + 1;
-                            } else {
-                                override_permutations += (start-1 - stop)
-                                        / -step + 1;
-                            }
-                        } else if (*optarg != '\0') {
-                            // single value
-                            intmax_t define = strtoumax(optarg, &parsed, 0);
-                            if (parsed == optarg) {
-                                goto invalid_define;
-                            }
-                            optarg = parsed + strspn(parsed, " ");
-
-                            // append value
-                            *(test_override_value_t*)mappend(
-                                    (void**)&override_values,
-                                    sizeof(test_override_value_t),
-                                    &override_value_count,
-                                    &override_value_capacity)
-                                    = (test_override_value_t){
-                                .start = define,
-                                .step = 0,
-                            };
-                            override_permutations += 1;
                         } else {
-                            break;
+                            // single value = stop only
+                            stop = start;
+                            start = 0;
                         }
 
-                        if (*optarg == ',') {
-                            optarg += 1;
+                        if (*optarg != ')') {
+                            goto invalid_define;
                         }
+                        optarg += 1;
+
+                        // append range
+                        *(test_override_value_t*)mappend(
+                                (void**)&override_values,
+                                sizeof(test_override_value_t),
+                                &override_value_count,
+                                &override_value_capacity)
+                                = (test_override_value_t){
+                            .start = start,
+                            .stop = stop,
+                            .step = step,
+                        };
+                        if (step > 0) {
+                            override_permutations += (stop-1 - start)
+                                    / step + 1;
+                        } else {
+                            override_permutations += (start-1 - stop)
+                                    / -step + 1;
+                        }
+                    } else if (*optarg != '\0') {
+                        // single value
+                        intmax_t define = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            goto invalid_define;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+
+                        // append value
+                        *(test_override_value_t*)mappend(
+                                (void**)&override_values,
+                                sizeof(test_override_value_t),
+                                &override_value_count,
+                                &override_value_capacity)
+                                = (test_override_value_t){
+                            .start = define,
+                            .step = 0,
+                        };
+                        override_permutations += 1;
+                    } else {
+                        break;
                     }
 
-                    override->define.cb = test_override_cb;
-                    override->define.data = malloc(
-                            sizeof(test_override_data_t));
-                    *(test_override_data_t*)override->define.data
-                            = (test_override_data_t){
-                        .values = override_values,
-                        .value_count = override_value_count,
-                    };
-                    override->define.permutations = override_permutations;
+                    if (*optarg == ',') {
+                        optarg += 1;
+                    }
                 }
-                break;
 
-invalid_define:
-                fprintf(stderr, "error: invalid define: %s\n", optarg);
-                exit(-1);
+                override->define.cb = test_override_cb;
+                override->define.data = malloc(
+                        sizeof(test_override_data_t));
+                *(test_override_data_t*)override->define.data
+                        = (test_override_data_t){
+                    .values = override_values,
+                    .value_count = override_value_count,
+                };
+                override->define.permutations = override_permutations;
             }
-            case OPT_POWERLOSS: {
-                // reset our powerloss scenarios
-                if (test_powerloss_capacity > 0) {
-                    free((test_powerloss_t*)test_powerlosses);
+            break;
+
+        invalid_define:;
+            fprintf(stderr, "error: invalid define: %s\n", optarg);
+            exit(-1);
+
+        case OPT_POWERLOSS:;
+            // reset our powerloss scenarios
+            if (test_powerloss_capacity > 0) {
+                free((test_powerloss_t*)test_powerlosses);
+            }
+            test_powerlosses = NULL;
+            test_powerloss_count = 0;
+            test_powerloss_capacity = 0;
+
+            // parse the comma separated list of power-loss scenarios
+            while (*optarg) {
+                // allocate space
+                test_powerloss_t *powerloss = mappend(
+                        (void**)&test_powerlosses,
+                        sizeof(test_powerloss_t),
+                        &test_powerloss_count,
+                        &test_powerloss_capacity);
+
+                // parse the power-loss scenario
+                optarg += strspn(optarg, " ");
+
+                // named power-loss scenario
+                size_t len = strcspn(optarg, " ,");
+                for (size_t i = 0; builtin_powerlosses[i].name; i++) {
+                    if (len == strlen(builtin_powerlosses[i].name)
+                            && memcmp(optarg,
+                                builtin_powerlosses[i].name,
+                                len) == 0) {
+                        *powerloss = builtin_powerlosses[i];
+                        optarg += len;
+                        goto powerloss_next;
+                    }
                 }
-                test_powerlosses = NULL;
-                test_powerloss_count = 0;
-                test_powerloss_capacity = 0;
 
-                // parse the comma separated list of power-loss scenarios
-                while (*optarg) {
-                    // allocate space
-                    test_powerloss_t *powerloss = mappend(
-                            (void**)&test_powerlosses,
-                            sizeof(test_powerloss_t),
-                            &test_powerloss_count,
-                            &test_powerloss_capacity);
+                // comma-separated permutation
+                if (*optarg == '{') {
+                    lfs_emubd_powercycles_t *cycles = NULL;
+                    size_t cycle_count = 0;
+                    size_t cycle_capacity = 0;
 
-                    // parse the power-loss scenario
-                    optarg += strspn(optarg, " ");
+                    char *s = optarg + 1;
+                    while (true) {
+                        parsed = NULL;
+                        *(lfs_emubd_powercycles_t*)mappend(
+                                (void**)&cycles,
+                                sizeof(lfs_emubd_powercycles_t),
+                                &cycle_count,
+                                &cycle_capacity)
+                                = strtoumax(s, &parsed, 0);
 
-                    // named power-loss scenario
-                    size_t len = strcspn(optarg, " ,");
-                    for (size_t i = 0; builtin_powerlosses[i].name; i++) {
-                        if (len == strlen(builtin_powerlosses[i].name)
-                                && memcmp(optarg,
-                                    builtin_powerlosses[i].name,
-                                    len) == 0) {
-                            *powerloss = builtin_powerlosses[i];
-                            optarg += len;
-                            goto powerloss_next;
+                        s = parsed + strspn(parsed, " ");
+                        if (*s == ',') {
+                            s += 1;
+                            continue;
+                        } else if (*s == '}') {
+                            s += 1;
+                            break;
+                        } else {
+                            goto powerloss_unknown;
                         }
                     }
 
-                    // comma-separated permutation
-                    if (*optarg == '{') {
+                    *powerloss = (test_powerloss_t){
+                            "explicit",
+                            run_powerloss_cycles,
+                            cycles,
+                            cycle_count};
+                    optarg = s;
+                    goto powerloss_next;
+                }
+
+                // leb16-encoded permutation
+                if (*optarg == ':') {
+                    // special case for linear power cycles
+                    if (optarg[1] == 'x') {
+                        size_t cycle_count = leb16_parse(optarg+2, &optarg);
+
+                        *powerloss = (test_powerloss_t){
+                                "linear",
+                                run_powerloss_linear,
+                                NULL,
+                                cycle_count};
+                        goto powerloss_next;
+
+                    // special case for log power cycles
+                    } else if (optarg[1] == 'y') {
+                        size_t cycle_count = leb16_parse(optarg+2, &optarg);
+
+                        *powerloss = (test_powerloss_t){
+                                "log",
+                                run_powerloss_log,
+                                NULL,
+                                cycle_count};
+                        goto powerloss_next;
+
+                    // otherwise explicit power cycles
+                    } else {
                         lfs_emubd_powercycles_t *cycles = NULL;
                         size_t cycle_count = 0;
                         size_t cycle_capacity = 0;
 
                         char *s = optarg + 1;
                         while (true) {
-                            char *parsed = NULL;
+                            parsed = NULL;
+                            uintmax_t x = leb16_parse(s, &parsed);
+                            if (parsed == s) {
+                                break;
+                            }
+
                             *(lfs_emubd_powercycles_t*)mappend(
                                     (void**)&cycles,
                                     sizeof(lfs_emubd_powercycles_t),
                                     &cycle_count,
-                                    &cycle_capacity)
-                                    = strtoumax(s, &parsed, 0);
-
-                            s = parsed + strspn(parsed, " ");
-                            if (*s == ',') {
-                                s += 1;
-                                continue;
-                            } else if (*s == '}') {
-                                s += 1;
-                                break;
-                            } else {
-                                goto powerloss_unknown;
-                            }
+                                    &cycle_capacity) = x;
+                            s = parsed;
                         }
 
                         *powerloss = (test_powerloss_t){
@@ -2249,105 +2313,63 @@ invalid_define:
                         optarg = s;
                         goto powerloss_next;
                     }
+                }
 
-                    // leb16-encoded permutation
-                    if (*optarg == ':') {
-                        // special case for linear power cycles
-                        if (optarg[1] == 'x') {
-                            size_t cycle_count = leb16_parse(optarg+2, &optarg);
-
-                            *powerloss = (test_powerloss_t){
-                                    "linear",
-                                    run_powerloss_linear,
-                                    NULL,
-                                    cycle_count};
-                            goto powerloss_next;
-
-                        // special case for log power cycles
-                        } else if (optarg[1] == 'y') {
-                            size_t cycle_count = leb16_parse(optarg+2, &optarg);
-
-                            *powerloss = (test_powerloss_t){
-                                    "log",
-                                    run_powerloss_log,
-                                    NULL,
-                                    cycle_count};
-                            goto powerloss_next;
-
-                        // otherwise explicit power cycles
-                        } else {
-                            lfs_emubd_powercycles_t *cycles = NULL;
-                            size_t cycle_count = 0;
-                            size_t cycle_capacity = 0;
-
-                            char *s = optarg + 1;
-                            while (true) {
-                                char *parsed = NULL;
-                                uintmax_t x = leb16_parse(s, &parsed);
-                                if (parsed == s) {
-                                    break;
-                                }
-
-                                *(lfs_emubd_powercycles_t*)mappend(
-                                        (void**)&cycles,
-                                        sizeof(lfs_emubd_powercycles_t),
-                                        &cycle_count,
-                                        &cycle_capacity) = x;
-                                s = parsed;
-                            }
-
-                            *powerloss = (test_powerloss_t){
-                                    "explicit",
-                                    run_powerloss_cycles,
-                                    cycles,
-                                    cycle_count};
-                            optarg = s;
-                            goto powerloss_next;
-                        }
-                    }
-
-                    // exhaustive permutations
-                    {
-                        char *parsed = NULL;
-                        size_t count = strtoumax(optarg, &parsed, 0);
-                        if (parsed == optarg) {
-                            goto powerloss_unknown;
-                        }
-                        *powerloss = (test_powerloss_t){
-                                "exhaustive",
-                                run_powerloss_exhaustive,
-                                NULL,
-                                count};
-                        optarg = (char*)parsed;
-                        goto powerloss_next;
-                    }
-
-powerloss_unknown:
-                    // unknown scenario?
-                    fprintf(stderr, "error: unknown power-loss scenario: %s\n",
-                            optarg);
-                    exit(-1);
-
-powerloss_next:
-                    optarg += strspn(optarg, " ");
-                    if (*optarg == ',') {
-                        optarg += 1;
-                    } else if (*optarg == '\0') {
-                        break;
-                    } else {
+                // exhaustive permutations
+                {
+                    parsed = NULL;
+                    size_t count = strtoumax(optarg, &parsed, 0);
+                    if (parsed == optarg) {
                         goto powerloss_unknown;
                     }
+                    *powerloss = (test_powerloss_t){
+                            "exhaustive",
+                            run_powerloss_exhaustive,
+                            NULL,
+                            count};
+                    optarg = (char*)parsed;
+                    goto powerloss_next;
                 }
-                break;
+
+            powerloss_unknown:;
+                // unknown scenario?
+                fprintf(stderr, "error: unknown power-loss scenario: %s\n",
+                        optarg);
+                exit(-1);
+
+            powerloss_next:;
+                optarg += strspn(optarg, " ");
+                if (*optarg == ',') {
+                    optarg += 1;
+                } else if (*optarg == '\0') {
+                    break;
+                } else {
+                    goto powerloss_unknown;
+                }
             }
-            case OPT_STEP: {
-                char *parsed = NULL;
-                test_step_start = strtoumax(optarg, &parsed, 0);
-                test_step_stop = -1;
-                test_step_step = 1;
-                // allow empty string for start=0
+            break;
+
+        case OPT_STEP:;
+            parsed = NULL;
+            test_step_start = strtoumax(optarg, &parsed, 0);
+            test_step_stop = -1;
+            test_step_step = 1;
+            // allow empty string for start=0
+            if (parsed == optarg) {
+                test_step_start = 0;
+            }
+            optarg = parsed + strspn(parsed, " ");
+
+            if (*optarg != ',' && *optarg != '\0') {
+                goto step_unknown;
+            }
+
+            if (*optarg == ',') {
+                optarg += 1;
+                test_step_stop = strtoumax(optarg, &parsed, 0);
+                // allow empty string for stop=end
                 if (parsed == optarg) {
-                    test_step_start = 0;
+                    test_step_stop = -1;
                 }
                 optarg = parsed + strspn(parsed, " ");
 
@@ -2357,108 +2379,99 @@ powerloss_next:
 
                 if (*optarg == ',') {
                     optarg += 1;
-                    test_step_stop = strtoumax(optarg, &parsed, 0);
-                    // allow empty string for stop=end
+                    test_step_step = strtoumax(optarg, &parsed, 0);
+                    // allow empty string for stop=1
                     if (parsed == optarg) {
-                        test_step_stop = -1;
+                        test_step_step = 1;
                     }
                     optarg = parsed + strspn(parsed, " ");
 
-                    if (*optarg != ',' && *optarg != '\0') {
+                    if (*optarg != '\0') {
                         goto step_unknown;
                     }
-
-                    if (*optarg == ',') {
-                        optarg += 1;
-                        test_step_step = strtoumax(optarg, &parsed, 0);
-                        // allow empty string for stop=1
-                        if (parsed == optarg) {
-                            test_step_step = 1;
-                        }
-                        optarg = parsed + strspn(parsed, " ");
-
-                        if (*optarg != '\0') {
-                            goto step_unknown;
-                        }
-                    }
-                } else {
-                    // single value = stop only
-                    test_step_stop = test_step_start;
-                    test_step_start = 0;
                 }
+            } else {
+                // single value = stop only
+                test_step_stop = test_step_start;
+                test_step_start = 0;
+            }
+            break;
 
-                break;
-step_unknown:
-                fprintf(stderr, "error: invalid step: %s\n", optarg);
+        step_unknown:;
+            fprintf(stderr, "error: invalid step: %s\n", optarg);
+            exit(-1);
+
+        case OPT_DISK:;
+            test_disk_path = optarg;
+            break;
+
+        case OPT_TRACE:;
+            test_trace_path = optarg;
+            break;
+
+        case OPT_TRACE_BACKTRACE:;
+            test_trace_backtrace = true;
+            break;
+
+        case OPT_TRACE_PERIOD:;
+            parsed = NULL;
+            test_trace_period = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid trace-period: %s\n",
+                        optarg);
                 exit(-1);
             }
-            case OPT_DISK:
-                test_disk_path = optarg;
-                break;
-            case OPT_TRACE:
-                test_trace_path = optarg;
-                break;
-            case OPT_TRACE_BACKTRACE:
-                test_trace_backtrace = true;
-                break;
-            case OPT_TRACE_PERIOD: {
-                char *parsed = NULL;
-                test_trace_period = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid trace-period: %s\n",
-                            optarg);
-                    exit(-1);
-                }
-                break;
-            }
-            case OPT_TRACE_FREQ: {
-                char *parsed = NULL;
-                test_trace_freq = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid trace-freq: %s\n", optarg);
-                    exit(-1);
-                }
-                break;
-            }
-            case OPT_READ_SLEEP: {
-                char *parsed = NULL;
-                double read_sleep = strtod(optarg, &parsed);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid read-sleep: %s\n", optarg);
-                    exit(-1);
-                }
-                test_read_sleep = read_sleep*1.0e9;
-                break;
-            }
-            case OPT_PROG_SLEEP: {
-                char *parsed = NULL;
-                double prog_sleep = strtod(optarg, &parsed);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid prog-sleep: %s\n", optarg);
-                    exit(-1);
-                }
-                test_prog_sleep = prog_sleep*1.0e9;
-                break;
-            }
-            case OPT_ERASE_SLEEP: {
-                char *parsed = NULL;
-                double erase_sleep = strtod(optarg, &parsed);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid erase-sleep: %s\n", optarg);
-                    exit(-1);
-                }
-                test_erase_sleep = erase_sleep*1.0e9;
-                break;
-            }
-            // done parsing
-            case -1:
-                goto getopt_done;
-            // unknown arg, getopt prints a message for us
-            default:
+            break;
+
+        case OPT_TRACE_FREQ:;
+            parsed = NULL;
+            test_trace_freq = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid trace-freq: %s\n", optarg);
                 exit(-1);
+            }
+            break;
+
+        case OPT_READ_SLEEP:;
+            parsed = NULL;
+            double read_sleep = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid read-sleep: %s\n", optarg);
+                exit(-1);
+            }
+            test_read_sleep = read_sleep*1.0e9;
+            break;
+
+        case OPT_PROG_SLEEP:;
+            parsed = NULL;
+            double prog_sleep = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid prog-sleep: %s\n", optarg);
+                exit(-1);
+            }
+            test_prog_sleep = prog_sleep*1.0e9;
+            break;
+
+        case OPT_ERASE_SLEEP:;
+            parsed = NULL;
+            double erase_sleep = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid erase-sleep: %s\n", optarg);
+                exit(-1);
+            }
+            test_erase_sleep = erase_sleep*1.0e9;
+            break;
+
+        // done parsing
+        case -1:;
+            goto getopt_done;
+
+        // unknown arg, getopt prints a message for us
+        default:;
+            exit(-1);
         }
     }
-getopt_done: ;
+getopt_done:;
 
     if (argc > optind) {
         // reset our test identifier list

@@ -1505,131 +1505,152 @@ int main(int argc, char **argv) {
     while (true) {
         int c = getopt_long(argc, argv, short_opts, long_opts, NULL);
         switch (c) {
-            // generate help message
-            case OPT_HELP: {
-                printf("usage: %s [options] [bench_id]\n", argv[0]);
-                printf("\n");
+        // generate help message
+        case OPT_HELP:;
+            printf("usage: %s [options] [bench_id]\n", argv[0]);
+            printf("\n");
 
-                printf("options:\n");
-                size_t i = 0;
-                while (long_opts[i].name) {
-                    size_t indent;
-                    if (long_opts[i].has_arg == no_argument) {
-                        if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
-                            indent = printf("  -%c, --%s ",
-                                    long_opts[i].val,
-                                    long_opts[i].name);
-                        } else {
-                            indent = printf("  --%s ",
-                                    long_opts[i].name);
-                        }
+            printf("options:\n");
+            size_t i = 0;
+            while (long_opts[i].name) {
+                size_t indent;
+                if (long_opts[i].has_arg == no_argument) {
+                    if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
+                        indent = printf("  -%c, --%s ",
+                                long_opts[i].val,
+                                long_opts[i].name);
                     } else {
-                        if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
-                            indent = printf("  -%c %s, --%s %s ",
-                                    long_opts[i].val,
-                                    long_opts[i].name,
-                                    long_opts[i].name,
-                                    long_opts[i].name);
-                        } else {
-                            indent = printf("  --%s %s ",
-                                    long_opts[i].name,
-                                    long_opts[i].name);
-                        }
+                        indent = printf("  --%s ",
+                                long_opts[i].name);
                     }
-
-                    // a quick, hacky, byte-level method for text wrapping
-                    size_t len = strlen(help_text[i]);
-                    size_t j = 0;
-                    if (indent < 24) {
-                        printf("%*s %.80s\n",
-                                (int)(24-1-indent),
-                                "",
-                                &help_text[i][j]);
-                        j += 80;
+                } else {
+                    if (long_opts[i].val >= '0' && long_opts[i].val < 'z') {
+                        indent = printf("  -%c %s, --%s %s ",
+                                long_opts[i].val,
+                                long_opts[i].name,
+                                long_opts[i].name,
+                                long_opts[i].name);
                     } else {
-                        printf("\n");
+                        indent = printf("  --%s %s ",
+                                long_opts[i].name,
+                                long_opts[i].name);
                     }
-
-                    while (j < len) {
-                        printf("%24s%.80s\n", "", &help_text[i][j]);
-                        j += 80;
-                    }
-
-                    i += 1;
                 }
 
-                printf("\n");
-                exit(0);
+                // a quick, hacky, byte-level method for text wrapping
+                size_t len = strlen(help_text[i]);
+                size_t j = 0;
+                if (indent < 24) {
+                    printf("%*s %.80s\n",
+                            (int)(24-1-indent),
+                            "",
+                            &help_text[i][j]);
+                    j += 80;
+                } else {
+                    printf("\n");
+                }
+
+                while (j < len) {
+                    printf("%24s%.80s\n", "", &help_text[i][j]);
+                    j += 80;
+                }
+
+                i += 1;
             }
-            // summary/list flags
-            case OPT_SUMMARY:
-                op = summary;
-                break;
-            case OPT_LIST_SUITES:
-                op = list_suites;
-                break;
-            case OPT_LIST_CASES:
-                op = list_cases;
-                break;
-            case OPT_LIST_SUITE_PATHS:
-                op = list_suite_paths;
-                break;
-            case OPT_LIST_CASE_PATHS:
-                op = list_case_paths;
-                break;
-            case OPT_LIST_DEFINES:
-                op = list_defines;
-                break;
-            case OPT_LIST_PERMUTATION_DEFINES:
-                op = list_permutation_defines;
-                break;
-            case OPT_LIST_IMPLICIT_DEFINES:
-                op = list_implicit_defines;
-                break;
-            // configuration
-            case OPT_DEFINE: {
-                // allocate space
-                bench_override_t *override = mappend(
-                        (void**)&bench_overrides,
-                        sizeof(bench_override_t),
-                        &bench_override_count,
-                        &bench_override_capacity);
 
-                // parse into string key/intmax_t value, cannibalizing the
-                // arg in the process
-                char *sep = strchr(optarg, '=');
-                char *parsed = NULL;
-                if (!sep) {
-                    goto invalid_define;
-                }
-                *sep = '\0';
-                override->name = optarg;
-                optarg = sep+1;
+            printf("\n");
+            exit(0);
 
-                // parse comma-separated permutations
-                {
-                    bench_override_value_t *override_values = NULL;
-                    size_t override_value_count = 0;
-                    size_t override_value_capacity = 0;
-                    size_t override_permutations = 0;
-                    while (true) {
+        // summary/list flags
+        case OPT_SUMMARY:;
+            op = summary;
+            break;
+
+        case OPT_LIST_SUITES:;
+            op = list_suites;
+            break;
+
+        case OPT_LIST_CASES:;
+            op = list_cases;
+            break;
+
+        case OPT_LIST_SUITE_PATHS:;
+            op = list_suite_paths;
+            break;
+
+        case OPT_LIST_CASE_PATHS:;
+            op = list_case_paths;
+            break;
+
+        case OPT_LIST_DEFINES:;
+            op = list_defines;
+            break;
+
+        case OPT_LIST_PERMUTATION_DEFINES:;
+            op = list_permutation_defines;
+            break;
+
+        case OPT_LIST_IMPLICIT_DEFINES:;
+            op = list_implicit_defines;
+            break;
+
+        // configuration
+        case OPT_DEFINE:;
+            // allocate space
+            bench_override_t *override = mappend(
+                    (void**)&bench_overrides,
+                    sizeof(bench_override_t),
+                    &bench_override_count,
+                    &bench_override_capacity);
+
+            // parse into string key/intmax_t value, cannibalizing the
+            // arg in the process
+            char *sep = strchr(optarg, '=');
+            char *parsed = NULL;
+            if (!sep) {
+                goto invalid_define;
+            }
+            *sep = '\0';
+            override->name = optarg;
+            optarg = sep+1;
+
+            // parse comma-separated permutations
+            {
+                bench_override_value_t *override_values = NULL;
+                size_t override_value_count = 0;
+                size_t override_value_capacity = 0;
+                size_t override_permutations = 0;
+                while (true) {
+                    optarg += strspn(optarg, " ");
+
+                    if (strncmp(optarg, "range", strlen("range")) == 0) {
+                        // range of values
+                        optarg += strlen("range");
                         optarg += strspn(optarg, " ");
+                        if (*optarg != '(') {
+                            goto invalid_define;
+                        }
+                        optarg += 1;
 
-                        if (strncmp(optarg, "range", strlen("range")) == 0) {
-                            // range of values
-                            optarg += strlen("range");
-                            optarg += strspn(optarg, " ");
-                            if (*optarg != '(') {
-                                goto invalid_define;
-                            }
+                        intmax_t start = strtoumax(optarg, &parsed, 0);
+                        intmax_t stop = -1;
+                        intmax_t step = 1;
+                        // allow empty string for start=0
+                        if (parsed == optarg) {
+                            start = 0;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+
+                        if (*optarg != ',' && *optarg != ')') {
+                            goto invalid_define;
+                        }
+
+                        if (*optarg == ',') {
                             optarg += 1;
-
-                            intmax_t start = strtoumax(optarg, &parsed, 0);
-                            intmax_t stop = -1;
-                            intmax_t step = 1;
-                            // allow empty string for start=0
+                            stop = strtoumax(optarg, &parsed, 0);
+                            // allow empty string for stop=end
                             if (parsed == optarg) {
-                                start = 0;
+                                stop = -1;
                             }
                             optarg = parsed + strspn(parsed, " ");
 
@@ -1639,111 +1660,111 @@ int main(int argc, char **argv) {
 
                             if (*optarg == ',') {
                                 optarg += 1;
-                                stop = strtoumax(optarg, &parsed, 0);
-                                // allow empty string for stop=end
+                                step = strtoumax(optarg, &parsed, 0);
+                                // allow empty string for stop=1
                                 if (parsed == optarg) {
-                                    stop = -1;
+                                    step = 1;
                                 }
                                 optarg = parsed + strspn(parsed, " ");
 
-                                if (*optarg != ',' && *optarg != ')') {
+                                if (*optarg != ')') {
                                     goto invalid_define;
                                 }
-
-                                if (*optarg == ',') {
-                                    optarg += 1;
-                                    step = strtoumax(optarg, &parsed, 0);
-                                    // allow empty string for stop=1
-                                    if (parsed == optarg) {
-                                        step = 1;
-                                    }
-                                    optarg = parsed + strspn(parsed, " ");
-
-                                    if (*optarg != ')') {
-                                        goto invalid_define;
-                                    }
-                                }
-                            } else {
-                                // single value = stop only
-                                stop = start;
-                                start = 0;
                             }
-
-                            if (*optarg != ')') {
-                                goto invalid_define;
-                            }
-                            optarg += 1;
-
-                            // append range
-                            *(bench_override_value_t*)mappend(
-                                    (void**)&override_values,
-                                    sizeof(bench_override_value_t),
-                                    &override_value_count,
-                                    &override_value_capacity)
-                                    = (bench_override_value_t){
-                                .start = start,
-                                .stop = stop,
-                                .step = step,
-                            };
-                            if (step > 0) {
-                                override_permutations += (stop-1 - start)
-                                        / step + 1;
-                            } else {
-                                override_permutations += (start-1 - stop)
-                                        / -step + 1;
-                            }
-                        } else if (*optarg != '\0') {
-                            // single value
-                            intmax_t define = strtoumax(optarg, &parsed, 0);
-                            if (parsed == optarg) {
-                                goto invalid_define;
-                            }
-                            optarg = parsed + strspn(parsed, " ");
-
-                            // append value
-                            *(bench_override_value_t*)mappend(
-                                    (void**)&override_values,
-                                    sizeof(bench_override_value_t),
-                                    &override_value_count,
-                                    &override_value_capacity)
-                                    = (bench_override_value_t){
-                                .start = define,
-                                .step = 0,
-                            };
-                            override_permutations += 1;
                         } else {
-                            break;
+                            // single value = stop only
+                            stop = start;
+                            start = 0;
                         }
 
-                        if (*optarg == ',') {
-                            optarg += 1;
+                        if (*optarg != ')') {
+                            goto invalid_define;
                         }
+                        optarg += 1;
+
+                        // append range
+                        *(bench_override_value_t*)mappend(
+                                (void**)&override_values,
+                                sizeof(bench_override_value_t),
+                                &override_value_count,
+                                &override_value_capacity)
+                                = (bench_override_value_t){
+                            .start = start,
+                            .stop = stop,
+                            .step = step,
+                        };
+                        if (step > 0) {
+                            override_permutations += (stop-1 - start)
+                                    / step + 1;
+                        } else {
+                            override_permutations += (start-1 - stop)
+                                    / -step + 1;
+                        }
+                    } else if (*optarg != '\0') {
+                        // single value
+                        intmax_t define = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            goto invalid_define;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+
+                        // append value
+                        *(bench_override_value_t*)mappend(
+                                (void**)&override_values,
+                                sizeof(bench_override_value_t),
+                                &override_value_count,
+                                &override_value_capacity)
+                                = (bench_override_value_t){
+                            .start = define,
+                            .step = 0,
+                        };
+                        override_permutations += 1;
+                    } else {
+                        break;
                     }
 
-                    override->define.cb = bench_override_cb;
-                    override->define.data = malloc(
-                            sizeof(bench_override_data_t));
-                    *(bench_override_data_t*)override->define.data
-                            = (bench_override_data_t){
-                        .values = override_values,
-                        .value_count = override_value_count,
-                    };
-                    override->define.permutations = override_permutations;
+                    if (*optarg == ',') {
+                        optarg += 1;
+                    }
                 }
-                break;
 
-invalid_define:
-                fprintf(stderr, "error: invalid define: %s\n", optarg);
-                exit(-1);
+                override->define.cb = bench_override_cb;
+                override->define.data = malloc(
+                        sizeof(bench_override_data_t));
+                *(bench_override_data_t*)override->define.data
+                        = (bench_override_data_t){
+                    .values = override_values,
+                    .value_count = override_value_count,
+                };
+                override->define.permutations = override_permutations;
             }
-            case OPT_STEP: {
-                char *parsed = NULL;
-                bench_step_start = strtoumax(optarg, &parsed, 0);
-                bench_step_stop = -1;
-                bench_step_step = 1;
-                // allow empty string for start=0
+            break;
+
+        invalid_define:;
+            fprintf(stderr, "error: invalid define: %s\n", optarg);
+            exit(-1);
+
+        case OPT_STEP:;
+            parsed = NULL;
+            bench_step_start = strtoumax(optarg, &parsed, 0);
+            bench_step_stop = -1;
+            bench_step_step = 1;
+            // allow empty string for start=0
+            if (parsed == optarg) {
+                bench_step_start = 0;
+            }
+            optarg = parsed + strspn(parsed, " ");
+
+            if (*optarg != ',' && *optarg != '\0') {
+                goto step_unknown;
+            }
+
+            if (*optarg == ',') {
+                optarg += 1;
+                bench_step_stop = strtoumax(optarg, &parsed, 0);
+                // allow empty string for stop=end
                 if (parsed == optarg) {
-                    bench_step_start = 0;
+                    bench_step_stop = -1;
                 }
                 optarg = parsed + strspn(parsed, " ");
 
@@ -1753,104 +1774,96 @@ invalid_define:
 
                 if (*optarg == ',') {
                     optarg += 1;
-                    bench_step_stop = strtoumax(optarg, &parsed, 0);
-                    // allow empty string for stop=end
+                    bench_step_step = strtoumax(optarg, &parsed, 0);
+                    // allow empty string for stop=1
                     if (parsed == optarg) {
-                        bench_step_stop = -1;
+                        bench_step_step = 1;
                     }
                     optarg = parsed + strspn(parsed, " ");
 
-                    if (*optarg != ',' && *optarg != '\0') {
+                    if (*optarg != '\0') {
                         goto step_unknown;
                     }
-
-                    if (*optarg == ',') {
-                        optarg += 1;
-                        bench_step_step = strtoumax(optarg, &parsed, 0);
-                        // allow empty string for stop=1
-                        if (parsed == optarg) {
-                            bench_step_step = 1;
-                        }
-                        optarg = parsed + strspn(parsed, " ");
-
-                        if (*optarg != '\0') {
-                            goto step_unknown;
-                        }
-                    }
-                } else {
-                    // single value = stop only
-                    bench_step_stop = bench_step_start;
-                    bench_step_start = 0;
                 }
+            } else {
+                // single value = stop only
+                bench_step_stop = bench_step_start;
+                bench_step_start = 0;
+            }
 
-                break;
-step_unknown:
-                fprintf(stderr, "error: invalid step: %s\n", optarg);
+            break;
+
+        step_unknown:;
+            fprintf(stderr, "error: invalid step: %s\n", optarg);
+            exit(-1);
+
+        case OPT_DISK:;
+            bench_disk_path = optarg;
+            break;
+
+        case OPT_TRACE:;
+            bench_trace_path = optarg;
+            break;
+
+        case OPT_TRACE_BACKTRACE:;
+            bench_trace_backtrace = true;
+            break;
+
+        case OPT_TRACE_PERIOD:;
+            parsed = NULL;
+            bench_trace_period = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid trace-period: %s\n", optarg);
                 exit(-1);
             }
-            case OPT_DISK:
-                bench_disk_path = optarg;
-                break;
-            case OPT_TRACE:
-                bench_trace_path = optarg;
-                break;
-            case OPT_TRACE_BACKTRACE:
-                bench_trace_backtrace = true;
-                break;
-            case OPT_TRACE_PERIOD: {
-                char *parsed = NULL;
-                bench_trace_period = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid trace-period: %s\n", optarg);
-                    exit(-1);
-                }
-                break;
-            }
-            case OPT_TRACE_FREQ: {
-                char *parsed = NULL;
-                bench_trace_freq = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid trace-freq: %s\n", optarg);
-                    exit(-1);
-                }
-                break;
-            }
-            case OPT_READ_SLEEP: {
-                char *parsed = NULL;
-                double read_sleep = strtod(optarg, &parsed);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid read-sleep: %s\n", optarg);
-                    exit(-1);
-                }
-                bench_read_sleep = read_sleep*1.0e9;
-                break;
-            }
-            case OPT_PROG_SLEEP: {
-                char *parsed = NULL;
-                double prog_sleep = strtod(optarg, &parsed);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid prog-sleep: %s\n", optarg);
-                    exit(-1);
-                }
-                bench_prog_sleep = prog_sleep*1.0e9;
-                break;
-            }
-            case OPT_ERASE_SLEEP: {
-                char *parsed = NULL;
-                double erase_sleep = strtod(optarg, &parsed);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid erase-sleep: %s\n", optarg);
-                    exit(-1);
-                }
-                bench_erase_sleep = erase_sleep*1.0e9;
-                break;
-            }
-            // done parsing
-            case -1:
-                goto getopt_done;
-            // unknown arg, getopt prints a message for us
-            default:
+            break;
+
+        case OPT_TRACE_FREQ:;
+            parsed = NULL;
+            bench_trace_freq = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid trace-freq: %s\n", optarg);
                 exit(-1);
+            }
+            break;
+
+        case OPT_READ_SLEEP:;
+            parsed = NULL;
+            double read_sleep = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid read-sleep: %s\n", optarg);
+                exit(-1);
+            }
+            bench_read_sleep = read_sleep*1.0e9;
+            break;
+
+        case OPT_PROG_SLEEP:;
+            parsed = NULL;
+            double prog_sleep = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid prog-sleep: %s\n", optarg);
+                exit(-1);
+            }
+            bench_prog_sleep = prog_sleep*1.0e9;
+            break;
+
+        case OPT_ERASE_SLEEP:;
+            parsed = NULL;
+            double erase_sleep = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid erase-sleep: %s\n", optarg);
+                exit(-1);
+            }
+            bench_erase_sleep = erase_sleep*1.0e9;
+            break;
+
+        // done parsing
+        case -1:;
+            goto getopt_done;
+
+        // unknown arg, getopt prints a message for us
+        default:;
+            exit(-1);
         }
     }
 getopt_done: ;

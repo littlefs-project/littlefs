@@ -9313,7 +9313,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 0, file->buffer, lfsr_bshrub_size(&file->bshrub));
         if (d < 0) {
             err = d;
-            goto failed_with_buffer;
+            goto failed;
         }
 
         // small files remain perpetually unflushed
@@ -9327,7 +9327,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     lfsr_addopened(lfs, &file->m);
     return 0;
 
-failed_with_buffer:;
+failed:;
     // clean up memory
     if (!file->cfg->buffer) {
         lfs_free(file->buffer);
@@ -14777,7 +14777,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->rcache.buffer = lfs_malloc(lfs->cfg->cache_size);
         if (!lfs->rcache.buffer) {
             err = LFS_ERR_NOMEM;
-            goto cleanup;
+            goto failed;
         }
     }
 
@@ -14788,7 +14788,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->pcache.buffer = lfs_malloc(lfs->cfg->cache_size);
         if (!lfs->pcache.buffer) {
             err = LFS_ERR_NOMEM;
-            goto cleanup;
+            goto failed;
         }
     }
 
@@ -14805,7 +14805,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->lookahead.buffer = lfs_malloc(lfs->cfg->lookahead_size);
         if (!lfs->lookahead.buffer) {
             err = LFS_ERR_NOMEM;
-            goto cleanup;
+            goto failed;
         }
     }
     lfs->lookahead.start = 0;
@@ -14881,7 +14881,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     return 0;
 
-cleanup:
+failed:;
     lfs_deinit(lfs);
     return err;
 }
