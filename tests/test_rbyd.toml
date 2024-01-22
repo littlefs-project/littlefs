@@ -11584,9 +11584,10 @@ code = '''
 '''
 
 
-### Wide-tag things ###
+### Supertype/subtype-wide things ###
 
-[cases.test_rbyd_wide_lookup_permutations]
+# subtype-wide
+[cases.test_rbyd_subwide_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -11660,7 +11661,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfsr_tag_t tag_;
             lfsr_data_t data_;
-            lfsr_rbyd_lookupwide(&lfs, &rbyd, j, LFSR_TAG_UATTR,
+            lfsr_rbyd_sublookup(&lfs, &rbyd, j, LFSR_TAG_UATTR,
                     &tag_, &data_) => 0;
 
             assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
@@ -11671,7 +11672,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_remove_permutations]
+[cases.test_rbyd_subwide_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -11761,7 +11762,7 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, RM(WIDE(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(j, RM(SUBWIDE(UATTR)), 0, NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11792,10 +11793,10 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
-                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => LFS_ERR_NOENT;
                 } else {
-                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 2);
@@ -11810,7 +11811,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_replace_permutations]
+[cases.test_rbyd_subwide_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -11900,7 +11901,7 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, WIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
+                    LFSR_ATTR(j, SUBWIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
                         BUF(names[j % 6], 3)))) => 0;
 
             // try traversing over the tags
@@ -11936,7 +11937,7 @@ code = '''
 
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
                     assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
@@ -11953,7 +11954,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_wide_mixed_lookup_permutations]
+[cases.test_rbyd_subwide_mixed_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12029,7 +12030,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfsr_tag_t tag_;
             lfsr_data_t data_;
-            lfsr_rbyd_lookupwide(&lfs, &rbyd, j, LFSR_TAG_UATTR,
+            lfsr_rbyd_sublookup(&lfs, &rbyd, j, LFSR_TAG_UATTR,
                     &tag_, &data_) => 0;
 
             assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
@@ -12040,7 +12041,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_mixed_remove_permutations]
+[cases.test_rbyd_subwide_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12132,7 +12133,7 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, RM(WIDE(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(j, RM(SUBWIDE(UATTR)), 0, NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -12170,10 +12171,10 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
-                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => LFS_ERR_NOENT;
                 } else {
-                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 2);
@@ -12188,7 +12189,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_mixed_replace_permutations]
+[cases.test_rbyd_subwide_mixed_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12280,7 +12281,7 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, WIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
+                    LFSR_ATTR(j, SUBWIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
                         BUF(names[j % 6], 3)))) => 0;
 
             // try traversing over the tags
@@ -12323,7 +12324,7 @@ code = '''
 
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
                     assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
@@ -12340,7 +12341,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_wide_weighted_lookup_permutations]
+[cases.test_rbyd_subwide_weighted_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12413,7 +12414,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfsr_tag_t tag_;
             lfsr_data_t data_;
-            lfsr_rbyd_lookupwide(&lfs, &rbyd, j, LFSR_TAG_UATTR,
+            lfsr_rbyd_sublookup(&lfs, &rbyd, j, LFSR_TAG_UATTR,
                     &tag_, &data_) => 0;
 
             assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
@@ -12424,7 +12425,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_weighted_remove_permutations]
+[cases.test_rbyd_subwide_weighted_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12513,7 +12514,7 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, RM(WIDE(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(j, RM(SUBWIDE(UATTR)), 0, NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -12547,10 +12548,10 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
-                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => LFS_ERR_NOENT;
                 } else {
-                    lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                             &tag_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 4);
@@ -12565,7 +12566,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_weighted_replace_permutations]
+[cases.test_rbyd_subwide_weighted_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12654,7 +12655,7 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, WIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
+                    LFSR_ATTR(j, SUBWIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
                         BUF(names[j % 6], 6)))) => 0;
 
             // try traversing over the tags
@@ -12683,7 +12684,7 @@ code = '''
 
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupwide(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
                     assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
@@ -12691,6 +12692,377 @@ code = '''
                 } else {
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(&data_) == 4);
+                }
+            }
+        }
+
+        // cleanup
+        free(backup_block);
+    }
+'''
+
+# supertype-wide
+[cases.test_rbyd_supwide_lookup_permutations]
+defines.N = 'range(1, 7)'
+defines.SHIFT = [0, 3, -3]
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+
+    // test all permutations of a given size
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < ((PERMUTATION == -1) ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
+
+        // print permutation to help debugging
+        printf("--- permutation: %zd [", perm_i);
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]);
+        }
+        printf("] ---\n");
+
+        // build the attribute list for the current permutation
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            // adjust rid based on future insertions
+            uint16_t rid = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    rid -= 1;
+                }
+            }
+
+            // give each attr a subtype based on its rid + SHIFT
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(rid, REG, +1, BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(rid, UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        BUF(names[perm[j] % 6], 2)))) => 0;
+        }
+        assert(rbyd.weight == N);
+
+        // a supwide attr lookup only gets the file type
+        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+        assert(rbyd.weight == N);
+
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_tag_t tag_;
+            lfsr_data_t data_;
+            lfsr_rbyd_suplookup(&lfs, &rbyd, j,
+                    &tag_, &data_) => 0;
+
+            assert(tag_ == LFSR_TAG_REG);
+            assert(lfsr_data_size(&data_) == 4);
+        }
+    }
+'''
+
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
+[cases.test_rbyd_supwide_remove_permutations]
+defines.N = 'range(1, 7)'
+defines.SHIFT = [0, 3, -3]
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+
+    // test all permutations of a given size
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < ((PERMUTATION == -1) ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
+
+        // print permutation to help debugging
+        printf("--- permutation: %zd [", perm_i);
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            // adjust rid based on future insertions
+            uint16_t rid = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    rid -= 1;
+                }
+            }
+
+            // give each attr a subtype based on its rid + SHIFT
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(rid, REG, +1, BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(rid, UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        BUF(names[perm[j] % 6], 2)))) => 0;
+        }
+        assert(rbyd.weight == N);
+
+        // copy block so we can reset after each remove
+        lfsr_rbyd_t backup_rbyd = rbyd;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+
+        // try removing each tag
+        for (unsigned j = 0; j < N; j++) {
+            // print what we are removing to help debugging
+            printf("--- remove: %d ---\n", j);
+
+            rbyd = backup_rbyd;
+            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
+
+            // remove with a wide tag
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(j, RM(SUPWIDE(UATTR)), 0, NULL()))) => 0;
+
+            // try traversing over the tags
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
+            lfsr_tag_t tag_ = 0;
+            lfs_ssize_t rid_ = -1;
+            lfs_size_t weight_;
+            lfsr_data_t data_;
+            for (unsigned k = 0; k < N; k++) {
+                if (k != j) {
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                            &rid_, &tag_, &weight_, &data_) => 0;
+                    assert(rid_ == k);
+                    assert(tag_ == LFSR_TAG_REG);
+                    assert(weight_ == ((k == j+1) ? 2 : 1));
+                    assert(lfsr_data_size(&data_) == 4);
+
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                            &rid_, &tag_, &weight_, &data_) => 0;
+                    assert(rid_ == k);
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
+                    assert(weight_ == 0);
+                    assert(lfsr_data_size(&data_) == 2);
+                }
+            }
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                    &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+
+            // also test that we can lookup each tag with a wide lookup
+            for (unsigned k = 0; k < N; k++) {
+                if (k == j) {
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                            &tag_, &data_) => LFS_ERR_NOENT;
+                } else {
+                    lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                            &tag_, &data_) => 0;
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
+                    assert(lfsr_data_size(&data_) == 2);
+                }
+            }
+        }
+
+        // cleanup
+        free(backup_block);
+    }
+'''
+
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
+[cases.test_rbyd_supwide_replace_permutations]
+defines.N = 'range(1, 7)'
+defines.SHIFT = [0, 3, -3]
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][6] = {
+        "\xaa\xaa\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee\xee\xee",
+        "\xff\xff\xff\xff\xff\xff",
+    };
+
+    // test all permutations of a given size
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < ((PERMUTATION == -1) ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = (PERMUTATION == -1) ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
+
+        // print permutation to help debugging
+        printf("--- permutation: %zd [", perm_i);
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            // adjust rid based on future insertions
+            uint16_t rid = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    rid -= 1;
+                }
+            }
+
+            // give each attr a subtype based on its rid + SHIFT
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(rid, REG, +1, BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(rid, UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        BUF(names[perm[j] % 6], 2)))) => 0;
+        }
+        assert(rbyd.weight == N);
+
+        // copy block so we can reset after each remove
+        lfsr_rbyd_t backup_rbyd = rbyd;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+
+        // try replacing each tag
+        for (unsigned j = 0; j < N; j++) {
+            // print what we are replacing to help debugging
+            printf("--- replace: %d ---\n", j);
+
+            rbyd = backup_rbyd;
+            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    NULL) => 0;
+
+            // replace with bitwise inverse
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(j, SUPWIDE(UATTR(~(j + SHIFT) & 0x7f)), 0,
+                        BUF(names[j % 6], 3)))) => 0;
+
+            // try traversing over the tags
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
+            lfsr_tag_t tag_ = 0;
+            lfs_ssize_t rid_ = -1;
+            lfs_size_t weight_;
+            lfsr_data_t data_;
+            for (unsigned k = 0; k < N; k++) {
+                if (k == j) {
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                            &rid_, &tag_, &weight_, &data_) => 0;
+                    assert(rid_ == k);
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
+                    assert(weight_ == 1);
+                    assert(lfsr_data_size(&data_) == 3);
+
+                } else {
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                            &rid_, &tag_, &weight_, &data_) => 0;
+                    assert(rid_ == k);
+                    assert(tag_ == LFSR_TAG_REG);
+                    assert(weight_ == 1);
+                    assert(lfsr_data_size(&data_) == 4);
+
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                            &rid_, &tag_, &weight_, &data_) => 0;
+                    assert(rid_ == k);
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
+                    assert(weight_ == 0);
+                    assert(lfsr_data_size(&data_) == 2);
+                }
+            }
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
+                    &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+
+            // also test that we can lookup each tag with a wide lookup
+            for (unsigned k = 0; k < N; k++) {
+                lfsr_rbyd_sublookup(&lfs, &rbyd, k, LFSR_TAG_UATTR,
+                        &tag_, &data_) => 0;
+                if (k == j) {
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
+                    assert(lfsr_data_size(&data_) == 3);
+                } else {
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
+                    assert(lfsr_data_size(&data_) == 2);
                 }
             }
         }
