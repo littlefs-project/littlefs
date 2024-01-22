@@ -662,8 +662,8 @@ enum lfsr_tag {
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
     LFSR_TAG_GROW           = 0x4000,
-    LFSR_TAG_SUPWIDE        = 0x2000,
-    LFSR_TAG_SUBWIDE        = 0x1000,
+    LFSR_TAG_SUPMASK        = 0x2000,
+    LFSR_TAG_SUBMASK        = 0x1000,
 
     // lfsr_rbyd_appendattr specific flags, also in-device only
     LFSR_TAG_DIVERGED       = 0x4000,
@@ -679,8 +679,8 @@ enum lfsr_tag {
 #define LFSR_TAG_SHRUB(tag)     (LFSR_TAG_SHRUB     | LFSR_TAG_##tag)
 #define LFSR_TAG_RM(tag)        (LFSR_TAG_RM        | LFSR_TAG_##tag)
 #define LFSR_TAG_GROW(tag)      (LFSR_TAG_GROW      | LFSR_TAG_##tag)
-#define LFSR_TAG_SUPWIDE(tag)   (LFSR_TAG_SUPWIDE   | LFSR_TAG_##tag)
-#define LFSR_TAG_SUBWIDE(tag)   (LFSR_TAG_SUBWIDE   | LFSR_TAG_##tag)
+#define LFSR_TAG_SUPMASK(tag)   (LFSR_TAG_SUPMASK   | LFSR_TAG_##tag)
+#define LFSR_TAG_SUBMASK(tag)   (LFSR_TAG_SUBMASK   | LFSR_TAG_##tag)
 
 // some other tag encodings with their own subfields
 #define LFSR_TAG_ALT(d, c, key) \
@@ -749,11 +749,11 @@ static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
 }
 
 static inline bool lfsr_tag_issupwide(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_SUPWIDE;
+    return tag & LFSR_TAG_SUPMASK;
 }
 
 static inline bool lfsr_tag_issubwide(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_SUBWIDE;
+    return tag & LFSR_TAG_SUBMASK;
 }
 
 // lfsr_rbyd_appendattr diverged specific flags
@@ -6276,7 +6276,7 @@ static int lfsr_mroot_commit_(lfs_t *lfs,
         uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
         err = lfsr_mdir_commit__(lfs, &mrootanchor_, -1, -1, LFSR_ATTRS(
                 LFSR_ATTR(-1,
-                    SUBWIDE(MROOT), 0,
+                    SUBMASK(MROOT), 0,
                     FROMMPTR(lfsr_mdir_mptr(&mrootchild_), mrootchild_buf))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -6347,7 +6347,7 @@ static int lfsr_mtree_commit_(lfs_t *lfs,
     uint8_t mtree_buf[LFSR_BTREE_DSIZE];
     err = lfsr_mroot_commit_(lfs, -1, 0, NULL, LFSR_ATTRS(
             LFSR_ATTR(-1,
-                SUBWIDE(MTREE), 0, FROMBTREE(&mtree_, mtree_buf))));
+                SUBMASK(MTREE), 0, FROMBTREE(&mtree_, mtree_buf))));
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -6713,7 +6713,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mroot_commit_(lfs, -1, 0, NULL, LFSR_ATTRS(
                     LFSR_ATTR(-1,
-                        SUBWIDE(MDIR), 0,
+                        SUBMASK(MDIR), 0,
                         FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf))));
             if (err) {
                 return err;
@@ -8551,7 +8551,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // process
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(mdir.mid,
-                SUPWIDE(DIR), (!exists) ? +1 : 0, CAT(
+                SUPMASK(DIR), (!exists) ? +1 : 0, CAT(
                     LFSR_DATA_LEB128(did),
                     LFSR_DATA_BUF(name, name_size))),
             LFSR_ATTR(mdir.mid,
@@ -8655,7 +8655,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             // we use a create+delete here to also clear any attrs
             // and trim the entry size
             (zombie)
-                ? LFSR_ATTR(mdir.mid, SUPWIDE(ORPHAN), 0, CAT(
+                ? LFSR_ATTR(mdir.mid, SUPMASK(ORPHAN), 0, CAT(
                     LFSR_DATA_LEB128(did),
                     LFSR_DATA_BUF(name, name_size)))
                 : LFSR_ATTR(mdir.mid, RM, -1, NULL()),
@@ -8807,7 +8807,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // new rid, while also marking the old rid for removal
     err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_ATTRS(
             LFSR_ATTR(new_mdir.mid,
-                SUPWIDE(TAG(old_tag)), (!exists) ? +1 : 0, CAT(
+                SUPMASK(TAG(old_tag)), (!exists) ? +1 : 0, CAT(
                     LFSR_DATA_LEB128(new_did),
                     LFSR_DATA_BUF(new_name, new_name_size))),
             LFSR_ATTR(new_mdir.mid,
@@ -9995,7 +9995,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
             err = lfsr_bshrub_commit(lfs, file, LFSR_ATTRS(
                     LFSR_ATTR(bid_,
-                        GROW(SUBWIDE(DATA)),
+                        GROW(SUBMASK(DATA)),
                             -(weight_ - lfs->cfg->fragment_size),
                         DATA(lfsr_data_truncate(left_slice_,
                             lfs->cfg->fragment_size))),
@@ -10022,7 +10022,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
             err = lfsr_bshrub_commit(lfs, file, LFSR_ATTRS(
                     LFSR_ATTR(bid_,
-                        GROW(SUBWIDE(BLOCK)),
+                        GROW(SUBMASK(BLOCK)),
                             -(weight_ - lfsr_data_size(&bptr_.data)),
                         FROMBPTR(&bptr_, buf)),
                     LFSR_ATTR(bid_
@@ -10056,14 +10056,14 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     .cksum = bptr_.cksum,
                 };
                 attrs[attr_count++] = LFSR_ATTR(bid_,
-                        GROW(SUBWIDE(BLOCK)), -(bid_+1 - pos),
+                        GROW(SUBMASK(BLOCK)), -(bid_+1 - pos),
                         FROMBPTR(&bptr__, &buf[buf_size]));
                 buf_size += LFSR_BPTR_DSIZE;
 
             // carve fragment?
             } else {
                 attrs[attr_count++] = LFSR_ATTR(bid_,
-                        GROW(SUBWIDE(DATA)), -(bid_+1 - pos),
+                        GROW(SUBMASK(DATA)), -(bid_+1 - pos),
                         DATA(left_slice_));
             }
 
@@ -11060,7 +11060,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             }
 
             attrs[attr_count++] = LFSR_ATTR(file->m.mdir.mid,
-                    SUBWIDE(REG), 0, DATA(data));
+                    SUBMASK(REG), 0, DATA(data));
         }
 
         // commit the file state
@@ -11068,22 +11068,22 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // null? no attr?
         if (lfsr_f_isunflush(file->m.flags) && file->buffer_size == 0) {
             attrs[attr_count++] = LFSR_ATTR(file->m.mdir.mid,
-                    SUBWIDE(RM(STRUCT)), 0,
+                    SUBMASK(RM(STRUCT)), 0,
                     NULL());
         // small file inlined in mdir?
         } else if (lfsr_f_isunflush(file->m.flags)) {
             attrs[attr_count++] = LFSR_ATTR(file->m.mdir.mid,
-                    SUBWIDE(DATA), 0,
+                    SUBMASK(DATA), 0,
                     BUF(file->buffer, file->buffer_size));
         // bshrub?
         } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(file->m.mdir.mid,
-                    SUBWIDE(SHRUBTRUNK), 0,
+                    SUBMASK(SHRUBTRUNK), 0,
                     SHRUBTRUNK(&file->bshrub_.u.bshrub));
         // btree?
         } else if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(file->m.mdir.mid,
-                    SUBWIDE(BTREE), 0,
+                    SUBMASK(BTREE), 0,
                     FROMBTREE(&file->bshrub.u.btree, &buf[buf_size]));
             buf_size += LFSR_BTREE_DSIZE;
         } else {
