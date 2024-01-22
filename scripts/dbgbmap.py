@@ -163,6 +163,12 @@ def frommdir(data):
         d += d_
     return blocks
 
+def fromshrub(data):
+    d = 0
+    weight, d_ = fromleb128(data[d:]); d += d_
+    trunk, d_ = fromleb128(data[d:]); d += d_
+    return weight, trunk
+
 def frombranch(data):
     d = 0
     block, d_ = fromleb128(data[d:]); d += d_
@@ -1214,7 +1220,7 @@ class Rbyd:
             done, rid_, tag_, w_, j, d, data, _ = rbyd.lookup(rid, TAG_STRUCT)
 
             # found another branch
-            if tag_ == TAG_BRANCH:
+            if tag_ & 0xfff == TAG_BRANCH:
                 # update our bid
                 bid += rid - (w-1)
 
@@ -1489,8 +1495,11 @@ def main(disk, mroots=None, *,
 
             # find any file btrees in our mroot
             for rid, tag, w, j, d, data in mroot:
-                if tag == TAG_BLOCK or tag == TAG_BTREE:
-                    btrees__.append((tag, data))
+                if (tag == TAG_DATA
+                        or tag == TAG_BLOCK
+                        or tag == TAG_BSHRUB
+                        or tag == TAG_BTREE):
+                    btrees__.append((mroot, tag, data))
 
             # stop here?
             if args.get('depth') and mdepth >= args.get('depth'):
@@ -1525,8 +1534,11 @@ def main(disk, mroots=None, *,
 
                     # find any file btrees in our mdir
                     for rid, tag, w, j, d, data in mdir:
-                        if tag == TAG_BLOCK or tag == TAG_BTREE:
-                            btrees__.append((tag, data))
+                        if (tag == TAG_DATA
+                                or tag == TAG_BLOCK
+                                or tag == TAG_BSHRUB
+                                or tag == TAG_BTREE):
+                            btrees__.append((mdir, tag, data))
 
         # fetch the actual mtree, if there is one
         mtree = None
@@ -1599,81 +1611,103 @@ def main(disk, mroots=None, *,
 
                             # find any file btrees in our mdir
                             for rid, tag, w, j, d, data in mdir_:
-                                if tag == TAG_BLOCK or tag == TAG_BTREE:
-                                    btrees__.append((tag, data))
+                                if (tag == TAG_DATA
+                                        or tag == TAG_BLOCK
+                                        or tag == TAG_BSHRUB
+                                        or tag == TAG_BTREE):
+                                    btrees__.append((mdir_, tag, data))
 
         # fetch any file btrees we found
         if not args.get('depth') or mdepth < args.get('depth'):
-            for tag, data in btrees__:
+            for mdir, tag, data in btrees__:
+                # inlined data?
+                if tag == TAG_DATA:
+                    # ignore here
+                    continue
+
                 # direct block?
-                if tag == TAG_BLOCK:
+                elif tag == TAG_BLOCK:
                     size, block, off = frombptr(data)
                     # mark block in our bmap
                     bmap.data(block,
                         off if args.get('in_use') else 0,
                         size if args.get('in_use') else block_size)
                     datas_ += 1
+                    continue
+
+                # inlined bshrub?
+                elif tag == TAG_BSHRUB:
+                    weight, trunk = fromshrub(data)
+                    btree = Rbyd.fetch(f, block_size, mdir.block, trunk)
+                    shrub = True
 
                 # indirect btree?
                 elif tag == TAG_BTREE:
                     w, block, trunk, cksum = frombtree(data)
                     btree = Rbyd.fetch(f, block_size, block, trunk)
+                    shrub = False
 
-                    # traverse entries
-                    bid = -1
-                    ppath = []
-                    while True:
-                        (done, bid, w, rbyd, rid, tags, path
-                            ) = btree.btree_lookup(
-                                f, block_size, bid+1,
-                                depth=args.get('depth', mdepth)-mdepth)
-                        if done:
+                else:
+                    assert False
+
+                # traverse entries
+                bid = -1
+                ppath = []
+                while True:
+                    (done, bid, w, rbyd, rid, tags, path
+                        ) = btree.btree_lookup(
+                            f, block_size, bid+1,
+                            depth=args.get('depth', mdepth)-mdepth)
+                    if done:
+                        break
+
+                    # traverse the inner btree nodes
+                    changed = False
+                    for (x, px) in it.zip_longest(
+                            enumerate(path),
+                            enumerate(ppath)):
+                        if x is None:
                             break
-
-                        # traverse the inner btree nodes
-                        changed = False
-                        for (x, px) in it.zip_longest(
-                                enumerate(path),
-                                enumerate(ppath)):
-                            if x is None:
-                                break
-                            if not (changed or px is None or x[0] != px[0]):
-                                continue
-                            changed = True
-
-                            # mark btree inner nodes in our bmap
-                            d, (mid_, w_, rbyd_, rid_, tags_) = x
-                            for block in rbyd_.blocks:
-                                bmap.btree(block,
-                                    rbyd_.eoff if args.get('in_use')
-                                    else block_size)
-                                btrees_ += 1
-                        ppath = path
-
-                        # corrupted?
-                        if not rbyd:
-                            corrupted = True
+                        if not (changed or px is None or x[0] != px[0]):
                             continue
+                        changed = True
 
-                        # found a block in the tags?
-                        bptr__ = None
-                        if (not args.get('depth')
-                                or mdepth+len(path) < args.get('depth')):
-                            bptr__ = next(((tag, j, d, data)
-                                for tag, j, d, data in tags
-                                if tag == TAG_BLOCK),
-                                None)
+                        # mark btree inner nodes in our bmap
+                        d, (mid_, w_, rbyd_, rid_, tags_) = x
+                        # ignore bshrub roots
+                        if shrub and d == 0:
+                            continue
+                        for block in rbyd_.blocks:
+                            bmap.btree(block,
+                                rbyd_.eoff if args.get('in_use')
+                                else block_size)
+                            btrees_ += 1
+                    ppath = path
 
-                        if bptr__:
-                            # fetch the block
-                            _, _, _, data = bptr__
-                            size, block, off = frombptr(data)
+                    # corrupted?
+                    if not rbyd:
+                        corrupted = True
+                        continue
 
-                            # mark blocks in our bmap
-                            bmap.data(block,
-                                off if args.get('in_use') else 0,
-                                size if args.get('in_use') else block_size)
-                            datas_ += 1
+                    # found a block in the tags?
+                    bptr__ = None
+                    if (not args.get('depth')
+                            or mdepth+len(path) < args.get('depth')):
+                        bptr__ = next(((tag, j, d, data)
+                            for tag, j, d, data in tags
+                            if tag & 0xfff == TAG_BLOCK),
+                            None)
+
+                    if bptr__:
+                        # fetch the block
+                        _, _, _, data = bptr__
+                        size, block, off = frombptr(data)
+
+                        # mark blocks in our bmap
+                        bmap.data(block,
+                            off if args.get('in_use') else 0,
+                            size if args.get('in_use') else block_size)
+                        datas_ += 1
 
     #### actual rendering begins here
 
