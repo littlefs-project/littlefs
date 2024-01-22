@@ -13071,3 +13071,266 @@ code = '''
         free(backup_block);
     }
 '''
+
+
+# Some very specific cases we want to cover
+
+# One downside of having only altgt tags (not altge) is that we can end
+# up with an awkward null tag in our rbyd. Need to test we handle this
+# correctly.
+[cases.test_rbyd_unreachable_hole]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+
+    // create a null tag hole
+    rbyd = init_rbyd;
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(-1, UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(-1, RM(UATTR(0)), 0, NULL()))) => 0;
+    assert(rbyd.weight == 0);
+
+    // can we still access things?
+    lfs_ssize_t rid_;
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == -1);
+    assert(tag_ == LFSR_TAG_UATTR(1));
+    assert(weight_ == 0);
+    assert(lfsr_data_size(&data_) == 4);
+    uint8_t rbuf[32];
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1)+1,
+            &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_unreachable_hole_rm]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+
+    // create a null tag hole
+    rbyd = init_rbyd;
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(-1, UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(-1, UATTR(2), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(-1, RM(UATTR(0)), 0, NULL()))) => 0;
+    assert(rbyd.weight == 0);
+
+    // remove a neighbor to the hole
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1, RM(UATTR(1)), 0, NULL()))) => 0;
+    assert(rbyd.weight == 0);
+
+    // can we still access things?
+    lfs_ssize_t rid_;
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == -1);
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(weight_ == 0);
+    assert(lfsr_data_size(&data_) == 4);
+    uint8_t rbuf[32];
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(2)+1,
+            &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_unreachable_hole_delete]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+
+    // create a null tag hole
+    rbyd = init_rbyd;
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(0, REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(1, REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(-1, RM(UATTR(0)), 0, NULL()))) => 0;
+    assert(rbyd.weight == 2);
+
+    // delete a neighbor to the hole
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(0, RM, -1, NULL()))) => 0;
+    assert(rbyd.weight == 1);
+
+    // can we still access things?
+    lfs_ssize_t rid_;
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == 0);
+    assert(tag_ == LFSR_TAG_REG);
+    assert(weight_ == 1);
+    assert(lfsr_data_size(&data_) == 4);
+    uint8_t rbuf[32];
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG+1,
+            &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_unreachable_hole_subwide]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+
+    // create a null tag hole
+    rbyd = init_rbyd;
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(-1, UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(-1, SATTR(0), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(-1, RM(UATTR(0)), 0, NULL()))) => 0;
+    assert(rbyd.weight == 0);
+
+    // subwide replace a neighbor to the hole
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1,
+                SUBWIDE(UATTR(2)), 0,
+                BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+    assert(rbyd.weight == 0);
+
+    // can we still access things?
+    lfs_ssize_t rid_;
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == -1);
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(weight_ == 0);
+    assert(lfsr_data_size(&data_) == 4);
+    uint8_t rbuf[32];
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(2)+1,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == -1);
+    assert(tag_ == LFSR_TAG_SATTR(0));
+    assert(weight_ == 0);
+    assert(lfsr_data_size(&data_) == 4);
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xdd\xdd\xdd\xdd", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_SATTR(0)+1,
+            &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_unreachable_hole_supwide]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+
+    // create a null tag hole
+    rbyd = init_rbyd;
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(-1, UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(0, REG, +1, BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(-1, RM(UATTR(0)), 0, NULL()))) => 0;
+    assert(rbyd.weight == 1);
+
+    // supwide replace a neighbor to the hole
+    lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+            LFSR_ATTR(-1,
+                SUPWIDE(UATTR(2)), 0,
+                BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+    assert(rbyd.weight == 1);
+
+    // can we still access things?
+    lfs_ssize_t rid_;
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == -1);
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(weight_ == 0);
+    assert(lfsr_data_size(&data_) == 4);
+    uint8_t rbuf[32];
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(2)+1,
+            &rid_, &tag_, &weight_, &data_) => 0;
+    assert(rid_ == 0);
+    assert(tag_ == LFSR_TAG_REG);
+    assert(weight_ == 1);
+    assert(lfsr_data_size(&data_) == 4);
+    lfsr_data_read(&lfs, &data_, rbuf, 32) => 4;
+    assert(memcmp(rbuf, "\xdd\xdd\xdd\xdd", 4) == 0);
+
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG+1,
+            &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+'''
+

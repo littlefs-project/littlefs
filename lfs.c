@@ -968,6 +968,8 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     // check for underflow issues
     LFS_ASSERT(weight < 0x80000000);
     LFS_ASSERT(size < 0x80000000);
+    // bit 7 is reserved for future subtype extensions
+    LFS_ASSERT(!(tag & 0x80));
 
     // make sure to include the parity of the current crc
     tag |= (lfs_popc(*cksum_) & 1) << 15;
@@ -2528,7 +2530,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
     // tag must not be internal at this point
     LFS_ASSERT(!lfsr_tag_isinternal(tag));
-    // reserve bit 7 to allow leb128 subtypes in the future
+    // bit 7 is reserved for future subtype extensions
     LFS_ASSERT(!(tag & 0x80));
 
     // we can't do anything if we're not erased
@@ -2577,8 +2579,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             other_rid_ = rid;
         }
 
-        // note these tags MUST NOT be zero, due to unreachable tag holes
-        tag_ = 0x1;
+        tag_ = 0;
         other_tag_ = tag_;
 
     } else {
@@ -2590,7 +2591,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
         if (lfsr_tag_issupwide(tag)) {
-            tag_ = 0x1;
+            tag_ = 0;
             other_tag_ = tag_ + 0x800;
         } else if (lfsr_tag_issubwide(tag)) {
             tag_ = lfsr_tag_supkey(tag);
