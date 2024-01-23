@@ -2547,9 +2547,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (delta > 0) {
             LFS_ASSERT(rid <= rbyd->weight);
 
-            // it's a bit ugly, but adjusting the rid here makes the following
-            // logic work out more consistently
-            rid -= 1;
             rid_ = rid + 1;
             other_rid_ = rid + 1;
         } else {
@@ -3155,11 +3152,14 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs,
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // don't write tags outside of the requested range
-        if (rid >= start_rid
+        lfsr_srid_t rid_ = rid + (
+                (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0)
+                ? 1 : 0);
+        if (rid_ >= start_rid
                 // note the use of rid+1 and unsigned comparison here to
                 // treat end_rid=-1 as "unbounded" in such a way that rid=-1
                 // is still included
-                && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
+                && (lfs_size_t)(rid_ + 1) <= (lfs_size_t)end_rid) {
             int err = lfsr_rbyd_appendattr(lfs, rbyd,
                     rid - lfs_smax32(start_rid, 0),
                     attrs[i].tag, attrs[i].delta, attrs[i].data);
@@ -3170,26 +3170,15 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs,
 
         // we need to make sure we keep start_rid/end_rid updated with
         // weight changes
-        if (rid < start_rid) {
+        if (rid_ < start_rid) {
             start_rid += attrs[i].delta;
         }
-        if (rid < end_rid) {
+        if (rid_ < end_rid) {
             end_rid += attrs[i].delta;
         }
 
         // adjust rid
         rid += attrs[i].delta;
-        // if the next tag is an insert, increment rid to make it an append
-        if (i+1 < attr_count
-                && !lfsr_tag_isgrow(attrs[i+1].tag)
-                && attrs[i+1].delta > 0) {
-            rid += 1;
-        }
-        // fix appends
-        if (!lfsr_tag_isgrow(attrs[i].tag)
-                && attrs[i].delta > 0) {
-            rid -= 1;
-        }
     }
 
     return 0;
@@ -3996,7 +3985,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_attr_t attrs__[static 4],
         uint8_t buf__[static 2*LFSR_BRANCH_DSIZE]) {
     lfsr_bid_t bid = *bid_;
-    LFS_ASSERT(bid <= (lfsr_bid_t)btree->weight);
+    LFS_ASSERT((lfsr_sbid_t)bid < btree->weight);
     const lfsr_attr_t *attrs = *attrs_;
     lfs_size_t attr_count = *attr_count_;
 
@@ -4034,8 +4023,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             // higher-level btree/bshrub logic
             if (!lfsr_rbyd_hastrunk(&rbyd)
                     || lfsr_rbyd_isshrub(btree)) {
-                // TODO can we get rid of this condition?
-                *bid_ = (!lfsr_rbyd_hastrunk(&rbyd)) ? 0 : rid;
+                *bid_ = rid;
                 *attrs_ = attrs;
                 *attr_count_ = attr_count;
                 return (!lfsr_rbyd_hastrunk(&rbyd)) ? LFS_ERR_RANGE : 0;
@@ -4097,7 +4085,6 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     finalize:;
         // done?
         if (!lfsr_rbyd_hastrunk(&parent)) {
-            LFS_ASSERT(bid == 0);
             *btree = rbyd_;
             *attr_count_ = 0;
             return 0;
@@ -4996,14 +4983,22 @@ static inline lfsr_mid_t lfsr_mweight(lfs_t *lfs) {
     return 1 << lfs->mbits;
 }
 
+#define LFSR_MID(_lfs, _bid, _rid) \
+    (((_bid) & ~((1 << (_lfs)->mbits)-1)) + (_rid) + 1)
+
 static inline lfsr_sbid_t lfsr_mid_bid(lfs_t *lfs, lfsr_smid_t mid) {
     return mid | ((1 << lfs->mbits) - 1);
 }
 
 static inline lfsr_srid_t lfsr_mid_rid(lfs_t *lfs, lfsr_smid_t mid) {
-    // note this maps mid=-1 => rid=-1 via sign extension
+    // subtle mapping here
+    // - mid=-1 => rid=-1
+    // - mid=0  => rid=-1
+    // - mid=1  => rid=0
+    // - mid=2  => rid=1
+    // - ...
     return (mid >> (8*sizeof(lfsr_smid_t)-1))
-            | (mid & ((1 << lfs->mbits) - 1));
+            | ((mid & ((1 << lfs->mbits) - 1)) - 1);
 }
 
 
@@ -5362,7 +5357,7 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
             }
         }
 
-        mdir->mid = bid-(lfsr_mweight(lfs)-1) + rid;
+        mdir->mid = LFSR_MID(lfs, bid, rid);
         return 0;
     }
 }
@@ -5513,11 +5508,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     mdir->rbyd.eoff = -1;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // don't write tags outside of the requested range
-        if (rid >= start_rid
+        lfsr_srid_t rid_ = rid + (
+                (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0)
+                ? 1 : 0);
+        if (rid_ >= start_rid
                 // note the use of rid+1 and unsigned comparison here to
                 // treat end_rid=-1 as "unbounded" in such a way that rid=-1
                 // is still included
-                && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
+                && (lfs_size_t)(rid_ + 1) <= (lfs_size_t)end_rid) {
             // ignore any gstate tags here, these need to be handled
             // specially by upper-layers
             if (attrs[i].tag == LFSR_TAG_GRM) {
@@ -5711,26 +5709,15 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // we need to make sure we keep start_rid/end_rid updated with
         // weight changes
-        if (rid < start_rid) {
+        if (rid_ < start_rid) {
             start_rid += attrs[i].delta;
         }
-        if (rid < end_rid) {
+        if (rid_ < end_rid) {
             end_rid += attrs[i].delta;
         }
 
         // adjust rid
         rid += attrs[i].delta;
-        // if the next tag is an insert, increment rid to make it an append
-        if (i+1 < attr_count
-                && !lfsr_tag_isgrow(attrs[i+1].tag)
-                && attrs[i+1].delta > 0) {
-            rid += 1;
-        }
-        // fix appends
-        if (!lfsr_tag_isgrow(attrs[i].tag)
-                && attrs[i].delta > 0) {
-            rid -= 1;
-        }
     }
 
     // abort the commit if our weight dropped to zero!
@@ -6343,8 +6330,7 @@ static int lfsr_mtree_commit_(lfs_t *lfs, lfsr_smid_t mid,
 
     // commit to mtree
     int err = lfsr_btree_commit(lfs, &mtree_,
-            // TODO can we get rid of this min? mid=0 causes problems
-            lfs_min32(lfsr_mid_bid(lfs, mid), mtree_.weight),
+            lfsr_mid_bid(lfs, mid),
             attrs, attr_count);
     if (err) {
         return err;
@@ -6384,7 +6370,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_ASSERT(mdir->mid == -1
             || lfsr_mtree_isnull(lfs)
             || mdir->rbyd.weight > 0);
-    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid) <= mdir->rbyd.weight);
+    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid) < mdir->rbyd.weight);
 
     // reset gdelta for new commit
     lfsr_fs_flushgdelta(lfs);
@@ -6620,7 +6606,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (lfsr_mtree_ismptr(lfs)) {
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             uint8_t msibling_buf[LFSR_MPTR_DSIZE];
-            err = lfsr_mtree_commit_(lfs, 0, LFSR_ATTRS(
+            err = lfsr_mtree_commit_(lfs, -1, LFSR_ATTRS(
                     LFSR_ATTR(
                         MDIR, +lfsr_mweight(lfs),
                         FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf)),
@@ -6798,7 +6784,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     LFS_ASSERT(opened->type != LFS_TYPE_REG);
                     opened->flags |= LFS_F_ZOMBIE;
                     opened->mdir.mid = mid;
-                } else {
+                } else if (opened->mdir.mid > mid) {
                     opened->mdir.mid += attrs[i].delta;
                     // adjust dir position?
                     if (opened->type == LFS_TYPE_DIR) {
@@ -6818,17 +6804,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // adjust mid
             mid += attrs[i].delta;
-            // if the next tag is an insert, increment mid to make it an append
-            if (i+1 < attr_count
-                    && !lfsr_tag_isgrow(attrs[i+1].tag)
-                    && attrs[i+1].delta > 0) {
-                mid += 1;
-            }
-            // fix appends
-            if (!lfsr_tag_isgrow(attrs[i].tag)
-                    && attrs[i].delta > 0) {
-                mid -= 1;
-            }
         }
 
         // update any opened mdirs if we had a split or drop
@@ -6845,6 +6820,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         } else if (opened->mdir.mid > mdir->mid) {
             opened->mdir.mid += mdelta;
         }
+    }
+
+    // adjust mid if we created a new file
+    if (attr_count > 0
+            && !lfsr_tag_isgrow(attrs[0].tag)
+            && attrs[0].delta > 0) {
+        mdir->mid += 1;
     }
 
     // update mdir to follow requested rid
@@ -6893,11 +6875,9 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     }
 
     // adjust mid if necessary
-    if (lfs_cmp(cmp) < 0) {
-        rid += 1;
-    }
-    lfsr_smid_t mid = lfsr_mid_bid(lfs, mdir->mid)-(lfsr_mweight(lfs)-1)
-            + rid;
+    lfsr_smid_t mid = LFSR_MID(lfs,
+            mdir->mid,
+            (lfs_cmp(cmp) > 0) ? rid-1 : rid);
 
     // intercept pending grms here and pretend they're orphaned files
     //
@@ -7418,7 +7398,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 }
 
                 err = lfsr_mdir_fetch(lfs, &traversal->file.mdir,
-                        bid-(lfsr_mweight(lfs)-1),
+                        LFSR_MID(lfs, bid, 0),
                         &mptr);
                 if (err) {
                     return err;
@@ -8562,7 +8542,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our bookmark and a grm to self-remove in case of powerloss
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(BOOKMARK, +1, LEB128(did_)),
-            LFSR_ATTR(GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid, -1}})))));
+            LFSR_ATTR(GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid+1, -1}})))));
     if (err) {
         return err;
     }
@@ -8758,7 +8738,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
         // adjust old rid if grm is on the same mdir as new rid
         if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mid_bid(lfs, new_mdir.mid)
-                && grm.rms[0] >= new_mdir.mid) {
+                && grm.rms[0] > new_mdir.mid) {
             grm.rms[0] += 1;
         }
 
@@ -9981,7 +9961,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
             LFS_ASSERT(buf_size <= sizeof(buf));
 
-            int err = lfsr_bshrub_commit(lfs, file, 0, attrs, attr_count);
+            int err = lfsr_bshrub_commit(lfs, file, -1, attrs, attr_count);
             if (err) {
                 return err;
             }
@@ -10000,10 +9980,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // new hole
         } else {
-            // TODO is this a hack?
-            if (attr_count == 0) {
-                bid_ += 1;
-            }
             attrs[attr_count++] = LFSR_ATTR(
                     DATA, +(pos - lfsr_bshrub_size(&file->bshrub)), NULL());
         }
@@ -10189,10 +10165,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // need a new hole?
         } else if (!bptr || lfsr_data_size(&bptr->data) == 0) {
-            // TODO is this a hack?
-            if (attr_count == 0) {
-                bid_ += 1;
-            }
             memmove(&attrs[attr_count+1], &attrs[attr_count],
                     attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
@@ -10200,10 +10172,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // append new fragment?
         } else if (tag == LFSR_TAG_DATA) {
-            // TODO is this a hack?
-            if (attr_count == 0) {
-                bid_ += 1;
-            }
             memmove(&attrs[attr_count+1], &attrs[attr_count],
                     attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
@@ -10211,10 +10179,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // append a new block?
         } else if (tag == LFSR_TAG_BLOCK) {
-            // TODO is this a hack?
-            if (attr_count == 0) {
-                bid_ += 1;
-            }
             memmove(&attrs[attr_count+1], &attrs[attr_count],
                     attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
