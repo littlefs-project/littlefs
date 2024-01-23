@@ -212,12 +212,22 @@ static inline uint32_t lfs2_tobe32(uint32_t a) {
 }
 
 // Calculate CRC-32 with polynomial = 0x04c11db7
+#ifdef LFS2_CRC
+uint32_t lfs2_crc(uint32_t crc, const void *buffer, size_t size) {
+    return LFS2_CRC(crc, buffer, size)
+}
+#else
 uint32_t lfs2_crc(uint32_t crc, const void *buffer, size_t size);
+#endif
 
 // Allocate memory, only used if buffers are not provided to littlefs
-// Note, memory must be 64-bit aligned
+//
+// littlefs current has no alignment requirements, as it only allocates
+// byte-level buffers.
 static inline void *lfs2_malloc(size_t size) {
-#ifndef LFS2_NO_MALLOC
+#if defined(LFS2_MALLOC)
+    return LFS2_MALLOC(size);
+#elif !defined(LFS2_NO_MALLOC)
     return malloc(size);
 #else
     (void)size;
@@ -227,7 +237,9 @@ static inline void *lfs2_malloc(size_t size) {
 
 // Deallocate memory, only used if buffers are not provided to littlefs
 static inline void lfs2_free(void *p) {
-#ifndef LFS2_NO_MALLOC
+#if defined(LFS2_FREE)
+    LFS2_FREE(p);
+#elif !defined(LFS2_NO_MALLOC)
     free(p);
 #else
     (void)p;

@@ -10,7 +10,7 @@ defaults:
 
 jobs:
   post-release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       # trigger post-release in dependency repo, this indirection allows the
       # dependency repo to be updated often without affecting this repo. At

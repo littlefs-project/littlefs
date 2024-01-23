@@ -98,7 +98,7 @@ code = '''
     lfs2_mount(&lfs2, cfg) => 0;
     // create an orphan
     lfs2_mdir_t orphan;
-    lfs2_alloc_ack(&lfs2);
+    lfs2_alloc_ckpoint(&lfs2);
     lfs2_dir_alloc(&lfs2, &orphan) => 0;
     lfs2_dir_commit(&lfs2, &orphan, NULL, 0) => 0;
 
@@ -170,7 +170,7 @@ code = '''
     lfs2_mount(&lfs2, cfg) => 0;
     // create an orphan
     lfs2_mdir_t orphan;
-    lfs2_alloc_ack(&lfs2);
+    lfs2_alloc_ckpoint(&lfs2);
     lfs2_dir_alloc(&lfs2, &orphan) => 0;
     lfs2_dir_commit(&lfs2, &orphan, NULL, 0) => 0;
 

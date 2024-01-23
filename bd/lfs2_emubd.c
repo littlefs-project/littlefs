@@ -451,7 +451,7 @@ int lfs2_emubd_sync(const struct lfs2_config *cfg) {
 
 /// Additional extended API for driving test features ///
 
-static int lfs2_emubd_rawcrc(const struct lfs2_config *cfg,
+static int lfs2_emubd_crc_(const struct lfs2_config *cfg,
         lfs2_block_t block, uint32_t *crc) {
     lfs2_emubd_t *bd = cfg->context;
 
@@ -480,7 +480,7 @@ int lfs2_emubd_crc(const struct lfs2_config *cfg,
         lfs2_block_t block, uint32_t *crc) {
     LFS2_EMUBD_TRACE("lfs2_emubd_crc(%p, %"PRIu32", %p)",
             (void*)cfg, block, crc);
-    int err = lfs2_emubd_rawcrc(cfg, block, crc);
+    int err = lfs2_emubd_crc_(cfg, block, crc);
     LFS2_EMUBD_TRACE("lfs2_emubd_crc -> %d", err);
     return err;
 }
@@ -491,7 +491,7 @@ int lfs2_emubd_bdcrc(const struct lfs2_config *cfg, uint32_t *crc) {
     uint32_t crc_ = 0xffffffff;
     for (lfs2_block_t i = 0; i < cfg->block_count; i++) {
         uint32_t i_crc;
-        int err = lfs2_emubd_rawcrc(cfg, i, &i_crc);
+        int err = lfs2_emubd_crc_(cfg, i, &i_crc);
         if (err) {
             LFS2_EMUBD_TRACE("lfs2_emubd_bdcrc -> %d", err);
             return err;
