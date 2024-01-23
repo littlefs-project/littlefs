@@ -1436,22 +1436,8 @@ typedef struct lfsr_attr {
         _delta, \
         LFSR_DATA_##_data})
 
-// TODO do we really need two?
-#define LFSR_ATTR_(_type, _delta, _data) \
-    ((const lfsr_attr_t){ \
-        LFSR_TAG_##_type, \
-        _delta, \
-        LFSR_DATA_##_data})
-
 #define LFSR_ATTR_NOOP() LFSR_ATTR(NULL, 0, NULL())
 
-#define LFSR_ATTR_IF(_cond, _type, _delta, _data) \
-    ((_cond) \
-        ? ((const lfsr_attr_t){ \
-            LFSR_TAG_##_type, \
-            _delta, \
-            LFSR_DATA_##_data}) \
-        : LFSR_ATTR_NOOP())
 
 
 // TODO make this const again eventually
