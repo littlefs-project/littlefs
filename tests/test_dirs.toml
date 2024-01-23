@@ -747,6 +747,11 @@ code = '''
     lfs_file_open(&lfs, &file, "potato",
             LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
 
+    lfs_file_open(&lfs, &file, "tacoto", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_rename(&lfs, "tacoto", "potato") => LFS_ERR_ISDIR;
+    lfs_rename(&lfs, "potato", "tacoto") => LFS_ERR_NOTDIR;
+
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
     lfs_file_open(&lfs, &file, "/",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => LFS_ERR_EXIST;
@@ -770,6 +775,10 @@ code = '''
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
     assert(strcmp(info.name, "potato") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "tacoto") == 0);
+    assert(info.size == 0);
     lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_dir_close(&lfs, &dir) => 0;
 
@@ -790,6 +799,10 @@ code = '''
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
     assert(strcmp(info.name, "potato") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "tacoto") == 0);
+    assert(info.size == 0);
     lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;

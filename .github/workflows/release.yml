@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     # need to manually check for a couple things
     # - tests passed?

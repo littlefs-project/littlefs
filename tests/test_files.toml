@@ -1,5 +1,6 @@
 
 [cases.test_files_simple]
+defines.INLINE_MAX = [0, -1, 8]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -25,6 +26,7 @@ code = '''
 [cases.test_files_large]
 defines.SIZE = [32, 8192, 262144, 0, 7, 8193]
 defines.CHUNKSIZE = [31, 16, 33, 1, 1023]
+defines.INLINE_MAX = [0, -1, 8]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -67,6 +69,7 @@ code = '''
 defines.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 defines.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
 defines.CHUNKSIZE = [31, 16, 1]
+defines.INLINE_MAX = [0, -1, 8]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -152,6 +155,7 @@ code = '''
 defines.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 defines.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
 defines.CHUNKSIZE = [31, 16, 1]
+defines.INLINE_MAX = [0, -1, 8]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -232,6 +236,7 @@ code = '''
 defines.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 defines.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
 defines.CHUNKSIZE = [31, 16, 1]
+defines.INLINE_MAX = [0, -1, 8]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -303,6 +308,7 @@ code = '''
 [cases.test_files_reentrant_write]
 defines.SIZE = [32, 0, 7, 2049]
 defines.CHUNKSIZE = [31, 16, 65]
+defines.INLINE_MAX = [0, -1, 8]
 reentrant = true
 code = '''
     lfs_t lfs;
@@ -354,11 +360,20 @@ code = '''
 [cases.test_files_reentrant_write_sync]
 defines = [
     # append (O(n))
-    {MODE='LFS_O_APPEND',   SIZE=[32, 0, 7, 2049],  CHUNKSIZE=[31, 16, 65]},
+    {MODE='LFS_O_APPEND',
+        SIZE=[32, 0, 7, 2049],
+        CHUNKSIZE=[31, 16, 65],
+        INLINE_MAX=[0, -1, 8]},
     # truncate (O(n^2))
-    {MODE='LFS_O_TRUNC',    SIZE=[32, 0, 7, 200],   CHUNKSIZE=[31, 16, 65]},
+    {MODE='LFS_O_TRUNC',
+        SIZE=[32, 0, 7, 200],
+        CHUNKSIZE=[31, 16, 65],
+        INLINE_MAX=[0, -1, 8]},
     # rewrite (O(n^2))
-    {MODE=0,                SIZE=[32, 0, 7, 200],   CHUNKSIZE=[31, 16, 65]},
+    {MODE=0,
+        SIZE=[32, 0, 7, 200],
+        CHUNKSIZE=[31, 16, 65],
+        INLINE_MAX=[0, -1, 8]},
 ]
 reentrant = true
 code = '''

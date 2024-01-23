@@ -1321,6 +1321,8 @@ void perm_run(
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
+        .compact_thresh     = COMPACT_THRESH,
+        .inline_max         = INLINE_MAX,
     };
 
     struct lfs_emubd_config bdcfg = {
