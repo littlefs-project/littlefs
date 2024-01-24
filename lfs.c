@@ -1871,7 +1871,10 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
     d += 1;
 
     for (uint8_t i = 0; i < mode; i++) {
-        lfs_ssize_t d_ = lfs_toleb128(grm->rms[i], &buffer[d], 5);
+        // adjust to on-disk representation
+        lfsr_smid_t mid = grm->rms[i] - 1;
+
+        lfs_ssize_t d_ = lfs_toleb128(mid, &buffer[d], 5);
         LFS_ASSERT(d_ >= 0);
         d += d_;
     }
@@ -1910,6 +1913,8 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
         LFS_ASSERT(grm->rms[i] < lfs_smax32(
                 lfsr_mtree_weight(lfs),
                 lfsr_mweight(lfs)));
+        // adjust to in-device representation
+        grm->rms[i] += 1;
     }
 
     return 0;
