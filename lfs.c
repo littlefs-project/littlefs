@@ -5498,16 +5498,18 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_smid_t mid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to append a commit
     lfsr_rbyd_t rbyd_ = mdir->rbyd;
-    lfsr_srid_t rid = lfsr_mid_rid(lfs, mid);
     // mark as erased in case of failure
     mdir->rbyd.eoff = -1;
-    for (lfs_size_t i = 0; i < attr_count; i++) {
-        // don't write tags outside of the requested range
-        if (rid >= start_rid
-                // note the use of rid+1 and unsigned comparison here to
-                // treat end_rid=-1 as "unbounded" in such a way that rid=-1
-                // is still included
-                && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
+
+    // since we only ever commit to one mid or split, we can ignore the
+    // entire attr-list if our mid is out of range
+    lfsr_srid_t rid = lfsr_mid_rid(lfs, mid);
+    if (rid >= start_rid
+            // note the use of rid+1 and unsigned comparison here to
+            // treat end_rid=-1 as "unbounded" in such a way that rid=-1
+            // is still included
+            && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
+        for (lfs_size_t i = 0; i < attr_count; i++) {
             // adjust for inserts
             if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
                 rid -= 1;
@@ -5703,26 +5705,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
             }
 
-            // adjust for inserts
-            if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
-                rid += 1;
-            }
-        }
-
-        // we need to make sure we keep start_rid/end_rid updated with
-        // weight changes
-        if (rid < start_rid) {
-            start_rid += attrs[i].delta;
-        }
-        if (rid < end_rid) {
-            end_rid += attrs[i].delta;
-        }
-
-        // adjust rid
-        rid += attrs[i].delta;
-        // adjust for inserts
-        if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
-            rid -= 1;
+            // adjust rid
+            rid += attrs[i].delta;
         }
     }
 
