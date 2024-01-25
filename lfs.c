@@ -1871,10 +1871,7 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
     d += 1;
 
     for (uint8_t i = 0; i < mode; i++) {
-        // adjust to on-disk representation
-        lfsr_smid_t mid = grm->rms[i] - 1;
-
-        lfs_ssize_t d_ = lfs_toleb128(mid, &buffer[d], 5);
+        lfs_ssize_t d_ = lfs_toleb128(grm->rms[i], &buffer[d], 5);
         LFS_ASSERT(d_ >= 0);
         d += d_;
     }
@@ -1913,8 +1910,6 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
         LFS_ASSERT(grm->rms[i] < lfs_smax32(
                 lfsr_mtree_weight(lfs),
                 lfsr_mweight(lfs)));
-        // adjust to in-device representation
-        grm->rms[i] += 1;
     }
 
     return 0;
@@ -4989,21 +4984,16 @@ static inline lfsr_mid_t lfsr_mweight(lfs_t *lfs) {
 }
 
 #define LFSR_MID(_lfs, _bid, _rid) \
-    (((_bid) & ~((1 << (_lfs)->mbits)-1)) + (_rid) + 1)
+    (((_bid) & ~((1 << (_lfs)->mbits)-1)) + (_rid))
 
 static inline lfsr_sbid_t lfsr_mid_bid(lfs_t *lfs, lfsr_smid_t mid) {
     return mid | ((1 << lfs->mbits) - 1);
 }
 
 static inline lfsr_srid_t lfsr_mid_rid(lfs_t *lfs, lfsr_smid_t mid) {
-    // subtle mapping here
-    // - mid=-1 => rid=-1
-    // - mid=0  => rid=-1
-    // - mid=1  => rid=0
-    // - mid=2  => rid=1
-    // - ...
+    // bit of a strange mapping, but we want to preserve mid=-1 => rid=-1
     return (mid >> (8*sizeof(lfsr_smid_t)-1))
-            | ((mid & ((1 << lfs->mbits) - 1)) - 1);
+            | (mid & ((1 << lfs->mbits) - 1));
 }
 
 
@@ -5513,14 +5503,16 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     mdir->rbyd.eoff = -1;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // don't write tags outside of the requested range
-        lfsr_srid_t rid_ = rid + (
-                (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0)
-                ? 1 : 0);
-        if (rid_ >= start_rid
+        if (rid >= start_rid
                 // note the use of rid+1 and unsigned comparison here to
                 // treat end_rid=-1 as "unbounded" in such a way that rid=-1
                 // is still included
-                && (lfs_size_t)(rid_ + 1) <= (lfs_size_t)end_rid) {
+                && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
+            // adjust for inserts
+            if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
+                rid -= 1;
+            }
+
             // ignore any gstate tags here, these need to be handled
             // specially by upper-layers
             if (attrs[i].tag == LFSR_TAG_GRM) {
@@ -5710,19 +5702,28 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     return err;
                 }
             }
+
+            // adjust for inserts
+            if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
+                rid += 1;
+            }
         }
 
         // we need to make sure we keep start_rid/end_rid updated with
         // weight changes
-        if (rid_ < start_rid) {
+        if (rid < start_rid) {
             start_rid += attrs[i].delta;
         }
-        if (rid_ < end_rid) {
+        if (rid < end_rid) {
             end_rid += attrs[i].delta;
         }
 
         // adjust rid
         rid += attrs[i].delta;
+        // adjust for inserts
+        if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
+            rid -= 1;
+        }
     }
 
     // abort the commit if our weight dropped to zero!
@@ -6375,7 +6376,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_ASSERT(mdir->mid == -1
             || lfsr_mtree_isnull(lfs)
             || mdir->rbyd.weight > 0);
-    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid) < mdir->rbyd.weight);
+    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid) <= mdir->rbyd.weight);
 
     // reset gdelta for new commit
     lfsr_fs_flushgdelta(lfs);
@@ -6480,7 +6481,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid,
-                mdir_.mid, attrs, attr_count);
+                mdir->mid, attrs, attr_count);
         if (err && err != LFS_ERR_NOENT) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -6500,7 +6501,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1,
-                mdir_.mid, attrs, attr_count);
+                mdir->mid, attrs, attr_count);
         if (err && err != LFS_ERR_NOENT) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -6789,7 +6790,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     LFS_ASSERT(opened->type != LFS_TYPE_REG);
                     opened->flags |= LFS_F_ZOMBIE;
                     opened->mdir.mid = mid;
-                } else if (opened->mdir.mid > mid) {
+                } else {
                     opened->mdir.mid += attrs[i].delta;
                     // adjust dir position?
                     if (opened->type == LFS_TYPE_DIR) {
@@ -6809,6 +6810,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // adjust mid
             mid += attrs[i].delta;
+            // adjust for inserts
+            if (!lfsr_tag_isgrow(attrs[i].tag) && attrs[i].delta > 0) {
+                mid -= 1;
+            }
         }
 
         // update any opened mdirs if we had a split or drop
@@ -6825,13 +6830,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         } else if (opened->mdir.mid > mdir->mid) {
             opened->mdir.mid += mdelta;
         }
-    }
-
-    // adjust mid if we created a new file
-    if (attr_count > 0
-            && !lfsr_tag_isgrow(attrs[0].tag)
-            && attrs[0].delta > 0) {
-        mdir->mid += 1;
     }
 
     // update mdir to follow requested rid
@@ -6880,9 +6878,11 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     }
 
     // adjust mid if necessary
+    //
+    // note missing mids end up pointing to the _next_ mid, unlike in rbyds
     lfsr_smid_t mid = LFSR_MID(lfs,
             mdir->mid,
-            (lfs_cmp(cmp) > 0) ? rid-1 : rid);
+            (lfs_cmp(cmp) < 0) ? rid+1 : rid);
 
     // intercept pending grms here and pretend they're orphaned files
     //
@@ -8547,7 +8547,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our bookmark and a grm to self-remove in case of powerloss
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(BOOKMARK, +1, LEB128(did_)),
-            LFSR_ATTR(GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid+1, -1}})))));
+            LFSR_ATTR(GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid, -1}})))));
     if (err) {
         return err;
     }
@@ -8743,7 +8743,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
         // adjust old rid if grm is on the same mdir as new rid
         if (lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mid_bid(lfs, new_mdir.mid)
-                && grm.rms[0] > new_mdir.mid) {
+                && grm.rms[0] >= new_mdir.mid) {
             grm.rms[0] += 1;
         }
 
