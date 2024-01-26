@@ -3998,8 +3998,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     lfsr_srid_t rid = bid;
     if (btree->weight > 0) {
         lfsr_srid_t rid_;
-        int err = lfsr_btree_lookupnext_(lfs, btree,
-                lfs_min32(bid, btree->weight-1),
+        int err = lfsr_btree_lookupnext_(lfs, btree, bid,
                 &bid, &rbyd, &rid_, NULL, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
