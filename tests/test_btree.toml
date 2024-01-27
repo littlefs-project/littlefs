@@ -28,7 +28,7 @@ code = '''
             lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
             lfsr_data_t data) {
         LFS_ASSERT(bid <= btree->weight);
-        return lfsr_btree_commit(lfs, btree, bid-1, LFSR_ATTRS(
+        return lfsr_btree_commit(lfs, btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(TAG(tag), +weight, DATA(data))));
     }
 
@@ -3184,7 +3184,7 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(DATA, 0, BUF("0", 1)))) => 0;
@@ -3236,7 +3236,7 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(DATA, 0, BUF("0", 1)))) => 0;
@@ -3300,7 +3300,7 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(DATA, 0, BUF("0", 1)))) => 0;
@@ -3376,7 +3376,7 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR( DATA, 0, BUF("0", 1)))) => 0;
@@ -3458,7 +3458,7 @@ code = '''
     char name[3] = {
         alphas[(0/26/26) % 26], alphas[(0/26) % 26], alphas[0 % 26]
     };
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
             LFSR_ATTR(DATA, 0, BUF(&nums[0 % 10], 1)))) => 0;
@@ -3527,7 +3527,7 @@ code = '''
     // create a btree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(DATA, 0, BUF("_", 1)))) => 0;
@@ -3645,7 +3645,7 @@ code = '''
     char name[3] = {
         alphas[(0/26/26) % 26], alphas[(0/26) % 26], alphas[0 % 26]
     };
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +W,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
             LFSR_ATTR(DATA, 0, BUF(&nums[0 % 10], 1)))) => 0;
@@ -3715,7 +3715,7 @@ code = '''
     // create a btree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +W,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(DATA, 0, BUF("_", 1)))) => 0;
@@ -3869,7 +3869,7 @@ code = '''
     // create a btree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(DATA, 0, BUF("_", 1)))) => 0;
@@ -3919,7 +3919,7 @@ code = '''
             assert(lfs_cmp(cmp) != 0);
             if (lfs_cmp(cmp) > 0) {
                 int err = lfsr_btree_commit(&lfs, &btree,
-                        split_bid-1, LFSR_ATTRS(
+                        split_bid, LFSR_ATTRS(
                             LFSR_ATTR(NAME, +1, CAT(
                                 LFSR_DATA_LEB128(0),
                                 LFSR_DATA_BUF(name, 3))),
@@ -4039,7 +4039,7 @@ code = '''
     // create a btree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_commit(&lfs, &btree, -1, LFSR_ATTRS(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +W,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(DATA, 0, BUF("_", 1)))) => 0;
@@ -4101,7 +4101,7 @@ code = '''
             assert(lfs_cmp(cmp) != 0);
             if (lfs_cmp(cmp) > 0) {
                 int err = lfsr_btree_commit(&lfs, &btree,
-                        split_bid-(split_weight-1)-1, LFSR_ATTRS(
+                        split_bid-(split_weight-1), LFSR_ATTRS(
                             LFSR_ATTR(NAME, +weight, CAT(
                                 LFSR_DATA_LEB128(0),
                                 LFSR_DATA_BUF(name, 3))),
