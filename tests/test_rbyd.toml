@@ -3581,7 +3581,6 @@ code = '''
         .weight = 0,
     };
     lfsr_rbyd_t rbyd;
-    const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
     printf("perm: [");
@@ -3591,7 +3590,7 @@ code = '''
         uint8_t attr = TEST_PRNG(&prng) % N;
         // choose append or remove
         if (TEST_PRNG(&prng) & 1) {
-            printf("a0x%02x=%c", attr, alpha[i % 26]);
+            printf("a0x%02x=%c", attr, 'a'+(i % 26));
         } else {
             printf("r0x%02x", attr);
         }
@@ -3616,11 +3615,11 @@ code = '''
         // choose append or remove
         if (TEST_PRNG(&prng) & 1) {
             // update our sim
-            sim[attr] = alpha[i % 26];
+            sim[attr] = 'a'+(i % 26);
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(UATTR(attr), 0,
-                        BUF(&alpha[i % 26], 1)))) => 0;
+                        BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else {
             // update our sim
             sim[attr] = '\0';
@@ -7611,7 +7610,6 @@ code = '''
         .weight = 0,
     };
     lfsr_rbyd_t rbyd;
-    const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
     printf("perm: [");
@@ -7622,7 +7620,7 @@ code = '''
         lfs_ssize_t rid = TEST_PRNG(&prng) % (count+1);
         // choose create or delete
         if (rid == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
-            printf("c%d=%c", rid, alpha[i % 26]);
+            printf("c%d=%c", rid, 'a'+(i % 26));
             count += 1;
         } else {
             printf("d%d", rid);
@@ -7652,11 +7650,11 @@ code = '''
         if (rid == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
             // update our sim
             memmove(sim+rid+1, sim+rid, count-rid);
-            sim[rid] = alpha[i % 26];
+            sim[rid] = 'a'+(i % 26);
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(&alpha[i % 26], 1)))) => 0;
+                    LFSR_ATTR(REG, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else {
             // update our sim
             memmove(sim+rid, sim+rid+1, count-rid-1);
@@ -10566,7 +10564,6 @@ code = '''
         .weight = 0,
     };
     lfsr_rbyd_t rbyd;
-    const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
     printf("perm: [");
@@ -10581,13 +10578,13 @@ code = '''
         uint8_t u = TEST_PRNG(&prng) % M;
 
         if (rid == (lfs_ssize_t)count || op == 0) {
-            printf("c%d=%c", rid, alpha[i % 26]);
+            printf("c%d=%c", rid, 'a'+(i % 26));
             count += 1;
         } else if (op == 1) {
             printf("d%d", rid);
             count -= 1;
         } else if (op == 2) {
-            printf("a%d,%d=%c", rid, u, alpha[i % 26]);
+            printf("a%d,%d=%c", rid, u, 'a'+(i % 26));
         } else if (op == 3) {
             printf("r%d,%d", rid, u);
         }
@@ -10620,11 +10617,11 @@ code = '''
             // update our sim
             memmove(sim+(rid+1)*(M+1), sim+rid*(M+1), (count-rid)*(M+1));
             memset(&sim[rid*(M+1)], 0, M+1);
-            sim[rid*(M+1)] = alpha[i % 26];
+            sim[rid*(M+1)] = 'a'+(i % 26);
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(&alpha[i % 26], 1)))) => 0;
+                    LFSR_ATTR(REG, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else if (op == 1) {
             // update our sim
             memmove(sim+rid*(M+1), sim+(rid+1)*(M+1), (count-rid-1)*(M+1));
@@ -10634,10 +10631,11 @@ code = '''
                     LFSR_ATTR(RM, -1, NULL()))) => 0;
         } else if (op == 2) {
             // update our sim
-            sim[rid*(M+1) + u+1] = alpha[i % 26];
+            sim[rid*(M+1) + u+1] = 'a'+(i % 26);
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(u), 0, BUF(&alpha[i % 26], 1)))) => 0;
+                    LFSR_ATTR(
+                        UATTR(u), 0, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         } else if (op == 3) {
             // update our sim
@@ -10721,7 +10719,6 @@ code = '''
     lfs_ssize_t rid_;
     lfs_size_t weight_;
     lfsr_data_t data_;
-    const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
     printf("perm: [");
@@ -10736,7 +10733,7 @@ code = '''
         lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
         if (rid == (lfs_ssize_t)count || op == 0) {
-            printf("c%dw%d=%c", rid, weight, alpha[i % 26]);
+            printf("c%dw%d=%c", rid, weight, 'a'+(i % 26));
             count += 1;
         } else if (op == 1) {
             printf("d%d", rid);
@@ -10784,12 +10781,13 @@ code = '''
             memmove(sim+rid+1, sim+rid, count-rid);
             memmove(sim_weights+rid+1, sim_weights+rid,
                     (count-rid)*sizeof(lfs_size_t));
-            sim[rid] = alpha[i % 26];
+            sim[rid] = 'a'+(i % 26);
             sim_weights[rid] = weight;
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, weighted_rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +weight, BUF(&alpha[i % 26], 1)))) => 0;
+                    LFSR_ATTR(
+                        REG, +weight, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else if (op == 1) {
             // get the correct weight from the sim
             weight_ = sim_weights[rid];

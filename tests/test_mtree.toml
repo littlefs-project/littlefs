@@ -34,7 +34,6 @@ code = '''
 defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -42,14 +41,14 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(i), 0, BUF(&alphas[i % 26], 1)))) => 0;
+                LFSR_ATTR(UATTR(i), 0, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     for (lfs_size_t i = 0; i < N; i++) {
         uint8_t buffer[1];
         lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i),
                 buffer, 1) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -62,7 +61,7 @@ code = '''
         uint8_t buffer[1];
         lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i),
                 buffer, 1) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -73,7 +72,6 @@ code = '''
 defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -84,14 +82,15 @@ code = '''
         lfs.mroot.rbyd.eoff = -1;
 
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(i), 0, BUF(&alphas[i % 26], 1)))) => 0;
+                LFSR_ATTR(
+                    UATTR(i), 0, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     for (lfs_size_t i = 0; i < N; i++) {
         uint8_t buffer[1];
         lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i),
                 buffer, 1) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -104,7 +103,7 @@ code = '''
         uint8_t buffer[1];
         lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i),
                 buffer, 1) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -115,7 +114,6 @@ code = '''
 defines.N = [5, 5000]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -123,18 +121,19 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(1), 0, BUF(&alphas[i % 26], 1)))) => 0;
+                LFSR_ATTR(
+                    UATTR(1), 0, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         uint8_t buffer[4];
         lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1),
                 buffer, 4) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     uint8_t buffer[4];
     lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1),
             buffer, 4) => 1;
-    assert(memcmp(buffer, &alphas[(N-1) % 26], 1) == 0);
+    assert(memcmp(buffer, &(uint8_t){'a'+((N-1) % 26)}, 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -144,7 +143,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1),
             buffer, 4) => 1;
-    assert(memcmp(buffer, &alphas[(N-1) % 26], 1) == 0);
+    assert(memcmp(buffer, &(uint8_t){'a'+((N-1) % 26)}, 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''

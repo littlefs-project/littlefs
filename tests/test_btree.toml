@@ -400,11 +400,10 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -428,7 +427,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -453,11 +452,10 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[(N-1-i) % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+((N-1-i) % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -481,7 +479,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[(N-1-i) % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+((N-1-i) % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -494,8 +492,6 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -525,7 +521,7 @@ code = '''
 
         // add to btree
         int err = lfsr_btree_push(&lfs, &btree, bid, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -534,7 +530,7 @@ code = '''
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
-        sim[bid] = alphas[i % 26];
+        sim[bid] = 'a'+(i % 26);
         sim_size += 1;
     }
 
@@ -593,11 +589,10 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -621,7 +616,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -639,7 +634,7 @@ code = '''
         assert(weight_ == W);
 
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
     lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
@@ -651,8 +646,6 @@ defines.W = 5
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -693,7 +686,7 @@ code = '''
         // add to btree
         int err = lfsr_btree_push(&lfs, &btree,
                 weighted_bid, LFSR_TAG_DATA, weight,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -704,7 +697,7 @@ code = '''
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
         memmove(&sim_weights[bid+1], &sim_weights[bid],
                 (sim_size-bid)*sizeof(lfs_size_t));
-        sim[bid] = alphas[i % 26];
+        sim[bid] = 'a'+(i % 26);
         sim_weights[bid] = weight;
         sim_size += 1;
     }
@@ -962,11 +955,9 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -980,7 +971,7 @@ code = '''
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_set(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&uppers[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1007,7 +998,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &uppers[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'A'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -1021,9 +1012,6 @@ defines.SAMPLES = 10
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -1039,7 +1027,7 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1057,7 +1045,7 @@ code = '''
     // starting to be a problem...
     char *sim = malloc(N);
     for (lfs_size_t i = 0; i < N; i++) {
-        sim[i] = alphas[i % 26];
+        sim[i] = 'a'+(i % 26);
     }
 
     uint32_t prng = SEED;
@@ -1067,7 +1055,7 @@ code = '''
 
         // update btree
         int err = lfsr_btree_set(&lfs, &btree, bid, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&uppers[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -1075,7 +1063,7 @@ code = '''
         assert(err == 0);
 
         // update sim
-        sim[bid] = uppers[i % 26];
+        sim[bid] = 'A'+(i % 26);
     }
 
     // check that btree matches sim
@@ -1132,11 +1120,9 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1150,7 +1136,7 @@ code = '''
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_set(&lfs, &btree, i*W+W-1, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&uppers[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1177,7 +1163,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
-        assert(memcmp(buffer, &uppers[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'A'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -1195,7 +1181,7 @@ code = '''
         assert(weight_ == W);
 
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(memcmp(buffer, &uppers[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'A'+(i % 26)}, 1) == 0);
     }
     lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
@@ -1207,9 +1193,6 @@ defines.W = 5
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -1225,7 +1208,7 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1244,7 +1227,7 @@ code = '''
     char *sim = malloc(N);
     lfs_size_t *sim_weights = malloc(N*sizeof(lfs_size_t));
     for (lfs_size_t i = 0; i < N; i++) {
-        sim[i] = alphas[i % 26];
+        sim[i] = 'a'+(i % 26);
         sim_weights[i] = W;
     }
 
@@ -1264,7 +1247,7 @@ code = '''
         // update btree
         int err = lfsr_btree_set(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_TAG_DATA, weight,
-                LFSR_DATA_BUF(&uppers[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -1272,7 +1255,7 @@ code = '''
         assert(err == 0);
 
         // update sim
-        sim[bid] = uppers[i % 26];
+        sim[bid] = 'A'+(i % 26);
         sim_weights[bid] = weight;
     }
 
@@ -1648,10 +1631,9 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1692,7 +1674,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -1708,7 +1690,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_btree_get(&lfs, &btree, REMAINING,
@@ -1740,10 +1722,9 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1783,7 +1764,8 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[(i+(N-REMAINING)) % 26], 1) == 0);
+        assert(memcmp(buffer,
+                &(uint8_t){'a'+((i+(N-REMAINING)) % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -1805,7 +1787,8 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[(i+(N-REMAINING)) % 26], 1) == 0);
+        assert(memcmp(buffer,
+                &(uint8_t){'a'+((i+(N-REMAINING)) % 26)}, 1) == 0);
     }
 
     lfsr_btree_get(&lfs, &btree, REMAINING+1,
@@ -1819,8 +1802,6 @@ defines.SEED = 'range(10)'
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -1836,7 +1817,7 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1855,7 +1836,7 @@ code = '''
     char *sim = malloc(N);
     lfs_size_t sim_size = N;
     for (lfs_size_t i = 0; i < N; i++) {
-        sim[i] = alphas[i % 26];
+        sim[i] = 'a'+(i % 26);
     }
 
     uint32_t prng = SEED;
@@ -1932,10 +1913,9 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1975,7 +1955,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -1991,7 +1971,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_btree_get(&lfs, &btree, REMAINING*W+W-1,
@@ -2014,7 +1994,7 @@ code = '''
         assert(weight_ == W);
 
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
@@ -2038,8 +2018,6 @@ defines.SEED = 'range(10)'
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -2076,7 +2054,7 @@ code = '''
 
         int err = lfsr_btree_push(&lfs, &btree,
                 weighted_bid, LFSR_TAG_DATA, weight,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -2087,7 +2065,7 @@ code = '''
         }
         assert(err == 0);
 
-        sim[i] = alphas[i % 26];
+        sim[i] = 'a'+(i % 26);
         sim_weights[i] = weight;
         sim_size += 1;
     }
@@ -2213,14 +2191,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF(&alphas[0 % 26], 1)) => 0;
+            LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
         int err = lfsr_btree_split(&lfs, &btree, i-1, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&alphas[(i-1) % 26], 1),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&alphas[(i-0) % 26], 1));
+                LFSR_TAG_DATA, 1,
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1),
+                LFSR_TAG_DATA, 1,
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2244,7 +2223,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -2257,9 +2236,6 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -2292,8 +2268,8 @@ code = '''
 
         // split btree
         int err = lfsr_btree_split(&lfs, &btree, bid, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&alphas[i % 26], 1),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&uppers[i % 26], 1));
+                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1),
+                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2302,8 +2278,8 @@ code = '''
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
-        sim[bid+0] = alphas[i % 26];
-        sim[bid+1] = uppers[i % 26];
+        sim[bid+0] = 'a'+(i % 26);
+        sim[bid+1] = 'A'+(i % 26);
         sim_size += 1;
     }
 
@@ -2362,14 +2338,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
-            LFSR_DATA_BUF(&alphas[0 % 26], 1)) => 0;
+            LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
         int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, W, LFSR_DATA_BUF(&alphas[(i-1) % 26], 1),
-                LFSR_TAG_DATA, W, LFSR_DATA_BUF(&alphas[(i-0) % 26], 1));
+                LFSR_TAG_DATA, W,
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1),
+                LFSR_TAG_DATA, W,
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2393,7 +2370,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -2407,9 +2384,6 @@ defines.W = 5
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -2456,9 +2430,9 @@ code = '''
         int err = lfsr_btree_split(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_DATA_NULL(),
                 LFSR_TAG_DATA, weight1,
-                    LFSR_DATA_BUF(&alphas[i % 26], 1),
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1),
                 LFSR_TAG_DATA, weight2,
-                    LFSR_DATA_BUF(&uppers[i % 26], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2469,8 +2443,8 @@ code = '''
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
         memmove(&sim_weights[bid+1], &sim_weights[bid],
                 (sim_size-bid)*sizeof(lfs_size_t));
-        sim[bid+0] = alphas[i % 26];
-        sim[bid+1] = uppers[i % 26];
+        sim[bid+0] = 'a'+(i % 26);
+        sim[bid+1] = 'A'+(i % 26);
         sim_weights[bid+0] = weight1;
         sim_weights[bid+1] = weight2;
         sim_size += 1;
@@ -2845,8 +2819,6 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -2880,7 +2852,7 @@ code = '''
             // push to btree
             int err = lfsr_btree_push(&lfs, &btree, bid,
                     LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&alphas[i % 26], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -2889,14 +2861,14 @@ code = '''
 
             // push to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
-            sim[bid] = alphas[i % 26];
+            sim[bid] = 'a'+(i % 26);
             sim_size += 1;
 
         } else if (op == 1) {
             // update btree
             int err = lfsr_btree_set(&lfs, &btree, bid,
                     LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&alphas[i % 26], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -2904,7 +2876,7 @@ code = '''
             assert(err == 0);
 
             // update sim
-            sim[bid] = alphas[i % 26];
+            sim[bid] = 'a'+(i % 26);
 
         } else {
             // pop from btree
@@ -2963,8 +2935,6 @@ defines.W = 5
 defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -3008,7 +2978,7 @@ code = '''
             // push to btree
             int err = lfsr_btree_push(&lfs, &btree, weighted_bid,
                     LFSR_TAG_DATA, weight,
-                    LFSR_DATA_BUF(&alphas[i % 26], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -3019,7 +2989,7 @@ code = '''
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
             memmove(&sim_weights[bid+1], &sim_weights[bid],
                     (sim_size-bid)*sizeof(lfs_size_t));
-            sim[bid] = alphas[i % 26];
+            sim[bid] = 'a'+(i % 26);
             sim_weights[bid] = weight;
             sim_size += 1;
 
@@ -3027,7 +2997,7 @@ code = '''
             // update btree
             int err = lfsr_btree_set(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_TAG_DATA, weight,
-                    LFSR_DATA_BUF(&alphas[i % 26], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -3035,7 +3005,7 @@ code = '''
             assert(err == 0);
 
             // update sim
-            sim[bid] = alphas[i % 26];
+            sim[bid] = 'a'+(i % 26);
             sim_weights[bid] = weight;
 
         } else {
@@ -3453,24 +3423,24 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *nums = "0123456789";
     char name[3] = {
-        alphas[(0/26/26) % 26], alphas[(0/26) % 26], alphas[0 % 26]
+        'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
-            LFSR_ATTR(DATA, 0, BUF(&nums[0 % 10], 1)))) => 0;
+            LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
         char name[3] = {
-            alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
+            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
         int err = lfsr_btree_split(&lfs, &btree, i-1,
                 LFSR_DATA_CAT(LFSR_DATA_LEB128(i*DID), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&nums[(i-1) % 10], 1),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&nums[(i-0) % 10], 1));
+                LFSR_TAG_DATA, 1,
+                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1),
+                LFSR_TAG_DATA, 1,
+                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3493,7 +3463,7 @@ code = '''
 
     for (lfs_size_t i = 0; i < n; i++) {
         char name[3] = {
-            alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
+            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
 
         lfsr_btree_namelookup(&lfs, &btree, i*DID, name, 3,
@@ -3502,7 +3472,7 @@ code = '''
         assert(bid_ == i);
         assert(weight_ == 1);
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(memcmp(buffer, &nums[i % 10], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'0'+(i % 10)}, 1) == 0);
     }
 '''
 
@@ -3511,9 +3481,6 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *nums = "0123456789";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -3549,7 +3516,7 @@ code = '''
         // choose a pseudo-random name
         lfs_size_t x = TEST_PRNG(&prng) % (26*26*26);
         char name[3] = {
-            alphas[(x/26/26) % 26], alphas[(x/26) % 26], alphas[x % 26]
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
         };
 
         // find where to split
@@ -3565,8 +3532,8 @@ code = '''
         // split btree
         int err = lfsr_btree_split(&lfs, &btree, bid,
                 LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&nums[i % 10], 1),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&nums[i % 10], 1));
+                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1),
+                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3576,8 +3543,8 @@ code = '''
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
         memmove(&sim_names[bid+1], &sim_names[bid], (sim_size-bid)*3);
-        sim[bid+0] = nums[i % 10];
-        sim[bid+1] = nums[i % 10];
+        sim[bid+0] = '0'+(i % 10);
+        sim[bid+1] = '0'+(i % 10);
         memcpy(&sim_names[bid+1], name, 3);
         sim_size += 1;
     }
@@ -3640,24 +3607,24 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *nums = "0123456789";
     char name[3] = {
-        alphas[(0/26/26) % 26], alphas[(0/26) % 26], alphas[0 % 26]
+        'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(NAME, +W,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
-            LFSR_ATTR(DATA, 0, BUF(&nums[0 % 10], 1)))) => 0;
+            LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
         char name[3] = {
-            alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
+            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
         int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1,
                 LFSR_DATA_CAT(LFSR_DATA_LEB128(i*DID), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, W, LFSR_DATA_BUF(&nums[(i-1) % 10], 1),
-                LFSR_TAG_DATA, W, LFSR_DATA_BUF(&nums[(i-0) % 10], 1));
+                LFSR_TAG_DATA, W,
+                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1),
+                LFSR_TAG_DATA, W,
+                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3680,7 +3647,7 @@ code = '''
 
     for (lfs_size_t i = 0; i < n; i++) {
         char name[3] = {
-            alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
+            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
 
         lfsr_btree_namelookup(&lfs, &btree, i*DID, name, 3,
@@ -3689,7 +3656,7 @@ code = '''
         assert(bid_ == i*W+W-1);
         assert(weight_ == W);
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(memcmp(buffer, &nums[i % 10], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'0'+(i % 10)}, 1) == 0);
     }
 '''
 
@@ -3699,9 +3666,6 @@ defines.W = 5
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *nums = "0123456789";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -3740,7 +3704,7 @@ code = '''
         // choose a pseudo-random name
         lfs_size_t x = TEST_PRNG(&prng) % (26*26*26);
         char name[3] = {
-            alphas[(x/26/26) % 26], alphas[(x/26) % 26], alphas[x % 26]
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
         };
         // choose pseudo-random weights
         lfs_size_t weight1 = 1 + (TEST_PRNG(&prng) % W);
@@ -3766,8 +3730,10 @@ code = '''
         int err = lfsr_btree_split(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1,
                 LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, weight1, LFSR_DATA_BUF(&nums[i % 10], 1),
-                LFSR_TAG_DATA, weight2, LFSR_DATA_BUF(&nums[i % 10], 1));
+                LFSR_TAG_DATA, weight1,
+                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1),
+                LFSR_TAG_DATA, weight2,
+                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3779,8 +3745,8 @@ code = '''
         memmove(&sim_names[bid+1], &sim_names[bid], (sim_size-bid)*3);
         memmove(&sim_weights[bid+1], &sim_weights[bid],
                 (sim_size-bid)*sizeof(lfs_size_t));
-        sim[bid+0] = nums[i % 10];
-        sim[bid+1] = nums[i % 10];
+        sim[bid+0] = '0'+(i % 10);
+        sim[bid+1] = '0'+(i % 10);
         memcpy(&sim_names[bid+1], name, 3);
         sim_weights[bid+0] = weight1;
         sim_weights[bid+1] = weight2;
@@ -3853,9 +3819,6 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *nums = "0123456789";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -3895,7 +3858,7 @@ code = '''
         // choose a pseudo-random name
         lfs_size_t x = TEST_PRNG(&prng) % (26*26*26);
         char name[3] = {
-            alphas[(x/26/26) % 26], alphas[(x/26) % 26], alphas[x % 26]
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
         };
 
         // don't let sim drop below one element
@@ -3923,7 +3886,8 @@ code = '''
                             LFSR_ATTR(NAME, +1, CAT(
                                 LFSR_DATA_LEB128(0),
                                 LFSR_DATA_BUF(name, 3))),
-                            LFSR_ATTR(DATA, 0, BUF(&nums[i % 10], 1))));
+                            LFSR_ATTR(
+                                DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
                 // ignore space issues
                 if (err == LFS_ERR_NOSPC) {
                     break;
@@ -3935,7 +3899,8 @@ code = '''
                             LFSR_DATA_LEB128(0),
                             LFSR_DATA_BUF(name, 3)),
                         LFSR_TAG_DATA, 1, split_data,
-                        LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&nums[i % 10], 1));
+                        LFSR_TAG_DATA, 1,
+                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
                 // ignore space issues
                 if (err == LFS_ERR_NOSPC) {
                     break;
@@ -3946,7 +3911,7 @@ code = '''
             // split sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
             memmove(&sim_names[bid+1], &sim_names[bid], (sim_size-bid)*3);
-            sim[bid] = nums[i % 10];
+            sim[bid] = '0'+(i % 10);
             memcpy(&sim_names[bid], name, 3);
             sim_size += 1;
 
@@ -3954,7 +3919,7 @@ code = '''
             // update btree
             int err = lfsr_btree_set(&lfs, &btree, bid,
                     LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&nums[i % 10], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -3962,7 +3927,7 @@ code = '''
             assert(err == 0);
 
             // update sim
-            sim[bid] = nums[i % 10];
+            sim[bid] = '0'+(i % 10);
 
         } else {
             // pop from btree
@@ -4023,9 +3988,6 @@ defines.W = 5
 defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-    const char *nums = "0123456789";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -4068,7 +4030,7 @@ code = '''
         // choose a pseudo-random name
         lfs_size_t x = TEST_PRNG(&prng) % (26*26*26);
         char name[3] = {
-            alphas[(x/26/26) % 26], alphas[(x/26) % 26], alphas[x % 26]
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
         };
         // choose a pseudo-random weight
         lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
@@ -4105,7 +4067,8 @@ code = '''
                             LFSR_ATTR(NAME, +weight, CAT(
                                 LFSR_DATA_LEB128(0),
                                 LFSR_DATA_BUF(name, 3))),
-                            LFSR_ATTR(DATA, 0, BUF(&nums[i % 10], 1))));
+                            LFSR_ATTR(
+                                DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
                 // ignore space issues
                 if (err == LFS_ERR_NOSPC) {
                     break;
@@ -4119,7 +4082,7 @@ code = '''
                         LFSR_TAG_DATA, split_weight,
                             split_data,
                         LFSR_TAG_DATA, weight,
-                            LFSR_DATA_BUF(&nums[i % 10], 1));
+                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
                 // ignore space issues
                 if (err == LFS_ERR_NOSPC) {
                     break;
@@ -4132,7 +4095,7 @@ code = '''
             memmove(&sim_names[bid+1], &sim_names[bid], (sim_size-bid)*3);
             memmove(&sim_weights[bid+1], &sim_weights[bid],
                     (sim_size-bid)*sizeof(lfs_size_t));
-            sim[bid] = nums[i % 10];
+            sim[bid] = '0'+(i % 10);
             memcpy(&sim_names[bid], name, 3);
             sim_weights[bid] = weight;
             sim_size += 1;
@@ -4141,7 +4104,7 @@ code = '''
             // update btree
             int err = lfsr_btree_set(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_TAG_DATA, weight,
-                    LFSR_DATA_BUF(&nums[i % 10], 1));
+                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -4149,7 +4112,7 @@ code = '''
             assert(err == 0);
 
             // update sim
-            sim[bid] = nums[i % 10];
+            sim[bid] = '0'+(i % 10);
             sim_weights[bid] = weight;
 
         } else {
@@ -4251,11 +4214,10 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -4279,7 +4241,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -4348,7 +4310,7 @@ code = '''
                 &tag_, &weight_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
@@ -4361,8 +4323,6 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(10)'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
@@ -4392,7 +4352,7 @@ code = '''
 
         // add to btree
         int err = lfsr_btree_push(&lfs, &btree, bid, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&alphas[i % 26], 1));
+                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -4401,7 +4361,7 @@ code = '''
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
-        sim[bid] = alphas[i % 26];
+        sim[bid] = 'a'+(i % 26);
         sim_size += 1;
     }
 
