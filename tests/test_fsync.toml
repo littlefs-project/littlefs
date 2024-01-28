@@ -591,13 +591,13 @@ code = '''
 # Test one writer, multiple readers
 [cases.test_fsync_wrrr]
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -679,13 +679,13 @@ code = '''
 
 [cases.test_fsync_wrrr_fuzz]
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -782,13 +782,13 @@ code = '''
 # Test multiple writers
 [cases.test_fsync_wwww]
 defines.W = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -865,13 +865,13 @@ code = '''
 
 [cases.test_fsync_wwww_fuzz]
 defines.W = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -958,13 +958,13 @@ code = '''
 [cases.test_fsync_wwrr]
 defines.W = 4
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -1058,13 +1058,13 @@ code = '''
 [cases.test_fsync_wwrr_fuzz]
 defines.W = 4
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -1172,13 +1172,13 @@ code = '''
 # Test multiple rd/wrers
 [cases.test_fsync_rwrw]
 defines.RW = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -1271,13 +1271,13 @@ code = '''
 
 [cases.test_fsync_rwrw_fuzz]
 defines.RW = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -1383,13 +1383,13 @@ code = '''
 # Test multiple rw files without fixed size
 [cases.test_fsync_rwrw_sparse_fuzz]
 defines.RW = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 40
@@ -1517,13 +1517,13 @@ code = '''
 # Test multiple rw files while also truncating/fruncating
 [cases.test_fsync_rwtfrwtf_sparse_fuzz]
 defines.RW = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 40
@@ -2325,13 +2325,13 @@ code = '''
 # Test one desynced writer, multiple readers
 [cases.test_fsync_drrr]
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2418,13 +2418,13 @@ code = '''
 
 [cases.test_fsync_drrr_fuzz]
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -2526,13 +2526,13 @@ code = '''
 # Test one writer, multiple desynced readers
 [cases.test_fsync_wddd]
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2611,13 +2611,13 @@ code = '''
 
 [cases.test_fsync_wddd_fuzz]
 defines.R = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -2711,13 +2711,13 @@ code = '''
 # Test multiple desynced rd/wrers
 [cases.test_fsync_rwdrwd]
 defines.RW = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2819,13 +2819,13 @@ code = '''
 
 [cases.test_fsync_rwdrwd_fuzz]
 defines.RW = 4
-# 0 => no sync, readers not updated
-# 1 => sync via lfsr_file_sync
-# 2 => sync via LFS_O_SYNC
+# FLUSH=0 => no sync, readers not updated
+# FLUSH=1 => sync via lfsr_file_sync
+# FLUSH=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 20
@@ -2940,9 +2940,9 @@ code = '''
 # Test multiple rwd files without fixed size
 [cases.test_fsync_rwdrwd_sparse_fuzz]
 defines.RW = 4
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 40
@@ -3089,9 +3089,9 @@ code = '''
 # Test multiple rwd files while also truncating/fruncating
 [cases.test_fsync_rwtfdrwtfd_sparse_fuzz]
 defines.RW = 4
-# 0 => no flush
-# 1 => flush via lfsr_file_flush
-# 2 => flush via LFS_O_FLUSH
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(10)'
 defines.N = 40

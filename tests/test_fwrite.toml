@@ -124,12 +124,12 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = [32, 8, 1]
-# bit 0 => first chunk 
-# bit 1 => middle chunk
-# bit 2 => last chunk
+# MASK&0x1 => first chunk
+# MASK&0x2 => middle chunk
+# MASK&0x4 => last chunk
 defines.MASK = [0, 1, 2, 3, 4, 5, 6, 7]
-# 0 => in-order
-# 1 => reversed
+# ORDER=0 => in-order
+# ORDER=1 => reversed
 defines.ORDER = [0, 1]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
@@ -302,12 +302,12 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = [32, 8, 1]
-# bit 0 => first chunk 
-# bit 1 => middle chunk
-# bit 2 => last chunk
+# MASK&0x1 => first chunk
+# MASK&0x2 => middle chunk
+# MASK&0x4 => last chunk
 defines.MASK = [0, 1, 2, 3, 4, 5, 6, 7]
-# 0 => in-order
-# 1 => reversed
+# ORDER=0 => in-order
+# ORDER=1 => reversed
 defines.ORDER = [0, 1]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
@@ -1003,9 +1003,9 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = [32, 8, 1]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
@@ -1132,12 +1132,12 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = [32, 8, 1]
-# bit 0 => first chunk 
-# bit 1 => middle chunk
-# bit 2 => last chunk
+# MASK&0x1 => first chunk
+# MASK&0x2 => middle chunk
+# MASK&0x4 => last chunk
 defines.MASK = [0, 1, 2, 3, 4, 5, 6, 7]
-# 0 => in-order
-# 1 => reversed
+# ORDER=0 => in-order
+# ORDER=1 => reversed
 defines.ORDER = [0, 1]
 # writing this many times guarantees a compaction
 defines.WRITES = '2*(BLOCK_SIZE/PROG_SIZE)'
@@ -1319,12 +1319,12 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = [32, 8, 1]
-# bit 0 => first chunk 
-# bit 1 => middle chunk
-# bit 2 => last chunk
+# MASK&0x1 => first chunk
+# MASK&0x2 => middle chunk
+# MASK&0x4 => last chunk
 defines.MASK = [0, 1, 2, 3, 4, 5, 6, 7]
-# 0 => in-order
-# 1 => reversed
+# ORDER=0 => in-order
+# ORDER=1 => reversed
 defines.ORDER = [0, 1]
 # writing this many times guarantees a compaction
 defines.WRITES = '2*(BLOCK_SIZE/PROG_SIZE)'
@@ -1512,9 +1512,9 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = [32, 8, 1]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
@@ -1653,9 +1653,9 @@ defines.SIZE = [
 ]
 # chunk is more an upper limit here
 defines.CHUNK = [32, 8]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
@@ -1880,9 +1880,9 @@ defines.SIZE = [
 ]
 # chunk is more an upper limit here
 defines.CHUNK = [32, 8]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 if = [
@@ -2020,9 +2020,9 @@ defines.SIZE = [
 ]
 # chunk is more an upper limit here
 defines.CHUNK = [32, 8]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 if = [
@@ -2180,9 +2180,9 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS_O_RDONLY', 'LFS_O_WRONLY', 'LFS_O_RDWR']
 if = [
@@ -2283,9 +2283,9 @@ defines.SIZE = [
 ]
 # chunk is more an upper limit here
 defines.CHUNK = [32, 8]
-# 0 => no init
-# 1 => fill with data
-# 2 => truncate to size
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]

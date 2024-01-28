@@ -219,8 +219,8 @@ code = '''
 # the end of a directory
 [cases.test_dread_read_idempotent]
 defines.PARENT = [false, true]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -315,17 +315,17 @@ defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
 defines.PARENT = true
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x1, 0x2, 0x3]
 # more neighbors ensures mdir splits which can be its own source
 # of problems
 defines.NEIGHBOR_N = [1, 10, 100]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
-# 3 => seek with offset before mutation
-# 4 => rewind then seek with offset before mutation
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
+# SEEK=3 => seek with offset before mutation
+# SEEK=4 => rewind then seek with offset before mutation
 defines.SEEK = [0, 1, 2, 3, 4]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -440,17 +440,17 @@ defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
 defines.PARENT = true
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x1, 0x2, 0x3]
 # more neighbors ensures mdir splits which can be its own source
 # of problems
 defines.NEIGHBOR_N = [1, 10, 100]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
-# 3 => seek with offset before mutation
-# 4 => rewind then seek with offset before mutation
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
+# SEEK=3 => seek with offset before mutation
+# SEEK=4 => rewind then seek with offset before mutation
 defines.SEEK = [0, 1, 2, 3, 4]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -575,17 +575,17 @@ defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
 defines.PARENT = true
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x1, 0x2, 0x3]
 # more neighbors ensures mdir splits which can be its own source
 # of problems
 defines.NEIGHBOR_N = [1, 10, 100]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
-# 3 => seek with offset before mutation
-# 4 => rewind then seek with offset before mutation
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
+# SEEK=3 => seek with offset before mutation
+# SEEK=4 => rewind then seek with offset before mutation
 defines.SEEK = [0, 1, 2, 3, 4]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -717,12 +717,12 @@ defines.I = 'range(6)'
 # where do we mkdir?
 defines.J = 'range(6)'
 defines.PARENT = [false, true]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -818,12 +818,12 @@ defines.I = 'range(5)'
 # where do we rm?
 defines.J = 'range(5)'
 defines.PARENT = [false, true]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -922,16 +922,16 @@ defines.I = 'range(5)'
 defines.J = 'range(5)'
 defines.K = 'range(5)'
 defines.BEFORE = [false, true]
-# 0 => no
-# 1 => yes
-# 2 => yes, and rename to new parent
+# PARENT=0 => no
+# PARENT=1 => yes
+# PARENT=2 => yes, and rename to new parent
 defines.PARENT = [0, 1, 2]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # neighbors only make sense if we have a parent
 if = 'PARENT || NEIGHBORS == 0'
@@ -1044,12 +1044,12 @@ defines.I = 'range(6)'
 defines.J = 'range(6)'
 defines.K = 'range(6)'
 defines.PARENT = [false, true]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 if = [
     'J != K',
@@ -1155,12 +1155,12 @@ defines.I = 'range(5)'
 defines.J = 'range(5)'
 defines.K = 'range(5)'
 defines.PARENT = [false, true]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 if = [
     'J != K',
@@ -1266,16 +1266,16 @@ defines.I = 'range(5)'
 defines.J = 'range(5)'
 defines.K = 'range(5)'
 defines.BEFORE = [false, true]
-# 0 => no
-# 1 => yes
-# 2 => yes, and rename to new parent
+# PARENT=0 => no
+# PARENT=1 => yes
+# PARENT=2 => yes, and rename to new parent
 defines.PARENT = [0, 1, 2]
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # neighbors only make sense if we have a parent
 if = [
@@ -1396,12 +1396,12 @@ code = '''
 defines.N = 5
 # where in the dir read do we remove?
 defines.I = 'range(6)'
-# bit 0x2 = left neighbor
-# bit 0x1 = right neighbor
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
 defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 code = '''
     lfs_t lfs;
@@ -1491,9 +1491,9 @@ code = '''
 [cases.test_dread_recursive_rm]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # limit powerloss testing due to time
 if = '!TEST_PLS || N <= 32'
@@ -1622,13 +1622,13 @@ code = '''
 [cases.test_dread_recursive_mv]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
-# 0 => no
-# 1 => yes
-# 2 => yes, and rename to new parent
+# PARENT=0 => no
+# PARENT=1 => yes
+# PARENT=2 => yes, and rename to new parent
 defines.PARENT = [0, 1, 2]
-# 0 => don't seek
-# 1 => seek
-# 2 => rewind then seek
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # limit powerloss testing due to time
 if = '!TEST_PLS || N <= 32'

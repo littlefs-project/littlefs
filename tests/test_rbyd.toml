@@ -1938,8 +1938,8 @@ code = '''
 
 [cases.test_rbyd_atomic_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
@@ -2026,8 +2026,8 @@ code = '''
 
 [cases.test_rbyd_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -2293,8 +2293,8 @@ code = '''
 
 [cases.test_rbyd_atomic_traverse_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
@@ -2362,8 +2362,8 @@ code = '''
 
 [cases.test_rbyd_traverse_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -2433,8 +2433,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_update_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -2719,8 +2719,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_permutations]
 defines.N = 'range(1, 7)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -2870,8 +2870,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_traverse_permutations]
 defines.N = 'range(1, 7)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -3438,8 +3438,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_all_permutations]
 defines.N = 'range(1, 7)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -3911,8 +3911,8 @@ code = '''
 
 [cases.test_rbyd_create_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -4182,8 +4182,8 @@ code = '''
 
 [cases.test_rbyd_create_traverse_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -4724,8 +4724,8 @@ code = '''
 [cases.test_rbyd_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -5101,8 +5101,8 @@ code = '''
 [cases.test_rbyd_mixed_traverse_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -5210,8 +5210,8 @@ code = '''
 [cases.test_rbyd_mixed_update_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -5340,8 +5340,8 @@ code = '''
 [cases.test_rbyd_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -5537,8 +5537,8 @@ code = '''
 [cases.test_rbyd_mixed_remove_all_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -5752,8 +5752,8 @@ code = '''
 
 [cases.test_rbyd_unrelated_create_permutations]
 defines.N = 'range(1, 8)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -5891,8 +5891,8 @@ code = '''
 [cases.test_rbyd_unrelated_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -6419,8 +6419,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_permutations]
 defines.N = 'range(1, 7)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -6575,8 +6575,8 @@ code = '''
 [cases.test_rbyd_delete_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -6767,8 +6767,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_traverse_permutations]
 defines.N = 'range(1, 7)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -6893,8 +6893,8 @@ code = '''
 [cases.test_rbyd_delete_traverse_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -7287,8 +7287,8 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_all_permutations]
 defines.N = 'range(1, 7)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -7432,8 +7432,8 @@ code = '''
 [cases.test_rbyd_delete_all_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -8043,8 +8043,8 @@ code = '''
 [cases.test_rbyd_sparse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -8130,8 +8130,8 @@ code = '''
 [cases.test_rbyd_sparse_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9144,8 +9144,8 @@ code = '''
 [cases.test_rbyd_sparse_mixed_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9255,8 +9255,8 @@ code = '''
 [cases.test_rbyd_sparse_mixed_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9376,8 +9376,8 @@ code = '''
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9505,8 +9505,8 @@ code = '''
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9643,8 +9643,8 @@ code = '''
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9793,8 +9793,8 @@ code = '''
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -9922,8 +9922,8 @@ code = '''
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -10060,8 +10060,8 @@ code = '''
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -10209,8 +10209,8 @@ code = '''
 [cases.test_rbyd_sparse_delete_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -10365,8 +10365,8 @@ code = '''
 [cases.test_rbyd_sparse_attr_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -10891,8 +10891,8 @@ code = '''
 [cases.test_rbyd_subwide_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
@@ -10976,8 +10976,8 @@ code = '''
 [cases.test_rbyd_subwide_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -11115,8 +11115,8 @@ code = '''
 [cases.test_rbyd_subwide_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -11258,8 +11258,8 @@ code = '''
 [cases.test_rbyd_subwide_mixed_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
@@ -11345,8 +11345,8 @@ code = '''
 [cases.test_rbyd_subwide_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -11493,8 +11493,8 @@ code = '''
 [cases.test_rbyd_subwide_mixed_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -11645,8 +11645,8 @@ code = '''
 [cases.test_rbyd_subwide_weighted_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
@@ -11729,8 +11729,8 @@ code = '''
 [cases.test_rbyd_subwide_weighted_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -11870,8 +11870,8 @@ code = '''
 [cases.test_rbyd_subwide_weighted_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -12006,8 +12006,8 @@ code = '''
 [cases.test_rbyd_supwide_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
@@ -12091,8 +12091,8 @@ code = '''
 [cases.test_rbyd_supwide_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
@@ -12230,8 +12230,8 @@ code = '''
 [cases.test_rbyd_supwide_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
-# -1 => exhaust all permutations
-#  n => reproduce a specific permutation
+# PERMUTATION=-1 => exhaust all permutations
+# PERMUTATION=n  => reproduce a specific permutation
 defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'

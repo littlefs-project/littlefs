@@ -1183,8 +1183,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = 'lfs_min(64, SIZE)'
-# 0x1 => sync before orphaning
-# 0x2 => sync after orphaning
+# SYNC=0x1 => sync before orphaning
+# SYNC=0x2 => sync after orphaning
 defines.SYNC = [0, 1, 2, 3]
 code = '''
     lfs_t lfs;
@@ -1665,9 +1665,9 @@ code = '''
 
 [cases.test_forphan_orphan_open]
 defines.ORPHANS = [1, 2, 3, 100]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 code = '''
     lfs_t lfs;
@@ -1757,9 +1757,9 @@ code = '''
 
 [cases.test_forphan_orphan_mkdir]
 defines.ORPHANS = [1, 2, 3, 100]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 code = '''
     lfs_t lfs;
@@ -1838,9 +1838,9 @@ code = '''
 
 [cases.test_forphan_orphan_remove]
 defines.ORPHANS = [1, 2, 3, 100]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 code = '''
     lfs_t lfs;
@@ -1915,9 +1915,9 @@ defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
 defines.ORPHANS = [1, 2, 3, 100]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 code = '''
     lfs_t lfs;
@@ -2061,9 +2061,9 @@ code = '''
 
 [cases.test_forphan_orphan_rename_src]
 defines.ORPHANS = [1, 2, 3, 100]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 code = '''
     lfs_t lfs;
@@ -3363,13 +3363,13 @@ code = '''
 '''
 
 [cases.test_forphan_zombie_open]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -3468,13 +3468,13 @@ code = '''
 '''
 
 [cases.test_forphan_zombie_mkdir]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -3561,13 +3561,13 @@ code = '''
 '''
 
 [cases.test_forphan_zombie_remove]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -3650,13 +3650,13 @@ code = '''
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -3807,13 +3807,13 @@ code = '''
 '''
 
 [cases.test_forphan_zombie_rename_src]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -4123,13 +4123,13 @@ code = '''
 
 [cases.test_forphan_file_on_zombie_remove]
 defines.DIR = [false, true]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -4224,13 +4224,13 @@ code = '''
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -5613,13 +5613,13 @@ defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
 defines.SYNC = [false, true]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTRENAME = [false, true]
 if = 'REMOUNT <= CLOSE'
@@ -5773,13 +5773,13 @@ defines.DIR = [false, true]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
-# 0 => don't close (before end of test)
-# 1 => close after op
-# 2 => close before op
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
 defines.CLOSE = [0, 1, 2]
-# 0 => don't remount
-# 1 => remount after op
-# 2 => remount before op
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
 defines.POSTHUMOUS = [false, true]
 if = 'REMOUNT <= CLOSE'
