@@ -117,14 +117,14 @@ code = '''
     // create this many directories
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "dir%04d", i);
+        sprintf(name, "dir%03x", i);
         lfsr_mkdir(&lfs, name) => 0;
     }
 
     // check that our mkdir worked
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "dir%04d", i);
+        sprintf(name, "dir%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -145,7 +145,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "dir%04d", i);
+        sprintf(name, "dir%03x", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -219,7 +219,7 @@ code = '''
     // then check that we can read our directories after clobbering
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "dir%04d", i);
+        sprintf(name, "dir%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -238,7 +238,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "dir%04d", i);
+        sprintf(name, "dir%03x", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -274,7 +274,7 @@ code = '''
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "file%04d", i);
+        sprintf(name, "file%03x", i);
 
         uint8_t wbuf[SIZE];
         for (lfs_size_t j = 0; j < SIZE; j++) {
@@ -293,7 +293,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "file%04d", i);
+        sprintf(name, "file%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -391,7 +391,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "file%04d", i);
+        sprintf(name, "file%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -441,7 +441,7 @@ code = '''
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "file%04d", i);
+        sprintf(name, "file%03x", i);
 
         uint8_t wbuf[SIZE];
         for (lfs_size_t j = 0; j < SIZE; j++) {
@@ -563,7 +563,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "file%04d", i);
+        sprintf(name, "file%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);

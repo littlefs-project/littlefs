@@ -700,7 +700,7 @@ code = '''
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
 
         uint8_t wbuf[SIZE];
         for (lfs_size_t j = 0; j < SIZE; j++) {
@@ -733,7 +733,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -814,7 +814,7 @@ code = '''
 
         // create a file here
         char name[256];
-        sprintf(name, "amethyst%04d", x);
+        sprintf(name, "amethyst%03x", x);
         uint8_t wbuf[SIZE];
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -836,7 +836,7 @@ code = '''
     // check that our files match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -857,7 +857,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_REG);
@@ -869,7 +869,7 @@ code = '''
     // check the file contents
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
 
@@ -996,7 +996,7 @@ code = '''
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
 
         uint8_t wbuf[SIZE];
         for (lfs_size_t j = 0; j < SIZE; j++) {
@@ -1029,7 +1029,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -1053,7 +1053,7 @@ code = '''
     // now remove some number of files
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
         lfsr_remove(&lfs, name) => 0;
 
         // remount?
@@ -1070,7 +1070,7 @@ code = '''
     prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
 
         // keep prng in sync
         uint8_t wbuf[SIZE];
@@ -1169,7 +1169,7 @@ code = '''
 
             // create a file here
             char name[256];
-            sprintf(name, "amethyst%04d", x);
+            sprintf(name, "amethyst%03x", x);
             uint8_t wbuf[SIZE];
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -1195,7 +1195,7 @@ code = '''
 
             // delete this file
             char name[256];
-            sprintf(name, "amethyst%04d", x);
+            sprintf(name, "amethyst%03x", x);
             lfsr_remove(&lfs, name) => 0;
         }
     }
@@ -1209,7 +1209,7 @@ code = '''
     // check that our files match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -1230,7 +1230,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_REG);
@@ -1242,7 +1242,7 @@ code = '''
     // check the file contents
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
 
@@ -1286,7 +1286,7 @@ code = '''
     // create a number of directories to distance our files
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
-        sprintf(path, "basalt%04d", i);
+        sprintf(path, "basalt%03x", i);
         lfsr_mkdir(&lfs, path) => 0;
     }
 
@@ -1336,7 +1336,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
-        sprintf(path, "basalt%04d", i);
+        sprintf(path, "basalt%03x", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, path) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -1385,7 +1385,7 @@ code = '''
     // create a number of directories to distance our files
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
-        sprintf(path, "basalt%04d", i);
+        sprintf(path, "basalt%03x", i);
         lfsr_mkdir(&lfs, path) => 0;
     }
 
@@ -1445,7 +1445,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
-        sprintf(path, "basalt%04d", i);
+        sprintf(path, "basalt%03x", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, path) == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -1942,7 +1942,7 @@ code = '''
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
 
         uint8_t wbuf[SIZE];
         for (lfs_size_t j = 0; j < SIZE; j++) {
@@ -1975,7 +1975,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -1999,9 +1999,9 @@ code = '''
     // now rename our files
     for (lfs_size_t i = 0; i < N; i++) {
         char old_name[256];
-        sprintf(old_name, "amethyst%04d", i);
+        sprintf(old_name, "amethyst%03x", i);
         char new_name[256];
-        sprintf(new_name, "basalt%04d", i);
+        sprintf(new_name, "basalt%03x", i);
 
         lfsr_rename(&lfs, old_name, new_name) => 0;
 
@@ -2017,10 +2017,10 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // check with stat
         char name[256];
-        sprintf(name, "amethyst%04d", i);
+        sprintf(name, "amethyst%03x", i);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
-        sprintf(name, "basalt%04d", i);
+        sprintf(name, "basalt%03x", i);
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_REG);
@@ -2105,7 +2105,7 @@ code = '''
 
             // create a file here
             char name[256];
-            sprintf(name, "amethyst%04d", x);
+            sprintf(name, "amethyst%03x", x);
             uint8_t wbuf[SIZE];
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -2166,9 +2166,9 @@ code = '''
 
             // rename this file
             char old_name[256];
-            sprintf(old_name, "amethyst%04d", x);
+            sprintf(old_name, "amethyst%03x", x);
             char new_name[256];
-            sprintf(new_name, "amethyst%04d", y);
+            sprintf(new_name, "amethyst%03x", y);
             lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
@@ -2182,7 +2182,7 @@ code = '''
     // check that our files match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -2203,7 +2203,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_REG);
@@ -2215,7 +2215,7 @@ code = '''
     // check the file contents
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
 
@@ -2299,7 +2299,7 @@ code = '''
 
             // create a file here
             char name[256];
-            sprintf(name, "amethyst%04d", x);
+            sprintf(name, "amethyst%03x", x);
             uint8_t wbuf[SIZE];
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -2325,7 +2325,7 @@ code = '''
 
             // delete this file
             char name[256];
-            sprintf(name, "amethyst%04d", x);
+            sprintf(name, "amethyst%03x", x);
             lfsr_remove(&lfs, name) => 0;
 
         // renaming a file?
@@ -2377,9 +2377,9 @@ code = '''
 
             // rename this file
             char old_name[256];
-            sprintf(old_name, "amethyst%04d", x);
+            sprintf(old_name, "amethyst%03x", x);
             char new_name[256];
-            sprintf(new_name, "amethyst%04d", y);
+            sprintf(new_name, "amethyst%03x", y);
             lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
@@ -2393,7 +2393,7 @@ code = '''
     // check that our files match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
@@ -2414,7 +2414,7 @@ code = '''
     assert(info.size == 0);
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_REG);
@@ -2426,7 +2426,7 @@ code = '''
     // check the file contents
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "amethyst%04d", sim[j]);
+        sprintf(name, "amethyst%03x", sim[j]);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
 
