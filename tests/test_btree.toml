@@ -5,104 +5,6 @@ after = 'test_rbyd'
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 
-# TODO we should eventually replace these with
-# lfsr_btree_commit/lfsr_btree_lookup
-# helper functions
-in = 'lfs.c'
-code = '''
-    static int lfsr_btree_get(lfs_t *lfs,
-            const lfsr_btree_t *btree, lfs_size_t bid,
-            lfsr_tag_t *tag_, lfs_size_t *weight_,
-            void *buffer, lfs_size_t size) {
-        lfsr_data_t data;
-        int err = lfsr_btree_lookup(lfs, btree, bid,
-                tag_, weight_, &data);
-        if (err) {
-            return err;
-        }
-
-        return lfsr_data_read(lfs, &data, buffer, size);
-    }
-
-    static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
-            lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
-            lfsr_data_t data) {
-        LFS_ASSERT(bid <= btree->weight);
-        return lfsr_btree_commit(lfs, btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(TAG(tag), +weight, DATA(data))));
-    }
-
-    static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
-            lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
-            lfsr_data_t data) {
-        LFS_ASSERT(bid < btree->weight);
-        LFS_ASSERT(btree->weight > 0);
-
-        // lookup weight to compute deltas
-        lfs_size_t weight_;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
-                NULL, NULL, &weight_, NULL);
-        if (err) {
-            return err;
-        }
-
-        // note we need a second tag here in case our entry has a
-        // name attributes, the name attribute holds the weight not
-        // the struct tag
-        return lfsr_btree_commit(lfs, btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(SUBMASK(TAG(tag)), 0, DATA(data)),
-                LFSR_ATTR(GROW, weight - weight_, NULL())));
-    }
-
-    static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
-        LFS_ASSERT(bid < btree->weight);
-        LFS_ASSERT(btree->weight > 0);
-
-        // lookup weight to compute deltas
-        lfs_size_t weight_;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
-                NULL, NULL, &weight_, NULL);
-        if (err) {
-            return err;
-        }
-
-        return lfsr_btree_commit(lfs, btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(RM, -weight_, NULL())));
-    }
-
-    static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
-            lfs_size_t bid, lfsr_data_t name,
-            lfsr_tag_t tag1, lfs_size_t weight1, lfsr_data_t data1,
-            lfsr_tag_t tag2, lfs_size_t weight2, lfsr_data_t data2) {
-        LFS_ASSERT(bid < btree->weight);
-        LFS_ASSERT(btree->weight > 0);
-
-        // lookup weight to compute deltas
-        lfs_size_t weight_;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
-                NULL, NULL, &weight_, NULL);
-        if (err) {
-            return err;
-        }
-
-        lfsr_attr_t attrs[4];
-        lfs_size_t attr_count = 0;
-
-        attrs[attr_count++] = LFSR_ATTR(GROW, +weight1-weight_, NULL());
-        attrs[attr_count++] = LFSR_ATTR(TAG(tag1), 0, DATA(data1));
-        if (lfsr_data_size(&name) > 0) {
-            attrs[attr_count++] = LFSR_ATTR(NAME, +weight2, DATA(name));
-            attrs[attr_count++] = LFSR_ATTR(TAG(tag2), 0, DATA(data2));
-        } else {
-            attrs[attr_count++] = LFSR_ATTR(TAG(tag2), +weight2, DATA(data2));
-        }
-
-        LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
-        return lfsr_btree_commit(lfs, btree, bid, attrs, attr_count);
-    }
-'''
-
-
 # test an empty tree
 [cases.test_btree_zero]
 in = 'lfs.c'
@@ -127,12 +29,12 @@ code = '''
     assert(btree.weight == 0);
 
     // try looking up tags
-    uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 # test an inlined tree
@@ -152,8 +54,8 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -164,15 +66,17 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 # test a single-rbyd tree
@@ -192,10 +96,10 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -206,21 +110,24 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_two_backwards]
@@ -239,10 +146,10 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -253,21 +160,24 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 # still a single-rbyd tree, just making sure it works
@@ -287,12 +197,12 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("c", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("c", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -303,27 +213,31 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "c", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 3,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 3,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_three_backwards]
@@ -342,12 +256,12 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("c", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("c", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -358,27 +272,31 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "c", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 3,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 3,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 # try larger trees, when exactly a tree splits depends on the disk geometry, so
@@ -402,8 +320,8 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -421,18 +339,20 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_push_backwards]
@@ -454,8 +374,8 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+((N-1-i) % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+((N-1-i) % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -473,18 +393,20 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, n-1-i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, n-1-i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+((N-1-i) % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_push_fuzz]
@@ -520,8 +442,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        int err = lfsr_btree_push(&lfs, &btree, bid, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -554,17 +476,19 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, sim_size,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -591,8 +515,8 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +W, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -610,22 +534,23 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, i*W+W-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i*W+W-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n*W,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n*W,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
                 &bid_, &tag_, &weight_, &data_) => 0;
@@ -684,9 +609,8 @@ code = '''
         }
 
         // add to btree
-        int err = lfsr_btree_push(&lfs, &btree,
-                weighted_bid, LFSR_TAG_DATA, weight,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +weight, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -734,6 +658,7 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -741,20 +666,20 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == sim_weights[i]);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, total_weight,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, total_weight,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -798,11 +723,11 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
     // update the tree
-    lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("A", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -813,15 +738,17 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "A", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_update_two]
@@ -840,15 +767,15 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
     // update the tree
-    lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("A", 1)) => 0;
-    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("B", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("A", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("B", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -859,21 +786,24 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "A", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "B", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_update_three]
@@ -892,19 +822,19 @@ code = '''
     // create a two-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("c", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("c", 1)))) => 0;
     // update the tree
-    lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("A", 1)) => 0;
-    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("B", 1)) => 0;
-    lfsr_btree_set(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("C", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("A", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("B", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("C", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -915,27 +845,31 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "A", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "B", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "C", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 3,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 3,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_update]
@@ -956,8 +890,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -970,8 +904,8 @@ code = '''
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_set(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(SUBMASK(DATA), 0, BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -992,18 +926,20 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'A'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, N,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_update_fuzz]
@@ -1026,8 +962,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1054,8 +990,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % N;
 
         // update btree
-        int err = lfsr_btree_set(&lfs, &btree, bid, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(SUBMASK(DATA), 0, BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -1086,17 +1022,19 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, N,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, N,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -1121,8 +1059,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +W, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1135,8 +1073,8 @@ code = '''
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_set(&lfs, &btree, i*W+W-1, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i*W+W-1, LFSR_ATTRS(
+                LFSR_ATTR(SUBMASK(DATA), 0, BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1157,22 +1095,23 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_get(&lfs, &btree, i*W+W-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i*W+W-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
         assert(memcmp(buffer, &(uint8_t){'A'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N*W,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, N*W,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
                 &bid_, &tag_, &weight_, &data_) => 0;
@@ -1207,8 +1146,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +W, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1245,9 +1184,11 @@ code = '''
         }
 
         // update btree
-        int err = lfsr_btree_set(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_TAG_DATA, weight,
-                LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree,
+                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                    LFSR_ATTR(SUBMASK(DATA), 0, BUF(
+                        &(uint8_t){'A'+(i % 26)}, 1)),
+                    LFSR_ATTR(GROW, +weight-sim_weights[bid], NULL())));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -1291,6 +1232,7 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < N; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -1298,20 +1240,20 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == sim_weights[i]);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, total_weight,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, total_weight,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < N; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -1356,10 +1298,11 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
     // pop!
-    lfsr_btree_pop(&lfs, &btree, 0) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1370,13 +1313,14 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("A", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1384,14 +1328,15 @@ code = '''
     assert(btree.weight == 1);
 
     // try looking up tags
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "A", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop_two]
@@ -1410,12 +1355,13 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
     // pop!
-    lfsr_btree_pop(&lfs, &btree, 1) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1426,19 +1372,21 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("B", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("B", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1446,20 +1394,22 @@ code = '''
     assert(btree.weight == 2);
 
     // try looking up tags
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "B", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop_two_other]
@@ -1478,12 +1428,13 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
     // pop!
-    lfsr_btree_pop(&lfs, &btree, 0) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1494,19 +1445,21 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("A", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1514,20 +1467,22 @@ code = '''
     assert(btree.weight == 2);
 
     // try looking up tags
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "A", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop_three]
@@ -1546,14 +1501,15 @@ code = '''
     // create a single-entry tree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
-    lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("c", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("c", 1)))) => 0;
     // pop!
-    lfsr_btree_pop(&lfs, &btree, 2) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1564,25 +1520,28 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("C", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("C", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1590,26 +1549,29 @@ code = '''
     assert(btree.weight == 3);
 
     // try looking up tags
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "a", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "b", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 2,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 2,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "C", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, 3,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 3,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop]
@@ -1632,8 +1594,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1646,7 +1608,8 @@ code = '''
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        int err = lfsr_btree_pop(&lfs, &btree, N-1-i);
+        int err = lfsr_btree_commit(&lfs, &btree, N-1-i, LFSR_ATTRS(
+                LFSR_ATTR(RM, -1, NULL())));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1668,39 +1631,43 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, REMAINING,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try recovering
-    lfsr_btree_push(&lfs, &btree, REMAINING, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("R", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, REMAINING, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("R", 1)))) => 0;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
-    lfsr_btree_get(&lfs, &btree, REMAINING,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "R", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, REMAINING+1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING+1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop_backwards]
@@ -1723,8 +1690,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1737,7 +1704,8 @@ code = '''
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        int err = lfsr_btree_pop(&lfs, &btree, 0);
+        int err = lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+                LFSR_ATTR(RM, -1, NULL())));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1758,10 +1726,12 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer,
@@ -1769,30 +1739,32 @@ code = '''
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, REMAINING,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try recovering
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("R", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("R", 1)))) => 0;
 
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buffer, "R", 1) == 0);
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_get(&lfs, &btree, i+1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i+1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer,
                 &(uint8_t){'a'+((i+(N-REMAINING)) % 26)}, 1) == 0);
     }
 
-    lfsr_btree_get(&lfs, &btree, REMAINING+1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING+1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop_fuzz]
@@ -1816,8 +1788,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1845,7 +1817,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // remove from btree
-        int err = lfsr_btree_pop(&lfs, &btree, bid);
+        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(RM, -1, NULL())));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -1877,17 +1850,19 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, sim_size,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -1914,8 +1889,8 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_DATA, W,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +W, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1928,7 +1903,8 @@ code = '''
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        int err = lfsr_btree_pop(&lfs, &btree, (N-1-i)*W+W-1);
+        int err = lfsr_btree_commit(&lfs, &btree, (N-1-i)*W+W-1, LFSR_ATTRS(
+                LFSR_ATTR(RM, -W, NULL())));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -1949,43 +1925,46 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_get(&lfs, &btree, i*W+W-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i*W+W-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, REMAINING*W+W-1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING*W+W-1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try recovering
-    lfsr_btree_push(&lfs, &btree, REMAINING*W, LFSR_TAG_DATA, W,
-            LFSR_DATA_BUF("R", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, REMAINING*W, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +W, BUF("R", 1)))) => 0;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
-        lfsr_btree_get(&lfs, &btree, i*W+W-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i*W+W-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
-    lfsr_btree_get(&lfs, &btree, REMAINING*W+W-1,
-            &tag_, &weight_, buffer, 4) => 1;
+    lfsr_btree_lookup(&lfs, &btree, REMAINING*W+W-1,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == W);
     assert(memcmp(buffer, "R", 1) == 0);
 
-    lfsr_btree_get(&lfs, &btree, (REMAINING+1)*W+W-1,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, (REMAINING+1)*W+W-1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < REMAINING; i++) {
         lfsr_btree_lookupnext(&lfs, &btree, bid_+1,
                 &bid_, &tag_, &weight_, &data_) => 0;
@@ -2052,9 +2031,8 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        int err = lfsr_btree_push(&lfs, &btree,
-                weighted_bid, LFSR_TAG_DATA, weight,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +weight, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
@@ -2081,8 +2059,9 @@ code = '''
         }
 
         // remove from btree
-        int err = lfsr_btree_pop(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1);
+        int err = lfsr_btree_commit(&lfs, &btree,
+                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                    LFSR_ATTR(RM, -sim_weights[bid], NULL())));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2128,6 +2107,7 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -2135,20 +2115,20 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == sim_weights[i]);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, total_weight,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, total_weight,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -2191,15 +2171,13 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(0 % 26)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        int err = lfsr_btree_split(&lfs, &btree, i-1, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1),
-                LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'a'+((i-1) % 26)}, 1)),
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+((i-0) % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2217,18 +2195,20 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_split_fuzz]
@@ -2249,8 +2229,8 @@ code = '''
     // create a btree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("_", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -2267,9 +2247,9 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // split btree
-        int err = lfsr_btree_split(&lfs, &btree, bid, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'a'+(i % 26)}, 1)),
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2303,17 +2283,19 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, sim_size,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -2338,15 +2320,13 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
-            LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +W, BUF(&(uint8_t){'a'+(0 % 26)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1),
-                LFSR_TAG_DATA, W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'a'+((i-1) % 26)}, 1)),
+                LFSR_ATTR(DATA, +W, BUF(&(uint8_t){'a'+((i-0) % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2364,18 +2344,20 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, i*W+W-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i*W+W-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == W);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n*W,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n*W,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_split_sparse_fuzz]
@@ -2397,8 +2379,8 @@ code = '''
     // create a btree
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, W,
-            LFSR_DATA_BUF("_", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +W, BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -2427,12 +2409,13 @@ code = '''
         }
 
         // split btree
-        int err = lfsr_btree_split(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_DATA_NULL(),
-                LFSR_TAG_DATA, weight1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1),
-                LFSR_TAG_DATA, weight2,
-                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree,
+                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                    LFSR_ATTR(GROW, +weight1-sim_weights[bid], NULL()),
+                    LFSR_ATTR(DATA, 0, BUF(
+                        &(uint8_t){'a'+(i % 26)}, 1)),
+                    LFSR_ATTR(DATA, +weight2, BUF(
+                        &(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -2459,6 +2442,7 @@ code = '''
         uint8_t buffer[4];
         lfsr_tag_t tag_;
         lfs_size_t weight_;
+        lfsr_data_t data_;
         for (lfs_size_t i = 0; i < sim_size; i++) {
             // calculate actual bid in btree space
             lfs_size_t weighted_bid = 0;
@@ -2466,8 +2450,9 @@ code = '''
                 weighted_bid += sim_weights[j];
             }
 
-            lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
-                    &tag_, &weight_, buffer, 4) => 1;
+            lfsr_btree_lookup(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                    &tag_, &weight_, &data_) => 0;
+            lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
             assert(tag_ == LFSR_TAG_DATA);
             assert(weight_ == sim_weights[i]);
             assert(memcmp(buffer, &sim[i], 1) == 0);
@@ -2506,6 +2491,7 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -2513,20 +2499,20 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == sim_weights[i]);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, total_weight,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, total_weight,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -2575,25 +2561,26 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("_", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF(buf1, SIZE)),
+            LFSR_ATTR(DATA, +1, BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
-    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down to zero,
     // this should force one of the blocks to drop
-    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2604,15 +2591,17 @@ code = '''
     // check that our other entry is fine
     lfsr_tag_t tag_;
     lfs_size_t weight_;
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buf1, SIZE) => SIZE;
+    lfsr_data_t data_;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buf1, SIZE) => SIZE;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_drop_compact]
@@ -2638,20 +2627,20 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("_", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF(buf1, SIZE)),
+            LFSR_ATTR(DATA, +1, BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
-    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down this zero,
@@ -2659,7 +2648,8 @@ code = '''
     //
     // do this while forcing a compaction
     btree.eoff = -1;
-    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2670,15 +2660,17 @@ code = '''
     // check that our other entry is fine
     lfsr_tag_t tag_;
     lfs_size_t weight_;
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buf1, SIZE) => SIZE;
+    lfsr_data_t data_;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buf1, SIZE) => SIZE;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_drop_split]
@@ -2704,15 +2696,15 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("_", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF(buf1, SIZE)),
+            LFSR_ATTR(DATA, +1, BUF(buf2, SIZE)))) => 0;
 
     // force compaction, causing a split, but while we're splitting,
     // also remove an entry, bringing the split rbyd down to zero mid split
@@ -2720,7 +2712,8 @@ code = '''
     // messy, isn't it? this is why we need an explicit test
     //
     btree.eoff = -1;
-    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2731,15 +2724,17 @@ code = '''
     // check that our other entry is fine
     lfsr_tag_t tag_;
     lfs_size_t weight_;
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buf1, SIZE) => SIZE;
+    lfsr_data_t data_;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buf1, SIZE) => SIZE;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_drop_merge]
@@ -2765,32 +2760,33 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("_", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, +1, BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL(),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf1, SIZE),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF(buf1, SIZE)),
+            LFSR_ATTR(DATA, +1, BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
-    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF(buf2, SIZE)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now make both entries small so they should be merged if either compacts
-    lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("a", 1)) => 0;
-    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_DATA, 1,
-            LFSR_DATA_BUF("b", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(SUBMASK(DATA), 0, BUF("b", 1)))) => 0;
 
     // force compaction, while removing one entry, this drops the rbyd
     // down to zero while also triggering a merge
     btree.eoff = -1;
-    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
+            LFSR_ATTR(RM, -1, NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2801,15 +2797,17 @@ code = '''
     // check that our other entry is fine
     lfsr_tag_t tag_;
     lfs_size_t weight_;
-    lfsr_btree_get(&lfs, &btree, 0,
-            &tag_, &weight_, buf1, SIZE) => 1;
+    lfsr_data_t data_;
+    lfsr_btree_lookup(&lfs, &btree, 0,
+            &tag_, &weight_, &data_) => 0;
+    lfsr_data_read(&lfs, &data_, buf1, SIZE) => 1;
     assert(tag_ == LFSR_TAG_DATA);
     assert(weight_ == 1);
     assert(memcmp(buf1, ((SIBLING) ? "a" : "b"), 1) == 0);
 
     // and check that our pop worked
-    lfsr_btree_get(&lfs, &btree, 1,
-            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, 1,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 
@@ -2850,9 +2848,8 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            int err = lfsr_btree_push(&lfs, &btree, bid,
-                    LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -2866,9 +2863,9 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_set(&lfs, &btree, bid,
-                    LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(SUBMASK(DATA), 0, BUF(
+                        &(uint8_t){'a'+(i % 26)}, 1))));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -2880,7 +2877,8 @@ code = '''
 
         } else {
             // pop from btree
-            int err = lfsr_btree_pop(&lfs, &btree, bid);
+            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(RM, -1, NULL())));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -2913,17 +2911,19 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, sim_size,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -2976,9 +2976,9 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            int err = lfsr_btree_push(&lfs, &btree, weighted_bid,
-                    LFSR_TAG_DATA, weight,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+            int err = lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
+                    LFSR_ATTR(DATA, +weight, BUF(
+                        &(uint8_t){'a'+(i % 26)}, 1))));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -2995,9 +2995,11 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_set(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFSR_TAG_DATA, weight,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+            int err = lfsr_btree_commit(&lfs, &btree,
+                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                        LFSR_ATTR(SUBMASK(DATA), 0, BUF(
+                            &(uint8_t){'a'+(i % 26)}, 1)),
+                        LFSR_ATTR(GROW, +weight-sim_weights[bid], NULL())));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -3010,8 +3012,9 @@ code = '''
 
         } else {
             // remove from btree
-            int err = lfsr_btree_pop(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1);
+            int err = lfsr_btree_commit(&lfs, &btree,
+                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                        LFSR_ATTR(RM, -sim_weights[bid], NULL())));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -3058,6 +3061,7 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -3065,20 +3069,20 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == sim_weights[i]);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, total_weight,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, total_weight,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     lfs_size_t bid_ = -1;
-    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
         // calculate actual bid in btree space
         lfs_size_t weighted_bid = 0;
@@ -3210,10 +3214,12 @@ code = '''
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(DATA, 0, BUF("0", 1)))) => 0;
-    lfsr_btree_split(&lfs, &btree, 0,
-            LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aab", 3)),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("0", 1),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF("0", 1)),
+            LFSR_ATTR(NAME, +1, CAT(
+                LFSR_DATA_LEB128(0),
+                LFSR_DATA_BUF("aab", 3))),
+            LFSR_ATTR(DATA, 0, BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3274,14 +3280,18 @@ code = '''
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(DATA, 0, BUF("0", 1)))) => 0;
-    lfsr_btree_split(&lfs, &btree, 0,
-            LFSR_DATA_CAT(LFSR_DATA_LEB128(1*DID), LFSR_DATA_BUF("aab", 3)),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("0", 1),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1)) => 0;
-    lfsr_btree_split(&lfs, &btree, 1,
-            LFSR_DATA_CAT(LFSR_DATA_LEB128(2*DID), LFSR_DATA_BUF("aac", 3)),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("2", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF("0", 1)),
+            LFSR_ATTR(NAME, +1, CAT(
+                LFSR_DATA_LEB128(1*DID),
+                LFSR_DATA_BUF("aab", 3))),
+            LFSR_ATTR(DATA, 0, BUF("1", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF("1", 1)),
+            LFSR_ATTR(NAME, +1, CAT(
+                LFSR_DATA_LEB128(2*DID),
+                LFSR_DATA_BUF("aac", 3))),
+            LFSR_ATTR(DATA, 0, BUF("2", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3350,14 +3360,18 @@ code = '''
             LFSR_ATTR(NAME, +1,
                 CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR( DATA, 0, BUF("0", 1)))) => 0;
-    lfsr_btree_split(&lfs, &btree, 0,
-            LFSR_DATA_CAT(LFSR_DATA_LEB128(2*DID), LFSR_DATA_BUF("aac", 3)),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("2", 1)) => 0;
-    lfsr_btree_split(&lfs, &btree, 0,
-            LFSR_DATA_CAT(LFSR_DATA_LEB128(1*DID), LFSR_DATA_BUF("aab", 3)),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("0", 1),
-            LFSR_TAG_DATA, 1, LFSR_DATA_BUF("1", 1)) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF("1", 1)),
+            LFSR_ATTR(NAME, +1, CAT(
+                LFSR_DATA_LEB128(2*DID),
+                LFSR_DATA_BUF("aac", 3))),
+            LFSR_ATTR(DATA, 0, BUF("2", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+            LFSR_ATTR(DATA, 0, BUF("0", 1)),
+            LFSR_ATTR(NAME, +1, CAT(
+                LFSR_DATA_LEB128(1*DID),
+                LFSR_DATA_BUF("aab", 3))),
+            LFSR_ATTR(DATA, 0, BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3435,12 +3449,12 @@ code = '''
         char name[3] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
-        int err = lfsr_btree_split(&lfs, &btree, i-1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(i*DID), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1),
-                LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
+                LFSR_ATTR(NAME, +1, CAT(
+                    LFSR_DATA_LEB128(i*DID),
+                    LFSR_DATA_BUF(name, 3))),
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+((i-0) % 10)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3530,10 +3544,12 @@ code = '''
         }
 
         // split btree
-        int err = lfsr_btree_split(&lfs, &btree, bid,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1),
-                LFSR_TAG_DATA, 1, LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1)),
+                LFSR_ATTR(NAME, +1, CAT(
+                    LFSR_DATA_LEB128(0),
+                    LFSR_DATA_BUF(name, 3))),
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3619,12 +3635,12 @@ code = '''
         char name[3] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
-        int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(i*DID), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, W,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1),
-                LFSR_TAG_DATA, W,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
+                LFSR_ATTR(NAME, +W, CAT(
+                    LFSR_DATA_LEB128(i*DID),
+                    LFSR_DATA_BUF(name, 3))),
+                LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+((i-0) % 10)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3727,13 +3743,14 @@ code = '''
         }
 
         // split btree
-        int err = lfsr_btree_split(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3)),
-                LFSR_TAG_DATA, weight1,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1),
-                LFSR_TAG_DATA, weight2,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree,
+                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                    LFSR_ATTR(GROW, +weight1-sim_weights[bid], NULL()),
+                    LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1)),
+                    LFSR_ATTR(NAME, +weight2, CAT(
+                        LFSR_DATA_LEB128(0),
+                        LFSR_DATA_BUF(name, 3))),
+                    LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -3894,13 +3911,12 @@ code = '''
                 }
                 assert(err == 0);
             } else {
-                int err = lfsr_btree_split(&lfs, &btree,
-                        split_bid, LFSR_DATA_CAT(
+                int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
+                        LFSR_ATTR(DATA, 0, DATA( split_data)),
+                        LFSR_ATTR(NAME, +1, CAT(
                             LFSR_DATA_LEB128(0),
-                            LFSR_DATA_BUF(name, 3)),
-                        LFSR_TAG_DATA, 1, split_data,
-                        LFSR_TAG_DATA, 1,
-                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
+                            LFSR_DATA_BUF(name, 3))),
+                        LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
                 // ignore space issues
                 if (err == LFS_ERR_NOSPC) {
                     break;
@@ -3917,9 +3933,9 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_set(&lfs, &btree, bid,
-                    LFSR_TAG_DATA, 1,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
+            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(SUBMASK(DATA), 0, BUF(
+                        &(uint8_t){'0'+(i % 10)}, 1))));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -3931,7 +3947,8 @@ code = '''
 
         } else {
             // pop from btree
-            int err = lfsr_btree_pop(&lfs, &btree, bid);
+            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(RM, -1, NULL())));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -4064,9 +4081,10 @@ code = '''
             if (lfs_cmp(cmp) > 0) {
                 int err = lfsr_btree_commit(&lfs, &btree,
                         split_bid-(split_weight-1), LFSR_ATTRS(
-                            LFSR_ATTR(NAME, +weight, CAT(
-                                LFSR_DATA_LEB128(0),
-                                LFSR_DATA_BUF(name, 3))),
+                            LFSR_ATTR(
+                                NAME, +weight, CAT(
+                                    LFSR_DATA_LEB128(0),
+                                    LFSR_DATA_BUF(name, 3))),
                             LFSR_ATTR(
                                 DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
                 // ignore space issues
@@ -4075,14 +4093,13 @@ code = '''
                 }
                 assert(err == 0);
             } else {
-                int err = lfsr_btree_split(&lfs, &btree, split_bid,
-                        LFSR_DATA_CAT(
+                int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
+                        LFSR_ATTR(DATA, 0, DATA(
+                            split_data)),
+                        LFSR_ATTR(NAME, +weight, CAT(
                             LFSR_DATA_LEB128(0),
-                            LFSR_DATA_BUF(name, 3)),
-                        LFSR_TAG_DATA, split_weight,
-                            split_data,
-                        LFSR_TAG_DATA, weight,
-                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
+                            LFSR_DATA_BUF(name, 3))),
+                        LFSR_ATTR(DATA, 0, BUF(&(uint8_t){'0'+(i % 10)}, 1))));
                 // ignore space issues
                 if (err == LFS_ERR_NOSPC) {
                     break;
@@ -4102,9 +4119,11 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_set(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFSR_TAG_DATA, weight,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1));
+            int err = lfsr_btree_commit(&lfs, &btree,
+                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                        LFSR_ATTR(SUBMASK(DATA), 0, BUF(
+                            &(uint8_t){'0'+(i % 10)}, 1)),
+                        LFSR_ATTR(GROW, +weight-sim_weights[bid], NULL())));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -4117,8 +4136,9 @@ code = '''
 
         } else {
             // pop from btree
-            int err = lfsr_btree_pop(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1);
+            int err = lfsr_btree_commit(&lfs, &btree,
+                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
+                        LFSR_ATTR(RM, -sim_weights[bid], NULL())));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
                 break;
@@ -4216,8 +4236,8 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -4235,18 +4255,20 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
 
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // test that we can traverse the tree, keeping track of all blocks we see
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
@@ -4306,16 +4328,17 @@ code = '''
 
     // check that the elements are in the tree
     for (lfs_size_t i = 0; i < n; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, n,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, n,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_traversal_fuzz]
@@ -4351,8 +4374,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        int err = lfsr_btree_push(&lfs, &btree, bid, LFSR_TAG_DATA, 1,
-                LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1));
+        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(DATA, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             break;
@@ -4385,17 +4408,19 @@ code = '''
     uint8_t buffer[4];
     lfsr_tag_t tag_;
     lfs_size_t weight_;
+    lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, sim_size,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // test that we can traverse the tree, keeping track of all blocks
     // we see
@@ -4472,16 +4497,17 @@ code = '''
     assert(btree.weight == sim_size);
 
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
-                &tag_, &weight_, buffer, 4) => 1;
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_get(&lfs, &btree, sim_size,
-            &tag_, &weight_, buffer, 4) => LFS_ERR_NOENT;
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
