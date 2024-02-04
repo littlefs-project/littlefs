@@ -710,11 +710,14 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
     lfs_tag_t ntag = dir->etag;
     lfs_stag_t gdiff = 0;
 
+    // synthetic moves
     if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair) &&
-            lfs_tag_id(gmask) != 0 &&
-            lfs_tag_id(lfs->gdisk.tag) <= lfs_tag_id(gtag)) {
-        // synthetic moves
-        gdiff -= LFS_MKTAG(0, 1, 0);
+            lfs_tag_id(gmask) != 0) {
+        if (lfs_tag_id(lfs->gdisk.tag) == lfs_tag_id(gtag)) {
+            return LFS_ERR_NOENT;
+        } else if (lfs_tag_id(lfs->gdisk.tag) < lfs_tag_id(gtag)) {
+            gdiff -= LFS_MKTAG(0, 1, 0);
+        }
     }
 
     // iterate over dir block backwards (for faster lookups)
