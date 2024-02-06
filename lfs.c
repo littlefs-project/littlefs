@@ -5236,7 +5236,7 @@ static int lfsr_mdir_suplookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 }
 
 // track opened mdirs to keep state in-sync
-static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *o) {
+static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_opened_t *o) {
     for (lfsr_opened_t *o_ = lfs->opened; o_; o_ = o_->next) {
         if (o_ == o) {
             return true;
@@ -5246,14 +5246,14 @@ static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *o) {
     return false;
 }
 
-static void lfsr_addopened(lfs_t *lfs, lfsr_opened_t *o) {
-    LFS_ASSERT(!lfsr_isopened(lfs, o));
+static void lfsr_opened_add(lfs_t *lfs, lfsr_opened_t *o) {
+    LFS_ASSERT(!lfsr_opened_isopen(lfs, o));
     o->next = lfs->opened;
     lfs->opened = o;
 }
 
-static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *o) {
-    LFS_ASSERT(lfsr_isopened(lfs, o));
+static void lfsr_opened_remove(lfs_t *lfs, lfsr_opened_t *o) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, o));
     for (lfsr_opened_t **o_ = &lfs->opened; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
             *o_ = (*o_)->next;
@@ -5262,7 +5262,7 @@ static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *o) {
     }
 }
 
-static bool lfsr_mid_isopened(lfs_t *lfs, lfsr_smid_t mid) {
+static bool lfsr_mid_isopen(lfs_t *lfs, lfsr_smid_t mid) {
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         // we really only care about regular open files here, all
         // others are either transient (dirs) or fake (orphans)
@@ -8343,7 +8343,7 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 
     while (true) {
         // is this mid opened? skip
-        if (!lfsr_mid_isopened(lfs, mdir.mid)) {
+        if (!lfsr_mid_isopen(lfs, mdir.mid)) {
             // are we an orphaned file?
             err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
                     NULL);
@@ -8644,7 +8644,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // are we removing an opened file?
-    bool zombie = lfsr_mid_isopened(lfs, mdir.mid);
+    bool zombie = lfsr_mid_isopen(lfs, mdir.mid);
     // adjust grm rid if grm is on the same mdir as our dir
     if (!zombie
             && lfsr_mid_bid(lfs, grm.rms[0]) == lfsr_mid_bid(lfs, mdir.mid)
@@ -8966,15 +8966,15 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // add to tracked mdirs
-    lfsr_addopened(lfs, &dir->p);
-    lfsr_addopened(lfs, &dir->b);
+    lfsr_opened_add(lfs, &dir->p);
+    lfsr_opened_add(lfs, &dir->b);
     return 0;
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
     // remove from tracked mdirs
-    lfsr_removeopened(lfs, &dir->p);
-    lfsr_removeopened(lfs, &dir->b);
+    lfsr_opened_remove(lfs, &dir->p);
+    lfsr_opened_remove(lfs, &dir->b);
     return 0;
 }
 
@@ -9383,7 +9383,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // add to tracked mdirs
-    lfsr_addopened(lfs, &file->m);
+    lfsr_opened_add(lfs, &file->m);
     return 0;
 
 failed:;
@@ -9415,7 +9415,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // remove from tracked mdirs
-    lfsr_removeopened(lfs, &file->m);
+    lfsr_opened_remove(lfs, &file->m);
 
     // clean up memory
     if (!file->cfg->buffer) {
@@ -9426,7 +9426,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     //
     // make sure we check _after_ removing ourselves
     if (lfsr_f_isorphan(file->m.flags)
-            && !lfsr_mid_isopened(lfs, file->m.mdir.mid)) {
+            && !lfsr_mid_isopen(lfs, file->m.mdir.mid)) {
         // this gets a bit tricky, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
         // a few tricks

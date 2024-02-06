@@ -2201,14 +2201,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "c", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0c", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_t mdir;
@@ -2238,8 +2238,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2257,14 +2257,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0b", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // try removing left neighbor
     lfsr_mdir_t mdir;
@@ -2285,8 +2285,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2304,14 +2304,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0b", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // try removing right neighbor
     lfsr_mdir_t mdir;
@@ -2332,8 +2332,8 @@ code = '''
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2353,14 +2353,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0d", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2401,8 +2401,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2422,14 +2422,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "e", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0e", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2481,8 +2481,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2502,14 +2502,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0b", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // force mroot to compact twice, this should extend the mroot
     lfsr_mdir_t old_mroot = lfs.mroot;
@@ -2535,8 +2535,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2558,14 +2558,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0d", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2620,8 +2620,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2643,14 +2643,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0d", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2705,8 +2705,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2726,14 +2726,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "f", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0f", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2801,8 +2801,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2822,14 +2822,14 @@ code = '''
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0a", 2)))) => 0;
-    lfsr_addopened(&lfs, &left);
+    lfsr_opened_add(&lfs, &left);
 
     lfsr_opened_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, 0, "e", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\0e", 2)))) => 0;
-    lfsr_addopened(&lfs, &right);
+    lfsr_opened_add(&lfs, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2890,8 +2890,8 @@ code = '''
     assert(right.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(right.mdir.rbyd.cksum == mdir.rbyd.cksum);
 
-    lfsr_removeopened(&lfs, &left);
-    lfsr_removeopened(&lfs, &right);
+    lfsr_opened_remove(&lfs, &left);
+    lfsr_opened_remove(&lfs, &right);
     lfsr_unmount(&lfs) => 0;
 '''
 
