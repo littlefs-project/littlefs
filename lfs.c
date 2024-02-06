@@ -4650,34 +4650,34 @@ typedef struct lfsr_btraversal {
         .branch.weight=0})
 
 static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_btraversal_t *btraversal,
+        lfsr_btraversal_t *t,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
     // explicitly traverse the root even if weight=0
-    if (btraversal->branch.trunk == 0
+    if (t->branch.trunk == 0
             // unless we don't even have a root yet
             && lfsr_rbyd_trunk(btree) != 0
             // or are a shrub
             && !lfsr_rbyd_isshrub(btree)) {
-        btraversal->rid = btraversal->bid;
-        btraversal->branch = *btree;
+        t->rid = t->bid;
+        t->branch = *btree;
 
         // traverse the root
-        if (btraversal->rid == 0) {
+        if (t->rid == 0) {
             if (bid_) {
                 *bid_ = btree->weight-1;
             }
             if (tinfo_) {
                 tinfo_->tag = LFSR_TAG_BRANCH;
-                tinfo_->u.rbyd = btraversal->branch;
+                tinfo_->u.rbyd = t->branch;
             }
             return 0;
         }
     }
 
     // need to restart from the root?
-    if (btraversal->rid >= btraversal->branch.weight) {
-        btraversal->rid = btraversal->bid;
-        btraversal->branch = *btree;
+    if (t->rid >= t->branch.weight) {
+        t->rid = t->bid;
+        t->branch = *btree;
     }
 
     // descend down the tree
@@ -4686,16 +4686,14 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookupnext(lfs, &btraversal->branch,
-                btraversal->rid, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, &t->branch, t->rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             return err;
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_sublookup(lfs, &btraversal->branch,
-                    rid__, LFSR_TAG_STRUCT,
+            err = lfsr_rbyd_sublookup(lfs, &t->branch, rid__, LFSR_TAG_STRUCT,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4706,25 +4704,25 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
         // found another branch
         if (tag__ == LFSR_TAG_BRANCH) {
             // adjust rid with subtree's weight
-            btraversal->rid -= (rid__ - (weight__-1));
+            t->rid -= (rid__ - (weight__-1));
 
             // fetch the next branch
             err = lfsr_data_readbranch(lfs, &data__, weight__,
-                    &btraversal->branch);
+                    &t->branch);
             if (err) {
                 return err;
             }
-            LFS_ASSERT((lfsr_bid_t)btraversal->branch.weight == weight__);
+            LFS_ASSERT((lfsr_bid_t)t->branch.weight == weight__);
 
             // return inner btree nodes if this is the first time we've
             // seen them
-            if (btraversal->rid == 0) {
+            if (t->rid == 0) {
                 if (bid_) {
-                    *bid_ = btraversal->bid + (rid__ - btraversal->rid);
+                    *bid_ = t->bid + (rid__ - t->rid);
                 }
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_BRANCH;
-                    tinfo_->u.rbyd = btraversal->branch;
+                    tinfo_->u.rbyd = t->branch;
                 }
                 return 0;
             }
@@ -4735,9 +4733,9 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
             //
             // note this effectively traverses a full leaf without redoing
             // the btree walk
-            lfsr_bid_t bid__ = btraversal->bid + (rid__ - btraversal->rid);
-            btraversal->bid = bid__ + 1;
-            btraversal->rid = rid__ + 1;
+            lfsr_bid_t bid__ = t->bid + (rid__ - t->rid);
+            t->bid = bid__ + 1;
+            t->rid = rid__ + 1;
 
             if (bid_) {
                 *bid_ = bid__;
@@ -4752,9 +4750,9 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
 }
 
 static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_btraversal_t *btraversal,
+        lfsr_btraversal_t *t,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
-    return lfsr_btree_traverse_(lfs, btree, btraversal,
+    return lfsr_btree_traverse_(lfs, btree, t,
             bid_, tinfo_);
 }
 
@@ -4799,10 +4797,8 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
         const lfsr_data_t *sprout) {
     // only include the last reference
     const lfsr_data_t *last = NULL;
-    for (lfsr_opened_t *opened_ = lfs->opened;
-            opened_;
-            opened_ = opened_->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbsprout(&file_->m.mdir, &file_->bshrub)
                 && lfsr_sprout_cmp(&file_->bshrub.u.bsprout, sprout) == 0) {
@@ -4830,10 +4826,8 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
     // stage any opened inlined files with their new location so we
     // can update these later if our commit is a success
-    for (lfsr_opened_t *opened_ = lfs->opened;
-            opened_;
-            opened_ = opened_->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbsprout(&file_->m.mdir, &file_->bshrub)
                 && lfsr_sprout_cmp(
@@ -4919,10 +4913,8 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
         const lfsr_shrub_t *shrub) {
     // only include the last reference
     const lfsr_shrub_t *last = NULL;
-    for (lfsr_opened_t *opened_ = lfs->opened;
-            opened_;
-            opened_ = opened_->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)
                 && lfsr_shrub_cmp(&file_->bshrub.u.bshrub, shrub) == 0) {
@@ -4953,10 +4945,8 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // update these later if our commit is a success
     //
     // this should include our current bshrub
-    for (lfsr_opened_t *opened_ = lfs->opened;
-            opened_;
-            opened_ = opened_->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)
                 && lfsr_shrub_cmp(&file_->bshrub.u.bshrub, shrub) == 0) {
@@ -5246,9 +5236,9 @@ static int lfsr_mdir_suplookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 }
 
 // track opened mdirs to keep state in-sync
-static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *opened) {
-    for (lfsr_opened_t *p = lfs->opened; p; p = p->next) {
-        if (p == opened) {
+static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *o) {
+    for (lfsr_opened_t *o_ = lfs->opened; o_; o_ = o_->next) {
+        if (o_ == o) {
             return true;
         }
     }
@@ -5256,27 +5246,27 @@ static bool lfsr_isopened(lfs_t *lfs, const lfsr_opened_t *opened) {
     return false;
 }
 
-static void lfsr_addopened(lfs_t *lfs, lfsr_opened_t *opened) {
-    LFS_ASSERT(!lfsr_isopened(lfs, opened));
-    opened->next = lfs->opened;
-    lfs->opened = opened;
+static void lfsr_addopened(lfs_t *lfs, lfsr_opened_t *o) {
+    LFS_ASSERT(!lfsr_isopened(lfs, o));
+    o->next = lfs->opened;
+    lfs->opened = o;
 }
 
-static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *opened) {
-    LFS_ASSERT(lfsr_isopened(lfs, opened));
-    for (lfsr_opened_t **p = &lfs->opened; *p; p = &(*p)->next) {
-        if (*p == opened) {
-            *p = (*p)->next;
+static void lfsr_removeopened(lfs_t *lfs, lfsr_opened_t *o) {
+    LFS_ASSERT(lfsr_isopened(lfs, o));
+    for (lfsr_opened_t **o_ = &lfs->opened; *o_; o_ = &(*o_)->next) {
+        if (*o_ == o) {
+            *o_ = (*o_)->next;
             break;
         }
     }
 }
 
 static bool lfsr_mid_isopened(lfs_t *lfs, lfsr_smid_t mid) {
-    for (lfsr_opened_t *p = lfs->opened; p; p = p->next) {
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         // we really only care about regular open files here, all
         // others are either transient (dirs) or fake (orphans)
-        if (p->type == LFS_TYPE_REG && p->mdir.mid == mid) {
+        if (o->type == LFS_TYPE_REG && o->mdir.mid == mid) {
             return true;
         }
     }
@@ -5632,10 +5622,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 // we're not quite done! we also need to bring over any
                 // unsynced files
-                for (lfsr_opened_t *opened = lfs->opened;
-                        opened;
-                        opened = opened->next) {
-                    lfsr_file_t *file = (lfsr_file_t*)opened;
+                for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+                    lfsr_file_t *file = (lfsr_file_t*)o;
                     // belongs to our mid?
                     if (file->m.type != LFS_TYPE_REG
                             || file->m.mdir.mid != mdir__->mid) {
@@ -5874,10 +5862,8 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
         // this is O(n^2), but littlefs is unlikely to have many open
         // files, I suppose if this becomes a problem we could sort
         // opened files by mid
-        for (lfsr_opened_t *opened = lfs->opened;
-                opened;
-                opened = opened->next) {
-            lfsr_file_t *file = (lfsr_file_t*)opened;
+        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+            lfsr_file_t *file = (lfsr_file_t*)o;
             // belongs to our mdir + rid?
             if (file->m.type != LFS_TYPE_REG
                     || lfsr_mdir_cmp(&file->m.mdir, mdir) != 0
@@ -6022,10 +6008,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     // we're not quite done! we also need to bring over any unsynced files
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        lfsr_file_t *file = (lfsr_file_t*)opened;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file = (lfsr_file_t*)o;
         // belongs to our mdir?
         if (file->m.type != LFS_TYPE_REG
                 || lfsr_mdir_cmp(&file->m.mdir, mdir) != 0
@@ -6189,11 +6173,9 @@ static int lfsr_mroot_commit_(lfs_t *lfs,
     // mark any copies of our mroot as unerased
     lfs->mroot.rbyd.eoff = -1;
 
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        if (lfsr_mdir_cmp(&opened->mdir, &lfs->mroot) == 0) {
-            opened->mdir.rbyd.eoff = -1;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        if (lfsr_mdir_cmp(&o->mdir, &lfs->mroot) == 0) {
+            o->mdir.rbyd.eoff = -1;
         }
     }
 
@@ -6312,16 +6294,14 @@ static int lfsr_mroot_commit_(lfs_t *lfs,
     }
 
     // success? update in-device state, we must not error at this point
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        if (lfsr_mdir_cmp(&opened->mdir, &lfs->mroot) == 0) {
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        if (lfsr_mdir_cmp(&o->mdir, &lfs->mroot) == 0) {
             // update any opened mdirs in our mroot
-            opened->mdir.rbyd = mroot_.rbyd;
+            o->mdir.rbyd = mroot_.rbyd;
 
             // update staged changes
-            if (opened->type == LFS_TYPE_REG) {
-                lfsr_file_t *file = (lfsr_file_t*)opened;
+            if (o->type == LFS_TYPE_REG) {
+                lfsr_file_t *file = (lfsr_file_t*)o;
                 file->bshrub = file->bshrub_;
             }
         }
@@ -6421,21 +6401,19 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         // mark any copies of our mdir as unerased in case we fail
         //
         // note we need to not mark the mroot as unerased, because that
         // would force the mroot to always compact
         //
-        if (lfsr_mdir_cmp(&opened->mdir, mdir) == 0) {
-            opened->mdir.rbyd.eoff = -1;
+        if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
+            o->mdir.rbyd.eoff = -1;
         }
 
         // stage any bsprouts/bshrubs
-        if (opened->type == LFS_TYPE_REG) {
-            lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (o->type == LFS_TYPE_REG) {
+            lfsr_file_t *file = (lfsr_file_t*)o;
             file->bshrub_ = file->bshrub;
         }
     }
@@ -6777,17 +6755,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
+    for (lfsr_opened_t *o = lfs->opened;
+            o;
+            o = o->next) {
         // update staged changes
-        if (opened->type == LFS_TYPE_REG) {
-            lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (o->type == LFS_TYPE_REG) {
+            lfsr_file_t *file = (lfsr_file_t*)o;
             file->bshrub = file->bshrub_;
         }
 
         // avoid double updating current mdir
-        if (&opened->mdir == mdir) {
+        if (&o->mdir == mdir) {
             continue;
         }
 
@@ -6795,36 +6773,36 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t mid = mdir->mid;
         for (lfs_size_t i = 0; i < attr_count; i++) {
             // adjust opened mdirs?
-            if (lfsr_mdir_cmp(&opened->mdir, mdir) == 0
-                    && opened->mdir.mid >= mid) {
+            if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
+                    && o->mdir.mid >= mid) {
                 // replaced?
-                if (opened->mdir.mid == mid - attrs[i].delta
+                if (o->mdir.mid == mid - attrs[i].delta
                         && lfsr_tag_issupwide(attrs[i].tag)) {
-                    opened->flags |= LFS_F_ZOMBIE
+                    o->flags |= LFS_F_ZOMBIE
                             | LFS_F_UNSYNC
                             | LFS_O_DESYNC;
-                    opened->flags &= ~LFS_F_ORPHAN;
+                    o->flags &= ~LFS_F_ORPHAN;
                 // removed?
-                } else if (opened->mdir.mid < mid - attrs[i].delta) {
+                } else if (o->mdir.mid < mid - attrs[i].delta) {
                     // we should not be removing opened regular files
-                    LFS_ASSERT(opened->type != LFS_TYPE_REG);
-                    opened->flags |= LFS_F_ZOMBIE;
-                    opened->mdir.mid = mid;
+                    LFS_ASSERT(o->type != LFS_TYPE_REG);
+                    o->flags |= LFS_F_ZOMBIE;
+                    o->mdir.mid = mid;
                 } else {
-                    opened->mdir.mid += attrs[i].delta;
+                    o->mdir.mid += attrs[i].delta;
                     // adjust dir position?
-                    if (opened->type == LFS_TYPE_DIR) {
-                        ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
-                    } else if (opened->type == LFS_TYPE_BOOKMARK) {
-                        ((lfsr_dir_t*)(opened-1))->pos -= attrs[i].delta;
+                    if (o->type == LFS_TYPE_DIR) {
+                        ((lfsr_dir_t*)o)->pos += attrs[i].delta;
+                    } else if (o->type == LFS_TYPE_BOOKMARK) {
+                        ((lfsr_dir_t*)(o-1))->pos -= attrs[i].delta;
                     }
                 }
-            } else if (opened->mdir.mid > mdir->mid) {
+            } else if (o->mdir.mid > mdir->mid) {
                 // adjust dir position?
-                if (opened->type == LFS_TYPE_DIR) {
-                    ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
-                } else if (opened->type == LFS_TYPE_BOOKMARK) {
-                    ((lfsr_dir_t*)(opened-1))->pos -= attrs[i].delta;
+                if (o->type == LFS_TYPE_DIR) {
+                    ((lfsr_dir_t*)o)->pos += attrs[i].delta;
+                } else if (o->type == LFS_TYPE_BOOKMARK) {
+                    ((lfsr_dir_t*)(o-1))->pos -= attrs[i].delta;
                 }
             }
 
@@ -6836,18 +6814,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // update any opened mdirs if we had a split or drop
-        if (lfsr_mdir_cmp(&opened->mdir, mdir) == 0) {
+        if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
             if (mdelta > 0
-                    && lfsr_mid_rid(lfs, opened->mdir.mid)
-                        >= mdir_.rbyd.weight) {
-                opened->mdir.mid += lfsr_mleafweight(lfs)
-                        - mdir_.rbyd.weight;
-                opened->mdir.rbyd = msibling_.rbyd;
+                    && lfsr_mid_rid(lfs, o->mdir.mid) >= mdir_.rbyd.weight) {
+                o->mdir.mid += lfsr_mleafweight(lfs) - mdir_.rbyd.weight;
+                o->mdir.rbyd = msibling_.rbyd;
             } else {
-                opened->mdir.rbyd = mdir_.rbyd;
+                o->mdir.rbyd = mdir_.rbyd;
             }
-        } else if (opened->mdir.mid > mdir->mid) {
-            opened->mdir.mid += mdelta;
+        } else if (o->mdir.mid > mdir->mid) {
+            o->mdir.mid += mdelta;
         }
     }
 
@@ -7155,9 +7131,9 @@ typedef struct lfsr_traversal {
             uint8_t power;
         } mtortoise;
         // btree traversal state, only valid when traversing the mtree
-        lfsr_btraversal_t mtraversal;
+        lfsr_btraversal_t mt;
         // opened file state, only valid when traversing opened files
-        const lfsr_opened_t *opened;
+        const lfsr_opened_t *o;
     } u;
     // we really don't want to pay the RAM cost for a full file,
     // so only store the relevant bits, is this a hack? yes
@@ -7168,7 +7144,7 @@ typedef struct lfsr_traversal {
         lfsr_mdir_t mdir;
         lfsr_bshrub_t bshrub;
     } file;
-    lfsr_btraversal_t btraversal;
+    lfsr_btraversal_t bt;
 } lfsr_traversal_t;
 
 enum {
@@ -7199,42 +7175,41 @@ enum {
         .u.mtortoise.step=0, \
         .u.mtortoise.power=0})
 
-static inline bool lfsr_traversal_isall(const lfsr_traversal_t *traversal) {
-    return traversal->flags & LFSR_TRAVERSAL_ALL;
+static inline bool lfsr_traversal_isall(const lfsr_traversal_t *t) {
+    return t->flags & LFSR_TRAVERSAL_ALL;
 }
 
-static inline bool lfsr_traversal_isvalidate(
-        const lfsr_traversal_t *traversal) {
-    return traversal->flags & LFSR_TRAVERSAL_VALIDATE;
+static inline bool lfsr_traversal_isvalidate(const lfsr_traversal_t *t) {
+    return t->flags & LFSR_TRAVERSAL_VALIDATE;
 }
 
 // needed in lfsr_traversal_read
 static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
-        lfsr_btraversal_t *btraversal,
+        lfsr_btraversal_t *t,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_);
 
-static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
+static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         lfsr_tinfo_t *tinfo_) {
     while (true) {
-        switch (traversal->state) {
+        switch (t->state) {
         // start with the mrootanchor 0x{0,1}
         //
         // note we make sure to include all mroots in our mroot chain!
         //
         case LFSR_TRAVERSAL_MROOTANCHOR:;
             // fetch the first mroot 0x{0,1}
-            int err = lfsr_mdir_fetch(lfs, &traversal->file.mdir,
+            int err = lfsr_mdir_fetch(lfs, &t->file.mdir,
                     -1, &LFSR_MPTR_MROOTANCHOR());
             if (err) {
                 return err;
             }
 
             // transition to traversing the mroot chain
-            traversal->state = LFSR_TRAVERSAL_MROOTCHAIN;
+            t->state = LFSR_TRAVERSAL_MROOTCHAIN;
 
             if (tinfo_) {
                 tinfo_->tag = LFSR_TAG_MDIR;
-                tinfo_->u.mdir = traversal->file.mdir;
+                tinfo_->u.mdir = t->file.mdir;
             }
             return 0;
 
@@ -7243,15 +7218,15 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // lookup mroot, if we find one this is a fake mroot
             lfsr_tag_t tag;
             lfsr_data_t data;
-            err = lfsr_mdir_sublookup(lfs, &traversal->file.mdir,
+            err = lfsr_mdir_sublookup(lfs, &t->file.mdir,
                     LFSR_TAG_STRUCT,
                     &tag, &data);
             if (err) {
                 // if we have no mtree/mdir (inlined mdir), we need to traverse
                 // any files in our mroot next
                 if (err == LFS_ERR_NOENT) {
-                    traversal->file.mdir.mid = 0;
-                    traversal->state = LFSR_TRAVERSAL_MDIR;
+                    t->file.mdir.mid = 0;
+                    t->state = LFSR_TRAVERSAL_MDIR;
                     continue;
                 }
                 return err;
@@ -7271,31 +7246,31 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // inner nodes require checksums of their pointers, so creating
                 // a valid cycle is actually quite difficult
                 //
-                if (lfsr_mptr_cmp(&mptr, &traversal->u.mtortoise.mptr) == 0) {
+                if (lfsr_mptr_cmp(&mptr, &t->u.mtortoise.mptr) == 0) {
                     LFS_ERROR("Cycle detected during mtree traversal "
                             "0x{%"PRIx32",%"PRIx32"}",
                             mptr.blocks[0],
                             mptr.blocks[1]);
                     return LFS_ERR_CORRUPT;
                 }
-                if (traversal->u.mtortoise.step
+                if (t->u.mtortoise.step
                         // TODO why cast?
-                        == ((lfs_block_t)1 << traversal->u.mtortoise.power)) {
-                    traversal->u.mtortoise.mptr = mptr;
-                    traversal->u.mtortoise.step = 0;
-                    traversal->u.mtortoise.power += 1;
+                        == ((lfs_block_t)1 << t->u.mtortoise.power)) {
+                    t->u.mtortoise.mptr = mptr;
+                    t->u.mtortoise.step = 0;
+                    t->u.mtortoise.power += 1;
                 }
-                traversal->u.mtortoise.step += 1;
+                t->u.mtortoise.step += 1;
 
                 // fetch this mroot
-                err = lfsr_mdir_fetch(lfs, &traversal->file.mdir, -1, &mptr);
+                err = lfsr_mdir_fetch(lfs, &t->file.mdir, -1, &mptr);
                 if (err) {
                     return err;
                 }
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_MDIR;
-                    tinfo_->u.mdir = traversal->file.mdir;
+                    tinfo_->u.mdir = t->file.mdir;
                 }
                 return 0;
 
@@ -7308,17 +7283,17 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                     return err;
                 }
 
-                err = lfsr_mdir_fetch(lfs, &traversal->file.mdir, 0, &mptr);
+                err = lfsr_mdir_fetch(lfs, &t->file.mdir, 0, &mptr);
                 if (err) {
                     return err;
                 }
 
                 // transition to mdir traversal next
-                traversal->state = LFSR_TRAVERSAL_MDIR;
+                t->state = LFSR_TRAVERSAL_MDIR;
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_MDIR;
-                    tinfo_->u.mdir = traversal->file.mdir;
+                    tinfo_->u.mdir = t->file.mdir;
                 }
                 return 0;
 
@@ -7335,7 +7310,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // validate our btree nodes if requested, this just means we
                 // need to do a full rbyd fetch and make sure the checksums
                 // match
-                if (lfsr_traversal_isvalidate(traversal)) {
+                if (lfsr_traversal_isvalidate(t)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &mtree,
                             mtree.blocks[0], mtree.trunk, mtree.weight,
                             mtree.cksum);
@@ -7345,8 +7320,8 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 }
 
                 // transition to traversing the mtree
-                traversal->state = LFSR_TRAVERSAL_MTREE;
-                traversal->u.mtraversal = LFSR_BTRAVERSAL();
+                t->state = LFSR_TRAVERSAL_MTREE;
+                t->u.mt = LFSR_BTRAVERSAL();
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_BRANCH;
@@ -7363,8 +7338,8 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
         case LFSR_TRAVERSAL_MTREE:;
             // no mtree? transition to traversing any opened mdirs
             if (lfsr_mtree_ismptr(lfs)) {
-                traversal->u.opened = lfs->opened;
-                traversal->state = LFSR_TRAVERSAL_OPENED;
+                t->u.o = lfs->opened;
+                t->state = LFSR_TRAVERSAL_OPENED;
                 continue;
             }
 
@@ -7372,13 +7347,13 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             lfsr_bid_t bid;
             lfsr_tinfo_t tinfo;
             err = lfsr_btree_traverse(lfs, &lfs->mtree.u.btree,
-                    &traversal->u.mtraversal,
+                    &t->u.mt,
                     &bid, &tinfo);
             if (err) {
                 // end of mtree? transition to traversing any opened mdirs
                 if (err == LFS_ERR_NOENT) {
-                    traversal->u.opened = lfs->opened;
-                    traversal->state = LFSR_TRAVERSAL_OPENED;
+                    t->u.o = lfs->opened;
+                    t->state = LFSR_TRAVERSAL_OPENED;
                     continue;
                 }
                 return err;
@@ -7398,7 +7373,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // validate our btree nodes if requested, this just means we
                 // need to do a full rbyd fetch and make sure the checksums
                 // match
-                if (lfsr_traversal_isvalidate(traversal)) {
+                if (lfsr_traversal_isvalidate(t)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &tinfo.u.rbyd,
                             tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk,
                             tinfo.u.rbyd.weight,
@@ -7421,7 +7396,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                     return err;
                 }
 
-                err = lfsr_mdir_fetch(lfs, &traversal->file.mdir,
+                err = lfsr_mdir_fetch(lfs, &t->file.mdir,
                         LFSR_MID(lfs, bid, 0),
                         &mptr);
                 if (err) {
@@ -7429,11 +7404,11 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 }
 
                 // transition to mdir traversal next
-                traversal->state = LFSR_TRAVERSAL_MDIR;
+                t->state = LFSR_TRAVERSAL_MDIR;
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_MDIR;
-                    tinfo_->u.mdir = traversal->file.mdir;
+                    tinfo_->u.mdir = t->file.mdir;
                 }
                 return 0;
 
@@ -7446,16 +7421,15 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
         case LFSR_TRAVERSAL_MDIR:;
             // not traversing all blocks? have we exceeded our mdir's weight?
             // return to mtree traversal
-            if (!lfsr_traversal_isall(traversal)
-                    || lfsr_mid_rid(lfs, traversal->file.mdir.mid)
-                        >= traversal->file.mdir.rbyd.weight) {
-                traversal->state = LFSR_TRAVERSAL_MTREE;
+            if (!lfsr_traversal_isall(t)
+                    || lfsr_mid_rid(lfs, t->file.mdir.mid)
+                        >= t->file.mdir.rbyd.weight) {
+                t->state = LFSR_TRAVERSAL_MTREE;
                 continue;
             }
 
             // do we have a block/btree?
-            err = lfsr_mdir_lookupnext(lfs, &traversal->file.mdir,
-                    LFSR_TAG_DATA,
+            err = lfsr_mdir_lookupnext(lfs, &t->file.mdir, LFSR_TAG_DATA,
                     &tag, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -7463,16 +7437,15 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
 
             // found a direct block?
             if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
-                err = lfsr_data_readbptr(lfs, &data,
-                        &traversal->file.bshrub.u.bptr);
+                err = lfsr_data_readbptr(lfs, &data, &t->file.bshrub.u.bptr);
                 if (err) {
                     return err;
                 }
 
             // found a bshrub (inlined btree)?
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-                err = lfsr_data_readshrub(lfs, &data, &traversal->file.mdir,
-                        &traversal->file.bshrub.u.bshrub);
+                err = lfsr_data_readshrub(lfs, &data, &t->file.mdir,
+                        &t->file.bshrub.u.bshrub);
                 if (err) {
                     return err;
                 }
@@ -7480,42 +7453,42 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
             // found a btree?
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
                 err = lfsr_data_readbtree(lfs, &data,
-                        &traversal->file.bshrub.u.btree);
+                        &t->file.bshrub.u.btree);
                 if (err) {
                     return err;
                 }
 
             // no? continue to next file
             } else {
-                traversal->file.mdir.mid += 1;
+                t->file.mdir.mid += 1;
                 continue;
             }
 
             // start traversing
-            traversal->btraversal = LFSR_BTRAVERSAL();
-            traversal->state = LFSR_TRAVERSAL_MDIRBTREE;
+            t->bt = LFSR_BTRAVERSAL();
+            t->state = LFSR_TRAVERSAL_MDIRBTREE;
             continue;
 
         // scan for blocks/btrees in our opened file list
         case LFSR_TRAVERSAL_OPENED:;
             // not traversing all blocks? reached end of opened file list?
-            if (!lfsr_traversal_isall(traversal) || !traversal->u.opened) {
-                traversal->state = LFSR_TRAVERSAL_DONE;
+            if (!lfsr_traversal_isall(t) || !t->u.o) {
+                t->state = LFSR_TRAVERSAL_DONE;
                 continue;
             }
 
             // skip non-files
-            if (traversal->u.opened->type != LFS_TYPE_REG) {
-                traversal->u.opened = traversal->u.opened->next;
+            if (t->u.o->type != LFS_TYPE_REG) {
+                t->u.o = t->u.o->next;
                 continue;
             }
 
             // start traversing the file
-            const lfsr_file_t *file = (const lfsr_file_t*)traversal->u.opened;
-            traversal->file.mdir = file->m.mdir;
-            traversal->file.bshrub = file->bshrub;
-            traversal->btraversal = LFSR_BTRAVERSAL();
-            traversal->state = LFSR_TRAVERSAL_OPENEDBTREE;
+            const lfsr_file_t *file = (const lfsr_file_t*)t->u.o;
+            t->file.mdir = file->m.mdir;
+            t->file.bshrub = file->bshrub;
+            t->bt = LFSR_BTRAVERSAL();
+            t->state = LFSR_TRAVERSAL_OPENEDBTREE;
             continue;
 
         // traverse any file btrees, including both inner btree nodes and
@@ -7523,20 +7496,19 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
         case LFSR_TRAVERSAL_MDIRBTREE:;
         case LFSR_TRAVERSAL_OPENEDBTREE:;
             // traverse through our file
-            err = lfsr_bshrub_traverse(lfs,
-                    (const lfsr_file_t*)&traversal->file,
-                    &traversal->btraversal,
+            err = lfsr_bshrub_traverse(lfs, (const lfsr_file_t*)&t->file,
+                    &t->bt,
                     NULL, &tinfo);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
                     // end of btree? go to next file
-                    if (traversal->state == LFSR_TRAVERSAL_MDIRBTREE) {
-                        traversal->file.mdir.mid += 1;
-                        traversal->state = LFSR_TRAVERSAL_MDIR;
+                    if (t->state == LFSR_TRAVERSAL_MDIRBTREE) {
+                        t->file.mdir.mid += 1;
+                        t->state = LFSR_TRAVERSAL_MDIR;
                         continue;
-                    } else if (traversal->state == LFSR_TRAVERSAL_OPENEDBTREE) {
-                        traversal->u.opened = traversal->u.opened->next;
-                        traversal->state = LFSR_TRAVERSAL_OPENED;
+                    } else if (t->state == LFSR_TRAVERSAL_OPENEDBTREE) {
+                        t->u.o = t->u.o->next;
+                        t->state = LFSR_TRAVERSAL_OPENED;
                         continue;
                     } else {
                         LFS_UNREACHABLE();
@@ -7550,7 +7522,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 // validate our btree nodes if requested, this just means we
                 // need to do a full rbyd fetch and make sure the checksums
                 // match
-                if (lfsr_traversal_isvalidate(traversal)) {
+                if (lfsr_traversal_isvalidate(t)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &tinfo.u.rbyd,
                             tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk,
                             tinfo.u.rbyd.weight,
@@ -7955,10 +7927,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // we do validate btree inner nodes here, how can we trust our
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
-    lfsr_traversal_t traversal = LFSR_TRAVERSAL(LFSR_TRAVERSAL_VALIDATE);
+    lfsr_traversal_t t = LFSR_TRAVERSAL(LFSR_TRAVERSAL_VALIDATE);
     while (true) {
         lfsr_tinfo_t tinfo;
-        int err = lfsr_traversal_read(lfs, &traversal, &tinfo);
+        int err = lfsr_traversal_read(lfs, &t, &tinfo);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -8252,10 +8224,10 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // traverse the filesystem, building up knowledge of what blocks are
         // in use in our lookahead window
-        lfsr_traversal_t traversal = LFSR_TRAVERSAL(LFSR_TRAVERSAL_ALL);
+        lfsr_traversal_t t = LFSR_TRAVERSAL(LFSR_TRAVERSAL_ALL);
         while (true) {
             lfsr_tinfo_t tinfo;
-            int err = lfsr_traversal_read(lfs, &traversal, &tinfo);
+            int err = lfsr_traversal_read(lfs, &t, &tinfo);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
                     break;
@@ -8288,10 +8260,10 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
 lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
     lfs_size_t count = 0;
-    lfsr_traversal_t traversal = LFSR_TRAVERSAL(LFSR_TRAVERSAL_ALL);
+    lfsr_traversal_t t = LFSR_TRAVERSAL(LFSR_TRAVERSAL_ALL);
     while (true) {
         lfsr_tinfo_t tinfo;
-        int err = lfsr_traversal_read(lfs, &traversal, &tinfo);
+        int err = lfsr_traversal_read(lfs, &t, &tinfo);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -8699,12 +8671,9 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     // lfsr_mdir_commit implicitly marks removed files as zombied, but
     // we also need to mark them as uncreate to indicate that the mid
     // needs to be cleaned up on close
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        if (opened->type == LFS_TYPE_REG
-                && opened->mdir.mid == mdir.mid) {
-            opened->flags |= LFS_F_ORPHAN;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        if (o->type == LFS_TYPE_REG && o->mdir.mid == mdir.mid) {
+            o->flags |= LFS_F_ORPHAN;
         }
     }
 
@@ -8847,12 +8816,10 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     }
 
     // update moved files with the new mdir
-    for (lfsr_opened_t *opened = lfs->opened;
-            opened;
-            opened = opened->next) {
-        if (opened->type == LFS_TYPE_REG
-                && lfsr_grm_isrm(&lfs->grm, opened->mdir.mid)) {
-            opened->mdir = new_mdir;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        if (o->type == LFS_TYPE_REG
+                && lfsr_grm_isrm(&lfs->grm, o->mdir.mid)) {
+            o->mdir = new_mdir;
         }
     }
 
@@ -9519,10 +9486,8 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     }
 
     // this includes our current shrub
-    for (lfsr_opened_t *opened_ = lfs->opened;
-            opened_;
-            opened_ = opened_->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
                 && file_->m.mdir.mid == file->m.mdir.mid) {
             if (lfsr_bshrub_isbsprout(&file_->m.mdir, &file_->bshrub)) {
@@ -9658,7 +9623,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
 }
 
 static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
-        lfsr_btraversal_t *btraversal,
+        lfsr_btraversal_t *t,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
     // bnull/bsprout do nothing
     if (lfsr_bshrub_isbnull(&file->bshrub)
@@ -9668,7 +9633,7 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
 
     // block pointer?
     if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
-        if (btraversal->bid > 0) {
+        if (t->bid > 0) {
             return LFS_ERR_NOENT;
         }
 
@@ -9683,7 +9648,7 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
 
     // bshrub/btree?
     } else if (lfsr_bshrub_isbshruborbtree(&file->bshrub)) {
-        int err = lfsr_btree_traverse_(lfs, &file->bshrub.u.bshrub, btraversal,
+        int err = lfsr_btree_traverse_(lfs, &file->bshrub.u.bshrub, t,
                 bid_, tinfo_);
         if (err) {
             return err;
@@ -9781,10 +9746,8 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
     // before we touch anything, we need to mark all other btree references
     // as unerased
     if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
-        for (lfsr_opened_t *opened_ = lfs->opened;
-                opened_;
-                opened_ = opened_->next) {
-            lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+            lfsr_file_t *file_ = (lfsr_file_t*)o;
             if (file_->m.type == LFS_TYPE_REG
                     && file_ != file
                     && lfsr_bshrub_isbshruborbtree(&file_->bshrub)
@@ -9878,10 +9841,8 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
         }
 
         // update _all_ shrubs with the new estimate
-        for (lfsr_opened_t *opened_ = lfs->opened;
-                opened_;
-                opened_ = opened_->next) {
-            lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+            lfsr_file_t *file_ = (lfsr_file_t*)o;
             if (file_->m.type == LFS_TYPE_REG
                     && file_->m.mdir.mid == file->m.mdir.mid
                     && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)) {
@@ -11144,10 +11105,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // but do update other file handles
-    for (lfsr_opened_t *opened_ = lfs->opened;
-            opened_;
-            opened_ = opened_->next) {
-        lfsr_file_t *file_ = (lfsr_file_t*)opened_;
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
                 && file_->m.mdir.mid == file->m.mdir.mid
                 // don't double update
