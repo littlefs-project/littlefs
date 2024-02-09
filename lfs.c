@@ -934,14 +934,14 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         }
     }
 
-    lfsr_srid_t weight;
+    lfsr_rid_t weight;
     lfs_ssize_t d_ = lfs_fromleb128(&weight, &tag_buf[d], tag_dsize-d);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    lfs_ssize_t size;
+    lfs_size_t size;
     d_ = lfs_fromleb128(&size, &tag_buf[d], tag_dsize-d);
     if (d_ < 0) {
         return d_;
@@ -1108,7 +1108,7 @@ static inline lfsr_data_t lfsr_data_fromimm(
     return data;
 }
 
-static inline lfsr_data_t lfsr_data_fromleb128(int32_t word) {
+static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word) {
     lfsr_data_t data;
     lfs_ssize_t size = lfs_toleb128(word, data.u.imm.buf, 5);
     LFS_ASSERT(size >= 0);
@@ -1241,7 +1241,7 @@ static int lfsr_data_readle32(lfs_t *lfs, lfsr_data_t *data,
 }
 
 static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
-        int32_t *word_) {
+        uint32_t *word_) {
     // note we make sure not to update our data offset until after leb128
     // decoding
     lfsr_data_t data_ = *data;
@@ -1313,7 +1313,7 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, const lfsr_data_t *data,
     // first compare the did
     lfsr_data_t data_ = *data;
     lfsr_did_t did_;
-    int err = lfsr_data_readleb128(lfs, &data_, (int32_t*)&did_);
+    int err = lfsr_data_readleb128(lfs, &data_, &did_);
     if (err) {
         LFS_ASSERT(err < 0);
         return err;
@@ -1643,7 +1643,7 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
 
 static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ecksum_t *ecksum) {
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&ecksum->size);
+    int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&ecksum->size);
     if (err) {
         return err;
     }
@@ -1697,23 +1697,23 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         lfsr_bptr_t *bptr) {
     // read the block, offset, size
     int err = lfsr_data_readleb128(lfs, data,
-            (int32_t*)&bptr->data.u.disk.size);
+            (uint32_t*)&bptr->data.u.disk.size);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->data.u.disk.block);
+    err = lfsr_data_readleb128(lfs, data, &bptr->data.u.disk.block);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->data.u.disk.off);
+    err = lfsr_data_readleb128(lfs, data, &bptr->data.u.disk.off);
     if (err) {
         return err;
     }
 
     // read the cksize, cksum
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&bptr->cksize);
+    err = lfsr_data_readleb128(lfs, data, &bptr->cksize);
     if (err) {
         return err;
     }
@@ -1911,7 +1911,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
     // first read the mode field
     lfs_size_t mode;
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&mode);
+    int err = lfsr_data_readleb128(lfs, data, &mode);
     if (err) {
         return err;
     }
@@ -1922,7 +1922,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
     }
 
     for (uint8_t i = 0; i < mode; i++) {
-        err = lfsr_data_readleb128(lfs, data, &grm->rms[i]);
+        err = lfsr_data_readleb128(lfs, data, (lfsr_mid_t*)&grm->rms[i]);
         if (err) {
             return err;
         }
@@ -3772,12 +3772,12 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
     branch->eoff = 0;
     branch->weight = weight;
 
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->blocks[0]);
+    int err = lfsr_data_readleb128(lfs, data, &branch->blocks[0]);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, &branch->trunk);
+    err = lfsr_data_readleb128(lfs, data, (uint32_t*)&branch->trunk);
     if (err) {
         return err;
     }
@@ -3818,7 +3818,7 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
 static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
         lfsr_btree_t *btree) {
     lfsr_bid_t weight;
-    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&weight);
+    int err = lfsr_data_readleb128(lfs, data, &weight);
     if (err) {
         return err;
     }
@@ -4877,12 +4877,12 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
     // force estimate recalculation if we write to this shrub
     shrub->eoff = -1;
 
-    int err = lfsr_data_readleb128(lfs, data, &shrub->weight);
+    int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&shrub->weight);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, &shrub->trunk);
+    err = lfsr_data_readleb128(lfs, data, (uint32_t*)&shrub->trunk);
     if (err) {
         return err;
     }
@@ -5056,7 +5056,7 @@ static lfsr_data_t lfsr_data_frommptr(const lfsr_mptr_t *mptr,
 static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
         lfsr_mptr_t *mptr) {
     for (int i = 0; i < 2; i++) {
-        int err = lfsr_data_readleb128(lfs, data, (int32_t*)&mptr->blocks[i]);
+        int err = lfsr_data_readleb128(lfs, data, &mptr->blocks[i]);
         if (err) {
             return err;
         }
@@ -6980,7 +6980,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
                 return err;
             }
 
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did);
+            err = lfsr_data_readleb128(lfs, &data, &did);
             if (err) {
                 return err;
             }
@@ -7611,7 +7611,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     uint32_t major_version;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&major_version);
+    err = lfsr_data_readleb128(lfs, &data, &major_version);
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
@@ -7620,7 +7620,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     uint32_t minor_version;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&minor_version);
+    err = lfsr_data_readleb128(lfs, &data, &minor_version);
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
@@ -7701,7 +7701,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     uint32_t block_size = 0;
     if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&block_size);
+        err = lfsr_data_readleb128(lfs, &data, &block_size);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
@@ -7726,8 +7726,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     uint32_t block_count = 0;
     if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data,
-                (int32_t*)&block_count);
+        err = lfsr_data_readleb128(lfs, &data, &block_count);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
@@ -7755,7 +7754,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     uint32_t name_limit;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&name_limit);
+    err = lfsr_data_readleb128(lfs, &data, &name_limit);
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
@@ -7784,7 +7783,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     uint32_t size_limit;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&size_limit);
+    err = lfsr_data_readleb128(lfs, &data, &size_limit);
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
@@ -8513,7 +8512,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         }
 
         lfsr_did_t did;
-        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did);
+        err = lfsr_data_readleb128(lfs, &data, &did);
         if (err) {
             return err;
         }
@@ -8672,7 +8671,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             }
 
             lfsr_did_t did;
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did);
+            err = lfsr_data_readleb128(lfs, &data, &did);
             if (err) {
                 return err;
             }
@@ -8775,7 +8774,7 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 && (tag == LFSR_TAG_BLOCK
                     || tag == LFSR_TAG_BSHRUB
                     || tag == LFSR_TAG_BTREE)) {
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&info->size);
+            err = lfsr_data_readleb128(lfs, &data, &info->size);
             if (err) {
                 return err;
             }
@@ -8854,7 +8853,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
             return err;
         }
 
-        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&dir->did);
+        err = lfsr_data_readleb128(lfs, &data, &dir->did);
         if (err) {
             return err;
         }
@@ -8927,7 +8926,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
         // get the did
         lfsr_did_t did;
-        err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did);
+        err = lfsr_data_readleb128(lfs, &data, &did);
         if (err) {
             return err;
         }

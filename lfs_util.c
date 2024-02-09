@@ -16,7 +16,7 @@
 
 
 // Convert to/from leb128 encoding
-ssize_t lfs_toleb128(int32_t word, void *buffer, size_t size) {
+ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size) {
     uint8_t *data = buffer;
 
     for (size_t i = 0; i < size; i++) {
@@ -33,7 +33,7 @@ ssize_t lfs_toleb128(int32_t word, void *buffer, size_t size) {
     return LFS_ERR_CORRUPT;
 }
 
-ssize_t lfs_fromleb128(int32_t *word, const void *buffer, size_t size) {
+ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
     const uint8_t *data = buffer;
 
     int32_t word_ = 0;
