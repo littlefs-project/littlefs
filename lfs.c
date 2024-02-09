@@ -1825,7 +1825,6 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
         return LFS_ERR_CORRUPT;
     }
 
-    // TODO is there a way to avoid byte-level operations here?
     // xor with data, this should at least be cached if on-disk
     for (lfs_size_t i = 0; i < xor_size; i++) {
         uint8_t x;
@@ -1865,35 +1864,6 @@ static inline bool lfsr_grm_isrm(const lfsr_grm_t *grm, lfsr_smid_t mid) {
     return grm->rms[0] == mid || grm->rms[1] == mid;
 }
 
-static inline bool lfsr_grm_iszero(
-        const uint8_t gdelta[static LFSR_GRM_DSIZE]) {
-    return lfsr_gdelta_iszero(gdelta, LFSR_GRM_DSIZE);
-}
-
-static inline lfs_size_t lfsr_grm_size(
-        const uint8_t gdelta[static LFSR_GRM_DSIZE]) {
-    return lfsr_gdelta_size(gdelta, LFSR_GRM_DSIZE);
-}
-
-static inline int lfsr_grm_xor(lfs_t *lfs,
-        uint8_t gdelta[static LFSR_GRM_DSIZE],
-        lfsr_data_t xor) {
-    return lfsr_gdelta_xor(lfs, gdelta, LFSR_GRM_DSIZE, xor);
-}
-
-// needed by lfsr_grm_xorgrm
-static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
-        uint8_t buffer[static LFSR_GRM_DSIZE]);
-
-static inline void lfsr_grm_xorgrm(lfs_t *lfs,
-        uint8_t gdelta[static LFSR_GRM_DSIZE],
-        const lfsr_grm_t *grm) {
-    uint8_t buf[LFSR_GRM_DSIZE];
-    int err = lfsr_grm_xor(lfs, gdelta,
-            lfsr_data_fromgrm(grm, buf));
-    LFS_ASSERT(!err);
-}
-
 #define LFSR_DATA_FROMGRM(_grm, _buffer) \
     lfsr_data_fromgrm(_grm, _buffer)
 
@@ -1915,7 +1885,18 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
         d += d_;
     }
 
-    return LFSR_DATA_BUF(buffer, lfsr_grm_size(buffer));
+    return LFSR_DATA_BUF(buffer, lfsr_gdelta_size(buffer, LFSR_GRM_DSIZE));
+}
+
+static inline void lfsr_gdelta_xorgrm(lfs_t *lfs,
+        uint8_t *gdelta, lfs_size_t size,
+        const lfsr_grm_t *grm) {
+    LFS_ASSERT(size >= LFSR_GRM_DSIZE);
+
+    uint8_t buf[LFSR_GRM_DSIZE];
+    int err = lfsr_gdelta_xor(lfs, gdelta, size,
+            lfsr_data_fromgrm(grm, buf));
+    LFS_ASSERT(!err);
 }
 
 // required by lfsr_data_readgrm
@@ -3581,7 +3562,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 // append and consume any pending gstate
 static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // need grm delta?
-    if (!lfsr_grm_iszero(lfs->grm_d)) {
+    if (!lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE)) {
         uint8_t grm_[LFSR_GRM_DSIZE];
         memcpy(grm_, lfs->grm_d, LFSR_GRM_DSIZE);
 
@@ -3593,14 +3574,14 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             return err;
         }
         if (err != LFS_ERR_NOENT) {
-            err = lfsr_grm_xor(lfs, grm_, data);
+            err = lfsr_gdelta_xor(lfs, grm_, LFSR_GRM_DSIZE, data);
             if (err) {
                 return err;
             }
         }
 
         // append to our rbyd, replacing any existing delta
-        lfs_size_t size = lfsr_grm_size(grm_);
+        lfs_size_t size = lfsr_gdelta_size(grm_, LFSR_GRM_DSIZE);
         err = lfsr_rbyd_appendattr(lfs, rbyd, -1,
                 // opportunistically remove this tag if delta is all zero
                 (size == 0) ? LFSR_TAG_RM(GRMDELTA) : LFSR_TAG_GRMDELTA, 0,
@@ -5434,7 +5415,7 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     }
 
     if (err != LFS_ERR_NOENT) {
-        err = lfsr_grm_xor(lfs, lfs->grm_d, data);
+        err = lfsr_gdelta_xor(lfs, lfs->grm_d, LFSR_GRM_DSIZE, data);
         if (err) {
             return err;
         }
@@ -6203,10 +6184,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
             lfsr_grm_t *grm = lfsr_attr_grm(&attrs[i]);
-            lfsr_grm_xorgrm(lfs, lfs->grm_d, grm);
+            lfsr_gdelta_xorgrm(lfs, lfs->grm_d, LFSR_GRM_DSIZE, grm);
 
             // xor with our current gstate to find our initial gdelta
-            int err = lfsr_grm_xor(lfs, lfs->grm_d,
+            int err = lfsr_gdelta_xor(lfs, lfs->grm_d, LFSR_GRM_DSIZE,
                     LFSR_DATA_BUF(lfs->grm_g, LFSR_GRM_DSIZE));
             if (err) {
                 return err;
@@ -6491,7 +6472,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // gd' = gd xor (grm' xor grm)
             //
             lfsr_grm_t *grm = lfsr_attr_grm(&attrs[i]);
-            lfsr_grm_xorgrm(lfs, lfs->grm_d, grm);
+            lfsr_gdelta_xorgrm(lfs, lfs->grm_d, LFSR_GRM_DSIZE, grm);
 
             // patch our grm
             for (int j = 0; j < 2; j++) {
@@ -6508,7 +6489,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             // xor our patch into our gdelta
-            lfsr_grm_xorgrm(lfs, lfs->grm_d, grm);
+            lfsr_gdelta_xorgrm(lfs, lfs->grm_d, LFSR_GRM_DSIZE, grm);
         }
     }
 
@@ -6655,7 +6636,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // gstate must have been committed by a lower-level function at this point
-    LFS_ASSERT(lfsr_grm_iszero(lfs->grm_d));
+    LFS_ASSERT(lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE));
 
     // success? update in-device state, we must not error at this point
 
