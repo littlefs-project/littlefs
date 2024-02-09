@@ -890,14 +890,11 @@ static inline void lfsr_tag_trim2(
 
 // support for encoding/decoding tags on disk
 
-// each piece of metadata in an rbyd tree is prefixed with a 4-piece tag:
-//
-// - 8-bit suptype     => 1 byte
-// - 8-bit subtype     => 1 byte
-// - 32-bit rid/weight => 5 byte leb128 (worst case)
-// - 32-bit size/jump  => 5 byte leb128 (worst case)
-//                     => 12 bytes total
-//
+// tag encoding:
+// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -+- -.  tag:    2 bytes
+// |  tag  | weight            | size              |  weight: <=5 bytes
+// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -+- -'  size:   <=5 bytes
+//                                                    total:  <=12 bytes
 #define LFSR_TAG_DSIZE (2+5+5)
 
 static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
@@ -1621,7 +1618,13 @@ static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
 
 // erased-state checksum on-disk encoding
 
-// 1 leb128 + 1 crc32c => 9 bytes (worst case)
+// ecksum encoding:
+// .---+- -+- -+- -+- -.
+// | size              |  size:  <=5 bytes
+// +---+- -+- -+- -+- -'
+// |     cksum     |      cksum: 4 bytes
+// '---+---+---+---'      total: <=9 bytes
+//
 #define LFSR_ECKSUM_DSIZE (5+4)
 
 #define LFSR_DATA_FROMECKSUM(_ecksum, _buffer) \
@@ -1659,7 +1662,19 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 
 // block pointer things
 
-// 4 leb128s + 1 crc32c => 24 bytes (worst case)
+// bptr encoding:
+// .---+- -+- -+- -+- -.
+// | size              |  size:   <=5 bytes
+// +---+- -+- -+- -+- -+
+// | block             |  block:  <=5 bytes
+// +---+- -+- -+- -+- -+
+// | off               |  off:    <=5 bytes
+// +---+- -+- -+- -+- -+
+// | cksize            |  cksize: <=5 bytes
+// +---+- -+- -+- -+- -'
+// |     cksum     |      cksum:  4 bytes
+// '---+---+---+---'      total:  <=24 bytes
+//
 #define LFSR_BPTR_DSIZE (5+5+5+5+4)
 
 #define LFSR_DATA_FROMBPTR(_bptr, _buffer) \
@@ -3051,27 +3066,28 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     //
     // this gets a bit complicated as we have two types of cksums:
     //
-    // - 9-word cksum with ecksum to check following prog (middle of block)
-    //   - ecksum tag type => 2 byte le16
-    //   - ecksum tag rid  => 1 byte leb128
-    //   - ecksum tag size => 1 byte leb128 (worst case)
-    //   - ecksum crc32c   => 4 byte le32
-    //   - ecksum size     => 5 byte leb128 (worst case)
-    //   - cksum tag type  => 2 byte le16
-    //   - cksum tag rid   => 1 byte leb128
-    //   - cksum tag size  => 5 byte leb128 (worst case)
-    //   - cksum crc32c    => 4 byte le32
-    //                     => 25 bytes total
+    // - 9-word cksum with ecksum to check following prog (middle of block):
+    //   .---+---+---+---.                  ecksum tag:    2 bytes
+    //   | etag  | 0 |esz|                  ecksum weight: 1 byte
+    //   +---+---+---+---+- -.              ecksum size:   1 byte
+    //   | ecksize           |              ecksum cksize: <=5 bytes
+    //   +---+- -+- -+- -+- -'              ecksum cksum:  4 bytes
+    //   |    ecksum     |
+    //   +---+---+---+---+- -+- -+- -+- -.  cksum tag:     2 bytes
+    //   |  tag  | 0 | size              |  cksum weight:  1 byte
+    //   +---+---+---+---+- -+- -+- -+- -'  cksum size:    <=5 bytes
+    //   |     cksum     |                  cksum cksum:   4 bytes
+    //   '---+---+---+---'                  total:         <=25 bytes
     //
-    // - 4-word cksum with no following prog (end of block)
-    //   - cksum tag type => 2 byte le16
-    //   - cksum tag rid  => 1 byte leb128
-    //   - cksum tag size => 5 byte leb128 (worst case)
-    //   - cksum crc32c   => 4 byte le32
-    //                    => 12 bytes total
+    // - 4-word cksum with no following prog (end of block):
+    //   .---+---+---+---+- -+- -+- -+- -.  cksum tag:     2 bytes
+    //   |  tag  | 0 | size              |  cksum weight:  1 byte
+    //   +---+---+---+---+- -+- -+- -+- -'  cksum size:    <=5 bytes
+    //   |     cksum     |                  cksum cksum:   4 bytes
+    //   '---+---+---+---'                  total:         <=12 bytes
     //
     lfs_size_t aligned_eoff = lfs_alignup(
-            rbyd->eoff + 2+1+1+4+5 + 2+1+5+4,
+            rbyd->eoff + 2+1+1+5+4 + 2+1+5+4,
             lfs->cfg->prog_size);
 
     // space for ecksum?
@@ -3742,9 +3758,18 @@ static inline int lfsr_btree_cmp(
 
 
 // branch on-disk encoding
+
+// branch encoding:
+// .---+- -+- -+- -+- -.
+// | block             |  block: <=5 bytes
+// +---+- -+- -+- -+- -+
+// | trunk             |  trunk: <=5 bytes
+// +---+- -+- -+- -+- -'
+// |     cksum     |      cksum: 4 bytes
+// '---+---+---+---'      total: <=14 bytes
+//
 #define LFSR_BRANCH_DSIZE (5+5+4)
 
-// 2 leb128 + 1 crc32c => 14 bytes (worst case)
 #define LFSR_DATA_FROMBRANCH(_branch, _buffer) \
     lfsr_data_frombranch(_branch, _buffer)
 
@@ -3798,7 +3823,17 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 // this is the same as the branch on-disk econding, but prefixed with the
 // btree's weight
 
-// 3 leb128 + 1 crc32c => 19 bytes (worst case)
+// btree encoding:
+// .---+- -+- -+- -+- -.
+// | weight            |  weight: <=5 bytes
+// +---+- -+- -+- -+- -+
+// | block             |  block:  <=5 bytes
+// +---+- -+- -+- -+- -+
+// | trunk             |  trunk:  <=5 bytes
+// +---+- -+- -+- -+- -'
+// |     cksum     |      cksum:  4 bytes
+// '---+---+---+---'      total:  <=19 bytes
+//
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
 #define LFSR_DATA_FROMBTREE(_btree, _buffer) \
@@ -4848,7 +4883,13 @@ static inline int lfsr_shrub_cmp(
 
 // shrub on-disk encoding
 
-// 2 leb128s => 10 bytes (worst case)
+// shrub encoding:
+// .---+- -+- -+- -+- -.
+// | weight            |   weight: <=5 bytes
+// +---+- -+- -+- -+- -+
+// | trunk             |   trunk:  <=5 bytes
+// '---+- -+- -+- -+- -'   total:  <=10 bytes
+//
 #define LFSR_SHRUB_DSIZE (5+5)
 
 #define LFSR_DATA_FROMSHRUB(_rbyd, _buffer) \
@@ -5038,7 +5079,13 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
     return mptr->blocks[0] <= 1;
 }
 
-// 2 leb128 => 10 bytes (worst case)
+// mptr encoding:
+// .---+- -+- -+- -+- -.
+// | block x 2         |  blocks: <=2x5 bytes
+// +                   +  total:  <=10 bytes
+// |                   |
+// '---+- -+- -+- -+- -'
+//
 #define LFSR_MPTR_DSIZE (5+5)
 
 #define LFSR_DATA_FROMMPTR(_mptr, _buffer) \

@@ -370,9 +370,15 @@ typedef struct lfsr_opened {
     lfsr_mdir_t mdir;
 } lfsr_opened_t;
 
-// space for:
-// - type   - 1 leb128 - 1 byte (worst case)
-// - 2 mids - 2 leb128 - 10 bytes (worst case)
+// grm encoding:
+// .---.
+// |mod|                  mode:  1 byte
+// +- -+- -+- -+- -+- -.
+// ' mid x mod         '  mids:  <=2x5 bytes
+// +                   +  total: <=11 bytes
+// '                   '
+// '- -+- -+- -+- -+- -'
+//
 #define LFSR_GRM_DSIZE (1+5+5)
 
 typedef struct lfsr_grm {
