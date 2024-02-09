@@ -6192,10 +6192,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // reset gdelta for new commit
     lfsr_fs_flushgdelta(lfs);
-
+    // parse out any pending gstate, these will get automatically
+    // xored with on-disk gdeltas in lower-level functions
     for (lfs_size_t i = 0; i < attr_count; i++) {
-        // parse out any pending gstate, these will get automatically
-        // xored with on-disk gdeltas in lower-level functions
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
             lfsr_grm_t *grm = lfsr_attr_grm(&attrs[i]);
@@ -6397,7 +6396,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             uint8_t msibling_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_.u.btree,
-                    lfsr_mid_bid(lfs, mdir_.mid), LFSR_ATTRS(
+                    lfsr_mid_bid(lfs, mdir->mid), LFSR_ATTRS(
                         LFSR_ATTR(
                             MDIR, 0,
                             FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf)),
@@ -6416,8 +6415,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     } else if (err == LFS_ERR_NOENT) {
         LFS_DEBUG("Dropping mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}",
-                mdir_.mid >> lfs->mleaf_bits,
-                mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
+                mdir->mid >> lfs->mleaf_bits,
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
 
         // consume gstate so we don't lose any info
         err = lfsr_fs_consumegdelta(lfs, mdir);
@@ -6437,7 +6436,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // update our mtree
         err = lfsr_btree_commit(lfs, &mtree_.u.btree,
-                lfsr_mid_bid(lfs, mdir_.mid), LFSR_ATTRS(
+                lfsr_mid_bid(lfs, mdir->mid), LFSR_ATTRS(
                     LFSR_ATTR(RM, -lfsr_mleafweight(lfs), NULL())));
         if (err) {
             return err;
@@ -6466,7 +6465,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // update our mtree
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_.u.btree,
-                    lfsr_mid_bid(lfs, mdir_.mid), LFSR_ATTRS(
+                    lfsr_mid_bid(lfs, mdir->mid), LFSR_ATTRS(
                         LFSR_ATTR(
                             MDIR, 0,
                             FROMMPTR(lfsr_mdir_mptr(&mdir_), mdir_buf))));
@@ -6659,56 +6658,24 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
-    // success? update in-device state, we must not error at this point
-
-    // update any opened mdirs in our mroot
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
-        if (lfsr_mdir_cmp(&o->mdir, &lfs->mroot) == 0) {
-            o->mdir.rbyd = mroot_.rbyd;
-
-            // update staged changes
-            if (o->type == LFS_TYPE_REG) {
-                lfsr_file_t *file = (lfsr_file_t*)o;
-                file->bshrub = file->bshrub_;
-            }
-        }
-    }
-
-    // update mroot and mtree
-    lfs->mroot = mroot_;
-    lfs->mtree = mtree_;
-
     // gstate must have been committed by a lower-level function at this point
     LFS_ASSERT(lfsr_grm_iszero(lfs->grm_d));
 
-    // TODO merge with attr updates below?
+    // success? update in-device state, we must not error at this point
+
+    // play out any attrs that affect internal state
+    lfsr_smid_t mid = mdir->mid;
     for (lfs_size_t i = 0; i < attr_count; i++) {
-        // update any gstate
+        // update any gstate changes
         if (attrs[i].tag == LFSR_TAG_GRM) {
             lfs->grm = *lfsr_attr_grm(&attrs[i]);
 
             // keep track of the exact encoding on-disk
             lfsr_data_fromgrm(&lfs->grm, lfs->grm_g);
         }
-    }
 
-    for (lfsr_opened_t *o = lfs->opened;
-            o;
-            o = o->next) {
-        // update staged changes
-        if (o->type == LFS_TYPE_REG) {
-            lfsr_file_t *file = (lfsr_file_t*)o;
-            file->bshrub = file->bshrub_;
-        }
-
-        // avoid double updating current mdir
-        if (&o->mdir == mdir) {
-            continue;
-        }
-
-        // first play out any attrs that change our mid
-        lfsr_srid_t mid = mdir->mid;
-        for (lfs_size_t i = 0; i < attr_count; i++) {
+        // adjust any opened mdirs
+        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
             // adjust opened mdirs?
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
                     && o->mdir.mid >= mid) {
@@ -6734,7 +6701,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                         ((lfsr_dir_t*)(o-1))->pos -= attrs[i].delta;
                     }
                 }
-            } else if (o->mdir.mid > mdir->mid) {
+            } else if (o->mdir.mid > mid) {
                 // adjust dir position?
                 if (o->type == LFS_TYPE_DIR) {
                     ((lfsr_dir_t*)o)->pos += attrs[i].delta;
@@ -6742,18 +6709,36 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     ((lfsr_dir_t*)(o-1))->pos -= attrs[i].delta;
                 }
             }
-
-            // adjust mid
-            mid += attrs[i].delta;
-            if (lfsr_attr_isinsert(&attrs[i])) {
-                mid -= 1;
-            }
         }
 
-        // update any opened mdirs if we had a split or drop
+        // adjust mid
+        mid += attrs[i].delta;
+        if (lfsr_attr_isinsert(&attrs[i])) {
+            mid -= 1;
+        }
+    }
+
+    // update any staged bsprouts/bshrubs
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        if (o->type == LFS_TYPE_REG) {
+            lfsr_file_t *file = (lfsr_file_t*)o;
+            file->bshrub = file->bshrub_;
+        }
+    }
+
+    // update internal mdir state
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        // avoid double updating the current mdir
+        if (&o->mdir == mdir) {
+            continue;
+        }
+
+        // update any splits/drops
         if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
+            LFS_ASSERT(mdir->mid != -1 || mdir == &lfs->mroot);
             if (mdelta > 0
-                    && lfsr_mid_rid(lfs, o->mdir.mid) >= mdir_.rbyd.weight) {
+                    && lfsr_mid_rid(lfs, o->mdir.mid)
+                        >= mdir_.rbyd.weight) {
                 o->mdir.mid += lfsr_mleafweight(lfs) - mdir_.rbyd.weight;
                 o->mdir.rbyd = msibling_.rbyd;
             } else {
@@ -6765,15 +6750,19 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update mdir to follow requested rid
-    if (mdir->mid == -1) {
-        mdir->rbyd = lfs->mroot.rbyd;
-    } else if (mdelta > 0
-            && lfsr_mid_rid(lfs, mdir->mid) >= mdir_.rbyd.weight) {
+    LFS_ASSERT(mdir->mid != -1 || mdir == &lfs->mroot);
+    if (mdelta > 0
+            && lfsr_mid_rid(lfs, mdir->mid)
+                >= mdir_.rbyd.weight) {
         mdir->mid += lfsr_mleafweight(lfs) - mdir_.rbyd.weight;
         mdir->rbyd = msibling_.rbyd;
     } else {
         mdir->rbyd = mdir_.rbyd;
     }
+
+    // update mroot and mtree
+    lfs->mroot = mroot_;
+    lfs->mtree = mtree_;
 
     return 0;
 }
