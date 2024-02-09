@@ -1596,13 +1596,13 @@ typedef struct lfsr_tinfo {
 
 static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
         lfs_block_t block, lfs_size_t off) {
-    LFS_ASSERT(ecksum->size != -1);
+    LFS_ASSERT(ecksum->cksize != -1);
     LFS_ASSERT(off < lfs->cfg->block_size);
 
     // check that erased-state matches our checksum, if this fails
     // most likely a write was interrupted
     uint32_t cksum_ = 0;
-    int err = lfsr_bd_cksum(lfs, block, off, 0, ecksum->size,
+    int err = lfsr_bd_cksum(lfs, block, off, 0, ecksum->cksize,
             &cksum_);
     if (err) {
         return err;
@@ -1620,10 +1620,10 @@ static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
 
 // ecksum encoding:
 // .---+- -+- -+- -+- -.
-// | size              |  size:  <=5 bytes
+// | cksize            |  cksize: <=5 bytes
 // +---+- -+- -+- -+- -'
-// |     cksum     |      cksum: 4 bytes
-// '---+---+---+---'      total: <=9 bytes
+// |     cksum     |      cksum:  4 bytes
+// '---+---+---+---'      total:  <=9 bytes
 //
 #define LFSR_ECKSUM_DSIZE (5+4)
 
@@ -1632,9 +1632,9 @@ static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
 
 static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
-    LFS_ASSERT(ecksum->size != -1);
+    LFS_ASSERT(ecksum->cksize != -1);
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfs_toleb128(ecksum->size, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(ecksum->cksize, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -1646,7 +1646,7 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
 
 static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ecksum_t *ecksum) {
-    int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&ecksum->size);
+    int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&ecksum->cksize);
     if (err) {
         return err;
     }
@@ -2084,7 +2084,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_rid_t weight_ = 0;
 
     // assume unerased until proven otherwise
-    lfsr_ecksum_t ecksum = {.size=-1};
+    lfsr_ecksum_t ecksum = {.cksize=-1};
 
     // scan tags, checking valid bits, cksums, etc
     while (off < lfs->cfg->block_size
@@ -2100,7 +2100,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // if we are breaking for any reason other than the tag's
                 // valid bit, our ecksum must be invalid
                 if (d != LFS_ERR_INVAL) {
-                    ecksum.size = -1;
+                    ecksum.cksize = -1;
                 }
                 break;
             }
@@ -2138,7 +2138,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // TODO ignore?? why not break?
                 // ignore malformed ecksums
                 if (err == LFS_ERR_CORRUPT) {
-                    ecksum.size = -1;
+                    ecksum.cksize = -1;
                 }
             }
 
@@ -2222,7 +2222,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     bool erased = false;
     if (rbyd->eoff < lfs->cfg->block_size
             && rbyd->eoff % lfs->cfg->prog_size == 0
-            && ecksum.size != -1) {
+            && ecksum.cksize != -1) {
         err = lfsr_ecksum_validate(lfs, &ecksum, rbyd->blocks[0], rbyd->eoff);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -3104,10 +3104,10 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
         // find the expected ecksum, don't bother avoiding a reread of the
         // perturb byte, as it should still be in our cache
-        lfsr_ecksum_t ecksum = {.size=lfs->cfg->prog_size};
+        lfsr_ecksum_t ecksum = {.cksize=lfs->cfg->prog_size};
         err = lfsr_bd_cksum(lfs,
-                rbyd->blocks[0], aligned_eoff, ecksum.size,
-                ecksum.size,
+                rbyd->blocks[0], aligned_eoff, ecksum.cksize,
+                ecksum.cksize,
                 &ecksum.cksum);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -9498,7 +9498,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
             bptr_->data = file->bshrub.u.bsprout;
         }
         if (becksum_) {
-            becksum_->size = -1;
+            becksum_->cksize = -1;
         }
         return 0;
 
@@ -9517,7 +9517,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
             *bptr_ = file->bshrub.u.bptr;
         }
         if (becksum_) {
-            becksum_->size = -1;
+            becksum_->cksize = -1;
         }
         return 0;
 
@@ -9568,7 +9568,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
             }
 
             if (err == LFS_ERR_NOENT) {
-                becksum_->size = -1;
+                becksum_->cksize = -1;
             } else {
                 err = lfsr_data_readecksum(lfs, &data, becksum_);
                 if (err) {
@@ -10076,7 +10076,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 buf_size += LFSR_BPTR_DSIZE;
 
                 // copy over becksum since erase-state is still valid
-                if (becksum_.size != -1) {
+                if (becksum_.cksize != -1) {
                     attrs[attr_count+attr_tnuoc++] = LFSR_ATTR(
                             BECKSUM, 0,
                             FROMECKSUM(&becksum_, &buf[buf_size]));
@@ -10133,7 +10133,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             buf_size += LFSR_BPTR_DSIZE;
 
             // append becksum?
-            if (becksum && becksum->size != -1) {
+            if (becksum && becksum->cksize != -1) {
                 memmove(&attrs[attr_count+1], &attrs[attr_count],
                         attr_tnuoc*sizeof(lfsr_attr_t));
                 attrs[attr_count++] = LFSR_ATTR(
@@ -10216,7 +10216,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
-                        && becksum.size != -1
+                        && becksum.cksize != -1
                         // data not truncated?
                         && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
                             == bptr.cksize
@@ -10226,7 +10226,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         // enough for prog alignment?
                         && crystal_end - crystal_start
                             >= lfs->cfg->prog_size) {
-                    LFS_ASSERT(bptr.cksize + becksum.size
+                    LFS_ASSERT(bptr.cksize + becksum.cksize
                             <= lfs->cfg->block_size);
 
                     err = lfsr_ecksum_validate(lfs, &becksum,
@@ -10316,7 +10316,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
-                        && becksum.size != -1
+                        && becksum.cksize != -1
                         // data not truncated?
                         && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
                             == bptr.cksize
@@ -10326,7 +10326,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         // enough for prog alignment?
                         && crystal_end - crystal_start
                             >= lfs->cfg->prog_size) {
-                    LFS_ASSERT(bptr.cksize + becksum.size
+                    LFS_ASSERT(bptr.cksize + becksum.cksize
                             <= lfs->cfg->block_size);
 
                     err = lfsr_ecksum_validate(lfs, &becksum,
@@ -10517,13 +10517,13 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t block_end = block_start + lfsr_data_size(&bptr.data);
 
         // do we have space for a block ecksum?
-        lfsr_ecksum_t becksum = {.size=-1};
+        lfsr_ecksum_t becksum = {.cksize=-1};
         if (bptr.cksize < lfs->cfg->block_size) {
-            becksum.size = lfs->cfg->prog_size;
+            becksum.cksize = lfs->cfg->prog_size;
             becksum.cksum = 0;
             err = lfsr_bd_cksum(lfs,
-                    bptr.data.u.disk.block, bptr.cksize, becksum.size,
-                    becksum.size,
+                    bptr.data.u.disk.block, bptr.cksize, becksum.cksize,
+                    becksum.cksize,
                     &becksum.cksum);
             if (err && err != LFS_ERR_CORRUPT) {
                 return err;

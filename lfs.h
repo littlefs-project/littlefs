@@ -443,8 +443,8 @@ typedef struct lfsr_data {
 
 // erased-state checksum
 typedef struct lfsr_ecksum {
-    // size=-1 indicates no ecksum
-    lfs_ssize_t size;
+    // cksize=-1 indicates no ecksum
+    lfs_ssize_t cksize;
     uint32_t cksum;
 } lfsr_ecksum_t;
 
