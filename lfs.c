@@ -2045,6 +2045,9 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_ssize_t trunk) {
+    // ignore the shrub bit here
+    trunk &= ~LFSR_RBYD_SHRUB;
+
     // checksum the revision count to get the cksum started
     uint32_t cksum = 0;
     int err = lfsr_bd_cksum(lfs, block, 0, lfs->cfg->block_size,
@@ -2056,7 +2059,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->blocks[0] = block;
     rbyd->eoff = 0;
     rbyd->trunk = (trunk & LFSR_RBYD_SHRUB) | 0;
-    trunk &= ~LFSR_RBYD_SHRUB;
 
     // temporary state until we validate a cksum
     lfs_size_t off = sizeof(uint32_t);
@@ -2249,7 +2251,7 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // if trunk/weight mismatch _after_ cksums match, that's not a storage
     // error, that's a programming error
     LFS_ASSERT(lfsr_rbyd_trunk(rbyd) == (lfs_size_t)trunk);
-    LFS_ASSERT((lfsr_rid_t)rbyd->weight == weight);
+    LFS_ASSERT(rbyd->weight == weight);
     return 0;
 }
 
@@ -2266,7 +2268,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     tag = lfs_max16(tag, 0x1);
 
     // out of bounds? no trunk yet?
-    if (rid >= rbyd->weight || !lfsr_rbyd_hastrunk(rbyd)) {
+    if (rid >= (lfsr_srid_t)rbyd->weight || !lfsr_rbyd_hastrunk(rbyd)) {
         return LFS_ERR_NOENT;
     }
 
@@ -2565,7 +2567,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_tag_t other_tag_;
     if (!lfsr_tag_isgrow(tag) && delta != 0) {
         if (delta > 0) {
-            LFS_ASSERT(rid <= rbyd->weight);
+            LFS_ASSERT(rid <= (lfsr_srid_t)rbyd->weight);
 
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
@@ -2573,7 +2575,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             rid_ = rid + 1;
             other_rid_ = rid + 1;
         } else {
-            LFS_ASSERT(rid < rbyd->weight);
+            LFS_ASSERT(rid < (lfsr_srid_t)rbyd->weight);
 
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
@@ -2586,7 +2588,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         other_tag_ = tag_;
 
     } else {
-        LFS_ASSERT(rid < rbyd->weight);
+        LFS_ASSERT(rid < (lfsr_srid_t)rbyd->weight);
 
         rid_ = rid - lfs_smax32(-delta, 0);
         other_rid_ = rid;
@@ -2637,7 +2639,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // go ahead and update the rbyd's weight, if an error occurs our
     // rbyd is no longer usable anyways
-    LFS_ASSERT(delta >= -rbyd->weight);
+    LFS_ASSERT(delta >= -(lfsr_srid_t)rbyd->weight);
     rbyd->weight += delta;
 
     // assume we'll update our trunk
@@ -4166,7 +4168,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 // no parent? can't merge
                 && lfsr_rbyd_hastrunk(&parent)) {
             // try the right sibling
-            if (pid+1 < parent.weight) {
+            if (pid+1 < (lfsr_srid_t)parent.weight) {
                 // try looking up the sibling
                 lfsr_srid_t sibling_rid;
                 lfsr_tag_t sibling_tag;
@@ -4214,7 +4216,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             }
 
             // try the left sibling
-            if (pid-rbyd.weight >= 0) {
+            if (pid-(lfsr_srid_t)rbyd.weight >= 0) {
                 // try looking up the sibling
                 lfsr_srid_t sibling_rid;
                 lfsr_tag_t sibling_tag;
@@ -4306,7 +4308,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
     split:;
         // we should have something to split here
-        LFS_ASSERT(split_rid > 0 && split_rid < rbyd.weight);
+        LFS_ASSERT(split_rid > 0
+                && split_rid < (lfsr_srid_t)rbyd.weight);
 
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd_);
@@ -4661,7 +4664,7 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
     }
 
     // need to restart from the root?
-    if (t->rid >= t->branch.weight) {
+    if (t->rid >= (lfsr_srid_t)t->branch.weight) {
         t->rid = t->bid;
         t->branch = *btree;
     }
@@ -4877,7 +4880,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
     // force estimate recalculation if we write to this shrub
     shrub->eoff = -1;
 
-    int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&shrub->weight);
+    int err = lfsr_data_readleb128(lfs, data, &shrub->weight);
     if (err) {
         return err;
     }
@@ -5368,7 +5371,7 @@ static int lfsr_mtree_seek(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfsr_srid_t rid = lfsr_mid_rid(lfs, mdir->mid) + off;
         // lookup mdirs until we find our rid, we need to do this because
         // we don't know how many rids are in each mdir until we fetch
-        while (rid >= mdir->rbyd.weight) {
+        while (rid >= (lfsr_srid_t)mdir->rbyd.weight) {
             // end of mtree?
             if (bid+lfsr_mleafweight(lfs) >= lfsr_mtree_weight(mtree)) {
                 // if we hit the end of the mtree, park the mdir so all future
@@ -6172,7 +6175,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_ASSERT(lfsr_mdir_cmp(mdir, &lfs->mroot) == 0
             || mdir->rbyd.weight > 0);
     // rid in-bounds?
-    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid) <= mdir->rbyd.weight);
+    LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid)
+            <= (lfsr_srid_t)mdir->rbyd.weight);
     // lfs->mroot must have mid=-1
     LFS_ASSERT(lfs->mroot.mid == -1);
 
@@ -6479,7 +6483,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 if (lfsr_mid_bid(lfs, grm->rms[j])
                         == lfsr_mid_bid(lfs, lfs_smax32(mdir->mid, 0))) {
                     if (lfsr_mid_rid(lfs, grm->rms[j])
-                            >= mdir_.rbyd.weight) {
+                            >= (lfsr_srid_t)mdir_.rbyd.weight) {
                         grm->rms[j] += lfsr_mleafweight(lfs)
                                 - mdir_.rbyd.weight;
                     }
@@ -6715,7 +6719,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_ASSERT(mdir->mid != -1 || mdir == &lfs->mroot);
             if (mdelta > 0
                     && lfsr_mid_rid(lfs, o->mdir.mid)
-                        >= mdir_.rbyd.weight) {
+                        >= (lfsr_srid_t)mdir_.rbyd.weight) {
                 o->mdir.mid += lfsr_mleafweight(lfs) - mdir_.rbyd.weight;
                 o->mdir.rbyd = msibling_.rbyd;
             } else {
@@ -6730,7 +6734,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_ASSERT(mdir->mid != -1 || mdir == &lfs->mroot);
     if (mdelta > 0
             && lfsr_mid_rid(lfs, mdir->mid)
-                >= mdir_.rbyd.weight) {
+                >= (lfsr_srid_t)mdir_.rbyd.weight) {
         mdir->mid += lfsr_mleafweight(lfs) - mdir_.rbyd.weight;
         mdir->rbyd = msibling_.rbyd;
     } else {
@@ -7328,7 +7332,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
             // return to mtree traversal
             if (!lfsr_traversal_isall(t)
                     || lfsr_mid_rid(lfs, t->file.mdir.mid)
-                        >= t->file.mdir.rbyd.weight) {
+                        >= (lfsr_srid_t)t->file.mdir.rbyd.weight) {
                 t->state = LFSR_TRAVERSAL_MTREE;
                 continue;
             }
@@ -8224,7 +8228,8 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         }
 
         // remove the rid while also updating our grm
-        LFS_ASSERT(lfsr_mid_rid(lfs, lfs->grm.rms[0]) < mdir.rbyd.weight);
+        LFS_ASSERT(lfsr_mid_rid(lfs, lfs->grm.rms[0])
+                < (lfsr_srid_t)mdir.rbyd.weight);
         err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
                 LFSR_ATTR(RM, -1, NULL()),
                 LFSR_ATTR(GRM, 0, GRM(&grm))));

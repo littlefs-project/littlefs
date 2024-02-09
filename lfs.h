@@ -337,9 +337,9 @@ typedef struct lfs_cache {
 
 // TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
 typedef struct lfsr_rbyd {
-    // note this lines up with weight in lfsr_btree_t
+    // note this lines up with weight in lfsr_data_t
     // sign(weight)=0 => rbyd
-    lfsr_srid_t weight;
+    lfsr_rid_t weight;
     lfs_block_t blocks[2];
     // sign(trunk)=0    => normal rbyd
     // sign(trunk)=1    => shrub rbyd
@@ -482,7 +482,6 @@ typedef struct lfs_file {
 } lfs_file_t;
 
 typedef struct lfsr_bptr {
-    // note data.size lines up with weight in lfsr_btree_t
     lfsr_data_t data;
     lfs_size_t cksize;
     uint32_t cksum;
