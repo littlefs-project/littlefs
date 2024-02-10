@@ -891,11 +891,11 @@ static inline void lfsr_tag_trim2(
 // support for encoding/decoding tags on disk
 
 // tag encoding:
-// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -+- -.  tag:    2 bytes
-// |  tag  | weight            | size              |  weight: <=5 bytes
-// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -+- -'  size:   <=5 bytes
-//                                                    total:  <=12 bytes
-#define LFSR_TAG_DSIZE (2+5+5)
+// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -.  tag:    2 bytes
+// |  tag  | weight            | size          |  weight: <=5 bytes
+// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -'  size:   <=4 bytes
+//                                                total:  <=11 bytes
+#define LFSR_TAG_DSIZE (2+5+4)
 
 static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
@@ -936,6 +936,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     if (d_ < 0) {
         return d_;
     }
+    // weights should be limited to 31-bits
+    LFS_ASSERT(weight <= 0x7fffffff);
     d += d_;
 
     lfs_size_t size;
@@ -943,6 +945,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     if (d_ < 0) {
         return d_;
     }
+    // sizes should be limited to 28-bits
+    LFS_ASSERT(size <= 0x0fffffff);
     d += d_;
 
     // optional checksum
@@ -962,11 +966,12 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off,
         lfsr_tag_t tag, lfsr_rid_t weight, lfs_size_t size,
         uint32_t *cksum_) {
-    // check for underflow issues
-    LFS_ASSERT(weight < 0x80000000);
-    LFS_ASSERT(size < 0x80000000);
     // bit 7 is reserved for future subtype extensions
     LFS_ASSERT(!(tag & 0x80));
+    // weight should not exceed 31-bits
+    LFS_ASSERT(weight <= 0x7fffffff);
+    // size should not exceed 28-bits
+    LFS_ASSERT(size <= 0x0fffffff);
 
     // make sure to include the parity of the current crc
     tag |= (lfs_popc(*cksum_) & 1) << 15;
@@ -975,15 +980,15 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     uint8_t tag_buf[LFSR_TAG_DSIZE];
     tag_buf[0] = (uint8_t)(tag >> 8);
     tag_buf[1] = (uint8_t)(tag >> 0);
-
     lfs_ssize_t d = 2;
+
     lfs_ssize_t d_ = lfs_toleb128(weight, &tag_buf[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_toleb128(size, &tag_buf[d], 5);
+    d_ = lfs_toleb128(size, &tag_buf[d], 4);
     if (d_ < 0) {
         return d_;
     }
@@ -1237,6 +1242,7 @@ static int lfsr_data_readle32(lfs_t *lfs, lfsr_data_t *data,
     return 0;
 }
 
+// note all leb128s in our system reserve the sign bit
 static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
         uint32_t *word_) {
     // note we make sure not to update our data offset until after leb128
@@ -1254,8 +1260,27 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
     if (d < 0) {
         return d;
     }
+    // all leb128s in our system reserve the sign bit
+    LFS_ASSERT(*word_ <= 0x7fffffff);
 
     *data = lfsr_data_slice(*data, d, -1);
+    return 0;
+}
+
+// a little-leb128 in our system is truncated to align nicely
+//
+// for 32-bit words, little-leb128s are truncated to 28-bits, so the
+// resulting leb128 encoding fits nicely in 4-bytes
+static inline int lfsr_data_readlleb128(lfs_t *lfs, lfsr_data_t *data,
+        uint32_t *word_) {
+    // just call readleb128 here
+    int err = lfsr_data_readleb128(lfs, data, word_);
+    if (err) {
+        return err;
+    }
+
+    // little-leb128s should be limited to 28-bits
+    LFS_ASSERT(*word_ <= 0x0fffffff);
     return 0;
 }
 
@@ -1619,22 +1644,26 @@ static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
 // erased-state checksum on-disk encoding
 
 // ecksum encoding:
-// .---+- -+- -+- -+- -.
-// | cksize            |  cksize: <=5 bytes
-// +---+- -+- -+- -+- -'
-// |     cksum     |      cksum:  4 bytes
-// '---+---+---+---'      total:  <=9 bytes
+// .---+- -+- -+- -.
+// | cksize        |  cksize: <=4 bytes
+// +---+- -+- -+- -+
+// |     cksum     |  cksum:  4 bytes
+// '---+---+---+---'  total:  <=8 bytes
 //
-#define LFSR_ECKSUM_DSIZE (5+4)
+#define LFSR_ECKSUM_DSIZE (4+4)
 
 #define LFSR_DATA_FROMECKSUM(_ecksum, _buffer) \
     lfsr_data_fromecksum(_ecksum, _buffer)
 
 static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
+    // you shouldn't try to encode a not-ecksum, that doesn't make sense
     LFS_ASSERT(ecksum->cksize != -1);
+    // cksize should not exceed 28-bits
+    LFS_ASSERT((uint32_t)ecksum->cksize <= 0x0fffffff);
+
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfs_toleb128(ecksum->cksize, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(ecksum->cksize, &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -1646,7 +1675,7 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
 
 static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ecksum_t *ecksum) {
-    int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&ecksum->cksize);
+    int err = lfsr_data_readlleb128(lfs, data, (uint32_t*)&ecksum->cksize);
     if (err) {
         return err;
     }
@@ -1663,29 +1692,37 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 // block pointer things
 
 // bptr encoding:
-// .---+- -+- -+- -+- -.
-// | size              |  size:   <=5 bytes
-// +---+- -+- -+- -+- -+
+// .---+- -+- -+- -.
+// | size          |      size:   <=4 bytes
+// +---+- -+- -+- -+- -.
 // | block             |  block:  <=5 bytes
-// +---+- -+- -+- -+- -+
-// | off               |  off:    <=5 bytes
-// +---+- -+- -+- -+- -+
-// | cksize            |  cksize: <=5 bytes
 // +---+- -+- -+- -+- -'
+// | off           |      off:    <=4 bytes
+// +---+- -+- -+- -+
+// | cksize        |      cksize: <=4 bytes
+// +---+- -+- -+- -+
 // |     cksum     |      cksum:  4 bytes
-// '---+---+---+---'      total:  <=24 bytes
+// '---+---+---+---'      total:  <=21 bytes
 //
-#define LFSR_BPTR_DSIZE (5+5+5+5+4)
+#define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
 #define LFSR_DATA_FROMBPTR(_bptr, _buffer) \
     lfsr_data_frombptr(_bptr, _buffer)
 
 static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]) {
+    // size should not exceed 28-bits
+    LFS_ASSERT(lfsr_data_size(&bptr->data) <= 0x0fffffff);
+    // block should not exceed 31-bits
+    LFS_ASSERT(bptr->data.u.disk.block <= 0x7fffffff);
+    // off should not exceed 28-bits
+    LFS_ASSERT(bptr->data.u.disk.off <= 0x0fffffff);
+    // cksize should not exceed 28-bits
+    LFS_ASSERT(bptr->cksize <= 0x0fffffff);
     lfs_ssize_t d = 0;
 
     // write the block, offset, size
-    lfs_ssize_t d_ = lfs_toleb128(lfsr_data_size(&bptr->data), &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(lfsr_data_size(&bptr->data), &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -1693,12 +1730,12 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(bptr->data.u.disk.off, &buffer[d], 5);
+    d_ = lfs_toleb128(bptr->data.u.disk.off, &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
     // write the cksize, cksum
-    d_ = lfs_toleb128(bptr->cksize, &buffer[d], 5);
+    d_ = lfs_toleb128(bptr->cksize, &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -1711,7 +1748,7 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
 static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         lfsr_bptr_t *bptr) {
     // read the block, offset, size
-    int err = lfsr_data_readleb128(lfs, data,
+    int err = lfsr_data_readlleb128(lfs, data,
             (uint32_t*)&bptr->data.u.disk.size);
     if (err) {
         return err;
@@ -1722,13 +1759,13 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, &bptr->data.u.disk.off);
+    err = lfsr_data_readlleb128(lfs, data, &bptr->data.u.disk.off);
     if (err) {
         return err;
     }
 
     // read the cksize, cksum
-    err = lfsr_data_readleb128(lfs, data, &bptr->cksize);
+    err = lfsr_data_readlleb128(lfs, data, &bptr->cksize);
     if (err) {
         return err;
     }
@@ -1925,11 +1962,12 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
     grm->rms[1] = -1;
 
     // first read the mode field
-    lfs_size_t mode;
-    int err = lfsr_data_readleb128(lfs, data, &mode);
-    if (err) {
-        return err;
+    uint8_t mode;
+    lfs_ssize_t d = lfsr_data_read(lfs, data, &mode, 1);
+    if (d < 0) {
+        return d;
     }
+    LFS_ASSERT(d == 1);
 
     // unknown mode? return an error, we may be able to mount read-only
     if (mode > 2) {
@@ -1937,12 +1975,11 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
     }
 
     for (uint8_t i = 0; i < mode; i++) {
-        err = lfsr_data_readleb128(lfs, data, (lfsr_mid_t*)&grm->rms[i]);
+        int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&grm->rms[i]);
         if (err) {
             return err;
         }
-
-        LFS_ASSERT(grm->rms[i] < lfs_smax32(
+        LFS_ASSERT((uint32_t)grm->rms[i] < lfs_max32(
                 lfsr_mtree_weight(&lfs->mtree),
                 lfsr_mleafweight(lfs)));
     }
@@ -3067,27 +3104,27 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // this gets a bit complicated as we have two types of cksums:
     //
     // - 9-word cksum with ecksum to check following prog (middle of block):
-    //   .---+---+---+---.                  ecksum tag:    2 bytes
-    //   | etag  | 0 |esz|                  ecksum weight: 1 byte
-    //   +---+---+---+---+- -.              ecksum size:   1 byte
-    //   | ecksize           |              ecksum cksize: <=5 bytes
-    //   +---+- -+- -+- -+- -'              ecksum cksum:  4 bytes
+    //   .---+---+---+---.              ecksum tag:    2 bytes
+    //   | etag  | 0 |esz|              ecksum weight: 1 byte
+    //   +---+---+---+---+              ecksum size:   1 byte
+    //   | ecksize       |              ecksum cksize: <=4 bytes
+    //   +---+- -+- -+- -+              ecksum cksum:  4 bytes
     //   |    ecksum     |
-    //   +---+---+---+---+- -+- -+- -+- -.  cksum tag:     2 bytes
-    //   |  tag  | 0 | size              |  cksum weight:  1 byte
-    //   +---+---+---+---+- -+- -+- -+- -'  cksum size:    <=5 bytes
-    //   |     cksum     |                  cksum cksum:   4 bytes
-    //   '---+---+---+---'                  total:         <=25 bytes
+    //   +---+---+---+---+- -+- -+- -.  cksum tag:     2 bytes
+    //   |  tag  | 0 | size          |  cksum weight:  1 byte
+    //   +---+---+---+---+- -+- -+- -'  cksum size:    <=4 bytes
+    //   |     cksum     |              cksum cksum:   4 bytes
+    //   '---+---+---+---'              total:         <=23 bytes
     //
     // - 4-word cksum with no following prog (end of block):
-    //   .---+---+---+---+- -+- -+- -+- -.  cksum tag:     2 bytes
-    //   |  tag  | 0 | size              |  cksum weight:  1 byte
-    //   +---+---+---+---+- -+- -+- -+- -'  cksum size:    <=5 bytes
-    //   |     cksum     |                  cksum cksum:   4 bytes
-    //   '---+---+---+---'                  total:         <=12 bytes
+    //   .---+---+---+---+- -+- -+- -.  cksum tag:     2 bytes
+    //   |  tag  | 0 | size          |  cksum weight:  1 byte
+    //   +---+---+---+---+- -+- -+- -'  cksum size:    <=4 bytes
+    //   |     cksum     |              cksum cksum:   4 bytes
+    //   '---+---+---+---'              total:         <=11 bytes
     //
     lfs_size_t aligned_eoff = lfs_alignup(
-            rbyd->eoff + 2+1+1+5+4 + 2+1+5+4,
+            rbyd->eoff + 2+1+1+4+4 + 2+1+4+4,
             lfs->cfg->prog_size);
 
     // space for ecksum?
@@ -3131,7 +3168,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         rbyd->eoff += lfsr_data_size(&ecksum_data);
 
     // at least space for a cksum?
-    } else if (rbyd->eoff + 2+1+5+4 <= lfs->cfg->block_size) {
+    } else if (rbyd->eoff + 2+1+4+4 <= lfs->cfg->block_size) {
         // note this implicitly marks the rbyd as unerased
         aligned_eoff = lfs->cfg->block_size;
 
@@ -3145,36 +3182,35 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // note padding-size depends on leb-encoding depends on padding-size, to
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
-    uint8_t cksum_buf[2+1+5+4];
+    uint8_t cksum_buf[2+1+4+4];
     cksum_buf[0] = (LFSR_TAG_CKSUM >> 8) | ((lfs_popc(rbyd->cksum) & 1) << 7);
     cksum_buf[1] = 0;
     cksum_buf[2] = 0;
 
-    lfs_size_t padding = aligned_eoff - (rbyd->eoff + 2+1+5);
+    lfs_size_t padding = aligned_eoff - (rbyd->eoff + 2+1+4);
     cksum_buf[3] = 0x80 | (0x7f & (padding >>  0));
     cksum_buf[4] = 0x80 | (0x7f & (padding >>  7));
     cksum_buf[5] = 0x80 | (0x7f & (padding >> 14));
-    cksum_buf[6] = 0x80 | (0x7f & (padding >> 21));
-    cksum_buf[7] = 0x00 | (0x7f & (padding >> 28));
+    cksum_buf[6] = 0x00 | (0x7f & (padding >> 21));
 
-    rbyd->cksum = lfs_crc32c(rbyd->cksum, cksum_buf, 2+1+5);
+    rbyd->cksum = lfs_crc32c(rbyd->cksum, cksum_buf, 2+1+4);
     // we can't let the next tag appear as valid, so intentionally perturb the
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in cksum tags just for this purpose
     if ((lfs_popc(rbyd->cksum) & 1) == (perturb >> 7)) {
         cksum_buf[1] ^= 0x01;
-        rbyd->cksum ^= 0x68032cc8; // note crc(a ^ b) == crc(a) ^ crc(b)
+        rbyd->cksum ^= 0xef306b19; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
-    lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+5]);
+    lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+4]);
 
     int err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
-            cksum_buf, 2+1+5+4,
+            cksum_buf, 2+1+4+4,
             NULL, NULL);
     if (err) {
         return err;
     }
-    rbyd->eoff += 2+1+5+4;
+    rbyd->eoff += 2+1+4+4;
 
     // flush our caches, finalizing the commit on-disk
     err = lfsr_bd_sync(lfs);
@@ -3762,26 +3798,30 @@ static inline int lfsr_btree_cmp(
 // branch encoding:
 // .---+- -+- -+- -+- -.
 // | block             |  block: <=5 bytes
-// +---+- -+- -+- -+- -+
-// | trunk             |  trunk: <=5 bytes
 // +---+- -+- -+- -+- -'
+// | trunk         |      trunk: <=4 bytes
+// +---+- -+- -+- -+
 // |     cksum     |      cksum: 4 bytes
-// '---+---+---+---'      total: <=14 bytes
+// '---+---+---+---'      total: <=13 bytes
 //
-#define LFSR_BRANCH_DSIZE (5+5+4)
+#define LFSR_BRANCH_DSIZE (5+4+4)
 
 #define LFSR_DATA_FROMBRANCH(_branch, _buffer) \
     lfsr_data_frombranch(_branch, _buffer)
 
 static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+    // block should not exceed 31-bits
+    LFS_ASSERT(branch->blocks[0] <= 0x7fffffff);
+    // trunk should not exceed 28-bits
+    LFS_ASSERT(lfsr_rbyd_trunk(branch) <= 0x0fffffff);
     lfs_ssize_t d = 0;
 
     lfs_ssize_t d_ = lfs_toleb128(branch->blocks[0], &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(lfsr_rbyd_trunk(branch), &buffer[d], 5);
+    d_ = lfs_toleb128(lfsr_rbyd_trunk(branch), &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -3804,7 +3844,7 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (uint32_t*)&branch->trunk);
+    err = lfsr_data_readlleb128(lfs, data, (uint32_t*)&branch->trunk);
     if (err) {
         return err;
     }
@@ -3828,11 +3868,11 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 // | weight            |  weight: <=5 bytes
 // +---+- -+- -+- -+- -+
 // | block             |  block:  <=5 bytes
-// +---+- -+- -+- -+- -+
-// | trunk             |  trunk:  <=5 bytes
 // +---+- -+- -+- -+- -'
+// | trunk         |      trunk:  <=4 bytes
+// +---+- -+- -+- -+
 // |     cksum     |      cksum:  4 bytes
-// '---+---+---+---'      total:  <=19 bytes
+// '---+---+---+---'      total:  <=18 bytes
 //
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
@@ -3841,7 +3881,10 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 
 static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]) {
+    // weight should not exceed 31-bits
+    LFS_ASSERT(btree->weight <= 0x7fffffff);
     lfs_ssize_t d = 0;
+
     lfs_ssize_t d_ = lfs_toleb128(btree->weight, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
     d += d_;
@@ -4886,11 +4929,11 @@ static inline int lfsr_shrub_cmp(
 // shrub encoding:
 // .---+- -+- -+- -+- -.
 // | weight            |   weight: <=5 bytes
-// +---+- -+- -+- -+- -+
-// | trunk             |   trunk:  <=5 bytes
-// '---+- -+- -+- -+- -'   total:  <=10 bytes
+// +---+- -+- -+- -+- -'
+// | trunk         |       trunk:  <=4 bytes
+// '---+- -+- -+- -'       total:  <=9 bytes
 //
-#define LFSR_SHRUB_DSIZE (5+5)
+#define LFSR_SHRUB_DSIZE (5+4)
 
 #define LFSR_DATA_FROMSHRUB(_rbyd, _buffer) \
     lfsr_data_fromtrunk(_rbyd, _buffer)
@@ -4899,6 +4942,10 @@ static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
     // shrub trunks should never be null
     LFS_ASSERT(lfsr_shrub_trunk(shrub) != 0);
+    // weight should not exceed 31-bits
+    LFS_ASSERT(shrub->weight <= 0x7fffffff);
+    // trunk should not exceed 28-bits
+    LFS_ASSERT(lfsr_shrub_trunk(shrub) <= 0x0fffffff);
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
@@ -4906,7 +4953,7 @@ static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(lfsr_shrub_trunk(shrub), &buffer[d], 5);
+    d_ = lfs_toleb128(lfsr_shrub_trunk(shrub), &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -4926,7 +4973,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (uint32_t*)&shrub->trunk);
+    err = lfsr_data_readlleb128(lfs, data, (uint32_t*)&shrub->trunk);
     if (err) {
         return err;
     }
@@ -5093,6 +5140,10 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
 
 static lfsr_data_t lfsr_data_frommptr(const lfsr_mptr_t *mptr,
         uint8_t buffer[static LFSR_MPTR_DSIZE]) {
+    // blocks should not exceed 31-bits
+    LFS_ASSERT(mptr->blocks[0] <= 0x7fffffff);
+    LFS_ASSERT(mptr->blocks[1] <= 0x7fffffff);
+
     lfs_ssize_t d = 0;
     for (int i = 0; i < 2; i++) {
         lfs_ssize_t d_ = lfs_toleb128(mptr->blocks[i], &buffer[d], 5);
@@ -14767,6 +14818,7 @@ failed:;
 
 /// Filesystem operations ///
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
+    // TODO this all needs to be cleaned up
     lfs->cfg = cfg;
     int err = 0;
 
@@ -14781,6 +14833,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
+
+    // block_size is currently limited to 28-bits
+    LFS_ASSERT(lfs->cfg->block_size <= 0x0fffffff);
 
     // check that the block size is large enough to fit ctz pointers
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
