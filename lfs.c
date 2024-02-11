@@ -1273,25 +1273,14 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
 // resulting leb128 encoding fits nicely in 4-bytes
 static inline int lfsr_data_readlleb128(lfs_t *lfs, lfsr_data_t *data,
         uint32_t *word_) {
-    // note we make sure not to update our data offset until after leb128
-    // decoding
-    lfsr_data_t data_ = *data;
-
-    // for 28-bits we can assume worst-case leb128 size is 4-bytes
-    uint8_t buf[4];
-    lfs_ssize_t d = lfsr_data_read(lfs, &data_, buf, 4);
-    if (d < 0) {
-        return d;
+    // just call readleb128 here
+    int err = lfsr_data_readleb128(lfs, data, word_);
+    if (err) {
+        return err;
     }
 
-    d = lfs_fromleb128(word_, buf, d);
-    if (d < 0) {
-        return d;
-    }
     // little-leb128s should be limited to 28-bits
     LFS_ASSERT(*word_ <= 0x0fffffff);
-
-    *data = lfsr_data_slice(*data, d, -1);
     return 0;
 }
 
