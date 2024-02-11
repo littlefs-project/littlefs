@@ -21,19 +21,16 @@ enum {
     LFS_OK_ORPHANED  = 3,
 };
 
-// a normal compare enum, but shifted up by one to allow unioning with
-// negative error codes
-enum {
-    LFS_CMP_LT = 0,
-    LFS_CMP_EQ = 1,
-    LFS_CMP_GT = 2,
+// internally used disk-comparison enum
+//
+// note LT < EQ < GT
+enum lfs_scmp {
+    LFS_CMP_LT = 0, // disk < query
+    LFS_CMP_EQ = 1, // disk = query
+    LFS_CMP_GT = 2, // disk > query
 };
 
 typedef int lfs_scmp_t;
-
-static inline int lfs_cmp(lfs_scmp_t cmp) {
-    return cmp - 1;
-}
 
 
 /// Caching block device operations ///
@@ -264,7 +261,7 @@ static int lfs_bd_flush(lfs_t *lfs,
                 return cmp;
             }
 
-            if (lfs_cmp(cmp) != 0) {
+            if (cmp != LFS_CMP_EQ) {
                 return LFS_ERR_CORRUPT;
             }
         }
@@ -3719,7 +3716,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         }
 
         // bisect search space
-        if (lfs_cmp(cmp) > 0) {
+        if (cmp > LFS_CMP_EQ) {
             upper = rid__ - (weight__-1);
 
             // only keep track of best-match rids > our target if we haven't
@@ -3739,7 +3736,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 }
             }
 
-        } else if (lfs_cmp(cmp) < 0) {
+        } else if (cmp < LFS_CMP_EQ) {
             lower = rid__ + 1;
 
             // keep track of best-matching rid < our target
@@ -6882,7 +6879,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     // note missing mids end up pointing to the next mid
     lfsr_smid_t mid = LFSR_MID(lfs,
             mdir->mid,
-            (lfs_cmp(cmp) < 0) ? rid+1 : rid);
+            (cmp < LFS_CMP_EQ) ? rid+1 : rid);
 
     // intercept pending grms here and pretend they're orphaned files
     //
@@ -6899,7 +6896,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     if (tag_) {
         *tag_ = tag;
     }
-    return (lfs_cmp(cmp) == 0) ? 0 : LFS_ERR_NOENT;
+    return (cmp == LFS_CMP_EQ) ? 0 : LFS_ERR_NOENT;
 }
 
 // lookup names in our mtree
@@ -7696,7 +7693,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     // treat corrupted magic as no magic
-    if (lfs_cmp(cmp) != 0) {
+    if (cmp != LFS_CMP_EQ) {
         LFS_ERROR("No littlefs magic found");
         return LFS_ERR_INVAL;
     }

@@ -3896,8 +3896,8 @@ code = '''
             lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree, 0, name, 3,
                     &split_bid, NULL, NULL, &split_data);
             assert(cmp >= 0);
-            assert(lfs_cmp(cmp) != 0);
-            if (lfs_cmp(cmp) > 0) {
+            assert(cmp != LFS_CMP_EQ);
+            if (cmp > LFS_CMP_EQ) {
                 int err = lfsr_btree_commit(&lfs, &btree,
                         split_bid, LFSR_ATTRS(
                             LFSR_ATTR(NAME, +1, CAT(
@@ -4077,8 +4077,8 @@ code = '''
             lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree, 0, name, 3,
                     &split_bid, NULL, &split_weight, &split_data);
             assert(cmp >= 0);
-            assert(lfs_cmp(cmp) != 0);
-            if (lfs_cmp(cmp) > 0) {
+            assert(cmp != LFS_CMP_EQ);
+            if (cmp > LFS_CMP_EQ) {
                 int err = lfsr_btree_commit(&lfs, &btree,
                         split_bid-(split_weight-1), LFSR_ATTRS(
                             LFSR_ATTR(
