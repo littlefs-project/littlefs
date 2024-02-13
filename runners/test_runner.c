@@ -122,33 +122,22 @@ typedef struct test_powerloss {
 
 typedef struct test_id {
     const char *name;
-    const test_define_t *defines;
+    test_define_t *defines;
     size_t define_count;
     test_powerloss_t powerloss;
 } test_id_t;
 
 
 // test define management
-typedef struct test_define_map {
-    const test_define_t *defines;
-    size_t count;
-} test_define_map_t;
 
-typedef struct test_define_names {
-    const char *const *names;
-    size_t count;
-} test_define_names_t;
+// implicit defines declared here
+#define TEST_DEFINE(k, v) \
+    intmax_t k;
 
-intmax_t test_define_lit(void *data, size_t i) {
-    (void)i;
-    return (intptr_t)data;
-}
+    TEST_IMPLICIT_DEFINES
+#undef TEST_DEFINE
 
-#define TEST_CONST(x) {test_define_lit, (void*)(uintptr_t)(x), 1}
-#define TEST_LIT(x) ((test_define_t)TEST_CONST(x))
-
-
-#define TEST_DEF(k, v) \
+#define TEST_DEFINE(k, v) \
     intmax_t test_define_##k(void *data, size_t i) { \
         (void)data; \
         (void)i; \
@@ -156,196 +145,244 @@ intmax_t test_define_lit(void *data, size_t i) {
     }
 
     TEST_IMPLICIT_DEFINES
-#undef TEST_DEF
+#undef TEST_DEFINE
 
-#define TEST_DEFINE_MAP_OVERRIDE    0
-#define TEST_DEFINE_MAP_EXPLICIT    1
-#define TEST_DEFINE_MAP_CASE        2
-#define TEST_DEFINE_MAP_IMPLICIT    3
+const test_define_t test_implicit_defines[] = {
+    #define TEST_DEFINE(k, v) \
+        {#k, &k, test_define_##k, NULL, 1},
 
-#define TEST_DEFINE_MAP_COUNT       4
-
-test_define_map_t test_define_maps[TEST_DEFINE_MAP_COUNT] = {
-    [TEST_DEFINE_MAP_IMPLICIT] = {
-        (const test_define_t[TEST_IMPLICIT_DEFINE_COUNT]) {
-            #define TEST_DEF(k, v) \
-                [k##_i] = {test_define_##k, NULL, 1},
-
-                TEST_IMPLICIT_DEFINES
-            #undef TEST_DEF
-        },
-        TEST_IMPLICIT_DEFINE_COUNT,
-    },
+        TEST_IMPLICIT_DEFINES
+    #undef TEST_DEFINE
 };
+const size_t test_implicit_define_count
+        = sizeof(test_implicit_defines) / sizeof(test_define_t);
 
-#define TEST_DEFINE_NAMES_SUITE    0
-#define TEST_DEFINE_NAMES_IMPLICIT 1
+// some helpers
+intmax_t test_define_lit(void *data, size_t i) {
+    (void)i;
+    return (intptr_t)data;
+}
 
-#define TEST_DEFINE_NAMES_COUNT    2
+#define TEST_LIT(name, v) ((test_define_t){ \
+    name, NULL, test_define_lit, (void*)(uintptr_t)(v), 1})
 
-test_define_names_t test_define_names[TEST_DEFINE_NAMES_COUNT] = {
-    [TEST_DEFINE_NAMES_IMPLICIT] = {
-        (const char *const[TEST_IMPLICIT_DEFINE_COUNT]){
-            #define TEST_DEF(k, v) \
-                [k##_i] = #k,
 
-                TEST_IMPLICIT_DEFINES
-            #undef TEST_DEF
-        },
-        TEST_IMPLICIT_DEFINE_COUNT,
-    },
-};
+// define mapping
+const test_define_t **test_defines = NULL;
+size_t test_define_count = 0;
+size_t test_define_capacity = 0;
 
-size_t test_define_count;
+const test_define_t **test_suite_defines = NULL;
+size_t test_suite_define_count = 0;
+ssize_t *test_suite_define_map = NULL;
 
-typedef struct test_define_cache_entry {
-    // - >=0 => not cached
-    // - -1  => cached
-    ssize_t permutation;
-    union {
-        intmax_t value;
-        const test_define_t *define;
-    } u;
-} test_define_cache_entry_t;
+test_define_t *test_override_defines = NULL;
+size_t test_override_define_count = 0;
 
-test_define_cache_entry_t *test_define_cache;
-size_t test_define_cache_capacity;
+size_t test_define_depth = 1000;
 
-const char *test_define_name(size_t define) {
-    // lookup in our test names
-    for (size_t i = 0; i < TEST_DEFINE_NAMES_COUNT; i++) {
-        if (define < test_define_names[i].count
-                && test_define_names[i].names
-                && test_define_names[i].names[define]) {
-            return test_define_names[i].names[define];
+
+static inline bool test_define_isdefined(const test_define_t *define) {
+    return define->cb;
+}
+
+static inline bool test_define_ispermutation(const test_define_t *define) {
+    // permutation defines are basically anything that's not implicit
+    return test_define_isdefined(define)
+            && !(define >= test_implicit_defines
+                && define
+                    < test_implicit_defines
+                        + test_implicit_define_count);
+}
+
+
+void test_define_suite(
+        const test_id_t *id,
+        const struct test_suite *suite) {
+    // reset our mapping
+    test_define_count = 0;
+    test_suite_define_count = 0;
+
+    // make sure we have space for everything, just assume the worst case
+    if (test_implicit_define_count + suite->define_count
+            > test_define_capacity) {
+        test_define_capacity
+                = test_implicit_define_count + suite->define_count;
+        test_defines = realloc(
+                test_defines,
+                test_define_capacity*sizeof(const test_define_t*));
+        test_suite_defines = realloc(
+                test_suite_defines,
+                test_define_capacity*sizeof(const test_define_t*));
+        test_suite_define_map = realloc(
+                test_suite_define_map,
+                test_define_capacity*sizeof(ssize_t));
+    }
+
+    // first map our implicit defines
+    for (size_t i = 0; i < test_implicit_define_count; i++) {
+        test_suite_defines[i] = &test_implicit_defines[i];
+    }
+    test_suite_define_count = test_implicit_define_count;
+
+    // build a mapping from suite defines to test defines
+    //
+    // we will use this for both suite and case defines
+    memset(test_suite_define_map, -1,
+            test_suite_define_count*sizeof(size_t));
+
+    for (size_t i = 0; i < suite->define_count; i++) {
+        // assume suite defines are unique so we only need to compare
+        // against implicit defines, this avoids a O(n^2)
+        for (size_t j = 0; j < test_implicit_define_count; j++) {
+            if (test_suite_defines[j]->define == suite->defines[i].define) {
+                test_suite_define_map[j] = i;
+
+                // don't override implicit defines if we're not defined
+                if (test_define_isdefined(&suite->defines[i])) {
+                    test_suite_defines[j] = &suite->defines[i];
+                }
+                goto next_suite_define;
+            }
+        }
+
+        // map a new suite define
+        test_suite_define_map[test_suite_define_count] = i;
+        test_suite_defines[test_suite_define_count] = &suite->defines[i];
+        test_suite_define_count += 1;
+next_suite_define:;
+    }
+
+    // map any explicit defines
+    //
+    // we ignore any out-of-bounds defines here, even though it's likely
+    // an error
+    if (id && id->defines) {
+        for (size_t i = 0;
+                i < id->define_count && i < test_suite_define_count;
+                i++) {
+            if (test_define_isdefined(&id->defines[i])) {
+                // update name/addr
+                id->defines[i].name = test_suite_defines[i]->name;
+                id->defines[i].define = test_suite_defines[i]->define;
+                // map and override suite mapping
+                test_suite_defines[i] = &id->defines[i];
+                test_suite_define_map[i] = -1;
+            }
         }
     }
 
-    return NULL;
+    // map any override defines
+    //
+    // note it's not an error to override a define that doesn't exist
+    for (size_t i = 0; i < test_override_define_count; i++) {
+        for (size_t j = 0; j < test_suite_define_count; j++) {
+            if (strcmp(
+                    test_suite_defines[j]->name,
+                    test_override_defines[i].name) == 0) {
+                // update addr
+                test_override_defines[i].define
+                        = test_suite_defines[j]->define;
+                // map and override suite mapping
+                test_suite_defines[j] = &test_override_defines[i];
+                test_suite_define_map[j] = -1;
+                goto next_override_define;
+            }
+        }
+next_override_define:;
+    }
 }
 
-bool test_define_ispermutation(size_t define) {
-    // is this define specific to the permutation?
-    for (size_t i = 0; i < TEST_DEFINE_MAP_IMPLICIT; i++) {
-        if (define < test_define_maps[i].count
-                && test_define_maps[i].defines[define].cb) {
-            return true;
+void test_define_case(
+        const test_id_t *id,
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        size_t perm) {
+    (void)id;
+
+    // copy over suite defines
+    for (size_t i = 0; i < test_suite_define_count; i++) {
+        // map case define if case define is defined
+        if (case_->defines
+                && test_suite_define_map[i] != -1
+                && test_define_isdefined(&case_->defines[
+                    perm*suite->define_count
+                        + test_suite_define_map[i]])) {
+            test_defines[i] = &case_->defines[
+                    perm*suite->define_count
+                        + test_suite_define_map[i]];
+        } else {
+            test_defines[i] = test_suite_defines[i];
         }
     }
-
-    return false;
+    test_define_count = test_suite_define_count;
 }
 
-size_t test_define_permutations(size_t define) {
-    for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
-        if (define < test_define_maps[i].count
-                && test_define_maps[i].defines[define].cb) {
-            return (test_define_maps[i].defines[define].permutations)
-                    ? test_define_maps[i].defines[define].permutations
-                    : 1;
-        }
+void test_define_permutation(size_t perm) {
+    // first zero everything, we really don't want reproducibility issues
+    for (size_t i = 0; i < test_define_count; i++) {
+        *test_defines[i]->define = 0;
     }
 
-    return 0;
+    // defines may be mutually recursive, which makes evaluation a bit tricky
+    //
+    // Rather than doing any clever, we just repeatedly evaluate the
+    // permutation until values stabilize. If things don't stabilize after
+    // some number of iterations, error, this likely means defines were
+    // stuck in a cycle
+    //
+    size_t attempt = 0;
+    while (true) {
+        const test_define_t *changed = NULL;
+        // define-specific permutations are encoded in the case permutation
+        size_t perm_ = perm;
+        for (size_t i = 0; i < test_define_count; i++) {
+            if (test_defines[i]->cb) {
+                intmax_t v = test_defines[i]->cb(
+                        test_defines[i]->data,
+                        perm_ % test_defines[i]->permutations);
+                if (v != *test_defines[i]->define) {
+                    *test_defines[i]->define = v;
+                    changed = test_defines[i];
+                }
+
+                perm_ /= test_defines[i]->permutations;
+            }
+        }
+
+        // stabilized?
+        if (!changed) {
+            break;
+        }
+
+        attempt += 1;
+        if (test_define_depth && attempt >= test_define_depth+1) {
+            fprintf(stderr, "error: could not resolve recursive defines: %s\n",
+                    changed->name);
+            exit(-1);
+        }
+    }
 }
 
-size_t test_define_permutationpermutations(void) {
+void test_define_cleanup(void) {
+    // test define management can allocate a few things
+    free(test_defines);
+    free(test_suite_defines);
+    free(test_suite_define_map);
+}
+
+size_t test_define_permutations(void) {
     size_t prod = 1;
-    for (size_t d = 0; d < test_define_count; d++) {
-        size_t permutations = test_define_permutations(d);
-        if (permutations > 0) {
-            prod *= permutations;
-        }
+    for (size_t i = 0; i < test_define_count; i++) {
+        prod *= (test_defines[i]->permutations > 0)
+                ? test_defines[i]->permutations
+                : 1;
     }
     return prod;
 }
 
-intmax_t test_define(size_t define) {
-    // cached?
-    if (test_define_cache[define].permutation == -1) {
-        return test_define_cache[define].u.value;
 
-    // lazily defined?
-    } else if (test_define_cache[define].u.define) {
-        // evaluate and store in cache
-        test_define_cache[define].u.value
-                = test_define_cache[define].u.define->cb(
-                    test_define_cache[define].u.define->data,
-                    test_define_cache[define].permutation);
-        test_define_cache[define].permutation = -1;
-        return test_define_cache[define].u.value;
-
-    // not defined?
-    } else {
-        const char *name = test_define_name(define);
-        fprintf(stderr, "error: undefined define %s (%zd)\n",
-                (name) ? name : "(unknown)",
-                define);
-        assert(false);
-        exit(-1);
-    }
-}
-
-// permutation updates
-void test_define_permutation(size_t perm) {
-    // We can't completely precompute the defines easily, since they may be
-    // mutually recursive. But we can precompute the permutations, which is
-    // expensive otherwise.
-    //
-    // Note that it's not really worth it to make define lookup completely
-    // lazy, the first thing we do is evaluate all defines for 1. deduplication
-    // and 2. logging.
-
-    if (test_define_cache_capacity < test_define_count) {
-        // align to power of two to avoid any superlinear growth
-        test_define_cache_capacity = 1 << lfs_npw2(test_define_count);
-        test_define_cache = realloc(
-                test_define_cache,
-                test_define_cache_capacity*sizeof(test_define_cache_entry_t));
-    }
-
-    for (size_t d = 0; d < test_define_count; d++) {
-        // lookup our test defines
-        for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
-            if (d < test_define_maps[i].count
-                    && test_define_maps[i].defines[d].cb) {
-                // note we can't precompute these due to mutual recursion
-                const test_define_t *define = &test_define_maps[i].defines[d];
-                test_define_cache[d] = (test_define_cache_entry_t){
-                    .permutation = perm % define->permutations,
-                    .u.define = define,
-                };
-                perm /= test_define_maps[i].defines[d].permutations;
-                goto next;
-            }
-        }
-
-        // default to a null value, these should be unreachable
-        test_define_cache[d] = (test_define_cache_entry_t){0};
-    next:;
-    }
-}
-
-// case updates
-void test_define_case(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm) {
-    if (case_->defines) {
-        test_define_maps[TEST_DEFINE_MAP_CASE] = (test_define_map_t){
-                &case_->defines[perm*suite->define_count],
-                suite->define_count};
-    } else {
-        test_define_maps[TEST_DEFINE_MAP_CASE] = (test_define_map_t){
-                NULL, 0};
-    }
-}
-
-// override updates
-typedef struct test_override {
-    const char *name;
-    test_define_t define;
-} test_override_t;
+// override define stuff
 
 typedef struct test_override_value {
     intmax_t start;
@@ -390,63 +427,6 @@ intmax_t test_override_cb(void *data, size_t i) {
     __builtin_unreachable();
 }
 
-const test_override_t *test_overrides = NULL;
-size_t test_override_count = 0;
-
-test_define_t *test_override_defines = NULL;
-size_t test_override_define_capacity = 0;
-
-// suite/perm updates
-void test_define_suite(const struct test_suite *suite) {
-    // set define names
-    test_define_names[TEST_DEFINE_NAMES_SUITE] = (test_define_names_t){
-            suite->define_names, suite->define_count};
-
-    // set define count
-    test_define_count = (suite->define_count > TEST_IMPLICIT_DEFINE_COUNT)
-            ? suite->define_count
-            : TEST_IMPLICIT_DEFINE_COUNT;
-
-    // map any overrides
-    if (test_override_count > 0) {
-        if (test_define_count > test_override_define_capacity) {
-            // align to power of two to avoid any superlinear growth
-            test_override_define_capacity = 1 << lfs_npw2(test_define_count);
-            test_override_defines = realloc(
-                    test_override_defines,
-                    test_override_define_capacity*sizeof(test_define_t));
-        }
-
-        memset(test_override_defines, 0,
-                test_define_count*sizeof(test_define_t));
-        for (size_t i = 0; i < test_override_count; i++) {
-            for (size_t d = 0; d < test_define_count; d++) {
-                // name match?
-                const char *name = test_define_name(d);
-                if (name && strcmp(name, test_overrides[i].name) == 0) {
-                    test_override_defines[d] = test_overrides[i].define;
-                }
-            }
-        }
-
-        test_define_maps[TEST_DEFINE_MAP_OVERRIDE] = (test_define_map_t){
-                test_override_defines, test_define_count};
-    }
-}
-
-void test_define_explicit(
-        const test_define_t *defines,
-        size_t define_count) {
-    test_define_maps[TEST_DEFINE_MAP_EXPLICIT] = (test_define_map_t){
-            defines, define_count};
-}
-
-void test_define_cleanup(void) {
-    // test define management can allocate a few things
-    free(test_define_cache);
-    free(test_override_defines);
-}
-
 
 
 // test state
@@ -472,7 +452,7 @@ lfs_emubd_sleep_t test_read_sleep = 0.0;
 lfs_emubd_sleep_t test_prog_sleep = 0.0;
 lfs_emubd_sleep_t test_erase_sleep = 0.0;
 
-volatile size_t test_pls = 0;
+volatile size_t TEST_PLS = 0;
 
 extern const test_powerloss_t *test_powerlosses;
 extern size_t test_powerloss_count;
@@ -647,9 +627,9 @@ static void perm_printid(
     // case[:permutation[:powercycles]]
     printf("%s:", case_->name);
     for (size_t d = 0; d < test_define_count; d++) {
-        if (test_define_ispermutation(d)) {
+        if (test_define_ispermutation(test_defines[d])) {
             leb16_print(d);
-            leb16_print(TEST_DEFINE(d));
+            leb16_print(*test_defines[d]->define);
         }
     }
 
@@ -680,12 +660,14 @@ bool test_seen_insert(test_seen_t *seen) {
     bool was_seen = true;
     for (size_t d = 0; d < test_define_count; d++) {
         // treat unpermuted defines the same as 0
-        intmax_t define = test_define_ispermutation(d) ? TEST_DEFINE(d) : 0;
+        intmax_t v = test_define_ispermutation(test_defines[d])
+                ? *test_defines[d]->define
+                : 0;
 
         // already seen?
         struct test_seen_branch *branch = NULL;
         for (size_t i = 0; i < seen->branch_count; i++) {
-            if (seen->branches[i].define == define) {
+            if (seen->branches[i].define == v) {
                 branch = &seen->branches[i];
                 break;
             }
@@ -699,7 +681,7 @@ bool test_seen_insert(test_seen_t *seen) {
                     sizeof(struct test_seen_branch),
                     &seen->branch_count,
                     &seen->branch_capacity);
-            branch->define = define;
+            branch->define = v;
             branch->branch = (test_seen_t){NULL, 0, 0};
         }
 
@@ -727,9 +709,9 @@ static void run_powerloss_cycles(
 
 // iterate through permutations in a test case
 static void case_forperm(
+        const test_id_t *id,
         const struct test_suite *suite,
         const struct test_case *case_,
-        const test_id_t *id,
         void (*cb)(
             void *data,
             const struct test_suite *suite,
@@ -738,9 +720,10 @@ static void case_forperm(
         void *data) {
     // explicit permutation?
     if (id && id->defines) {
-        test_define_explicit(id->defines, id->define_count);
+        // define case permutation, the exact case perm doesn't matter here
+        test_define_case(id, suite, case_, 0);
 
-        size_t permutations = test_define_permutationpermutations();
+        size_t permutations = test_define_permutations();
         for (size_t p = 0; p < permutations; p++) {
             // define permutation permutation
             test_define_permutation(p);
@@ -775,9 +758,9 @@ static void case_forperm(
             k < ((case_->permutations) ? case_->permutations : 1);
             k++) {
         // define case permutation
-        test_define_case(suite, case_, k);
+        test_define_case(id, suite, case_, k);
 
-        size_t permutations = test_define_permutationpermutations();
+        size_t permutations = test_define_permutations();
         for (size_t p = 0; p < permutations; p++) {
             // define permutation permutation
             test_define_permutation(p);
@@ -826,7 +809,7 @@ void perm_count(
     state->total += 1;
 
     // set pls to 1 if running under powerloss so it useful for if predicates
-    test_pls = (powerloss->run != run_powerloss_none);
+    TEST_PLS = (powerloss->run != run_powerloss_none);
     if (case_->if_ && !case_->if_()) {
         return;
     }
@@ -846,7 +829,7 @@ static void summary(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < test_suite_count; i++) {
-            test_define_suite(test_suites[i]);
+            test_define_suite(&test_ids[t], test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
@@ -860,9 +843,9 @@ static void summary(void) {
 
                 cases += 1;
                 case_forperm(
+                        &test_ids[t],
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        &test_ids[t],
                         perm_count,
                         &perms);
             }
@@ -902,7 +885,7 @@ static void list_suites(void) {
             name_width, "suite", "flags", "cases", "perms");
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < test_suite_count; i++) {
-            test_define_suite(test_suites[i]);
+            test_define_suite(&test_ids[t], test_suites[i]);
 
             size_t cases = 0;
             struct perm_count_state perms = {0, 0};
@@ -919,9 +902,9 @@ static void list_suites(void) {
 
                 cases += 1;
                 case_forperm(
+                        &test_ids[t],
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        &test_ids[t],
                         perm_count,
                         &perms);
             }
@@ -964,7 +947,7 @@ static void list_cases(void) {
     printf("%-*s  %7s %15s\n", name_width, "case", "flags", "perms");
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < test_suite_count; i++) {
-            test_define_suite(test_suites[i]);
+            test_define_suite(&test_ids[t], test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
@@ -978,9 +961,9 @@ static void list_cases(void) {
 
                 struct perm_count_state perms = {0, 0};
                 case_forperm(
+                        &test_ids[t],
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        &test_ids[t],
                         perm_count,
                         &perms);
 
@@ -1096,16 +1079,16 @@ struct list_defines_defines {
 
 static void list_defines_add(
         struct list_defines_defines *defines,
-        size_t d) {
-    const char *name = test_define_name(d);
-    intmax_t value = TEST_DEFINE(d);
+        const test_define_t *define) {
+    const char *name = define->name;
+    intmax_t v = *define->define;
 
     // define already in defines?
     for (size_t i = 0; i < defines->define_count; i++) {
         if (strcmp(defines->defines[i].name, name) == 0) {
             // value already in values?
             for (size_t j = 0; j < defines->defines[i].value_count; j++) {
-                if (defines->defines[i].values[j] == value) {
+                if (defines->defines[i].values[j] == v) {
                     return;
                 }
             }
@@ -1114,23 +1097,23 @@ static void list_defines_add(
                 (void**)&defines->defines[i].values,
                 sizeof(intmax_t),
                 &defines->defines[i].value_count,
-                &defines->defines[i].value_capacity) = value;
+                &defines->defines[i].value_capacity) = v;
 
             return;
         }
     }
 
     // new define?
-    struct list_defines_define *define = mappend(
+    struct list_defines_define *define_ = mappend(
             (void**)&defines->defines,
             sizeof(struct list_defines_define),
             &defines->define_count,
             &defines->define_capacity);
-    define->name = name;
-    define->values = malloc(sizeof(intmax_t));
-    define->values[0] = value;
-    define->value_count = 1;
-    define->value_capacity = 1;
+    define_->name = name;
+    define_->values = malloc(sizeof(intmax_t));
+    define_->values[0] = v;
+    define_->value_count = 1;
+    define_->value_capacity = 1;
 }
 
 void perm_list_defines(
@@ -1145,9 +1128,8 @@ void perm_list_defines(
 
     // collect defines
     for (size_t d = 0; d < test_define_count; d++) {
-        if (d < TEST_IMPLICIT_DEFINE_COUNT
-                || test_define_ispermutation(d)) {
-            list_defines_add(defines, d);
+        if (test_define_isdefined(test_defines[d])) {
+            list_defines_add(defines, test_defines[d]);
         }
     }
 }
@@ -1164,8 +1146,8 @@ void perm_list_permutation_defines(
 
     // collect permutation_defines
     for (size_t d = 0; d < test_define_count; d++) {
-        if (test_define_ispermutation(d)) {
-            list_defines_add(defines, d);
+        if (test_define_ispermutation(test_defines[d])) {
+            list_defines_add(defines, test_defines[d]);
         }
     }
 }
@@ -1176,7 +1158,7 @@ static void list_defines(void) {
     // add defines
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < test_suite_count; i++) {
-            test_define_suite(test_suites[i]);
+            test_define_suite(&test_ids[t], test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
@@ -1189,9 +1171,9 @@ static void list_defines(void) {
                 }
 
                 case_forperm(
+                        &test_ids[t],
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        &test_ids[t],
                         perm_list_defines,
                         &defines);
             }
@@ -1221,7 +1203,7 @@ static void list_permutation_defines(void) {
     // add permutation defines
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < test_suite_count; i++) {
-            test_define_suite(test_suites[i]);
+            test_define_suite(&test_ids[t], test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
@@ -1234,9 +1216,9 @@ static void list_permutation_defines(void) {
                 }
 
                 case_forperm(
+                        &test_ids[t],
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        &test_ids[t],
                         perm_list_permutation_defines,
                         &defines);
             }
@@ -1263,14 +1245,24 @@ static void list_permutation_defines(void) {
 static void list_implicit_defines(void) {
     struct list_defines_defines defines = {NULL, 0, 0};
 
-    // yes we do need to define a suite, this does a bit of bookeeping
-    // such as setting up the define cache
-    test_define_suite(&(const struct test_suite){0});
-    test_define_permutation(0);
+    // yes we do need to define a suite/case, these do a bit of bookeeping
+    // around mapping defines
+    test_define_suite(NULL,
+            &(const struct test_suite){0});
+    test_define_case(NULL,
+            &(const struct test_suite){0},
+            &(const struct test_case){0},
+            0);
 
-    // add implicit defines
-    for (size_t d = 0; d < TEST_IMPLICIT_DEFINE_COUNT; d++) {
-        list_defines_add(&defines, d);
+    size_t permutations = test_define_permutations();
+    for (size_t p = 0; p < permutations; p++) {
+        // define permutation permutation
+        test_define_permutation(p);
+
+        // add implicit defines
+        for (size_t d = 0; d < test_define_count; d++) {
+            list_defines_add(&defines, test_defines[d]);
+        }
     }
 
     for (size_t i = 0; i < defines.define_count; i++) {
@@ -1332,7 +1324,7 @@ static void run_powerloss_none(
     printf("\n");
 
     // zero pls
-    test_pls = 0;
+    TEST_PLS = 0;
 
     case_->run(&cfg);
 
@@ -1358,7 +1350,7 @@ static void run_powerloss_linear(
         const struct test_suite *suite,
         const struct test_case *case_) {
     // zero pls
-    test_pls = 0;
+    TEST_PLS = 0;
 
     // create block device and configuration
     lfs_emubd_t bd;
@@ -1378,8 +1370,8 @@ static void run_powerloss_linear(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (test_pls < powerloss->cycle_count)
-                ? test_pls+1
+        .power_cycles       = (TEST_PLS < powerloss->cycle_count)
+                ? TEST_PLS+1
                 : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -1409,13 +1401,13 @@ static void run_powerloss_linear(
         printf("powerloss ");
         perm_printid(suite, case_, NULL, 0);
         printf(":x");
-        leb16_print(test_pls+1);
+        leb16_print(TEST_PLS+1);
         printf("\n");
 
         // increment pls
-        test_pls += 1;
-        lfs_emubd_setpowercycles(&cfg, (test_pls < powerloss->cycle_count)
-                ? test_pls+1
+        TEST_PLS += 1;
+        lfs_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+                ? TEST_PLS+1
                 : 0);
     }
 
@@ -1436,7 +1428,7 @@ static void run_powerloss_log(
         const struct test_suite *suite,
         const struct test_case *case_) {
     // zero pls
-    test_pls = 0;
+    TEST_PLS = 0;
 
     // create block device and configuration
     lfs_emubd_t bd;
@@ -1456,8 +1448,8 @@ static void run_powerloss_log(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (test_pls < powerloss->cycle_count)
-                ? 1 << test_pls
+        .power_cycles       = (TEST_PLS < powerloss->cycle_count)
+                ? 1 << TEST_PLS
                 : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -1487,13 +1479,13 @@ static void run_powerloss_log(
         printf("powerloss ");
         perm_printid(suite, case_, NULL, 0);
         printf(":y");
-        leb16_print(test_pls+1);
+        leb16_print(TEST_PLS+1);
         printf("\n");
 
         // increment pls
-        test_pls += 1;
-        lfs_emubd_setpowercycles(&cfg, (test_pls < powerloss->cycle_count)
-                ? 1 << test_pls
+        TEST_PLS += 1;
+        lfs_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+                ? 1 << TEST_PLS
                 : 0);
     }
 
@@ -1514,7 +1506,7 @@ static void run_powerloss_cycles(
         const struct test_suite *suite,
         const struct test_case *case_) {
     // zero pls
-    test_pls = 0;
+    TEST_PLS = 0;
 
     // create block device and configuration
     lfs_emubd_t bd;
@@ -1534,8 +1526,8 @@ static void run_powerloss_cycles(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (test_pls < powerloss->cycle_count)
-                ? powerloss->cycles[test_pls]
+        .power_cycles       = (TEST_PLS < powerloss->cycle_count)
+                ? powerloss->cycles[TEST_PLS]
                 : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -1562,15 +1554,15 @@ static void run_powerloss_cycles(
         }
 
         // power-loss!
-        assert(test_pls <= powerloss->cycle_count);
+        assert(TEST_PLS <= powerloss->cycle_count);
         printf("powerloss ");
-        perm_printid(suite, case_, powerloss->cycles, test_pls+1);
+        perm_printid(suite, case_, powerloss->cycles, TEST_PLS+1);
         printf("\n");
 
         // increment pls
-        test_pls += 1;
-        lfs_emubd_setpowercycles(&cfg, (test_pls < powerloss->cycle_count)
-                ? powerloss->cycles[test_pls]
+        TEST_PLS += 1;
+        lfs_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+                ? powerloss->cycles[TEST_PLS]
                 : 0);
     }
 
@@ -1640,7 +1632,7 @@ static void run_powerloss_exhaustive_layer(
     };
 
     // make the number of pls currently seen available to tests/debugging
-    test_pls = pls;
+    TEST_PLS = pls;
 
     // run through the test without additional powerlosses, collecting possible
     // branches as we do so
@@ -1812,7 +1804,7 @@ void perm_run(
     test_step += 1;
 
     // set pls to 1 if running under powerloss so it useful for if predicates
-    test_pls = (powerloss->run != run_powerloss_none);
+    TEST_PLS = (powerloss->run != run_powerloss_none);
     // filter?
     if (case_->if_ && !case_->if_()) {
         printf("skipped ");
@@ -1831,7 +1823,7 @@ static void run(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < test_suite_count; i++) {
-            test_define_suite(test_suites[i]);
+            test_define_suite(&test_ids[t], test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
@@ -1844,9 +1836,9 @@ static void run(void) {
                 }
 
                 case_forperm(
+                        &test_ids[t],
                         test_suites[i],
                         &test_suites[i]->cases[j],
-                        &test_ids[t],
                         perm_run,
                         NULL);
             }
@@ -1869,16 +1861,17 @@ enum opt_flags {
     OPT_LIST_IMPLICIT_DEFINES    = 5,
     OPT_LIST_POWERLOSSES         = 6,
     OPT_DEFINE                   = 'D',
+    OPT_DEFINE_DEPTH             = 7,
     OPT_POWERLOSS                = 'P',
     OPT_STEP                     = 's',
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 7,
-    OPT_TRACE_PERIOD             = 8,
-    OPT_TRACE_FREQ               = 9,
-    OPT_READ_SLEEP               = 10,
-    OPT_PROG_SLEEP               = 11,
-    OPT_ERASE_SLEEP              = 12,
+    OPT_TRACE_BACKTRACE          = 8,
+    OPT_TRACE_PERIOD             = 9,
+    OPT_TRACE_FREQ               = 10,
+    OPT_READ_SLEEP               = 11,
+    OPT_PROG_SLEEP               = 12,
+    OPT_ERASE_SLEEP              = 13,
 };
 
 const char *short_opts = "hYlLD:P:s:d:t:";
@@ -1897,6 +1890,7 @@ const struct option long_opts[] = {
                          no_argument,       NULL, OPT_LIST_IMPLICIT_DEFINES},
     {"list-powerlosses", no_argument,       NULL, OPT_LIST_POWERLOSSES},
     {"define",           required_argument, NULL, OPT_DEFINE},
+    {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"powerloss",        required_argument, NULL, OPT_POWERLOSS},
     {"step",             required_argument, NULL, OPT_STEP},
     {"disk",             required_argument, NULL, OPT_DISK},
@@ -1922,6 +1916,7 @@ const char *const help_text[] = {
     "List implicit defines in this test-runner.",
     "List the available power-loss scenarios.",
     "Override a test define.",
+    "How deep to evaluate recursive defines before erroring.",
     "Comma-separated list of power-loss scenarios to test.",
     "Comma-separated range of test permutations to run (start,stop,step).",
     "Direct block device operations to this file.",
@@ -1937,7 +1932,7 @@ const char *const help_text[] = {
 int main(int argc, char **argv) {
     void (*op)(void) = run;
 
-    size_t test_override_capacity = 0;
+    size_t test_override_define_capacity = 0;
     size_t test_powerloss_capacity = 0;
     size_t test_id_capacity = 0;
 
@@ -2041,11 +2036,11 @@ int main(int argc, char **argv) {
         // configuration
         case OPT_DEFINE:;
             // allocate space
-            test_override_t *override = mappend(
-                    (void**)&test_overrides,
-                    sizeof(test_override_t),
-                    &test_override_count,
-                    &test_override_capacity);
+            test_define_t *override = mappend(
+                    (void**)&test_override_defines,
+                    sizeof(test_define_t),
+                    &test_override_define_count,
+                    &test_override_define_capacity);
 
             // parse into string key/intmax_t value, cannibalizing the
             // arg in the process
@@ -2172,21 +2167,31 @@ int main(int argc, char **argv) {
                     }
                 }
 
-                override->define.cb = test_override_cb;
-                override->define.data = malloc(
-                        sizeof(test_override_data_t));
-                *(test_override_data_t*)override->define.data
+                // define should be patched in test_define_suite
+                override->define = NULL;
+                override->cb = test_override_cb;
+                override->data = malloc(sizeof(test_override_data_t));
+                *(test_override_data_t*)override->data
                         = (test_override_data_t){
                     .values = override_values,
                     .value_count = override_value_count,
                 };
-                override->define.permutations = override_permutations;
+                override->permutations = override_permutations;
             }
             break;
 
         invalid_define:;
             fprintf(stderr, "error: invalid define: %s\n", optarg);
             exit(-1);
+
+        case OPT_DEFINE_DEPTH:;
+            parsed = NULL;
+            test_define_depth = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid define-depth: %s\n", optarg);
+                exit(-1);
+            }
+            break;
 
         case OPT_POWERLOSS:;
             // reset our powerloss scenarios
@@ -2531,7 +2536,8 @@ getopt_done:;
                             (ncount-define_count)*sizeof(test_define_t));
                     define_count = ncount;
                 }
-                defines[d] = TEST_LIT(v);
+                // name/define should be patched in test_define_suite
+                defines[d] = TEST_LIT(NULL, v);
             }
 
             // special case for linear power cycles
@@ -2619,11 +2625,11 @@ getopt_done:;
 
     // cleanup (need to be done for valgrind testing)
     test_define_cleanup();
-    if (test_overrides) {
-        for (size_t i = 0; i < test_override_count; i++) {
-            free((void*)test_overrides[i].define.data);
+    if (test_override_defines) {
+        for (size_t i = 0; i < test_override_define_count; i++) {
+            free((void*)test_override_defines[i].data);
         }
-        free((void*)test_overrides);
+        free((void*)test_override_defines);
     }
     if (test_powerloss_capacity) {
         for (size_t i = 0; i < test_powerloss_count; i++) {

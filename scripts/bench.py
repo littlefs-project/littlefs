@@ -245,7 +245,7 @@ class BenchSuite:
                 file=sys.stderr)
 
     def __repr__(self):
-        return '<TestSuite %s>' % self.name
+        return '<BenchSuite %s>' % self.name
 
     def __lt__(self, other):
         # sort by name
@@ -429,13 +429,9 @@ def compile(bench_paths, **args):
             if not args.get('source'):
                 # write any suite defines
                 if suite.defines:
-                    for i, define in enumerate(sorted(suite.defines)):
-                        f.writeln('#ifndef %s' % define)
-                        f.writeln('#define %-24s '
-                            'BENCH_IMPLICIT_DEFINE_COUNT+%d' % (define+'_i', i))
-                        f.writeln('#define %-24s '
-                            'BENCH_DEFINE(%s)' % (define, define+'_i'))
-                        f.writeln('#endif')
+                    for define in sorted(suite.defines):
+                        f.writeln('__attribute__((weak)) intmax_t %s;'
+                            % define)
                     f.writeln()
 
                 # write any suite code
@@ -477,17 +473,14 @@ def compile(bench_paths, **args):
                     % (' | '.join(filter(None, [
                         'BENCH_INTERNAL' if suite.internal else None]))
                         or 0))
+                # create suite defines
                 if suite.defines:
-                    # create suite define names
-                    f.writeln(4*' '+'.define_names = (const char *const['
-                        'BENCH_IMPLICIT_DEFINE_COUNT+%d]){'
-                        % (len(suite.defines)))
+                    f.writeln(4*' '+'.defines = (const bench_define_t[]){')
                     for k in sorted(suite.defines):
-                        f.writeln(8*' '+'[%-24s] = "%s",' % (k+'_i', k))
+                        f.writeln(8*' '+'{"%s", &%s, NULL, NULL, 0},'
+                            % (k, k))
                     f.writeln(4*' '+'},')
-                    f.writeln(4*' '+'.define_count = '
-                        'BENCH_IMPLICIT_DEFINE_COUNT+%d,'
-                        % len(suite.defines))
+                    f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
                 if suite.cases:
                     f.writeln(4*' '+'.cases = (const struct bench_case[]){')
                     for case in suite.cases:
@@ -499,18 +492,20 @@ def compile(bench_paths, **args):
                             % (' | '.join(filter(None, [
                                 'BENCH_INTERNAL' if suite.internal else None]))
                                 or 0))
+                        # create case defines
                         if case.defines:
-                            f.writeln(12*' '+'.defines = '
-                                '(const bench_define_t*)(const bench_define_t[]['
-                                'BENCH_IMPLICIT_DEFINE_COUNT+%d]){'
+                            f.writeln(12*' '+'.defines'
+                                ' = (const bench_define_t*)'
+                                    '(const bench_define_t[][%d]){'
                                 % (len(suite.defines)))
                             for i, permutation in enumerate(case.permutations):
                                 f.writeln(16*' '+'{')
                                 for k, vs in sorted(permutation.items()):
-                                    f.writeln(20*' '
-                                        +'[%-24s] = {__bench__%s__%s__%d, NULL, '
-                                        '%d},'
-                                        % (k+'_i', case.name, k, i,
+                                    f.writeln(20*' '+'[%d] = {'
+                                            '"%s", &%s, '
+                                            '__bench__%s__%s__%d, NULL, %d},'
+                                        % (sorted(suite.defines).index(k),
+                                            k, k, case.name, k, i,
                                             sum(len(v)
                                                 if isinstance(v, range)
                                                 else 1
@@ -537,30 +532,25 @@ def compile(bench_paths, **args):
                     shutil.copyfileobj(sf, f)
                 f.writeln()
 
+                # merge all defines we need, otherwise we will run into
+                # redefinition errors
+                defines = ({define
+                        for suite in suites
+                        if suite.isin(args['source'])
+                        for define in suite.defines}
+                    | {define
+                        for suite in suites
+                        for case in suite.cases
+                        if case.isin(args['source'])
+                        for define in case.defines})
+                if defines:
+                    for define in sorted(defines):
+                        f.writeln('__attribute__((weak)) intmax_t %s;'
+                            % define)
+                    f.writeln()
+
                 # write any internal benches
                 for suite in suites:
-                    if (suite.isin(args['source'])
-                            or any(case.isin(args['source'])
-                                for case in suite.cases)):
-                        # write defines, but note we need to undef any
-                        # new defines since we're in someone else's file
-                        if suite.defines:
-                            for i, define in enumerate(
-                                    sorted(suite.defines)):
-                                f.writeln('#ifndef %s' % define)
-                                f.writeln('#define %-24s '
-                                    'BENCH_IMPLICIT_DEFINE_COUNT+%d' % (
-                                    define+'_i', i))
-                                f.writeln('#define %-24s '
-                                    'BENCH_DEFINE(%s)' % (
-                                    define, define+'_i'))
-                                f.writeln('#define '
-                                    '__BENCH__%s__NEEDS_UNDEF' % (
-                                    define))
-                                f.writeln('#endif')
-                            f.writeln()
-
-                    # write any internal suite code
                     if suite.isin(args['source']):
                         if suite.code_lineno is not None:
                             f.writeln('#line %d "%s"'
@@ -574,19 +564,6 @@ def compile(bench_paths, **args):
                     for case in suite.cases:
                         if case.isin(args['source']):
                             write_case_functions(f, suite, case)
-
-                    if (suite.isin(args['source'])
-                            or any(case.isin(args['source'])
-                                for case in suite.cases)):
-                        for define in sorted(suite.defines):
-                            f.writeln('#ifdef __BENCH__%s__NEEDS_UNDEF'
-                                % define)
-                            f.writeln('#undef __BENCH__%s__NEEDS_UNDEF'
-                                % define)
-                            f.writeln('#undef %s' % define)
-                            f.writeln('#undef %s' % (define+'_i'))
-                            f.writeln('#endif')
-                        f.writeln()
 
                 # declare our bench suites
                 #
@@ -640,6 +617,8 @@ def find_runner(runner, id=None, **args):
             '-o%s' % args['perf']]))
 
     # other context
+    if args.get('define_depth'):
+        cmd.append('--define-depth=%s' % args['define_depth'])
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -662,11 +641,11 @@ def find_runner(runner, id=None, **args):
         for define in args.get('define'):
             cmd.append('-D%s' % define)
 
-    # test id?
+    # bench id?
     #
     # note we disable defines above when id is explicit, defines override id
-    # in the test runner, which is not what we want when querying an explicit
-    # test id
+    # in the bench runner, which is not what we want when querying an explicit
+    # bench id
     if id is not None:
         cmd.append(id)
 
@@ -1512,6 +1491,9 @@ if __name__ == "__main__":
         action='append',
         help="Override a bench define.")
     bench_parser.add_argument(
+        '--define-depth',
+        help="How deep to evaluate recursive defines before erroring.")
+    bench_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")
     bench_parser.add_argument(
@@ -1568,7 +1550,7 @@ if __name__ == "__main__":
         '-F', '--failures',
         type=lambda x: int(x, 0),
         default=3,
-        help="Show this many test failures. Defaults to 3.")
+        help="Show this many bench failures. Defaults to 3.")
     bench_parser.add_argument(
         '-C', '--context',
         type=lambda x: int(x, 0),
