@@ -421,12 +421,23 @@ def p_stmt(p):
     else:
         return ws + lh
 
-def main(input=None, output=None, assert_=[], unreachable=[], limit=LIMIT):
+def main(input=None, output=None,
+        assert_=[],
+        unreachable=[],
+        arrow=False,
+        no_defaults=False,
+        limit=LIMIT):
     with openio(input or '-', 'r') as in_f:
         # create parser
         lexemes = LEXEMES.copy()
+        if no_defaults:
+            lexemes['assert'] = []
+            lexemes['unreachable'] = []
+            lexemes['arrow'] = []
         lexemes['assert'] += assert_
         lexemes['unreachable'] += unreachable
+        if arrow and no_defaults:
+            lexemes['arrow'].append('=>')
         p = Parser(in_f, lexemes)
 
         with openio(output or '-', 'w') as f:
@@ -478,6 +489,14 @@ if __name__ == "__main__":
         '-u', '--unreachable',
         action='append',
         help="Additional symbols for unreachable statements.")
+    parser.add_argument(
+        '-A', '--arrow',
+        action='store_true',
+        help="Enable arrow (=>) expressions, this is enabled by default.")
+    parser.add_argument(
+        '-n', '--no-defaults',
+        action='store_true',
+        help="Disable the default statements/expressions.")
     parser.add_argument(
         '-l', '--limit',
         type=lambda x: int(x, 0),
