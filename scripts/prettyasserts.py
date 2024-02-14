@@ -25,15 +25,17 @@ CMP = {
 }
 
 LEXEMES = {
-    'ws':       [r'(?:\s|\n|#.*?(?<!\\)\n|//.*?(?<!\\)\n|/\*.*?\*/)+'],
-    'assert':   ['assert'],
-    'arrow':    ['=>'],
-    'string':   [r'"(?:\\.|[^"])*"', r"'(?:\\.|[^'])\'"],
-    'paren':    ['\(', '\)'],
-    'cmp':      CMP.keys(),
-    'logic':    ['\&\&', '\|\|'],
-    'sep':      [':', ';', '\{', '\}', ','],
-    'op':       ['->', '>>', '<<'], # specifically ops that conflict with cmp
+    'ws':           [r'(?:\s|\n|#.*?(?<!\\)\n|//.*?(?<!\\)\n|/\*.*?\*/)+'],
+    'assert':       ['__builtin_assert', 'assert'],
+    'unreachable':  ['__builtin_unreachable', 'unreachable'],
+    'arrow':        ['=>'],
+    'string':       [r'"(?:\\.|[^"])*"', r"'(?:\\.|[^'])\'"],
+    'paren':        ['\(', '\)'],
+    'cmp':          CMP.keys(),
+    'logic':        ['\&\&', '\|\|'],
+    'sep':          [':', ';', '\{', '\}', ','],
+    # specifically ops that conflict with cmp
+    'op':           ['->', '>>', '<<'],
 }
 
 
@@ -117,6 +119,14 @@ def write_header(f, limit=LIMIT):
     f.writeln("    fflush(NULL);")
     f.writeln("}")
     f.writeln()
+    f.writeln("__attribute__((unused))")
+    f.writeln("static void __pretty_assert_print_unreachable(")
+    f.writeln("        const char *file, int line) {")
+    f.writeln("    printf(\"%s:%d:unreachable: \"")
+    f.writeln("            \"unreachable statement reached\\n\", file, line);")
+    f.writeln("    fflush(NULL);")
+    f.writeln("}")
+    f.writeln()
 
     # write assert macros
     for op, cmp in sorted(CMP.items()):
@@ -183,6 +193,12 @@ def write_header(f, limit=LIMIT):
         f.writeln("    } \\")
         f.writeln("} while (0)")
         f.writeln()
+    f.writeln("#define __PRETTY_ASSERT_UNREACHABLE() do { \\")
+    f.writeln("    __pretty_assert_print_unreachable( \\")
+    f.writeln("            __FILE__, __LINE__); \\")
+    f.writeln("    __builtin_trap(); \\")
+    f.writeln("} while (0)")
+    f.writeln()
     f.writeln()
 
 def mkassert(type, cmp, lh, rh, size=None):
@@ -192,6 +208,9 @@ def mkassert(type, cmp, lh, rh, size=None):
     else:
         return ("__PRETTY_ASSERT_%s_%s(%s, %s)"
             % (type.upper(), cmp.upper(), lh, rh))
+
+def mkunreachable():
+    return "__PRETTY_ASSERT_UNREACHABLE()"
 
 
 # simple recursive descent parser
@@ -311,6 +330,13 @@ def p_assert(p):
     p.expect(')')
     return mkassert('bool', 'eq', lh, 'true')
 
+def p_unreachable(p):
+    # unreachable()?
+    p.expect('unreachable') ; p.accept('ws')
+    p.expect('(') ; p.accept('ws')
+    p.expect(')')
+    return mkunreachable()
+
 def p_expr(p):
     res = []
     while True:
@@ -330,6 +356,13 @@ def p_expr(p):
             except ParseFailure:
                 p.pop(state)
                 res.append(p.expect('assert'))
+        elif p.lookahead('unreachable'):
+            state = p.push()
+            try:
+                res.append(p_unreachable(p))
+            except ParseFailure:
+                p.pop(state)
+                res.append(p.expect('unreachable'))
         elif p.accept('string', 'op', 'ws', None):
             res.append(p.m)
         else:
@@ -388,11 +421,12 @@ def p_stmt(p):
     else:
         return ws + lh
 
-def main(input=None, output=None, pattern=[], limit=LIMIT):
+def main(input=None, output=None, assert_=[], unreachable=[], limit=LIMIT):
     with openio(input or '-', 'r') as in_f:
         # create parser
         lexemes = LEXEMES.copy()
-        lexemes['assert'] += pattern
+        lexemes['assert'] += assert_
+        lexemes['unreachable'] += unreachable
         p = Parser(in_f, lexemes)
 
         with openio(output or '-', 'w') as f:
@@ -436,10 +470,14 @@ if __name__ == "__main__":
         required=True,
         help="Output C file.")
     parser.add_argument(
-        '-p', '--pattern',
+        '-a', '--assert',
+        dest='assert_',
         action='append',
-        help="Regex patterns to search for starting an assert statement. This"
-            " implicitly includes \"assert\" and \"=>\".")
+        help="Additional symbols for assert statements.")
+    parser.add_argument(
+        '-u', '--unreachable',
+        action='append',
+        help="Additional symbols for unreachable statements.")
     parser.add_argument(
         '-l', '--limit',
         type=lambda x: int(x, 0),

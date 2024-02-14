@@ -522,10 +522,10 @@ $(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
 $(BUILDDIR)/%.c: %.a.c
-	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
+	./scripts/prettyasserts.py -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
 
 $(BUILDDIR)/%.c: $(BUILDDIR)/%.a.c
-	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
+	./scripts/prettyasserts.py -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
 
 $(BUILDDIR)/%.t.a.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
