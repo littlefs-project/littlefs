@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <execinfo.h>
+#include <signal.h>
 #include <time.h>
 
 

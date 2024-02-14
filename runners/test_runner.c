@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <execinfo.h>
+#include <signal.h>
 
 
 // some helpers

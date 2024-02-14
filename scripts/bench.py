@@ -1366,13 +1366,6 @@ def run(runner, bench_ids=[], **args):
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
-        elif failure.assert_ is not None:
-            cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'run',
-                '-ex', 'frame function raise',
-                '-ex', 'up 2',
-                '--args']
         else:
             cmd[:0] = args['gdb_path'] + [
                 '-q',

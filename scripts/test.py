@@ -1375,13 +1375,6 @@ def run(runner, test_ids=[], **args):
                 '-ex', 'ignore 1 %d' % powerlosses,
                 '-ex', 'run',
                 '--args']
-        elif failure.assert_ is not None:
-            cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'run',
-                '-ex', 'frame function raise',
-                '-ex', 'up 2',
-                '--args']
         else:
             cmd[:0] = args['gdb_path'] + [
                 '-q',

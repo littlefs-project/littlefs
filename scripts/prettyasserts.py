@@ -13,12 +13,6 @@
 import re
 import sys
 
-# NOTE the use of macros here helps keep a consistent stack depth which
-# tools may rely on.
-#
-# If compilation errors are noisy consider using -ftrack-macro-expansion=0.
-#
-
 LIMIT = 16
 
 CMP = {
@@ -65,28 +59,27 @@ def write_header(f, limit=LIMIT):
     f.writeln("#include <inttypes.h>")
     f.writeln("#include <stdio.h>")
     f.writeln("#include <string.h>")
-    f.writeln("#include <signal.h>")
     # give source a chance to define feature macros
     f.writeln("#undef _FEATURES_H")
     f.writeln()
 
     # write print macros
     f.writeln("__attribute__((unused))")
-    f.writeln("static void __pretty_assert_print_bool(")
+    f.writeln("static void __pretty_assert_bool(")
     f.writeln("        const void *v, size_t size) {")
     f.writeln("    (void)size;")
     f.writeln("    printf(\"%s\", *(const bool*)v ? \"true\" : \"false\");")
     f.writeln("}")
     f.writeln()
     f.writeln("__attribute__((unused))")
-    f.writeln("static void __pretty_assert_print_int(")
+    f.writeln("static void __pretty_assert_int(")
     f.writeln("        const void *v, size_t size) {")
     f.writeln("    (void)size;")
     f.writeln("    printf(\"%\"PRIiMAX, *(const intmax_t*)v);")
     f.writeln("}")
     f.writeln()
     f.writeln("__attribute__((unused))")
-    f.writeln("static void __pretty_assert_print_mem(")
+    f.writeln("static void __pretty_assert_mem(")
     f.writeln("        const void *v, size_t size) {")
     f.writeln("    const uint8_t *v_ = v;")
     f.writeln("    printf(\"\\\"\");")
@@ -104,13 +97,13 @@ def write_header(f, limit=LIMIT):
     f.writeln("}")
     f.writeln()
     f.writeln("__attribute__((unused))")
-    f.writeln("static void __pretty_assert_print_str(")
+    f.writeln("static void __pretty_assert_str(")
     f.writeln("        const void *v, size_t size) {")
-    f.writeln("    __pretty_assert_print_mem(v, size);")
+    f.writeln("    __pretty_assert_mem(v, size);")
     f.writeln("}")
     f.writeln()
-    f.writeln("__attribute__((unused, noinline))")
-    f.writeln("static void __pretty_assert_fail(")
+    f.writeln("__attribute__((unused))")
+    f.writeln("static void __pretty_assert_print(")
     f.writeln("        const char *file, int line,")
     f.writeln("        void (*type_print_cb)(const void*, size_t),")
     f.writeln("        const char *cmp,")
@@ -122,7 +115,6 @@ def write_header(f, limit=LIMIT):
     f.writeln("    type_print_cb(rh, rsize);")
     f.writeln("    printf(\"\\n\");")
     f.writeln("    fflush(NULL);")
-    f.writeln("    raise(SIGABRT);")
     f.writeln("}")
     f.writeln()
 
@@ -133,57 +125,64 @@ def write_header(f, limit=LIMIT):
         f.writeln("    bool _lh = !!(lh); \\")
         f.writeln("    bool _rh = !!(rh); \\")
         f.writeln("    if (!(_lh %s _rh)) { \\" % op)
-        f.writeln("        __pretty_assert_fail( \\")
+        f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_print_bool, \"%s\", \\"
+        f.writeln("                __pretty_assert_bool, \"%s\", \\"
             % cmp)
         f.writeln("                &_lh, 0, \\")
         f.writeln("                &_rh, 0); \\")
+        f.writeln("        __builtin_trap(); \\")
         f.writeln("    } \\")
         f.writeln("} while (0)")
+        f.writeln()
     for op, cmp in sorted(CMP.items()):
         f.writeln("#define __PRETTY_ASSERT_INT_%s(lh, rh) do { \\"
             % cmp.upper())
         f.writeln("    __typeof__(rh) _lh = lh; \\")
         f.writeln("    __typeof__(rh) _rh = rh; \\")
         f.writeln("    if (!(_lh %s _rh)) { \\" % op)
-        f.writeln("        __pretty_assert_fail( \\")
+        f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_print_int, \"%s\", \\"
+        f.writeln("                __pretty_assert_int, \"%s\", \\"
             % cmp)
         f.writeln("                &(intmax_t){(intmax_t)_lh}, 0, \\")
         f.writeln("                &(intmax_t){(intmax_t)_rh}, 0); \\")
+        f.writeln("        __builtin_trap(); \\")
         f.writeln("    } \\")
         f.writeln("} while (0)")
+        f.writeln()
     for op, cmp in sorted(CMP.items()):
         f.writeln("#define __PRETTY_ASSERT_MEM_%s(lh, rh, size) do { \\"
             % cmp.upper())
         f.writeln("    const void *_lh = lh; \\")
         f.writeln("    const void *_rh = rh; \\")
         f.writeln("    if (!(memcmp(_lh, _rh, size) %s 0)) { \\" % op)
-        f.writeln("        __pretty_assert_fail( \\")
+        f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_print_mem, \"%s\", \\"
+        f.writeln("                __pretty_assert_mem, \"%s\", \\"
             % cmp)
         f.writeln("                _lh, size, \\")
         f.writeln("                _rh, size); \\")
+        f.writeln("        __builtin_trap(); \\")
         f.writeln("    } \\")
         f.writeln("} while (0)")
+        f.writeln()
     for op, cmp in sorted(CMP.items()):
         f.writeln("#define __PRETTY_ASSERT_STR_%s(lh, rh) do { \\"
             % cmp.upper())
         f.writeln("    const char *_lh = lh; \\")
         f.writeln("    const char *_rh = rh; \\")
         f.writeln("    if (!(strcmp(_lh, _rh) %s 0)) { \\" % op)
-        f.writeln("        __pretty_assert_fail( \\")
+        f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_print_str, \"%s\", \\"
+        f.writeln("                __pretty_assert_str, \"%s\", \\"
             % cmp)
         f.writeln("                _lh, strlen(_lh), \\")
         f.writeln("                _rh, strlen(_rh)); \\")
+        f.writeln("        __builtin_trap(); \\")
         f.writeln("    } \\")
         f.writeln("} while (0)")
-    f.writeln()
+        f.writeln()
     f.writeln()
 
 def mkassert(type, cmp, lh, rh, size=None):
