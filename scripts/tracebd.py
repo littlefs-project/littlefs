@@ -1057,7 +1057,7 @@ if __name__ == "__main__":
         nargs='?',
         help="Path to read from.")
     parser.add_argument(
-        '-B', '--block-size',
+        '-b', '--block-size',
         type=bdgeom,
         help="Block size/geometry in bytes.")
     parser.add_argument(
@@ -1065,7 +1065,7 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Block count in blocks.")
     parser.add_argument(
-        '-C', '--block-cycles',
+        '-c', '--block-cycles',
         type=lambda x: int(x, 0),
         help="Assumed maximum number of erase cycles when measuring wear.")
     parser.add_argument(
@@ -1172,7 +1172,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Render as a space-filling Z-curve.")
     parser.add_argument(
-        '-c', '--coalesce',
+        '-S', '--coalesce',
         type=lambda x: int(x, 0),
         help="Number of operations to coalesce together.")
     parser.add_argument(

@@ -1664,7 +1664,7 @@ if __name__ == "__main__":
         type=rbydaddr,
         help="Block address of the mroots. Defaults to 0x{0,1}.")
     parser.add_argument(
-        '-B', '--block-size',
+        '-b', '--block-size',
         type=bdgeom,
         help="Block size/geometry in bytes.")
     parser.add_argument(
@@ -1672,7 +1672,7 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Block count in blocks.")
     parser.add_argument(
-        '-M', '--mleaf-weight',
+        '-m', '--mleaf-weight',
         type=lambda x: int(x, 0),
         help="Maximum weight of mdirs for mid decoding. Defaults to a "
             "block_size derived value.")
@@ -1698,7 +1698,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Show the underlying rbyd trees.")
     parser.add_argument(
-        '-b', '--btree',
+        '-B', '--btree',
         action='store_true',
         help="Show the underlying B-tree.")
     parser.add_argument(

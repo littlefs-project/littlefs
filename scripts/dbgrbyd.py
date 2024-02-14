@@ -1037,7 +1037,7 @@ if __name__ == "__main__":
         type=rbydaddr,
         help="Block address of metadata blocks.")
     parser.add_argument(
-        '-B', '--block-size',
+        '-b', '--block-size',
         type=bdgeom,
         help="Block size/geometry in bytes.")
     parser.add_argument(

@@ -1012,7 +1012,7 @@ if __name__ == "__main__":
         type=rbydaddr,
         help="Block address of the roots of the tree.")
     parser.add_argument(
-        '-B', '--block-size',
+        '-b', '--block-size',
         type=bdgeom,
         help="Block size/geometry in bytes.")
     parser.add_argument(
@@ -1045,7 +1045,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Show the underlying rbyd trees.")
     parser.add_argument(
-        '-b', '--btree',
+        '-B', '--btree',
         action='store_true',
         help="Show the underlying B-tree.")
     parser.add_argument(
