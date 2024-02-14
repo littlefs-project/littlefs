@@ -13,7 +13,6 @@ import collections as co
 import csv
 import errno
 import fnmatch
-import glob
 import itertools as it
 import math as m
 import os
@@ -260,20 +259,8 @@ class BenchSuite:
 
 
 def compile(bench_paths, **args):
-    # find .toml files
-    paths = []
-    for path in bench_paths:
-        if os.path.isdir(path):
-            path = path + '/*.toml'
-
-        if '*' in path:
-            for path in glob.glob(path):
-                paths.append(path)
-        else:
-            paths.append(path)
-
     # load the suites
-    suites = [BenchSuite(path, args) for path in paths]
+    suites = [BenchSuite(path, args) for path in bench_paths]
 
     # sort suites by:
     # 1. topologically by "after" dependencies
@@ -1624,8 +1611,7 @@ if __name__ == "__main__":
     comp_parser.add_argument(
         'bench_paths',
         nargs='*',
-        help="Description of *.toml files to compile. May be a directory "
-            "or a list of paths.")
+        help="Set of *.toml files to compile.")
     comp_parser.add_argument(
         '-c', '--compile',
         action='store_true',
