@@ -735,7 +735,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '-Z', '--depth',
+        '-z', '--depth',
         nargs='?',
         type=lambda x: int(x, 0),
         const=0,

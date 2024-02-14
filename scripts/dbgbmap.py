@@ -1859,7 +1859,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Show how much of each block is in use.")
     parser.add_argument(
-        '--depth',
+        '-z', '--depth',
         nargs='?',
         type=lambda x: int(x, 0),
         const=0,

@@ -1235,7 +1235,7 @@ if __name__ == "__main__":
         help="Depth to propagate samples up the call-stack. 0 propagates up "
             "to the entry point, 1 does no propagation. Defaults to 0.")
     parser.add_argument(
-        '-Z', '--depth',
+        '-z', '--depth',
         nargs='?',
         type=lambda x: int(x, 0),
         const=0,

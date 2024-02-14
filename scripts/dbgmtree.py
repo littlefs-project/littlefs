@@ -1706,7 +1706,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Show inner branches.")
     parser.add_argument(
-        '-Z', '--depth',
+        '-z', '--depth',
         nargs='?',
         type=lambda x: int(x, 0),
         const=0,
