@@ -18,15 +18,16 @@ TARGET ?= $(BUILDDIR)/liblfs.a
 endif
 
 
-CC       ?= gcc
-AR       ?= ar
-SIZE     ?= size
-CTAGS    ?= ctags
-NM       ?= nm
-OBJDUMP  ?= objdump
-VALGRIND ?= valgrind
-GDB		 ?= gdb
-PERF	 ?= perf
+CC            ?= gcc
+AR            ?= ar
+SIZE          ?= size
+CTAGS         ?= ctags
+NM            ?= nm
+OBJDUMP       ?= objdump
+VALGRIND      ?= valgrind
+GDB           ?= gdb
+PERF          ?= perf
+PRETTYASSERTS ?= ./scripts/prettyasserts.py
 
 SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
@@ -522,10 +523,10 @@ $(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
 $(BUILDDIR)/%.c: %.a.c
-	./scripts/prettyasserts.py -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
+	$(PRETTYASSERTS) -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
 
 $(BUILDDIR)/%.c: $(BUILDDIR)/%.a.c
-	./scripts/prettyasserts.py -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
+	$(PRETTYASSERTS) -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
 
 $(BUILDDIR)/%.t.a.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
