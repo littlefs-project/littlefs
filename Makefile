@@ -41,14 +41,14 @@ TEST_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
 		runners/test_runner.c
 TEST_RUNNER ?= $(BUILDDIR)/runners/test_runner
-TEST_A     := $(TESTS:%.toml=$(BUILDDIR)/%.t.a.c) \
-		$(TEST_SRC:%.c=$(BUILDDIR)/%.t.a.c)
-TEST_C     := $(TEST_A:%.t.a.c=%.t.c)
-TEST_OBJ   := $(TEST_C:%.t.c=%.t.o)
-TEST_DEP   := $(TEST_C:%.t.c=%.t.d)
-TEST_CI	   := $(TEST_C:%.t.c=%.t.ci)
-TEST_GCNO  := $(TEST_C:%.t.c=%.t.gcno)
-TEST_GCDA  := $(TEST_C:%.t.c=%.t.gcda)
+TEST_C     := $(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
+		$(TEST_SRC:%.c=$(BUILDDIR)/%.t.c)
+TEST_A     := $(TEST_C:%.t.c=%.t.a.c)
+TEST_OBJ   := $(TEST_A:%.t.a.c=%.t.a.o)
+TEST_DEP   := $(TEST_A:%.t.a.c=%.t.a.d)
+TEST_CI	   := $(TEST_A:%.t.a.c=%.t.a.ci)
+TEST_GCNO  := $(TEST_A:%.t.a.c=%.t.a.gcno)
+TEST_GCDA  := $(TEST_A:%.t.a.c=%.t.a.gcda)
 TEST_PERF  := $(TEST_RUNNER:%=%.perf)
 TEST_TRACE := $(TEST_RUNNER:%=%.trace)
 TEST_CSV   := $(TEST_RUNNER:%=%.csv)
@@ -58,14 +58,14 @@ BENCH_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
 		runners/bench_runner.c
 BENCH_RUNNER ?= $(BUILDDIR)/runners/bench_runner
-BENCH_A     := $(BENCHES:%.toml=$(BUILDDIR)/%.b.a.c) \
-		$(BENCH_SRC:%.c=$(BUILDDIR)/%.b.a.c)
-BENCH_C     := $(BENCH_A:%.b.a.c=%.b.c)
-BENCH_OBJ   := $(BENCH_C:%.b.c=%.b.o)
-BENCH_DEP   := $(BENCH_C:%.b.c=%.b.d)
-BENCH_CI    := $(BENCH_C:%.b.c=%.b.ci)
-BENCH_GCNO  := $(BENCH_C:%.b.c=%.b.gcno)
-BENCH_GCDA  := $(BENCH_C:%.b.c=%.b.gcda)
+BENCH_C     := $(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \
+		$(BENCH_SRC:%.c=$(BUILDDIR)/%.b.c)
+BENCH_A     := $(BENCH_C:%.b.c=%.b.a.c)
+BENCH_OBJ   := $(BENCH_A:%.b.a.c=%.b.a.o)
+BENCH_DEP   := $(BENCH_A:%.b.a.c=%.b.a.d)
+BENCH_CI    := $(BENCH_A:%.b.a.c=%.b.a.ci)
+BENCH_GCNO  := $(BENCH_A:%.b.a.c=%.b.a.gcno)
+BENCH_GCDA  := $(BENCH_A:%.b.a.c=%.b.a.gcda)
 BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
@@ -522,22 +522,22 @@ $(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
 $(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
-$(BUILDDIR)/%.c: %.a.c
+$(BUILDDIR)/%.a.c: %.c
 	$(PRETTYASSERTS) -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
 
-$(BUILDDIR)/%.c: $(BUILDDIR)/%.a.c
+$(BUILDDIR)/%.a.c: $(BUILDDIR)/%.c
 	$(PRETTYASSERTS) -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
 
-$(BUILDDIR)/%.t.a.c: %.toml
+$(BUILDDIR)/%.t.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
 
-$(BUILDDIR)/%.t.a.c: %.c $(TESTS)
+$(BUILDDIR)/%.t.c: %.c $(TESTS)
 	./scripts/test.py -c $(TESTS) -s $< $(TESTCFLAGS) -o $@
 
-$(BUILDDIR)/%.b.a.c: %.toml
+$(BUILDDIR)/%.b.c: %.toml
 	./scripts/bench.py -c $< $(BENCHCFLAGS) -o $@
 
-$(BUILDDIR)/%.b.a.c: %.c $(BENCHES)
+$(BUILDDIR)/%.b.c: %.c $(BENCHES)
 	./scripts/bench.py -c $(BENCHES) -s $< $(BENCHCFLAGS) -o $@
 
 ## Clean everything
