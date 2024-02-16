@@ -132,13 +132,13 @@ endif
 ifdef YES_PERFBD
 TESTFLAGS += -t $(TEST_TRACE) --trace-backtrace --trace-freq=100
 endif
-ifndef NO_PERFBD
+ifdef YES_PERFBD
 BENCHFLAGS += -t $(BENCH_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifdef YES_TESTMARKS
 TESTFLAGS += -o $(TEST_CSV)
 endif
-ifndef NO_BENCHMARKS
+ifdef YES_BENCHMARKS
 BENCHFLAGS += -o $(BENCH_CSV)
 endif
 ifdef VERBOSE
@@ -356,7 +356,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 ## Build the test-runner
 .PHONY: test-runner build-test
 test-runner build-test: CFLAGS+=-Wno-unused-function
-ifndef NO_COV
+ifdef YES_COV
 test-runner build-test: CFLAGS+=--coverage
 endif
 ifdef YES_PERF
@@ -368,7 +368,7 @@ endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 test-runner build-test: $(TEST_RUNNER)
-ifndef NO_COV
+ifdef YES_COV
 	rm -f $(TEST_GCDA)
 endif
 ifdef YES_PERF
@@ -414,7 +414,7 @@ endif
 ifdef YES_PERF
 bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
 endif
-ifndef NO_PERFBD
+ifdef YES_PERFBD
 bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
 endif
 # note we remove some binary dependent files during compilation,
@@ -426,7 +426,7 @@ endif
 ifdef YES_PERF
 	rm -f $(BENCH_PERF)
 endif
-ifndef NO_PERFBD
+ifdef YES_PERFBD
 	rm -f $(BENCH_TRACE)
 endif
 
