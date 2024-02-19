@@ -452,6 +452,49 @@ static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
     return LFS_CMP_EQ;
 }
 
+static int lfsr_bd_cpy(lfs_t *lfs,
+        lfs_block_t dst_block, lfs_size_t dst_off,
+        lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
+        lfs_size_t size,
+        uint32_t *cksum_, uint32_t *flcksum_) {
+    // check for in-bounds
+    LFS_ASSERT(dst_block < lfs->cfg->block_count);
+    if (dst_off+size > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+    LFS_ASSERT(src_block < lfs->cfg->block_count);
+    if (src_off+size > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+
+    lfs_size_t dst_off_ = dst_off;
+    lfs_size_t src_off_ = src_off;
+    lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
+    lfs_size_t size_ = size;
+    while (size_ > 0) {
+        // TODO can we do better than this?
+        uint8_t dat[8];
+        lfs_size_t d = lfs_min(size_, sizeof(dat));
+        int err = lfsr_bd_read(lfs, src_block, src_off_, hint_, &dat, d);
+        if (err) {
+            return err;
+        }
+
+        err = lfsr_bd_prog(lfs, dst_block, dst_off_, &dat, d,
+                cksum_, flcksum_);
+        if (err) {
+            return err;
+        }
+
+        dst_off_ += d;
+        src_off_ += d;
+        hint_ -= d;
+        size_ -= d;
+    }
+
+    return 0;
+}
+
 
 
 /// Small type-level utilities ///
@@ -1311,24 +1354,12 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
         uint32_t *cksum_, uint32_t *flcksum_) {
     // on-disk?
     if (lfsr_data_ondisk(&data)) {
-        // TODO byte-level copies have been a pain point, works for prototyping
-        // but can this be better? configurable? leverage
-        // rcache/pcache directly?
-        uint8_t dat;
-        for (lfs_size_t i = 0; i < lfsr_data_size(&data); i++) {
-            int err = lfsr_bd_read(lfs,
-                    data.u.disk.block, data.u.disk.off+i,
-                    lfsr_data_size(&data)-i,
-                    &dat, 1);
-            if (err) {
-                return err;
-            }
-
-            err = lfsr_bd_prog(lfs, block, off+i, &dat, 1,
-                    cksum_, flcksum_);
-            if (err) {
-                return err;
-            }
+        int err = lfsr_bd_cpy(lfs, block, off,
+                data.u.disk.block, data.u.disk.off, lfsr_data_size(&data),
+                lfsr_data_size(&data),
+                cksum_, flcksum_);
+        if (err) {
+            return err;
         }
 
     // buffer?
