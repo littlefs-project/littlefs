@@ -30,14 +30,14 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -61,14 +61,14 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -93,7 +93,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -131,7 +131,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -154,7 +154,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -188,7 +188,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
@@ -241,7 +241,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -264,7 +264,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -299,7 +299,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -352,7 +352,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -371,7 +371,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -393,7 +393,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
@@ -432,7 +432,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -451,7 +451,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -474,7 +474,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -518,7 +518,7 @@ code = '''
     //    =>  .-'|
     // 1      1  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -540,7 +540,7 @@ code = '''
     //    =>  .-'|
     // 2      2  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
@@ -581,7 +581,7 @@ code = '''
     // .-'|  =>  .----'|
     // 1  2      1  2  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -604,7 +604,7 @@ code = '''
     // .-'|  =>     .-'|
     // 1  2      1  2  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -648,7 +648,7 @@ code = '''
     // .-'|      |  .-'|
     // 1  2      1  2  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -678,7 +678,7 @@ code = '''
     // .-'|      .--|-'|
     // 2  3      2  3  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -727,7 +727,7 @@ code = '''
     // |  .-'|      |  .----'|
     // 1  2  3      1  2  3  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -758,7 +758,7 @@ code = '''
     // |  .-'|      |     .-'|
     // 1  2  3      1  2  3  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -789,7 +789,7 @@ code = '''
     // |  .-'|         .--|-'|
     // 1  2  3      1  2  3  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -820,7 +820,7 @@ code = '''
     // .--|-'|      |     .-'|
     // 3  1  2      3  1  2  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
@@ -872,7 +872,7 @@ code = '''
     // |  .-'|      |  |  .-'|
     // 1  2  3      1  2  3  4
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -910,7 +910,7 @@ code = '''
     // |  .-'|      |  .--|-'|      .--|--|-'|
     // 1  3  4      1  3  4  2      1  3  4  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -948,7 +948,7 @@ code = '''
     // |  .-'|      .--|--|-'|
     // 2  3  4      2  3  4  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -986,7 +986,7 @@ code = '''
     // .--|-'|      |  .--|-'|
     // 4  2  3      4  2  3  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1043,7 +1043,7 @@ code = '''
     // |  .-'|      |  |  .-'|
     // 1  2  3      1  2  3  4
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1081,7 +1081,7 @@ code = '''
     // |  .-'|      |  |  .-'|
     // 1  2  4      1  2  4  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1119,7 +1119,7 @@ code = '''
     // |  .-'|      |  |  .-'|      |  .--|-'|
     // 1  4  2      1  4  2  3      1  4  2  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
@@ -1157,7 +1157,7 @@ code = '''
     // |  .-'|      |  |  .-'|      .--|--|-'|
     // 4  1  2      4  1  2  3      4  1  2  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
@@ -1216,7 +1216,7 @@ code = '''
     // |  |  .-'|      |  |  .----'|
     // 1  2  3  4      1  2  3  4  4
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1257,7 +1257,7 @@ code = '''
     // |  |  .-'|      |  |     .-'|
     // 1  2  3  4      1  2  3  4  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1296,7 +1296,7 @@ code = '''
     // |  |  .-'|      |     .-'|  |
     // 1  2  3  4      1  2  3  4  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1335,7 +1335,7 @@ code = '''
     // |  |  .-'|         |  .-'|  |
     // 1  2  3  4      1  2  3  4  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1397,7 +1397,7 @@ code = '''
     // |  |  .-'|      |  |  |  .-'|
     // 1  2  3  4      1  2  3  4  5
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1445,7 +1445,7 @@ code = '''
     // |  |  .-'|      |  |  .--|-'|
     // 1  2  4  5      1  2  4  5  3
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1491,7 +1491,7 @@ code = '''
     // |  |  .-'|      |  |  .-'|  |
     // 1  3  4  5      1  3  4  5  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -1537,7 +1537,7 @@ code = '''
     // |  |  .-'|      |  |  .-'|  |
     // 2  3  4  5      2  3  4  5  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -1604,7 +1604,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  .----'|
     // 1  2  3  4  5      1  2  3  4  5  5
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1653,7 +1653,7 @@ code = '''
     // |  |  |  .-'|      |     |  .-'|  |
     // 1  2  3  4  5      1  2  3  4  5  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1702,7 +1702,7 @@ code = '''
     // |  |  |  .-'|         |  |  .-'|  |
     // 1  2  3  4  5      1  2  3  4  5  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1772,7 +1772,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  |  .-'|
     // 1  2  3  4  5      1  2  3  4  5  6
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -1826,7 +1826,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  .-'|  |
     // 1  3  4  5  6      1  3  4  5  6  2
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -1880,7 +1880,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  .-'|  |
     // 2  3  4  5  6      2  3  4  5  6  1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
@@ -1976,7 +1976,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_rbyd_commit(&lfs, &rbyd, -1, attrs, N) => 0;
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -2059,7 +2059,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(UATTR(perm[j]+1), 0,
@@ -2119,7 +2119,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -2153,7 +2153,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
@@ -2208,7 +2208,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -2243,7 +2243,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -2327,7 +2327,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_rbyd_commit(&lfs, &rbyd, -1, attrs, N) => 0;
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -2392,7 +2392,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(UATTR(perm[j]+1), 0,
@@ -2447,7 +2447,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -2457,8 +2457,8 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(rbyd.eoff);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-            rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+             backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -2481,11 +2481,10 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL, NULL) => 0;
+        lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
         // update each tag in permutation order
@@ -2555,7 +2554,7 @@ code = '''
 
     // create the rbyd tree
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     // keep appending tags until we run out of space
     //
@@ -2617,7 +2616,7 @@ code = '''
 
     // add and remove one attribute
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -2636,7 +2635,7 @@ code = '''
 
     // commit with two attributes, remove the first one
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -2672,7 +2671,7 @@ code = '''
 
     // commit with two attributes, remove the second one
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -2752,7 +2751,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(UATTR(perm[j]+1), 0,
@@ -2762,8 +2761,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -2771,11 +2770,10 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -2899,7 +2897,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(UATTR(perm[j]+1), 0,
@@ -2909,8 +2907,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -2918,11 +2916,10 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -2976,7 +2973,7 @@ code = '''
 
     // create a tree two attributes
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
             LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
@@ -3125,7 +3122,7 @@ code = '''
 
     // create a tree
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -3360,7 +3357,7 @@ code = '''
 
     // commit with one attribute, remove it
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -3379,7 +3376,7 @@ code = '''
 
     // commit with two attributes, remove both
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -3400,7 +3397,7 @@ code = '''
 
     // commit with two attributes, remove both in the other order
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -3452,7 +3449,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
@@ -3462,8 +3459,8 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(rbyd.eoff);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-            rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+             backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -3486,11 +3483,10 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL, NULL) => 0;
+        lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
         // remove each tag in permutation order
@@ -3593,7 +3589,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     prng = SEED;
     for (unsigned i = 0; i < N; i++) {
@@ -3684,7 +3680,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -3701,7 +3697,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -3725,7 +3721,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -3774,7 +3770,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -3791,7 +3787,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
@@ -3816,7 +3812,7 @@ code = '''
 
     // try to create two in the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -3841,7 +3837,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
@@ -3874,7 +3870,7 @@ code = '''
 
     // create a third to the left
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
@@ -3907,7 +3903,7 @@ code = '''
 
     // create a third in the middle
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
@@ -3995,7 +3991,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -4064,7 +4060,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 00000000, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -4133,7 +4129,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
@@ -4180,7 +4176,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4281,7 +4277,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -4346,7 +4342,7 @@ code = '''
 
     // create the rbyd tree
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     // keep inserting tags until we run out of space
     //
@@ -4408,7 +4404,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
@@ -4432,7 +4428,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -4470,7 +4466,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -4563,7 +4559,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4588,7 +4584,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4629,7 +4625,7 @@ code = '''
 
     // try to create two in the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4670,7 +4666,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4750,7 +4746,7 @@ code = '''
 
     // create a third to the left
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4807,7 +4803,7 @@ code = '''
 
     // create a third in the middle
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -4920,7 +4916,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -5001,7 +4997,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -5104,7 +5100,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -5187,7 +5183,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -5325,7 +5321,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -5419,7 +5415,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -5434,8 +5430,8 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(rbyd.eoff);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-            rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+             backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N*M);
@@ -5458,11 +5454,10 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL, NULL) => 0;
+        lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
         // update each tag in permutation order
@@ -5574,7 +5569,7 @@ code = '''
 
         // create given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -5597,8 +5592,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N*M; j++) {
@@ -5606,11 +5601,10 @@ code = '''
             printf("--- remove: rid%jd, %jd ---\n", j/M, (j%M)+1);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j/M, LFSR_ATTRS(
@@ -5755,7 +5749,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -5770,8 +5764,8 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(rbyd.eoff);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-            rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+             backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N*M);
@@ -5794,11 +5788,10 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL, NULL) => 0;
+        lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
         // remove each tag in permutation order
@@ -5877,7 +5870,7 @@ code = '''
 
     // create the rbyd tree
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     // keep inserting tags until we run out of space
     //
@@ -5991,7 +5984,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -6135,7 +6128,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -6267,7 +6260,7 @@ code = '''
 
     // try to delete one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -6291,7 +6284,7 @@ code = '''
 
     // try to delete the other rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -6315,7 +6308,7 @@ code = '''
 
     // try to delete the largest of three
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -6344,7 +6337,7 @@ code = '''
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -6373,7 +6366,7 @@ code = '''
 
     // try to delete the middle
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -6420,7 +6413,7 @@ code = '''
 
     // try to delete one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -6456,7 +6449,7 @@ code = '''
 
     // try to delete the other rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -6492,7 +6485,7 @@ code = '''
 
     // try to delete the largest of three
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -6542,7 +6535,7 @@ code = '''
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -6592,7 +6585,7 @@ code = '''
 
     // try to delete the middle
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -6699,7 +6692,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -6718,8 +6711,8 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -6727,11 +6720,10 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -6857,7 +6849,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -6882,8 +6874,8 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -6891,11 +6883,10 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -7051,7 +7042,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -7070,8 +7061,8 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -7079,11 +7070,10 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -7179,7 +7169,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -7204,8 +7194,8 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -7213,11 +7203,10 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -7291,7 +7280,7 @@ code = '''
 
     // create and delete one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
@@ -7308,7 +7297,7 @@ code = '''
 
     // create and delete two ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -7327,7 +7316,7 @@ code = '''
 
     // create and delete two ids in the other order
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
@@ -7347,7 +7336,7 @@ code = '''
 
     // create and delete three ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -7368,7 +7357,7 @@ code = '''
 
     // create and delete three ids in the other order
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
@@ -7409,7 +7398,7 @@ code = '''
 
     // create and delete one rid
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
@@ -7427,7 +7416,7 @@ code = '''
 
     // create and delete two ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -7448,7 +7437,7 @@ code = '''
 
     // create and delete two ids in the other order
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -7470,7 +7459,7 @@ code = '''
 
     // create and delete three ids
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -7494,7 +7483,7 @@ code = '''
 
     // create and delete three ids in the other order
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
             LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
@@ -7558,7 +7547,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -7569,8 +7558,8 @@ code = '''
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(rbyd.eoff);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-            rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+             backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -7593,11 +7582,10 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL, NULL) => 0;
+        lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
         // delete each rid in permutation order
@@ -7704,7 +7692,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -7720,8 +7708,8 @@ code = '''
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(rbyd.eoff);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-            rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+             backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -7744,11 +7732,10 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL) => 0;
-        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                NULL, NULL) => 0;
+        lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
         // delete each rid in permutation order
@@ -7878,7 +7865,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     prng = SEED;
     count = 0;
@@ -7963,7 +7950,7 @@ code = '''
 
     // make id0 with weight w1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
@@ -8199,7 +8186,7 @@ code = '''
     lfsr_data_t data_;
 
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             // make id0 with weight w1
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
@@ -8338,7 +8325,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -8427,7 +8414,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -8486,7 +8473,7 @@ code = '''
 
     // make id0 with weight w1
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)),
             LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
@@ -9157,7 +9144,7 @@ code = '''
     lfsr_data_t data_;
 
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)),
             // make id0 with weight w1
@@ -9443,7 +9430,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                 LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)))) => 0;
 
@@ -9556,7 +9543,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                 LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)))) => 0;
 
@@ -9679,7 +9666,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -9698,8 +9685,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try growing each rid
         for (unsigned j = 0; j < N; j++) {
@@ -9707,11 +9694,10 @@ code = '''
             printf("--- growing: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -9810,7 +9796,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -9829,8 +9815,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try growing each rid
         for (unsigned j = 0; j < N; j++) {
@@ -9838,11 +9824,10 @@ code = '''
             printf("--- growing: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -9952,7 +9937,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -9971,8 +9956,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try growing each rid
         for (unsigned j = 0; j < N; j++) {
@@ -9980,11 +9965,10 @@ code = '''
             printf("--- growing: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -10107,7 +10091,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -10126,8 +10110,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try shrinking each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10135,11 +10119,10 @@ code = '''
             printf("--- shrinking: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -10238,7 +10221,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -10257,8 +10240,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try shrinking each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10266,11 +10249,10 @@ code = '''
             printf("--- shrinking: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -10380,7 +10362,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -10399,8 +10381,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try shrinking each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10408,11 +10390,10 @@ code = '''
             printf("--- shrinking: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -10534,7 +10515,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -10553,8 +10534,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10562,11 +10543,10 @@ code = '''
             printf("--- deleting: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -10695,7 +10675,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -10714,8 +10694,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try appending an attr to each rid, this should not affect
         // weights at all!
@@ -10724,11 +10704,10 @@ code = '''
             printf("--- appending: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
@@ -10882,7 +10861,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     prng = SEED;
     count = 0;
@@ -11043,7 +11022,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
 
     prng = SEED;
     count = 0;
@@ -11222,7 +11201,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -11309,7 +11288,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -11330,8 +11309,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -11339,11 +11318,10 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -11448,7 +11426,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -11469,8 +11447,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -11478,11 +11456,10 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // replace with bitwise inverse
@@ -11589,7 +11566,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -11678,7 +11655,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -11701,8 +11678,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -11710,11 +11687,10 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -11826,7 +11802,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -11849,8 +11825,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -11858,11 +11834,10 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // replace with bitwise inverse
@@ -11976,7 +11951,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -12062,7 +12037,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -12082,8 +12057,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12091,11 +12066,10 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -12203,7 +12177,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -12223,8 +12197,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12232,11 +12206,10 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // replace with bitwise inverse
@@ -12337,7 +12310,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -12424,7 +12397,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -12445,8 +12418,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12454,11 +12427,10 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -12563,7 +12535,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+        lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -12584,8 +12556,8 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(rbyd.eoff);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
-                rbyd.blocks[0], 0, backup_block, rbyd.eoff) => 0;
+        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, rbyd.eoff,
+                 backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12593,11 +12565,10 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs_bd_erase(&lfs, rbyd.blocks[0]) => 0;
-            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL) => 0;
-            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false,
+            lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+            lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
+                    NULL, NULL) => 0;
+            lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
             // replace with bitwise inverse

@@ -1033,7 +1033,7 @@ code = '''
             sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
     }
@@ -1545,7 +1545,7 @@ code = '''
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
         size = SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
         size = SIZE;
@@ -1686,7 +1686,7 @@ code = '''
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
         size = SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
         size = SIZE;
@@ -1912,7 +1912,7 @@ code = '''
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
         size = SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
         size = SIZE;
@@ -2052,7 +2052,7 @@ code = '''
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
         size = SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
         size = SIZE;
@@ -2211,7 +2211,7 @@ code = '''
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
         size = SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
         size = SIZE;
@@ -2316,7 +2316,7 @@ code = '''
         }
         lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
         size = SIZE;
-    } else if (INIT == 2) {
+    } else {
         memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
         size = SIZE;
