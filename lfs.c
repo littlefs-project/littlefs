@@ -105,30 +105,6 @@ static inline void lfsr_cache_drop(lfs_cache_t *cache) {
     cache->size = 0;
 }
 
-static int lfsr_bd_read__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
-        void *buffer, lfs_size_t size) {
-    int err = lfsr_bd_read_(lfs, block, off, buffer, size);
-    if (err) {
-        return err;
-    }
-
-    // overwrite with pcache, since pcache may contain newer data
-    if (block == lfs->pcache.block
-            && off < lfs->pcache.off + lfs->pcache.size
-            && off + size > lfs->pcache.off) {
-        lfs_size_t off_ = lfs_max(off, lfs->pcache.off);
-        uint8_t *buffer_ = buffer;
-        lfs_size_t size_ = lfs_min(
-                size - (off_-off),
-                lfs->pcache.size - (off_-lfs->pcache.off));
-        memcpy(&buffer_[off_-off],
-                &lfs->pcache.buffer[off_-lfs->pcache.off],
-                size_);
-    }
-
-    return 0;
-}
-
 // caching read
 //
 // note hint has two convenience:
@@ -185,7 +161,7 @@ static int lfsr_bd_read(lfs_t *lfs,
                 && off_ % lfs->cfg->read_size == 0
                 && size_ >= lfs->cfg->read_size) {
             lfs_size_t d = lfs_aligndown(size_, lfs->cfg->read_size);
-            int err = lfsr_bd_read__(lfs, block, off_, buffer_, d);
+            int err = lfsr_bd_read_(lfs, block, off_, buffer_, d);
             if (err) {
                 return err;
             }
@@ -210,7 +186,7 @@ static int lfsr_bd_read(lfs_t *lfs,
                     lfs->cfg->block_size)
                     - off__,
                 lfs->cfg->cache_size);
-        int err = lfsr_bd_read__(lfs, block, off__,
+        int err = lfsr_bd_read_(lfs, block, off__,
                 lfs->rcache.buffer, size__);
         if (err) {
             return err;
@@ -221,11 +197,80 @@ static int lfsr_bd_read(lfs_t *lfs,
         lfs->rcache.size = size__;
     }
 
+    // overwrite with pcache, since pcache may contain newer data
+    if (block == lfs->pcache.block
+            && off < lfs->pcache.off + lfs->pcache.size
+            && off + size > lfs->pcache.off) {
+        lfs_size_t off_ = lfs_max(off, lfs->pcache.off);
+        uint8_t *buffer_ = buffer;
+        lfs_size_t size_ = lfs_min(
+                size - (off_-off),
+                lfs->pcache.size - (off_-lfs->pcache.off));
+        memcpy(&buffer_[off_-off],
+                &lfs->pcache.buffer[off_-lfs->pcache.off],
+                size_);
+    }
+
     return 0;
 }
 
-// needed in lfsr_bd_prog
-static int lfsr_bd_flush(lfs_t *lfs, uint32_t *flcksum_);
+static int lfsr_bd_flush_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
+        const void *buffer, lfs_size_t size,
+        uint32_t *flcksum_) {
+    int err = lfsr_bd_prog_(lfs, block, off, buffer, size);
+    if (err) {
+        return err;
+    }
+
+    // update rcache if we overlap
+    if (block == lfs->rcache.block
+            && off < lfs->rcache.off + lfs->rcache.size
+            && off + size > lfs->rcache.off) {
+        lfs_size_t off_ = lfs_max(off, lfs->rcache.off);
+        const uint8_t *buffer_ = buffer;
+        lfs_size_t size_ = lfs_min(
+                size - (off_-off),
+                lfs->rcache.size - (off_-lfs->rcache.off));
+        memcpy(&lfs->rcache.buffer[off_-lfs->rcache.off],
+                &buffer_[off_-off],
+                size_);
+    }
+
+    // update flushed checksum if requested
+    if (flcksum_) {
+        *flcksum_ = lfs_crc32c(*flcksum_, buffer, size);
+    }
+
+    return 0;
+}
+
+static int lfsr_bd_flush(lfs_t *lfs, uint32_t *flcksum_) {
+    if (lfs->pcache.size != 0) {
+        // must be in-bounds
+        LFS_ASSERT(lfs->pcache.block < lfs->cfg->block_count);
+
+        // zero to avoid any information leaks
+        lfs_size_t aligned_size = lfs_alignup(
+                lfs->pcache.size,
+                lfs->cfg->prog_size);
+        memset(&lfs->pcache.buffer[lfs->pcache.size],
+                0xff,
+                aligned_size - lfs->pcache.size);
+
+        // flush
+        int err = lfsr_bd_flush_(lfs, lfs->pcache.block,
+                lfs->pcache.off, lfs->pcache.buffer, aligned_size,
+                flcksum_);
+        if (err) {
+            return err;
+        }
+
+        // make this cache available
+        lfsr_cache_drop(&lfs->pcache);
+    }
+
+    return 0;
+}
 
 // caching prog
 //
@@ -255,14 +300,10 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
                 && off_ % lfs->cfg->prog_size == 0
                 && size_ >= lfs->cfg->prog_size) {
             lfs_size_t d = lfs_aligndown(size_, lfs->cfg->prog_size);
-            int err = lfsr_bd_prog_(lfs, block, off_, buffer_, d);
+            int err = lfsr_bd_flush_(lfs, block, off_, buffer_, d,
+                    flcksum_);
             if (err) {
                 return err;
-            }
-
-            // update flushed checksum if requested
-            if (flcksum_) {
-                *flcksum_ = lfs_crc32c(*flcksum_, buffer_, d);
             }
 
             off_ += d;
@@ -308,57 +349,9 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         }
     }
 
-    // update rcache if we overlap
-    if (block == lfs->rcache.block
-            && off < lfs->rcache.off + lfs->rcache.size
-            && off + size > lfs->rcache.off) {
-        lfs_size_t off_ = lfs_max(off, lfs->rcache.off);
-        const uint8_t *buffer_ = buffer;
-        lfs_size_t size_ = lfs_min(
-                size - (off_-off),
-                lfs->rcache.size - (off_-lfs->rcache.off));
-        memcpy(&lfs->rcache.buffer[off_-lfs->rcache.off],
-                &buffer_[off_-off],
-                size_);
-    }
-
     // optional checksum
     if (cksum_) {
         *cksum_ = lfs_crc32c(*cksum_, buffer, size);
-    }
-
-    return 0;
-}
-
-// flush any pending programs
-static int lfsr_bd_flush(lfs_t *lfs, uint32_t *flcksum_) {
-    if (lfs->pcache.size != 0) {
-        // must be in-bounds
-        LFS_ASSERT(lfs->pcache.block < lfs->cfg->block_count);
-
-        // zero to avoid any information leaks
-        lfs_size_t aligned_size = lfs_alignup(
-                lfs->pcache.size,
-                lfs->cfg->prog_size);
-        memset(&lfs->pcache.buffer[lfs->pcache.size],
-                0xff,
-                aligned_size - lfs->pcache.size);
-
-        // flush
-        int err = lfsr_bd_prog_(lfs, lfs->pcache.block,
-                lfs->pcache.off, lfs->pcache.buffer, aligned_size);
-        if (err) {
-            return err;
-        }
-
-        // this is when we update the the flushed checksum if requested
-        if (flcksum_) {
-            *flcksum_ = lfs_crc32c(*flcksum_,
-                    lfs->pcache.buffer, lfs->pcache.size);
-        }
-
-        // make this cache available
-        lfsr_cache_drop(&lfs->pcache);
     }
 
     return 0;
