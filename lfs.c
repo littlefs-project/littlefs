@@ -178,14 +178,14 @@ static int lfsr_bd_read(lfs_t *lfs,
 
         // load to cache, first condition can no longer fail
         lfs_size_t off__ = lfs_aligndown(off_, lfs->cfg->read_size);
-        lfs_size_t size__ = lfs_min(
-                lfs_min(
-                    lfs_alignup(
-                        off_+lfs_max(size_, hint_),
-                        lfs->cfg->read_size),
-                    lfs->cfg->block_size)
-                    - off__,
-                lfs->cfg->cache_size);
+        // watch out for overflow when hint_=-1
+        lfs_size_t size__ = lfs_alignup(
+                (off_-off__) + lfs_min(
+                    lfs_max(size_, hint_),
+                    lfs_min(
+                        lfs->cfg->cache_size - (off_-off__),
+                        lfs->cfg->block_size - off_)),
+                lfs->cfg->read_size);
         int err = lfsr_bd_read_(lfs, block, off__,
                 lfs->rcache.buffer, size__);
         if (err) {
@@ -2088,8 +2088,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // checksum the revision count to get the cksum started
     uint32_t cksum = 0;
-    int err = lfsr_bd_cksum(lfs, block, 0, lfs->cfg->block_size,
-            sizeof(uint32_t), &cksum);
+    int err = lfsr_bd_cksum(lfs, block, 0, -1, sizeof(uint32_t),
+            &cksum);
     if (err) {
         return err;
     }
@@ -2115,8 +2115,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag;
         lfsr_rid_t weight__;
         lfs_size_t size;
-        lfs_ssize_t d = lfsr_bd_readtag(lfs,
-                block, off, lfs->cfg->block_size,
+        lfs_ssize_t d = lfsr_bd_readtag(lfs, block, off, -1,
                 &tag, &weight__, &size, &cksum);
         if (d < 0) {
             if (d == LFS_ERR_INVAL || d == LFS_ERR_CORRUPT) {
@@ -2139,7 +2138,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // not an end-of-commit cksum
         if (!lfsr_tag_isalt(tag) && lfsr_tag_suptype(tag) != LFSR_TAG_CKSUM) {
             // cksum the entry, hopefully leaving it in the cache
-            err = lfsr_bd_cksum(lfs, block, off_, lfs->cfg->block_size, size,
+            err = lfsr_bd_cksum(lfs, block, off_, -1, size,
                     &cksum);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -2168,7 +2167,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // is an end-of-commit cksum
         } else if (!lfsr_tag_isalt(tag)) {
             uint32_t cksum_ = 0;
-            err = lfsr_bd_read(lfs, block, off_, lfs->cfg->block_size,
+            err = lfsr_bd_read(lfs, block, off_, -1,
                     &cksum_, sizeof(uint32_t));
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -5534,7 +5533,7 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
     // we use whatever is on-disk to avoid needing to rewrite the
     // redund block
     uint32_t rev;
-    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[1], 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[1], 0, 0,
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
@@ -5571,7 +5570,7 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[0], 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[0], 0, 0,
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
