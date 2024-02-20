@@ -237,42 +237,18 @@ static int lfsr_bd_read(lfs_t *lfs,
     uint8_t *buffer_ = buffer;
     lfs_size_t size_ = size;
     while (size_ > 0) {
-        // already in pcache?
-        if (block == lfs->pcache.block
-                && off_ < lfs->pcache.off + lfs->pcache.size
-                && off_ >= lfs->pcache.off) {
-            lfs_size_t d = lfs_min(
-                    size_,
-                    lfs->pcache.size - (off_-lfs->pcache.off));
-            memcpy(buffer_, &lfs->pcache.buffer[off_-lfs->pcache.off], d);
-
-            off_ += d;
-            hint_ -= d;
-            buffer_ += d;
-            size_ -= d;
-            continue;
-        }
-
-        // already in rcache?
-        if (block == lfs->rcache.block
-                && off_ < lfs->rcache.off + lfs->rcache.size
-                && off_ >= lfs->rcache.off) {
-            lfs_size_t d = lfs_min(
-                    size_,
-                    lfs->rcache.size - (off_-lfs->rcache.off));
-            memcpy(buffer_, &lfs->rcache.buffer[off_-lfs->rcache.off], d);
-
-            off_ += d;
-            hint_ -= d;
-            buffer_ += d;
-            size_ -= d;
-            continue;
-        }
-
         // bypass cache?
         if (size_ >= hint_
                 && off_ % lfs->cfg->read_size == 0
-                && size_ >= lfs->cfg->read_size) {
+                && size_ >= lfs->cfg->read_size
+                // pcache takes priority
+                && !(block == lfs->pcache.block
+                    && off_ < lfs->pcache.off + lfs->pcache.size
+                    && off_ >= lfs->pcache.off)
+                // rcache takes priority
+                && !(block == lfs->rcache.block
+                    && off_ < lfs->rcache.off + lfs->rcache.size
+                    && off_ >= lfs->rcache.off)) {
             lfs_size_t d = lfs_aligndown(size_, lfs->cfg->read_size);
             int err = lfsr_bd_read_(lfs, block, off_, buffer_, d);
             if (err) {
@@ -286,28 +262,20 @@ static int lfsr_bd_read(lfs_t *lfs,
             continue;
         }
 
-        // drop rcache in case read fails
-        lfsr_cache_drop(&lfs->rcache);
-
-        // load to cache, first condition can no longer fail
-        lfs_size_t off__ = lfs_aligndown(off_, lfs->cfg->read_size);
-        // watch out for overflow when hint_=-1
-        lfs_size_t size__ = lfs_alignup(
-                (off_-off__) + lfs_min(
-                    lfs_max(size_, hint_),
-                    lfs_min(
-                        lfs->cfg->cache_size - (off_-off__),
-                        lfs->cfg->block_size - off_)),
-                lfs->cfg->read_size);
-        int err = lfsr_bd_read_(lfs, block, off__,
-                lfs->rcache.buffer, size__);
+        const uint8_t *buffer__;
+        lfs_size_t size__;
+        int err = lfsr_bd_readnext(lfs, block, off_, hint_, size_,
+                &buffer__, &size__);
         if (err) {
             return err;
         }
 
-        lfs->rcache.block = block;
-        lfs->rcache.off = off__;
-        lfs->rcache.size = size__;
+        memcpy(buffer_, buffer__, size__);
+
+        off_ += size__;
+        hint_ -= size__;
+        buffer_ += size__;
+        size_ -= size__;
     }
 
     return 0;
