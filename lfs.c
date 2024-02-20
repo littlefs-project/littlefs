@@ -528,15 +528,13 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint8_t c, lfs_size_t size,
         uint32_t *cksum_, uint32_t *flcksum_) {
-    // just use a small hardcoded buffer
-    //
-    // this function is quite a bit more niche than the read-related utils
-    uint8_t buf[4];
-    memset(buf, c, sizeof(buf));
+    // hijack the rcache
+    lfsr_cache_drop(&lfs->rcache);
+    memset(lfs->rcache.buffer, c, lfs_min(size, lfs->cfg->cache_size));
 
     while (size > 0) {
-        lfs_size_t d = lfs_min(size, sizeof(buf));
-        int err = lfsr_bd_prog(lfs, block, off, buf, d,
+        lfs_size_t d = lfs_min(size, lfs->cfg->cache_size);
+        int err = lfsr_bd_prog(lfs, block, off, lfs->rcache.buffer, d,
                 cksum_, flcksum_);
         if (err) {
             return err;
