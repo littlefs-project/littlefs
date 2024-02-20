@@ -525,6 +525,30 @@ static int lfsr_bd_cpy(lfs_t *lfs,
     return 0;
 }
 
+static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
+        uint8_t c, lfs_size_t size,
+        uint32_t *cksum_, uint32_t *flcksum_) {
+    // just use a small hardcoded buffer
+    //
+    // this function is quite a bit more niche than the read-related utils
+    uint8_t buf[4];
+    memset(buf, c, sizeof(buf));
+
+    while (size > 0) {
+        lfs_size_t d = lfs_min(size, sizeof(buf));
+        int err = lfsr_bd_prog(lfs, block, off, buf, d,
+                cksum_, flcksum_);
+        if (err) {
+            return err;
+        }
+
+        off += d;
+        size -= d;
+    }
+
+    return 0;
+}
+
 
 
 /// Small type-level utilities ///
@@ -10534,16 +10558,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // found a hole? fill with zeros
-            // TODO do something better than byte-level progs here
-            for (lfs_size_t i = 0; i < (lfs_size_t)d; i++) {
-                err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
-                        bptr.cksize + i,
-                        &(uint8_t){0}, 1,
-                        NULL, &bptr.cksum);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
+            err = lfsr_bd_set(lfs, bptr.data.u.disk.block, bptr.cksize,
+                    0, d,
+                    NULL, &bptr.cksum);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
             }
 
             pos_ += d;
