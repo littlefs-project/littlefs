@@ -160,7 +160,8 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 }
 
 static int lfsr_bd_readnext(lfs_t *lfs,
-        lfs_block_t block, lfs_size_t off, lfs_size_t hint, lfs_size_t size,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        lfs_size_t size,
         const uint8_t **buffer_, lfs_size_t *size_) {
     // check for in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
@@ -309,11 +310,54 @@ static int lfsr_bd_flush(lfs_t *lfs, uint32_t *flcksum_) {
     return 0;
 }
 
+static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
+        lfs_size_t size,
+        uint8_t **buffer_, lfs_size_t *size_,
+        uint32_t *flcksum_) {
+    // check for in-bounds
+    LFS_ASSERT(block < lfs->cfg->block_count);
+    if (off+size > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+
+    // need to flush pcache?
+    if (!(block == lfs->pcache.block
+            && off >= lfs->pcache.off
+            && off < lfs->pcache.off + lfs->cfg->cache_size)) {
+        int err = lfsr_bd_flush(lfs, flcksum_);
+        if (err) {
+            return err;
+        }
+    }
+
+    // unused pcache? make sure to move it so we never overwrite
+    if (lfs->pcache.size == 0) {
+        lfs->pcache.block = block;
+        lfs->pcache.off = lfs_aligndown(off, lfs->cfg->prog_size);
+    }
+
+    // zero to avoid any information leaks
+    memset(&lfs->pcache.buffer[lfs->pcache.size],
+            0xff,
+            (off-lfs->pcache.off) - lfs->pcache.size);
+    lfs->pcache.size = lfs_max(
+            lfs->pcache.size,
+            lfs_min(
+                (off-lfs->pcache.off) + size,
+                lfs->cfg->cache_size));
+
+    *buffer_ = &lfs->pcache.buffer[off-lfs->pcache.off];
+    *size_ = lfs_min(
+            size,
+            lfs->cfg->cache_size - (off-lfs->pcache.off));
+    return 0;
+}
+
 // caching prog
 //
 // this has two ways to calculate a cksum, we end up using both:
 // - cksum   - cksum immediately
-// - flcksum - wait until flush to cksum
+// - flcksum - cksum on flush
 //
 static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
@@ -329,13 +373,21 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     lfs_size_t size_ = size;
     while (size_ > 0) {
         // bypass cache?
-        //
-        // make sure we flush our pcache first since some devices
-        // don't support out-of-order progs in a block
-        //
-        if (lfs->pcache.size == 0
-                && off_ % lfs->cfg->prog_size == 0
-                && size_ >= lfs->cfg->prog_size) {
+        if (off_ % lfs->cfg->prog_size == 0
+                && size_ >= lfs->cfg->prog_size
+                // pcache takes priority
+                && !(block == lfs->pcache.block
+                    && off_ >= lfs->pcache.off
+                    && off_ < lfs->pcache.off + lfs->cfg->cache_size)) {
+            // make sure we flush our pcache first, some devices
+            // don't support out-of-order progs in a block
+            if (lfs->pcache.size != 0) {
+                int err = lfsr_bd_flush(lfs, flcksum_);
+                if (err) {
+                    return err;
+                }
+            }
+
             lfs_size_t d = lfs_aligndown(size_, lfs->cfg->prog_size);
             int err = lfsr_bd_prog_(lfs, block, off_, buffer_, d,
                     flcksum_);
@@ -349,41 +401,20 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
             continue;
         }
 
-        // fits in pcache?
-        if (lfs->pcache.size == 0
-                || (block == lfs->pcache.block
-                    && off_ >= lfs->pcache.off
-                    && off_ < lfs->pcache.off + lfs->cfg->cache_size)) {
-            // unused pcache? make sure to move it so we never overwrite
-            if (lfs->pcache.size == 0) {
-                lfs->pcache.block = block;
-                lfs->pcache.off = lfs_aligndown(off_, lfs->cfg->prog_size);
-            }
-
-            // zero to avoid any information leaks
-            memset(&lfs->pcache.buffer[lfs->pcache.size],
-                    0xff,
-                    (off_-lfs->pcache.off) - lfs->pcache.size);
-
-            lfs_size_t d = lfs_min(
-                    size_,
-                    lfs->cfg->cache_size - (off_-lfs->pcache.off));
-            memcpy(&lfs->pcache.buffer[off_-lfs->pcache.off], buffer_, d);
-            lfs->pcache.size = lfs_max(
-                    lfs->pcache.size,
-                    (off_-lfs->pcache.off) + d);
-
-            off_ += d;
-            buffer_ += d;
-            size_ -= d;
-            continue;
-        }
-
-        // flush pcache so the above can't fail
-        int err = lfsr_bd_flush(lfs, flcksum_);
+        uint8_t *buffer__;
+        lfs_size_t size__;
+        int err = lfsr_bd_prognext(lfs, block, off_, size_,
+                &buffer__, &size__,
+                flcksum_);
         if (err) {
             return err;
         }
+
+        memcpy(buffer__, buffer_, size__);
+
+        off_ += size__;
+        buffer_ += size__;
+        size_ -= size__;
     }
 
     // optional checksum
@@ -423,7 +454,8 @@ static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
 // other block device utils
 
 static int lfsr_bd_cksum(lfs_t *lfs,
-        lfs_block_t block, lfs_size_t off, lfs_size_t hint, lfs_size_t size,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        lfs_size_t size,
         uint32_t *cksum_) {
     // check for in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
@@ -528,20 +560,31 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint8_t c, lfs_size_t size,
         uint32_t *cksum_, uint32_t *flcksum_) {
-    // hijack the rcache
-    lfsr_cache_drop(&lfs->rcache);
-    memset(lfs->rcache.buffer, c, lfs_min(size, lfs->cfg->cache_size));
+    // check for in-bounds
+    LFS_ASSERT(block < lfs->cfg->block_count);
+    if (off+size > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
 
     while (size > 0) {
-        lfs_size_t d = lfs_min(size, lfs->cfg->cache_size);
-        int err = lfsr_bd_prog(lfs, block, off, lfs->rcache.buffer, d,
-                cksum_, flcksum_);
+        uint8_t *buffer__;
+        lfs_size_t size__;
+        int err = lfsr_bd_prognext(lfs, block, off, size,
+                &buffer__, &size__,
+                flcksum_);
         if (err) {
             return err;
         }
 
-        off += d;
-        size -= d;
+        memset(buffer__, c, size__);
+
+        // optional checksum
+        if (cksum_) {
+            *cksum_ = lfs_crc32c(*cksum_, buffer__, size__);
+        }
+
+        off += size__;
+        size -= size__;
     }
 
     return 0;
