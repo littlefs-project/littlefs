@@ -424,18 +424,14 @@ typedef struct lfsr_data {
         } disk;
         struct {
             lfs_ssize_t size;
-            uint8_t mode;
             const uint8_t *buffer;
         } buf;
         struct {
             lfs_ssize_t size;
-            uint8_t mode;
-            uint8_t buf[5];
+            uint8_t buf[8];
         } imm;
         struct {
             lfs_ssize_t size;
-            uint8_t mode;
-            uint8_t count;
             const struct lfsr_data *datas;
         } cat;
     } u;

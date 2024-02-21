@@ -1100,15 +1100,14 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 /// lfsr_data_t stuff ///
 
-// data uses the size's sign bit to indicate on-disk vs in-device
+// the top bits of data's size indicates the actual encoding
+// 0x0 => buffer pointer
+// 0x4 => inlined data
+// 0x8 => on-disk reference
+// 0xc => concatenated data pointer
 #define LFSR_DATA_ONDISK 0x80000000
-
-// in-device data modes
-enum {
-    LFSR_DATA_BUF   = 0,
-    LFSR_DATA_IMM   = 1,
-    LFSR_DATA_CAT   = 2,
-};
+#define LFSR_DATA_ISIMM  0x40000000
+#define LFSR_DATA_ISCAT  0xc0000000
 
 // LFSR_DATA_DATA just provides and escape hatch to pass raw datas
 // through the LFSR_ATTR macro
@@ -1117,7 +1116,6 @@ enum {
 #define LFSR_DATA_NULL() \
     ((lfsr_data_t){ \
         .u.buf.size=0, \
-        .u.buf.mode=LFSR_DATA_BUF, \
         .u.buf.buffer=NULL})
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
@@ -1129,7 +1127,6 @@ enum {
 #define LFSR_DATA_BUF(_buffer, _size) \
     ((lfsr_data_t){ \
         .u.buf.size=_size, \
-        .u.buf.mode=LFSR_DATA_BUF, \
         .u.buf.buffer=(const void*)(_buffer)})
 
 #define LFSR_DATA_IMM(_buffer, _size) \
@@ -1171,52 +1168,48 @@ typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
     ((lfsr_data_t){.u.buf.buffer=(const void*)(const lfsr_shrub_t*){_shrub}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
-    return data->u.size & LFSR_DATA_ONDISK;
+    return (data->u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ONDISK;
 }
 
 static inline bool lfsr_data_isbuf(const lfsr_data_t *data) {
-    return !lfsr_data_ondisk(data) && data->u.buf.mode == LFSR_DATA_BUF;
+    return (data->u.size & LFSR_DATA_ISCAT) == 0;
 }
 
 static inline bool lfsr_data_isimm(const lfsr_data_t *data) {
-    return !lfsr_data_ondisk(data) && data->u.buf.mode == LFSR_DATA_IMM;
+    return (data->u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISIMM;
 }
 
 static inline bool lfsr_data_iscat(const lfsr_data_t *data) {
-    return !lfsr_data_ondisk(data) && data->u.buf.mode == LFSR_DATA_CAT;
+    return (data->u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISCAT;
 }
 
 static inline lfs_size_t lfsr_data_size(const lfsr_data_t *data) {
-    return data->u.size & ~LFSR_DATA_ONDISK;
+    return data->u.size & ~LFSR_DATA_ISCAT;
 }
 
 // some data initializers just can't be macros, we at least make these inline
 // so most of the internal logic is hopefully elided
 static inline lfsr_data_t lfsr_data_fromimm(
         const void *buffer, lfs_size_t size) {
-    LFS_ASSERT(size <= 5);
+    LFS_ASSERT(size <= 8);
 
     lfsr_data_t data;
     memcpy(data.u.imm.buf, buffer, size);
-    data.u.imm.size = size;
-    data.u.imm.mode = LFSR_DATA_IMM;
+    data.u.imm.size = LFSR_DATA_ISIMM | size;
     return data;
 }
 
 static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word) {
     lfsr_data_t data;
     lfs_ssize_t size = lfs_toleb128(word, data.u.imm.buf, 5);
-    LFS_ASSERT(size >= 0);
+    LFS_ASSERT(size > 0);
     LFS_ASSERT(size <= 5);
-    data.u.imm.size = size;
-    data.u.imm.mode = LFSR_DATA_IMM;
+    data.u.imm.size = LFSR_DATA_ISIMM | size;
     return data;
 }
 
 static inline lfsr_data_t lfsr_data_fromcat(
         const lfsr_data_t *datas, lfs_size_t count) {
-    LFS_ASSERT(count <= 255);
-
     // find total size
     lfs_size_t size = 0;
     for (uint8_t i = 0; i < count; i++) {
@@ -1224,9 +1217,7 @@ static inline lfsr_data_t lfsr_data_fromcat(
     }
 
     return (lfsr_data_t){
-            .u.cat.size=size,
-            .u.cat.mode=LFSR_DATA_CAT,
-            .u.cat.count=count,
+            .u.cat.size=LFSR_DATA_ISCAT | size,
             .u.cat.datas=datas};
 }
 
@@ -1257,7 +1248,7 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
         memmove(data.u.imm.buf,
                 data.u.imm.buf + off_,
                 size_);
-        data.u.imm.size = size_;
+        data.u.imm.size = LFSR_DATA_ISIMM | size_;
 
     // concatenated? not supported
     } else {
@@ -1469,7 +1460,7 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
     // inlined?
     } else if (lfsr_data_isimm(&data)) {
         int err = lfsr_bd_prog(lfs, block, off,
-                data.u.imm.buf, data.u.imm.size,
+                data.u.imm.buf, lfsr_data_size(&data),
                 cksum_, flcksum_);
         if (err) {
             return err;
@@ -1496,14 +1487,18 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 
     // concatenated data? handle specially to avoid recursion
     } else {
-        for (uint8_t i = 0; i < data.u.cat.count; i++) {
-            int err = lfsr_bd_progdata_(lfs, block, off, data.u.cat.datas[i],
+        lfs_size_t size = lfsr_data_size(&data);
+        const lfsr_data_t *datas = data.u.cat.datas;
+        while (size > 0) {
+            int err = lfsr_bd_progdata_(lfs, block, off, *datas,
                     cksum_, flcksum_);
             if (err) {
                 return err;
             }
 
-            off += lfsr_data_size(&data.u.cat.datas[i]);
+            off += lfsr_data_size(datas);
+            size -= lfsr_data_size(datas);
+            datas += 1;
         }
     }
 
