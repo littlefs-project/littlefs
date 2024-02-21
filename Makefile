@@ -83,13 +83,13 @@ endif
 ifdef TRACE
 CFLAGS += -DLFS_YES_TRACE
 endif
-ifdef YES_COV
+ifdef COVGEN
 CFLAGS += --coverage
 endif
-ifdef YES_PERF
+ifdef PERFGEN
 CFLAGS += -fno-omit-frame-pointer
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 CFLAGS += -fno-omit-frame-pointer
 endif
 
@@ -125,20 +125,20 @@ BENCHFLAGS += -b
 # forward -j flag
 TESTFLAGS  += $(filter -j%,$(MAKEFLAGS))
 BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
-ifdef YES_PERF
+ifdef PERFGEN
 TESTFLAGS  += -p $(TEST_PERF)
 BENCHFLAGS += -p $(BENCH_PERF)
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 TESTFLAGS += -t $(TEST_TRACE) --trace-backtrace --trace-freq=100
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 BENCHFLAGS += -t $(BENCH_TRACE) --trace-backtrace --trace-freq=100
 endif
-ifdef YES_TESTMARKS
+ifdef TESTMARKS
 TESTFLAGS += -o $(TEST_CSV)
 endif
-ifdef YES_BENCHMARKS
+ifdef BENCHMARKS
 BENCHFLAGS += -o $(BENCH_CSV)
 endif
 ifdef VERBOSE
@@ -289,7 +289,7 @@ cov-diff: $(GCDA)
 		$(patsubst %,-F%,$(SRC)) \
 		$(COVFLAGS) -d $(BUILDDIR)/lfs.cov.csv)
 
-## Find the perf results after bench run with YES_PERF
+## Find the perf results after bench run with PERFGEN
 .PHONY: perf
 perf: PERFFLAGS+=-S
 perf: $(BENCH_PERF) $(BUILDDIR)/lfs.perf.csv
@@ -356,25 +356,25 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 ## Build the test-runner
 .PHONY: test-runner build-test
 test-runner build-test: CFLAGS+=-Wno-unused-function
-ifdef YES_COV
+ifdef COVGEN
 test-runner build-test: CFLAGS+=--coverage
 endif
-ifdef YES_PERF
+ifdef PERFGEN
 test-runner build-test: CFLAGS+=-fno-omit-frame-pointer
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 test-runner build-test: CFLAGS+=-fno-omit-frame-pointer
 endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 test-runner build-test: $(TEST_RUNNER)
-ifdef YES_COV
+ifdef COVGEN
 	rm -f $(TEST_GCDA)
 endif
-ifdef YES_PERF
+ifdef PERFGEN
 	rm -f $(TEST_PERF)
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 	rm -f $(TEST_TRACE)
 endif
 
@@ -408,25 +408,25 @@ testmarks-diff: $(TEST_CSV)
 ## Build the bench-runner
 .PHONY: bench-runner build-bench
 bench-runner build-bench: CFLAGS+=-Wno-unused-function
-ifdef YES_COV
+ifdef COVGEN
 bench-runner build-bench: CFLAGS+=--coverage
 endif
-ifdef YES_PERF
+ifdef PERFGEN
 bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
 endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 bench-runner build-bench: $(BENCH_RUNNER)
-ifdef YES_COV 
+ifdef COVGEN
 	rm -f $(BENCH_GCDA)
 endif
-ifdef YES_PERF
+ifdef PERFGEN
 	rm -f $(BENCH_PERF)
 endif
-ifdef YES_PERFBD
+ifdef PERFBDGEN
 	rm -f $(BENCH_TRACE)
 endif
 
