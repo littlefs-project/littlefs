@@ -32,15 +32,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 '''
 
@@ -63,16 +69,22 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 '''
 
@@ -95,14 +107,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     // fetch
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 
     // commit with the second attribute
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 '''
 
@@ -133,7 +149,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -156,8 +174,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -190,8 +212,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -243,7 +269,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -266,9 +294,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -301,9 +333,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -354,7 +390,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 4;
@@ -373,8 +411,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 4;
@@ -395,8 +437,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 4;
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(2), &data) => 0;
@@ -434,7 +480,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 4;
@@ -453,9 +501,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 4;
@@ -476,9 +528,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 4;
     lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(2), &data) => 0;
@@ -520,8 +576,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -542,8 +602,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -583,9 +647,15 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -606,9 +676,15 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -650,9 +726,15 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -680,9 +762,15 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -729,10 +817,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -760,10 +856,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -791,10 +895,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -822,10 +934,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -874,10 +994,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -912,10 +1040,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -950,10 +1086,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -988,10 +1132,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1045,10 +1197,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1083,10 +1243,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1121,10 +1289,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1159,10 +1335,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1218,11 +1402,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1259,11 +1453,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1298,11 +1502,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1337,11 +1551,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1399,11 +1623,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1447,11 +1681,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1493,11 +1737,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1539,11 +1793,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1606,12 +1870,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1655,12 +1931,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1704,12 +1992,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1774,12 +2074,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(6), 0, BUF("\xff\xff\xff\xff", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xff\xff\xff\xff", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1828,12 +2140,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(6), 0, BUF("\xff\xff\xff\xff", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xff\xff\xff\xff", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1882,12 +2206,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(6), 0, BUF("\xff\xff\xff\xff", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xff\xff\xff\xff", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -1970,8 +2306,9 @@ code = '''
         // build the attribute list for the current permutation
         struct lfsr_attr attrs[N];
         for (unsigned j = 0; j < N; j++) {
-            attrs[j] = LFSR_ATTR(UATTR(perm[j]+1), 0,
-                    BUF("\xaa\xaa\xaa\xaa", 4));
+            attrs[j] = LFSR_ATTR(
+                    LFSR_TAG_UATTR(perm[j]+1), 0,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4));
         }
 
         // test the given permutation
@@ -2062,8 +2399,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -2121,8 +2459,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -2155,8 +2497,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -2210,9 +2556,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -2245,9 +2595,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -2321,8 +2675,9 @@ code = '''
         // build the attribute list for the current permutation
         struct lfsr_attr attrs[N];
         for (unsigned j = 0; j < N; j++) {
-            attrs[j] = LFSR_ATTR(UATTR(perm[j]+1), 0,
-                    BUF("\xaa\xaa\xaa\xaa", 4));
+            attrs[j] = LFSR_ATTR(
+                    LFSR_TAG_UATTR(perm[j]+1), 0,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4));
         }
 
         // test the given permutation
@@ -2395,8 +2750,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -2451,7 +2807,9 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(j+1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_UATTR(j+1), 0,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     }
 
     // copy block so we can reset after each remove
@@ -2490,8 +2848,9 @@ code = '''
         // update each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
         }
 
         // check that all tags have been updated
@@ -2568,7 +2927,9 @@ code = '''
                 : (ORDER == 1) ? (((lfs_size_t)-1) - i)
                 : TEST_PRNG(&prng);
         int err = lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(x & 0x7f), 0, BUF("\xaa\xaa\xaa\xaa", 4))));
+                LFSR_ATTR(
+                    LFSR_TAG_UATTR(x & 0x7f), 0,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4))));
         if (err == LFS_ERR_RANGE) {
             break;
         }
@@ -2618,9 +2979,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
@@ -2637,10 +3002,16 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -2673,10 +3044,16 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(2)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -2754,8 +3131,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
         }
 
         // copy block so we can reset after each remove
@@ -2777,8 +3155,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(j+1)), 0, NULL())))
-                    => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(j+1), 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
@@ -2805,8 +3184,9 @@ code = '''
             // try appending the tag back to make sure things still work
             printf("--- append: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(j+1), 0,
-                        BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(j+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
@@ -2900,8 +3280,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
         }
 
         // copy block so we can reset after each remove
@@ -2923,7 +3304,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(j+1)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(j+1), 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -2975,8 +3358,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3002,7 +3389,9 @@ code = '''
 
     // try to remove tags that aren't there, this should do nothing
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3027,7 +3416,9 @@ code = '''
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(3)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3052,7 +3443,9 @@ code = '''
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(5)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3124,16 +3517,32 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(3), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(4), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(5), 0, BUF("\xee\xee\xee\xee", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
     // remove several attributes
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()),
-            LFSR_ATTR(RM(UATTR(3)), 0, NULL()),
-            LFSR_ATTR(RM(UATTR(5)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
@@ -3160,7 +3569,9 @@ code = '''
 
     // try to remove tags that aren't there, this should do nothing
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3185,7 +3596,9 @@ code = '''
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(3)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3210,7 +3623,9 @@ code = '''
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(5)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3237,7 +3652,9 @@ code = '''
     // try to remove the tags again, just to make sure (keep in mind
     // these removes still commit to the rbyd)
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3262,7 +3679,9 @@ code = '''
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(3)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3287,7 +3706,9 @@ code = '''
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(5)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
@@ -3359,9 +3780,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
@@ -3378,11 +3803,19 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()),
-            LFSR_ATTR(RM(UATTR(2)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
@@ -3399,11 +3832,19 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(2)), 0, NULL()),
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
@@ -3453,7 +3894,9 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(j+1), 0, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_UATTR(j+1), 0,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     }
 
     // copy block so we can reset after each remove
@@ -3492,7 +3935,9 @@ code = '''
         // remove each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(perm[j]+1)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_NULL()))) => 0;
         }
 
         // check that all tags are now removed
@@ -3504,8 +3949,9 @@ code = '''
 
         // try resuming from all tags being removed
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(1), 0,
-                    BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_UATTR(1), 0,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
         lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
@@ -3601,14 +4047,17 @@ code = '''
             sim[attr] = 'a'+(i % 26);
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(attr), 0,
-                        BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(attr), 0,
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else {
             // update our sim
             sim[attr] = '\0';
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(attr)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(attr), 0,
+                        LFSR_DATA_NULL()))) => 0;
         }
     }
 
@@ -3682,7 +4131,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3699,8 +4150,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3723,9 +4178,15 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3772,7 +4233,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3789,9 +4252,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3814,9 +4281,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3839,11 +4310,17 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3872,11 +4349,17 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -3905,11 +4388,17 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4002,7 +4491,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -4062,8 +4553,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 00000000, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -4131,9 +4626,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -4178,9 +4677,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -4288,7 +4791,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -4359,7 +4864,7 @@ code = '''
         x = x % (rbyd.weight+1);
 
         int err = lfsr_rbyd_commit(&lfs, &rbyd, x, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1, BUF(names[x % 6], 4))));
+                LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(names[x % 6], 4))));
         if (err == LFS_ERR_RANGE) {
             break;
         }
@@ -4406,8 +4911,12 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4430,10 +4939,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4468,12 +4985,24 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4561,9 +5090,13 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4586,13 +5119,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4627,13 +5168,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4668,17 +5217,29 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4748,17 +5309,29 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4805,17 +5378,29 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -4927,12 +5512,15 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[perm[j] % 6], 2)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
             }
         }
 
@@ -4999,10 +5587,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -5102,13 +5698,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -5185,13 +5789,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &rid_, &tag_, NULL, &data_) => 0;
@@ -5332,12 +5944,15 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[perm[j] % 6], 2)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
             }
         }
 
@@ -5419,11 +6034,15 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1, BUF(names[j % 6], 4)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_REG, +1,
+                    LFSR_DATA_BUF(names[j % 6], 4)))) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(u+1), 0, BUF(names[j % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(u+1), 0,
+                        LFSR_DATA_BUF(names[j % 6], 2)))) => 0;
         }
     }
 
@@ -5463,8 +6082,9 @@ code = '''
         // update each tag in permutation order
         for (unsigned j = 0; j < N*M; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, perm[j]/M, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]%M+1), 0,
-                        BUF(names[(perm[j]/M) % 6], 3)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]%M+1), 0,
+                        LFSR_DATA_BUF(names[(perm[j]/M) % 6], 3)))) => 0;
         }
 
         // check that all tags have been updated
@@ -5580,12 +6200,15 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[perm[j] % 6], 2)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
             }
         }
 
@@ -5608,7 +6231,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j/M, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR((j%M)+1)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR((j%M)+1), 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
@@ -5650,8 +6275,9 @@ code = '''
             // try append the tag back to make sure things still work
             printf("--- append: rid%jd, %jd ---\n", j/M, (j%M)+1);
             lfsr_rbyd_commit(&lfs, &rbyd, j/M, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR((j%M)+1), 0,
-                        BUF(names[(j/M)%6], 3)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((j%M)+1), 0,
+                        LFSR_DATA_BUF(names[(j/M)%6], 3)))) => 0;
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
@@ -5753,11 +6379,15 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1, BUF(names[j % 6], 4)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_REG, +1,
+                    LFSR_DATA_BUF(names[j % 6], 4)))) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(u+1), 0, BUF(names[j % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(u+1), 0,
+                        LFSR_DATA_BUF(names[j % 6], 2)))) => 0;
         }
     }
 
@@ -5797,8 +6427,9 @@ code = '''
         // remove each tag in permutation order
         for (unsigned j = 0; j < N*M; j++) {
             lfsr_rbyd_commit(&lfs, &rbyd, perm[j]/M, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(perm[j]%M+1)),
-                        0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(perm[j]%M+1), 0,
+                        LFSR_DATA_NULL()))) => 0;
         }
 
         // check that all tags have been removed
@@ -5889,9 +6520,11 @@ code = '''
         // build a single attribute list with all attributes, if this fails
         // it should fail atomically
         struct lfsr_attr attrs[1+M];
-        attrs[0] = LFSR_ATTR(REG, +1, BUF(names[x % 6], 4));
+        attrs[0] = LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(names[x % 6], 4));
         for (unsigned u = 0; u < M; u++) {
-            attrs[1+u] = LFSR_ATTR(UATTR(u+1), 0, BUF(names[x % 6], 2));
+            attrs[1+u] = LFSR_ATTR(
+                    LFSR_TAG_UATTR(u+1), 0,
+                    LFSR_DATA_BUF(names[x % 6], 2));
         }
 
         int err = lfsr_rbyd_commit(&lfs, &rbyd, x, attrs, 1+M);
@@ -5996,12 +6629,14 @@ code = '''
 
             // note the data size differences here
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF(names[perm[j] % 6], 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 1)))) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
 
         // try looking up each tag
@@ -6140,16 +6775,19 @@ code = '''
 
             // note the data size differences here
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(perm[j]+1), 0,
-                        BUF(names[perm[j] % 6], 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(perm[j]+1), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 1)))) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[perm[j] % 6], 2)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
             }
         }
 
@@ -6262,10 +6900,14 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6286,10 +6928,14 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6310,11 +6956,17 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6339,11 +6991,17 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6368,11 +7026,17 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6415,12 +7079,20 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6451,12 +7123,20 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6487,14 +7167,26 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6537,14 +7229,26 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6587,14 +7291,26 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
@@ -6704,7 +7420,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -6727,7 +7445,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N-1);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -6747,7 +7465,9 @@ code = '''
             // try recreating the rid to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             assert(rbyd.weight == N);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -6861,12 +7581,15 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[perm[j] % 6], 2)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
             }
         }
         assert(rbyd.weight == N);
@@ -6890,7 +7613,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N-1);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -6923,11 +7646,14 @@ code = '''
             // try recreating the rid to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[j % 6], 3)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
             }
             assert(rbyd.weight == N);
 
@@ -7054,7 +7780,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -7077,7 +7805,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -7181,12 +7909,15 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                        LFSR_ATTR(UATTR(u+1), 0,
-                            BUF(names[perm[j] % 6], 2)))) => 0;
+                        LFSR_ATTR(
+                            LFSR_TAG_UATTR(u+1), 0,
+                            LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
             }
         }
         assert(rbyd.weight == N);
@@ -7210,7 +7941,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -7282,9 +8013,11 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7299,11 +8032,15 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()),
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7318,12 +8055,16 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7338,13 +8079,19 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()),
-            LFSR_ATTR(RM, -1, NULL()),
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7359,15 +8106,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7400,10 +8153,14 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7418,13 +8175,21 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()),
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7439,14 +8204,22 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7461,16 +8234,28 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()),
-            LFSR_ATTR(RM, -1, NULL()),
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7485,18 +8270,30 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG,     +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb",         2)),
-            LFSR_ATTR(REG,     +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc",         2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG,
@@ -7551,7 +8348,9 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1, BUF(names[j % 6], 4)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_REG, +1,
+                    LFSR_DATA_BUF(names[j % 6], 4)))) => 0;
     }
     assert(rbyd.weight == N);
 
@@ -7600,7 +8399,7 @@ code = '''
 
             lfs_size_t rbyd_weight_before = rbyd.weight;
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -7613,8 +8412,9 @@ code = '''
 
         // try resuming from all tags being removed
         lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1,
-                    BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_REG, +1,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
         assert(rbyd.weight == 1);
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -7696,11 +8496,15 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1, BUF(names[j % 6], 4)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_REG, +1,
+                    LFSR_DATA_BUF(names[j % 6], 4)))) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(u+1), 0, BUF(names[j % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(u+1), 0,
+                        LFSR_DATA_BUF(names[j % 6], 2)))) => 0;
         }
     }
     assert(rbyd.weight == N);
@@ -7750,7 +8554,7 @@ code = '''
 
             lfs_size_t rbyd_weight_before = rbyd.weight;
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -7763,11 +8567,14 @@ code = '''
 
         // try resuming from all tags being removed
         lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-                LFSR_ATTR(REG, +1,
-                    BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_REG, +1,
+                    LFSR_DATA_BUF("\xaa\xaa\xaa\xaa\xaa\xaa", 6)))) => 0;
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(u+1), 0, BUF("\xaa\xaa\xaa", 3)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(u+1), 0,
+                        LFSR_DATA_BUF("\xaa\xaa\xaa", 3)))) => 0;
         }
         assert(rbyd.weight == 1);
 
@@ -7880,14 +8687,16 @@ code = '''
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else {
             // update our sim
             memmove(sim+rid, sim+rid+1, count-rid-1);
             count -= 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
         }
     }
 
@@ -7952,7 +8761,9 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -7971,7 +8782,9 @@ code = '''
 
     // make id2 with weight w2
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +2, BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +2,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8002,7 +8815,9 @@ code = '''
 
     // make id5 with weight w3
     lfsr_rbyd_commit(&lfs, &rbyd, 3, LFSR_ATTRS(
-            LFSR_ATTR(REG, +3, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +3,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8045,7 +8860,9 @@ code = '''
 
     // make id9 with weight w4
     lfsr_rbyd_commit(&lfs, &rbyd, 6, LFSR_ATTRS(
-            LFSR_ATTR(REG, +4, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +4,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8100,7 +8917,9 @@ code = '''
 
     // make id14 with weight w5
     lfsr_rbyd_commit(&lfs, &rbyd, 10, LFSR_ATTRS(
-            LFSR_ATTR(REG, +5, BUF("\xee\xee\xee\xee", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +5,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8189,15 +9008,25 @@ code = '''
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
             // make id0 with weight w1
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
             // make id2 with weight w2
-            LFSR_ATTR(REG, +2, BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +2,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
             // make id5 with weight w3
-            LFSR_ATTR(REG, +3, BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +3,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
             // make id9 with weight w4
-            LFSR_ATTR(REG, +4, BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +4,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
             // make id14 with weight w5
-            LFSR_ATTR(REG, +5, BUF("\xee\xee\xee\xee", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +5,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
 
     // traverse, finding tags and weights
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
@@ -8336,8 +9165,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -8425,8 +9255,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -8475,10 +9306,18 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)),
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa", 2)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xaa\xaa", 2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("unrelated", 9)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa", 2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(3),
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8533,10 +9372,18 @@ code = '''
 
     // make id2 with weight w2
     lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb", 2)),
-            LFSR_ATTR(GROW, +1, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb", 2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +1,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb", 2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(3),
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8627,10 +9474,18 @@ code = '''
 
     // make id5 with weight w3
     lfsr_rbyd_commit(&lfs, &rbyd, 3, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc", 2)),
-            LFSR_ATTR(GROW, +2, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xcc\xcc", 2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +2,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc", 2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(3),
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8757,10 +9612,18 @@ code = '''
 
     // make id9 with weight w4
     lfsr_rbyd_commit(&lfs, &rbyd, 6, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xdd\xdd", 2)),
-            LFSR_ATTR(GROW, +3, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xdd\xdd", 2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xdd\xdd", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +3,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xdd\xdd", 2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(3),
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -8923,10 +9786,18 @@ code = '''
 
     // make id14 with weight w5
     lfsr_rbyd_commit(&lfs, &rbyd, 10, LFSR_ATTRS(
-            LFSR_ATTR(REG, +1, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xee\xee", 2)),
-            LFSR_ATTR(GROW, +4, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xee\xee", 2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +4,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xee\xee", 2)))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(3),
             &rid_, &tag_, &weight_, &data_) => 0;
@@ -9146,31 +10017,71 @@ code = '''
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("unrelated", 9)),
             // make id0 with weight w1
-            LFSR_ATTR(REG, +1, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xaa\xaa", 2)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xaa\xaa", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa", 2)),
             // make id2 with weight w2
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb", 2)),
-            LFSR_ATTR(GROW, +1, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xbb\xbb", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +1,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xbb\xbb", 2)),
             // make id5 with weight w3
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xcc\xcc", 2)),
-            LFSR_ATTR(GROW, +2, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xcc\xcc", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +2,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc", 2)),
             // make id9 with weight w4
-            LFSR_ATTR(REG, +1, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xdd\xdd", 2)),
-            LFSR_ATTR(GROW, +3, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xdd\xdd", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xdd\xdd", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +3,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xdd\xdd", 2)),
             // make id14 with weight w5
-            LFSR_ATTR(REG, +1, BUF("\xee\xee\xee\xee", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xee\xee", 2)),
-            LFSR_ATTR(GROW, +4, NULL()),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xee\xee", 2)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee", 2)),
+            LFSR_ATTR(
+                LFSR_TAG_GROW, +4,
+                LFSR_DATA_NULL()),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xee\xee", 2)))) => 0;
 
     // traverse, finding tags and weights
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
@@ -9432,7 +10343,9 @@ code = '''
         rbyd = init_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_UATTR(3), 0,
+                    LFSR_DATA_BUF("unrelated", 9)))) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -9444,11 +10357,18 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR(1), 0, BUF(names[perm[j] % 6], 2)),
-                    LFSR_ATTR(GROW, +W-1, NULL()),
-                    LFSR_ATTR(UATTR(2), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(1), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)),
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW, +W-1,
+                        LFSR_DATA_NULL()),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(2), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -9545,7 +10465,9 @@ code = '''
         rbyd = init_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(UATTR(3), 0, BUF("unrelated", 9)))) => 0;
+                LFSR_ATTR(
+                    LFSR_TAG_UATTR(3), 0,
+                    LFSR_DATA_BUF("unrelated", 9)))) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -9557,11 +10479,18 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR(1), 0, BUF(names[perm[j] % 6], 2)),
-                    LFSR_ATTR(GROW, +W-1, NULL()),
-                    LFSR_ATTR(UATTR(2), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(1), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)),
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW, +W-1,
+                        LFSR_DATA_NULL()),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(2), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -9677,8 +10606,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -9701,7 +10631,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW, +D, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_GROW, +D, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N*W+D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -9807,8 +10737,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -9831,8 +10762,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW(REG), +D,
-                        BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW | LFSR_TAG_REG, +D,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             assert(rbyd.weight == N*W+D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -9948,8 +10880,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(2), +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(2), +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -9972,8 +10905,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW(UATTR(1)), +D,
-                        BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW | LFSR_TAG_UATTR(1), +D,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             assert(rbyd.weight == N*W+D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10102,8 +11036,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10126,7 +11061,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW, -D, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_GROW, -D, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10232,8 +11167,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10256,8 +11192,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW(REG), -D,
-                        BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW | LFSR_TAG_REG, -D,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10373,8 +11310,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(2), +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(2), +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10397,8 +11335,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW(UATTR(1)), -D,
-                        BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW | LFSR_TAG_UATTR(1), -D,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10526,8 +11465,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10550,7 +11490,7 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -W, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -W, LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == (N-1)*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10584,7 +11524,9 @@ code = '''
             // try recreating the rid to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, j*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W, BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
             assert(rbyd.weight == N*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10686,8 +11628,9 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, rid*W, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +W,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +W,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10711,8 +11654,9 @@ code = '''
                     NULL) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(1), 0,
-                        BUF(names[j % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(1), 0,
+                        LFSR_DATA_BUF(names[j % 6], 2)))) => 0;
             assert(rbyd.weight == N*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10743,7 +11687,9 @@ code = '''
             // now try removing the attr
             printf("--- removing: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                        LFSR_DATA_NULL()))) => 0;
             assert(rbyd.weight == N*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10769,8 +11715,9 @@ code = '''
             // and try putting the attr back just for good measure
             printf("--- appending: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR(1), 0,
-                        BUF(names[j % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR(1), 0,
+                        LFSR_DATA_BUF(names[j % 6], 2)))) => 0;
             assert(rbyd.weight == N*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -10881,28 +11828,33 @@ code = '''
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else if (op == 1) {
             // update our sim
             memmove(sim+rid*(M+1), sim+(rid+1)*(M+1), (count-rid-1)*(M+1));
             count -= 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -1, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
         } else if (op == 2) {
             // update our sim
             sim[rid*(M+1) + u+1] = 'a'+(i % 26);
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
                     LFSR_ATTR(
-                        UATTR(u), 0, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                        LFSR_TAG_UATTR(u), 0,
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         } else if (op == 3) {
             // update our sim
             sim[rid*(M+1) + u+1] = '\0';
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(RM(UATTR(u)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_UATTR(u), 0,
+                        LFSR_DATA_NULL()))) => 0;
         }
     }
 
@@ -11051,7 +12003,8 @@ code = '''
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, weighted_rid, LFSR_ATTRS(
                     LFSR_ATTR(
-                        REG, +weight, BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                        LFSR_TAG_REG, +weight,
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         } else if (op == 1) {
             // get the correct weight from the sim
             weight_ = sim_weights[rid];
@@ -11062,7 +12015,7 @@ code = '''
             count -= 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, weighted_rid+weight_-1, LFSR_ATTRS(
-                    LFSR_ATTR(RM, -weight_, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_RM, -weight_, LFSR_DATA_NULL()))) => 0;
         } else if (op == 2) {
             // get the correct weight from the sim
             weight_ = sim_weights[rid];
@@ -11070,7 +12023,7 @@ code = '''
             sim_weights[rid] += weight;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, weighted_rid+weight_-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW, +weight, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_GROW, +weight, LFSR_DATA_NULL()))) => 0;
         } else if (op == 3) {
             // get the correct weight from the sim
             weight_ = sim_weights[rid];
@@ -11081,7 +12034,7 @@ code = '''
             sim_weights[rid] -= weight;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, weighted_rid+weight_-1, LFSR_ATTRS(
-                    LFSR_ATTR(GROW, -weight, NULL()))) => 0;
+                    LFSR_ATTR(LFSR_TAG_GROW, -weight, LFSR_DATA_NULL()))) => 0;
         }
     }
 
@@ -11213,9 +12166,12 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -11300,9 +12256,12 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -11326,7 +12285,9 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM(SUBMASK(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_SUBMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11438,9 +12399,12 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -11464,8 +12428,10 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(SUBMASK(UATTR(~(j + SHIFT) & 0x7f)), 0,
-                        BUF(names[j % 6], 3)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                            0,
+                        LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11578,11 +12544,15 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)),
-                    LFSR_ATTR(SATTR(0), 0,
-                        BUF(names[perm[j] % 6], 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)),
+                    LFSR_ATTR(
+                        LFSR_TAG_SATTR(0), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 1)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -11667,11 +12637,15 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)),
-                    LFSR_ATTR(SATTR(0), 0,
-                        BUF(names[perm[j] % 6], 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)),
+                    LFSR_ATTR(
+                        LFSR_TAG_SATTR(0), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 1)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -11695,7 +12669,9 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM(SUBMASK(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_SUBMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11814,11 +12790,15 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)),
-                    LFSR_ATTR(SATTR(0), 0,
-                        BUF(names[perm[j] % 6], 1)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)),
+                    LFSR_ATTR(
+                        LFSR_TAG_SATTR(0), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 1)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -11842,8 +12822,10 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(SUBMASK(UATTR(~(j + SHIFT) & 0x7f)), 0,
-                        BUF(names[j % 6], 3)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                            0,
+                        LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11963,8 +12945,9 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), +1,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -12049,8 +13032,9 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), +1,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -12074,7 +13058,9 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM(SUBMASK(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_SUBMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -12189,8 +13175,9 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), +1,
-                        BUF(names[perm[j] % 6], 4)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -12214,8 +13201,10 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(SUBMASK(UATTR(~(j + SHIFT) & 0x7f)), 0,
-                        BUF(names[j % 6], 6)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                            0,
+                        LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -12322,9 +13311,12 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -12409,9 +13401,12 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -12435,7 +13430,9 @@ code = '''
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(RM(SUPMASK(UATTR)), 0, NULL()))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_RM | LFSR_TAG_SUPMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -12547,9 +13544,12 @@ code = '''
 
             // give each attr a subtype based on its rid + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, rid, LFSR_ATTRS(
-                    LFSR_ATTR(REG, +1, BUF(names[perm[j] % 6], 4)),
-                    LFSR_ATTR(UATTR((perm[j] + SHIFT) & 0x7f), 0,
-                        BUF(names[perm[j] % 6], 2)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_REG, +1,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 4)),
+                    LFSR_ATTR(
+                        LFSR_TAG_UATTR((perm[j] + SHIFT) & 0x7f), 0,
+                        LFSR_DATA_BUF(names[perm[j] % 6], 2)))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -12573,8 +13573,10 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
-                    LFSR_ATTR(SUPMASK(UATTR(~(j + SHIFT) & 0x7f)), 0,
-                        BUF(names[j % 6], 3)))) => 0;
+                    LFSR_ATTR(
+                        LFSR_TAG_SUPMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                            0,
+                        LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
 
             // try traversing over the tags
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -12653,9 +13655,15 @@ code = '''
     // create a null tag hole
     rbyd = init_rbyd;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(RM(UATTR(0)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 0);
 
     // can we still access things?
@@ -12695,15 +13703,25 @@ code = '''
     // create a null tag hole
     rbyd = init_rbyd;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(UATTR(2), 0, BUF("\xcc\xcc\xcc\xcc", 4)),
-            LFSR_ATTR(RM(UATTR(0)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 0);
 
     // remove a neighbor to the hole
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(1)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 0);
 
     // can we still access things?
@@ -12743,16 +13761,24 @@ code = '''
     // create a null tag hole
     rbyd = init_rbyd;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(0)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 2);
 
     // delete a neighbor to the hole
     lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
-            LFSR_ATTR(RM, -1, NULL()))) => 0;
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 1);
 
     // can we still access things?
@@ -12792,16 +13818,25 @@ code = '''
     // create a null tag hole
     rbyd = init_rbyd;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(SATTR(0), 0, BUF("\xdd\xdd\xdd\xdd", 4)),
-            LFSR_ATTR(RM(UATTR(0)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_SATTR(0), 0,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 0);
 
     // subwide replace a neighbor to the hole
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(SUBMASK(UATTR(2)), 0,
-                BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     assert(rbyd.weight == 0);
 
     // can we still access things?
@@ -12850,17 +13885,26 @@ code = '''
     // create a null tag hole
     rbyd = init_rbyd;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(UATTR(0), 0, BUF("\xaa\xaa\xaa\xaa", 4)),
-            LFSR_ATTR(UATTR(1), 0, BUF("\xbb\xbb\xbb\xbb", 4)),
-            LFSR_ATTR(REG, +1, BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xbb\xbb\xbb\xbb", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xdd\xdd\xdd\xdd", 4)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(RM(UATTR(0)), 0, NULL()))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_UATTR(0), 0,
+                LFSR_DATA_NULL()))) => 0;
     assert(rbyd.weight == 1);
 
     // supwide replace a neighbor to the hole
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
-            LFSR_ATTR(SUPMASK(UATTR(2)), 0,
-                BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+            LFSR_ATTR(
+                LFSR_TAG_SUPMASK | LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     assert(rbyd.weight == 1);
 
     // can we still access things?
