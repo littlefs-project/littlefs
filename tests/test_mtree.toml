@@ -3849,11 +3849,10 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
-    uint8_t buf[LFSR_MPTR_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 MROOT, 0,
-                FROMMPTR(&LFSR_MPTR_MROOTANCHOR(), buf)))) => 0;
+                FROMMPTR(&LFSR_MPTR_MROOTANCHOR())))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
     lfsr_traversal_t traversal = LFSR_TRAVERSAL(LFSR_TRAVERSAL_VALIDATE);
