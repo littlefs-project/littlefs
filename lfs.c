@@ -1115,16 +1115,20 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.buf.buffer=(const void*)(_buffer)})
 
 #define LFSR_DATA_IMM(_buffer, _size) \
-    lfsr_data_fromimm(_buffer, _size)
+    ((const lfsr_data_t[]){ \
+        lfsr_data_fromimm(_buffer, _size)}[0])
 
 #define LFSR_DATA_LEB128(_word) \
-    lfsr_data_fromleb128(_word)
+    ((const lfsr_data_t[]){ \
+        lfsr_data_fromleb128(_word)}[0])
 
 // this relies on temporary allocations which is a bit precarious...
 #define LFSR_DATA_CAT(...) \
-    lfsr_data_fromcat( \
-        (const lfsr_data_t[]){__VA_ARGS__}, \
-        sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
+    ((const lfsr_data_t[]){ \
+        lfsr_data_fromcat( \
+            (const lfsr_data_t[]){__VA_ARGS__}, \
+            sizeof((const lfsr_data_t[]){__VA_ARGS__}) \
+                / sizeof(lfsr_data_t))}[0])
 
 // These aren't true runtime-typed datas, but allows some special cases to
 // bypass data encoding. External context is required to access these
