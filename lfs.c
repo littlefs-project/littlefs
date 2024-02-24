@@ -9989,7 +9989,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     lfsr_bid_t bid = lfsr_bshrub_size(&file->bshrub);
     lfsr_attr_t attrs[5];
     lfs_size_t attr_count = 0;
-    lfs_size_t attr_tnuoc = 0;
     uint8_t buf[3*LFSR_BPTR_DSIZE+2*LFSR_ECKSUM_DSIZE];
     lfs_size_t buf_size = 0;
 
@@ -10048,6 +10047,10 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // try to carve any existing data
+    lfsr_tag_t right_tag_ = 0;
+    lfsr_bid_t right_weight_;
+    lfsr_bptr_t right_bptr_;
+    lfsr_ecksum_t right_becksum_;
     while (pos < lfsr_bshrub_size(&file->bshrub)) {
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
@@ -10101,7 +10104,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         while (tag_ == LFSR_TAG_BLOCK
                 && lfsr_data_size(right_slice_) > lfs->cfg->fragment_size
                 && lfsr_data_size(right_slice_) < lfs->cfg->crystal_thresh) {
-            bptr_.data = lfsr_data_truncate(bptr_.data,
+            bptr_.data = lfsr_data_slice(bptr_.data,
+                    -1,
                     lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
 
             err = lfsr_bshrub_commit(lfs, file, bid, LFSR_ATTRS(
@@ -10132,25 +10136,28 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_GROW, -(bid+1 - pos), LFSR_DATA_NULL());
 
-            // carve bptr?
-            } else if (tag_ == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr__ = {
-                    .data = left_slice_,
-                    .cksize = bptr_.cksize,
-                    .cksum = bptr_.cksum,
-                };
-                attrs[attr_count++] = LFSR_ATTR(
-                        LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
-                            -(bid+1 - pos),
-                        lfsr_data_frombptr(&bptr__, &buf[buf_size]));
-                buf_size += LFSR_BPTR_DSIZE;
-
             // carve fragment?
-            } else {
+            } else if (tag_ == LFSR_TAG_DATA) {
                 attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(bid+1 - pos),
                         left_slice_);
+
+            // carve bptr?
+            } else if (tag_ == LFSR_TAG_BLOCK) {
+                attrs[attr_count++] = LFSR_ATTR(
+                        LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
+                            -(bid+1 - pos),
+                        lfsr_data_frombptr(
+                            &(lfsr_bptr_t){
+                                .data = left_slice_,
+                                .cksize = bptr_.cksize,
+                                .cksum = bptr_.cksum},
+                            &buf[buf_size]));
+                buf_size += LFSR_BPTR_DSIZE;
+
+            } else {
+                LFS_UNREACHABLE();
             }
 
         // completely overwriting this entry?
@@ -10185,31 +10192,27 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             if (lfsr_data_size(right_slice_) == 0) {
                 delta += bid+1 - (pos+weight);
 
+            // carve fragment?
+            } else if (tag_ == LFSR_TAG_DATA) {
+                right_tag_ = tag_;
+                right_weight_ = bid+1 - (pos+weight);
+                right_bptr_.data = right_slice_;
+
             // carve bptr?
             } else if (tag_ == LFSR_TAG_BLOCK) {
-                lfsr_bptr_t bptr__ = {
+                right_tag_ = tag_;
+                right_weight_ = bid+1 - (pos+weight);
+                right_bptr_ = (lfsr_bptr_t){
                     .data = right_slice_,
                     .cksize = bptr_.cksize,
                     .cksum = bptr_.cksum,
                 };
-                attrs[attr_count+attr_tnuoc++] = LFSR_ATTR(
-                        LFSR_TAG_BLOCK, +(bid+1 - (pos+weight)),
-                        lfsr_data_frombptr(&bptr__, &buf[buf_size]));
-                buf_size += LFSR_BPTR_DSIZE;
 
                 // copy over becksum since erase-state is still valid
-                if (becksum_.cksize != -1) {
-                    attrs[attr_count+attr_tnuoc++] = LFSR_ATTR(
-                            LFSR_TAG_BECKSUM, 0,
-                            lfsr_data_fromecksum(&becksum_, &buf[buf_size]));
-                    buf_size += LFSR_ECKSUM_DSIZE;
-                }
+                right_becksum_ = becksum_;
 
-            // carve fragment?
             } else {
-                attrs[attr_count+attr_tnuoc++] = LFSR_ATTR(
-                        LFSR_TAG_DATA, +(bid+1 - (pos+weight)),
-                        right_slice_);
+                LFS_UNREACHABLE();
             }
         }
 
@@ -10218,37 +10221,29 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         break;
     }
 
-    // finally append our data
+    // append our data
     if (weight + delta > 0) {
         // can we coalesce a hole?
         if ((!bptr || lfsr_data_size(bptr->data) == 0) && pos > 0) {
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub)-1);
-            memmove(&attrs[attr_count+1], &attrs[attr_count],
-                    attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_GROW, +(weight + delta), LFSR_DATA_NULL());
 
         // need a new hole?
         } else if (!bptr || lfsr_data_size(bptr->data) == 0) {
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
-            memmove(&attrs[attr_count+1], &attrs[attr_count],
-                    attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_DATA, +(weight + delta), LFSR_DATA_NULL());
 
         // append new fragment?
         } else if (tag == LFSR_TAG_DATA) {
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
-            memmove(&attrs[attr_count+1], &attrs[attr_count],
-                    attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_DATA, +(weight + delta), bptr->data);
 
         // append a new block?
         } else if (tag == LFSR_TAG_BLOCK) {
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
-            memmove(&attrs[attr_count+1], &attrs[attr_count],
-                    attr_tnuoc*sizeof(lfsr_attr_t));
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BLOCK, +(weight + delta),
                     lfsr_data_frombptr(bptr, &buf[buf_size]));
@@ -10256,8 +10251,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
             // append becksum?
             if (becksum && becksum->cksize != -1) {
-                memmove(&attrs[attr_count+1], &attrs[attr_count],
-                        attr_tnuoc*sizeof(lfsr_attr_t));
                 attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_BECKSUM, 0,
                         lfsr_data_fromecksum(becksum, &buf[buf_size]));
@@ -10269,13 +10262,41 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         }
     }
 
+    // and don't forget the right sibling's attrs
+    if (right_tag_) {
+        // right fragment?
+        if (right_tag_ == LFSR_TAG_DATA) {
+            attrs[attr_count++] = LFSR_ATTR(
+                    LFSR_TAG_DATA, +right_weight_,
+                    right_bptr_.data);
+
+        // right bptr?
+        } else if (right_tag_ == LFSR_TAG_BLOCK) {
+            attrs[attr_count++] = LFSR_ATTR(
+                    LFSR_TAG_BLOCK, +right_weight_,
+                    lfsr_data_frombptr(&right_bptr_, &buf[buf_size]));
+            buf_size += LFSR_BPTR_DSIZE;
+
+            // copy over becksum since erase-state is still valid
+            if (right_becksum_.cksize != -1) {
+                attrs[attr_count++] = LFSR_ATTR(
+                        LFSR_TAG_BECKSUM, 0,
+                        lfsr_data_fromecksum(&right_becksum_, &buf[buf_size]));
+                buf_size += LFSR_ECKSUM_DSIZE;
+            }
+
+        } else {
+            LFS_UNREACHABLE();
+        }
+    }
+
     // commit pending attrs
-    if (attr_count+attr_tnuoc > 0) {
-        LFS_ASSERT(attr_count+attr_tnuoc <= sizeof(attrs)/sizeof(lfsr_attr_t));
+    if (attr_count > 0) {
+        LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
         LFS_ASSERT(buf_size <= sizeof(buf));
 
         int err = lfsr_bshrub_commit(lfs, file, bid,
-                attrs, attr_count+attr_tnuoc);
+                attrs, attr_count);
         if (err) {
             return err;
         }
