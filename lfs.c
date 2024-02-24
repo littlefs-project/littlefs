@@ -1115,20 +1115,16 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.buf.buffer=(const void*)(_buffer)})
 
 #define LFSR_DATA_IMM(_buffer, _size) \
-    ((const lfsr_data_t[]){ \
-        lfsr_data_fromimm(_buffer, _size)}[0])
+    lfsr_data_fromimm(_buffer, _size)
 
 #define LFSR_DATA_LEB128(_word) \
-    ((const lfsr_data_t[]){ \
-        lfsr_data_fromleb128(_word)}[0])
+    lfsr_data_fromleb128(_word)
 
 // this relies on temporary allocations which is a bit precarious...
 #define LFSR_DATA_CAT(...) \
-    ((const lfsr_data_t[]){ \
-        lfsr_data_fromcat( \
-            (const lfsr_data_t[]){__VA_ARGS__}, \
-            sizeof((const lfsr_data_t[]){__VA_ARGS__}) \
-                / sizeof(lfsr_data_t))}[0])
+    lfsr_data_fromcat( \
+        (const lfsr_data_t[]){__VA_ARGS__}, \
+        sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
 
 // These aren't true runtime-typed datas, but allows some special cases to
 // bypass data encoding. External context is required to access these
@@ -1156,24 +1152,24 @@ typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
 #define LFSR_DATA_SHRUBTRUNK(_shrub) \
     ((lfsr_data_t){.u.buf.buffer=(const void*)(const lfsr_shrub_t*){_shrub}})
 
-static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
-    return (data->u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ONDISK;
+static inline bool lfsr_data_ondisk(lfsr_data_t data) {
+    return (data.u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ONDISK;
 }
 
-static inline bool lfsr_data_isbuf(const lfsr_data_t *data) {
-    return (data->u.size & LFSR_DATA_ISCAT) == 0;
+static inline bool lfsr_data_isbuf(lfsr_data_t data) {
+    return (data.u.size & LFSR_DATA_ISCAT) == 0;
 }
 
-static inline bool lfsr_data_isimm(const lfsr_data_t *data) {
-    return (data->u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISIMM;
+static inline bool lfsr_data_isimm(lfsr_data_t data) {
+    return (data.u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISIMM;
 }
 
-static inline bool lfsr_data_iscat(const lfsr_data_t *data) {
-    return (data->u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISCAT;
+static inline bool lfsr_data_iscat(lfsr_data_t data) {
+    return (data.u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISCAT;
 }
 
-static inline lfs_size_t lfsr_data_size(const lfsr_data_t *data) {
-    return data->u.size & ~LFSR_DATA_ISCAT;
+static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
+    return data.u.size & ~LFSR_DATA_ISCAT;
 }
 
 // some data initializers just can't be macros, we at least make these inline
@@ -1202,7 +1198,7 @@ static inline lfsr_data_t lfsr_data_fromcat(
     // find total size
     lfs_size_t size = 0;
     for (uint8_t i = 0; i < count; i++) {
-        size += lfsr_data_size(&datas[i]);
+        size += lfsr_data_size(datas[i]);
     }
 
     return (lfsr_data_t){
@@ -1217,23 +1213,23 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
     // here to treat -1 as unbounded
     lfs_size_t off_ = lfs_min32(
             lfs_smax32(off, 0),
-            lfsr_data_size(&data));
+            lfsr_data_size(data));
     lfs_size_t size_ = lfs_min32(
             (lfs_size_t)size,
-            lfsr_data_size(&data) - off_);
+            lfsr_data_size(data) - off_);
 
     // on-disk? increment
-    if (lfsr_data_ondisk(&data)) {
+    if (lfsr_data_ondisk(data)) {
         data.u.disk.off += off_;
         data.u.disk.size = LFSR_DATA_ONDISK | size_;
 
     // buffer? increment
-    } else if (lfsr_data_isbuf(&data)) {
+    } else if (lfsr_data_isbuf(data)) {
         data.u.buf.buffer += off_;
         data.u.buf.size = size_;
 
     // inlined? internal memmove
-    } else if (lfsr_data_isimm(&data)) {
+    } else if (lfsr_data_isimm(data)) {
         memmove(data.u.imm.buf,
                 data.u.imm.buf + off_,
                 size_);
@@ -1253,9 +1249,9 @@ static lfsr_data_t lfsr_data_truncate(lfsr_data_t data, lfs_size_t size) {
 
 static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
     return lfsr_data_slice(data,
-            lfsr_data_size(&data) - lfs_min32(
+            lfsr_data_size(data) - lfs_min32(
                 size,
-                lfsr_data_size(&data)),
+                lfsr_data_size(data)),
             -1);
 }
 
@@ -1268,13 +1264,13 @@ static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
 static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
         void *buffer, lfs_size_t size) {
     // limit our size to data range
-    lfs_size_t d = lfs_min32(size, lfsr_data_size(data));
+    lfs_size_t d = lfs_min32(size, lfsr_data_size(*data));
 
     // on-disk?
-    if (lfsr_data_ondisk(data)) {
+    if (lfsr_data_ondisk(*data)) {
         int err = lfsr_bd_read(lfs, data->u.disk.block, data->u.disk.off,
                 // note our hint includes the full data range
-                lfsr_data_size(data),
+                lfsr_data_size(*data),
                 buffer, d);
         if (err) {
             LFS_ASSERT(err < 0);
@@ -1282,11 +1278,11 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
         }
 
     // buffer?
-    } else if (lfsr_data_isbuf(data)) {
+    } else if (lfsr_data_isbuf(*data)) {
         memcpy(buffer, data->u.buf.buffer, d);
 
     // inlined?
-    } else if (lfsr_data_isimm(data)) {
+    } else if (lfsr_data_isimm(*data)) {
         memcpy(buffer, data->u.imm.buf, d);
 
     // concatenated? not supported
@@ -1358,18 +1354,18 @@ static inline int lfsr_data_readlleb128(lfs_t *lfs, lfsr_data_t *data,
 }
 
 static lfs_scmp_t lfsr_data_cmp_(lfs_t *lfs,
-        const lfsr_data_t *a,
-        const lfsr_data_t *b,
+        const lfsr_data_t a,
+        const lfsr_data_t b,
         lfs_size_t size) {
     // on-disk cmp buffer?
     if (lfsr_data_ondisk(a) && lfsr_data_isbuf(b)) {
-        return lfsr_bd_cmp(lfs, a->u.disk.block, a->u.disk.off, 0,
-                b->u.buf.buffer, size);
+        return lfsr_bd_cmp(lfs, a.u.disk.block, a.u.disk.off, 0,
+                b.u.buf.buffer, size);
 
     // on-disk cmp inlined?
     } else if (lfsr_data_ondisk(a) && lfsr_data_isimm(b)) {
-        return lfsr_bd_cmp(lfs, a->u.disk.block, a->u.disk.off, 0,
-                b->u.imm.buf, size);
+        return lfsr_bd_cmp(lfs, a.u.disk.block, a.u.disk.off, 0,
+                b.u.imm.buf, size);
 
     // not supported
     } else {
@@ -1378,8 +1374,8 @@ static lfs_scmp_t lfsr_data_cmp_(lfs_t *lfs,
 }
 
 static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs,
-        const lfsr_data_t *a,
-        const lfsr_data_t *b) {
+        const lfsr_data_t a,
+        const lfsr_data_t b) {
     // simple data?
     if (!lfsr_data_iscat(b)) {
         // compare common prefix
@@ -1397,13 +1393,13 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs,
         lfs_size_t size = lfs_min32(
                 lfsr_data_size(a),
                 lfsr_data_size(b));
-        lfsr_data_t a_ = *a;
-        const lfsr_data_t *b_ = b->u.cat.datas;
+        lfsr_data_t a_ = a;
+        const lfsr_data_t *b_ = b.u.cat.datas;
         while (size > 0) {
             lfs_size_t d = lfs_min32(
                     size,
-                    lfsr_data_size(b_));
-            lfs_scmp_t cmp = lfsr_data_cmp_(lfs, &a_, b_, d);
+                    lfsr_data_size(*b_));
+            lfs_scmp_t cmp = lfsr_data_cmp_(lfs, a_, *b_, d);
             if (cmp != LFS_CMP_EQ) {
                 return cmp;
             }
@@ -1428,17 +1424,17 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfsr_data_t data,
         uint32_t *cksum_, uint32_t *flcksum_) {
     // on-disk?
-    if (lfsr_data_ondisk(&data)) {
+    if (lfsr_data_ondisk(data)) {
         int err = lfsr_bd_cpy(lfs, block, off,
-                data.u.disk.block, data.u.disk.off, lfsr_data_size(&data),
-                lfsr_data_size(&data),
+                data.u.disk.block, data.u.disk.off, lfsr_data_size(data),
+                lfsr_data_size(data),
                 cksum_, flcksum_);
         if (err) {
             return err;
         }
 
     // buffer?
-    } else if (lfsr_data_isbuf(&data)) {
+    } else if (lfsr_data_isbuf(data)) {
         int err = lfsr_bd_prog(lfs, block, off,
                 data.u.buf.buffer, data.u.buf.size,
                 cksum_, flcksum_);
@@ -1447,9 +1443,9 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
         }
 
     // inlined?
-    } else if (lfsr_data_isimm(&data)) {
+    } else if (lfsr_data_isimm(data)) {
         int err = lfsr_bd_prog(lfs, block, off,
-                data.u.imm.buf, lfsr_data_size(&data),
+                data.u.imm.buf, lfsr_data_size(data),
                 cksum_, flcksum_);
         if (err) {
             return err;
@@ -1467,13 +1463,13 @@ static int lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfsr_data_t data,
         uint32_t *cksum_, uint32_t *flcksum_) {
     // simple data?
-    if (!lfsr_data_iscat(&data)) {
+    if (!lfsr_data_iscat(data)) {
         return lfsr_bd_progdata_(lfs, block, off, data,
                 cksum_, flcksum_);
 
     // concatenated data? handle specially to avoid recursion
     } else {
-        lfs_size_t size = lfsr_data_size(&data);
+        lfs_size_t size = lfsr_data_size(data);
         const lfsr_data_t *datas = data.u.cat.datas;
         while (size > 0) {
             int err = lfsr_bd_progdata_(lfs, block, off, *datas,
@@ -1482,8 +1478,8 @@ static int lfsr_bd_progdata(lfs_t *lfs,
                 return err;
             }
 
-            off += lfsr_data_size(datas);
-            size -= lfsr_data_size(datas);
+            off += lfsr_data_size(*datas);
+            size -= lfsr_data_size(*datas);
             datas += 1;
         }
 
@@ -1771,7 +1767,7 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]) {
     // size should not exceed 28-bits
-    LFS_ASSERT(lfsr_data_size(&bptr->data) <= 0x0fffffff);
+    LFS_ASSERT(lfsr_data_size(bptr->data) <= 0x0fffffff);
     // block should not exceed 31-bits
     LFS_ASSERT(bptr->data.u.disk.block <= 0x7fffffff);
     // off should not exceed 28-bits
@@ -1781,7 +1777,7 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
     lfs_ssize_t d = 0;
 
     // write the block, offset, size
-    lfs_ssize_t d_ = lfs_toleb128(lfsr_data_size(&bptr->data), &buffer[d], 4);
+    lfs_ssize_t d_ = lfs_toleb128(lfsr_data_size(bptr->data), &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -1930,7 +1926,7 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
         uint8_t *gdelta, lfs_size_t size,
         lfsr_data_t xor) {
     // check for overflow
-    lfs_size_t xor_size = lfsr_data_size(&xor);
+    lfs_size_t xor_size = lfsr_data_size(xor);
     LFS_ASSERT(xor_size <= size);
     if (xor_size > size) {
         return LFS_ERR_CORRUPT;
@@ -3122,7 +3118,7 @@ leaf:;
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(tag)),
             upper_rid - lower_rid + delta,
-            lfsr_data_size(&data),
+            lfsr_data_size(data),
             &rbyd->cksum);
     if (d < 0) {
         return d;
@@ -3135,7 +3131,7 @@ leaf:;
     if (err) {
         return err;
     }
-    rbyd->eoff += lfsr_data_size(&data);
+    rbyd->eoff += lfsr_data_size(data);
 
     return 0;
 }
@@ -3211,7 +3207,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
         lfsr_data_t ecksum_data = lfsr_data_fromecksum(&ecksum, ecksum_buf);
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                LFSR_TAG_ECKSUM, 0, lfsr_data_size(&ecksum_data),
+                LFSR_TAG_ECKSUM, 0, lfsr_data_size(ecksum_data),
                 &rbyd->cksum);
         if (d < 0) {
             return d;
@@ -3223,7 +3219,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         if (err) {
             return err;
         }
-        rbyd->eoff += lfsr_data_size(&ecksum_data);
+        rbyd->eoff += lfsr_data_size(ecksum_data);
 
     // at least space for a cksum?
     } else if (rbyd->eoff + 2+1+4+4 <= lfs->cfg->block_size) {
@@ -3411,7 +3407,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             weight += weight_;
 
             // include the cost of this tag
-            dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(&data);
+            dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(data);
         }
 
         if (rid == -1) {
@@ -3462,7 +3458,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // mark as shrub if we are a shrub
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                 | tag,
-            weight, lfsr_data_size(&data),
+            weight, lfsr_data_size(data),
             &rbyd->cksum);
     if (d < 0) {
         return d;
@@ -3475,7 +3471,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (err) {
         return err;
     }
-    rbyd->eoff += lfsr_data_size(&data);
+    rbyd->eoff += lfsr_data_size(data);
 
     // keep track of the total weight, the rbyd is in an unusable
     // state until lfsr_rbyd_appendcompaction anyways
@@ -3738,7 +3734,7 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 // binary search an rbyd for a name, leaving the rid_/tag_/weight_/data_
 // with the best matching name if not found
 static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        const lfsr_data_t *name,
+        lfsr_data_t name,
         lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfsr_data_t *data_) {
     // empty rbyd? leave it up to upper layers to handle this
@@ -3772,7 +3768,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // compare names
         } else {
-            cmp = lfsr_data_cmp(lfs, &data__, name);
+            cmp = lfsr_data_cmp(lfs, data__, name);
             if (cmp < 0) {
                 return cmp;
             }
@@ -3950,7 +3946,7 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
     d += d_;
 
     lfsr_data_t data = lfsr_data_frombranch(btree, &buffer[d]);
-    d += lfsr_data_size(&data);
+    d += lfsr_data_size(data);
 
     return LFSR_DATA_BUF(buffer, d);
 }
@@ -4698,7 +4694,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree, lfsr_bid_t bid,
 
 // lookup in a btree by name
 static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
-        const lfsr_data_t *name,
+        lfsr_data_t name,
         lfsr_bid_t *bid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     // an empty tree?
@@ -4908,14 +4904,14 @@ static inline bool lfsr_bshrub_isbshruborbtree(
 
 // sprout things
 static inline int lfsr_sprout_cmp(
-        const lfsr_data_t *a,
-        const lfsr_data_t *b) {
+        const lfsr_sprout_t *a,
+        const lfsr_sprout_t *b) {
     // big assumption for sprouts, we convert straight to bshrubs,
     // and never leave sliced sprouts in our files, so we don't need
     // to compare the size
     LFS_ASSERT(a->u.disk.block != b->u.disk.block
             || a->u.disk.off != b->u.disk.off
-            || lfsr_data_size(a) == lfsr_data_size(b));
+            || lfsr_data_size(*a) == lfsr_data_size(*b));
     if (a->u.disk.block != b->u.disk.block) {
         return a->u.disk.block - b->u.disk.block;
     } else {
@@ -4925,9 +4921,9 @@ static inline int lfsr_sprout_cmp(
 
 // these are used in mdir compaction
 static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
-        const lfsr_data_t *sprout) {
+        const lfsr_sprout_t *sprout) {
     // only include the last reference
-    const lfsr_data_t *last = NULL;
+    const lfsr_sprout_t *last = NULL;
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->m.type == LFS_TYPE_REG
@@ -4940,20 +4936,20 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
         return 0;
     }
 
-    return LFSR_TAG_DSIZE + lfsr_data_size(sprout);
+    return LFSR_TAG_DSIZE + lfsr_data_size(*sprout);
 }
 
 static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
-        lfsr_data_t *sprout_, const lfsr_data_t *sprout) {
+        lfsr_sprout_t *sprout_, const lfsr_sprout_t *sprout) {
     // this gets a bit weird, since upper layers need to do the actual
     // compaction, we just update internal state here
 
     // this is a bit tricky since we don't know the tag size,
     // but we have just enough info
-    lfsr_data_t sprout__ = LFSR_DATA_DISK(
+    lfsr_sprout_t sprout__ = LFSR_DATA_DISK(
             rbyd_->blocks[0],
-            rbyd_->eoff - lfsr_data_size(sprout),
-            lfsr_data_size(sprout));
+            rbyd_->eoff - lfsr_data_size(*sprout),
+            lfsr_data_size(*sprout));
 
     // stage any opened inlined files with their new location so we
     // can update these later if our commit is a success
@@ -4974,13 +4970,6 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
 
 // shrub things
-static inline lfs_size_t lfsr_shrub_trunk(const lfsr_shrub_t *shrub) {
-    return shrub->trunk & ~LFSR_RBYD_SHRUB;
-}
-
-static inline bool lfsr_shrub_hastrunk(const lfsr_shrub_t *shrub) {
-    return lfsr_shrub_trunk(shrub) != 0;
-}
 
 static inline int lfsr_shrub_cmp(
         const lfsr_shrub_t *a,
@@ -5005,11 +4994,11 @@ static inline int lfsr_shrub_cmp(
 static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
     // shrub trunks should never be null
-    LFS_ASSERT(lfsr_shrub_trunk(shrub) != 0);
+    LFS_ASSERT(lfsr_rbyd_trunk(shrub) != 0);
     // weight should not exceed 31-bits
     LFS_ASSERT(shrub->weight <= 0x7fffffff);
     // trunk should not exceed 28-bits
-    LFS_ASSERT(lfsr_shrub_trunk(shrub) <= 0x0fffffff);
+    LFS_ASSERT(lfsr_rbyd_trunk(shrub) <= 0x0fffffff);
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
@@ -5017,7 +5006,7 @@ static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(lfsr_shrub_trunk(shrub), &buffer[d], 4);
+    d_ = lfs_toleb128(lfsr_rbyd_trunk(shrub), &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -5042,7 +5031,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
     // shrub trunks should never be null
-    LFS_ASSERT(lfsr_shrub_hastrunk(shrub));
+    LFS_ASSERT(lfsr_rbyd_hastrunk(shrub));
 
     // set the shrub bit in our trunk
     shrub->trunk |= LFSR_RBYD_SHRUB;
@@ -6025,7 +6014,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
             } else {
                 // include the cost of this tag
-                dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(&data);
+                dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(data);
             }
         }
 
@@ -6922,7 +6911,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     lfsr_srid_t rid;
     lfsr_tag_t tag;
     lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &mdir->rbyd,
-            &LFSR_DATA_CAT(
+            LFSR_DATA_CAT(
                 LFSR_DATA_LEB128(did),
                 LFSR_DATA_BUF(name, name_size)),
             &rid, &tag, NULL, data_);
@@ -6983,7 +6972,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfsr_bid_t weight;
         lfsr_data_t data;
         lfs_scmp_t cmp = lfsr_btree_namelookup(lfs, &mtree->u.btree,
-                &LFSR_DATA_CAT(
+                LFSR_DATA_CAT(
                     LFSR_DATA_LEB128(did),
                     LFSR_DATA_BUF(name, name_size)),
                 &bid, &tag, &weight, &data);
@@ -7746,8 +7735,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         return err;
     }
 
-    lfs_scmp_t cmp = lfsr_data_cmp(lfs, &data,
-            &LFSR_DATA_BUF("littlefs", 8));
+    lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, LFSR_DATA_BUF("littlefs", 8));
     if (cmp < 0) {
         return cmp;
     }
@@ -7819,9 +7807,9 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     // unknown rcompat flags? flags must be tightly sized
-    if (lfsr_rcompat_hasunknown(rcompat) || lfsr_data_size(&data) > 0) {
+    if (lfsr_rcompat_hasunknown(rcompat) || lfsr_data_size(data) > 0) {
         LFS_ERROR("Incompatible rcompat flags 0x%s%"PRIx8,
-                (lfsr_data_size(&data) > 0) ? "??" : "",
+                (lfsr_data_size(data) > 0) ? "??" : "",
                 rcompat);
         return LFS_ERR_INVAL;
     }
@@ -7845,7 +7833,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     // unknown wcompat flags? flags must be tightly sized
-    if (lfsr_data_size(&data) > 0) {
+    if (lfsr_data_size(data) > 0) {
         LFS_ERROR("Incompatible wcompat flags 0x??");
         // TODO switch to read-only?
         return LFS_ERR_INVAL;
@@ -8928,7 +8916,7 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
     info->type = lfsr_tag_subtype(tag);
 
     // read the file name
-    LFS_ASSERT(lfsr_data_size(&name) <= LFS_NAME_MAX);
+    LFS_ASSERT(lfsr_data_size(name) <= LFS_NAME_MAX);
     lfs_ssize_t name_size = lfsr_data_read(lfs, &name,
             info->name, LFS_NAME_MAX);
     if (name_size < 0) {
@@ -8951,7 +8939,7 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
         // may be a sprout (simple inlined data)
         if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
-            info->size = lfsr_data_size(&data);
+            info->size = lfsr_data_size(data);
 
         // or a block/bshrub/btree, size is always first field here
         } else if (err != LFS_ERR_NOENT
@@ -9619,13 +9607,13 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
     // inlined sprout?
     if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
         if (bid_) {
-            *bid_ = lfsr_data_size(&file->bshrub.u.bsprout)-1;
+            *bid_ = lfsr_data_size(file->bshrub.u.bsprout)-1;
         }
         if (tag_) {
             *tag_ = LFSR_TAG_DATA;
         }
         if (weight_) {
-            *weight_ = lfsr_data_size(&file->bshrub.u.bsprout);
+            *weight_ = lfsr_data_size(file->bshrub.u.bsprout);
         }
         if (bptr_) {
             bptr_->data = file->bshrub.u.bsprout;
@@ -9638,13 +9626,13 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
     // block pointer?
     } else if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
         if (bid_) {
-            *bid_ = lfsr_data_size(&file->bshrub.u.bptr.data)-1;
+            *bid_ = lfsr_data_size(file->bshrub.u.bptr.data)-1;
         }
         if (tag_) {
             *tag_ = LFSR_TAG_BLOCK;
         }
         if (weight_) {
-            *weight_ = lfsr_data_size(&file->bshrub.u.bptr.data);
+            *weight_ = lfsr_data_size(file->bshrub.u.bptr.data);
         }
         if (bptr_) {
             *bptr_ = file->bshrub.u.bptr;
@@ -9690,7 +9678,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
                     return err;
                 }
             }
-            LFS_ASSERT(lfsr_data_size(&bptr_->data) <= weight);
+            LFS_ASSERT(lfsr_data_size(bptr_->data) <= weight);
         }
         if (becksum_) {
             // need an extra lookup to find becksums
@@ -9732,7 +9720,7 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         if (bid_) {
-            *bid_ = lfsr_data_size(&file->bshrub.u.bptr.data)-1;
+            *bid_ = lfsr_data_size(file->bshrub.u.bptr.data)-1;
         }
         if (tinfo_) {
             tinfo_->tag = LFSR_TAG_BLOCK;
@@ -9780,12 +9768,12 @@ static lfs_ssize_t lfsr_bshrub_readnext(lfs_t *lfs, const lfsr_file_t *file,
     }
 
     // any data on disk?
-    if (pos_ < bid-(weight-1) + lfsr_data_size(&bptr.data)) {
+    if (pos_ < bid-(weight-1) + lfsr_data_size(bptr.data)) {
         // note one important side-effect here is a strict
         // data hint
         lfs_ssize_t d = lfs_min32(
                 size,
-                lfsr_data_size(&bptr.data)
+                lfsr_data_size(bptr.data)
                     - (pos_ - (bid-(weight-1))));
         lfsr_data_t slice = lfsr_data_slice(bptr.data,
                 pos_ - (bid-(weight-1)),
@@ -9889,7 +9877,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
                     && !lfsr_tag_isrm(attrs[i].tag)) {
                 commit_estimate += LFSR_ATTR_ESTIMATE;
             }
-            commit_estimate += lfsr_data_size(&attrs[i].data);
+            commit_estimate += lfsr_data_size(attrs[i].data);
         }
 
         // does our estimate exceed our shrub_size? need to recalculate an
@@ -9948,7 +9936,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
         return 0;
     }
 
-    LFS_ASSERT(lfsr_shrub_hastrunk(&file->bshrub.u.bshrub));
+    LFS_ASSERT(lfsr_rbyd_hastrunk(&file->bshrub.u.bshrub));
     return 0;
 
 evict:;
@@ -10087,8 +10075,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // left sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
         while (tag_ == LFSR_TAG_BLOCK
-                && lfsr_data_size(&left_slice_) > lfs->cfg->fragment_size
-                && lfsr_data_size(&left_slice_) < lfs->cfg->crystal_thresh) {
+                && lfsr_data_size(left_slice_) > lfs->cfg->fragment_size
+                && lfsr_data_size(left_slice_) < lfs->cfg->crystal_thresh) {
             bptr_.data = lfsr_data_slice(bptr_.data,
                     lfs->cfg->fragment_size,
                     -1);
@@ -10115,27 +10103,27 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // right sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
         while (tag_ == LFSR_TAG_BLOCK
-                && lfsr_data_size(&right_slice_) > lfs->cfg->fragment_size
-                && lfsr_data_size(&right_slice_) < lfs->cfg->crystal_thresh) {
+                && lfsr_data_size(right_slice_) > lfs->cfg->fragment_size
+                && lfsr_data_size(right_slice_) < lfs->cfg->crystal_thresh) {
             bptr_.data = lfsr_data_truncate(bptr_.data,
-                    lfsr_data_size(&bptr_.data) - lfs->cfg->fragment_size);
+                    lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
 
             err = lfsr_bshrub_commit(lfs, file, bid, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUBMASK | LFSR_TAG_BLOCK,
-                            -(weight_ - lfsr_data_size(&bptr_.data)),
+                            -(weight_ - lfsr_data_size(bptr_.data)),
                         LFSR_DATA_FROMBPTR(&bptr_)),
                     LFSR_ATTR(
                         LFSR_TAG_DATA,
-                            +(weight_ - lfsr_data_size(&bptr_.data)),
+                            +(weight_ - lfsr_data_size(bptr_.data)),
                         lfsr_data_fruncate(right_slice_,
                             lfs->cfg->fragment_size))));
             if (err) {
                 return err;
             }
 
-            bid -= (weight_-lfsr_data_size(&bptr_.data));
-            weight_ -= (weight_-lfsr_data_size(&bptr_.data));
+            bid -= (weight_-lfsr_data_size(bptr_.data));
+            weight_ -= (weight_-lfsr_data_size(bptr_.data));
             right_slice_ = lfsr_data_slice(bptr_.data,
                     pos+weight - (bid-(weight_-1)),
                     -1);
@@ -10144,7 +10132,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // found left sibling?
         if (bid-(weight_-1) < pos) {
             // can we get away with a grow attribute?
-            if (lfsr_data_size(&bptr_.data) == lfsr_data_size(&left_slice_)) {
+            if (lfsr_data_size(bptr_.data) == lfsr_data_size(left_slice_)) {
                 attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_GROW, -(bid+1 - pos), LFSR_DATA_NULL());
 
@@ -10178,7 +10166,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // spans more than one entry? we can't do everything in one commit,
         // so commit what we have and move on to next entry
         if (pos+weight > bid+1) {
-            LFS_ASSERT(lfsr_data_size(&right_slice_) == 0);
+            LFS_ASSERT(lfsr_data_size(right_slice_) == 0);
             LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
             LFS_ASSERT(buf_size <= sizeof(buf));
 
@@ -10198,7 +10186,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // found right sibling?
         if (pos+weight < bid+1) {
             // can we coalesce a hole?
-            if (lfsr_data_size(&right_slice_) == 0) {
+            if (lfsr_data_size(right_slice_) == 0) {
                 delta += bid+1 - (pos+weight);
 
             // carve bptr?
@@ -10237,7 +10225,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     // finally append our data
     if (weight + delta > 0) {
         // can we coalesce a hole?
-        if ((!bptr || lfsr_data_size(&bptr->data) == 0) && pos > 0) {
+        if ((!bptr || lfsr_data_size(bptr->data) == 0) && pos > 0) {
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub)-1);
             memmove(&attrs[attr_count+1], &attrs[attr_count],
                     attr_tnuoc*sizeof(lfsr_attr_t));
@@ -10245,7 +10233,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_TAG_GROW, +(weight + delta), LFSR_DATA_NULL());
 
         // need a new hole?
-        } else if (!bptr || lfsr_data_size(&bptr->data) == 0) {
+        } else if (!bptr || lfsr_data_size(bptr->data) == 0) {
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
             memmove(&attrs[attr_count+1], &attrs[attr_count],
                     attr_tnuoc*sizeof(lfsr_attr_t));
@@ -10344,7 +10332,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // between our own crystal and our neighbor, include as a part
             // of our crystal
             if (tag == LFSR_TAG_DATA
-                    && bid-(weight-1)+lfsr_data_size(&bptr.data)
+                    && bid-(weight-1)+lfsr_data_size(bptr.data)
                         >= pos - (lfs->cfg->crystal_thresh-1)) {
                 crystal_start = bid-(weight-1);
 
@@ -10356,11 +10344,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 if (tag == LFSR_TAG_BLOCK
                         && becksum.cksize != -1
                         // data not truncated?
-                        && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
+                        && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
                             == bptr.cksize
                         // not clobbering data?
                         && crystal_start - (bid-(weight-1))
-                            >= lfsr_data_size(&bptr.data)
+                            >= lfsr_data_size(bptr.data)
                         // enough for prog alignment?
                         && crystal_end - crystal_start
                             >= lfs->cfg->prog_size) {
@@ -10404,7 +10392,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // of our crystal
             if (tag == LFSR_TAG_DATA) {
                 crystal_end = lfs_max32(
-                        bid-(weight-1)+lfsr_data_size(&bptr.data),
+                        bid-(weight-1)+lfsr_data_size(bptr.data),
                         pos + size);
 
             // otherwise treat as crystal boundary
@@ -10449,18 +10437,18 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // is our left neighbor in the same block?
             if (crystal_start - (bid-(weight-1))
                         < lfs->cfg->block_size
-                    && lfsr_data_size(&bptr.data) > 0) {
+                    && lfsr_data_size(bptr.data) > 0) {
                 block_start = bid-(weight-1);
 
                 // wait, found block-level erased-state?
                 if (tag == LFSR_TAG_BLOCK
                         && becksum.cksize != -1
                         // data not truncated?
-                        && bptr.data.u.disk.off + lfsr_data_size(&bptr.data)
+                        && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
                             == bptr.cksize
                         // not clobbering data?
                         && crystal_start - (bid-(weight-1))
-                            >= lfsr_data_size(&bptr.data)
+                            >= lfsr_data_size(bptr.data)
                         // enough for prog alignment?
                         && crystal_end - crystal_start
                             >= lfs->cfg->prog_size) {
@@ -10484,7 +10472,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // align to block alignment
             } else if (crystal_start - (bid-(weight-1))
                         < 2*lfs->cfg->block_size
-                    && lfsr_data_size(&bptr.data) > 0) {
+                    && lfsr_data_size(bptr.data) > 0) {
                 block_start = bid-(weight-1) + lfs->cfg->block_size;
             }
         }
@@ -10510,7 +10498,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         //
         // eagerly merge any right neighbors we see unless that would
         // put us over our block size
-        lfs_off_t pos_ = block_start + lfsr_data_size(&bptr.data);
+        lfs_off_t pos_ = block_start + lfsr_data_size(bptr.data);
         while (pos_ < lfs_min32(
                 block_start
                     + (lfs->cfg->block_size - bptr.data.u.disk.off),
@@ -10568,22 +10556,22 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         // is this data a pure hole? stop early to better
                         // leverage becksums in sparse files
                         && (pos_ >= bid_-(weight_-1)
-                                + lfsr_data_size(&bptr_.data)
+                                + lfsr_data_size(bptr_.data)
                             // does this data exceed our block_size?
                             // stop early to try to avoid messing up
                             // block alignment
-                            || bid_-(weight_-1) + lfsr_data_size(&bptr_.data)
+                            || bid_-(weight_-1) + lfsr_data_size(bptr_.data)
                                     - block_start
                                 > lfs->cfg->block_size)) {
                     break;
                 }
 
-                if (pos_ < bid_-(weight_-1) + lfsr_data_size(&bptr_.data)) {
+                if (pos_ < bid_-(weight_-1) + lfsr_data_size(bptr_.data)) {
                     // note one important side-effect here is a strict
                     // data hint
                     lfs_ssize_t d_ = lfs_min32(
                             d,
-                            lfsr_data_size(&bptr_.data)
+                            lfsr_data_size(bptr_.data)
                                 - (pos_ - (bid_-(weight_-1))));
                     err = lfsr_bd_progdata(lfs, bptr.data.u.disk.block,
                             bptr.cksize,
@@ -10647,7 +10635,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 bptr.data.u.disk.block,
                 bptr.data.u.disk.off,
                 bptr.cksize - bptr.data.u.disk.off);
-        lfs_off_t block_end = block_start + lfsr_data_size(&bptr.data);
+        lfs_off_t block_end = block_start + lfsr_data_size(bptr.data);
 
         // do we have space for a block ecksum?
         lfsr_ecksum_t becksum = {.cksize=-1};
@@ -10712,7 +10700,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // can we coalesce?
-            if (bid-(weight-1) + lfsr_data_size(&bptr.data) >= fragment_start
+            if (bid-(weight-1) + lfsr_data_size(bptr.data) >= fragment_start
                     && fragment_end - (bid-(weight-1))
                         <= lfs->cfg->fragment_size) {
                 // coalesce, but truncate to our fragment size
@@ -10727,7 +10715,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 data = lfsr_data_fromcat(datas, data_count);
 
                 fragment_start = bid-(weight-1);
-                fragment_end = fragment_start + lfsr_data_size(&data);
+                fragment_end = fragment_start + lfsr_data_size(data);
             }
         }
 
@@ -10750,16 +10738,16 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // can we coalesce?
-            if (fragment_end < bid-(weight-1) + lfsr_data_size(&bptr.data)
-                    && bid-(weight-1) + lfsr_data_size(&bptr.data)
+            if (fragment_end < bid-(weight-1) + lfsr_data_size(bptr.data)
+                    && bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_start
                         <= lfs->cfg->fragment_size) {
                 datas[data_count++] = lfsr_data_fruncate(bptr.data,
-                        bid-(weight-1) + lfsr_data_size(&bptr.data)
+                        bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_end);
                 data = lfsr_data_fromcat(datas, data_count);
 
-                fragment_end = fragment_start + lfsr_data_size(&data);
+                fragment_end = fragment_start + lfsr_data_size(data);
             }
         }
 

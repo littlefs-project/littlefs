@@ -483,6 +483,8 @@ typedef struct lfs_file {
     const struct lfs_file_config *cfg;
 } lfs_file_t;
 
+typedef lfsr_data_t lfsr_sprout_t;
+
 typedef struct lfsr_bptr {
     lfsr_data_t data;
     lfs_size_t cksize;
@@ -510,7 +512,7 @@ typedef struct lfsr_bshrub {
     //
     union {
         lfs_soff_t size;
-        lfsr_data_t bsprout;
+        lfsr_sprout_t bsprout;
         lfsr_bptr_t bptr;
         lfsr_shrub_t bshrub;
         lfsr_btree_t btree;
