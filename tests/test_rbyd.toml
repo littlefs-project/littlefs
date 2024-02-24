@@ -12286,7 +12286,7 @@ code = '''
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_RM | LFSR_TAG_SUBMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_UATTR, 0,
                         LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
@@ -12429,7 +12429,7 @@ code = '''
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                        LFSR_TAG_SUB | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
                             0,
                         LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
 
@@ -12670,7 +12670,7 @@ code = '''
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_RM | LFSR_TAG_SUBMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_UATTR, 0,
                         LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
@@ -12823,7 +12823,7 @@ code = '''
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                        LFSR_TAG_SUB | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
                             0,
                         LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
 
@@ -13059,7 +13059,7 @@ code = '''
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_RM | LFSR_TAG_SUBMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_UATTR, 0,
                         LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
@@ -13202,7 +13202,7 @@ code = '''
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                        LFSR_TAG_SUB | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
                             0,
                         LFSR_DATA_BUF(names[j % 6], 6)))) => 0;
 
@@ -13431,7 +13431,7 @@ code = '''
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_RM | LFSR_TAG_SUPMASK | LFSR_TAG_UATTR, 0,
+                        LFSR_TAG_RM | LFSR_TAG_SUP | LFSR_TAG_UATTR, 0,
                         LFSR_DATA_NULL()))) => 0;
 
             // try traversing over the tags
@@ -13574,7 +13574,7 @@ code = '''
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUPMASK | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
+                        LFSR_TAG_SUP | LFSR_TAG_UATTR(~(j + SHIFT) & 0x7f),
                             0,
                         LFSR_DATA_BUF(names[j % 6], 3)))) => 0;
 
@@ -13835,7 +13835,7 @@ code = '''
     // subwide replace a neighbor to the hole
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_UATTR(2), 0,
+                LFSR_TAG_SUB | LFSR_TAG_UATTR(2), 0,
                 LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     assert(rbyd.weight == 0);
 
@@ -13903,7 +13903,7 @@ code = '''
     // supwide replace a neighbor to the hole
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUPMASK | LFSR_TAG_UATTR(2), 0,
+                LFSR_TAG_SUP | LFSR_TAG_UATTR(2), 0,
                 LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
     assert(rbyd.weight == 1);
 

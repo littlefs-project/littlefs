@@ -738,7 +738,7 @@ code = '''
     // update the tree
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -786,11 +786,11 @@ code = '''
     // update the tree
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("A", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("B", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -847,15 +847,15 @@ code = '''
     // update the tree
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("A", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("B", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("C", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -930,7 +930,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
-                    LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                    LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
@@ -1020,7 +1020,7 @@ code = '''
         // update btree
         int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(
-                    LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                    LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
@@ -1107,7 +1107,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         int err = lfsr_btree_commit(&lfs, &btree, i*W+W-1, LFSR_ATTRS(
                 LFSR_ATTR(
-                    LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                    LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
@@ -1223,7 +1223,7 @@ code = '''
         int err = lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                        LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)),
                     LFSR_ATTR(
                         LFSR_TAG_GROW, +weight-sim_weights[bid],
@@ -2646,7 +2646,7 @@ code = '''
     memset(buf2, 'b', SIZE);
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
@@ -2714,7 +2714,7 @@ code = '''
     memset(buf2, 'b', SIZE);
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
@@ -2849,18 +2849,18 @@ code = '''
     memset(buf2, 'b', SIZE);
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now make both entries small so they should be merged if either compacts
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(
-                LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("b", 1)))) => 0;
 
     // force compaction, while removing one entry, this drops the rbyd
@@ -2948,7 +2948,7 @@ code = '''
             // update btree
             int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                        LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
@@ -3083,7 +3083,7 @@ code = '''
             int err = lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                         LFSR_ATTR(
-                            LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                            LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
                         LFSR_ATTR(
                             LFSR_TAG_GROW, +weight-sim_weights[bid],
@@ -4082,7 +4082,7 @@ code = '''
             // update btree
             int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                        LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
             // ignore space issues
             if (err == LFS_ERR_NOSPC) {
@@ -4276,7 +4276,7 @@ code = '''
             int err = lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                         LFSR_ATTR(
-                            LFSR_TAG_SUBMASK | LFSR_TAG_DATA, 0,
+                            LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
                         LFSR_ATTR(
                             LFSR_TAG_GROW, +weight-sim_weights[bid],
