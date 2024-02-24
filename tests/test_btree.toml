@@ -3226,11 +3226,13 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aaa", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0, "aaa", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_find_one]
+# true or false for if we should use dids vs names
+defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3247,7 +3249,9 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aaa", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -3262,7 +3266,7 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aaa", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0*DID, "aaa", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
@@ -3270,7 +3274,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aab", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 1*DID, "aab", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
@@ -3280,6 +3284,8 @@ code = '''
 '''
 
 [cases.test_btree_find_two]
+# true or false for if we should use dids vs names
+defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3296,11 +3302,15 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aaa", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aab", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aab", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -3315,7 +3325,7 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aaa", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0, "aaa", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
@@ -3323,7 +3333,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aab", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0, "aab", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
@@ -3331,7 +3341,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aac", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0, "aac", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
@@ -3342,6 +3352,8 @@ code = '''
 
 [cases.test_btree_find_three]
 in = 'lfs.c'
+# true or false for if we should use dids vs names
+defines.DID = [false, true]
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, CFG) => 0;
@@ -3357,15 +3369,27 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aaa", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(
+                    LFSR_DATA_LEB128(0),
+                    LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aab", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(
+                    LFSR_DATA_LEB128(1*DID),
+                    LFSR_DATA_BUF("aab", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)),
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aac", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(
+                    LFSR_DATA_LEB128(2*DID),
+                    LFSR_DATA_BUF("aac", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -3380,7 +3404,7 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aaa", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0*DID, "aaa", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
@@ -3388,7 +3412,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aab", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 1*DID, "aab", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
@@ -3396,7 +3420,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aac", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 2*DID, "aac", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
@@ -3404,7 +3428,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aad", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 3*DID, "aad", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
@@ -3414,6 +3438,8 @@ code = '''
 '''
 
 [cases.test_btree_find_three_backwards]
+# true or false for if we should use dids vs names
+defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3430,15 +3456,27 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aaa", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(
+                    LFSR_DATA_LEB128(0),
+                    LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)),
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aac", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(
+                    LFSR_DATA_LEB128(2*DID),
+                    LFSR_DATA_BUF("aac", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("aab", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(
+                    LFSR_DATA_LEB128(1*DID),
+                    LFSR_DATA_BUF("aab", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -3453,7 +3491,7 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aaa", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 0*DID, "aaa", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
@@ -3461,7 +3499,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aab", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 1*DID, "aab", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
@@ -3469,7 +3507,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aac", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 2*DID, "aac", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
@@ -3477,7 +3515,7 @@ code = '''
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF("aad", 3),
+    lfsr_btree_namelookup(&lfs, &btree, 3*DID, "aad", 3,
             &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
@@ -3488,6 +3526,8 @@ code = '''
 
 [cases.test_btree_find]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+# true or false for if we should use dids vs names
+defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3507,7 +3547,9 @@ code = '''
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF(name, 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
             LFSR_ATTR(
                 LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
@@ -3520,7 +3562,10 @@ code = '''
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
-                LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF(name, 3)),
+                LFSR_ATTR(
+                    LFSR_TAG_NAME, +1, LFSR_DATA_CAT(
+                        LFSR_DATA_LEB128(i*DID),
+                        LFSR_DATA_BUF(name, 3))),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1))));
@@ -3549,7 +3594,7 @@ code = '''
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
 
-        lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF(name, 3),
+        lfsr_btree_namelookup(&lfs, &btree, i*DID, name, 3,
                 &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i);
@@ -3578,7 +3623,9 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("___", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -3618,7 +3665,9 @@ code = '''
                     LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
                 LFSR_ATTR(
                     LFSR_TAG_NAME, +1,
-                    LFSR_DATA_BUF(name, 3)),
+                    LFSR_DATA_CAT(
+                        LFSR_DATA_LEB128(0),
+                        LFSR_DATA_BUF(name, 3))),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
@@ -3660,7 +3709,7 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF(sim_names[i], 3),
+        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
                 &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i);
@@ -3678,6 +3727,8 @@ code = '''
 [cases.test_btree_find_sparse]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.W = 5
+# true or false for if we should use dids vs names
+defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3697,7 +3748,9 @@ code = '''
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +W, LFSR_DATA_BUF(name, 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +W,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
             LFSR_ATTR(
                 LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
@@ -3710,7 +3763,11 @@ code = '''
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
-                LFSR_ATTR(LFSR_TAG_NAME, +W, LFSR_DATA_BUF(name, 3)),
+                LFSR_ATTR(
+                    LFSR_TAG_NAME, +W,
+                    LFSR_DATA_CAT(
+                        LFSR_DATA_LEB128(i*DID),
+                        LFSR_DATA_BUF(name, 3))),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1))));
@@ -3739,7 +3796,7 @@ code = '''
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
 
-        lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF(name, 3),
+        lfsr_btree_namelookup(&lfs, &btree, i*DID, name, 3,
                 &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i*W+W-1);
@@ -3769,7 +3826,9 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +W, LFSR_DATA_BUF("___", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +W,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -3825,7 +3884,9 @@ code = '''
                         LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
                     LFSR_ATTR(
                         LFSR_TAG_NAME, +weight2,
-                        LFSR_DATA_BUF(name, 3)),
+                        LFSR_DATA_CAT(
+                            LFSR_DATA_LEB128(0),
+                            LFSR_DATA_BUF(name, 3))),
                     LFSR_ATTR(
                         LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
@@ -3892,7 +3953,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF(sim_names[i], 3),
+        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
                 &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == weighted_bid+sim_weights[i]-1);
@@ -3928,7 +3989,9 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF("___", 3)),
+            LFSR_ATTR(
+                LFSR_TAG_NAME, +1,
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -3970,8 +4033,7 @@ code = '''
             // split btree
             lfs_size_t split_bid;
             lfsr_data_t split_data;
-            lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree,
-                    LFSR_DATA_BUF(name, 3),
+            lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree, 0, name, 3,
                     &split_bid, NULL, NULL, &split_data);
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
@@ -3980,7 +4042,9 @@ code = '''
                         split_bid, LFSR_ATTRS(
                             LFSR_ATTR(
                                 LFSR_TAG_NAME, +1,
-                                LFSR_DATA_BUF(name, 3)),
+                                LFSR_DATA_CAT(
+                                    LFSR_DATA_LEB128(0),
+                                    LFSR_DATA_BUF(name, 3))),
                             LFSR_ATTR(
                                 LFSR_TAG_DATA, 0,
                                 LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
@@ -3992,7 +4056,11 @@ code = '''
             } else {
                 int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
                         LFSR_ATTR(LFSR_TAG_DATA, 0, split_data),
-                        LFSR_ATTR(LFSR_TAG_NAME, +1, LFSR_DATA_BUF(name, 3)),
+                        LFSR_ATTR(
+                            LFSR_TAG_NAME, +1,
+                            LFSR_DATA_CAT(
+                                LFSR_DATA_LEB128(0),
+                                LFSR_DATA_BUF(name, 3))),
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
@@ -4065,7 +4133,7 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF(sim_names[i], 3),
+        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
                 &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i);
@@ -4101,7 +4169,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +W,
-                LFSR_DATA_BUF("___", 3)),
+                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -4155,8 +4223,7 @@ code = '''
             lfs_size_t split_bid;
             lfs_size_t split_weight;
             lfsr_data_t split_data;
-            lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree,
-                    LFSR_DATA_BUF(name, 3),
+            lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree, 0, name, 3,
                     &split_bid, NULL, &split_weight, &split_data);
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
@@ -4165,7 +4232,9 @@ code = '''
                         split_bid-(split_weight-1), LFSR_ATTRS(
                             LFSR_ATTR(
                                 LFSR_TAG_NAME, +weight,
-                                LFSR_DATA_BUF(name, 3)),
+                                LFSR_DATA_CAT(
+                                    LFSR_DATA_LEB128(0),
+                                    LFSR_DATA_BUF(name, 3))),
                             LFSR_ATTR(
                                 LFSR_TAG_DATA, 0,
                                 LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
@@ -4179,7 +4248,9 @@ code = '''
                         LFSR_ATTR(LFSR_TAG_DATA, 0, split_data),
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +weight,
-                            LFSR_DATA_BUF(name, 3)),
+                            LFSR_DATA_CAT(
+                                LFSR_DATA_LEB128(0),
+                                LFSR_DATA_BUF(name, 3))),
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
@@ -4286,7 +4357,7 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_namelookup(&lfs, &btree, LFSR_DATA_BUF(sim_names[i], 3),
+        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
                 &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == weighted_bid+sim_weights[i]-1);

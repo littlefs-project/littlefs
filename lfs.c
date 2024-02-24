@@ -1353,71 +1353,70 @@ static inline int lfsr_data_readlleb128(lfs_t *lfs, lfsr_data_t *data,
     return 0;
 }
 
-static lfs_scmp_t lfsr_data_cmp_(lfs_t *lfs,
-        const lfsr_data_t a,
-        const lfsr_data_t b,
-        lfs_size_t size) {
-    // on-disk cmp buffer?
-    if (lfsr_data_ondisk(a) && lfsr_data_isbuf(b)) {
-        return lfsr_bd_cmp(lfs, a.u.disk.block, a.u.disk.off, 0,
-                b.u.buf.buffer, size);
+static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
+        const void *buffer, lfs_size_t size) {
+    // compare common prefix
+    lfs_size_t d = lfs_min32(size, lfsr_data_size(data));
 
-    // on-disk cmp inlined?
-    } else if (lfsr_data_ondisk(a) && lfsr_data_isimm(b)) {
-        return lfsr_bd_cmp(lfs, a.u.disk.block, a.u.disk.off, 0,
-                b.u.imm.buf, size);
-
-    // not supported
-    } else {
-        LFS_UNREACHABLE();
-    }
-}
-
-static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs,
-        const lfsr_data_t a,
-        const lfsr_data_t b) {
-    // simple data?
-    if (!lfsr_data_iscat(b)) {
-        // compare common prefix
-        lfs_scmp_t cmp = lfsr_data_cmp_(lfs, a, b,
-                lfs_min32(
-                    lfsr_data_size(a),
-                    lfsr_data_size(b)));
+    // on-disk?
+    if (lfsr_data_ondisk(data)) {
+        int cmp = lfsr_bd_cmp(lfs, data.u.disk.block, data.u.disk.off, 0,
+                buffer, d);
         if (cmp != LFS_CMP_EQ) {
             return cmp;
         }
 
-    // concatenated data? handle specially to avoid recursion
-    } else {
-        // compare common prefix
-        lfs_size_t size = lfs_min32(
-                lfsr_data_size(a),
-                lfsr_data_size(b));
-        lfsr_data_t a_ = a;
-        const lfsr_data_t *b_ = b.u.cat.datas;
-        while (size > 0) {
-            lfs_size_t d = lfs_min32(
-                    size,
-                    lfsr_data_size(*b_));
-            lfs_scmp_t cmp = lfsr_data_cmp_(lfs, a_, *b_, d);
-            if (cmp != LFS_CMP_EQ) {
-                return cmp;
-            }
-
-            a_ = lfsr_data_slice(a_, d, -1);
-            size -= d;
-            b_ += 1;
+    // buffer?
+    } else if (lfsr_data_isbuf(data)) {
+        int cmp = memcmp(data.u.buf.buffer, buffer, d);
+        if (cmp < 0) {
+            return LFS_CMP_LT;
+        } else if (cmp > 0) {
+            return LFS_CMP_GT;
         }
+
+    // inlined?
+    } else if (lfsr_data_isimm(data)) {
+        int cmp = memcmp(data.u.imm.buf, buffer, d);
+        if (cmp < 0) {
+            return LFS_CMP_LT;
+        } else if (cmp > 0) {
+            return LFS_CMP_GT;
+        }
+
+    // concatenated? not supported
+    } else {
+        LFS_UNREACHABLE();
     }
 
     // if data is equal, check for size mismatch
-    if (lfsr_data_size(a) < lfsr_data_size(b)) {
+    if (lfsr_data_size(data) < size) {
         return LFS_CMP_LT;
-    } else if (lfsr_data_size(a) > lfsr_data_size(b)) {
+    } else if (lfsr_data_size(data) > size) {
         return LFS_CMP_GT;
     } else {
         return LFS_CMP_EQ;
     }
+}
+
+static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
+        lfsr_did_t did, const char *name, lfs_size_t name_size) {
+    // first compare the did
+    lfsr_did_t did_;
+    int err = lfsr_data_readleb128(lfs, &data, &did_);
+    if (err) {
+        LFS_ASSERT(err < 0);
+        return err;
+    }
+
+    if (did_ < did) {
+        return LFS_CMP_LT;
+    } else if (did_ > did) {
+        return LFS_CMP_GT;
+    }
+
+    // then compare the actual name
+    return lfsr_data_cmp(lfs, data, name, name_size);
 }
 
 static int lfsr_bd_progdata_(lfs_t *lfs,
@@ -3734,7 +3733,7 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 // binary search an rbyd for a name, leaving the rid_/tag_/weight_/data_
 // with the best matching name if not found
 static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfsr_data_t name,
+        lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfsr_data_t *data_) {
     // empty rbyd? leave it up to upper layers to handle this
@@ -3768,7 +3767,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // compare names
         } else {
-            cmp = lfsr_data_cmp(lfs, data__, name);
+            cmp = lfsr_data_namecmp(lfs, data__, did, name, name_size);
             if (cmp < 0) {
                 return cmp;
             }
@@ -4694,7 +4693,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree, lfsr_bid_t bid,
 
 // lookup in a btree by name
 static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_data_t name,
+        lfsr_did_t did, const char *name, lfs_size_t name_size,
         lfsr_bid_t *bid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     // an empty tree?
@@ -4709,7 +4708,8 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         // lookup our name in the rbyd via binary search
         lfsr_srid_t rid__;
         lfsr_rid_t weight__;
-        lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &branch, name,
+        lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &branch,
+                did, name, name_size,
                 &rid__, NULL, &weight__, NULL);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
@@ -6911,9 +6911,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     lfsr_srid_t rid;
     lfsr_tag_t tag;
     lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &mdir->rbyd,
-            LFSR_DATA_CAT(
-                LFSR_DATA_LEB128(did),
-                LFSR_DATA_BUF(name, name_size)),
+            did, name, name_size,
             &rid, &tag, NULL, data_);
     if (cmp < 0) {
         LFS_ASSERT(cmp != LFS_ERR_NOENT);
@@ -6972,9 +6970,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfsr_bid_t weight;
         lfsr_data_t data;
         lfs_scmp_t cmp = lfsr_btree_namelookup(lfs, &mtree->u.btree,
-                LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(did),
-                    LFSR_DATA_BUF(name, name_size)),
+                did, name, name_size,
                 &bid, &tag, &weight, &data);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
@@ -7735,7 +7731,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         return err;
     }
 
-    lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, LFSR_DATA_BUF("littlefs", 8));
+    lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, "littlefs", 8);
     if (cmp < 0) {
         return cmp;
     }

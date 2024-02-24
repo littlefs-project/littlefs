@@ -131,18 +131,6 @@ def fromleb128(data):
             return word, i+1
     return word, len(data)
 
-def toleb128(word):
-    data = []
-    word &= 0xffffffff
-    while True:
-        b, word = word & 0x7f, word >> 7
-        if word:
-            data.append(b | 0x80)
-        else:
-            data.append(b | 0x00)
-            break
-    return bytes(data)
-
 def fromtag(data):
     data = data.ljust(4, b'\0')
     tag = (data[0] << 8) | data[1]
@@ -880,7 +868,7 @@ class Rbyd:
                     return True, -1, 0, None
 
     # lookup by name
-    def namelookup(self, name):
+    def namelookup(self, did, name):
         # binary search
         best = (False, -1, 0, 0)
         lower = 0
@@ -894,14 +882,16 @@ class Rbyd:
             # treat vestigial names as a catch-all
             if ((tag == TAG_NAME and rid-(w-1) == 0)
                     or (tag & 0xff00) != TAG_NAME):
+                did_ = 0
                 name_ = b''
             else:
-                name_ = data
+                did_, d = fromleb128(data)
+                name_ = data[d:]
 
             # bisect search space
-            if name_ > name:
+            if (did_, name_) > (did, name):
                 upper = rid-(w-1)
-            elif name_ < name:
+            elif (did_, name_) < (did, name):
                 lower = rid + 1
 
                 # keep track of best match
@@ -913,12 +903,12 @@ class Rbyd:
         return best
 
     # lookup by name with this rbyd as the btree root
-    def btree_namelookup(self, f, block_size, name):
+    def btree_namelookup(self, f, block_size, did, name):
         rbyd = self
         bid = 0
 
         while True:
-            found, rid, tag, w = rbyd.namelookup(name)
+            found, rid, tag, w = rbyd.namelookup(did, name)
             done, rid_, tag_, w_, j, d, data, _ = rbyd.lookup(rid, TAG_STRUCT)
 
             # found another branch
@@ -935,9 +925,6 @@ class Rbyd:
 
     # lookup by name with this rbyd as the mroot
     def mtree_namelookup(self, f, block_size, did, name):
-        # concatenate did + name
-        name = toleb128(did) + name
-
         # have mtree?
         done, rid, tag, w, j, d, data, _ = self.lookup(-1, TAG_MTREE)
         if not done and rid == -1 and tag == TAG_MTREE:
@@ -949,7 +936,7 @@ class Rbyd:
 
             # lookup our name in the mtree
             mbid, tag_, mw, data = mtree.btree_namelookup(
-                f, block_size, name)
+                f, block_size, did, name)
             if tag_ != TAG_MDIR:
                 return False, -1, 0, None, -1, 0, 0
 
@@ -973,7 +960,7 @@ class Rbyd:
                 mdir = self
 
         # lookup name in our mdir
-        found, rid, tag, w = mdir.namelookup(name)
+        found, rid, tag, w = mdir.namelookup(did, name)
         return found, mbid, mw, mdir, rid, tag, w
 
     # iterate through a directory assuming this is the mtree root
