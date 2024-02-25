@@ -10424,7 +10424,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         if (crystal_end - crystal_start < lfs->cfg->crystal_thresh
                 // enough for prog alignment?
                 || crystal_end - crystal_start < lfs->cfg->prog_size) {
-            break;
+            goto fragment;
         }
 
         // exceeded our crystallization threshold? compact into a new block
@@ -10685,19 +10685,17 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         aligned = true;
     }
 
+fragment:;
     // iteratively write fragments (inlined leaves)
     while (size > 0) {
         // truncate to our fragment size
         lfs_off_t fragment_start = pos;
-        lfs_off_t fragment_end = fragment_start
-                + lfs_min32(size, lfs->cfg->fragment_size);
-        lfsr_data_t data = LFSR_DATA_BUF(
-                buffer,
-                fragment_end - fragment_start);
+        lfs_off_t fragment_end = fragment_start + lfs_min32(
+                size,
+                lfs->cfg->fragment_size);
 
         lfsr_data_t datas[3];
         lfs_size_t data_count = 0;
-        datas[data_count++] = data;
 
         // do we have a left sibling?
         if (fragment_start > 0
@@ -10720,21 +10718,20 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             if (bid-(weight-1) + lfsr_data_size(bptr.data) >= fragment_start
                     && fragment_end - (bid-(weight-1))
                         <= lfs->cfg->fragment_size) {
-                // coalesce, but truncate to our fragment size
-                // TODO this is a bit of a hacky way to prepend data...
-                LFS_ASSERT(data_count == 1);
-                datas[0] = lfsr_data_truncate(bptr.data,
+                datas[data_count++] = lfsr_data_truncate(bptr.data,
                         fragment_start - (bid-(weight-1)));
-                datas[1] = lfsr_data_truncate(data,
-                        lfs->cfg->fragment_size
-                            - (fragment_start - (bid-(weight-1))));
-                data_count = 2;
-                data = lfsr_data_fromcat(datas, data_count);
 
                 fragment_start = bid-(weight-1);
-                fragment_end = fragment_start + lfsr_data_size(data);
+                fragment_end = fragment_start + lfs_min32(
+                        fragment_end - (bid-(weight-1)),
+                        lfs->cfg->fragment_size);
             }
         }
+
+        // append our new data
+        datas[data_count++] = LFSR_DATA_BUF(
+                buffer,
+                fragment_end - pos);
 
         // do we have a right sibling?
         //
@@ -10762,9 +10759,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 datas[data_count++] = lfsr_data_fruncate(bptr.data,
                         bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_end);
-                data = lfsr_data_fromcat(datas, data_count);
 
-                fragment_end = fragment_start + lfsr_data_size(data);
+                fragment_end = fragment_start + lfs_min32(
+                        bid-(weight-1) + lfsr_data_size(bptr.data)
+                            - fragment_start,
+                        lfs->cfg->fragment_size);
             }
         }
 
@@ -10773,9 +10772,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
         // once we've figured out what fragment to write, carve it into
         // our tree
+        lfsr_data_t data = lfsr_data_fromcat(datas, data_count);
         int err = lfsr_file_carve(lfs, file,
                 fragment_start, fragment_end - fragment_start, 0,
-                LFSR_TAG_DATA, &(const lfsr_bptr_t){.data=data}, NULL);
+                LFSR_TAG_DATA, (const lfsr_bptr_t*)&data, NULL);
         if (err && err != LFS_ERR_RANGE) {
             return err;
         }
