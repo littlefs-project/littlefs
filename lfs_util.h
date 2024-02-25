@@ -348,6 +348,11 @@ ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size);
 
 ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);
 
+// Calculate the on-disk size of a leb128 without actually encoding
+static inline size_t lfs_sizeleb128(uint32_t word) {
+    return (lfs_nlog2(word+1)+7-1) / 7;
+}
+
 
 
 // Calculate CRC-32 with polynomial = 0x04c11db7

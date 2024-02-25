@@ -1113,13 +1113,13 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 /// lfsr_data_t stuff ///
 
-// the top bits of data's size indicates the actual encoding
-// 0x0 => buffer pointer
-// 0x4 => inlined data
-// 0x8 => on-disk reference
-// 0xc => concatenated data pointer
+// the top 2 bits of data's size indicates the actual encoding
+// 0b00 => in-RAM buffer
+// 0b01 => a single leb128
+// 0b10 => on-disk reference
+// 0b11 => concatenated datas
 #define LFSR_DATA_ONDISK 0x80000000
-#define LFSR_DATA_ISIMM  0x40000000
+#define LFSR_DATA_ISWORD 0x40000000
 #define LFSR_DATA_ISCAT  0xc0000000
 
 #define LFSR_DATA_NULL() \
@@ -1138,11 +1138,10 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.buf.size=_size, \
         .u.buf.buffer=(const void*)(_buffer)})
 
-#define LFSR_DATA_IMM(_buffer, _size) \
-    lfsr_data_fromimm(_buffer, _size)
-
-#define LFSR_DATA_LEB128(_word) \
-    lfsr_data_fromleb128(_word)
+#define LFSR_DATA_WORD(_word) \
+    ((lfsr_data_t){ \
+        .u.word.size=LFSR_DATA_ISWORD | lfs_sizeleb128(_word), \
+        .u.word.word=_word}) \
 
 // this relies on temporary allocations which is a bit precarious...
 #define LFSR_DATA_CAT(...) \
@@ -1184,8 +1183,8 @@ static inline bool lfsr_data_isbuf(lfsr_data_t data) {
     return (data.u.size & LFSR_DATA_ISCAT) == 0;
 }
 
-static inline bool lfsr_data_isimm(lfsr_data_t data) {
-    return (data.u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISIMM;
+static inline bool lfsr_data_isword(lfsr_data_t data) {
+    return (data.u.size & LFSR_DATA_ISCAT) == LFSR_DATA_ISWORD;
 }
 
 static inline bool lfsr_data_iscat(lfsr_data_t data) {
@@ -1196,27 +1195,8 @@ static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
     return data.u.size & ~LFSR_DATA_ISCAT;
 }
 
-// some data initializers just can't be macros, we at least make these inline
-// so most of the internal logic is hopefully elided
-static inline lfsr_data_t lfsr_data_fromimm(
-        const void *buffer, lfs_size_t size) {
-    LFS_ASSERT(size <= 8);
-
-    lfsr_data_t data;
-    memcpy(data.u.imm.buf, buffer, size);
-    data.u.imm.size = LFSR_DATA_ISIMM | size;
-    return data;
-}
-
-static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word) {
-    lfsr_data_t data;
-    lfs_ssize_t size = lfs_toleb128(word, data.u.imm.buf, 5);
-    LFS_ASSERT(size > 0);
-    LFS_ASSERT(size <= 5);
-    data.u.imm.size = LFSR_DATA_ISIMM | size;
-    return data;
-}
-
+// cat just can't be a macro, at least not without statement expressions, we
+// at least make these inline so hopefully the internal logic is elided
 static inline lfsr_data_t lfsr_data_fromcat(
         const lfsr_data_t *datas, lfs_size_t count) {
     // find total size
@@ -1252,12 +1232,10 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
         data.u.buf.buffer += off_;
         data.u.buf.size = size_;
 
-    // inlined? internal memmove
-    } else if (lfsr_data_isimm(data)) {
-        memmove(data.u.imm.buf,
-                data.u.imm.buf + off_,
-                size_);
-        data.u.imm.size = LFSR_DATA_ISIMM | size_;
+    // word? shift
+    } else if (lfsr_data_isword(data)) {
+        data.u.word.word >>= 7*off_;
+        data.u.word.size = LFSR_DATA_ISWORD | size_;
 
     // concatenated? not supported
     } else {
@@ -1305,9 +1283,13 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
     } else if (lfsr_data_isbuf(*data)) {
         memcpy(buffer, data->u.buf.buffer, d);
 
-    // inlined?
-    } else if (lfsr_data_isimm(*data)) {
-        memcpy(buffer, data->u.imm.buf, d);
+    // word?
+    } else if (lfsr_data_isword(*data)) {
+        uint8_t buf[5];
+        lfs_ssize_t d_ = lfs_toleb128(data->u.word.word, buf, sizeof(buf));
+        LFS_ASSERT(d_ == (lfs_ssize_t)lfsr_data_size(*data));
+        LFS_ASSERT(d <= (lfs_size_t)d_ && (lfs_size_t)d_ <= sizeof(buf));
+        memcpy(buffer, buf, d);
 
     // concatenated? not supported
     } else {
@@ -1399,9 +1381,13 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
             return LFS_CMP_GT;
         }
 
-    // inlined?
-    } else if (lfsr_data_isimm(data)) {
-        int cmp = memcmp(data.u.imm.buf, buffer, d);
+    // word?
+    } else if (lfsr_data_isword(data)) {
+        uint8_t buf[5];
+        lfs_ssize_t d_ = lfs_toleb128(data.u.word.word, buf, sizeof(buf));
+        LFS_ASSERT(d_ == (lfs_ssize_t)lfsr_data_size(data));
+        LFS_ASSERT(d <= (lfs_size_t)d_ && (lfs_size_t)d_ <= sizeof(buf));
+        int cmp = memcmp(buf, buffer, d);
         if (cmp < 0) {
             return LFS_CMP_LT;
         } else if (cmp > 0) {
@@ -1466,9 +1452,12 @@ static int lfsr_bd_progdata_(lfs_t *lfs,
         }
 
     // inlined?
-    } else if (lfsr_data_isimm(data)) {
+    } else if (lfsr_data_isword(data)) {
+        uint8_t buf[5];
+        lfs_ssize_t d_ = lfs_toleb128(data.u.word.word, buf, sizeof(buf));
+        LFS_ASSERT(d_ == (lfs_ssize_t)lfsr_data_size(data));
         int err = lfsr_bd_prog(lfs, block, off,
-                data.u.imm.buf, lfsr_data_size(data),
+                buf, lfsr_data_size(data),
                 cksum_);
         if (err) {
             return err;
@@ -8133,27 +8122,28 @@ static int lfsr_formatinited(lfs_t *lfs) {
                     LFSR_DATA_BUF("littlefs", 8)),
                 LFSR_ATTR(
                     LFSR_TAG_VERSION, 0,
-                    LFSR_DATA_IMM(((const uint8_t[2]){
+                    LFSR_DATA_BUF(((const uint8_t[2]){
                         LFS_DISK_VERSION_MAJOR,
                         LFS_DISK_VERSION_MINOR}), 2)),
                 LFSR_ATTR(
                     LFSR_TAG_RCOMPATFLAGS, 0,
-                    LFSR_DATA_IMM(((uint8_t[1]){LFSR_RCOMPAT_GRM}), 1)),
+                    LFSR_DATA_BUF(((uint8_t[1]){
+                        LFSR_RCOMPAT_GRM}), 1)),
                 LFSR_ATTR(
                     LFSR_TAG_BLOCKSIZE, 0,
-                    LFSR_DATA_LEB128(lfs->cfg->block_size-1)),
+                    LFSR_DATA_WORD(lfs->cfg->block_size-1)),
                 LFSR_ATTR(
                     LFSR_TAG_BLOCKCOUNT, 0,
-                    LFSR_DATA_LEB128(lfs->cfg->block_count-1)),
+                    LFSR_DATA_WORD(lfs->cfg->block_count-1)),
                 LFSR_ATTR(
                     LFSR_TAG_NAMELIMIT, 0,
-                    LFSR_DATA_LEB128(lfs->name_limit)),
+                    LFSR_DATA_WORD(lfs->name_limit)),
                 LFSR_ATTR(
                     LFSR_TAG_SIZELIMIT, 0,
-                    LFSR_DATA_LEB128(lfs->size_limit)),
+                    LFSR_DATA_WORD(lfs->size_limit)),
                 LFSR_ATTR(
                     LFSR_TAG_BOOKMARK, +1,
-                    LFSR_DATA_LEB128(0))));
+                    LFSR_DATA_WORD(0))));
         if (err) {
             return err;
         }
@@ -8627,7 +8617,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // commit our bookmark and a grm to self-remove in case of powerloss
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_BOOKMARK, +1, LFSR_DATA_LEB128(did_)),
+            LFSR_ATTR(LFSR_TAG_BOOKMARK, +1, LFSR_DATA_WORD(did_)),
             LFSR_ATTR(
                 LFSR_TAG_GRM, 0,
                 LFSR_DATA_GRM(&((lfsr_grm_t){{mdir.mid, -1}})))));
@@ -8651,9 +8641,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             LFSR_ATTR(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(did),
+                    LFSR_DATA_WORD(did),
                     LFSR_DATA_BUF(name, name_size))),
-            LFSR_ATTR(LFSR_TAG_DID, 0, LFSR_DATA_LEB128(did_)),
+            LFSR_ATTR(LFSR_TAG_DID, 0, LFSR_DATA_WORD(did_)),
             LFSR_ATTR(
                 LFSR_TAG_GRM, 0,
                 LFSR_DATA_GRM(&((lfsr_grm_t){{-1, -1}})))));
@@ -8758,7 +8748,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
                 ? LFSR_ATTR(
                     LFSR_TAG_SUP | LFSR_TAG_ORPHAN, 0,
                     LFSR_DATA_CAT(
-                        LFSR_DATA_LEB128(did),
+                        LFSR_DATA_WORD(did),
                         LFSR_DATA_BUF(name, name_size)))
                 : LFSR_ATTR(
                     LFSR_TAG_RM, -1, LFSR_DATA_NULL()),
@@ -8908,7 +8898,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             LFSR_ATTR(
                 LFSR_TAG_SUP | old_tag, (!exists) ? +1 : 0,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(new_did),
+                    LFSR_DATA_WORD(new_did),
                     LFSR_DATA_BUF(new_name, new_name_size))),
             LFSR_ATTR(LFSR_TAG_MOVE, 0, LFSR_DATA_MOVE(&old_mdir)),
             LFSR_ATTR(LFSR_TAG_GRM, 0, LFSR_DATA_GRM(&grm))));
@@ -9387,7 +9377,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_ATTR(
                         LFSR_TAG_ORPHAN, +1,
                         LFSR_DATA_CAT(
-                            LFSR_DATA_LEB128(did),
+                            LFSR_DATA_WORD(did),
                             LFSR_DATA_BUF(name, name_size)))));
             if (err) {
                 return err;

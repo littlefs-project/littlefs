@@ -3251,7 +3251,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -3304,13 +3304,13 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aaa", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("aab", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("aab", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -3372,7 +3372,7 @@ code = '''
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(0),
+                    LFSR_DATA_WORD(0),
                     LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
@@ -3380,7 +3380,7 @@ code = '''
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(1*DID),
+                    LFSR_DATA_WORD(1*DID),
                     LFSR_DATA_BUF("aab", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
@@ -3388,7 +3388,7 @@ code = '''
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(2*DID),
+                    LFSR_DATA_WORD(2*DID),
                     LFSR_DATA_BUF("aac", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -3459,7 +3459,7 @@ code = '''
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(0),
+                    LFSR_DATA_WORD(0),
                     LFSR_DATA_BUF("aaa", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
@@ -3467,7 +3467,7 @@ code = '''
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(2*DID),
+                    LFSR_DATA_WORD(2*DID),
                     LFSR_DATA_BUF("aac", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
@@ -3475,7 +3475,7 @@ code = '''
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
                 LFSR_DATA_CAT(
-                    LFSR_DATA_LEB128(1*DID),
+                    LFSR_DATA_WORD(1*DID),
                     LFSR_DATA_BUF("aab", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -3549,7 +3549,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF(name, 3))),
             LFSR_ATTR(
                 LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
@@ -3564,7 +3564,7 @@ code = '''
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
                 LFSR_ATTR(
                     LFSR_TAG_NAME, +1, LFSR_DATA_CAT(
-                        LFSR_DATA_LEB128(i*DID),
+                        LFSR_DATA_WORD(i*DID),
                         LFSR_DATA_BUF(name, 3))),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
@@ -3625,7 +3625,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -3666,7 +3666,7 @@ code = '''
                 LFSR_ATTR(
                     LFSR_TAG_NAME, +1,
                     LFSR_DATA_CAT(
-                        LFSR_DATA_LEB128(0),
+                        LFSR_DATA_WORD(0),
                         LFSR_DATA_BUF(name, 3))),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
@@ -3750,7 +3750,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +W,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF(name, 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF(name, 3))),
             LFSR_ATTR(
                 LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
@@ -3766,7 +3766,7 @@ code = '''
                 LFSR_ATTR(
                     LFSR_TAG_NAME, +W,
                     LFSR_DATA_CAT(
-                        LFSR_DATA_LEB128(i*DID),
+                        LFSR_DATA_WORD(i*DID),
                         LFSR_DATA_BUF(name, 3))),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
@@ -3828,7 +3828,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +W,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -3885,7 +3885,7 @@ code = '''
                     LFSR_ATTR(
                         LFSR_TAG_NAME, +weight2,
                         LFSR_DATA_CAT(
-                            LFSR_DATA_LEB128(0),
+                            LFSR_DATA_WORD(0),
                             LFSR_DATA_BUF(name, 3))),
                     LFSR_ATTR(
                         LFSR_TAG_DATA, 0,
@@ -3991,7 +3991,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +1,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -4043,7 +4043,7 @@ code = '''
                             LFSR_ATTR(
                                 LFSR_TAG_NAME, +1,
                                 LFSR_DATA_CAT(
-                                    LFSR_DATA_LEB128(0),
+                                    LFSR_DATA_WORD(0),
                                     LFSR_DATA_BUF(name, 3))),
                             LFSR_ATTR(
                                 LFSR_TAG_DATA, 0,
@@ -4059,7 +4059,7 @@ code = '''
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +1,
                             LFSR_DATA_CAT(
-                                LFSR_DATA_LEB128(0),
+                                LFSR_DATA_WORD(0),
                                 LFSR_DATA_BUF(name, 3))),
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
@@ -4169,7 +4169,7 @@ code = '''
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAME, +W,
-                LFSR_DATA_CAT(LFSR_DATA_LEB128(0), LFSR_DATA_BUF("___", 3))),
+                LFSR_DATA_CAT(LFSR_DATA_WORD(0), LFSR_DATA_BUF("___", 3))),
             LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
@@ -4233,7 +4233,7 @@ code = '''
                             LFSR_ATTR(
                                 LFSR_TAG_NAME, +weight,
                                 LFSR_DATA_CAT(
-                                    LFSR_DATA_LEB128(0),
+                                    LFSR_DATA_WORD(0),
                                     LFSR_DATA_BUF(name, 3))),
                             LFSR_ATTR(
                                 LFSR_TAG_DATA, 0,
@@ -4249,7 +4249,7 @@ code = '''
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +weight,
                             LFSR_DATA_CAT(
-                                LFSR_DATA_LEB128(0),
+                                LFSR_DATA_WORD(0),
                                 LFSR_DATA_BUF(name, 3))),
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
