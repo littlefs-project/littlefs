@@ -399,17 +399,11 @@ typedef struct lfs_mdir {
 
 // Either an on-disk or in-device data pointer
 //
-// The sign-bit of the size field indicates if the data is
-// in-device or on-disk.
-//
-// After removing the sign bit, the size always encodes the
-// resulting size on-disk.
-//
-// The exact representation of in-device data also depends on the
-// mode field:
-// - pointer to a RAM-backed buffer
-// - inlined data able to fit at least 1 leb128
-// - an array of concatenated datas
+// The top 2 bits of data's size indicates the actual encoding
+// 0b00 => in-RAM buffer
+// 0b01 => a single leb128
+// 0b10 => on-disk reference
+// 0b11 => concatenated datas
 //
 // Note concatenated datas can only be 1 level deep. Concatenating
 // concatenated datas would require recursion to resolve.

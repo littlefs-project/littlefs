@@ -1113,11 +1113,11 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 /// lfsr_data_t stuff ///
 
-// the top bits of data's size indicates the actual encoding
-// 0x0 => buffer pointer
-// 0x4 => inlined data
-// 0x8 => on-disk reference
-// 0xc => concatenated data pointer
+// the top 2 bits of data's size indicates the actual encoding
+// 0b00 => in-RAM buffer
+// 0b01 => a single leb128
+// 0b10 => on-disk reference
+// 0b11 => concatenated datas
 #define LFSR_DATA_ONDISK 0x80000000
 #define LFSR_DATA_ISIMM  0x40000000
 #define LFSR_DATA_ISCAT  0xc0000000
