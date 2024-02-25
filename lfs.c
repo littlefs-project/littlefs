@@ -2120,7 +2120,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
 
 // predeclare block allocator functions
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block);
+static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase);
 static void lfs_alloc_ckpoint(lfs_t *lfs);
 
 
@@ -2159,13 +2159,7 @@ static inline int lfsr_rbyd_cmp(
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .eoff=0, .cksum=0};
-    int err = lfs_alloc(lfs, &rbyd->blocks[0]);
-    if (err) {
-        return err;
-    }
-            
-    // TODO should erase be implicit in alloc eventually?
-    err = lfsr_bd_erase(lfs, rbyd->blocks[0]);
+    int err = lfs_alloc(lfs, &rbyd->blocks[0], true);
     if (err) {
         return err;
     }
@@ -5609,7 +5603,7 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
 
     // allocate two blocks
     for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[i]);
+        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[i], false);
         if (err) {
             return err;
         }
@@ -8253,7 +8247,7 @@ static inline void lfs_alloc_setinuse(lfs_t *lfs, lfs_block_t block) {
     }
 }
 
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
+static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
     while (true) {
         // scan our lookahead buffer for free blocks
         while (lfs->lookahead.next < lfs->lookahead.size) {
@@ -8262,6 +8256,13 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
                 // found a free block
                 *block = (lfs->lookahead.start + lfs->lookahead.next)
                         % lfs->cfg->block_count;
+                // erase requested?
+                if (erase) {
+                    int err = lfsr_bd_erase(lfs, *block);
+                    if (err) {
+                        return err;
+                    }
+                }
 
                 // eagerly find next free block to maximize how many blocks
                 // lfs_alloc_ckpoint makes available for scanning
@@ -10519,13 +10520,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // allocate a new block
-        int err = lfs_alloc(lfs, &bptr.data.u.disk.block);
-        if (err) {
-            return err;
-        }
-
-        // TODO should lfs_alloc handle erase?
-        err = lfsr_bd_erase(lfs, bptr.data.u.disk.block);
+        int err = lfs_alloc(lfs, &bptr.data.u.disk.block, true);
         if (err) {
             return err;
         }
