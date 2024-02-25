@@ -2841,7 +2841,7 @@ code = '''
         rbyd = backup_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL, NULL) => 0;
+                NULL) => 0;
         lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
@@ -3150,7 +3150,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -3299,7 +3299,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -3928,7 +3928,7 @@ code = '''
         rbyd = backup_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL, NULL) => 0;
+                NULL) => 0;
         lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
@@ -6075,7 +6075,7 @@ code = '''
         rbyd = backup_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL, NULL) => 0;
+                NULL) => 0;
         lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
@@ -6226,7 +6226,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -6420,7 +6420,7 @@ code = '''
         rbyd = backup_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL, NULL) => 0;
+                NULL) => 0;
         lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
@@ -7440,7 +7440,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -7608,7 +7608,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -7800,7 +7800,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -7936,7 +7936,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -8383,7 +8383,7 @@ code = '''
         rbyd = backup_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL, NULL) => 0;
+                NULL) => 0;
         lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
@@ -8538,7 +8538,7 @@ code = '''
         rbyd = backup_rbyd;
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                NULL, NULL) => 0;
+                NULL) => 0;
         lfsr_bd_flush(&lfs,
                 NULL) => 0;
 
@@ -10626,7 +10626,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -10757,7 +10757,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -10900,7 +10900,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -11056,7 +11056,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -11187,7 +11187,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -11330,7 +11330,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -11485,7 +11485,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -11649,7 +11649,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -12279,7 +12279,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -12422,7 +12422,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -12663,7 +12663,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -12816,7 +12816,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -13052,7 +13052,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -13195,7 +13195,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -13424,7 +13424,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 
@@ -13567,7 +13567,7 @@ code = '''
             rbyd = backup_rbyd;
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0, backup_block, rbyd.eoff,
-                    NULL, NULL) => 0;
+                    NULL) => 0;
             lfsr_bd_flush(&lfs,
                     NULL) => 0;
 

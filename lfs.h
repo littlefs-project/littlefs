@@ -566,6 +566,7 @@ typedef struct lfsr_mtree {
 typedef struct lfs {
     lfs_cache_t rcache;
     lfs_cache_t pcache;
+    uint32_t pcksum;
 
     lfs_block_t root[2];
     struct lfs_mlist {
