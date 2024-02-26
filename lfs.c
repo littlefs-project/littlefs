@@ -3358,30 +3358,6 @@ static int lfsr_rbyd_commit(lfs_t *lfs,
 }
 
 
-// determine the upper-bound cost of a single rbyd attr after compaction
-//
-// Note that with rebalancing during compaction, we know the number
-// of inner nodes is roughly the same as the number of tags. Unfortunately,
-// our inner node encoding is rather poor, requiring 2 alts and terminating
-// with a 4-byte null tag:
-//
-//   a_0 = 3t + 4
-//
-// If we could build each trunk perfectly, we could get this down to only
-// 1 alt per tag. But this would require unbounded RAM:
-//
-//   a_inf = 2t
-//
-// However, we can meet halfway. The bottom layer in our rbyd contains 1/2
-// of all inner nodes, so if we build the bottom layer perfectly, we can
-// reduce the attr estimate a bit without unbounded RAM:
-//
-//         3t + 4   2t   5t
-//   a_1 = ------ + -- = -- + 2
-//            2      2    2
-//
-#define LFSR_ATTR_ESTIMATE ((5*LFSR_TAG_DSIZE+2-1)/2 + 2)
-
 // Calculate the maximum possible disk usage required by this rbyd after
 // compaction. This uses a conservative estimate so the actual on-disk cost
 // should be smaller.
@@ -3440,7 +3416,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             weight += weight_;
 
             // include the cost of this tag
-            dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(data);
+            dsize_ += lfs->attr_estimate + lfsr_data_size(data);
         }
 
         if (rid == -1) {
@@ -6082,7 +6058,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 if (dsize__ < 0) {
                     return dsize__;
                 }
-                dsize_ += LFSR_ATTR_ESTIMATE + dsize__;
+                dsize_ += lfs->attr_estimate + dsize__;
 
             // special handling for shrub trunks, we need to include the
             // compacted cost of the shrub in our estimate
@@ -6105,11 +6081,11 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 if (dsize__ < 0) {
                     return dsize__;
                 }
-                dsize_ += LFSR_ATTR_ESTIMATE + dsize__;
+                dsize_ += lfs->attr_estimate + dsize__;
 
             } else {
                 // include the cost of this tag
-                dsize_ += LFSR_ATTR_ESTIMATE + lfsr_data_size(data);
+                dsize_ += lfs->attr_estimate + lfsr_data_size(data);
             }
         }
 
@@ -9988,7 +9964,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
             // only include tag overhead if tag is not a grow/rm tag
             if (!lfsr_tag_isgrow(attrs[i].tag)
                     && !lfsr_tag_isrm(attrs[i].tag)) {
-                commit_estimate += LFSR_ATTR_ESTIMATE;
+                commit_estimate += lfs->attr_estimate;
             }
             commit_estimate += lfsr_data_size(attrs[i].data);
         }
@@ -15137,7 +15113,38 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs->hasorphans = false;
 
-    // compute the number of bits we need to reserve for mdir rids
+    // calculate the upper-bound cost of a single rbyd attr after compaction
+    //
+    // Note that with rebalancing during compaction, we know the number
+    // of inner nodes is roughly the same as the number of tags. Unfortunately,
+    // our inner node encoding is rather poor, requiring 2 alts and terminating
+    // with a 4-byte null tag:
+    //
+    //   a_0 = 3t + 4
+    //
+    // If we could build each trunk perfectly, we could get this down to only
+    // 1 alt per tag. But this would require unbounded RAM:
+    //
+    //   a_inf = 2t
+    //
+    // However, we can meet halfway. The bottom layer in our rbyd contains 1/2
+    // of all inner nodes, so if we build the bottom layer perfectly, we can
+    // reduce the attr estimate a bit without unbounded RAM:
+    //
+    //         3t + 4   2t   5t
+    //   a_1 = ------ + -- = -- + 2
+    //            2      2    2
+    //
+    // The worst-case tag encoding, t, actually depends on our block_size,
+    // since the size/jump field can never exceed a block:
+    //
+    //   t = 2 + 5 + log128(block_size)
+    //
+    uint8_t tag_estimate = 2 + 5 + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
+    LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
+    lfs->attr_estimate = (5*tag_estimate+2-1)/2 + 2;
+
+    // calculate the number of bits we need to reserve for mdir rids
     //
     // Worst case (or best case?) each metadata entry is a single tag. In
     // theory each entry also needs a name, but with power-of-two rounding,
@@ -15146,9 +15153,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // Assuming a _perfect_ compaction algorithm (requires unbounded RAM),
     // each tag also needs ~1 alt, this gives us:
     //
-    //       block_size
-    //   m = ----------
-    //           2t
+    //       block_size   block_size
+    //   m = ---------- = ----------
+    //          a_inf         2t
     //
     // Assuming t=4 bytes, the minimum tag encoding:
     //

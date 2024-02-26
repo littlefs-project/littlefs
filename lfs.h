@@ -598,7 +598,9 @@ typedef struct lfs {
     // purpose flags field? this has been useful for lfsr_file_t
     bool hasorphans;
 
+    uint8_t attr_estimate;
     uint8_t mleaf_bits;
+
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
 
