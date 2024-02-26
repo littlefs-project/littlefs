@@ -15131,6 +15131,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs->hasorphans = false;
 
+    // TODO do we need to recalculate these after mount?
+
     // calculate the upper-bound cost of a single rbyd attr after compaction
     //
     // Note that with rebalancing during compaction, we know the number
@@ -15153,12 +15155,19 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     //   a_1 = ------ + -- = -- + 2
     //            2      2    2
     //
-    // The worst-case tag encoding, t, actually depends on our block_size,
-    // since the size/jump field can never exceed a block:
+    // The worst-case tag encoding, t, depends on our size-limit and
+    // block-size. The weight can never exceed size-limit, and the size/jump
+    // field can never exceed a single block:
     //
-    //   t = 2 + 5 + log128(block_size)
+    //   t = 2 + log128(size_limit+1) + log128(block_size)
     //
-    uint8_t tag_estimate = 2 + 5 + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
+    // Note this is different from LFSR_TAG_DSIZE, which is the worst case
+    // tag encoding at compile-time.
+    //
+    uint8_t tag_estimate
+            = 2
+            + (lfs_nlog2(lfs->size_limit+1)+7-1)/7
+            + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
     LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
     lfs->attr_estimate = (5*tag_estimate+2-1)/2 + 2;
 
