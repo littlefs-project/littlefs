@@ -8634,25 +8634,43 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         return LFS_ERR_NAMETOOLONG;
     }
 
-    // Our directory needs an arbitrary directory-rid. To find one with
-    // hopefully few collisions, we use a hash of the full path using our CRC,
-    // since we have it handy.
+    // Our directory needs an arbitrary directory-id. To find one with
+    // hopefully few collisions, we checksum our full path, but this is
+    // arbitrary.
     //
     // We also truncate to make better use of our leb128 encoding. This is
-    // relatively arbitrary, but if we truncate too much we risk increasing
+    // somewhat arbitrary, but if we truncate too much we risk increasing
     // the number of collisions, so we want to aim for ~2x the number dids
-    // in the system. We don't actually know the number of dids in the system,
-    // but we can use a heuristic based on the maximum possible number of
-    // directories in the current mtree assuming our block size.
+    // in the system:
     //
-    // - Each directory needs 1 name tag, 1 did tag, and 1 bookmark
-    // - Each tag needs ~2 alts+null with our current compaction strategy
-    // - Each tag/alt encodes to a minimum of 4 bytes
-    // - We can also assume ~1/2 block utilization due to our split threshold
+    //   dmask = 2*dids
     //
-    // This gives us ~3*4*4*2 or ~96 bytes per directory at minimum.
-    // Multiplying by 2 and rounding down to the nearest power of 2 for cheaper
-    // division gives us a heuristic of ~block_size/32 directories per mdir.
+    // But we don't actually know how many dids are in the system.
+    // Fortunately, we can guess an upper bound based on the number of
+    // mdirs in the mtree:
+    //
+    //               mdirs
+    //   dmask = 2 * -----
+    //                 d
+    //
+    // Worst case (or best case?) each directory needs 1 name tag, 1 did
+    // tag, and 1 bookmark. With our current compaction strategy, each tag
+    // needs ~(5/2)t+2 bytes for tag+alts (see our attr_estimate). And, if
+    // we assume ~1/2 block utilization due to our mdir split threshold, we
+    // can multiply everything by 2:
+    //
+    //   d = 3 * ((5/2)t+2) * 2 = 15t + 12
+    //
+    // Assuming t=4 bytes, the minimum tag encoding:
+    //
+    //   d = 15*4 + 12 = 72 bytes
+    //
+    // Rounding down to a power-of-two (again this is all arbitrary), gives
+    // us ~64 bytes per directory:
+    //
+    //               mdirs   mdirs
+    //   dmask = 2 * ----- = -----
+    //                 64      32
     //
     // This is a nice number because for common NOR flash geometry,
     // 4096/32 = 128, so a filesystem with a single mdir encodes dids in a
