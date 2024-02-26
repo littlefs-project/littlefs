@@ -1655,7 +1655,6 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
 def main(disk, mroots=None, *,
         block_size=None,
         block_count=None,
-        mleaf_weight=None,
         color='auto',
         **args):
     # figure out what color should be
@@ -1686,8 +1685,7 @@ def main(disk, mroots=None, *,
 
         # determine the mleaf_weight from the block_size, this is just for
         # printing purposes
-        if mleaf_weight is None:
-            mleaf_weight = 1 << m.ceil(m.log2(block_size // 8))
+        mleaf_weight = 1 << m.ceil(m.log2(block_size // 8))
 
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
@@ -2184,11 +2182,6 @@ if __name__ == "__main__":
         '--block-count',
         type=lambda x: int(x, 0),
         help="Block count in blocks.")
-    parser.add_argument(
-        '-m', '--mleaf-weight',
-        type=lambda x: int(x, 0),
-        help="Maximum weight of mdirs for mid decoding. Defaults to a "
-            "block_size derived value.")
     parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],

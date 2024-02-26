@@ -1179,7 +1179,6 @@ class Rbyd:
 def main(disk, mroots=None, *,
         block_size=None,
         block_count=None,
-        mleaf_weight=None,
         block=None,
         off=None,
         size=None,
@@ -1339,12 +1338,6 @@ def main(disk, mroots=None, *,
             bmap.resize(
                 block_size=block_size,
                 block_count=block_count)
-
-
-        # determine the mleaf_weight from the block_size, this is just for
-        # printing purposes
-        if mleaf_weight is None:
-            mleaf_weight = 1 << m.ceil(m.log2(block_size // 8))
 
         #### traverse the filesystem
 
@@ -1637,11 +1630,6 @@ if __name__ == "__main__":
         '--block-count',
         type=lambda x: int(x, 0),
         help="Block count in blocks.")
-    parser.add_argument(
-        '-m', '--mleaf-weight',
-        type=lambda x: int(x, 0),
-        help="Maximum weight of mdirs for mid decoding. Defaults to a "
-            "block_size derived value.")
     parser.add_argument(
         '-@', '--block',
         nargs='?',
