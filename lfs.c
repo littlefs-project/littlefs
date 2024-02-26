@@ -8681,7 +8681,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     lfsr_did_t dmask = (1 << lfs_min32(
             lfs_nlog2(lfsr_mtree_weight(&lfs->mtree))
                 + lfs_nlog2(lfs->cfg->block_size/32),
-            32)) - 1;
+            31)) - 1;
     lfsr_did_t did_ = lfs_crc32c(0, path, strlen(path)) & dmask;
 
     // Check if we have a collision. If we do, search for the next
