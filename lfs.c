@@ -3490,10 +3490,6 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
     rbyd->eoff += lfsr_data_size(data);
 
-    // keep track of the total weight, the rbyd is in an unusable
-    // state until lfsr_rbyd_appendcompaction anyways
-    rbyd->weight += weight;
-
     return 0;
 }
 
