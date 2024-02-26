@@ -2126,15 +2126,15 @@ static void lfs_alloc_ckpoint(lfs_t *lfs);
 
 /// Red-black-yellow Dhara tree operations ///
 
-#define LFSR_RBYD_SHRUB 0x80000000
+#define LFSR_RBYD_ISSHRUB 0x80000000
 
 // helper functions
 static inline bool lfsr_rbyd_isshrub(const lfsr_rbyd_t *rbyd) {
-    return rbyd->trunk & LFSR_RBYD_SHRUB;
+    return rbyd->trunk & LFSR_RBYD_ISSHRUB;
 }
 
 static inline lfs_size_t lfsr_rbyd_trunk(const lfsr_rbyd_t *rbyd) {
-    return rbyd->trunk & ~LFSR_RBYD_SHRUB;
+    return rbyd->trunk & ~LFSR_RBYD_ISSHRUB;
 }
 
 static inline bool lfsr_rbyd_hastrunk(const lfsr_rbyd_t *rbyd) {
@@ -2170,7 +2170,7 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_ssize_t trunk) {
     // ignore the shrub bit here
-    trunk &= ~LFSR_RBYD_SHRUB;
+    trunk &= ~LFSR_RBYD_ISSHRUB;
 
     // checksum the revision count to get the cksum started
     uint32_t cksum = 0;
@@ -2182,7 +2182,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     rbyd->blocks[0] = block;
     rbyd->eoff = 0;
-    rbyd->trunk = (trunk & LFSR_RBYD_SHRUB) | 0;
+    rbyd->trunk = (trunk & LFSR_RBYD_ISSHRUB) | 0;
 
     // temporary state until we validate a cksum
     lfs_size_t off = sizeof(uint32_t);
@@ -2277,7 +2277,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // save what we've found so far
             rbyd->eoff = off_ + size;
             rbyd->cksum = cksum;
-            rbyd->trunk = (LFSR_RBYD_SHRUB & rbyd->trunk) | trunk_;
+            rbyd->trunk = (LFSR_RBYD_ISSHRUB & rbyd->trunk) | trunk_;
             rbyd->weight = weight;
         }
 
@@ -2766,7 +2766,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->weight += delta;
 
     // assume we'll update our trunk
-    rbyd->trunk = (rbyd->trunk & LFSR_RBYD_SHRUB) | rbyd->eoff;
+    rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | rbyd->eoff;
 
     // no trunk yet?
     if (!branch) {
@@ -3557,7 +3557,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
         rbyd->eoff += d;
 
-        rbyd->trunk = (rbyd->trunk & LFSR_RBYD_SHRUB) | off;
+        rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | off;
         rbyd->weight = 0;
         return 0;
     }
@@ -3655,7 +3655,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 done:;
     // done! just need to update our trunk. Note we could have no trunks
     // after compaction. Leave this to upper layers to take care of this.
-    rbyd->trunk = (rbyd->trunk & LFSR_RBYD_SHRUB) | layer;
+    rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | layer;
     rbyd->weight = weight;
 
     return 0;
@@ -3723,7 +3723,7 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // keep track of the start of the new tree
     lfs_size_t off = rbyd->eoff;
     // mark as shrub
-    rbyd->trunk |= LFSR_RBYD_SHRUB;
+    rbyd->trunk |= LFSR_RBYD_ISSHRUB;
 
     // compact our shrub
     int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, -1, -1, shrub);
@@ -5048,7 +5048,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
     LFS_ASSERT(lfsr_rbyd_hastrunk(shrub));
 
     // set the shrub bit in our trunk
-    shrub->trunk |= LFSR_RBYD_SHRUB;
+    shrub->trunk |= LFSR_RBYD_ISSHRUB;
     return 0;
 }
 
@@ -5856,7 +5856,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // extensions are atomic
                 if (attrs[i].tag == LFSR_TAG_SHRUBALLOC) {
                     bshrubcommit->shrub->blocks[0] = rbyd_.blocks[0];
-                    bshrubcommit->shrub->trunk = LFSR_RBYD_SHRUB | 0;
+                    bshrubcommit->shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
                     bshrubcommit->shrub->weight = 0;
                 }
 
@@ -10030,7 +10030,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         }
 
         file->bshrub.u.bshrub.blocks[0] = file->m.mdir.rbyd.blocks[0];
-        file->bshrub.u.bshrub.trunk = LFSR_RBYD_SHRUB | 0;
+        file->bshrub.u.bshrub.trunk = LFSR_RBYD_ISSHRUB | 0;
         file->bshrub.u.bshrub.weight = 0;
         // force estimate recalculation
         file->bshrub.u.bshrub.eoff = -1;
