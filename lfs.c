@@ -3360,11 +3360,27 @@ static int lfsr_rbyd_commit(lfs_t *lfs,
 
 // determine the upper-bound cost of a single rbyd attr after compaction
 //
-// note that with rebalancing during compaction, we know the number
-// of inner nodes is roughly the same as the number of tags. Each node
-// has two alts and is terminated by a 4-byte null tag.
+// Note that with rebalancing during compaction, we know the number
+// of inner nodes is roughly the same as the number of tags. Unfortunately,
+// our inner node encoding is rather poor, requiring 2 alts and terminating
+// with a 4-byte null tag:
 //
-#define LFSR_ATTR_ESTIMATE (3*LFSR_TAG_DSIZE + 4)
+//   a_0 = 3t + 4
+//
+// If we could build each trunk perfectly, we could get this down to only
+// 1 alt per tag. But this would require unbounded RAM:
+//
+//   a_inf = 2t
+//
+// However, we can meet halfway. The bottom layer in our rbyd contains 1/2
+// of all inner nodes, so if we build the bottom layer perfectly, we can
+// reduce the attr estimate a bit without unbounded RAM:
+//
+//         3t + 4   2t   5t
+//   a_1 = ------ + -- = -- + 2
+//            2      2    2
+//
+#define LFSR_ATTR_ESTIMATE ((5*LFSR_TAG_DSIZE+2-1)/2 + 2)
 
 // Calculate the maximum possible disk usage required by this rbyd after
 // compaction. This uses a conservative estimate so the actual on-disk cost
@@ -3470,11 +3486,51 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
     }
 
+    // we eagerly connecting pairs in the first layer of our compaction
+    // in order to avoid some of the overhead of null inner-nodes
+    //
+    // thanks to the bottom layer of a binary tree containing 1/2 of all
+    // nodes, this brings our attr estimate down from 3t+4 -> (5/2)t+2
+
+    // connect previous trunk?
+    if (lfsr_rbyd_hastrunk(rbyd)) {
+        // TODO is this a bit wasteful? we're basically trashing our rcache
+        // read the previous tag
+        lfsr_tag_t tag__;
+        lfsr_rid_t weight__;
+        lfs_size_t size__;
+        lfs_ssize_t d = lfsr_bd_readtag(lfs,
+                rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
+                rbyd->eoff - lfsr_rbyd_trunk(rbyd),
+                &tag__, &weight__, &size__, NULL);
+        if (d < 0) {
+            return d;
+        }
+
+        // connect with an altle
+        d = lfsr_bd_progtag(lfs,
+                rbyd->blocks[0], rbyd->eoff,
+                LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, tag__),
+                weight__,
+                rbyd->eoff - lfsr_rbyd_trunk(rbyd),
+                &rbyd->cksum);
+        if (d < 0) {
+            return d;
+        }
+        rbyd->eoff += d;
+
+        // reset trunk
+        rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | 0;
+
+    // otherwise save for next attr
+    } else {
+        rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | rbyd->eoff;
+    }
+
     // write the tag
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
             // mark as shrub if we are a shrub
-            (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
-                | tag,
+            (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | tag,
             weight, lfsr_data_size(data),
             &rbyd->cksum);
     if (d < 0) {
@@ -3592,6 +3648,17 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         off += size__;
                     }
 
+                    // ignore single tags, unless it's the last tag, otherwise
+                    // these should already be connected during
+                    // lfsr_rbyd_appendcompactattr
+                    if (!lfsr_tag_isalt(tag__)
+                            && off-d-size__ == trunk
+                            && off-d-size__ != lfsr_rbyd_trunk(rbyd)) {
+                        trunk = off;
+                        weight = 0;
+                        continue;
+                    }
+
                     // ignore shrub trunks, unless we are actually compacting
                     // a shrub tree
                     if (!lfsr_rbyd_isshrub(rbyd)
@@ -3664,6 +3731,9 @@ done:;
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_rbyd_t *rbyd) {
+    // zero trunk
+    rbyd_->trunk = 0;
+
     // append rbyd
     int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_, start_rid, end_rid,
             rbyd);
@@ -3722,8 +3792,8 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_shrub_t *shrub) {
     // keep track of the start of the new tree
     lfs_size_t off = rbyd->eoff;
-    // mark as shrub
-    rbyd->trunk |= LFSR_RBYD_ISSHRUB;
+    // mark as shrub, zero trunk
+    rbyd->trunk = LFSR_RBYD_ISSHRUB | 0;
 
     // compact our shrub
     int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, -1, -1, shrub);
@@ -4600,6 +4670,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // merge the siblings together
+        rbyd_.trunk = 0;
+
         err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, -1, -1, &rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5811,6 +5883,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             // the new block
                             && file->bshrub_.u.bsprout.u.disk.block
                                 != rbyd_.blocks[0]) {
+                        // save our current trunk/weight
+                        lfs_ssize_t trunk = rbyd_.trunk;
+                        lfsr_srid_t weight = rbyd_.weight;
+                        rbyd_.trunk = 0;
+
                         int err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_,
                                 LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
                                 file->bshrub.u.bsprout);
@@ -5818,6 +5895,10 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             LFS_ASSERT(err != LFS_ERR_RANGE);
                             return err;
                         }
+
+                        // revert rbyd trunk/weight
+                        rbyd_.trunk = trunk;
+                        rbyd_.weight = weight;
 
                         err = lfsr_sprout_compact(lfs, &rbyd_,
                                 &file->bshrub_.u.bsprout,
@@ -6098,6 +6179,9 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     // (btree), not the staged state (btree_), this is important,
     // we can't trust btree_ after a failed commit
 
+    // zero our trunk
+    mdir_->rbyd.trunk = 0;
+
     // copy over tags in the rbyd in order
     lfsr_srid_t rid = start_rid;
     lfsr_tag_t tag = 0;
@@ -6199,12 +6283,21 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 // only compact once, first compact should stage the new block
                 && file->bshrub_.u.bsprout.u.disk.block
                     != mdir_->rbyd.blocks[0]) {
+            // save our current trunk/weight
+            lfs_ssize_t trunk = mdir_->rbyd.trunk;
+            lfsr_srid_t weight = mdir_->rbyd.weight;
+            mdir_->rbyd.trunk = 0;
+
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
                     LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0, file->bshrub.u.bsprout);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
+
+            // revert rbyd trunk/weight
+            mdir_->rbyd.trunk = trunk;
+            mdir_->rbyd.weight = weight;
 
             err = lfsr_sprout_compact(lfs, &mdir_->rbyd,
                     &file->bshrub_.u.bsprout, &file->bshrub.u.bsprout);
@@ -6743,6 +6836,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             if (err) {
                 return err;
             }
+
+            // zero trunk
+            mrootanchor_.rbyd.trunk = 0;
 
             // copy only the config over
             lfsr_tag_t tag = 0;
