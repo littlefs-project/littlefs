@@ -15137,23 +15137,34 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs->hasorphans = false;
 
-    // compute the number of bits we need to reserve for metadata rids
+    // compute the number of bits we need to reserve for mdir rids
     //
-    // This is equivalent to the nlog2 of the maximum number of rids we can
-    // ever have in a single mdir. With some knowledge of our system we can
-    // find a conservative, but useful, limit to this upper bound:
+    // Worst case (or best case?) each metadata entry is a single tag. In
+    // theory each entry also needs a name, but with power-of-two rounding,
+    // this is negligible
     //
-    // - Each tag needs <=2 alts+null with our current compaction strategy
-    // - Each tag/alt encodes to a minimum of 4 bytes
+    // Assuming a _perfect_ compaction algorithm (requires unbounded RAM),
+    // each tag also needs ~1 alt, this gives us:
     //
-    // This gives us ~4*4 or ~16 bytes per mid at minimum. If we cram an mdir
-    // with the smallest possible mids, this gives us at most ~block_size/16
-    // mids in a single mdir before the mdir runs out of space.
+    //       block_size
+    //   m = ----------
+    //           2t
+    //
+    // Assuming t=4 bytes, the minimum tag encoding:
+    //
+    //       block_size   block_size
+    //   m = ---------- = ----------
+    //           2*4           8
     //
     // Note we can't assume ~1/2 block utilization here, as an mdir may
     // temporarily fill with more mids before compaction occurs.
     //
-    lfs->mleaf_bits = lfs_nlog2(lfs->cfg->block_size/16);
+    // Note note our actual compaction algorithm is not perfect, and
+    // requires (5/2)t+2 bytes per tag, or with t=4 bytes => ~block_size/12
+    // metadata entries per block. But we intentionally don't leverage this
+    // to maintain compatibility with a theoretical perfect implementation.
+    //
+    lfs->mleaf_bits = lfs_nlog2(lfs->cfg->block_size/8);
 
     // zero linked-list of opened mdirs
     lfs->opened = NULL;

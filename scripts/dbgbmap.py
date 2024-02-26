@@ -1344,7 +1344,7 @@ def main(disk, mroots=None, *,
         # determine the mleaf_weight from the block_size, this is just for
         # printing purposes
         if mleaf_weight is None:
-            mleaf_weight = 1 << m.ceil(m.log2(block_size // 16))
+            mleaf_weight = 1 << m.ceil(m.log2(block_size // 8))
 
         #### traverse the filesystem
 
