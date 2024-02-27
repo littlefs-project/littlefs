@@ -142,7 +142,8 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 #define TEST_BDCFG \
     .erase_value        = ERASE_VALUE,          \
     .erase_cycles       = ERASE_CYCLES,         \
-    .badblock_behavior  = BADBLOCK_BEHAVIOR,
+    .badblock_behavior  = BADBLOCK_BEHAVIOR,    \
+    .powerloss_behavior = POWERLOSS_BEHAVIOR,
 
 
 #endif

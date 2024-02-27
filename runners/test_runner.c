@@ -1379,7 +1379,6 @@ static void run_powerloss_linear(
         .power_cycles       = (TEST_PLS < powerloss->cycle_count)
                 ? TEST_PLS+1
                 : 0,
-        .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
         TEST_BDCFG
@@ -1457,7 +1456,6 @@ static void run_powerloss_log(
         .power_cycles       = (TEST_PLS < powerloss->cycle_count)
                 ? 1 << TEST_PLS
                 : 0,
-        .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
         TEST_BDCFG
@@ -1535,7 +1533,6 @@ static void run_powerloss_cycles(
         .power_cycles       = (TEST_PLS < powerloss->cycle_count)
                 ? powerloss->cycles[TEST_PLS]
                 : 0,
-        .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
         TEST_BDCFG
@@ -1708,7 +1705,6 @@ static void run_powerloss_exhaustive(
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_exhaustive_branch,
         .powerloss_data     = NULL,
         TEST_BDCFG
