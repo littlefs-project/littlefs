@@ -181,6 +181,10 @@ code = '''
 defines.N = [5, 11]
 if = 'BLOCK_COUNT >= 4*N'
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);
@@ -439,6 +443,10 @@ code = '''
 defines.N = [5, 25]
 if = 'N < BLOCK_COUNT/2'
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);

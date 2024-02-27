@@ -310,6 +310,10 @@ defines.SIZE = [32, 0, 7, 2049]
 defines.CHUNKSIZE = [31, 16, 65]
 defines.INLINE_MAX = [0, -1, 8]
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);
@@ -500,6 +504,10 @@ code = '''
 [cases.test_files_many_power_loss]
 defines.N = 300
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);
