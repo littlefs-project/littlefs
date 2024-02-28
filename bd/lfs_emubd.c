@@ -217,15 +217,18 @@ static int lfs_emubd_powerloss(const struct lfs_config *cfg) {
     lfs_emubd_t *bd = cfg->context;
 
     // emulate out-of-order writes?
+    lfs_emubd_block_t *ooo_data = NULL;
     if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO
             && bd->ooo_block != -1) {
         // since writes between syncs are allowed to be out-of-order, it
         // shouldn't hurt to restore the first write on powerloss, right?
-        lfs_emubd_decblock(bd->blocks[bd->ooo_block]);
-        bd->blocks[bd->ooo_block] = bd->ooo_data;
+        ooo_data = bd->blocks[bd->ooo_block];
+        bd->blocks[bd->ooo_block] = lfs_emubd_incblock(bd->ooo_data);
 
         // mirror to disk file?
-        if (bd->disk && (bd->ooo_data || bd->cfg->erase_value != -1)) {
+        if (bd->disk
+                && (bd->blocks[bd->ooo_block]
+                    || bd->cfg->erase_value != -1)) {
             off_t res1 = lseek(bd->disk->fd,
                     (off_t)bd->ooo_block*bd->cfg->erase_size,
                     SEEK_SET);
@@ -234,21 +237,46 @@ static int lfs_emubd_powerloss(const struct lfs_config *cfg) {
             }
 
             ssize_t res2 = write(bd->disk->fd,
-                    (bd->ooo_data)
-                        ? bd->ooo_data->data
+                    (bd->blocks[bd->ooo_block])
+                        ? bd->blocks[bd->ooo_block]->data
                         : bd->disk->scratch,
                     bd->cfg->erase_size);
             if (res2 < 0) {
                 return -errno;
             }
         }
-
-        bd->ooo_block = -1;
-        bd->ooo_data = NULL;
     }
 
     // simulate power loss
     bd->cfg->powerloss_cb(bd->cfg->powerloss_data);
+
+    // if we continue, undo out-of-order write emulation
+    if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO
+            && bd->ooo_block != -1) {
+        lfs_emubd_decblock(bd->blocks[bd->ooo_block]);
+        bd->blocks[bd->ooo_block] = ooo_data;
+
+        // mirror to disk file?
+        if (bd->disk
+                && (bd->blocks[bd->ooo_block]
+                    || bd->cfg->erase_value != -1)) {
+            off_t res1 = lseek(bd->disk->fd,
+                    (off_t)bd->ooo_block*bd->cfg->erase_size,
+                    SEEK_SET);
+            if (res1 < 0) {
+                return -errno;
+            }
+
+            ssize_t res2 = write(bd->disk->fd,
+                    (bd->blocks[bd->ooo_block])
+                        ? bd->blocks[bd->ooo_block]->data
+                        : bd->disk->scratch,
+                    bd->cfg->erase_size);
+            if (res2 < 0) {
+                return -errno;
+            }
+        }
+    }
 
     return 0;
 }
