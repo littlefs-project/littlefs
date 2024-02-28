@@ -531,6 +531,7 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
     // emulate out-of-order writes? reset first write, writes
     // cannot be out-of-order across sync
     if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO) {
+        lfs_emubd_decblock(bd->ooo_data);
         bd->ooo_block = -1;
         bd->ooo_data = NULL;
     }
