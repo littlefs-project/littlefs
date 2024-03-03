@@ -6300,18 +6300,20 @@ compact:;
         return err;
     }
 
+    // update mdir, we need to propagate mdir changes if commit fails
+    *mdir = mdir_;
+
     // now try to commit again
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
+    err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
             mid, attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
-    *mdir = mdir_;
     return 0;
 }
 
@@ -8498,7 +8500,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     lfs_alloc_ckpoint(lfs);
 
     // fix pending grms
-    bool pl = false;
+    bool inconsistent = false;
     if (lfsr_grm_hasrm(&lfs->grm)) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
             LFS_DEBUG("Fixing grm "
@@ -8512,7 +8514,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
                     lfsr_mid_bid(lfs, lfs->grm.rms[0]) >> lfs->mleaf_bits,
                     lfsr_mid_rid(lfs, lfs->grm.rms[0]));
         }
-        pl = true;
+        inconsistent = true;
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
@@ -8531,7 +8533,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     //
     if (lfs->hasorphans) {
         LFS_DEBUG("Fixing orphans...");
-        pl = true;
+        inconsistent = true;
 
         int err = lfsr_fs_fixorphans(lfs);
         if (err) {
@@ -8543,7 +8545,7 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
         lfs_alloc_ckpoint(lfs);
     }
 
-    if (pl) {
+    if (inconsistent) {
         LFS_DEBUG("littlefs is now consistent");
     }
     return 0;
