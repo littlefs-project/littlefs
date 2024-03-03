@@ -2808,13 +2808,14 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             other_rid_, other_tag_)) {
-                // first take care of any lingering red alts
+                // take care of any lingering red alts before diverging
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
                     branch_ = branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+                // begin diverging
                 } else {
                     tag_ |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDLOWER;
                     other_tag_ |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDUPPER;
@@ -2996,17 +2997,22 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 lfs_swap32(&jump, &branch_);
             }
 
-            // trim alt from our current bounds
             if (lfsr_tag_isblack(alt)) {
+                // trim alt from our current bounds
                 lfsr_tag_trim2(
                         alt, weight,
                         p_alts[0], p_weights[0],
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
+
+                // if diverged, stitch our paths together with alternating
+                // red alts
+                if (lfsr_tag_hasdiverged(tag_)
+                        && p_alts[0]
+                        && !lfsr_tag_isred(p_alts[1])) {
+                    p_alts[0] |= LFSR_TAG_R;
+                }
             }
-            // continue to next alt
-            graft = branch;
-            branch = branch_;
 
             // push alt onto our queue
             int err = lfsr_rbyd_p_push(lfs, rbyd,
@@ -3015,6 +3021,10 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (err) {
                 return err;
             }
+
+            // continue to next alt
+            graft = branch;
+            branch = branch_;
 
         // found end of tree?
         } else {
@@ -3032,9 +3042,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // switch to the other path if we have diverged
-        if (!lfsr_tag_isalt(alt)
-                || (lfsr_tag_hasdiverged(tag_)
-                    && lfsr_tag_isblack(p_alts[0]))) {
+        if (lfsr_tag_hasdiverged(tag_) && lfsr_tag_isblack(p_alts[0])) {
             lfs_swap16(&tag_, &other_tag_);
             lfs_sswap32(&rid_, &other_rid_);
             lfs_swap32(&branch, &other_branch);
