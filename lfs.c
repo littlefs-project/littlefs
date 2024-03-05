@@ -2827,6 +2827,41 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
             }
 
+            // if we diverged, paint alts black, this isn't perfect but
+            // otherwise we run into recoloring issues
+            if (lfsr_tag_hasdiverged(tag_)) {
+                alt &= ~LFSR_TAG_R;
+
+                // prune diverged?
+                if (lfsr_tag_isdivergedupper(tag_)
+                        ^ lfsr_tag_isgt(alt)
+                        ^ lfsr_tag_follow2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            rid_, tag_)) {
+                    if (lfsr_tag_follow2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            rid_, tag_)) {
+                        lfsr_tag_flip2(
+                                &alt, &weight,
+                                p_alts[0], p_weights[0],
+                                lower_rid, upper_rid);
+                        lfs_swap32(&jump, &branch_);
+                    }
+                    lfsr_tag_trim(
+                            alt, weight,
+                            &lower_rid, &upper_rid,
+                            &lower_tag, &upper_tag);
+
+                    graft = branch;
+                    branch = branch_;
+                    continue;
+                }
+            }
+
             // prune?
             //            <b                    >b
             //          .-'|                  .-'|
@@ -2838,62 +2873,20 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
             if (lfsr_tag_prune2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)
-                    // prune because of diverged paths?
-                    || (lfsr_tag_hasdiverged(tag_)
-                        && lfsr_tag_isdivergedupper(tag_)
-                            ^ lfsr_tag_isgt(alt)
-                            ^ lfsr_tag_follow2(
-                                alt, weight,
-                                p_alts[0], p_weights[0],
-                                lower_rid, upper_rid,
-                                rid_, tag_))) {
-                // note yellow prunes always follow and have no weight, it's
-                // only the diverged paths that need all these special cases
-                if (lfsr_tag_follow2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        rid_, tag_)) {
-                    lfsr_tag_flip2(
-                            &alt, &weight,
-                            p_alts[0], p_weights[0],
-                            lower_rid, upper_rid);
-                    lfsr_tag_trim(
-                            alt, weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-
-                    if (lfsr_tag_isred(p_alts[0])) {
-                        alt = p_alts[0] & ~LFSR_TAG_R;
-                        weight = p_weights[0];
-                        branch_ = jump;
-                        jump = p_jumps[0];
-                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-                    } else {
-                        graft = branch;
-                        branch = jump;
-                        continue;
-                    }
+                    alt, weight,
+                    p_alts[0], p_weights[0],
+                    lower_rid, upper_rid,
+                    lower_tag, upper_tag)) {
+                if (lfsr_tag_isred(p_alts[0])) {
+                    alt = p_alts[0] & ~LFSR_TAG_R;
+                    weight = p_weights[0];
+                    branch_ = jump;
+                    jump = p_jumps[0];
+                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    lfsr_tag_trim(
-                            alt, weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-
-                    if (lfsr_tag_isred(p_alts[0])) {
-                        alt = p_alts[0] & ~LFSR_TAG_R;
-                        weight = p_weights[0];
-                        jump = p_jumps[0];
-                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-                    } else {
-                        graft = branch;
-                        branch = branch_;
-                        continue;
-                    }
+                    graft = branch;
+                    branch = jump;
+                    continue;
                 }
             }
 
@@ -2998,18 +2991,20 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             if (lfsr_tag_isblack(alt)) {
-                // trim alt from our current bounds
+                // trim alts from our current bounds
                 lfsr_tag_trim2(
                         alt, weight,
                         p_alts[0], p_weights[0],
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
 
-                // if diverged, stitch our paths together with alternating
-                // red alts
+                // if we diverged, stitch our paths together with alternating
+                // red alts, this gives us an optimal ternary tree if we
+                // started with a binary tree, but the above recoloring makes
+                // this not optimal
                 if (lfsr_tag_hasdiverged(tag_)
                         && p_alts[0]
-                        && !lfsr_tag_isred(p_alts[1])) {
+                        && lfsr_tag_isblack(p_alts[1])) {
                     p_alts[0] |= LFSR_TAG_R;
                 }
             }
@@ -3042,7 +3037,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // switch to the other path if we have diverged
-        if (lfsr_tag_hasdiverged(tag_) && lfsr_tag_isblack(p_alts[0])) {
+        if (lfsr_tag_hasdiverged(tag_)) {
             lfs_swap16(&tag_, &other_tag_);
             lfs_sswap32(&rid_, &other_rid_);
             lfs_swap32(&branch, &other_branch);
