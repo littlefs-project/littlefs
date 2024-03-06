@@ -2858,7 +2858,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     graft = branch;
                     branch = branch_;
-                    continue;
+                    goto next;
                 }
             }
 
@@ -3036,6 +3036,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
         }
 
+    next:;
         // switch to the other path if we have diverged
         if (lfsr_tag_hasdiverged(tag_)) {
             lfs_swap16(&tag_, &other_tag_);
