@@ -2997,16 +2997,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         p_alts[0], p_weights[0],
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
-
-                // if we diverged, stitch our paths together with alternating
-                // red alts, this gives us an optimal ternary tree if we
-                // started with a binary tree, but the above recoloring makes
-                // this not optimal
-                if (lfsr_tag_hasdiverged(tag_)
-                        && p_alts[0]
-                        && lfsr_tag_isblack(p_alts[1])) {
-                    p_alts[0] |= LFSR_TAG_R;
-                }
             }
 
             // push alt onto our queue
@@ -3015,6 +3005,14 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     alt, weight, jump);
             if (err) {
                 return err;
+            }
+
+            // if we diverged, stitch our paths together with alternating
+            // red alts, this gives us an optimal ternary tree if we
+            // started with a binary tree, but the above recoloring makes
+            // this not optimal
+            if (lfsr_tag_hasdiverged(tag_) && lfsr_tag_isblack(p_alts[2])) {
+                lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
             }
 
             // continue to next alt
