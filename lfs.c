@@ -786,6 +786,7 @@ enum lfsr_tag {
     LFSR_TAG_DIVERGED       = 0x4000,
     LFSR_TAG_DIVERGEDUPPER  = 0x2000,
     LFSR_TAG_DIVERGEDLOWER  = 0x0000,
+    LFSR_TAG_DIVERGEDDONE   = 0x1000,
 };
 
 // some other tag encodings with their own subfields
@@ -873,6 +874,10 @@ static inline bool lfsr_tag_isdivergedupper(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_isdivergedlower(lfsr_tag_t tag) {
     return !(tag & LFSR_TAG_DIVERGEDUPPER);
+}
+
+static inline bool lfsr_tag_isdivergeddone(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_DIVERGEDDONE;
 }
 
 // alt operations
@@ -2732,9 +2737,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             other_tag_ = tag_;
         }
     }
-    // mark as rmed until found
-    tag_ |= LFSR_TAG_RM;
-    other_tag_ |= LFSR_TAG_RM;
 
     // keep track of bounds as we descend down the tree
     //
@@ -3021,15 +3023,15 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // found end of tree?
         } else {
-            // update the found tag/rid
-            //
-            // note we:
-            // - clear valid bit, marking the tag as found
-            // - preserve diverged state
-            tag_ = lfsr_tag_mode(tag_ & ~LFSR_TAG_RM) | alt;
+            // update the found tag/rid, marking as done while preserving
+            // any diverged state
+            tag_ = LFSR_TAG_DIVERGEDDONE
+                    | lfsr_tag_mode(tag_)
+                    | alt;
 
             // done?
-            if (!lfsr_tag_hasdiverged(tag_) || !lfsr_tag_isrm(other_tag_)) {
+            if (!lfsr_tag_hasdiverged(tag_)
+                    || lfsr_tag_isdivergeddone(other_tag_)) {
                 break;
             }
         }
@@ -3051,8 +3053,9 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_tag_isblack(p_alts[0]));
 
     // if we diverged, merge the bounds
-    LFS_ASSERT(!lfsr_tag_isrm(tag_));
-    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_) || !lfsr_tag_isrm(other_tag_));
+    LFS_ASSERT(lfsr_tag_isdivergeddone(tag_));
+    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_)
+            || lfsr_tag_isdivergeddone(other_tag_));
     if (lfsr_tag_hasdiverged(tag_)) {
         if (lfsr_tag_isdivergedlower(tag_)) {
             // finished on lower path
