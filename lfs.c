@@ -2689,10 +2689,10 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // several lower bits are reserved, so we repurpose these
     // to keep track of some append state
-    lfsr_srid_t rid_;
-    lfsr_srid_t other_rid_;
-    lfsr_tag_t tag_;
-    lfsr_tag_t other_tag_;
+    lfsr_srid_t a_rid;
+    lfsr_srid_t b_rid;
+    lfsr_tag_t a_tag;
+    lfsr_tag_t b_tag;
     if (!lfsr_tag_isgrow(tag) && delta != 0) {
         if (delta > 0) {
             LFS_ASSERT(rid <= (lfsr_srid_t)rbyd->weight);
@@ -2700,41 +2700,41 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
             rid -= 1;
-            rid_ = rid + 1;
-            other_rid_ = rid + 1;
+            a_rid = rid + 1;
+            b_rid = rid + 1;
         } else {
             LFS_ASSERT(rid < (lfsr_srid_t)rbyd->weight);
 
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
             rid += 1;
-            rid_ = rid - lfs_smax32(-delta, 0);
-            other_rid_ = rid;
+            a_rid = rid - lfs_smax32(-delta, 0);
+            b_rid = rid;
         }
 
-        tag_ = 0;
-        other_tag_ = tag_;
+        a_tag = 0;
+        b_tag = a_tag;
 
     } else {
         LFS_ASSERT(rid < (lfsr_srid_t)rbyd->weight);
 
-        rid_ = rid - lfs_smax32(-delta, 0);
-        other_rid_ = rid;
+        a_rid = rid - lfs_smax32(-delta, 0);
+        b_rid = rid;
 
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
         if (lfsr_tag_issup(tag)) {
-            tag_ = 0;
-            other_tag_ = tag_ + 0x800;
+            a_tag = 0;
+            b_tag = a_tag + 0x800;
         } else if (lfsr_tag_issub(tag)) {
-            tag_ = lfsr_tag_supkey(tag);
-            other_tag_ = tag_ + 0x100;
+            a_tag = lfsr_tag_supkey(tag);
+            b_tag = a_tag + 0x100;
         } else if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
-            tag_ = lfsr_tag_key(tag);
-            other_tag_ = tag_ + 0x1;
+            a_tag = lfsr_tag_key(tag);
+            b_tag = a_tag + 0x1;
         } else {
-            tag_ = lfsr_tag_key(tag);
-            other_tag_ = tag_;
+            a_tag = lfsr_tag_key(tag);
+            b_tag = a_tag;
         }
     }
 
@@ -2743,11 +2743,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // this gets a bit confusing as we also may need to keep
     // track of both the lower and upper bounds of diverging paths
     // in the case of range deletions
-    lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
-    lfsr_srid_t lower_rid = 0;
-    lfsr_srid_t upper_rid = rbyd->weight;
-    lfsr_tag_t lower_tag = 0;
-    lfsr_tag_t upper_tag = 0xffff;
+    lfs_size_t a_branch = lfsr_rbyd_trunk(rbyd);
+    lfsr_srid_t a_lower_rid = 0;
+    lfsr_srid_t a_upper_rid = rbyd->weight;
+    lfsr_tag_t a_lower_tag = 0;
+    lfsr_tag_t a_upper_tag = 0xffff;
 
     // diverged state in case we are removing a range from the tree
     //
@@ -2756,11 +2756,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // note we can't just perform two searches sequentially, or else our tree
     // will end up very unbalanced.
-    lfs_size_t other_branch = 0;
-    lfsr_srid_t other_lower_rid = 0;
-    lfsr_srid_t other_upper_rid = 0;
-    lfsr_tag_t other_lower_tag = 0;
-    lfsr_tag_t other_upper_tag = 0;
+    lfs_size_t b_branch = 0;
+    lfsr_srid_t b_lower_rid = 0;
+    lfsr_srid_t b_upper_rid = 0;
+    lfsr_tag_t b_lower_tag = 0;
+    lfsr_tag_t b_upper_tag = 0;
 
     // go ahead and update the rbyd's weight, if an error occurs our
     // rbyd is no longer usable anyways
@@ -2771,7 +2771,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | rbyd->eoff;
 
     // no trunk yet?
-    if (!branch) {
+    if (!a_branch) {
         goto leaf;
     }
 
@@ -2788,7 +2788,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_rid_t weight;
         lfs_size_t jump;
         lfs_ssize_t d = lfsr_bd_readtag(lfs,
-                rbyd->blocks[0], branch, 0,
+                rbyd->blocks[0], a_branch, 0,
                 &alt, &weight, &jump, NULL);
         if (d < 0) {
             return d;
@@ -2797,69 +2797,69 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
             // make jump absolute
-            jump = branch - jump;
-            lfs_size_t branch_ = branch + d;
+            jump = a_branch - jump;
+            lfs_size_t branch_ = a_branch + d;
 
             // do bounds want to take different paths? begin diverging
-            if (!lfsr_tag_hasdiverged(tag_)
+            if (!lfsr_tag_hasdiverged(a_tag)
                     && lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid,
-                            rid_, tag_)
+                            a_lower_rid, a_upper_rid,
+                            a_rid, a_tag)
                         ^ lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid,
-                            other_rid_, other_tag_)) {
+                            a_lower_rid, a_upper_rid,
+                            b_rid, b_tag)) {
                 // take care of any lingering red alts before diverging
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
-                    branch_ = branch;
+                    branch_ = a_branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 // begin diverging
                 } else {
-                    tag_ |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDLOWER;
-                    other_tag_ |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDUPPER;
-                    other_branch = branch;
-                    other_lower_rid = lower_rid;
-                    other_upper_rid = upper_rid;
-                    other_lower_tag = lower_tag;
-                    other_upper_tag = upper_tag;
+                    a_tag |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDLOWER;
+                    b_tag |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDUPPER;
+                    b_branch = a_branch;
+                    b_lower_rid = a_lower_rid;
+                    b_upper_rid = a_upper_rid;
+                    b_lower_tag = a_lower_tag;
+                    b_upper_tag = a_upper_tag;
                 }
             }
 
             // if we diverged, paint alts black, this isn't perfect but
             // otherwise we run into recoloring issues
-            if (lfsr_tag_hasdiverged(tag_)) {
+            if (lfsr_tag_hasdiverged(a_tag)) {
                 alt &= ~LFSR_TAG_R;
 
                 // prune diverged?
-                if (lfsr_tag_isdivergedupper(tag_)
+                if (lfsr_tag_isdivergedupper(a_tag)
                         ^ lfsr_tag_isgt(alt)
                         ^ lfsr_tag_follow2(
                             alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid,
-                            rid_, tag_)) {
+                            a_lower_rid, a_upper_rid,
+                            a_rid, a_tag)) {
                     if (lfsr_tag_follow2(
                             alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid,
-                            rid_, tag_)) {
+                            a_lower_rid, a_upper_rid,
+                            a_rid, a_tag)) {
                         lfsr_tag_flip2(
                                 &alt, &weight,
                                 p_alts[0], p_weights[0],
-                                lower_rid, upper_rid);
+                                a_lower_rid, a_upper_rid);
                         lfs_swap32(&jump, &branch_);
                     }
                     lfsr_tag_trim(
                             alt, weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
+                            &a_lower_rid, &a_upper_rid,
+                            &a_lower_tag, &a_upper_tag);
 
-                    graft = branch;
-                    branch = branch_;
+                    graft = a_branch;
+                    a_branch = branch_;
                     goto next;
                 }
             }
@@ -2877,8 +2877,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (lfsr_tag_prune2(
                     alt, weight,
                     p_alts[0], p_weights[0],
-                    lower_rid, upper_rid,
-                    lower_tag, upper_tag)) {
+                    a_lower_rid, a_upper_rid,
+                    a_lower_tag, a_upper_tag)) {
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
@@ -2886,8 +2886,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    graft = branch;
-                    branch = jump;
+                    graft = a_branch;
+                    a_branch = jump;
                     continue;
                 }
             }
@@ -2908,11 +2908,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        rid_, tag_)) {
+                        a_lower_rid, a_upper_rid,
+                        a_rid, a_tag)) {
                     lfsr_tag_flip2(&alt, &weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid);
+                            a_lower_rid, a_upper_rid);
                     lfs_swap32(&jump, &branch_);
 
                     lfs_swap16(&p_alts[0], &alt);
@@ -2922,8 +2922,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     lfsr_tag_trim(
                             p_alts[0], p_weights[0],
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
+                            &a_lower_rid, &a_upper_rid,
+                            &a_lower_tag, &a_upper_tag);
                     lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
 
                 // otherwise we need to point to the yellow alt and
@@ -2945,11 +2945,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     lfsr_tag_trim(
                             p_alts[0], p_weights[0],
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
+                            &a_lower_rid, &a_upper_rid,
+                            &a_lower_tag, &a_upper_tag);
                     lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
 
-                    branch = branch_;
+                    a_branch = branch_;
                     continue;
                 }
             }
@@ -2962,11 +2962,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     && lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        rid_, tag_)) {
+                        a_lower_rid, a_upper_rid,
+                        a_rid, a_tag)) {
                 lfsr_tag_flip2(&alt, &weight,
                         p_alts[0], p_weights[0],
-                        lower_rid, upper_rid);
+                        a_lower_rid, a_upper_rid);
                 lfs_swap32(&jump, &branch_);
             }
 
@@ -2978,8 +2978,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // 1  2  3      1  2  3  1
             if (lfsr_tag_isred(p_alts[0])
                     && lfsr_tag_follow(p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        rid_, tag_)) {
+                        a_lower_rid, a_upper_rid,
+                        a_rid, a_tag)) {
                 lfs_swap16(&p_alts[0], &alt);
                 lfs_swap32(&p_weights[0], &weight);
                 lfs_swap32(&p_jumps[0], &jump);
@@ -2988,7 +2988,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                 lfsr_tag_flip2(&alt, &weight,
                         p_alts[0], p_weights[0],
-                        lower_rid, upper_rid);
+                        a_lower_rid, a_upper_rid);
                 lfs_swap32(&jump, &branch_);
             }
 
@@ -2997,8 +2997,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 lfsr_tag_trim2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        &lower_rid, &upper_rid,
-                        &lower_tag, &upper_tag);
+                        &a_lower_rid, &a_upper_rid,
+                        &a_lower_tag, &a_upper_tag);
             }
 
             // push alt onto our queue
@@ -3013,39 +3013,39 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // red alts, this gives us an optimal ternary tree if we
             // started with a binary tree, but the above recoloring makes
             // this not optimal
-            if (lfsr_tag_hasdiverged(tag_) && lfsr_tag_isblack(p_alts[2])) {
+            if (lfsr_tag_hasdiverged(a_tag) && lfsr_tag_isblack(p_alts[2])) {
                 lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
             }
 
             // continue to next alt
-            graft = branch;
-            branch = branch_;
+            graft = a_branch;
+            a_branch = branch_;
 
         // found end of tree?
         } else {
             // update the found tag/rid, marking as done while preserving
             // any diverged state
-            tag_ = LFSR_TAG_DIVERGEDDONE
-                    | lfsr_tag_mode(tag_)
+            a_tag = LFSR_TAG_DIVERGEDDONE
+                    | lfsr_tag_mode(a_tag)
                     | alt;
 
             // done?
-            if (!lfsr_tag_hasdiverged(tag_)
-                    || lfsr_tag_isdivergeddone(other_tag_)) {
+            if (!lfsr_tag_hasdiverged(a_tag)
+                    || lfsr_tag_isdivergeddone(b_tag)) {
                 break;
             }
         }
 
     next:;
         // switch to the other path if we have diverged
-        if (lfsr_tag_hasdiverged(tag_)) {
-            lfs_swap16(&tag_, &other_tag_);
-            lfs_sswap32(&rid_, &other_rid_);
-            lfs_swap32(&branch, &other_branch);
-            lfs_sswap32(&lower_rid, &other_lower_rid);
-            lfs_sswap32(&upper_rid, &other_upper_rid);
-            lfs_swap16(&lower_tag, &other_lower_tag);
-            lfs_swap16(&upper_tag, &other_upper_tag);
+        if (lfsr_tag_hasdiverged(a_tag)) {
+            lfs_swap16(&a_tag, &b_tag);
+            lfs_sswap32(&a_rid, &b_rid);
+            lfs_swap32(&a_branch, &b_branch);
+            lfs_sswap32(&a_lower_rid, &b_lower_rid);
+            lfs_sswap32(&a_upper_rid, &b_upper_rid);
+            lfs_swap16(&a_lower_tag, &b_lower_tag);
+            lfs_swap16(&a_upper_tag, &b_upper_tag);
         }
     }
 
@@ -3053,18 +3053,18 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_tag_isblack(p_alts[0]));
 
     // if we diverged, merge the bounds
-    LFS_ASSERT(lfsr_tag_isdivergeddone(tag_));
-    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_)
-            || lfsr_tag_isdivergeddone(other_tag_));
-    if (lfsr_tag_hasdiverged(tag_)) {
-        if (lfsr_tag_isdivergedlower(tag_)) {
+    LFS_ASSERT(lfsr_tag_isdivergeddone(a_tag));
+    LFS_ASSERT(!lfsr_tag_hasdiverged(a_tag)
+            || lfsr_tag_isdivergeddone(b_tag));
+    if (lfsr_tag_hasdiverged(a_tag)) {
+        if (lfsr_tag_isdivergedlower(a_tag)) {
             // finished on lower path
-            tag_ = other_tag_;
-            branch = other_branch;
-            upper_rid = other_upper_rid;
+            a_tag = b_tag;
+            a_branch = b_branch;
+            a_upper_rid = b_upper_rid;
         } else {
             // finished on upper path
-            lower_rid = other_lower_rid;
+            a_lower_rid = b_lower_rid;
         }
     }
 
@@ -3073,7 +3073,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note we bias the weights here so that lfsr_rbyd_lookupnext
     // always finds the next biggest tag
     //
-    // note also if lfsr_tag_key(tag_) is null, we found a removed tag that
+    // note also if lfsr_tag_key(a_tag) is null, we found a removed tag that
     // we should just prune
     //
     // this gets real messy because we have a lot of special behavior built in:
@@ -3083,65 +3083,65 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // - rm-bit set       => never split, but emit alt-always tags, making our
     //                       tag effectively unreachable
     //
-    lfsr_tag_t alt = 0;
-    lfsr_rid_t weight = 0;
-    if (lfsr_tag_key(tag_)
-            && (upper_rid-1 < rid-lfs_smax32(-delta, 0)
-                || (upper_rid-1 == rid-lfs_smax32(-delta, 0)
+    lfsr_tag_t a_alt = 0;
+    lfsr_rid_t a_weight = 0;
+    if (lfsr_tag_key(a_tag)
+            && (a_upper_rid-1 < rid-lfs_smax32(-delta, 0)
+                || (a_upper_rid-1 == rid-lfs_smax32(-delta, 0)
                     && ((!lfsr_tag_isgrow(tag) && delta > 0)
                         || (!lfsr_tag_issup(tag)
-                            && lfsr_tag_supkey(tag_) < lfsr_tag_supkey(tag))
+                            && lfsr_tag_supkey(a_tag) < lfsr_tag_supkey(tag))
                         || (!lfsr_tag_issup(tag)
                             && !lfsr_tag_issub(tag)
-                            && lfsr_tag_key(tag_) < lfsr_tag_key(tag)))))) {
+                            && lfsr_tag_key(a_tag) < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, 0);
-            weight = upper_rid - lower_rid + delta;
-            upper_rid -= weight;
+            a_alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, 0);
+            a_weight = a_upper_rid - a_lower_rid + delta;
+            a_upper_rid -= a_weight;
         } else {
             // split less than
-            alt = LFSR_TAG_ALT(
+            a_alt = LFSR_TAG_ALT(
                     LFSR_TAG_LE,
-                    (!lfsr_tag_hasdiverged(tag_))
+                    (!lfsr_tag_hasdiverged(a_tag))
                         ? LFSR_TAG_R
                         : LFSR_TAG_B,
-                    tag_);
-            weight = upper_rid - lower_rid;
-            lower_rid += weight;
+                    a_tag);
+            a_weight = a_upper_rid - a_lower_rid;
+            a_lower_rid += a_weight;
         }
 
-    } else if (lfsr_tag_key(tag_)
-            && (upper_rid-1 > rid
-                || (upper_rid-1 == rid
+    } else if (lfsr_tag_key(a_tag)
+            && (a_upper_rid-1 > rid
+                || (a_upper_rid-1 == rid
                     && ((!lfsr_tag_isgrow(tag) && delta > 0)
                         || (!lfsr_tag_issup(tag)
-                            && lfsr_tag_supkey(tag_) > lfsr_tag_supkey(tag))
+                            && lfsr_tag_supkey(a_tag) > lfsr_tag_supkey(tag))
                         || (!lfsr_tag_issup(tag)
                             && !lfsr_tag_issub(tag)
-                            && lfsr_tag_key(tag_) > lfsr_tag_key(tag)))))) {
+                            && lfsr_tag_key(a_tag) > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, 0);
-            weight = upper_rid - lower_rid + delta;
-            upper_rid -= weight;
+            a_alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, 0);
+            a_weight = a_upper_rid - a_lower_rid + delta;
+            a_upper_rid -= a_weight;
         } else {
             // split greater than
-            alt = LFSR_TAG_ALT(
+            a_alt = LFSR_TAG_ALT(
                     LFSR_TAG_GT,
-                    (!lfsr_tag_hasdiverged(tag_))
+                    (!lfsr_tag_hasdiverged(a_tag))
                         ? LFSR_TAG_R
                         : LFSR_TAG_B,
                     tag);
-            weight = upper_rid - (rid+1);
-            upper_rid -= weight;
+            a_weight = a_upper_rid - (rid+1);
+            a_upper_rid -= a_weight;
         }
     }
 
-    if (alt) {
+    if (a_alt) {
         int err = lfsr_rbyd_p_push(lfs, rbyd,
                 p_alts, p_weights, p_jumps,
-                alt, weight, branch);
+                a_alt, a_weight, a_branch);
         if (err) {
             return err;
         }
@@ -3171,7 +3171,7 @@ leaf:;
                 | ((lfsr_tag_isrm(tag))
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(tag)),
-            upper_rid - lower_rid + delta,
+            a_upper_rid - a_lower_rid + delta,
             lfsr_data_size(data),
             &rbyd->cksum);
     if (d < 0) {
@@ -3409,22 +3409,22 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // this naturally gives us a split rid
     //
     // TODO adopt this a/b naming scheme in lfsr_rbyd_appendattr?
-    lfsr_srid_t rid = start_rid;
-    lfsr_srid_t other_rid = lfs_min32(rbyd->weight, end_rid);
-    lfs_size_t dsize = 0;
-    lfs_size_t other_dsize = 0;
+    lfsr_srid_t a_rid = start_rid;
+    lfsr_srid_t b_rid = lfs_min32(rbyd->weight, end_rid);
+    lfs_size_t a_dsize = 0;
+    lfs_size_t b_dsize = 0;
     lfs_size_t rbyd_dsize = 0;
 
-    while (rid != other_rid) {
-        if (dsize > other_dsize
+    while (a_rid != b_rid) {
+        if (a_dsize > b_dsize
                 // bias so lower dsize >= upper dsize
-                || (dsize == other_dsize && rid > other_rid)) {
-            lfs_sswap32(&rid, &other_rid);
-            lfs_swap32(&dsize, &other_dsize);
+                || (a_dsize == b_dsize && a_rid > b_rid)) {
+            lfs_sswap32(&a_rid, &b_rid);
+            lfs_swap32(&a_dsize, &b_dsize);
         }
 
-        if (rid > other_rid) {
-            rid -= 1;
+        if (a_rid > b_rid) {
+            a_rid -= 1;
         }
 
         lfsr_tag_t tag = 0;
@@ -3435,7 +3435,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             lfsr_rid_t weight_;
             lfsr_data_t data;
             int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                    rid, tag+1,
+                    a_rid, tag+1,
                     &rid_, &tag, &weight_, &data);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
@@ -3444,36 +3444,36 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 LFS_ASSERT(err < 0);
                 return err;
             }
-            if (rid_ > rid+lfs_smax32(weight_-1, 0)) {
+            if (rid_ > a_rid+lfs_smax32(weight_-1, 0)) {
                 break;
             }
 
             // keep track of rid and weight
-            rid = rid_;
+            a_rid = rid_;
             weight += weight_;
 
             // include the cost of this tag
             dsize_ += lfs->attr_estimate + lfsr_data_size(data);
         }
 
-        if (rid == -1) {
+        if (a_rid == -1) {
             rbyd_dsize += dsize_;
         } else {
-            dsize += dsize_;
+            a_dsize += dsize_;
         }
 
-        if (rid < other_rid) {
-            rid += 1;
+        if (a_rid < b_rid) {
+            a_rid += 1;
         } else {
-            rid -= lfs_smax32(weight-1, 0);
+            a_rid -= lfs_smax32(weight-1, 0);
         }
     }
 
     if (split_rid_) {
-        *split_rid_ = rid;
+        *split_rid_ = a_rid;
     }
 
-    return rbyd_dsize + dsize + other_dsize;
+    return rbyd_dsize + a_dsize + b_dsize;
 }
 
 // appends a raw tag as a part of compaction, note these must
@@ -5986,22 +5986,22 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
     // calculate dsize by starting from the outside ids and working inwards,
     // this naturally gives us a split rid
-    lfsr_srid_t rid = start_rid;
-    lfsr_srid_t other_rid = lfs_min32(mdir->rbyd.weight, end_rid);
-    lfs_size_t dsize = 0;
-    lfs_size_t other_dsize = 0;
+    lfsr_srid_t a_rid = start_rid;
+    lfsr_srid_t b_rid = lfs_min32(mdir->rbyd.weight, end_rid);
+    lfs_size_t a_dsize = 0;
+    lfs_size_t b_dsize = 0;
     lfs_size_t mdir_dsize = 0;
 
-    while (rid != other_rid) {
-        if (dsize > other_dsize
+    while (a_rid != b_rid) {
+        if (a_dsize > b_dsize
                 // bias so lower dsize >= upper dsize
-                || (dsize == other_dsize && rid > other_rid)) {
-            lfs_sswap32(&rid, &other_rid);
-            lfs_swap32(&dsize, &other_dsize);
+                || (a_dsize == b_dsize && a_rid > b_rid)) {
+            lfs_sswap32(&a_rid, &b_rid);
+            lfs_swap32(&a_dsize, &b_dsize);
         }
 
-        if (rid > other_rid) {
-            rid -= 1;
+        if (a_rid > b_rid) {
+            a_rid -= 1;
         }
 
         lfsr_tag_t tag = 0;
@@ -6010,7 +6010,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             lfsr_srid_t rid_;
             lfsr_data_t data;
             int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
-                    rid, tag+1,
+                    a_rid, tag+1,
                     &rid_, &tag, NULL, &data);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
@@ -6019,7 +6019,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 LFS_ASSERT(err < 0);
                 return err;
             }
-            if (rid_ != rid) {
+            if (rid_ != a_rid) {
                 break;
             }
 
@@ -6070,7 +6070,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             // belongs to our mdir + rid?
             if (file->m.type != LFS_TYPE_REG
                     || lfsr_mdir_cmp(&file->m.mdir, mdir) != 0
-                    || lfsr_mid_rid(lfs, file->m.mdir.mid) != rid) {
+                    || lfsr_mid_rid(lfs, file->m.mdir.mid) != a_rid) {
                 continue;
             }
 
@@ -6094,22 +6094,22 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             }
         }
 
-        if (rid == -1) {
+        if (a_rid == -1) {
             mdir_dsize += dsize_;
         } else {
-            dsize += dsize_;
+            a_dsize += dsize_;
         }
 
-        if (rid < other_rid) {
-            rid += 1;
+        if (a_rid < b_rid) {
+            a_rid += 1;
         }
     }
 
     if (split_rid_) {
-        *split_rid_ = rid;
+        *split_rid_ = a_rid;
     }
 
-    return mdir_dsize + dsize + other_dsize;
+    return mdir_dsize + a_dsize + b_dsize;
 }
 
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
