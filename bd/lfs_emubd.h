@@ -36,17 +36,18 @@ extern "C"
 // Not that read-noop is not allowed. Read _must_ return a consistent (but
 // may be arbitrary) value on every read.
 typedef enum lfs_emubd_badblock_behavior {
-    LFS_EMUBD_BADBLOCK_PROGERROR,
-    LFS_EMUBD_BADBLOCK_ERASEERROR,
-    LFS_EMUBD_BADBLOCK_READERROR,
-    LFS_EMUBD_BADBLOCK_PROGNOOP,
-    LFS_EMUBD_BADBLOCK_ERASENOOP,
+    LFS_EMUBD_BADBLOCK_PROGERROR  = 0, // Error on prog
+    LFS_EMUBD_BADBLOCK_ERASEERROR = 1, // Error on erase
+    LFS_EMUBD_BADBLOCK_READERROR  = 2, // Error on read
+    LFS_EMUBD_BADBLOCK_PROGNOOP   = 3, // Prog does nothing silently
+    LFS_EMUBD_BADBLOCK_ERASENOOP  = 4, // Erase does nothing silently
 } lfs_emubd_badblock_behavior_t;
 
 // Mode determining how power-loss behaves during testing. For now this
 // only supports a noop behavior, leaving the data on-disk untouched.
 typedef enum lfs_emubd_powerloss_behavior {
-    LFS_EMUBD_POWERLOSS_NOOP,
+    LFS_EMUBD_POWERLOSS_NOOP = 0, // Progs are atomic
+    LFS_EMUBD_POWERLOSS_OOO  = 1, // Blocks are written out-of-order
 } lfs_emubd_powerloss_behavior_t;
 
 // Type for measuring read/program/erase operations
@@ -152,6 +153,8 @@ typedef struct lfs_emubd {
     lfs_emubd_io_t proged;
     lfs_emubd_io_t erased;
     lfs_emubd_powercycles_t power_cycles;
+    lfs_ssize_t ooo_block;
+    lfs_emubd_block_t *ooo_data;
     lfs_emubd_disk_t *disk;
 
     const struct lfs_emubd_config *cfg;

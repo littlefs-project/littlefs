@@ -357,6 +357,10 @@ code = '''
 
 [cases.test_move_reentrant_file]
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);
@@ -839,6 +843,10 @@ code = '''
 
 [cases.test_reentrant_dir]
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);

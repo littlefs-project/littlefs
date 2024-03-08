@@ -231,6 +231,10 @@ defines.SMALLSIZE = [4, 512]
 defines.MEDIUMSIZE = [0, 3, 4, 5, 31, 32, 33, 511, 512, 513, 1023, 1024, 1025]
 defines.LARGESIZE = 2048
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs_t lfs;
     int err = lfs_mount(&lfs, cfg);

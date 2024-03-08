@@ -3404,6 +3404,15 @@ static int lfs_file_sync_(lfs_t *lfs, lfs_file_t *file) {
 
     if ((file->flags & LFS_F_DIRTY) &&
             !lfs_pair_isnull(file->m.pair)) {
+        // before we commit metadata, we need sync the disk to make sure
+        // data writes don't complete after metadata writes
+        if (!(file->flags & LFS_F_INLINE)) {
+            err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+            if (err) {
+                return err;
+            }
+        }
+
         // update dir entry
         uint16_t type;
         const void *buffer;
