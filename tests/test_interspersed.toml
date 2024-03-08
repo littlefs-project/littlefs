@@ -195,6 +195,10 @@ code = '''
 defines.SIZE = [10, 100]
 defines.FILES = [4, 10, 26] 
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS2_EMUBD_POWERLOSS_NOOP',
+    'LFS2_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs2_t lfs2;
     lfs2_file_t files[FILES];

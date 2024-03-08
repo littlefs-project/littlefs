@@ -32,6 +32,10 @@ code = '''
 # reentrant format
 [cases.test_superblocks_reentrant_format]
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS2_EMUBD_POWERLOSS_NOOP',
+    'LFS2_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs2_t lfs2;
     int err = lfs2_mount(&lfs2, cfg);
@@ -174,6 +178,10 @@ code = '''
 defines.BLOCK_CYCLES = [2, 1]
 defines.N = 24
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS2_EMUBD_POWERLOSS_NOOP',
+    'LFS2_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs2_t lfs2;
     int err = lfs2_mount(&lfs2, cfg);

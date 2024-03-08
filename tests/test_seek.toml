@@ -329,6 +329,10 @@ code = '''
 # must be power-of-2 for quadratic probing to be exhaustive
 defines.COUNT = [4, 64, 128]
 reentrant = true
+defines.POWERLOSS_BEHAVIOR = [
+    'LFS2_EMUBD_POWERLOSS_NOOP',
+    'LFS2_EMUBD_POWERLOSS_OOO',
+]
 code = '''
     lfs2_t lfs2;
     int err = lfs2_mount(&lfs2, cfg);

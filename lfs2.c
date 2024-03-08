@@ -710,11 +710,14 @@ static lfs2_stag_t lfs2_dir_getslice(lfs2_t *lfs2, const lfs2_mdir_t *dir,
     lfs2_tag_t ntag = dir->etag;
     lfs2_stag_t gdiff = 0;
 
+    // synthetic moves
     if (lfs2_gstate_hasmovehere(&lfs2->gdisk, dir->pair) &&
-            lfs2_tag_id(gmask) != 0 &&
-            lfs2_tag_id(lfs2->gdisk.tag) <= lfs2_tag_id(gtag)) {
-        // synthetic moves
-        gdiff -= LFS2_MKTAG(0, 1, 0);
+            lfs2_tag_id(gmask) != 0) {
+        if (lfs2_tag_id(lfs2->gdisk.tag) == lfs2_tag_id(gtag)) {
+            return LFS2_ERR_NOENT;
+        } else if (lfs2_tag_id(lfs2->gdisk.tag) < lfs2_tag_id(gtag)) {
+            gdiff -= LFS2_MKTAG(0, 1, 0);
+        }
     }
 
     // iterate over dir block backwards (for faster lookups)
@@ -3401,6 +3404,15 @@ static int lfs2_file_sync_(lfs2_t *lfs2, lfs2_file_t *file) {
 
     if ((file->flags & LFS2_F_DIRTY) &&
             !lfs2_pair_isnull(file->m.pair)) {
+        // before we commit metadata, we need sync the disk to make sure
+        // data writes don't complete after metadata writes
+        if (!(file->flags & LFS2_F_INLINE)) {
+            err = lfs2_bd_sync(lfs2, &lfs2->pcache, &lfs2->rcache, false);
+            if (err) {
+                return err;
+            }
+        }
+
         // update dir entry
         uint16_t type;
         const void *buffer;
