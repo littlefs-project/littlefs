@@ -258,6 +258,9 @@ License Identifiers that are here available: http://spdx.org/licenses/
   use with the MirageOS library operating system project. It is interoperable
   with the reference implementation, with some caveats.
 
+- [nim-littlefs] - A Nim wrapper and API for littlefs. Includes a fuse 
+  implementation based on [littlefs-fuse]
+
 [BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
 [littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
 [littlefs-fuse]: https://github.com/geky/littlefs-fuse
@@ -274,3 +277,4 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [littlefs-python]: https://pypi.org/project/littlefs-python/
 [littlefs2-rust]: https://crates.io/crates/littlefs2
 [chamelon]: https://github.com/yomimono/chamelon
+[nim-littlefs]: https://github.com/Graveflo/nim-littlefs
