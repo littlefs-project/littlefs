@@ -505,6 +505,7 @@ static bool lfs_mlist_isopen(struct lfs_mlist *head,
 #endif
 
 static void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, mlist));
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
         if (*p == mlist) {
             *p = (*p)->next;
@@ -514,6 +515,7 @@ static void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
 }
 
 static void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
+    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, mlist));
     mlist->next = lfs->mlist;
     lfs->mlist = mlist;
 }
@@ -3055,8 +3057,7 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
     // allocate entry for file if it doesn't exist
     lfs_stag_t tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
     if (tag < 0 && !(tag == LFS_ERR_NOENT && file->id != 0x3ff)) {
-        err = tag;
-        goto cleanup;
+        return tag;
     }
 
     // get id, add to list of mdirs to catch update changes
@@ -6053,7 +6054,6 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
     }
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, flags);
-    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_open_(lfs, file, path, flags);
 
@@ -6074,7 +6074,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
                  ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
-    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_opencfg_(lfs, file, path, flags, cfg);
 
@@ -6089,7 +6088,6 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_close_(lfs, file);
 
@@ -6105,7 +6103,6 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_sync_(lfs, file);
 
@@ -6123,7 +6120,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_ssize_t res = lfs_file_read_(lfs, file, buffer, size);
 
@@ -6141,7 +6137,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_ssize_t res = lfs_file_write_(lfs, file, buffer, size);
 
@@ -6159,7 +6154,6 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
             (void*)lfs, (void*)file, off, whence);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_soff_t res = lfs_file_seek_(lfs, file, off, whence);
 
@@ -6176,7 +6170,6 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_truncate_(lfs, file, size);
 
@@ -6192,7 +6185,6 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_soff_t res = lfs_file_tell_(lfs, file);
 
@@ -6221,7 +6213,6 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_soff_t res = lfs_file_size_(lfs, file);
 
@@ -6252,7 +6243,6 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         return err;
     }
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
-    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)dir));
 
     err = lfs_dir_open_(lfs, dir, path);
 
