@@ -2552,6 +2552,49 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     return 0;
 }
 
+// other low-level appends
+static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_tag_t tag, lfsr_rid_t weight, lfs_size_t size) {
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
+            tag, weight, size,
+            &rbyd->cksum);
+    if (d < 0) {
+        return d;
+    }
+
+    rbyd->eoff += d;
+    return 0;
+}
+
+static int lfsr_rbyd_appenddata(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_data_t data) {
+    int err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff,
+            data,
+            &rbyd->cksum);
+    if (err) {
+        return err;
+    }
+
+    rbyd->eoff += lfsr_data_size(data);
+    return 0;
+}
+
+static int lfsr_rbyd_appendattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_tag_t tag, lfsr_rid_t weight, lfsr_data_t data) {
+    int err = lfsr_rbyd_appendtag(lfs, rbyd,
+            tag, weight, lfsr_data_size(data));
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_rbyd_appenddata(lfs, rbyd, data);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
 // helper functions for managing the 3-element fifo used in
 // lfsr_rbyd_appendattr
 static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
@@ -2567,13 +2610,10 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             lfsr_rid_t weight = p_weights[3-1-i];
             lfs_size_t jump = rbyd->eoff - p_jumps[3-1-i];
 
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                    alt, weight, jump,
-                    &rbyd->cksum);
-            if (d < 0) {
-                return d;
+            int err = lfsr_rbyd_appendtag(lfs, rbyd, alt, weight, jump);
+            if (err) {
+                return err;
             }
-            rbyd->eoff += d;
         }
     }
 
@@ -3164,7 +3204,7 @@ leaf:;
     //
     // note we always need a non-alt to terminate the trunk, otherwise we
     // can't find trunks during fetch
-    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
+    err = lfsr_rbyd_appendattr_(lfs, rbyd,
             // mark as shrub if we are a shrub
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                 // rm => null, otherwise strip off control bits
@@ -3172,20 +3212,10 @@ leaf:;
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(tag)),
             a_upper_rid - a_lower_rid + delta,
-            lfsr_data_size(data),
-            &rbyd->cksum);
-    if (d < 0) {
-        return d;
-    }
-    rbyd->eoff += d;
-
-    // don't forget the data!
-    err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, data,
-            &rbyd->cksum);
+            data);
     if (err) {
         return err;
     }
-    rbyd->eoff += lfsr_data_size(data);
 
     return 0;
 }
@@ -3260,20 +3290,11 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
         lfsr_data_t ecksum_data = lfsr_data_fromecksum(&ecksum, ecksum_buf);
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-                LFSR_TAG_ECKSUM, 0, lfsr_data_size(ecksum_data),
-                &rbyd->cksum);
-        if (d < 0) {
-            return d;
-        }
-        rbyd->eoff += d;
-
-        err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, ecksum_data,
-                &rbyd->cksum);
+        err = lfsr_rbyd_appendattr_(lfs, rbyd,
+                LFSR_TAG_ECKSUM, 0, ecksum_data);
         if (err) {
             return err;
         }
-        rbyd->eoff += lfsr_data_size(ecksum_data);
 
     // at least space for a cksum?
     } else if (rbyd->eoff + 2+1+4+4 <= lfs->cfg->block_size) {
@@ -3500,23 +3521,13 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // write the tag
-    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
-            // mark as shrub if we are a shrub
+    int err = lfsr_rbyd_appendattr_(lfs, rbyd,
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | tag,
-            weight, lfsr_data_size(data),
-            &rbyd->cksum);
-    if (d < 0) {
-        return d;
-    }
-    rbyd->eoff += d;
-
-    // and the data
-    int err = lfsr_bd_progdata(lfs, rbyd->blocks[0], rbyd->eoff, data,
-            &rbyd->cksum);
+            weight,
+            data);
     if (err) {
         return err;
     }
-    rbyd->eoff += lfsr_data_size(data);
 
     return 0;
 }
@@ -3574,16 +3585,15 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // empty rbyd? write a null tag so our trunk can still point to something
     if (rbyd->eoff == off) {
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
+        int err = lfsr_rbyd_appendtag(lfs, rbyd,
                 // mark as shrub if we are a shrub
                 (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                     | LFSR_TAG_NULL,
-                0, 0,
-                &rbyd->cksum);
-        if (d < 0) {
-            return d;
+                0,
+                0);
+        if (err) {
+            return err;
         }
-        rbyd->eoff += d;
 
         rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | off;
         rbyd->weight = 0;
@@ -3652,29 +3662,25 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
                 // connect with an altle
-                lfs_ssize_t d = lfsr_bd_progtag(lfs,
-                        rbyd->blocks[0], rbyd->eoff,
+                int err = lfsr_rbyd_appendtag(lfs, rbyd,
                         LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, tag),
                         weight,
-                        rbyd->eoff - trunk,
-                        &rbyd->cksum);
-                if (d < 0) {
-                    return d;
+                        rbyd->eoff - trunk);
+                if (err) {
+                    return err;
                 }
-                rbyd->eoff += d;
             }
 
             // terminate with a null tag
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->blocks[0], rbyd->eoff,
+            int err = lfsr_rbyd_appendtag(lfs, rbyd,
                     // mark as shrub if we are a shrub
                     (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                         | LFSR_TAG_NULL,
-                    0, 0,
-                    &rbyd->cksum);
-            if (d < 0) {
-                return d;
+                    0,
+                    0);
+            if (err) {
+                return err;
             }
-            rbyd->eoff += d;
         }
 
         layer = layer_;
