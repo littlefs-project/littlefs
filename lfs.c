@@ -2595,6 +2595,27 @@ static int lfsr_rbyd_appendattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
+// checks before we append
+static int lfsr_rbyd_prepareappend(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+    // must fetch before mutating!
+    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
+
+    // we can't do anything if we're not erased
+    if (rbyd->eoff >= lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+
+    // make sure every rbyd starts with a revision count
+    if (rbyd->eoff == 0) {
+        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
 // helper functions for managing the 3-element fifo used in
 // lfsr_rbyd_appendattr
 static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
@@ -2706,23 +2727,16 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // bit 7 is reserved for future subtype extensions
     LFS_ASSERT(!(tag & 0x80));
 
-    // we can't do anything if we're not erased
-    if (rbyd->eoff >= lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
-
     // ignore noops
     if (!tag) {
         LFS_ASSERT(delta == 0);
         return 0;
     }
 
-    // make sure every rbyd starts with a revision count
-    if (rbyd->eoff == 0) {
-        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
-        if (err) {
-            return err;
-        }
+    // begin appending
+    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    if (err) {
+        return err;
     }
 
     // figure out the range of tags we're operating on
@@ -3042,7 +3056,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // push alt onto our queue
-            int err = lfsr_rbyd_p_push(lfs, rbyd,
+            err = lfsr_rbyd_p_push(lfs, rbyd,
                     p_alts, p_weights, p_jumps,
                     alt, weight, jump);
             if (err) {
@@ -3179,7 +3193,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     if (a_alt) {
-        int err = lfsr_rbyd_p_push(lfs, rbyd,
+        err = lfsr_rbyd_p_push(lfs, rbyd,
                 p_alts, p_weights, p_jumps,
                 a_alt, a_weight, a_branch);
         if (err) {
@@ -3193,7 +3207,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // flush any pending alts
-    int err = lfsr_rbyd_p_flush(lfs, rbyd,
+    err = lfsr_rbyd_p_flush(lfs, rbyd,
             p_alts, p_weights, p_jumps, 3);
     if (err) {
         return err;
@@ -3221,20 +3235,10 @@ leaf:;
 }
 
 static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    // must fetch before mutating!
-    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
-
-    // we can't do anything if we're not erased
-    if (rbyd->eoff >= lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
-
-    // make sure every rbyd starts with its revision count
-    if (rbyd->eoff == 0) {
-        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
-        if (err) {
-            return err;
-        }
+    // begin appending
+    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    if (err) {
+        return err;
     }
 
     // align to the next prog unit
@@ -3270,7 +3274,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     if (aligned_eoff < lfs->cfg->block_size) {
         // read the leading byte in case we need to change the expected
         // value of the next tag's valid bit
-        int err = lfsr_bd_read(lfs,
+        err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], aligned_eoff, lfs->cfg->prog_size,
                 &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
@@ -3333,7 +3337,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     }
     lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+4]);
 
-    int err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
+    err = lfsr_bd_prog(lfs, rbyd->blocks[0], rbyd->eoff,
             cksum_buf, 2+1+4+4,
             NULL);
     if (err) {
@@ -3503,25 +3507,14 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 // also note the direct use of weight instead of delta here
 static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfsr_rid_t weight, lfsr_data_t data) {
-    // TODO deduplicate this? rbyd_preparemutation or something?
-    // must fetch before mutating!
-    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
-
-    // we can't do anything if we're not erased
-    if (rbyd->eoff >= lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
-
-    // make sure every rbyd starts with a revision count
-    if (rbyd->eoff == 0) {
-        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
-        if (err) {
-            return err;
-        }
+    // begin appending
+    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    if (err) {
+        return err;
     }
 
     // write the tag
-    int err = lfsr_rbyd_appendattr_(lfs, rbyd,
+    err = lfsr_rbyd_appendattr_(lfs, rbyd,
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | tag,
             weight,
             data);
@@ -3569,23 +3562,18 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_size_t off) {
-    // must fetch before mutating!
-    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
+    // begin appending
+    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    if (err) {
+        return err;
+    }
 
     // clamp offset to be after the revision count
     off = lfs_max32(off, sizeof(uint32_t));
 
-    // make sure every rbyd starts with a revision count
-    if (rbyd->eoff == 0) {
-        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
-        if (err) {
-            return err;
-        }
-    }
-
     // empty rbyd? write a null tag so our trunk can still point to something
     if (rbyd->eoff == off) {
-        int err = lfsr_rbyd_appendtag(lfs, rbyd,
+        err = lfsr_rbyd_appendtag(lfs, rbyd,
                 // mark as shrub if we are a shrub
                 (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                     | LFSR_TAG_NULL,
@@ -3662,7 +3650,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
                 // connect with an altle
-                int err = lfsr_rbyd_appendtag(lfs, rbyd,
+                err = lfsr_rbyd_appendtag(lfs, rbyd,
                         LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, tag),
                         weight,
                         rbyd->eoff - trunk);
@@ -3672,7 +3660,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // terminate with a null tag
-            int err = lfsr_rbyd_appendtag(lfs, rbyd,
+            err = lfsr_rbyd_appendtag(lfs, rbyd,
                     // mark as shrub if we are a shrub
                     (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                         | LFSR_TAG_NULL,
