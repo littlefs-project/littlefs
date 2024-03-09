@@ -725,6 +725,105 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# littlefs should keep directories in lexicographic order
+[cases.test_dirs_ordering]
+# ORDER=0 => inorder
+# ORDER=1 => reversed
+# ORDER=2 => random
+defines.ORDER = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    if (ORDER == 0) {
+        lfs_mkdir(&lfs, "a") => 0;
+        lfs_mkdir(&lfs, "b") => 0;
+        lfs_mkdir(&lfs, "c") => 0;
+    } else if (ORDER == 1) {
+        lfs_mkdir(&lfs, "c") => 0;
+        lfs_mkdir(&lfs, "b") => 0;
+        lfs_mkdir(&lfs, "a") => 0;
+    } else if (ORDER == 2) {
+        // "random"
+        lfs_mkdir(&lfs, "a") => 0;
+        lfs_mkdir(&lfs, "c") => 0;
+        lfs_mkdir(&lfs, "b") => 0;
+    }
+
+    // check the order
+    lfs_dir_t dir;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "a") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "b") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "c") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_dirs_ordering_length]
+# ORDER=0 => inorder
+# ORDER=1 => reversed
+# ORDER=2 => random
+defines.ORDER = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    if (ORDER == 0) {
+        lfs_mkdir(&lfs, "a") => 0;
+        lfs_mkdir(&lfs, "aa") => 0;
+        lfs_mkdir(&lfs, "aaa") => 0;
+    } else if (ORDER == 1) {
+        lfs_mkdir(&lfs, "aaa") => 0;
+        lfs_mkdir(&lfs, "aa") => 0;
+        lfs_mkdir(&lfs, "a") => 0;
+    } else if (ORDER == 2) {
+        // "random"
+        lfs_mkdir(&lfs, "a") => 0;
+        lfs_mkdir(&lfs, "aaa") => 0;
+        lfs_mkdir(&lfs, "aa") => 0;
+    }
+
+    // check the order
+    lfs_dir_t dir;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "a") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "aa") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "aaa") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
 [cases.test_dirs_other_errors]
 code = '''
     lfs_t lfs;
