@@ -3277,7 +3277,7 @@ again:;
         }
 
         // TODO is this not a_lower_tag?
-        d_tag = lfsr_tag_key(p_alts[0]);
+        d_tag = p_alts[0];
 
         // flush any pending alts
         err = lfsr_rbyd_p_flush(lfs, rbyd,
@@ -3290,13 +3290,15 @@ again:;
         // why does hiding this behind if d_tag=0 not work?
         //
         // terminate diverged branch with an unreachable tag
-        err = lfsr_rbyd_appendattr_(lfs, rbyd,
-                (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
-                    | LFSR_TAG_NULL,
-                0,
-                LFSR_DATA_NULL());
-        if (err) {
-            return err;
+        if (d_tag) {
+            err = lfsr_rbyd_appendattr_(lfs, rbyd,
+                    (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
+                        | LFSR_TAG_NULL,
+                    0,
+                    LFSR_DATA_NULL());
+            if (err) {
+                return err;
+            }
         }
 
         // save the found lower rid/tag
