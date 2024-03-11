@@ -3268,6 +3268,7 @@ again:;
     if (diverging && !d_upper) {
         // no diverging branch? guess we only need one trunk then
         if (!diverged) {
+            printf("false diverge\n");
             diverging = false;
 //            // TODO too many swaps
 //            lfs_swap16(&a_tag, &b_tag);
@@ -3285,6 +3286,9 @@ again:;
             return err;
         }
 
+        // TODO can we avoid lingering unreachable tags when when d_tag=0?
+        // why does hiding this behind if d_tag=0 not work?
+        //
         // terminate diverged branch with an unreachable tag
         err = lfsr_rbyd_appendattr_(lfs, rbyd,
                 (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
@@ -3353,7 +3357,8 @@ again:;
             // split less than
             a_alt = LFSR_TAG_ALT(
                     LFSR_TAG_LE,
-                    (!lfsr_tag_hasdiverged(a_tag))
+                    //(!lfsr_tag_hasdiverged(a_tag)) TODO
+                    (!diverged)
                         ? LFSR_TAG_R
                         : LFSR_TAG_B,
                     a_tag);
@@ -3379,7 +3384,8 @@ again:;
             // split greater than
             a_alt = LFSR_TAG_ALT(
                     LFSR_TAG_GT,
-                    (!lfsr_tag_hasdiverged(a_tag))
+                    // (!lfsr_tag_hasdiverged(a_tag)) TODO
+                    (!diverged)
                         ? LFSR_TAG_R
                         : LFSR_TAG_B,
                     tag);
