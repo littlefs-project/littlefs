@@ -2780,17 +2780,18 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
         if (lfsr_tag_issup(tag)) {
-            a_tag = 0;
-            b_tag = a_tag + 0x800;
+            a_tag = 0x000;
+            b_tag = 0x800;
         } else if (lfsr_tag_issub(tag)) {
             a_tag = lfsr_tag_supkey(tag);
-            b_tag = a_tag + 0x100;
+            b_tag = lfsr_tag_supkey(tag) + 0x100;
         } else if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
+            //LFS_ASSERT(lfsr_tag_key(tag)); // when does this happen?
             a_tag = lfsr_tag_key(tag);
-            b_tag = a_tag + 0x1;
+            b_tag = lfsr_tag_key(tag) + 0x1;
         } else {
             a_tag = lfsr_tag_key(tag);
-            b_tag = a_tag;
+            b_tag = lfsr_tag_key(tag);
         }
     }
 //    a_tag = lfs_max16(a_tag, 0x1);
@@ -2798,10 +2799,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // keep track of the diverged branch if we're removing a range
     bool diverging = (a_rid != b_rid || a_tag != b_tag);
-    bool d_lower = false;
+    bool d_upper = false;
     lfs_size_t d_branch = 0;
     lfsr_tag_t d_tag;
     lfs_size_t d_branch_;
+    lfsr_srid_t d_lower_rid;
     lfsr_srid_t d_upper_rid;
 
 again:;
@@ -2887,21 +2889,21 @@ again:;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
 
                 // begin diverging
-                } else if (!d_lower) {
-                    printf("diverged upper: %#x\n", a_branch);
+                } else if (!d_upper) {
+                    printf("diverged lower: %#x\n", a_branch);
                     // TODO need this?
                     alt &= ~LFSR_TAG_R;
 
                     d_branch = rbyd->eoff; // TODO need this?
                     diverged = true;
 
-                    // TODO too many swaps?
-                    lfs_swap16(&a_tag, &b_tag);
-                    lfs_sswap32(&a_rid, &b_rid);
+//                    // TODO too many swaps?
+//                    lfs_swap16(&a_tag, &b_tag);
+//                    lfs_sswap32(&a_rid, &b_rid);
 
                 // connect diverged branch
                 } else {
-                    printf("diverged lower: %#x\n", a_branch);
+                    printf("diverged upper: %#x\n", a_branch);
                     // TODO need this?
                     alt &= ~LFSR_TAG_R;
 //                    if (lfsr_tag_follow2(alt, weight,
@@ -2926,26 +2928,26 @@ again:;
                         lfs_swap32(&jump, &branch_);
                     }
 
-                    printf("stitching: %#x %d-%d %#x\n",
-                            LFSR_TAG_ALT(
-                                LFSR_TAG_GT,
-                                LFSR_TAG_B,
-                                d_tag),
-                            //alt,
-                            //LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, b_tag),
-                            a_upper_rid, d_upper_rid,
-                            d_branch);
-
                     // TODO ??? special handling for null?
-//                    if (lfsr_tag_key(d_tag)) {
+                    if (lfsr_tag_key(d_tag)) {
+                        printf("stitching: %#x %d-%d %#x\n",
+                                LFSR_TAG_ALT(
+                                    LFSR_TAG_LE,
+                                    LFSR_TAG_B,
+                                    d_tag),
+                                //alt,
+                                //LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, b_tag),
+                                a_lower_rid, d_lower_rid,
+                                d_branch);
+
                         err = lfsr_rbyd_p_push(lfs, rbyd,
                                 p_alts, p_weights, p_jumps,
                                 LFSR_TAG_ALT(
-                                    LFSR_TAG_GT,
+                                    LFSR_TAG_LE,
                                     LFSR_TAG_B,
                                     d_tag),
                                 //lfs_smax32(weight + delta, 0),
-                                a_upper_rid - d_upper_rid,
+                                d_lower_rid - a_lower_rid,
     //                            LFSR_TAG_ALT(
     //                                LFSR_TAG_LE,
     //                                LFSR_TAG_B,
@@ -2958,7 +2960,7 @@ again:;
                         if (err) {
                             return err;
                         }
-//                    }
+                    }
 
                     diverged = true;
 
@@ -2993,9 +2995,9 @@ again:;
 
             // prune diverged?
             // TODO can we merge with yellow prune?
-            if ((diverging && !d_lower && !diverged)
+            if ((diverging && !d_upper && !diverged)
                     || (diverged
-                        && !d_lower
+                        && d_upper
                             ^ lfsr_tag_isgt(alt)
                             ^ lfsr_tag_follow2(
                                 alt, weight,
@@ -3263,15 +3265,18 @@ again:;
 //    }
 
     // need a second diverging trunk?
-    if (diverging && !d_lower) {
+    if (diverging && !d_upper) {
         // no diverging branch? guess we only need one trunk then
         if (!diverged) {
             diverging = false;
-            // TODO too many swaps
-            lfs_swap16(&a_tag, &b_tag);
-            lfs_sswap32(&a_rid, &b_rid);
+//            // TODO too many swaps
+//            lfs_swap16(&a_tag, &b_tag);
+//            lfs_sswap32(&a_rid, &b_rid);
             goto again;
         }
+
+        // TODO is this not a_lower_tag?
+        d_tag = lfsr_tag_key(p_alts[0]);
 
         // flush any pending alts
         err = lfsr_rbyd_p_flush(lfs, rbyd,
@@ -3291,13 +3296,14 @@ again:;
         }
 
         // save the found lower rid/tag
-        d_tag = tag__;
+//        d_tag = a_lower_tag; //tag__;
         d_branch_ = a_branch;
+        d_lower_rid = a_lower_rid;
         d_upper_rid = a_upper_rid;
 
         lfs_swap16(&a_tag, &b_tag);
         lfs_sswap32(&a_rid, &b_rid);
-        d_lower = true;
+        d_upper = true;
         printf("found dtag: %#x: %#x\n", d_branch_, d_tag);
         goto again;
     }
@@ -3305,9 +3311,10 @@ again:;
     // use the diverged lower rid for leaf weight calculation
     a_tag = tag__;
     if (diverged) {
-        a_tag = d_tag;
-        a_branch = d_branch_;
-        a_upper_rid = d_upper_rid;
+//        a_tag = d_tag;
+//        a_branch = d_branch_;
+//        a_upper_rid = d_upper_rid;
+        a_lower_rid = d_lower_rid;
     }
     printf("done: %#x %d %d\n", a_tag, a_lower_rid, a_upper_rid);
 
