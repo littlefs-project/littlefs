@@ -581,6 +581,7 @@ static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
 static lfs_ssize_t lfs_file_read_(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size);
 static int lfs_file_close_(lfs_t *lfs, lfs_file_t *file);
+static int lfs_file_uncommitted_close_(lfs_t *lfs, lfs_file_t *file);
 static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file);
 
 static lfs_ssize_t lfs_fs_size_(lfs_t *lfs);
@@ -3220,6 +3221,18 @@ static int lfs_file_close_(lfs_t *lfs, lfs_file_t *file) {
     }
 
     return err;
+}
+
+static int lfs_file_uncommitted_close_(lfs_t *lfs, lfs_file_t *file) {
+    // remove from list of mdirs
+    lfs_mlist_remove(lfs, (struct lfs_mlist*)file);
+
+    // clean up memory
+    if (!file->cfg->buffer) {
+        lfs_free(file->cache.buffer);
+    }
+
+    return 0;
 }
 
 
@@ -6094,6 +6107,21 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     err = lfs_file_close_(lfs, file);
 
     LFS_TRACE("lfs_file_close -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_uncommitted_close(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_uncommitted_close(%p, %p)", (void*)lfs, (void*)file);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_uncommitted_close_(lfs, file);
+
+    LFS_TRACE("lfs_file_uncommitted_close -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
