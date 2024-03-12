@@ -2884,10 +2884,7 @@ again:;
                     if (d_state == LFSR_D_DIVERGEDUPPER && d_tag) {
                         err = lfsr_rbyd_p_push(lfs, rbyd,
                                 p_alts, p_weights, p_jumps,
-                                LFSR_TAG_ALT(
-                                    LFSR_TAG_LE,
-                                    LFSR_TAG_B,
-                                    d_tag),
+                                LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
                                 d_rid - lower_rid,
                                 d_branch);
                         if (err) {
@@ -2897,13 +2894,23 @@ again:;
                 }
             }
 
-            // TODO rm me
-            if (lfsr_d_isdiverged(d_state)) {
-                alt &= ~LFSR_TAG_R;
-            }
-
-            // prune diverged?
-            if (d_state == LFSR_D_DIVERGINGLOWER
+            // prune?
+            //            <b                    >b
+            //          .-'|                  .-'|
+            //         <y  |                  |  |
+            // .-------'|  |                  |  |
+            // |       <r  |  =>              | <b
+            // |  .----'   |      .-----------|-'|
+            // |  |       <b      |          <b  |
+            // |  |  .----'|      |     .----'|  |
+            // 1  2  3  4  4      1  2  3  4  4  2
+            if (lfsr_tag_prune2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)
+                    // prune because of diverged paths?
+                    || d_state == LFSR_D_DIVERGINGLOWER
                     || (lfsr_d_isdiverged(d_state)
                         && (d_state == LFSR_D_DIVERGEDUPPER)
                             ^ lfsr_tag_isgt(alt)
@@ -2912,6 +2919,8 @@ again:;
                                 p_alts[0], p_weights[0],
                                 lower_rid, upper_rid,
                                 a_rid, a_tag))) {
+                // note, yellow prunes always follow and have no weight, it's
+                // only diverged pruning that needs all these special cases
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
@@ -2928,35 +2937,14 @@ again:;
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
 
-                y_branch = branch;
-                branch = branch_;
-                continue;
-            }
-
-            // prune?
-            //            <b                    >b
-            //          .-'|                  .-'|
-            //         <y  |                  |  |
-            // .-------'|  |                  |  |
-            // |       <r  |  =>              | <b
-            // |  .----'   |      .-----------|-'|
-            // |  |       <b      |          <b  |
-            // |  |  .----'|      |     .----'|  |
-            // 1  2  3  4  4      1  2  3  4  4  2
-            if (lfsr_tag_prune2(
-                    alt, weight,
-                    p_alts[0], p_weights[0],
-                    lower_rid, upper_rid,
-                    lower_tag, upper_tag)) {
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
-                    branch_ = jump;
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    y_branch = branch;
-                    branch = jump;
+                    y_branch= branch;
+                    branch = branch_;
                     continue;
                 }
             }
@@ -3172,7 +3160,6 @@ again:;
             // split less than
             alt = LFSR_TAG_ALT(
                     LFSR_TAG_LE,
-                    // TODO should this always be red?
                     (!lfsr_d_isdiverged(d_state))
                         ? LFSR_TAG_R
                         : LFSR_TAG_B,
@@ -3199,7 +3186,6 @@ again:;
             // split greater than
             alt = LFSR_TAG_ALT(
                     LFSR_TAG_GT,
-                    // TODO should this always be red?
                     (!lfsr_d_isdiverged(d_state))
                         ? LFSR_TAG_R
                         : LFSR_TAG_B,
