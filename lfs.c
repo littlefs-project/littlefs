@@ -2904,11 +2904,12 @@ again:;
             // |  |       <b      |          <b  |
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
-            if (lfsr_tag_prune2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)
+            bool y_unreachable = lfsr_tag_prune2(
+                    alt, weight,
+                    p_alts[0], p_weights[0],
+                    lower_rid, upper_rid,
+                    lower_tag, upper_tag);
+            if (y_unreachable
                     // prune because of diverged paths?
                     || d_state == LFSR_D_DIVERGINGLOWER
                     || (lfsr_d_isdiverged(d_state)
@@ -2943,7 +2944,14 @@ again:;
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    y_branch= branch;
+                    // if we're diverged pruning, we risk making recoloring
+                    // no longer tail-recursive, consuming potential yellow
+                    // alts avoids this
+                    if (!y_unreachable && lfsr_tag_isred(p_alts[1])) {
+                        LFS_ASSERT(lfsr_d_isdiverged(d_state));
+                        p_alts[1] &= ~LFSR_TAG_R;
+                    }
+                    y_branch = branch;
                     branch = branch_;
                     continue;
                 }

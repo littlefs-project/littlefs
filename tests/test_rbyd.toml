@@ -8286,7 +8286,7 @@ code = '''
             &data) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_delete_range_ryy]
+[cases.test_rbyd_delete_range_rydy]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -8312,8 +8312,8 @@ code = '''
     //              '+'
     //             remove
     //
-    // this is a specific nasty case that can happen if you try to
-    // preserve coloring during range removes
+    // this is a specific nasty case where tail-recursion can be
+    // violated if you preserve coloring during range removes
     //
     rbyd = init_rbyd;
     lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
@@ -8625,6 +8625,1901 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xee\xee", 2) == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range_rydy_backwards]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_data_t data;
+    uint8_t buffer[4];
+
+    // delete inner branches
+    //
+    //    .-------------r-------------.
+    //  .-o-.   .---+---y----.      .-o-.
+    // .o. .o. .o. .o. .o. .-y-+-. .o. .o.
+    // a a a a a a a a a a c e e e e e e e
+    //                    '+'
+    //                   remove
+    //
+    // this is a specific nasty case where tail-recursion can be
+    // violated if you preserve coloring during range removes
+    //
+    rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(9), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG, +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), +1,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow to the root
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    // this gets a bit messy as we try to make the rbyd take the right shape
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(8), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(8), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    // try to recreate
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,    +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range_rydye]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_data_t data;
+    uint8_t buffer[4];
+
+    // delete inner branches
+    //
+    //    .-------------r-------------.
+    //  .-o-.      .----y---+---.   .-o-.
+    // .o. .o. .-+-y-. .o. .o. .o. .o. .o.
+    // a a a a a a a c c c e e e e e e e e
+    //              '--+--'
+    //               remove
+    //
+    // this is a specific nasty case where tail-recursion can be
+    // violated if you preserve coloring during range removes
+    //
+    rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), +1,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3),  0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow to the root
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    // this gets a bit messy as we try to make the rbyd take the right shape
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,      0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
+
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    // try to recreate
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,    +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range_rydye_backwards]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_data_t data;
+    uint8_t buffer[4];
+
+    // delete inner branches
+    //
+    //    .-------------r-------------.
+    //  .-o-.   .---+---y----.      .-o-.
+    // .o. .o. .o. .o. .o. .-y-+-. .o. .o.
+    // a a a a a a a a c c c e e e e e e e
+    //                '--+--'
+    //                 remove
+    //
+    // this is a specific nasty case where tail-recursion can be
+    // violated if you preserve coloring during range removes
+    //
+    rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), +1,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), +1,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow to the root
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    // this gets a bit messy as we try to make the rbyd take the right shape
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,      0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_REG,      0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    // try to recreate
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,    +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range_dryy]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_data_t data;
+    uint8_t buffer[4];
+
+    // delete inner branches
+    //
+    //                      o---------------------.
+    //    .-------+---------r                 .---o---.
+    //  .-o-.   .-o-.   .---y------+----.   .-o-.   .-o-.
+    // .o. .o. .o. .o. .o. .o. .-+-y-. .o. .o. .o. .o. .o.
+    // a a a a a a a a a a a a a a a c c c c e e e e e e e
+    //                              '---+---'
+    //                                remove
+    //
+    // this is an attempt at colliding two splits by pruning after
+    // diverging, in theory this can lead to tail-recursion violations,
+    // but no violations have been found to be possible yet
+    //
+    rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), +1,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow to the root
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    // this gets a bit messy as we try to make the rbyd take the right shape
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(8), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(11), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(12), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,       0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_REG,       0,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(13), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(14), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(9), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(10), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(10), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)))) => 0;
+
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    // try to recreate
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,    +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range_dryy_backwards]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_data_t data;
+    uint8_t buffer[4];
+
+    // delete inner branches
+    //
+    //        .---------------------o
+    //    .---o---.                 r---------+-------.
+    //  .-o-.   .-o-.   .----+------y---.   .-o-.   .-o-.
+    // .o. .o. .o. .o. .o. .-y-+-. .o. .o. .o. .o. .o. .o.
+    // a a a a a a a c c c c e e e e e e e e e e e e e e e
+    //              '---+---'
+    //                remove
+    //
+    // this is an attempt at colliding two splits by pruning after
+    // diverging, in theory this can lead to tail-recursion violations,
+    // but no violations have been found to be possible yet
+    //
+    rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 0, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xaa\xaa\xaa\xaa", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), 0,
+                LFSR_DATA_BUF("\xaa\xaa",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,     +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xcc\xcc",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(6), +1,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(7), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(8), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(9), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(10), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow to the root
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(10), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(10), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(10), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    // this gets a bit messy as we try to make the rbyd take the right shape
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(11), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(12), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(13), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(14),  0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(14),  0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(14),  0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(2), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(3), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(1), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_REG,      0,
+                LFSR_DATA_BUF("\xee\xee\xee\xee", 4)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd, 2, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(5), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)),
+            // propagate yellow
+            LFSR_ATTR(
+                LFSR_TAG_UATTR(4), 0,
+                LFSR_DATA_BUF("\xee\xee",         2)))) => 0;
+
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    // try to recreate
+    lfsr_rbyd_commit(&lfs, &rbyd, 1, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_REG,    +1,
+                LFSR_DATA_BUF("\xcc\xcc\xcc\xcc", 4)))) => 0;
+
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(14), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
+            &data) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_UATTR(1),
+            &data) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 1, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_REG, &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(7), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(8), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(9), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(10), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(11), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(12), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(13), &data) => 0;
+    lfsr_data_read(&lfs, &data, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_lookup(&lfs, &rbyd, 2, LFSR_TAG_UATTR(14), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xee\xee", 2) == 0);
     lfsr_rbyd_lookup(&lfs, &rbyd, 3, LFSR_TAG_REG,
