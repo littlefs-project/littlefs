@@ -2655,8 +2655,6 @@ static void lfsr_rbyd_p_red(
         lfsr_rid_t p_weights[static 3],
         lfs_size_t p_jumps[static 3]) {
     // propagate a red edge upwards
-    p_alts[0] &= ~LFSR_TAG_R;
-
     if (p_alts[1]) {
         p_alts[1] |= LFSR_TAG_R;
 
@@ -2696,20 +2694,46 @@ static void lfsr_rbyd_p_red(
 
 // diverged state machine for range appends
 enum {
-    LFSR_D_NOTDIVERGING   = 0,
-    LFSR_D_DIVERGINGLOWER = 1,
-    LFSR_D_DIVERGINGUPPER = 2,
-    LFSR_D_DIVERGEDLOWER  = 3,
-    LFSR_D_DIVERGEDUPPER  = 4,
+    LFSR_D_NOTDIVERGING   = 0x0,
+    LFSR_D_DIVERGINGLOWER = 0x2,
+    LFSR_D_DIVERGINGUPPER = 0x3,
+    LFSR_D_DIVERGEDLOWER  = 0x4,
+    LFSR_D_DIVERGEDUPPER  = 0x5,
+    LFSR_D_PRUNEDLOWER    = 0x6,
+    LFSR_D_PRUNEDUPPER    = 0x7,
 };
 
 static inline bool lfsr_d_isdiverged(uint8_t d_state) {
     return d_state >= LFSR_D_DIVERGEDLOWER;
 }
 
+static inline bool lfsr_d_isupper(uint8_t d_state) {
+    return d_state & 0x1;
+}
+
+static inline bool lfsr_d_islower(uint8_t d_state) {
+    return !(d_state & 0x1);
+}
+
+static inline bool lfsr_d_ispruned(uint8_t d_state) {
+    return d_state >= LFSR_D_PRUNEDLOWER;
+}
+
 static inline uint8_t lfsr_d_diverge(uint8_t d_state) {
     LFS_ASSERT(d_state != LFSR_D_NOTDIVERGING);
-    return d_state + (LFSR_D_DIVERGEDLOWER - LFSR_D_DIVERGINGLOWER);
+    return (!lfsr_d_isdiverged(d_state))
+            ? d_state + (LFSR_D_DIVERGEDLOWER - LFSR_D_DIVERGINGLOWER)
+            : d_state;
+}
+
+static inline uint8_t lfsr_d_prune(uint8_t d_state) {
+    LFS_ASSERT(lfsr_d_isdiverged(d_state));
+    return d_state | 0x2;
+}
+
+static inline uint8_t lfsr_d_unprune(uint8_t d_state) {
+    LFS_ASSERT(lfsr_d_isdiverged(d_state));
+    return d_state & ~0x2;
 }
 
 // core rbyd algorithm
@@ -2881,7 +2905,7 @@ again:;
                     d_state = lfsr_d_diverge(d_state);
 
                     // stitch together diverged branches
-                    if (d_state == LFSR_D_DIVERGEDUPPER && d_tag) {
+                    if (lfsr_d_isupper(d_state) && d_tag) {
                         err = lfsr_rbyd_p_push(lfs, rbyd,
                                 p_alts, p_weights, p_jumps,
                                 LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
@@ -2904,16 +2928,15 @@ again:;
             // |  |       <b      |          <b  |
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
-            bool y_unreachable = lfsr_tag_prune2(
-                    alt, weight,
-                    p_alts[0], p_weights[0],
-                    lower_rid, upper_rid,
-                    lower_tag, upper_tag);
-            if (y_unreachable
+            if (lfsr_tag_prune2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)
                     // prune because of diverged paths?
                     || d_state == LFSR_D_DIVERGINGLOWER
                     || (lfsr_d_isdiverged(d_state)
-                        && (d_state == LFSR_D_DIVERGEDUPPER)
+                        && lfsr_d_isupper(d_state)
                             ^ lfsr_tag_isgt(alt)
                             ^ lfsr_tag_follow2(
                                 alt, weight,
@@ -2944,12 +2967,10 @@ again:;
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    // if we're diverged pruning, we risk making recoloring
-                    // no longer tail-recursive, consuming potential yellow
-                    // alts avoids this
-                    if (!y_unreachable && lfsr_tag_isred(p_alts[1])) {
-                        LFS_ASSERT(lfsr_d_isdiverged(d_state));
-                        p_alts[1] &= ~LFSR_TAG_R;
+                    // propagate pruning to yellow splits to avoid issues
+                    // with tail-recursive recoloring
+                    if (lfsr_d_isdiverged(d_state)) {
+                        d_state = lfsr_d_prune(d_state);
                     }
                     y_branch = branch;
                     branch = branch_;
@@ -2989,7 +3010,10 @@ again:;
                             p_alts[0], p_weights[0],
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
-                    lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                    p_alts[0] &= ~LFSR_TAG_R;
+                    if (!lfsr_d_ispruned(d_state)) {
+                        lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                    }
 
                 // otherwise we need to point to the yellow alt and
                 // prune later
@@ -3012,7 +3036,10 @@ again:;
                             p_alts[0], p_weights[0],
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
-                    lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                    p_alts[0] &= ~LFSR_TAG_R;
+                    if (!lfsr_d_ispruned(d_state)) {
+                        lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                    }
 
                     branch = branch_;
                     continue;
@@ -3064,6 +3091,10 @@ again:;
                         p_alts[0], p_weights[0],
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
+                // no longer pruned
+                if (lfsr_d_isdiverged(d_state)) {
+                    d_state = lfsr_d_unprune(d_state);
+                }
             }
 
             // push alt onto our queue
@@ -3096,7 +3127,7 @@ again:;
         goto again;
 
     // diverged lower trunk? we need an upper trunk too
-    } else if (d_state == LFSR_D_DIVERGEDLOWER) {
+    } else if (lfsr_d_isdiverged(d_state) && lfsr_d_islower(d_state)) {
         // keep track of last alt on diverged trunk to stitch the trunks
         // together with
         d_state = LFSR_D_DIVERGINGUPPER;
@@ -3128,7 +3159,7 @@ again:;
         goto again;
 
     // diverged upper trunk? done diverging
-    } else if (d_state == LFSR_D_DIVERGEDUPPER) {
+    } else if (lfsr_d_isdiverged(d_state) && lfsr_d_isupper(d_state)) {
         // use the diverged rid bound for leaf weight calculation
         lower_rid = d_rid;
     }
@@ -3213,6 +3244,7 @@ again:;
 
         if (lfsr_tag_isred(p_alts[0])) {
             // introduce a red edge
+            p_alts[0] &= ~LFSR_TAG_R;
             lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
         }
     }
