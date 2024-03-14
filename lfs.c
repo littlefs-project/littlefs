@@ -2650,7 +2650,7 @@ static inline void lfsr_rbyd_p_pop(
     p_jumps[2] = 0;
 }
 
-static void lfsr_rbyd_p_red(
+static void lfsr_rbyd_p_recolor(
         lfsr_tag_t p_alts[static 3],
         lfsr_rid_t p_weights[static 3],
         lfs_size_t p_jumps[static 3]) {
@@ -3012,7 +3012,7 @@ again:;
                             &lower_tag, &upper_tag);
                     p_alts[0] &= ~LFSR_TAG_R;
                     if (!lfsr_d_ispruned(d_state)) {
-                        lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                        lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
                     }
 
                 // otherwise we need to point to the yellow alt and
@@ -3038,7 +3038,7 @@ again:;
                             &lower_tag, &upper_tag);
                     p_alts[0] &= ~LFSR_TAG_R;
                     if (!lfsr_d_ispruned(d_state)) {
-                        lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                        lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
                     }
 
                     branch = branch_;
@@ -3245,7 +3245,7 @@ again:;
         if (lfsr_tag_isred(p_alts[0])) {
             // introduce a red edge
             p_alts[0] &= ~LFSR_TAG_R;
-            lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+            lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
         }
     }
 
