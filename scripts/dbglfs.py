@@ -13,9 +13,9 @@ TAG_NULL            = 0x0000
 TAG_CONFIG          = 0x0000
 TAG_MAGIC           = 0x0003
 TAG_VERSION         = 0x0004
-TAG_OCOMPATFLAGS    = 0x0005
-TAG_RCOMPATFLAGS    = 0x0006
-TAG_WCOMPATFLAGS    = 0x0007
+TAG_RCOMPAT         = 0x0005
+TAG_WCOMPAT         = 0x0006
+TAG_OCOMPAT         = 0x0007
 TAG_BLOCKSIZE       = 0x0008
 TAG_BLOCKCOUNT      = 0x0009
 TAG_NAMELIMIT       = 0x000a
@@ -196,9 +196,9 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'ocompatflags' if (tag & 0xfff) == TAG_OCOMPATFLAGS
-                else 'rcompatflags' if (tag & 0xfff) == TAG_RCOMPATFLAGS
-                else 'wcompatflags' if (tag & 0xfff) == TAG_WCOMPATFLAGS
+                else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
+                else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
+                else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
                 else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
                 else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
@@ -1031,25 +1031,25 @@ class Config:
             return (None, None)
 
     @ft.cached_property
-    def ocompatflags(self):
-        if TAG_OCOMPATFLAGS in self.config:
-            _, data = self.config[TAG_OCOMPATFLAGS]
+    def rcompat(self):
+        if TAG_RCOMPAT in self.config:
+            _, data = self.config[TAG_RCOMPAT]
             return data
         else:
             return None
 
     @ft.cached_property
-    def rcompatflags(self):
-        if TAG_RCOMPATFLAGS in self.config:
-            _, data = self.config[TAG_RCOMPATFLAGS]
+    def wcompat(self):
+        if TAG_WCOMPAT in self.config:
+            _, data = self.config[TAG_WCOMPAT]
             return data
         else:
             return None
 
     @ft.cached_property
-    def wcompatflags(self):
-        if TAG_WCOMPATFLAGS in self.config:
-            _, data = self.config[TAG_WCOMPATFLAGS]
+    def ocompat(self):
+        if TAG_OCOMPAT in self.config:
+            _, data = self.config[TAG_OCOMPAT]
             return data
         else:
             return None
@@ -1098,15 +1098,15 @@ class Config:
                     for b in map(chr, self.magic))
             elif tag == TAG_VERSION:
                 return 'version v%d.%d' % self.version
-            elif tag == TAG_OCOMPATFLAGS:
-                return 'ocompatflags 0x%s' % ''.join(
-                    '%02x' % f for f in reversed(self.ocompatflags))
-            elif tag == TAG_RCOMPATFLAGS:
-                return 'rcompatflags 0x%s' % ''.join(
-                    '%02x' % f for f in reversed(self.rcompatflags))
-            elif tag == TAG_WCOMPATFLAGS:
-                return 'wcompatflags 0x%s' % ''.join(
-                    '%02x' % f for f in reversed(self.wcompatflags))
+            elif tag == TAG_RCOMPAT:
+                return 'rcompat 0x%s' % ''.join(
+                    '%x' % f for f in reversed(self.rcompat))
+            elif tag == TAG_WCOMPAT:
+                return 'wcompat 0x%s' % ''.join(
+                    '%x' % f for f in reversed(self.wcompat))
+            elif tag == TAG_OCOMPAT:
+                return 'ocompat 0x%s' % ''.join(
+                    '%x' % f for f in reversed(self.ocompat))
             elif tag == TAG_BLOCKSIZE:
                 return 'blocksize %d' % self.block_size
             elif tag == TAG_BLOCKCOUNT:

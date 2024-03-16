@@ -21,9 +21,9 @@ TAG_NULL            = 0x0000
 TAG_CONFIG          = 0x0000
 TAG_MAGIC           = 0x0003
 TAG_VERSION         = 0x0004
-TAG_OCOMPATFLAGS    = 0x0005
-TAG_RCOMPATFLAGS    = 0x0006
-TAG_WCOMPATFLAGS    = 0x0007
+TAG_RCOMPAT         = 0x0005
+TAG_WCOMPAT         = 0x0006
+TAG_OCOMPAT         = 0x0007
 TAG_BLOCKSIZE       = 0x0008
 TAG_BLOCKCOUNT      = 0x0009
 TAG_NAMELIMIT       = 0x000a
@@ -167,9 +167,9 @@ def tagrepr(tag, w, size, off=None):
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'ocompatflags' if (tag & 0xfff) == TAG_OCOMPATFLAGS
-                else 'rcompatflags' if (tag & 0xfff) == TAG_RCOMPATFLAGS
-                else 'wcompatflags' if (tag & 0xfff) == TAG_WCOMPATFLAGS
+                else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
+                else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
+                else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
                 else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
                 else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT

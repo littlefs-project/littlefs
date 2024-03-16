@@ -718,9 +718,9 @@ enum lfsr_tag {
     LFSR_TAG_CONFIG         = 0x0000,
     LFSR_TAG_MAGIC          = 0x0003,
     LFSR_TAG_VERSION        = 0x0004,
-    LFSR_TAG_OCOMPATFLAGS   = 0x0005,
-    LFSR_TAG_RCOMPATFLAGS   = 0x0006,
-    LFSR_TAG_WCOMPATFLAGS   = 0x0007,
+    LFSR_TAG_RCOMPAT        = 0x0005,
+    LFSR_TAG_WCOMPAT        = 0x0006,
+    LFSR_TAG_OCOMPAT        = 0x0007,
     LFSR_TAG_BLOCKSIZE      = 0x0008,
     LFSR_TAG_BLOCKCOUNT     = 0x0009,
     LFSR_TAG_NAMELIMIT      = 0x000a,
@@ -7776,24 +7776,111 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
 // compatibility flags
 //
-// - WCOMPAT => Must understand to write to the filesystem
 // - RCOMPAT => Must understand to read the filesystem
+// - WCOMPAT => Must understand to write to the filesystem
+// - OCOMPAT => Don't need to understand, we don't really use these
 //
 // note, "understanding" does not necessarily mean support
 //
 enum lfsr_rcompat {
-    LFSR_RCOMPAT_GRM = 0x01,
+    LFSR_RCOMPAT_NONSTANDARD    = 0x0001,
+    LFSR_RCOMPAT_MLEAF          = 0x0002,
+    LFSR_RCOMPAT_MTREE          = 0x0008,
+    LFSR_RCOMPAT_BSPROUT        = 0x0010,
+    LFSR_RCOMPAT_BLEAF          = 0x0020,
+    LFSR_RCOMPAT_BSHRUB         = 0x0040,
+    LFSR_RCOMPAT_BTREE          = 0x0080,
+    LFSR_RCOMPAT_GRM            = 0x0100,
+    // internal
+    LFSR_RCOMPAT_OVERFLOW       = 0x8000,
 };
 
-typedef uint8_t lfsr_rcompat_t;
-typedef uint8_t lfsr_wcompat_t;
+#define LFSR_RCOMPAT_COMPAT \
+    (LFSR_RCOMPAT_MLEAF \
+        | LFSR_RCOMPAT_MTREE \
+        | LFSR_RCOMPAT_BSPROUT \
+        | LFSR_RCOMPAT_BLEAF \
+        | LFSR_RCOMPAT_BSHRUB \
+        | LFSR_RCOMPAT_BTREE \
+        | LFSR_RCOMPAT_GRM)
 
-static inline bool lfsr_rcompat_hasgrm(lfsr_rcompat_t rcompat) {
-    return rcompat & LFSR_RCOMPAT_GRM;
+enum lfsr_wcompat {
+    LFSR_WCOMPAT_NONSTANDARD    = 0x0001,
+    // internal
+    LFSR_WCOMPAT_OVERFLOW       = 0x8000,
+};
+
+#define LFSR_WCOMPAT_COMPAT 0
+
+enum lfsr_ocompat {
+    LFSR_OCOMPAT_NONSTANDARD    = 0x0001,
+    // internal
+    LFSR_OCOMPAT_OVERFLOW       = 0x8000,
+};
+
+#define LFSR_OCOMPAT_COMPAT 0
+
+typedef uint16_t lfsr_rcompat_t;
+typedef uint16_t lfsr_wcompat_t;
+typedef uint16_t lfsr_ocompat_t;
+
+static inline bool lfsr_rcompat_isincompat(lfsr_rcompat_t rcompat) {
+    return rcompat != LFSR_RCOMPAT_COMPAT;
 }
 
-static inline bool lfsr_rcompat_hasunknown(lfsr_rcompat_t rcompat) {
-    return rcompat & ~LFSR_RCOMPAT_GRM;
+static inline bool lfsr_wcompat_isincompat(lfsr_wcompat_t wcompat) {
+    return wcompat != LFSR_WCOMPAT_COMPAT;
+}
+
+static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
+    return ocompat != LFSR_OCOMPAT_COMPAT;
+}
+
+// compat flags on-disk encoding
+//
+// little-endian, truncated bits must be assumed zero
+
+#define LFSR_DATA_FROMRCOMPAT(_rcompat) \
+    LFSR_DATA_IMM(((uint8_t[]){ \
+        (((_rcompat) >> 0) & 0xff), \
+        (((_rcompat) >> 8) & 0xff)}), 2)
+
+static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_rcompat_t *rcompat) {
+    // allow truncated rcompat flags
+    uint8_t buf[2] = {0};
+    lfs_ssize_t d = lfsr_data_read(lfs, data, buf, 2);
+    if (d < 0) {
+        return d;
+    }
+    *rcompat = lfs_fromle16_(buf);
+
+    // if any out-of-range flags are set, set the internal overflow bit,
+    // this is a compromise in correctness and and compat-flag complexity
+    //
+    // we don't really care about performance here
+    while (lfsr_data_size(*data) > 0) {
+        lfs_scmp_t cmp = lfsr_data_cmp(lfs, *data, (uint8_t[]){0}, 1);
+        if (cmp < 0) {
+            return cmp;
+        }
+
+        if (cmp != LFS_CMP_EQ) {
+            *rcompat |= LFSR_RCOMPAT_OVERFLOW;
+        }
+
+        *data = lfsr_data_slice(*data, d, -1);
+    }
+
+    return 0;
+}
+
+// all the compat parsing is basically the same, so try to reuse code
+#define LFSR_DATA_FROMWCOMPAT(_wcompat) LFSR_DATA_NULL()
+
+static int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_wcompat_t *wcompat) {
+    return lfsr_data_readrcompat(lfs, data, wcompat);
 }
 
 
@@ -7868,56 +7955,55 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     // check for any rcompatflags, we must understand these to read
     // the filesystem
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_RCOMPATFLAGS,
+    lfsr_rcompat_t rcompat = 0;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_RCOMPAT,
             &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
-    if (err == LFS_ERR_NOENT) {
-        data = LFSR_DATA_NULL();
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readrcompat(lfs, &data, &rcompat);
+        if (err) {
+            return err;
+        }
     }
 
-    lfsr_rcompat_t rcompat;
-    lfs_ssize_t size = lfsr_data_read(lfs, &data, &rcompat, 1);
-    if (size < 0) {
-        return size;
-    }
-    if (size < 1) {
-        rcompat = 0;
-    }
-
-    // unknown rcompat flags? flags must be tightly sized
-    if (lfsr_rcompat_hasunknown(rcompat) || lfsr_data_size(data) > 0) {
-        LFS_ERROR("Incompatible rcompat flags 0x%s%"PRIx8,
-                (lfsr_data_size(data) > 0) ? "??" : "",
-                rcompat);
-        return LFS_ERR_INVAL;
-    }
-
-    // grm supported?
-    if (!lfsr_rcompat_hasgrm(rcompat)) {
-        LFS_ERROR("Incompatible rcompat flags, no grm");
-        // TODO switch to read-only? upgrade?
+    // incompatible rcompat flags?
+    if (lfsr_rcompat_isincompat(rcompat)) {
+        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx16
+                " (!= 0x%0"PRIx16")",
+                rcompat,
+                LFSR_RCOMPAT_COMPAT);
         return LFS_ERR_INVAL;
     }
 
     // check for any wcompatflags, we must understand these to write
     // the filesystem
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_WCOMPATFLAGS,
+    lfsr_wcompat_t wcompat = 0;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_WCOMPAT,
             &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
-    if (err == LFS_ERR_NOENT) {
-        data = LFSR_DATA_NULL();
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readwcompat(lfs, &data, &wcompat);
+        if (err) {
+            return err;
+        }
     }
 
-    // unknown wcompat flags? flags must be tightly sized
-    if (lfsr_data_size(data) > 0) {
-        LFS_ERROR("Incompatible wcompat flags 0x??");
-        // TODO switch to read-only?
+    // incompatible wcompat flags?
+    // TODO switch to readonly?
+    if (lfsr_wcompat_isincompat(wcompat)) {
+        LFS_ERROR("Incompatible wcompat flags 0x%0"PRIx16
+                " (!= 0x%0"PRIx16")",
+                wcompat,
+                LFSR_WCOMPAT_COMPAT);
         return LFS_ERR_INVAL;
     }
+
+    // we don't bother to check for any ocompatflags, we would just
+    // ignore these anyways
 
     // check block size
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_BLOCKSIZE,
@@ -8203,8 +8289,8 @@ static int lfsr_formatinited(lfs_t *lfs) {
                         LFS_DISK_VERSION_MAJOR,
                         LFS_DISK_VERSION_MINOR}), 2)),
                 LFSR_ATTR(
-                    LFSR_TAG_RCOMPATFLAGS, 0,
-                    LFSR_DATA_IMM(((uint8_t[1]){LFSR_RCOMPAT_GRM}), 1)),
+                    LFSR_TAG_RCOMPAT, 0,
+                    LFSR_DATA_FROMRCOMPAT(LFSR_RCOMPAT_COMPAT)),
                 LFSR_ATTR(
                     LFSR_TAG_BLOCKSIZE, 0,
                     LFSR_DATA_LEB128(lfs->cfg->block_size-1)),
