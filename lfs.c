@@ -721,10 +721,9 @@ enum lfsr_tag {
     LFSR_TAG_RCOMPAT        = 0x0005,
     LFSR_TAG_WCOMPAT        = 0x0006,
     LFSR_TAG_OCOMPAT        = 0x0007,
-    LFSR_TAG_BLOCKSIZE      = 0x0008,
-    LFSR_TAG_BLOCKCOUNT     = 0x0009,
-    LFSR_TAG_NAMELIMIT      = 0x000a,
-    LFSR_TAG_SIZELIMIT      = 0x000b,
+    LFSR_TAG_GEOMETRY       = 0x0009,
+    LFSR_TAG_NAMELIMIT      = 0x000c,
+    LFSR_TAG_SIZELIMIT      = 0x000d,
 
     // global-state tags
     LFSR_TAG_GDELTA         = 0x0100,
@@ -7884,6 +7883,59 @@ static int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
 }
 
 
+// disk geometry
+//
+// note these are stored minus 1 to avoid overflow issues
+typedef struct lfsr_geometry {
+    lfs_off_t block_size;
+    lfs_off_t block_count;
+} lfsr_geometry_t;
+
+// geometry encoding
+// .---+- -+- -+- -.
+// | block_size    |      blocksize:  <=4 bytes
+// +---+- -+- -+- -+- -.
+// | block_count       |  blockcount: <=5 bytes
+// '---+- -+- -+- -+- -'  total:      <=9 bytes
+#define LFSR_GEOMETRY_DSIZE (4+5)
+
+#define LFSR_DATA_FROMGEOMETRY(_geometry) \
+    lfsr_data_fromgeometry(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
+
+static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
+        uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
+    lfs_ssize_t d = 0;
+    lfs_ssize_t d_ = lfs_toleb128(geometry->block_size-1, &buffer[d], 4);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    d_ = lfs_toleb128(geometry->block_count-1, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+static int lfsr_data_readgeometry(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_geometry_t *geometry) {
+    int err = lfsr_data_readlleb128(lfs, data,
+            (uint32_t*)&geometry->block_size);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_data_readleb128(lfs, data,
+            (uint32_t*)&geometry->block_count);
+    if (err) {
+        return err;
+    }
+
+    geometry->block_size += 1;
+    geometry->block_count += 1;
+    return 0;
+}
+
+
 /// Filesystem init functions ///
 
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg);
@@ -7993,52 +8045,33 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     // we don't bother to check for any ocompatflags, we would just
     // ignore these anyways
 
-    // check block size
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_BLOCKSIZE,
+    // check the on-disk geometry
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_GEOMETRY,
             &data);
-    if (err && err != LFS_ERR_NOENT) {
+    if (err) {
+        if (err == LFS_ERR_NOENT) {
+            LFS_ERROR("No geometry found");
+            return LFS_ERR_INVAL;
+        }
         return err;
     }
 
-    uint32_t block_size = 0;
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &block_size);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            block_size = -1;
-        }
+    lfsr_geometry_t geometry;
+    err = lfsr_data_readgeometry(lfs, &data, &geometry);
+    if (err) {
+        return err;
     }
 
-    if (block_size != lfs->cfg->block_size-1) {
+    if (geometry.block_size != lfs->cfg->block_size) {
         LFS_ERROR("Incompatible block size %"PRId32" (!= %"PRId32")",
-                block_size+1,
+                geometry.block_size,
                 lfs->cfg->block_size);
         return LFS_ERR_INVAL;
     }
 
-    // check block count
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_BLOCKCOUNT,
-            &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    uint32_t block_count = 0;
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &block_count);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            block_count = -1;
-        }
-    }
-
-    if (block_count != lfs->cfg->block_count-1) {
+    if (geometry.block_count != lfs->cfg->block_count) {
         LFS_ERROR("Incompatible block count %"PRId32" (!= %"PRId32")",
-                block_count+1,
+                geometry.block_count,
                 lfs->cfg->block_count);
         return LFS_ERR_INVAL;
     }
@@ -8280,11 +8313,10 @@ static int lfsr_formatinited(lfs_t *lfs) {
                     LFSR_TAG_RCOMPAT, 0,
                     LFSR_DATA_FROMRCOMPAT(LFSR_RCOMPAT_COMPAT)),
                 LFSR_ATTR(
-                    LFSR_TAG_BLOCKSIZE, 0,
-                    LFSR_DATA_LEB128(lfs->cfg->block_size-1)),
-                LFSR_ATTR(
-                    LFSR_TAG_BLOCKCOUNT, 0,
-                    LFSR_DATA_LEB128(lfs->cfg->block_count-1)),
+                    LFSR_TAG_GEOMETRY, 0,
+                    LFSR_DATA_FROMGEOMETRY((&(lfsr_geometry_t){
+                        lfs->cfg->block_size,
+                        lfs->cfg->block_count}))),
                 LFSR_ATTR(
                     LFSR_TAG_NAMELIMIT, 0,
                     LFSR_DATA_LEB128(lfs->name_limit)),

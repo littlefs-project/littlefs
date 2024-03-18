@@ -15,10 +15,9 @@ TAG_VERSION         = 0x0004
 TAG_RCOMPAT         = 0x0005
 TAG_WCOMPAT         = 0x0006
 TAG_OCOMPAT         = 0x0007
-TAG_BLOCKSIZE       = 0x0008
-TAG_BLOCKCOUNT      = 0x0009
-TAG_NAMELIMIT       = 0x000a
-TAG_SIZELIMIT       = 0x000b
+TAG_GEOMETRY        = 0x0009
+TAG_NAMELIMIT       = 0x000c
+TAG_SIZELIMIT       = 0x000d
 TAG_GDELTA          = 0x0100
 TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
@@ -168,8 +167,7 @@ def tagrepr(tag, w, size, off=None):
                 else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
                 else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
                 else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
-                else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
-                else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
+                else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                 else 'config 0x%02x' % (tag & 0xff),

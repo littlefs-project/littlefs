@@ -16,10 +16,9 @@ TAG_VERSION         = 0x0004
 TAG_RCOMPAT         = 0x0005
 TAG_WCOMPAT         = 0x0006
 TAG_OCOMPAT         = 0x0007
-TAG_BLOCKSIZE       = 0x0008
-TAG_BLOCKCOUNT      = 0x0009
-TAG_NAMELIMIT       = 0x000a
-TAG_SIZELIMIT       = 0x000b
+TAG_GEOMETRY        = 0x0009
+TAG_NAMELIMIT       = 0x000c
+TAG_SIZELIMIT       = 0x000d
 TAG_GDELTA          = 0x0100
 TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
@@ -199,8 +198,7 @@ def tagrepr(tag, w, size, off=None):
                 else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
                 else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
                 else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
-                else 'blocksize' if (tag & 0xfff) == TAG_BLOCKSIZE
-                else 'blockcount' if (tag & 0xfff) == TAG_BLOCKCOUNT
+                else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
                 else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                 else 'config 0x%02x' % (tag & 0xff),
@@ -1055,22 +1053,15 @@ class Config:
             return None
 
     @ft.cached_property
-    def block_size(self):
-        if TAG_BLOCKSIZE in self.config:
-            _, data = self.config[TAG_BLOCKSIZE]
-            block_size, _ = fromleb128(data)
-            return block_size
+    def geometry(self):
+        if TAG_GEOMETRY in self.config:
+            _, data = self.config[TAG_GEOMETRY]
+            d = 0
+            block_size, d_ = fromleb128(data[d:]); d += d_
+            block_count, d_ = fromleb128(data[d:]); d += d_
+            return (block_size+1, block_count+1)
         else:
-            return None
-
-    @ft.cached_property
-    def block_count(self):
-        if TAG_BLOCKCOUNT in self.config:
-            _, data = self.config[TAG_BLOCKCOUNT]
-            block_count, _ = fromleb128(data)
-            return block_count
-        else:
-            return None
+            return (None, None)
 
     @ft.cached_property
     def name_limit(self):
@@ -1107,10 +1098,8 @@ class Config:
             elif tag == TAG_OCOMPAT:
                 return 'ocompat 0x%s' % ''.join(
                     '%x' % f for f in reversed(self.ocompat))
-            elif tag == TAG_BLOCKSIZE:
-                return 'blocksize %d' % self.block_size
-            elif tag == TAG_BLOCKCOUNT:
-                return 'blockcount %d' % self.block_count
+            elif tag == TAG_GEOMETRY:
+                return 'geometry %dx%d' % self.geometry
             elif tag == TAG_SIZELIMIT:
                 return 'sizelimit %d' % self.size_limit
             elif tag == TAG_NAMELIMIT:
@@ -1865,7 +1854,7 @@ def main(disk, mroots=None, *,
         print('littlefs v%s.%s %dx%d %s, rev %d, weight %d.%d' % (
             config.version[0] if config.version[0] is not None else '?',
             config.version[1] if config.version[1] is not None else '?',
-            (config.block_size or -1)+1, (config.block_count or -1)+1,
+            (config.geometry[0] or 0), (config.geometry[1] or 0),
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # dynamically size the id field
