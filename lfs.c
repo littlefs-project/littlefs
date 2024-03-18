@@ -8077,23 +8077,20 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     // read the name limit
+    uint32_t name_limit = 0xff;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
             &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No name limit found");
-            return LFS_ERR_INVAL;
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readleb128(lfs, &data, &name_limit);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
         }
-        return err;
-    }
-
-    uint32_t name_limit;
-    err = lfsr_data_readleb128(lfs, &data, &name_limit);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        name_limit = -1;
+        if (err == LFS_ERR_CORRUPT) {
+            name_limit = -1;
+        }
     }
 
     if (name_limit > lfs->name_limit) {
@@ -8106,23 +8103,20 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     lfs->name_limit = name_limit;
 
     // read the size limit
+    uint32_t size_limit = 0x7fffffff;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_SIZELIMIT,
             &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No size limit found");
-            return LFS_ERR_INVAL;
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readleb128(lfs, &data, &size_limit);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
         }
-        return err;
-    }
-
-    uint32_t size_limit;
-    err = lfsr_data_readleb128(lfs, &data, &size_limit);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        size_limit = -1;
+        if (err == LFS_ERR_CORRUPT) {
+            size_limit = -1;
+        }
     }
 
     if (size_limit > lfs->size_limit) {
