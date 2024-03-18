@@ -7924,30 +7924,18 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         return err;
     }
 
-    uint32_t major_version;
-    err = lfsr_data_readleb128(lfs, &data, &major_version);
-    if (err && err != LFS_ERR_CORRUPT) {
+    uint8_t version[2] = {0, 0};
+    lfs_ssize_t d = lfsr_data_read(lfs, &data, version, 2);
+    if (d < 0) {
         return err;
     }
-    if (err == LFS_ERR_CORRUPT) {
-        major_version = -1;
-    }
 
-    uint32_t minor_version;
-    err = lfsr_data_readleb128(lfs, &data, &minor_version);
-    if (err && err != LFS_ERR_CORRUPT) {
-        return err;
-    }
-    if (err == LFS_ERR_CORRUPT) {
-        minor_version = -1;
-    }
-
-    if (major_version != LFS_DISK_VERSION_MAJOR
-            || minor_version > LFS_DISK_VERSION_MINOR) {
+    if (version[0] != LFS_DISK_VERSION_MAJOR
+            || version[1] > LFS_DISK_VERSION_MINOR) {
         LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
                 " (!= v%"PRId32".%"PRId32")",
-                major_version,
-                minor_version,
+                version[0],
+                version[1],
                 LFS_DISK_VERSION_MAJOR,
                 LFS_DISK_VERSION_MINOR);
         return LFS_ERR_INVAL;
