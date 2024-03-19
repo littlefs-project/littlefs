@@ -14,6 +14,24 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# make sure the magic string "littlefs" is always at offset=8
+[cases.test_superblocks_magic]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    // check our magic string
+    //
+    // note if we lose power we may not have the magic string in both blocks!
+    // but we don't lose power in this test so we can assert the magic string
+    // is present in both
+    uint8_t magic[lfs_max(16, READ_SIZE)];
+    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+'''
+
 # mount/unmount from interpretting a previous superblock block_count
 [cases.test_superblocks_mount_unknown_block_count]
 code = '''
@@ -27,7 +45,6 @@ code = '''
     assert(lfs.block_count == cfg->block_count);
     lfs_unmount(&lfs) => 0;
 '''
-
 
 # reentrant format
 [cases.test_superblocks_reentrant_format]
@@ -135,6 +152,39 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# make sure the magic string "littlefs" is always at offset=8
+[cases.test_superblocks_magic_expand]
+defines.BLOCK_CYCLES = [32, 33, 1]
+defines.N = [10, 100, 1000]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        struct lfs_info info;
+        lfs_stat(&lfs, "dummy", &info) => 0;
+        assert(strcmp(info.name, "dummy") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        lfs_remove(&lfs, "dummy") => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    // check our magic string
+    //
+    // note if we lose power we may not have the magic string in both blocks!
+    // but we don't lose power in this test so we can assert the magic string
+    // is present in both
+    uint8_t magic[lfs_max(16, READ_SIZE)];
+    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+'''
+
 # expanding superblock with power cycle
 [cases.test_superblocks_expand_power_cycle]
 defines.BLOCK_CYCLES = [32, 33, 1]
@@ -220,6 +270,7 @@ code = '''
     assert(info.type == LFS_TYPE_REG);
     lfs_unmount(&lfs) => 0;
 '''
+
 
 # mount with unknown block_count
 [cases.test_superblocks_unknown_blocks]

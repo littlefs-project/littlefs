@@ -441,9 +441,10 @@ Superblock fields:
 
 7. **Attr max (32-bits)** - Maximum size of file attributes in bytes.
 
-The superblock must always be the first entry (id 0) in a metadata pair as well
-as be the first entry written to the block. This means that the superblock
-entry can be read from a device using offsets alone.
+The superblock must always be the first entry (id 0) in the metadata pair, and
+the name tag must always be the first tag in the metadata pair. This makes it
+so that the magic string "littlefs" will always reside at offset=8 in a valid
+littlefs superblock.
 
 ---
 #### `0x2xx` LFS_TYPE_STRUCT
