@@ -371,11 +371,11 @@ typedef struct lfsr_opened {
 } lfsr_opened_t;
 
 // grm encoding:
-// .---.
-// |mod|                  mode:  1 byte
-// +- -+- -+- -+- -+- -.
-// ' mid x mod         '  mids:  <=2x5 bytes
-// +                   +  total: <=11 bytes
+// .---.                  mode:  1 leb128   1 byte
+// |mod|                  mids:  2 leb128s  <=2x5 bytes
+// +- -+- -+- -+- -+- -.  total:            <=11 bytes
+// ' mid x mod         '
+// +                   +
 // '                   '
 // '- -+- -+- -+- -+- -'
 //

@@ -978,10 +978,10 @@ static inline void lfsr_tag_trim2(
 // support for encoding/decoding tags on disk
 
 // tag encoding:
-// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -.  tag:    2 bytes
-// |  tag  | weight            | size          |  weight: <=5 bytes
-// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -'  size:   <=4 bytes
-//                                                total:  <=11 bytes
+// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -.  tag:    1 be16    2 bytes
+// |  tag  | weight            | size          |  weight: 1 leb128  <=5 bytes
+// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -'  size:   1 leb128  <=4 bytes
+//                                                total:            <=11 bytes
 #define LFSR_TAG_DSIZE (2+5+4)
 
 static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
@@ -1703,11 +1703,11 @@ static int lfsr_ecksum_validate(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
 // erased-state checksum on-disk encoding
 
 // ecksum encoding:
-// .---+- -+- -+- -.
-// | cksize        |  cksize: <=4 bytes
-// +---+- -+- -+- -+
-// |     cksum     |  cksum:  4 bytes
-// '---+---+---+---'  total:  <=8 bytes
+// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
+// | cksize        |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+  total:            <=8 bytes
+// |     cksum     |
+// '---+---+---+---'
 //
 #define LFSR_ECKSUM_DSIZE (4+4)
 
@@ -1751,17 +1751,17 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 // block pointer things
 
 // bptr encoding:
-// .---+- -+- -+- -.
-// | size          |      size:   <=4 bytes
-// +---+- -+- -+- -+- -.
-// | block             |  block:  <=5 bytes
-// +---+- -+- -+- -+- -'
-// | off           |      off:    <=4 bytes
+// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
+// | size          |      block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
+// | block             |  cksize: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
+// | off           |      total:            <=21 bytes
 // +---+- -+- -+- -+
-// | cksize        |      cksize: <=4 bytes
+// | cksize        |
 // +---+- -+- -+- -+
-// |     cksum     |      cksum:  4 bytes
-// '---+---+---+---'      total:  <=21 bytes
+// |     cksum     |
+// '---+---+---+---'
 //
 #define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
@@ -3291,24 +3291,24 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // this gets a bit complicated as we have two types of cksums:
     //
     // - 9-word cksum with ecksum to check following prog (middle of block):
-    //   .---+---+---+---.              ecksum tag:    2 bytes
-    //   | etag  | 0 |esz|              ecksum weight: 1 byte
-    //   +---+---+---+---+              ecksum size:   1 byte
-    //   | ecksize       |              ecksum cksize: <=4 bytes
-    //   +---+- -+- -+- -+              ecksum cksum:  4 bytes
+    //   .---+---+---+---.              ecksum tag:        1 be16    2 bytes
+    //   |  tag  | 0 |siz|              ecksum weight (0): 1 leb128  1 byte
+    //   +---+---+---+---+              ecksum size:       1 leb128  1 byte
+    //   | ecksize       |              ecksum cksize:     1 leb128  <=4 bytes
+    //   +---+- -+- -+- -+              ecksum cksum:      1 le32    4 bytes
     //   |    ecksum     |
-    //   +---+---+---+---+- -+- -+- -.  cksum tag:     2 bytes
-    //   |  tag  | 0 | size          |  cksum weight:  1 byte
-    //   +---+---+---+---+- -+- -+- -'  cksum size:    <=4 bytes
-    //   |     cksum     |              cksum cksum:   4 bytes
-    //   '---+---+---+---'              total:         <=23 bytes
+    //   +---+---+---+---+- -+- -+- -.  cksum tag:         1 be16    2 bytes
+    //   |  tag  | 0 | size          |  cksum weight (0):  1 leb128  1 byte
+    //   +---+---+---+---+- -+- -+- -'  cksum size:        1 leb128  <=4 bytes
+    //   |     cksum     |              cksum cksum:       1 le32    4 bytes
+    //   '---+---+---+---'              total:                       <=23 bytes
     //
     // - 4-word cksum with no following prog (end of block):
-    //   .---+---+---+---+- -+- -+- -.  cksum tag:     2 bytes
-    //   |  tag  | 0 | size          |  cksum weight:  1 byte
-    //   +---+---+---+---+- -+- -+- -'  cksum size:    <=4 bytes
-    //   |     cksum     |              cksum cksum:   4 bytes
-    //   '---+---+---+---'              total:         <=11 bytes
+    //   .---+---+---+---+- -+- -+- -.  cksum tag:         1 be16    2 bytes
+    //   |  tag  | 0 | size          |  cksum weight (0):  1 leb128  1 byte
+    //   +---+---+---+---+- -+- -+- -'  cksum size:        1 leb128  <=4 bytes
+    //   |     cksum     |              cksum cksum:       1 le32    4 bytes
+    //   '---+---+---+---'              total:                       <=11 bytes
     //
     lfs_size_t aligned_eoff = lfs_alignup(
             rbyd->eoff + 2+1+1+4+4 + 2+1+4+4,
@@ -3932,13 +3932,13 @@ static inline int lfsr_btree_cmp(
 // branch on-disk encoding
 
 // branch encoding:
-// .---+- -+- -+- -+- -.
-// | block             |  block: <=5 bytes
-// +---+- -+- -+- -+- -'
-// | trunk         |      trunk: <=4 bytes
+// .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
+// | block             |  trunk: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum: 1 le32    4 bytes
+// | trunk         |      total:           <=13 bytes
 // +---+- -+- -+- -+
-// |     cksum     |      cksum: 4 bytes
-// '---+---+---+---'      total: <=13 bytes
+// |     cksum     |
+// '---+---+---+---'
 //
 #define LFSR_BRANCH_DSIZE (5+4+4)
 
@@ -4000,15 +4000,15 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 // btree's weight
 
 // btree encoding:
-// .---+- -+- -+- -+- -.
-// | weight            |  weight: <=5 bytes
-// +---+- -+- -+- -+- -+
-// | block             |  block:  <=5 bytes
-// +---+- -+- -+- -+- -'
-// | trunk         |      trunk:  <=4 bytes
+// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// | weight            |  block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -+  trunk:  1 leb128  <=4 bytes
+// | block             |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+- -'  total:            <=18 bytes
+// | trunk         |
 // +---+- -+- -+- -+
-// |     cksum     |      cksum:  4 bytes
-// '---+---+---+---'      total:  <=18 bytes
+// |     cksum     |
+// '---+---+---+---'
 //
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
@@ -5061,11 +5061,11 @@ static inline int lfsr_shrub_cmp(
 // shrub on-disk encoding
 
 // shrub encoding:
-// .---+- -+- -+- -+- -.
-// | weight            |   weight: <=5 bytes
-// +---+- -+- -+- -+- -'
-// | trunk         |       trunk:  <=4 bytes
-// '---+- -+- -+- -'       total:  <=9 bytes
+// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// | weight            |  trunk:  1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  total:            <=9 bytes
+// | trunk         |
+// '---+- -+- -+- -'
 //
 #define LFSR_SHRUB_DSIZE (5+4)
 
@@ -5261,9 +5261,9 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
 }
 
 // mptr encoding:
-// .---+- -+- -+- -+- -.
-// | block x 2         |  blocks: <=2x5 bytes
-// +                   +  total:  <=10 bytes
+// .---+- -+- -+- -+- -.  blocks: 2 leb128s  <=2x5 bytes
+// | block x 2         |  total:             <=10 bytes
+// +                   +
 // |                   |
 // '---+- -+- -+- -+- -'
 //
@@ -7892,11 +7892,11 @@ typedef struct lfsr_geometry {
 } lfsr_geometry_t;
 
 // geometry encoding
-// .---+- -+- -+- -.
-// | block_size    |      blocksize:  <=4 bytes
-// +---+- -+- -+- -+- -.
-// | block_count       |  blockcount: <=5 bytes
-// '---+- -+- -+- -+- -'  total:      <=9 bytes
+// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
+// | block_size    |      block_count: 1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  total:                 <=9 bytes
+// | block_count       |
+// '---+- -+- -+- -+- -'
 #define LFSR_GEOMETRY_DSIZE (4+5)
 
 #define LFSR_DATA_FROMGEOMETRY(_geometry) \
