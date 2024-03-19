@@ -4469,6 +4469,7 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
             // found older minor version? set an in-device only bit in the
             // gstate so we know we need to rewrite the superblock before
             // the first write
+            bool needssuperblock = false;
             if (minor_version < lfs_fs_disk_version_minor(lfs)) {
                 LFS_DEBUG("Found older minor version "
                         "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
@@ -4476,10 +4477,11 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
                         minor_version,
                         lfs_fs_disk_version_major(lfs),
                         lfs_fs_disk_version_minor(lfs));
-                // note this bit is reserved on disk, so fetching more gstate
-                // will not interfere here
-                lfs_fs_prepsuperblock(lfs, true);
+                needssuperblock = true;
             }
+            // note this bit is reserved on disk, so fetching more gstate
+            // will not interfere here
+            lfs_fs_prepsuperblock(lfs, needssuperblock);
 
             // check superblock configuration
             if (superblock.name_max) {
