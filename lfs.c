@@ -2191,7 +2191,8 @@ static int lfs_dir_splittingcompact(lfs_t *lfs, lfs_mdir_t *dir,
                 // we can do, we'll error later if we've become frozen
                 LFS_WARN("Unable to expand superblock");
             } else {
-                end = begin;
+                // duplicate the superblock entry into the new superblock
+                end = 1;
             }
         }
     }
@@ -2358,7 +2359,9 @@ fixmlist:;
 
             while (d->id >= d->m.count && d->m.split) {
                 // we split and id is on tail now
-                d->id -= d->m.count;
+                if (lfs_pair_cmp(d->m.tail, lfs->root) != 0) {
+                    d->id -= d->m.count;
+                }
                 int err = lfs_dir_fetch(lfs, &d->m, d->m.tail);
                 if (err) {
                     return err;
