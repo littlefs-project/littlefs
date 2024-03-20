@@ -1119,7 +1119,9 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
             daemon=True))
 
     def print_update(done):
-        if not args.get('verbose') and (args['color'] or done):
+        if (not args.get('verbose')
+                and not args.get('stdout') == '-'
+                and (args['color'] or done)):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
                 '\r\x1b[K' if args['color'] else '',
                 '\x1b[?7l' if not done else '',
