@@ -1008,6 +1008,10 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_stdout.clear()
                         last_assert = None
                     elif op == 'finished':
+                        # force a failure
+                        if args.get('fail'):
+                            raise BenchFailure(last_id, 0, list(last_stdout))
+                        # passed
                         case = m.group('case')
                         suite = case_suites[case]
                         passed_suite_perms[suite] += 1
@@ -1061,7 +1065,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         proged += proged_
                         erased += erased_
         except KeyboardInterrupt:
-            raise BenchFailure(last_id, 1, list(last_stdout))
+            raise BenchFailure(last_id, 0, list(last_stdout))
         finally:
             children.remove(proc)
             mpty.close()
@@ -1513,7 +1517,11 @@ if __name__ == "__main__":
     bench_parser.add_argument(
         '-k', '--keep-going',
         action='store_true',
-        help="Don't stop on first error.")
+        help="Don't stop on first failure.")
+    bench_parser.add_argument(
+        '-f', '--fail',
+        action='store_true',
+        help="Force a failure.")
     bench_parser.add_argument(
         '-i', '--isolate',
         action='store_true',

@@ -1003,6 +1003,10 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                         last_id = m.group('id')
                         powerlosses += 1
                     elif op == 'finished':
+                        # force a failure?
+                        if args.get('fail'):
+                            raise TestFailure(last_id, 0, list(last_stdout))
+                        # passed
                         case = m.group('case')
                         suite = case_suites[case]
                         passed_suite_perms[suite] += 1
@@ -1028,7 +1032,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                         if args.get('keep_going'):
                             proc.kill()
         except KeyboardInterrupt:
-            raise TestFailure(last_id, 1, list(last_stdout))
+            raise TestFailure(last_id, 0, list(last_stdout))
         finally:
             children.remove(proc)
             mpty.close()
@@ -1530,7 +1534,11 @@ if __name__ == "__main__":
     test_parser.add_argument(
         '-k', '--keep-going',
         action='store_true',
-        help="Don't stop on first error.")
+        help="Don't stop on first failure.")
+    test_parser.add_argument(
+        '-f', '--fail',
+        action='store_true',
+        help="Force a failure.")
     test_parser.add_argument(
         '-i', '--isolate',
         action='store_true',
