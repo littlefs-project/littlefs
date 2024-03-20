@@ -1282,24 +1282,32 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         for branch in tree:
             a_bid, a_bd, a_rid, a_tag = branch.a
             b_bid, b_bd, b_rid, b_tag = branch.b
+            # flatten non-data tags if we're not showing inner nodes
+            if not args.get('inner'):
+                if ((a_tag & 0xfff) != TAG_DATA
+                        and (a_tag & 0xfff) != TAG_BLOCK):
+                    a_tag = (a_tag & 0xf000) | TAG_BLOCK
+                if ((b_tag & 0xfff) != TAG_DATA
+                        and (b_tag & 0xfff) != TAG_BLOCK):
+                    b_tag = (b_tag & 0xf000) | TAG_BLOCK
             tree_.add(TBranch(
-                a=(a_bid, a_bd, a_rid, a_tag, (a_tag & 0xfff) == TAG_BLOCK),
-                b=(b_bid, b_bd, b_rid, b_tag, (b_tag & 0xfff) == TAG_BLOCK),
+                a=(a_bid, a_bd, a_rid, (a_tag & 0xfff) == TAG_BLOCK, a_tag),
+                b=(b_bid, b_bd, b_rid, (b_tag & 0xfff) == TAG_BLOCK, b_tag),
                 d=branch.d + (1 if args.get('inner') else 0),
                 c=branch.c,
             ))
         tree = tree_
 
         # connect our source tag if we are showing inner nodes
-        if (tag != TAG_DATA
-                and tag != TAG_BLOCK
+        if ((tag & 0xfff) != TAG_DATA
+                and (tag & 0xfff) != TAG_BLOCK
                 and args.get('inner')):
             if tree:
                 branch = min(tree, key=lambda branch: branch.d)
-                a_bid, a_bd, a_rid, a_tag, a_block = branch.a
+                a_bid, a_bd, a_rid, a_block, a_tag = branch.a
                 tree.add(TBranch(
-                    a=(0, -1, 0, tag, False),
-                    b=(a_bid, a_bd, a_rid, a_tag, a_block),
+                    a=(0, -1, 0, False, tag),
+                    b=(a_bid, a_bd, a_rid, a_block, a_tag),
                     d=0,
                     c='b'
                 ))
@@ -1307,8 +1315,8 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                 done, rid_, tag_, w_, j_, d_, data_, _ = btree.lookup(-1, 0)
                 if not done:
                     tree.add(TBranch(
-                        a=(0, -1, 0, tag, False),
-                        b=(rid_-(w_-1), 0, rid_-(w_-1), tag_, False),
+                        a=(0, -1, 0, False, tag),
+                        b=(rid_-(w_-1), 0, rid_-(w_-1), False, tag_),
                         d=0,
                         c='b'
                     ))
@@ -1319,27 +1327,27 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             # find the max depth for each leaf
             bds = {}
             for branch in tree:
-                a_bid, a_bd, a_rid, a_tag, a_block = branch.a
-                b_bid, b_bd, b_rid, b_tag, b_block = branch.b
+                a_bid, a_bd, a_rid, a_block, a_tag = branch.a
+                b_bid, b_bd, b_rid, b_block, b_tag = branch.b
                 if b_block:
                     bds[branch.b] = max(branch.d, bds.get(branch.b, -1))
 
             # add branch from block tag to the actual block
             tree_ = set()
             for branch in tree:
-                a_bid, a_bd, a_rid, a_tag, a_block = branch.a
-                b_bid, b_bd, b_rid, b_tag, b_block = branch.b
+                a_bid, a_bd, a_rid, a_block, a_tag = branch.a
+                b_bid, b_bd, b_rid, b_block, b_tag = branch.b
                 tree_.add(TBranch(
-                    a=(a_bid, a_bd, a_rid, a_tag, False),
-                    b=(b_bid, b_bd, b_rid, b_tag, False),
+                    a=(a_bid, a_bd, a_rid, False, a_tag),
+                    b=(b_bid, b_bd, b_rid, False, b_tag),
                     d=branch.d,
                     c=branch.c,
                 ))
 
                 if b_block and branch.d == bds.get(branch.b, -1):
                     tree_.add(TBranch(
-                        a=(b_bid, b_bd, b_rid, b_tag, False),
-                        b=(b_bid, b_bd, b_rid, b_tag, True),
+                        a=(b_bid, b_bd, b_rid, False, b_tag),
+                        b=(b_bid, b_bd, b_rid, True,  b_tag),
                         d=branch.d + 1,
                         c=branch.c,
                     ))
@@ -1352,7 +1360,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         if t_depth > 0:
             t_width = 2*t_depth + 2
 
-        def treerepr(bid, w, bd, rid, tag, block):
+        def treerepr(bid, w, bd, rid, block, tag):
             if t_depth == 0:
                 return ''
 
@@ -1387,7 +1395,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             was = None
             for d in range(t_depth):
                 t, c, was = branchrepr(
-                    (bid-(w-1), bd, rid-(w-1), tag, block), d, was)
+                    (bid-(w-1), bd, rid-(w-1), block, tag), d, was)
 
                 trunk.append('%s%s%s%s' % (
                     '\x1b[33m' if color and c == 'y'
@@ -1417,7 +1425,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                     if prbyd is None or rbyd != prbyd
                     else '',
                 m_width, '',
-                treerepr(bid, w, bd, rid, tag, False)
+                treerepr(bid, w, bd, rid, False, tag)
                     if args.get('tree') or args.get('btree') else '',
                 '%*s ' % (2*w_width+1, '' if i != 0
                     else '%d-%d' % (bid-(w-1), bid) if w > 1
@@ -1471,7 +1479,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                 else '',
             '\x1b[0m' if color and notes else '',
             m_width, '',
-            treerepr(bid, w, bd, rid, tag, True)
+            treerepr(bid, w, bd, rid, True, tag)
                 if args.get('tree') or args.get('btree') else '',
             '\x1b[31m' if color and notes else '',
             '%*s ' % (2*w_width+1, '%d-%d' % (bid-(w-1), bid) if w > 1
