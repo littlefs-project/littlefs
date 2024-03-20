@@ -614,6 +614,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
     # lookup a tag, returning also the search path for decoration
     # purposes
     def lookup(rid, tag):
+        tag = max(tag, 0x1)
         lower = 0
         upper = weight
         path = []

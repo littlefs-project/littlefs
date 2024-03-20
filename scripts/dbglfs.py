@@ -406,6 +406,7 @@ class Rbyd:
         if not self:
             return True, 0, -1, 0, 0, 0, b'', []
 
+        tag = max(tag, 0x1)
         lower = 0
         upper = self.weight
         path = []
