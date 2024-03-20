@@ -6806,52 +6806,20 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
                     mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
 
-            // compact into the new mroot anchor
+            // commit the new mroot anchor
             lfsr_mdir_t mrootanchor_;
             err = lfsr_mdir_swap__(lfs, &mrootanchor_, &mrootchild, -1);
             if (err) {
                 return err;
             }
 
-            // copy only the config over
-            lfsr_tag_t tag = 0;
-            while (true) {
-                lfsr_srid_t rid;
-                lfsr_rid_t weight;
-                lfsr_data_t data;
-                err = lfsr_rbyd_lookupnext(lfs, &mrootchild.rbyd,
-                        -1, tag+1,
-                        &rid, &tag, &weight, &data);
-                if (err) {
-                    if (err == LFS_ERR_NOENT) {
-                        break;
-                    }
-                    return err;
-                }
-                if (rid != -1 || lfsr_tag_suptype(tag) != LFSR_TAG_CONFIG) {
-                    break;
-                }
-
-                // write the tag
-                err = lfsr_rbyd_appendcompactattr(lfs, &mrootanchor_.rbyd,
-                        tag, weight, data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
-
-            err = lfsr_rbyd_appendcompaction(lfs, &mrootanchor_.rbyd, 0);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            // and commit our new mroot
             err = lfsr_mdir_commit__(lfs, &mrootanchor_, -1, -1,
                     -1, LFSR_ATTRS(
                         LFSR_ATTR(
-                            LFSR_TAG_SUB | LFSR_TAG_MROOT, 0,
+                            LFSR_TAG_MAGIC, 0,
+                            LFSR_DATA_BUF("littlefs", 8)),
+                        LFSR_ATTR(
+                            LFSR_TAG_MROOT, 0,
                             LFSR_DATA_FROMMPTR(lfsr_mdir_mptr(&mrootchild_)))));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -7942,31 +7910,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg);
 static int lfs_deinit(lfs_t *lfs);
 
 static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
-    // has magic string?
-    lfsr_data_t data;
-    int err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_MAGIC,
-            &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No littlefs magic found");
-            return LFS_ERR_INVAL;
-        }
-        return err;
-    }
-
-    lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, "littlefs", 8);
-    if (cmp < 0) {
-        return cmp;
-    }
-
-    // treat corrupted magic as no magic
-    if (cmp != LFS_CMP_EQ) {
-        LFS_ERROR("No littlefs magic found");
-        return LFS_ERR_INVAL;
-    }
-
     // check the disk version
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_VERSION,
+    uint8_t version[2] = {0, 0};
+    lfsr_data_t data;
+    int err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_VERSION,
             &data);
     if (err) {
         if (err == LFS_ERR_NOENT) {
@@ -7975,8 +7922,6 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         }
         return err;
     }
-
-    uint8_t version[2] = {0, 0};
     lfs_ssize_t d = lfsr_data_read(lfs, &data, version, 2);
     if (d < 0) {
         return err;
@@ -8008,7 +7953,6 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         }
     }
 
-    // incompatible rcompat flags?
     if (lfsr_rcompat_isincompat(rcompat)) {
         LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx16
                 " (!= 0x%0"PRIx16")",
@@ -8032,7 +7976,6 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         }
     }
 
-    // incompatible wcompat flags?
     // TODO switch to readonly?
     if (lfsr_wcompat_isincompat(wcompat)) {
         LFS_ERROR("Incompatible wcompat flags 0x%0"PRIx16
@@ -8046,6 +7989,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     // ignore these anyways
 
     // check the on-disk geometry
+    lfsr_geometry_t geometry;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_GEOMETRY,
             &data);
     if (err) {
@@ -8055,8 +7999,6 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         }
         return err;
     }
-
-    lfsr_geometry_t geometry;
     err = lfsr_data_readgeometry(lfs, &data, &geometry);
     if (err) {
         return err;
@@ -8174,14 +8116,44 @@ static int lfsr_mountinited(lfs_t *lfs) {
         if (tinfo.tag == LFSR_TAG_MDIR) {
             // found an mroot?
             if (tinfo.u.mdir.mid == -1) {
-                err = lfsr_mountmroot(lfs, &tinfo.u.mdir);
+                // check for the magic string, all mroot should have this
+                lfsr_data_t data;
+                int err = lfsr_mdir_lookup(lfs, &tinfo.u.mdir, LFSR_TAG_MAGIC,
+                        &data);
                 if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No littlefs magic found");
+                        return LFS_ERR_INVAL;
+                    }
                     return err;
                 }
 
-                // keep track of the last mroot we see, this is the
-                // active mroot
-                lfs->mroot = tinfo.u.mdir;
+                // treat corrupted magic as no magic
+                lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, "littlefs", 8);
+                if (cmp < 0) {
+                    return cmp;
+                }
+                if (cmp != LFS_CMP_EQ) {
+                    LFS_ERROR("No littlefs magic found");
+                    return LFS_ERR_INVAL;
+                }
+
+                // are we the last mroot?
+                err = lfsr_mdir_lookup(lfs, &tinfo.u.mdir, LFSR_TAG_MROOT,
+                        NULL);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+                if (err == LFS_ERR_NOENT) {
+                    // track active mroot
+                    lfs->mroot = tinfo.u.mdir;
+
+                    // mount/validate config in active mroot
+                    err = lfsr_mountmroot(lfs, &lfs->mroot);
+                    if (err) {
+                        return err;
+                    }
+                }
 
             } else {
                 // found a direct mdir? keep track of this
