@@ -3169,7 +3169,7 @@ code = '''
                     if (j == N-1) {
                         assert(err == LFS_ERR_NOENT);
                     } else {
-                        assert(!err);
+                        assert(err == 0);
                         assert(tag_ == LFSR_TAG_UATTR(j+1+1));
                         assert(rid_ == -1);
                         assert(lfsr_data_size(data_) == 4);
@@ -4094,7 +4094,7 @@ code = '''
         int err = lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(attr),
                 &data);
         if (sim[attr]) {
-            assert(!err);
+            assert(err == 0);
             lfs_ssize_t size = lfsr_data_read(&lfs, &data, buffer, 4);
             assert(size == 1);
             assert(memcmp(&sim[attr], buffer, 1) == 0);
@@ -6250,12 +6250,12 @@ code = '''
                         if (u == M-1 && k == N-1) {
                             assert(err == LFS_ERR_NOENT);
                         } else if (u == M-1) {
-                            assert(!err);
+                            assert(err == 0);
                             assert(tag_ == LFSR_TAG_REG);
                             assert(rid_ == k+1);
                             assert(lfsr_data_size(data_) == 4);
                         } else {
-                            assert(!err);
+                            assert(err == 0);
                             assert(tag_ == LFSR_TAG_UATTR(u+1+1));
                             assert(rid_ == k);
                             assert(lfsr_data_size(data_) == 2);
