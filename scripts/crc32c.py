@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import os
-import sys
 import io
+import os
+import struct
+import sys
 
 
 def openio(path, mode='r', buffering=-1):
@@ -92,26 +93,37 @@ def crc32c(data, crc=0):
     return crc ^ 0xffffffff
     
 
-def main(paths):
-    if not paths:
-        paths = [None]
+def main(paths, **args):
+    # interpret as sequence of hex bytes
+    if args.get('hex'):
+        print('%08x' % crc32c(bytes(int(path, 16) for path in paths)))
 
-    for path in paths:
-        with openio(path or '-', 'rb') as f:
-            # calculate crc
-            crc = 0
-            while True:
-                block = f.read(io.DEFAULT_BUFFER_SIZE)
-                if not block:
-                    break
+    # interpret as strings
+    elif args.get('string'):
+        for path in paths:
+            print('%08x' % crc32c(path.encode('utf8')))
 
-                crc = crc32c(block, crc)
+    # default to interpreting as paths
+    else:
+        if not paths:
+            paths = [None]
 
-            # print what we found
-            if path is not None:
-                print('%08x  %s' % (crc, path))
-            else:
-                print('%08x' % crc)
+        for path in paths:
+            with openio(path or '-', 'rb') as f:
+                # calculate crc
+                crc = 0
+                while True:
+                    block = f.read(io.DEFAULT_BUFFER_SIZE)
+                    if not block:
+                        break
+
+                    crc = crc32c(block, crc)
+
+                # print what we found
+                if path is not None:
+                    print('%08x  %s' % (crc, path))
+                else:
+                    print('%08x' % crc)
 
 if __name__ == "__main__":
     import argparse
@@ -123,6 +135,14 @@ if __name__ == "__main__":
         'paths',
         nargs='*',
         help="Paths to read. Reads stdin by default.")
+    parser.add_argument(
+        '-x', '--hex',
+        action='store_true',
+        help="Interpret as a sequence of hex bytes.")
+    parser.add_argument(
+        '-s', '--string',
+        action='store_true',
+        help="Interpret as strings.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
