@@ -232,10 +232,13 @@ def tagrepr(tag, w, size, off=None):
             ' w%d' % w if w > 0 else '',
             size)
     elif tag & TAG_ALT:
-        return 'alt%s%s 0x%x w%d %s' % (
+        return 'alt%s%s%s w%d %s' % (
             'r' if tag & TAG_R else 'b',
-            'gt' if tag & TAG_GT else 'le',
-            tag & 0x0fff,
+            'a' if tag & 0x0fff == 0 and tag & TAG_GT
+                else 'n' if tag & 0x0fff == 0
+                else 'gt' if tag & TAG_GT
+                else 'le',
+            ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
             w,
             '0x%x' % (0xffffffff & (off-size))
                 if off is not None
@@ -260,7 +263,8 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             if not tag & TAG_ALT:
                 j_ += size
 
-            if tag & TAG_ALT:
+            # skip alt-nevers
+            if tag & TAG_ALT and tag & ~TAG_R != TAG_ALT:
                 # figure out which alt color
                 if tag & TAG_R:
                     _, ntag, _, _, _ = fromtag(data[j_:])
@@ -692,24 +696,14 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 else:
                     alts[j_] |= {'nf': j__, 'c': c}
 
-        # prune any alts with unreachable edges
-        pruned = {}
+        # treat unreachable alts as converging paths
         for j_, alt in alts.items():
             if 'f' not in alt:
-                pruned[j_] = alt['nf']
+                alt['f'] = alt['nf']
             elif 'nf' not in alt:
-                pruned[j_] = alt['f']
-        for j_ in pruned.keys():
-            del alts[j_]
+                alt['nf'] = alt['f']
 
-        for j_, alt in alts.items():
-            while alt['f'] in pruned:
-                alt['f'] = pruned[alt['f']]
-            while alt['nf'] in pruned:
-                alt['nf'] = pruned[alt['nf']]
-
-        # find the trunk and depth of each alt, assuming pruned alts
-        # didn't exist
+        # find the trunk and depth of each alt
         def rec_trunk(j_):
             if j_ not in alts:
                 return trunks[j_]

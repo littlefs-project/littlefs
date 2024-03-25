@@ -813,24 +813,14 @@ class Rbyd:
                 else:
                     alts[j_] |= {'nf': j__, 'c': c}
 
-        # prune any alts with unreachable edges
-        pruned = {}
+        # treat unreachable alts as converging paths
         for j_, alt in alts.items():
             if 'f' not in alt:
-                pruned[j_] = alt['nf']
+                alt['f'] = alt['nf']
             elif 'nf' not in alt:
-                pruned[j_] = alt['f']
-        for j_ in pruned.keys():
-            del alts[j_]
+                alt['nf'] = alt['f']
 
-        for j_, alt in alts.items():
-            while alt['f'] in pruned:
-                alt['f'] = pruned[alt['f']]
-            while alt['nf'] in pruned:
-                alt['nf'] = pruned[alt['nf']]
-
-        # find the trunk and depth of each alt, assuming pruned alts
-        # didn't exist
+        # find the trunk and depth of each alt
         def rec_trunk(j_):
             if j_ not in alts:
                 return trunks[j_]

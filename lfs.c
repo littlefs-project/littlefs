@@ -884,11 +884,13 @@ static inline bool lfsr_tag_follow(
     if (lfsr_tag_isgt(alt)) {
         return rid > upper - (lfsr_srid_t)weight - 1
                 || (rid == upper - (lfsr_srid_t)weight - 1
-                    && lfsr_tag_key(tag) > lfsr_tag_key(alt));
+                    && (lfsr_tag_key(alt) == 0
+                        || lfsr_tag_key(tag) > lfsr_tag_key(alt)));
     } else {
         return rid < lower + (lfsr_srid_t)weight - 1
                 || (rid == lower + (lfsr_srid_t)weight - 1
-                    && lfsr_tag_key(tag) <= lfsr_tag_key(alt));
+                    && (lfsr_tag_key(alt) != 0
+                        && lfsr_tag_key(tag) <= lfsr_tag_key(alt)));
     }
 }
 
@@ -946,14 +948,15 @@ static inline void lfsr_tag_trim(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_srid_t *lower_rid, lfsr_srid_t *upper_rid,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
+    LFS_ASSERT((lfsr_srid_t)weight >= 0);
     if (lfsr_tag_isgt(alt)) {
         *upper_rid -= weight;
-        if (upper_tag) {
+        if (upper_tag && lfsr_tag_key(alt) != 0) {
             *upper_tag = alt + 1;
         }
     } else {
         *lower_rid += weight;
-        if (lower_tag) {
+        if (lower_tag && lfsr_tag_key(alt) != 0) {
             *lower_tag = alt + 1;
         }
     }
@@ -2728,6 +2731,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return 0;
     }
 
+    printf("%04x->%04x: appendattr:\n", lfsr_rbyd_trunk(rbyd), rbyd->eoff);
+
     // begin appending
     int err = lfsr_rbyd_prepareappend(lfs, rbyd);
     if (err) {
@@ -2848,12 +2853,20 @@ again:;
         if (d < 0) {
             return d;
         }
+        printf("%04x->%04x: tag 0x%x w%d (%d %d)\n",
+                branch,
+                rbyd->eoff,
+                alt,
+                weight,
+                lower_rid,
+                upper_rid);
 
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
             // make jump absolute
             jump = branch - jump;
             lfs_size_t branch_ = branch + d;
+            bool diverged_this_alt = false;
 
             // do bounds want to take different paths? begin diverging
             if (!lfsr_d_isdiverged(d_state)
@@ -2878,9 +2891,20 @@ again:;
                 // begin diverging
                 } else {
                     d_state = lfsr_d_diverge(d_state);
+                    printf("%04x->%04x: diverging 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
 
                     // stitch together diverged branches
                     if (d_state == LFSR_D_DIVERGEDUPPER && d_tag) {
+                        printf("%04x->%04x: stitching: 0x%x w%d, 0x%x\n",
+                                branch,
+                                rbyd->eoff,
+                                d_tag,
+                                d_rid - lower_rid,
+                                d_branch);
                         err = lfsr_rbyd_p_push(lfs, rbyd,
                                 p_alts, p_weights, p_jumps,
                                 LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
@@ -2890,8 +2914,14 @@ again:;
                             return err;
                         }
                     }
+
+                    diverged_this_alt = true;
                 }
             }
+
+//            if (lfsr_d_isdiverged(d_state)) {
+//                alt &= ~LFSR_TAG_R;
+//            }
 
             // prune?
             //            <b                    >b
@@ -2936,26 +2966,57 @@ again:;
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
 
+                // red alts we can collapse
                 if (lfsr_tag_isred(p_alts[0])) {
+                    printf("%04x->%04x: rprune 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+
+                // black alts just become unreachable, if we pruned these
+                // it would break the coloring of our tree
                 } else {
-                    // propagate pruning to yellow splits to avoid issues
-                    // with tail-recursive recoloring
-                    if (lfsr_d_isdiverged(d_state)) {
-                        d_pruned = true;
+                    if (d_state == LFSR_D_DIVERGINGLOWER || diverged_this_alt) {
+                        printf("%04x->%04x: dprune 0x%x w%d\n",
+                                branch,
+                                rbyd->eoff,
+                                alt,
+                                weight);
+                        // propagate pruning to yellow splits to avoid issues
+                        // with tail-recursive recoloring
+                        if (lfsr_d_isdiverged(d_state)) {
+                            d_pruned = true;
+                        }
+                        y_branch = branch;
+                        branch = branch_;
+                        continue;
+                    } else {
+                        printf("%04x->%04x: bprune 0x%x w%d\n",
+                                branch,
+                                rbyd->eoff,
+                                alt,
+                                weight);
+                        alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
+                        weight = 0;
+    //                    jump = 0;
                     }
-                    y_branch = branch;
-                    branch = branch_;
-                    continue;
                 }
             }
 
             // two reds makes a yellow, split?
             if (lfsr_tag_isred(alt) && lfsr_tag_isred(p_alts[0])) {
                 LFS_ASSERT(lfsr_tag_isparallel(alt, p_alts[0]));
+                printf("%04x->%04x: ysplit 0x%x w%d 0x%x\n",
+                        branch,
+                        rbyd->eoff,
+                        alt,
+                        weight,
+                        y_branch);
 
                 // if we take the red or yellow alt we can just point
                 // to the black alt
@@ -3016,6 +3077,14 @@ again:;
                         lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
                     }
 
+                    // keep track of last alt on diverged trunk to stitch the
+                    // trunks together with
+                    if (d_state == LFSR_D_DIVERGEDLOWER
+                            && lfsr_tag_key(p_alts[0]) != 0) {
+                        d_tag = p_alts[0];
+        //                d_rid = lower_rid;
+                    }
+
                     branch = branch_;
                     continue;
                 }
@@ -3068,6 +3137,14 @@ again:;
                         &lower_tag, &upper_tag);
                 // no longer pruned
                 d_pruned = false;
+
+                // keep track of last alt on diverged trunk to stitch the
+                // trunks together with
+                if (d_state == LFSR_D_DIVERGEDLOWER
+                        && lfsr_tag_key(alt) != 0) {
+                    d_tag = alt;
+    //                d_rid = lower_rid;
+                }
             }
 
             // push alt onto our queue
@@ -3104,7 +3181,7 @@ again:;
         // keep track of last alt on diverged trunk to stitch the trunks
         // together with
         d_state = LFSR_D_DIVERGINGUPPER;
-        d_tag = p_alts[0];
+//        d_tag = p_alts[0];
         d_rid = lower_rid;
 
         // flush any pending alts
@@ -3115,7 +3192,7 @@ again:;
         }
 
         // terminate diverged trunk with an unreachable tag
-        if (d_tag) {
+//        if (d_tag) {
             err = lfsr_rbyd_appendattr_(lfs, rbyd,
                     (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                         | LFSR_TAG_NULL,
@@ -3124,7 +3201,7 @@ again:;
             if (err) {
                 return err;
             }
-        }
+//        }
 
         // swap tag/rid and write out the upper trunk
         lfs_swap16(&a_tag, &b_tag);
