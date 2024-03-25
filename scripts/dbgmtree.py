@@ -168,14 +168,14 @@ def xxd(data, width=16):
                 b if b >= ' ' and b <= '~' else '.'
                 for b in map(chr, data[i:i+width])))
 
-def tagrepr(tag, w, size, off=None):
-    if (tag & 0xefff) == TAG_NULL:
+def tagrepr(tag, w=None, size=None, off=None):
+    if (tag & 0x6fff) == TAG_NULL:
         return '%snull%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif (tag & 0xef00) == TAG_CONFIG:
-        return '%s%s%s %d' % (
+    elif (tag & 0x6f00) == TAG_CONFIG:
+        return '%s%s%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             'magic' if (tag & 0xfff) == TAG_MAGIC
                 else 'version' if (tag & 0xfff) == TAG_VERSION
@@ -187,16 +187,16 @@ def tagrepr(tag, w, size, off=None):
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xef00) == TAG_GDELTA:
-        return '%s%s%s %d' % (
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x6f00) == TAG_GDELTA:
+        return '%s%s%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
                 else 'gdelta 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xef00) == TAG_NAME:
-        return '%s%s%s %d' % (
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x6f00) == TAG_NAME:
+        return '%s%s%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             'name' if (tag & 0xfff) == TAG_NAME
                 else 'reg' if (tag & 0xfff) == TAG_REG
@@ -205,9 +205,9 @@ def tagrepr(tag, w, size, off=None):
                 else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                 else 'name 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xef00) == TAG_STRUCT:
-        return '%s%s%s %d' % (
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x6f00) == TAG_STRUCT:
+        return '%s%s%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             'data' if (tag & 0xfff) == TAG_DATA
                 else 'block' if (tag & 0xfff) == TAG_BLOCK
@@ -221,43 +221,47 @@ def tagrepr(tag, w, size, off=None):
                 else 'mtree' if (tag & 0xfff) == TAG_MTREE
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xef00) == TAG_UATTR:
-        return '%suattr 0x%02x%s %d' % (
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x6e00) == TAG_UATTR:
+        return '%suattr 0x%02x%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xef00) == TAG_SATTR:
-        return '%ssattr 0x%02x%s %d' % (
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x6e00) == TAG_SATTR:
+        return '%ssattr 0x%02x%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
             ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xff00) == TAG_CKSUM:
-        return 'cksum 0x%02x%s %d' % (
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_CKSUM:
+        return 'cksum 0x%02x%s%s' % (
             tag & 0xff,
-            ' w%d' % w if w > 0 else '',
-            size)
-    elif (tag & 0xff00) == TAG_ECKSUM:
-        return 'ecksum%s%s %d' % (
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_ECKSUM:
+        return 'ecksum%s%s%s' % (
             ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w > 0 else '',
-            size)
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:
-        return 'alt%s%s%s w%d %s' % (
+        return 'alt%s%s%s%s%s' % (
             'r' if tag & TAG_R else 'b',
             'a' if tag & 0x0fff == 0 and tag & TAG_GT
                 else 'n' if tag & 0x0fff == 0
                 else 'gt' if tag & TAG_GT
                 else 'le',
             ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
-            w,
-            '0x%x' % (0xffffffff & (off-size))
-                if off is not None
-                else '-%d' % off)
+            ' w%d' % w if w is not None else '',
+            ' 0x%x' % (0xffffffff & (off-size))
+                if size is not None and off is not None
+                else ' -%d' % size if size is not None
+                else '')
     else:
-        return '0x%04x w%d %d' % (tag, w, size)
+        return '0x%04x%s%s' % (
+            tag,
+            ' w%d' % w if w is not None else '',
+            ' %d' % size if size is not None else '')
 
 
 # this type is used for tree representations
