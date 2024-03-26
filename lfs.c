@@ -873,6 +873,14 @@ static inline bool lfsr_tag_isgt(lfsr_tag_t tag) {
     return tag & LFSR_TAG_GT;
 }
 
+static inline bool lfsr_tag_isa(lfsr_tag_t tag) {
+    return (tag & 0x2fff) == (LFSR_TAG_GT | 0);
+}
+
+static inline bool lfsr_tag_isn(lfsr_tag_t tag) {
+    return (tag & 0x2fff) == (LFSR_TAG_LE | 0);
+}
+
 static inline lfsr_tag_t lfsr_tag_isparallel(lfsr_tag_t a, lfsr_tag_t b) {
     return (a & LFSR_TAG_GT) == (b & LFSR_TAG_GT);
 }
@@ -884,12 +892,12 @@ static inline bool lfsr_tag_follow(
     if (lfsr_tag_isgt(alt)) {
         return rid > upper - (lfsr_srid_t)weight - 1
                 || (rid == upper - (lfsr_srid_t)weight - 1
-                    && (lfsr_tag_key(alt) == 0
+                    && (lfsr_tag_isa(alt)
                         || lfsr_tag_key(tag) > lfsr_tag_key(alt)));
     } else {
         return rid < lower + (lfsr_srid_t)weight - 1
                 || (rid == lower + (lfsr_srid_t)weight - 1
-                    && (lfsr_tag_key(alt) != 0
+                    && (!lfsr_tag_isn(alt)
                         && lfsr_tag_key(tag) <= lfsr_tag_key(alt)));
     }
 }
@@ -951,12 +959,12 @@ static inline void lfsr_tag_trim(
     LFS_ASSERT((lfsr_srid_t)weight >= 0);
     if (lfsr_tag_isgt(alt)) {
         *upper_rid -= weight;
-        if (upper_tag && lfsr_tag_key(alt) != 0) {
+        if (upper_tag && !lfsr_tag_isn(alt)) {
             *upper_tag = alt + 1;
         }
     } else {
         *lower_rid += weight;
-        if (lower_tag && lfsr_tag_key(alt) != 0) {
+        if (lower_tag && !lfsr_tag_isn(alt)) {
             *lower_tag = alt + 1;
         }
     }
@@ -2660,8 +2668,17 @@ static void lfsr_rbyd_p_recolor(
     if (p_alts[1]) {
         p_alts[1] |= LFSR_TAG_R;
 
+        // alt-never? we can prune this now
+        if (lfsr_tag_isn(p_alts[1])) {
+            p_alts[1] = p_alts[2];
+            p_weights[1] = p_weights[2];
+            p_jumps[1] = p_jumps[2];
+            p_alts[2] = 0;
+            p_weights[2] = 0;
+            p_jumps[2] = 0;
+
         // reorder so that top two edges always go in the same direction
-        if (lfsr_tag_isred(p_alts[2])) {
+        } else if (lfsr_tag_isred(p_alts[2])) {
             if (lfsr_tag_isparallel(p_alts[1], p_alts[2])) {
                 // no reorder needed
             } else if (lfsr_tag_isparallel(p_alts[0], p_alts[2])) {
@@ -2908,6 +2925,8 @@ again:;
                         if (err) {
                             return err;
                         }
+
+                        //lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
                     }
 
                     goto prune;
@@ -2921,6 +2940,12 @@ again:;
 //            if (lfsr_d_isdiverged(d_state)) {
 //                alt &= ~LFSR_TAG_R;
 //            }
+
+            // TODO better solution?
+            // always prune alt-always tags
+            if (lfsr_tag_isa(alt)) {
+                goto prune;
+            }
 
             // prune?
             //            <b                    >b
@@ -3055,7 +3080,7 @@ again:;
                     // keep track of last alt on diverged trunk to stitch the
                     // trunks together with
                     if (d_state == LFSR_D_DIVERGEDLOWER
-                            && lfsr_tag_key(p_alts[0]) != 0) {
+                            && !lfsr_tag_isn(p_alts[0])) {
                         d_tag = p_alts[0];
         //                d_rid = lower_rid;
                     }
@@ -3114,7 +3139,7 @@ again:;
                 // keep track of last alt on diverged trunk to stitch the
                 // trunks together with
                 if (d_state == LFSR_D_DIVERGEDLOWER
-                        && lfsr_tag_key(alt) != 0) {
+                        && !lfsr_tag_isn(alt)) {
                     d_tag = alt;
     //                d_rid = lower_rid;
                 }
@@ -3257,9 +3282,10 @@ again:;
             // split less than
             alt = LFSR_TAG_ALT(
                     LFSR_TAG_LE,
-                    (!lfsr_d_isdiverged(d_state))
-                        ? LFSR_TAG_R
-                        : LFSR_TAG_B,
+                    LFSR_TAG_R,
+//                    (!lfsr_d_isdiverged(d_state))
+//                        ? LFSR_TAG_R
+//                        : LFSR_TAG_B,
                     tag_);
             weight = upper_rid - lower_rid;
             lower_rid += weight;
@@ -3283,9 +3309,10 @@ again:;
             // split greater than
             alt = LFSR_TAG_ALT(
                     LFSR_TAG_GT,
-                    (!lfsr_d_isdiverged(d_state))
-                        ? LFSR_TAG_R
-                        : LFSR_TAG_B,
+                    LFSR_TAG_R,
+//                    (!lfsr_d_isdiverged(d_state))
+//                        ? LFSR_TAG_R
+//                        : LFSR_TAG_B,
                     tag);
             weight = upper_rid - (rid+1);
             upper_rid -= weight;
