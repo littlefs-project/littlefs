@@ -1010,6 +1010,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
+                            proc.kill()
                             raise BenchFailure(last_id, 0, list(last_stdout))
                         # passed
                         case = m.group('case')
@@ -1065,6 +1066,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         proged += proged_
                         erased += erased_
         except KeyboardInterrupt:
+            proc.kill()
             raise BenchFailure(last_id, 0, list(last_stdout))
         finally:
             children.remove(proc)
