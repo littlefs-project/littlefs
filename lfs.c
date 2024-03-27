@@ -924,7 +924,7 @@ static inline bool lfsr_tag_prune2(
                 alt, weight,
                 alt2, weight2,
                 lower_rid, upper_rid,
-                lower_rid-1, lower_tag);
+                lower_rid-1, lower_tag+1);
     } else {
         return lfsr_tag_follow2(
                 alt, weight,
@@ -965,7 +965,7 @@ static inline void lfsr_tag_trim(
     } else {
         *lower_rid += weight;
         if (lower_tag && !lfsr_tag_isn(alt)) {
-            *lower_tag = alt + 1;
+            *lower_tag = alt;
         }
     }
 }
@@ -2792,6 +2792,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
         if (lfsr_tag_issup(tag)) {
+            // TODO why can't this be rid+1?
             a_tag = 0x000;
             b_tag = 0x800;
         } else if (lfsr_tag_issub(tag)) {
@@ -2799,7 +2800,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             b_tag = lfsr_tag_supkey(tag) + 0x100;
         } else if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             a_tag = lfsr_tag_key(tag);
-            b_tag = lfsr_tag_key(tag) + 0x1;
+            b_tag = lfsr_tag_key(tag) + 1;
         } else {
             a_tag = lfsr_tag_key(tag);
             b_tag = lfsr_tag_key(tag);
@@ -2941,11 +2942,11 @@ again:;
 //                alt &= ~LFSR_TAG_R;
 //            }
 
-            // TODO better solution?
-            // always prune alt-always tags
-            if (lfsr_tag_isa(alt)) {
-                goto prune;
-            }
+//            // TODO better solution?
+//            // always prune alt-always tags
+//            if (lfsr_tag_isa(alt)) {
+//                goto prune;
+//            }
 
             // prune?
             //            <b                    >b
@@ -3077,13 +3078,15 @@ again:;
                     p_alts[0] &= ~LFSR_TAG_R;
                     lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
 
-                    // keep track of last alt on diverged trunk to stitch the
-                    // trunks together with
-                    if (d_state == LFSR_D_DIVERGEDLOWER
-                            && !lfsr_tag_isn(p_alts[0])) {
-                        d_tag = p_alts[0];
-        //                d_rid = lower_rid;
-                    }
+//                    // keep track of last alt on diverged trunk to stitch the
+//                    // trunks together with
+//                    if ((d_state == LFSR_D_DIVERGEDLOWER
+//                                || (d_state == LFSR_D_NOTDIVERGING
+//                                    && lfsr_tag_isle(p_alts[0])))
+//                            && !lfsr_tag_isn(p_alts[0])) {
+//                        d_tag = p_alts[0];
+//        //                d_rid = lower_rid;
+//                    }
 
                     branch = branch_;
                     continue;
@@ -3136,13 +3139,15 @@ again:;
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
 
-                // keep track of last alt on diverged trunk to stitch the
-                // trunks together with
-                if (d_state == LFSR_D_DIVERGEDLOWER
-                        && !lfsr_tag_isn(alt)) {
-                    d_tag = alt;
-    //                d_rid = lower_rid;
-                }
+//                // keep track of last alt on diverged trunk to stitch the
+//                // trunks together with
+//                if ((d_state == LFSR_D_DIVERGEDLOWER
+//                            || (d_state == LFSR_D_NOTDIVERGING
+//                                && lfsr_tag_isle(alt)))
+//                        && !lfsr_tag_isn(alt)) {
+//                    d_tag = alt;
+//    //                d_rid = lower_rid;
+//                }
             }
 
             // push alt onto our queue
@@ -3206,16 +3211,22 @@ again:;
     // no divergence? guess we only need one trunk then, actually write
     // it out this time
     if (d_state == LFSR_D_DIVERGINGLOWER) {
+        printf("%04x->%04x: not diverging\n",
+                branch,
+                rbyd->eoff);
         d_state = LFSR_D_NOTDIVERGING;
         goto again;
 
     // diverged lower trunk? we need an upper trunk too
     } else if (d_state == LFSR_D_DIVERGEDLOWER) {
+        printf("%04x->%04x: diverging switch\n",
+                branch,
+                rbyd->eoff);
         // keep track of last alt on diverged trunk to stitch the trunks
         // together with
         d_state = LFSR_D_DIVERGINGUPPER;
-//        d_tag = p_alts[0];
         d_rid = lower_rid;
+        d_tag = lower_tag;
 
         // flush any pending alts
         err = lfsr_rbyd_p_flush(lfs, rbyd,
@@ -3243,8 +3254,9 @@ again:;
 
     // diverged upper trunk? done diverging
     } else if (d_state == LFSR_D_DIVERGEDUPPER) {
-        // use the diverged rid bound for leaf weight calculation
+        // use the lower diverged bound for leaf weight calculation
         lower_rid = d_rid;
+        lower_tag = d_tag;
     }
 
     // split leaf nodes?
@@ -3275,18 +3287,12 @@ again:;
                             && lfsr_tag_key(tag_) < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, 0);
+            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_R, lower_tag);
             weight = upper_rid - lower_rid + delta;
             upper_rid -= weight;
         } else {
             // split less than
-            alt = LFSR_TAG_ALT(
-                    LFSR_TAG_LE,
-                    LFSR_TAG_R,
-//                    (!lfsr_d_isdiverged(d_state))
-//                        ? LFSR_TAG_R
-//                        : LFSR_TAG_B,
-                    tag_);
+            alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_R, tag_);
             weight = upper_rid - lower_rid;
             lower_rid += weight;
         }
@@ -3302,18 +3308,12 @@ again:;
                             && lfsr_tag_key(tag_) > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, 0);
+            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_R, lower_tag);
             weight = upper_rid - lower_rid + delta;
             upper_rid -= weight;
         } else {
             // split greater than
-            alt = LFSR_TAG_ALT(
-                    LFSR_TAG_GT,
-                    LFSR_TAG_R,
-//                    (!lfsr_d_isdiverged(d_state))
-//                        ? LFSR_TAG_R
-//                        : LFSR_TAG_B,
-                    tag);
+            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_R, tag);
             weight = upper_rid - (rid+1);
             upper_rid -= weight;
         }
