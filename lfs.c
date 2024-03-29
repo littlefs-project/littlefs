@@ -934,6 +934,23 @@ static inline bool lfsr_tag_prune2(
     }
 }
 
+static inline bool lfsr_tag_unreachable(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
+    if (lfsr_tag_isgt(alt)) {
+        return !lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                upper_rid-1, upper_tag-1);
+    } else {
+        return !lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                lower_rid-1, lower_tag+1);
+    }
+}
+
 static inline void lfsr_tag_flip(
         lfsr_tag_t *alt, lfsr_rid_t *weight,
         lfsr_srid_t lower, lfsr_srid_t upper) {
@@ -2992,7 +3009,7 @@ again:;
 
                 // red alts we can collapse
                 if (lfsr_tag_isred(p_alts[0])) {
-                    printf("%04x->%04x: rprune 0x%x w%d\n",
+                    printf("%04x->%04x: yrprune 0x%x w%d\n",
                             branch,
                             rbyd->eoff,
                             alt,
@@ -3002,7 +3019,7 @@ again:;
                 // black alts just become unreachable, if we pruned these
                 // it would break the coloring of our tree
                 } else {
-                    printf("%04x->%04x: bprune 0x%x w%d\n",
+                    printf("%04x->%04x: ybprune 0x%x w%d\n",
                             branch,
                             rbyd->eoff,
                             alt,
@@ -3093,52 +3110,122 @@ again:;
                 }
             }
 
-            // take black alt? needs a flip
-            //   <b           >b
-            // .-'|  =>     .-'|
-            // 1  2      1  2  1
-            if (lfsr_tag_isblack(alt)
-                    && lfsr_tag_follow2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        a_rid, a_tag)) {
-                lfsr_tag_flip2(&alt, &weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid);
-                lfs_swap32(&jump, &branch_);
-            }
-
-            // should've taken red alt? needs a flip
-            //      <r              >r
-            // .----'|            .-'|
-            // |    <b  =>        | >b
-            // |  .-'|         .--|-'|
-            // 1  2  3      1  2  3  1
-            if (lfsr_tag_isred(p_alts[0])
-                    && lfsr_tag_follow(p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        a_rid, a_tag)) {
-                lfs_swap16(&p_alts[0], &alt);
-                lfs_swap32(&p_weights[0], &weight);
-                lfs_swap32(&p_jumps[0], &jump);
-                p_alts[0] |= LFSR_TAG_R;
-                alt &= ~LFSR_TAG_R;
-
-                lfsr_tag_flip2(&alt, &weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid);
-                lfs_swap32(&jump, &branch_);
-            }
-
+            // black alts terminate 2-3-4 nodes
             if (lfsr_tag_isblack(alt)) {
-                // trim alts from our current bounds
-                lfsr_tag_trim2(
+                // take black alt? needs a flip
+                //   <b           >b
+                // .-'|  =>     .-'|
+                // 1  2      1  2  1
+                if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        &lower_rid, &upper_rid,
-                        &lower_tag, &upper_tag);
+                        lower_rid, upper_rid,
+                        a_rid, a_tag)) {
+                    lfsr_tag_flip2(&alt, &weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid);
+                    lfs_swap32(&jump, &branch_);
+                }
 
+                if (lfsr_tag_isred(p_alts[0])) {
+                    // should've taken red alt? needs a flip
+                    //      <r              >r
+                    // .----'|            .-'|
+                    // |    <b  =>        | >b
+                    // |  .-'|         .--|-'|
+                    // 1  2  3      1  2  3  1
+                    if (lfsr_tag_follow(p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)) {
+                        lfs_swap16(&p_alts[0], &alt);
+                        lfs_swap32(&p_weights[0], &weight);
+                        lfs_swap32(&p_jumps[0], &jump);
+                        p_alts[0] |= LFSR_TAG_R;
+                        alt &= ~LFSR_TAG_R;
+
+                        lfsr_tag_flip2(&alt, &weight,
+                                p_alts[0], p_weights[0],
+                                lower_rid, upper_rid);
+                        lfs_swap32(&jump, &branch_);
+                    }
+
+                    // red unreachable? prune
+                    if (lfsr_tag_unreachable(
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            lower_tag, upper_tag)) {
+                        printf("%04x->%04x: rprune 0x%x w%d\n",
+                                branch,
+                                rbyd->eoff,
+                                p_alts[0],
+                                p_weights[0]);
+                        lfsr_tag_trim(
+                                p_alts[0], p_weights[0],
+                                &lower_rid, &upper_rid,
+                                &lower_tag, &upper_tag);
+                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+
+                    // trim red bounds
+                    } else {
+                        lfsr_tag_trim(
+                                p_alts[0], p_weights[0],
+                                &lower_rid, &upper_rid,
+                                &lower_tag, &upper_tag);
+                    }
+                }
+
+                // unreachable?
+                if (lfsr_tag_unreachable(
+                        alt, weight,
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)) {
+                    // red unreachable? prune
+                    if (lfsr_tag_isred(p_alts[0])) {
+                        printf("%04x->%04x: brprune 0x%x w%d\n",
+                                branch,
+                                rbyd->eoff,
+                                alt,
+                                weight);
+                        lfsr_tag_trim(
+                                alt, weight,
+                                &lower_rid, &upper_rid,
+                                &lower_tag, &upper_tag);
+                        p_alts[0] &= ~LFSR_TAG_R;
+                        y_branch = branch;
+                        branch = branch_;
+                        continue;
+
+                    // black unreachable? collapse to alt-nevers, otherwise
+                    // we risk breaking the coloring of our tree
+                    } else {
+                        printf("%04x->%04x: bprune 0x%x w%d\n",
+                                branch,
+                                rbyd->eoff,
+                                alt,
+                                weight);
+                        lfsr_tag_trim(
+                                alt, weight,
+                                &lower_rid, &upper_rid,
+                                &lower_tag, &upper_tag);
+                        alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
+                        weight = 0;
+                        jump = 0;
+                    }
+                // trim black bounds
+                } else {
+                    lfsr_tag_trim(
+                            alt, weight,
+                            &lower_rid, &upper_rid,
+                            &lower_tag, &upper_tag);
+                }
+
+//                // trim alts from our current bounds
+//                lfsr_tag_trim2(
+//                        alt, weight,
+//                        p_alts[0], p_weights[0],
+//                        &lower_rid, &upper_rid,
+//                        &lower_tag, &upper_tag);
+//
 //                // keep track of last alt on diverged trunk to stitch the
 //                // trunks together with
 //                if ((d_state == LFSR_D_DIVERGEDLOWER
