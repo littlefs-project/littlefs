@@ -914,43 +914,6 @@ static inline bool lfsr_tag_follow2(
     return lfsr_tag_follow(alt, weight, lower, upper, rid, tag);
 }
 
-static inline bool lfsr_tag_prune2(
-        lfsr_tag_t alt, lfsr_rid_t weight,
-        lfsr_tag_t alt2, lfsr_rid_t weight2,
-        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
-        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
-    if (lfsr_tag_isgt(alt)) {
-        return lfsr_tag_follow2(
-                alt, weight,
-                alt2, weight2,
-                lower_rid, upper_rid,
-                lower_rid-1, lower_tag+1);
-    } else {
-        return lfsr_tag_follow2(
-                alt, weight,
-                alt2, weight2,
-                lower_rid, upper_rid,
-                upper_rid-1, upper_tag-1);
-    }
-}
-
-static inline bool lfsr_tag_unreachable(
-        lfsr_tag_t alt, lfsr_rid_t weight,
-        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
-        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
-    if (lfsr_tag_isgt(alt)) {
-        return !lfsr_tag_follow(
-                alt, weight,
-                lower_rid, upper_rid,
-                upper_rid-1, upper_tag-1);
-    } else {
-        return !lfsr_tag_follow(
-                alt, weight,
-                lower_rid, upper_rid,
-                lower_rid-1, lower_tag+1);
-    }
-}
-
 static inline void lfsr_tag_flip(
         lfsr_tag_t *alt, lfsr_rid_t *weight,
         lfsr_srid_t lower, lfsr_srid_t upper) {
@@ -1002,6 +965,54 @@ static inline void lfsr_tag_trim2(
             lower_rid, upper_rid,
             lower_tag, upper_tag);
 }
+
+static inline bool lfsr_tag_prune(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
+    if (lfsr_tag_isgt(alt)) {
+        // unreachable?
+        return !lfsr_tag_follow(
+                    alt, weight,
+                    lower_rid, upper_rid,
+                    upper_rid-1, upper_tag-1)
+                // only-reachable?
+                || lfsr_tag_follow(
+                    alt, weight,
+                    lower_rid, upper_rid,
+                    lower_rid-1, lower_tag+1);
+    } else {
+        // unreachable?
+        return !lfsr_tag_follow(
+                    alt, weight,
+                    lower_rid, upper_rid,
+                    lower_rid-1, lower_tag+1)
+                // only-reachable?
+                || lfsr_tag_follow(
+                    alt, weight,
+                    lower_rid, upper_rid,
+                    upper_rid-1, upper_tag-1);
+    }
+}
+
+static inline bool lfsr_tag_prune2(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_tag_t alt2, lfsr_rid_t weight2,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
+    if (lfsr_tag_isred(alt2)) {
+        lfsr_tag_trim(
+                alt2, weight2,
+                &lower_rid, &upper_rid,
+                &lower_tag, &upper_tag);
+    }
+
+    return lfsr_tag_prune(
+            alt, weight,
+            lower_rid, upper_rid,
+            lower_tag, upper_tag);
+}
+
 
 // support for encoding/decoding tags on disk
 
@@ -2965,32 +2976,19 @@ again:;
 //                goto prune;
 //            }
 
-            // prune?
-            //            <b                    >b
-            //          .-'|                  .-'|
-            //         <y  |                  |  |
-            // .-------'|  |                  |  |
-            // |       <r  |  =>              | <b
-            // |  .----'   |      .-----------|-'|
-            // |  |       <b      |          <b  |
-            // |  |  .----'|      |     .----'|  |
-            // 1  2  3  4  4      1  2  3  4  4  2
-            if (lfsr_tag_prune2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)
-                    // prune because of diverged paths?
-                    || (lfsr_d_isdiverged(d_state)
-                        && (d_state == LFSR_D_DIVERGEDUPPER)
-                            ^ lfsr_tag_isgt(alt)
-                            ^ lfsr_tag_follow2(
-                                alt, weight,
-                                p_alts[0], p_weights[0],
-                                lower_rid, upper_rid,
-                                a_rid, a_tag))) {
+            // prune because of diverged paths?
+            if (lfsr_d_isdiverged(d_state)
+                    && (d_state == LFSR_D_DIVERGEDUPPER)
+                        ^ lfsr_tag_isgt(alt)
+                        ^ lfsr_tag_follow2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)) {
                 // note, yellow prunes always follow and have no weight, it's
                 // only diverged pruning that needs all these special cases
+
+                // eagerly flip in case we are ambiguous yellow alts
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
@@ -3006,6 +3004,56 @@ again:;
                         alt, weight,
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
+
+                // red alts we can collapse
+                if (lfsr_tag_isred(p_alts[0])) {
+                    printf("%04x->%04x: drprune 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
+                    goto prune;
+
+                // black alts just become unreachable, if we pruned these
+                // it would break the coloring of our tree
+                } else {
+                    printf("%04x->%04x: dbprune 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
+                    alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
+                    weight = 0;
+//                    jump = 0;
+                }
+            }
+
+            // prune?
+            //            <b                    >b
+            //          .-'|                  .-'|
+            //         <y  |                  |  |
+            // .-------'|  |                  |  |
+            // |       <r  |  =>              | <b
+            // |  .----'   |      .-----------|-'|
+            // |  |       <b      |          <b  |
+            // |  |  .----'|      |     .----'|  |
+            // 1  2  3  4  4      1  2  3  4  4  2
+            if (lfsr_tag_prune2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)) {
+                // note, yellow prunes always follow and have no weight, it's
+                // only diverged pruning that needs all these special cases
+
+                // eagerly flip in case we are ambiguous yellow alts
+                if (lfsr_tag_follow2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        a_rid, a_tag)) {
+                    lfs_swap32(&jump, &branch_);
+                }
 
                 // red alts we can collapse
                 if (lfsr_tag_isred(p_alts[0])) {
@@ -3148,84 +3196,15 @@ again:;
                                 lower_rid, upper_rid);
                         lfs_swap32(&jump, &branch_);
                     }
-
-                    // red unreachable? prune
-                    if (lfsr_tag_unreachable(
-                            p_alts[0], p_weights[0],
-                            lower_rid, upper_rid,
-                            lower_tag, upper_tag)) {
-                        printf("%04x->%04x: rprune 0x%x w%d\n",
-                                branch,
-                                rbyd->eoff,
-                                p_alts[0],
-                                p_weights[0]);
-                        lfsr_tag_trim(
-                                p_alts[0], p_weights[0],
-                                &lower_rid, &upper_rid,
-                                &lower_tag, &upper_tag);
-                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-
-                    // trim red bounds
-                    } else {
-                        lfsr_tag_trim(
-                                p_alts[0], p_weights[0],
-                                &lower_rid, &upper_rid,
-                                &lower_tag, &upper_tag);
-                    }
                 }
 
-                // unreachable?
-                if (lfsr_tag_unreachable(
+                // trim alts from our current bounds
+                lfsr_tag_trim2(
                         alt, weight,
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)) {
-                    // red unreachable? prune
-                    if (lfsr_tag_isred(p_alts[0])) {
-                        printf("%04x->%04x: brprune 0x%x w%d\n",
-                                branch,
-                                rbyd->eoff,
-                                alt,
-                                weight);
-                        lfsr_tag_trim(
-                                alt, weight,
-                                &lower_rid, &upper_rid,
-                                &lower_tag, &upper_tag);
-                        p_alts[0] &= ~LFSR_TAG_R;
-                        y_branch = branch;
-                        branch = branch_;
-                        continue;
+                        p_alts[0], p_weights[0],
+                        &lower_rid, &upper_rid,
+                        &lower_tag, &upper_tag);
 
-                    // black unreachable? collapse to alt-nevers, otherwise
-                    // we risk breaking the coloring of our tree
-                    } else {
-                        printf("%04x->%04x: bprune 0x%x w%d\n",
-                                branch,
-                                rbyd->eoff,
-                                alt,
-                                weight);
-                        lfsr_tag_trim(
-                                alt, weight,
-                                &lower_rid, &upper_rid,
-                                &lower_tag, &upper_tag);
-                        alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
-                        weight = 0;
-                        jump = 0;
-                    }
-                // trim black bounds
-                } else {
-                    lfsr_tag_trim(
-                            alt, weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-                }
-
-//                // trim alts from our current bounds
-//                lfsr_tag_trim2(
-//                        alt, weight,
-//                        p_alts[0], p_weights[0],
-//                        &lower_rid, &upper_rid,
-//                        &lower_tag, &upper_tag);
-//
 //                // keep track of last alt on diverged trunk to stitch the
 //                // trunks together with
 //                if ((d_state == LFSR_D_DIVERGEDLOWER
