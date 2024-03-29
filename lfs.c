@@ -2911,7 +2911,6 @@ again:;
             // make jump absolute
             jump = branch - jump;
             lfs_size_t branch_ = branch + d;
-        lingering:;
 
             // do bounds want to take different paths? begin diverging
             if (!lfsr_d_isdiverged(d_state)
@@ -2925,47 +2924,76 @@ again:;
                             b_rid, b_tag)) {
                 LFS_ASSERT(d_state != LFSR_D_NOTDIVERGING);
 
-                // take care of any lingering red alts before diverging
-                if (lfsr_tag_isred(p_alts[0])) {
-                    goto prune;
+                // note that if red alt diverged if would have been caught
+                // on the previous pass
+                d_state = lfsr_d_diverge(d_state);
+                printf("%04x->%04x: diverging 0x%x w%d\n",
+                        branch,
+                        rbyd->eoff,
+                        alt,
+                        weight);
+                if (lfsr_tag_follow2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        a_rid, a_tag)) {
+                    lfsr_tag_flip2(
+                            &alt, &weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid);
+                    lfs_swap32(&jump, &branch_);
+                }
+                lfsr_tag_trim2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        &lower_rid, &upper_rid,
+                        &lower_tag, &upper_tag);
 
-                // begin diverging
-                } else {
-                    d_state = lfsr_d_diverge(d_state);
-                    printf("%04x->%04x: diverging 0x%x w%d\n",
+                // stitch together diverged branches
+                if (d_state == LFSR_D_DIVERGEDUPPER) {
+                    printf("%04x->%04x: stitching: 0x%x w%d, 0x%x\n",
                             branch,
                             rbyd->eoff,
-                            alt,
-                            weight);
-
-                    // stitch together diverged branches
-                    if (d_state == LFSR_D_DIVERGEDUPPER) {
-                        printf("%04x->%04x: stitching: 0x%x w%d, 0x%x\n",
-                                branch,
-                                rbyd->eoff,
-                                d_tag,
-                                d_rid - lower_rid,
-                                d_branch);
-                        err = lfsr_rbyd_p_push(lfs, rbyd,
-                                p_alts, p_weights, p_jumps,
-                                LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
-                                d_rid - lower_rid,
-                                d_branch);
-                        if (err) {
-                            return err;
-                        }
-
-                        //lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
+                            d_tag,
+                            d_rid - lower_rid,
+                            d_branch);
+                    err = lfsr_rbyd_p_push(lfs, rbyd,
+                            p_alts, p_weights, p_jumps,
+                            LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
+                            d_rid - lower_rid + weight,
+                            d_branch);
+                    if (err) {
+                        return err;
                     }
 
-                    goto prune;
+                    //lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
                 }
+
+                y_branch = branch;
+                branch = branch_;
+                continue;
 
             // don't write diverging lower alts
             } else if (d_state == LFSR_D_DIVERGINGLOWER) {
-                goto prune;
-            }
+                if (lfsr_tag_follow(
+                        alt, weight,
+                        lower_rid, upper_rid,
+                        a_rid, a_tag)) {
+                    lfsr_tag_flip(
+                            &alt, &weight,
+                            lower_rid, upper_rid);
+                    lfs_swap32(&jump, &branch_);
+                }
+                lfsr_tag_trim(
+                        alt, weight,
+                        &lower_rid, &upper_rid,
+                        &lower_tag, &upper_tag);
 
+                // TODO can we move y_branch updates to beginning of loop?
+                y_branch = branch;
+                branch = branch_;
+                continue;
+            }
 //            if (lfsr_d_isdiverged(d_state)) {
 //                alt &= ~LFSR_TAG_R;
 //            }
@@ -2976,7 +3004,8 @@ again:;
 //                goto prune;
 //            }
 
-            // prune because of diverged paths?
+            // trim unreachable alts created by diverged paths so they
+            // will be pruned
             if (lfsr_d_isdiverged(d_state)
                     && (d_state == LFSR_D_DIVERGEDUPPER)
                         ^ lfsr_tag_isgt(alt)
@@ -2985,10 +3014,6 @@ again:;
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             a_rid, a_tag)) {
-                // note, yellow prunes always follow and have no weight, it's
-                // only diverged pruning that needs all these special cases
-
-                // eagerly flip in case we are ambiguous yellow alts
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
@@ -3004,28 +3029,6 @@ again:;
                         alt, weight,
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
-
-                // red alts we can collapse
-                if (lfsr_tag_isred(p_alts[0])) {
-                    printf("%04x->%04x: drprune 0x%x w%d\n",
-                            branch,
-                            rbyd->eoff,
-                            alt,
-                            weight);
-                    goto prune;
-
-                // black alts just become unreachable, if we pruned these
-                // it would break the coloring of our tree
-                } else {
-                    printf("%04x->%04x: dbprune 0x%x w%d\n",
-                            branch,
-                            rbyd->eoff,
-                            alt,
-                            weight);
-                    alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
-                    weight = 0;
-//                    jump = 0;
-                }
             }
 
             // prune?
@@ -3055,19 +3058,23 @@ again:;
                     lfs_swap32(&jump, &branch_);
                 }
 
-                // red alts we can collapse
+                // collapse unreachable red alts
                 if (lfsr_tag_isred(p_alts[0])) {
-                    printf("%04x->%04x: yrprune 0x%x w%d\n",
+                    printf("%04x->%04x: rprune 0x%x w%d\n",
                             branch,
                             rbyd->eoff,
                             alt,
                             weight);
-                    goto prune;
+                    alt = p_alts[0] & ~LFSR_TAG_R;
+                    weight = p_weights[0];
+                    jump = p_jumps[0];
+                    branch_ = branch;
+                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
 
-                // black alts just become unreachable, if we pruned these
+                // make unreachable black alts alt-nevers, if we prune these
                 // it would break the coloring of our tree
                 } else {
-                    printf("%04x->%04x: ybprune 0x%x w%d\n",
+                    printf("%04x->%04x: bprune 0x%x w%d\n",
                             branch,
                             rbyd->eoff,
                             alt,
@@ -3228,40 +3235,6 @@ again:;
             y_branch = branch;
             branch = branch_;
             continue;
-
-        prune:;
-            // handle any lingering red alts
-            if (lfsr_tag_isred(p_alts[0])) {
-                alt = p_alts[0] & ~LFSR_TAG_R;
-                weight = p_weights[0];
-                jump = p_jumps[0];
-                branch_ = branch;
-                lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-                goto lingering;
-
-            // prune black alts
-            } else {
-                if (lfsr_tag_follow2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        a_rid, a_tag)) {
-                    lfsr_tag_flip2(
-                            &alt, &weight,
-                            p_alts[0], p_weights[0],
-                            lower_rid, upper_rid);
-                    lfs_swap32(&jump, &branch_);
-                }
-                lfsr_tag_trim(
-                        alt, weight,
-                        &lower_rid, &upper_rid,
-                        &lower_tag, &upper_tag);
-
-                // TODO can we move y_branch updates to beginning of loop?
-                y_branch = branch;
-                branch = branch_;
-                continue;
-            }
 
         // found end of tree?
         } else {
