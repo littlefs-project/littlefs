@@ -2910,78 +2910,71 @@ again:;
             jump = branch - jump;
             lfs_size_t branch_ = branch + d;
 
-            // progress diverging state machine?
-            if (!lfsr_d_isdiverged(d_state)) {
-                // do bounds want to take different paths? begin diverging
-                bool diverge
-                        = lfsr_tag_follow2(alt, weight,
+            // do bounds want to take different paths? begin diverging
+            if (!lfsr_d_isdiverged(d_state)
+                    && (lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             a_rid, a_tag)
                         ^ lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
-                            b_rid, b_tag);
+                            b_rid, b_tag))) {
+                LFS_ASSERT(d_state != LFSR_D_NOTDIVERGING);
 
-                // skip common alts on lower pass and the diverging alt
-                // itself on both paths
-                if (d_state == LFSR_D_DIVERGINGLOWER || diverge) {
-                    LFS_ASSERT(d_state != LFSR_D_NOTDIVERGING);
+                // transition to the diverged state
+                //
+                // note that if red alt diverged if would have been
+                // caught on the previous pass
+                d_state = lfsr_d_diverge(d_state);
 
-                    if (lfsr_tag_follow2(
-                            alt, weight,
+                if (lfsr_tag_follow2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        a_rid, a_tag)) {
+                    lfsr_tag_flip2(
+                            &alt, &weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid,
-                            a_rid, a_tag)) {
-                        lfsr_tag_flip2(
-                                &alt, &weight,
-                                p_alts[0], p_weights[0],
-                                lower_rid, upper_rid);
-                        lfs_swap32(&jump, &branch_);
-                    }
-                    lfsr_tag_trim2(
-                            alt, weight,
-                            p_alts[0], p_weights[0],
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-
-                    // transition to the diverged state
-                    //
-                    // note that if red alt diverged if would have been
-                    // caught on the previous pass
-                    if (diverge) {
-                        d_state = lfsr_d_diverge(d_state);
-
-                        // stitch together diverged branches
-                        if (d_state == LFSR_D_DIVERGEDUPPER) {
-                            err = lfsr_rbyd_p_push(lfs, rbyd,
-                                    p_alts, p_weights, p_jumps,
-                                    LFSR_TAG_ALT(
-                                        LFSR_TAG_LE,
-                                        LFSR_TAG_B,
-                                        d_tag),
-                                    d_rid - lower_rid + weight,
-                                    d_branch);
-                            if (err) {
-                                return err;
-                            }
-                        }
-                    }
-
-                    branch = branch_;
-                    continue;
+                            lower_rid, upper_rid);
+                    lfs_swap32(&jump, &branch_);
                 }
+                lfsr_tag_trim2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        &lower_rid, &upper_rid,
+                        &lower_tag, &upper_tag);
+
+                // stitch together diverged branches
+                if (d_state == LFSR_D_DIVERGEDUPPER) {
+                    err = lfsr_rbyd_p_push(lfs, rbyd,
+                            p_alts, p_weights, p_jumps,
+                            LFSR_TAG_ALT(
+                                LFSR_TAG_LE,
+                                LFSR_TAG_B,
+                                d_tag),
+                            d_rid - lower_rid + weight,
+                            d_branch);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                branch = branch_;
+                continue;
             }
 
             // trim unreachable diverged alts so they end up pruned
-            if (lfsr_d_isdiverged(d_state)
+            if ((lfsr_d_isdiverged(d_state)
                     && (d_state == LFSR_D_DIVERGEDUPPER)
                         ^ lfsr_tag_isgt(alt)
                         ^ lfsr_tag_follow2(
                             alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
-                            a_rid, a_tag)) {
+                            a_rid, a_tag))
+                    // this includes all diverging-lower alts
+                    || d_state == LFSR_D_DIVERGINGLOWER) {
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
@@ -2997,6 +2990,7 @@ again:;
                         alt, weight,
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
+                weight = 0;
             }
 
             // prune?
@@ -3034,8 +3028,13 @@ again:;
                     branch_ = branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
 
-                // make unreachable black alts alt-nevers, if we prune these
-                // it would break the coloring of our tree
+                // collapse unreachable _root_ alts
+                } else if (!p_alts[0] && d_state != LFSR_D_DIVERGEDLOWER) {
+                    branch = branch_;
+                    continue;
+
+                // make unreachable non-root black alts alt-nevers, if we
+                // prune these it would break the coloring of our tree
                 } else {
                     alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
                     weight = 0;
