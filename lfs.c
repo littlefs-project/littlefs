@@ -887,16 +887,16 @@ static inline lfsr_tag_t lfsr_tag_isparallel(lfsr_tag_t a, lfsr_tag_t b) {
 
 static inline bool lfsr_tag_follow(
         lfsr_tag_t alt, lfsr_rid_t weight,
-        lfsr_srid_t lower, lfsr_srid_t upper,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
         lfsr_srid_t rid, lfsr_tag_t tag) {
     if (lfsr_tag_isgt(alt)) {
-        return rid > upper - (lfsr_srid_t)weight - 1
-                || (rid == upper - (lfsr_srid_t)weight - 1
+        return rid > upper_rid - (lfsr_srid_t)weight - 1
+                || (rid == upper_rid - (lfsr_srid_t)weight - 1
                     && (lfsr_tag_isa(alt)
                         || lfsr_tag_key(tag) > lfsr_tag_key(alt)));
     } else {
-        return rid < lower + (lfsr_srid_t)weight - 1
-                || (rid == lower + (lfsr_srid_t)weight - 1
+        return rid < lower_rid + (lfsr_srid_t)weight - 1
+                || (rid == lower_rid + (lfsr_srid_t)weight - 1
                     && (!lfsr_tag_isn(alt)
                         && lfsr_tag_key(tag) <= lfsr_tag_key(alt)));
     }
@@ -905,31 +905,31 @@ static inline bool lfsr_tag_follow(
 static inline bool lfsr_tag_follow2(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_tag_t alt2, lfsr_rid_t weight2,
-        lfsr_srid_t lower, lfsr_srid_t upper,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
         lfsr_srid_t rid, lfsr_tag_t tag) {
     if (lfsr_tag_isred(alt2) && lfsr_tag_isparallel(alt, alt2)) {
         weight += weight2;
     }
 
-    return lfsr_tag_follow(alt, weight, lower, upper, rid, tag);
+    return lfsr_tag_follow(alt, weight, lower_rid, upper_rid, rid, tag);
 }
 
 static inline void lfsr_tag_flip(
         lfsr_tag_t *alt, lfsr_rid_t *weight,
-        lfsr_srid_t lower, lfsr_srid_t upper) {
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid) {
     *alt = *alt ^ LFSR_TAG_GT;
-    *weight = (upper - lower) - *weight;
+    *weight = (upper_rid - lower_rid) - *weight;
 }
 
 static inline void lfsr_tag_flip2(
         lfsr_tag_t *alt, lfsr_rid_t *weight,
         lfsr_tag_t alt2, lfsr_rid_t weight2,
-        lfsr_srid_t lower, lfsr_srid_t upper) {
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid) {
     if (lfsr_tag_isred(alt2)) {
         *weight += weight2;
     }
 
-    lfsr_tag_flip(alt, weight, lower, upper);
+    lfsr_tag_flip(alt, weight, lower_rid, upper_rid);
 }
 
 static inline void lfsr_tag_trim(
@@ -2417,8 +2417,8 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
     // keep track of bounds as we descend down the tree
     lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
-    lfsr_srid_t lower = 0;
-    lfsr_srid_t upper = rbyd->weight;
+    lfsr_srid_t lower_rid = 0;
+    lfsr_srid_t upper_rid = rbyd->weight;
 
     // descend down tree
     while (true) {
@@ -2434,19 +2434,19 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
-            if (lfsr_tag_follow(alt, weight, lower, upper, rid, tag)) {
-                lfsr_tag_flip(&alt, &weight, lower, upper);
-                lfsr_tag_trim(alt, weight, &lower, &upper, NULL, NULL);
+            if (lfsr_tag_follow(alt, weight, lower_rid, upper_rid, rid, tag)) {
+                lfsr_tag_flip(&alt, &weight, lower_rid, upper_rid);
+                lfsr_tag_trim(alt, weight, &lower_rid, &upper_rid, NULL, NULL);
                 branch = branch - jump;
             } else {
-                lfsr_tag_trim(alt, weight, &lower, &upper, NULL, NULL);
+                lfsr_tag_trim(alt, weight, &lower_rid, &upper_rid, NULL, NULL);
                 branch = branch + d;
             }
 
         // found end of tree?
         } else {
             // update the tag rid
-            lfsr_srid_t rid__ = upper-1;
+            lfsr_srid_t rid__ = upper_rid-1;
             lfsr_tag_t tag__ = lfsr_tag_key(alt);
 
             // not what we're looking for?
@@ -2465,7 +2465,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 *tag_ = tag__;
             }
             if (weight_) {
-                *weight_ = upper - lower;
+                *weight_ = upper_rid - lower_rid;
             }
             if (data_) {
                 *data_ = LFSR_DATA_DISK(rbyd->blocks[0], branch + d, jump);
@@ -3865,10 +3865,10 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 
     // binary search for our name
-    lfsr_srid_t lower = 0;
-    lfsr_srid_t upper = rbyd->weight;
+    lfsr_srid_t lower_rid = 0;
+    lfsr_srid_t upper_rid = rbyd->weight;
     lfs_scmp_t cmp;
-    while (lower < upper) {
+    while (lower_rid < upper_rid) {
         lfsr_tag_t tag__;
         lfsr_srid_t rid__;
         lfsr_rid_t weight__;
@@ -3876,7 +3876,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
                 // lookup ~middle rid, note we may end up in the middle
                 // of a weighted rid with this
-                lower + (upper-1-lower)/2, 0,
+                lower_rid + (upper_rid-1-lower_rid)/2, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -3898,11 +3898,11 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // bisect search space
         if (cmp > LFS_CMP_EQ) {
-            upper = rid__ - (weight__-1);
+            upper_rid = rid__ - (weight__-1);
 
             // only keep track of best-match rids > our target if we haven't
             // seen an rid < our target
-            if (lower == 0) {
+            if (lower_rid == 0) {
                 if (rid_) {
                     *rid_ = rid__;
                 }
@@ -3918,7 +3918,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             }
 
         } else if (cmp < LFS_CMP_EQ) {
-            lower = rid__ + 1;
+            lower_rid = rid__ + 1;
 
             // keep track of best-matching rid < our target
             if (rid_) {
@@ -3955,7 +3955,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // no match, return if found name was lt/gt expect
     //
     // this will always be lt unless all rids are gt
-    return (lower == 0) ? LFS_CMP_GT : LFS_CMP_LT;
+    return (lower_rid == 0) ? LFS_CMP_GT : LFS_CMP_LT;
 }
 
 
