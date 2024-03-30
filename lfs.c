@@ -889,16 +889,17 @@ static inline bool lfsr_tag_follow(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
         lfsr_srid_t rid, lfsr_tag_t tag) {
+    // null tags break the following logic for altns/altas
+    LFS_ASSERT(lfsr_tag_key(tag) != 0);
+
     if (lfsr_tag_isgt(alt)) {
         return rid > upper_rid - (lfsr_srid_t)weight - 1
                 || (rid == upper_rid - (lfsr_srid_t)weight - 1
-                    && (lfsr_tag_isa(alt)
-                        || lfsr_tag_key(tag) > lfsr_tag_key(alt)));
+                    && lfsr_tag_key(tag) > lfsr_tag_key(alt));
     } else {
         return rid < lower_rid + (lfsr_srid_t)weight - 1
                 || (rid == lower_rid + (lfsr_srid_t)weight - 1
-                    && (!lfsr_tag_isn(alt)
-                        && lfsr_tag_key(tag) <= lfsr_tag_key(alt)));
+                    && lfsr_tag_key(tag) <= lfsr_tag_key(alt));
     }
 }
 
@@ -2826,7 +2827,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         } else if (lfsr_tag_issub(tag)) {
             a_tag = lfsr_tag_supkey(tag);
             b_tag = lfsr_tag_supkey(tag) + 0x100;
-        } else if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
+        } else if (lfsr_tag_isrm(tag)) {
             a_tag = lfsr_tag_key(tag);
             b_tag = lfsr_tag_key(tag) + 1;
         } else {
@@ -2834,6 +2835,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             b_tag = lfsr_tag_key(tag);
         }
     }
+    a_tag = lfs_max16(a_tag, 0x1);
+    b_tag = lfs_max16(b_tag, 0x1);
 
     // keep track of diverged state
     //
