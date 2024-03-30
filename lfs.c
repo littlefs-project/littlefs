@@ -967,36 +967,24 @@ static inline void lfsr_tag_trim2(
             lower_tag, upper_tag);
 }
 
-static inline bool lfsr_tag_prune(
+static inline bool lfsr_tag_unavoidable(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
         lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
     if (lfsr_tag_isgt(alt)) {
-        // unreachable?
-        return !lfsr_tag_follow(
-                    alt, weight,
-                    lower_rid, upper_rid,
-                    upper_rid-1, upper_tag-1)
-                // only-reachable?
-                || lfsr_tag_follow(
-                    alt, weight,
-                    lower_rid, upper_rid,
-                    lower_rid-1, lower_tag+1);
+        return lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                lower_rid-1, lower_tag+1);
     } else {
-        // unreachable?
-        return !lfsr_tag_follow(
-                    alt, weight,
-                    lower_rid, upper_rid,
-                    lower_rid-1, lower_tag+1)
-                // only-reachable?
-                || lfsr_tag_follow(
-                    alt, weight,
-                    lower_rid, upper_rid,
-                    upper_rid-1, upper_tag-1);
+        return lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                upper_rid-1, upper_tag-1);
     }
 }
 
-static inline bool lfsr_tag_prune2(
+static inline bool lfsr_tag_unavoidable2(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_tag_t alt2, lfsr_rid_t weight2,
         lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
@@ -1008,7 +996,42 @@ static inline bool lfsr_tag_prune2(
                 &lower_tag, &upper_tag);
     }
 
-    return lfsr_tag_prune(
+    return lfsr_tag_unavoidable(
+            alt, weight,
+            lower_rid, upper_rid,
+            lower_tag, upper_tag);
+}
+
+static inline bool lfsr_tag_unreachable(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
+    if (lfsr_tag_isgt(alt)) {
+        return !lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                upper_rid-1, upper_tag-1);
+    } else {
+        return !lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                lower_rid-1, lower_tag+1);
+    }
+}
+
+static inline bool lfsr_tag_unreachable2(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_tag_t alt2, lfsr_rid_t weight2,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
+    if (lfsr_tag_isred(alt2)) {
+        lfsr_tag_trim(
+                alt2, weight2,
+                &lower_rid, &upper_rid,
+                &lower_tag, &upper_tag);
+    }
+
+    return lfsr_tag_unreachable(
             alt, weight,
             lower_rid, upper_rid,
             lower_tag, upper_tag);
@@ -2821,9 +2844,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
         if (lfsr_tag_issup(tag)) {
-            // TODO why can't this be rid+1?
             a_tag = 0x000;
-            b_tag = 0x800;
+            b_tag = 0xf00;
         } else if (lfsr_tag_issub(tag)) {
             a_tag = lfsr_tag_supkey(tag);
             b_tag = lfsr_tag_supkey(tag) + 0x100;
@@ -2870,8 +2892,8 @@ again:;
     lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
     lfsr_srid_t lower_rid = 0;
     lfsr_srid_t upper_rid = rbyd->weight;
-    lfsr_tag_t lower_tag = 0x0000;
-    lfsr_tag_t upper_tag = 0xffff;
+    lfsr_tag_t lower_tag = 0x000;
+    lfsr_tag_t upper_tag = 0xf00;
 
     // no trunk yet?
     if (!branch) {
@@ -3006,20 +3028,23 @@ again:;
             // |  |       <b      |          <b  |
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
-            if (lfsr_tag_prune2(
+            if (lfsr_tag_unavoidable2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)
+                    || lfsr_tag_unreachable2(
                         alt, weight,
                         p_alts[0], p_weights[0],
                         lower_rid, upper_rid,
                         lower_tag, upper_tag)) {
-                // note, yellow pruning always follows and has no weight, it's
-                // only diverged pruning that needs all these special cases
-                //
-                // eagerly flip in case we are ambiguous yellow alts
-                if (lfsr_tag_follow2(
+                // note, yellow pruning always follows, it's only diverged
+                // pruning that needs all these special cases
+                if (lfsr_tag_unavoidable2(
                         alt, weight,
                         p_alts[0], p_weights[0],
                         lower_rid, upper_rid,
-                        a_rid, a_tag)) {
+                        lower_tag, upper_tag)) {
                     lfs_swap32(&jump, &branch_);
                 }
 
@@ -3028,11 +3053,10 @@ again:;
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
-                    branch_ = branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
 
-                // collapse unreachable _root_ alts
-                } else if (!p_alts[0] && d_state != LFSR_D_DIVERGEDLOWER) {
+                // collapse unreachable root alts
+                } else if (!p_alts[0] && !lfsr_d_isdiverged(d_state)) {
                     branch = branch_;
                     continue;
 
