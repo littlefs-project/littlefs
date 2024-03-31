@@ -471,7 +471,8 @@ class Rbyd:
             yield rid, tag, w, j, d, data
 
     # create tree representation for debugging
-    def tree(self):
+    def tree(self, *,
+            rbyd=False):
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
 
@@ -491,12 +492,30 @@ class Rbyd:
                 else:
                     alts[j_] |= {'nf': j__, 'c': c}
 
-        # treat unreachable alts as converging paths
-        for j_, alt in alts.items():
-            if 'f' not in alt:
-                alt['f'] = alt['nf']
-            elif 'nf' not in alt:
-                alt['nf'] = alt['f']
+        if rbyd:
+            # treat unreachable alts as converging paths
+            for j_, alt in alts.items():
+                if 'f' not in alt:
+                    alt['f'] = alt['nf']
+                elif 'nf' not in alt:
+                    alt['nf'] = alt['f']
+
+        else:
+            # prune any alts with unreachable edges
+            pruned = {}
+            for j_, alt in alts.items():
+                if 'f' not in alt:
+                    pruned[j_] = alt['nf']
+                elif 'nf' not in alt:
+                    pruned[j_] = alt['f']
+            for j_ in pruned.keys():
+                del alts[j_]
+
+            for j_, alt in alts.items():
+                while alt['f'] in pruned:
+                    alt['f'] = pruned[alt['f']]
+                while alt['nf'] in pruned:
+                    alt['nf'] = pruned[alt['nf']]
 
         # find the trunk and depth of each alt
         def rec_trunk(j_):
@@ -608,18 +627,19 @@ class Rbyd:
     # btree rbyd-tree generation for debugging
     def btree_tree(self, f, block_size, *,
             depth=None,
-            inner=False):
+            inner=False,
+            rbyd=False):
         # find the max depth of each layer to nicely align trees
         bdepths = {}
         bid = -1
         while True:
-            done, bid, w, rbyd, rid, tags, path = self.btree_lookup(
+            done, bid, w, rbyd_, rid, tags, path = self.btree_lookup(
                 f, block_size, bid+1, depth=depth)
             if done:
                 break
 
-            for d, (bid, w, rbyd, rid, tags) in enumerate(path):
-                _, rdepth = rbyd.tree()
+            for d, (bid, w, rbyd_, rid, tags) in enumerate(path):
+                _, rdepth = rbyd_.tree(rbyd=rbyd)
                 bdepths[d] = max(bdepths.get(d, 0), rdepth)
 
         # find all branches
@@ -628,19 +648,19 @@ class Rbyd:
         branches = {}
         bid = -1
         while True:
-            done, bid, w, rbyd, rid, tags, path = self.btree_lookup(
+            done, bid, w, rbyd_, rid, tags, path = self.btree_lookup(
                 f, block_size, bid+1, depth=depth)
             if done:
                 break
 
             d_ = 0
             leaf = None
-            for d, (bid, w, rbyd, rid, tags) in enumerate(path):
+            for d, (bid, w, rbyd_, rid, tags) in enumerate(path):
                 if not tags:
                     continue
 
                 # map rbyd tree into B-tree space
-                rtree, rdepth = rbyd.tree()
+                rtree, rdepth = rbyd_.tree(rbyd=rbyd)
 
                 # note we adjust our bid/rids to be left-leaning,
                 # this allows a global order and make tree rendering quite
@@ -649,8 +669,8 @@ class Rbyd:
                 for branch in rtree:
                     a_rid, a_tag = branch.a
                     b_rid, b_tag = branch.b
-                    _, _, _, a_w, _, _, _, _ = rbyd.lookup(a_rid, 0)
-                    _, _, _, b_w, _, _, _, _ = rbyd.lookup(b_rid, 0)
+                    _, _, _, a_w, _, _, _, _ = rbyd_.lookup(a_rid, 0)
+                    _, _, _, b_w, _, _, _, _ = rbyd_.lookup(b_rid, 0)
                     rtree_.add(TBranch(
                         a=(a_rid-(a_w-1), a_tag),
                         b=(b_rid-(b_w-1), b_tag),
@@ -919,7 +939,7 @@ def main(disk, mroots=None, *,
 
         # precompute rbyd-tree if requested
         t_width = 0
-        if args.get('tree'):
+        if args.get('tree') or args.get('rbyd'):
             # compute mroot chain "tree", prefix our actual mtree with this
             tree = set()
             d_ = 0
@@ -931,7 +951,7 @@ def main(disk, mroots=None, *,
                     break
 
                 # compute the mroots rbyd-tree
-                rtree, rdepth = mroot_.tree()
+                rtree, rdepth = mroot_.tree(rbyd=args.get('rbyd'))
 
                 # connect branch to our root
                 if d > 0:
@@ -977,7 +997,7 @@ def main(disk, mroots=None, *,
 
             # compute mdir's rbyd-tree if there is one
             if mdir:
-                rtree, rdepth = mdir.tree()
+                rtree, rdepth = mdir.tree(rbyd=args.get('rbyd'))
 
                 # connect branch to our root
                 root = min(rtree,
@@ -1011,7 +1031,8 @@ def main(disk, mroots=None, *,
                 tree_, tdepth = mtree.btree_tree(
                     f, block_size,
                     depth=args.get('depth', mdepth)-mdepth,
-                    inner=args.get('inner'))
+                    inner=args.get('inner'),
+                    rbyd=args.get('rbyd'))
 
                 # connect a branch to the root of the tree
                 root = min(tree_, key=lambda branch: branch.d, default=None)
@@ -1063,7 +1084,7 @@ def main(disk, mroots=None, *,
                         blocks = frommdir(data)
                         mdir_ = Rbyd.fetch(f, block_size, blocks)
 
-                        rtree, rdepth = mdir_.tree()
+                        rtree, rdepth = mdir_.tree(rbyd=args.get('rbyd'))
                         mdepth_ = max(mdepth_, rdepth)
 
                 # compute the rbyd-tree for each mdir
@@ -1093,7 +1114,7 @@ def main(disk, mroots=None, *,
                         blocks = frommdir(data)
                         mdir_ = Rbyd.fetch(f, block_size, blocks)
 
-                        rtree, rdepth = mdir_.tree()
+                        rtree, rdepth = mdir_.tree(rbyd=args.get('rbyd'))
 
                         # connect the root to the mtree
                         branch = max(
@@ -1230,7 +1251,8 @@ def main(disk, mroots=None, *,
                 tree_, tdepth = mtree.btree_btree(
                     f, block_size,
                     depth=args.get('depth', mdepth)-mdepth,
-                    inner=args.get('inner'))
+                    inner=args.get('inner'),
+                    rbyd=args.get('rbyd'))
 
                 # connect a branch to the root of the tree
                 root = min(tree_, key=lambda branch: branch.d, default=None)
@@ -1310,7 +1332,7 @@ def main(disk, mroots=None, *,
                             tree = tree_
 
         # common tree renderer
-        if args.get('tree') or args.get('btree'):
+        if args.get('tree') or args.get('rbyd') or args.get('btree'):
             # find the max depth from the tree
             t_depth = max((branch.d+1 for branch in tree), default=0)
             if t_depth > 0:
@@ -1375,7 +1397,9 @@ def main(disk, mroots=None, *,
                             mdir.redund_blocks))
                         if i == 0 else '',
                     treerepr(mbid-max(mw-1, 0), 0, md, 0, rid, tag)
-                        if args.get('tree') or args.get('btree') else '',
+                        if args.get('tree')
+                            or args.get('rbyd')
+                            or args.get('btree') else '',
                     '%*s %-*s%s' % (
                         2*w_width+1, '%d.%d-%d' % (
                                 mbid//mleaf_weight, rid-(w-1), rid)
@@ -1425,7 +1449,9 @@ def main(disk, mroots=None, *,
                         if prbyd is None or rbyd != prbyd
                         else '',
                     treerepr(bid, w, bd, rid, 0, tag)
-                        if args.get('tree') or args.get('btree') else '',
+                        if args.get('tree')
+                            or args.get('rbyd')
+                            or args.get('btree') else '',
                     2*w_width+1, '' if i != 0
                         else '%d-%d' % (
                                 (bid-(w-1))//mleaf_weight,
@@ -1685,7 +1711,11 @@ if __name__ == "__main__":
     parser.add_argument(
         '-B', '--btree',
         action='store_true',
-        help="Show the underlying B-tree.")
+        help="Show the underlying B-trees.")
+    parser.add_argument(
+        '-R', '--rbyd',
+        action='store_true',
+        help="Show the full underlying rbyd trees.")
     parser.add_argument(
         '-i', '--inner',
         action='store_true',

@@ -676,7 +676,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
     # precompute tree
     t_width = 0
-    if args.get('tree'):
+    if args.get('tree') or args.get('rbyd'):
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
 
@@ -696,12 +696,30 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 else:
                     alts[j_] |= {'nf': j__, 'c': c}
 
-        # treat unreachable alts as converging paths
-        for j_, alt in alts.items():
-            if 'f' not in alt:
-                alt['f'] = alt['nf']
-            elif 'nf' not in alt:
-                alt['nf'] = alt['f']
+        if args.get('rbyd'):
+            # treat unreachable alts as converging paths
+            for j_, alt in alts.items():
+                if 'f' not in alt:
+                    alt['f'] = alt['nf']
+                elif 'nf' not in alt:
+                    alt['nf'] = alt['f']
+
+        else:
+            # prune any alts with unreachable edges
+            pruned = {}
+            for j_, alt in alts.items():
+                if 'f' not in alt:
+                    pruned[j_] = alt['nf']
+                elif 'nf' not in alt:
+                    pruned[j_] = alt['f']
+            for j_ in pruned.keys():
+                del alts[j_]
+
+            for j_, alt in alts.items():
+                while alt['f'] in pruned:
+                    alt['f'] = pruned[alt['f']]
+                while alt['nf'] in pruned:
+                    alt['nf'] = pruned[alt['nf']]
 
         # find the trunk and depth of each alt
         def rec_trunk(j_):
@@ -819,7 +837,8 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         # show human-readable tag representation
         print('%08x: %s%*s %-*s  %s' % (
             j,
-            treerepr(rid, tag) if args.get('tree') else '',
+            treerepr(rid, tag)
+                if args.get('tree') or args.get('rbyd') else '',
             2*w_width+1, '%d-%d' % (rid-(w-1), rid)
                 if w > 1 else rid
                 if w > 0 or i == 0 else '',
@@ -1070,6 +1089,10 @@ if __name__ == "__main__":
         '-t', '--tree',
         action='store_true',
         help="Show the rbyd tree.")
+    parser.add_argument(
+        '-R', '--rbyd',
+        action='store_true',
+        help="Show the full rbyd tree.")
     parser.add_argument(
         '-j', '--jumps',
         action='store_true',
