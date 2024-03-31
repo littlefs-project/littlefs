@@ -3734,8 +3734,9 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     // ignore shrub trunks, unless we are actually compacting
                     // a shrub tree
-                    if (!lfsr_rbyd_isshrub(rbyd)
-                            && lfsr_tag_isshrub(tag__)) {
+                    if (!lfsr_tag_isalt(tag__)
+                            && lfsr_tag_isshrub(tag__)
+                            && !lfsr_rbyd_isshrub(rbyd)) {
                         trunk = off;
                         weight = 0;
                         continue;
@@ -3765,7 +3766,12 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                 // connect with an altle
                 err = lfsr_rbyd_appendtag(lfs, rbyd,
-                        LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, tag),
+                        LFSR_TAG_ALT(
+                            LFSR_TAG_LE,
+                            (i == 0 && off < layer_)
+                                ? LFSR_TAG_R
+                                : LFSR_TAG_B,
+                            tag),
                         weight,
                         rbyd->eoff - trunk);
                 if (err) {
