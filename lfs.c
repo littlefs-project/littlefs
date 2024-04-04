@@ -2962,11 +2962,13 @@ again:;
 
             // do bounds want to take different paths? begin diverging
             if (!diverged
-                    && lfsr_tag_follow2(alt, weight,
+                    && lfsr_tag_follow2(
+                            alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             a_rid, a_tag)
-                        ^ lfsr_tag_follow2(alt, weight,
+                        ^ lfsr_tag_follow2(
+                            alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             b_rid, b_tag)) {
@@ -2978,7 +2980,7 @@ again:;
                         p_alts[0],
                         p_weights[0]);
                 if (d_upper) {
-                    alt &= ~LFSR_TAG_R;
+                    //alt &= ~LFSR_TAG_R;
                     diverged = true;
 
 //                    alt = LFSR_TAG_ALT(
@@ -3050,13 +3052,52 @@ again:;
                             lower_rid,
                             upper_rid);
                 } else {
-                    alt &= ~LFSR_TAG_R;
+                    //alt &= ~LFSR_TAG_R;
                     //d_will_diverge = true;
                     diverged = true;
                 }
 
             // trim unreachable diverged alts so they end up pruned
             } else if (diverged
+                    // TODO simpler way to express this?
+                    && !(lfsr_tag_isred(p_alts[0])
+//                        && (lfsr_tag_follow(
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid,
+//                                a_rid, a_tag)
+//                            ^ lfsr_tag_follow(
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid,
+//                                b_rid, b_tag)))
+//                        && !(lfsr_tag_follow2(
+//                                alt, weight,
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid,
+//                                a_rid, a_tag)
+//                            ^ lfsr_tag_follow2(
+//                                alt, weight,
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid,
+//                                b_rid, b_tag))
+                        && lfsr_tag_follow(
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            a_rid, a_tag))
+//                        && !(lfsr_tag_follow2(
+//                                alt, weight,
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid,
+//                                a_rid, a_tag)
+//                            ^ lfsr_tag_follow2(
+//                                alt, weight,
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid,
+//                                b_rid, b_tag)))
+//                        && lfsr_tag_follow2(
+//                            alt, weight,
+//                            p_alts[0], p_weights[0],
+//                            lower_rid, upper_rid,
+//                            b_rid, b_tag))
                     && (d_upper
                         ^ lfsr_tag_isgt(alt)
                         ^ lfsr_tag_follow2(
@@ -3064,6 +3105,12 @@ again:;
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             a_rid, a_tag))) {
+//                    && !(d_upper
+//                        ^ lfsr_tag_isgt(alt)
+//                        ^ lfsr_tag_follow(
+//                            p_alts[0], p_weights[0],
+//                            lower_rid, upper_rid,
+//                            a_rid, a_tag))) {
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
@@ -3075,11 +3122,68 @@ again:;
                             lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
                 }
+                printf("%04x->%04x: dtrim 0x%x w%d -> w0\n",
+                        branch,
+                        rbyd->eoff,
+                        alt,
+                        weight);
                 lfsr_tag_trim(
                         alt, weight,
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
                 weight = 0;
+
+            // TODO doc, cleanup?
+            // trim inner branches of the divering node itself
+            } else if (diverged
+                    && !d_upper
+                    && lfsr_tag_isred(p_alts[0])
+                    && lfsr_tag_follow(
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)
+//                    && (!d_upper
+//                        ^ lfsr_tag_isgt(alt)
+//                        ^ lfsr_tag_follow2(
+//                            alt, weight,
+//                            p_alts[0], p_weights[0],
+//                            lower_rid, upper_rid,
+//                            b_rid, b_tag))) {
+                    && (lfsr_tag_follow2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)
+                        ^ lfsr_tag_follow2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            b_rid, b_tag))) {
+                if (lfsr_tag_follow2(
+                        alt, weight,
+                        p_alts[0], p_weights[0],
+                        lower_rid, upper_rid,
+                        b_rid, b_tag)) {
+                    lfsr_tag_flip2(
+                            &alt, &weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid);
+                    lfs_swap32(&jump, &branch_);
+                }
+                printf("%04x->%04x: d0trim 0x%x w%d -> w0\n",
+                        branch,
+                        rbyd->eoff,
+                        alt,
+                        weight);
+//                lfsr_tag_trim(
+//                        alt, weight,
+//                        &lower_rid, &upper_rid,
+//                        &lower_tag, &upper_tag);
+//                weight = 0;
+                    alt = (p_alts[0] & ~LFSR_TAG_R) | (alt & LFSR_TAG_R);
+                    weight = p_weights[0];
+                    jump = p_jumps[0];
+                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
             }
 
 //            if (!lfsr_d_isdiverged(d_state)
@@ -3355,7 +3459,7 @@ again:;
                 // |  |  .-'|      |  |  .----'|
                 // 1  2  3  4      1  2  3  4  4
                 } else {
-                    printf("%04x->%04x: ysplit2 0x%x w%d 0x%x w%d (%x %x %x)\n",
+                    printf("%04x->%04x: ysplit2 0x%x w%d 0x%x w%d (%x %x %x %x)\n",
                             branch,
                             rbyd->eoff,
                             alt,
@@ -3364,7 +3468,8 @@ again:;
                             p_weights[0],
                             p_jumps[0],
                             jump,
-                            branch_);
+                            branch_,
+                            y_branch);
                     LFS_ASSERT(y_branch != 0);
                     p_alts[0] = alt;
                     p_weights[0] += weight;
