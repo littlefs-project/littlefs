@@ -3048,20 +3048,22 @@ again:;
                     lfs_swap32(&jump, &branch_);
                 }
 
-                // collapse unreachable red alts
+                // prune unreachable red-black alts
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
 
-                // collapse unreachable root alts
-                } else if (!p_alts[0] && !lfsr_d_isdiverged(d_state)) {
+                // prune unreachable red alts
+                } else if (lfsr_tag_isred(alt)
+                        // prune unreachable black alts if root
+                        || (!p_alts[0] && !lfsr_d_isdiverged(d_state))) {
                     branch = branch_;
                     continue;
 
-                // make unreachable non-root black alts alt-nevers, if we
-                // prune these it would break the coloring of our tree
+                // convert unreachable non-root black alts into alt-nevers,
+                // if we prune these it would break the coloring of our tree
                 } else {
                     alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
                     weight = 0;
