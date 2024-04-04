@@ -2802,6 +2802,10 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return 0;
     }
 
+    printf("%04x->%04x: --- appendattr ---\n",
+            lfsr_rbyd_trunk(rbyd),
+            rbyd->eoff);
+
     // begin appending
     int err = lfsr_rbyd_prepareappend(lfs, rbyd);
     if (err) {
@@ -2929,6 +2933,14 @@ again:;
             return d;
         }
 
+        printf("%04x->%04x: tag 0x%x w%d (%d %d)\n",
+                branch,
+                rbyd->eoff,
+                alt,
+                weight,
+                lower_rid,
+                upper_rid);
+
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
             // make jump absolute
@@ -2937,14 +2949,22 @@ again:;
 
             // do bounds want to take different paths? begin diverging
             if (!lfsr_d_isdiverged(d_state)
-                    && (lfsr_tag_follow2(alt, weight,
+                    && lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
                             a_rid, a_tag)
                         ^ lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid,
-                            b_rid, b_tag))) {
+                            b_rid, b_tag)) {
+                printf("%04x->%04x: %cdiverge 0x%x w%d 0x%x w%d\n",
+                        branch,
+                        rbyd->eoff,
+                        lfsr_tag_isred(alt) ? 'r' : 'b',
+                        alt,
+                        weight,
+                        p_alts[0],
+                        p_weights[0]);
                 LFS_ASSERT(d_state != LFSR_D_NOTDIVERGING);
 
                 // transition to the diverged state
@@ -2953,36 +2973,96 @@ again:;
                 // caught on the previous pass
                 d_state = lfsr_d_diverge(d_state);
 
-                if (lfsr_tag_follow2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        lower_rid, upper_rid,
-                        a_rid, a_tag)) {
-                    lfsr_tag_flip2(
-                            &alt, &weight,
+                // TODO trim or something?
+                if (d_state != LFSR_D_DIVERGEDUPPER) {
+                    if (lfsr_tag_follow2(
+                            alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_rid, upper_rid);
-                    lfs_swap32(&jump, &branch_);
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)) {
+                        lfsr_tag_flip2(
+                                &alt, &weight,
+                                p_alts[0], p_weights[0],
+                                lower_rid, upper_rid);
+                        lfs_swap32(&jump, &branch_);
+                    }
+
+                    lfsr_tag_trim2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            &lower_rid, &upper_rid,
+                            &lower_tag, &upper_tag);
                 }
-                lfsr_tag_trim2(
-                        alt, weight,
-                        p_alts[0], p_weights[0],
-                        &lower_rid, &upper_rid,
-                        &lower_tag, &upper_tag);
 
                 // stitch together diverged branches
                 if (d_state == LFSR_D_DIVERGEDUPPER) {
-                    err = lfsr_rbyd_p_push(lfs, rbyd,
-                            p_alts, p_weights, p_jumps,
-                            LFSR_TAG_ALT(
+                    if (lfsr_tag_isle(alt)) {
+                        alt = LFSR_TAG_ALT(
                                 LFSR_TAG_LE,
-                                LFSR_TAG_B,
-                                d_tag),
-                            d_rid - lower_rid + weight,
-                            d_branch);
-                    if (err) {
-                        return err;
+                                (!lfsr_tag_isred(p_alts[0]))
+                                    ? (LFSR_TAG_R & alt)
+                                    : LFSR_TAG_B,
+                                d_tag);
+                        printf("%04x->%04x: dle 0x%x %d w%d (%d %d)\n",
+                                branch,
+                                rbyd->eoff,
+                                d_tag,
+                                d_rid,
+                                weight,
+                                lower_rid,
+                                upper_rid);
+                        lower_rid += weight;
+                        weight = d_rid - lower_rid + weight;
+                        if (lfsr_tag_isred(p_alts[0])
+                                && lfsr_tag_isle(p_alts[0])) {
+                            weight -= p_weights[0];
+                        }
+                        lower_rid -= weight;
+                        jump = d_branch;
+                    } else {
+                        lfsr_tag_flip2(
+                                &alt, &weight,
+                                p_alts[0], p_weights[0],
+                                lower_rid, upper_rid);
+                        alt = LFSR_TAG_ALT(
+                                LFSR_TAG_LE,
+                                (false) // (!lfsr_tag_isred(p_alts[0]))
+                                    ? (LFSR_TAG_R & alt)
+                                    : LFSR_TAG_B,
+                                d_tag);
+                        printf("%04x->%04x: dgt 0x%x %d w%d (%d %d)\n",
+                                branch,
+                                rbyd->eoff,
+                                d_tag,
+                                d_rid,
+                                weight,
+                                lower_rid,
+                                upper_rid);
+                        lower_rid += weight;
+                        weight = d_rid - lower_rid + weight;
+                        if (lfsr_tag_isred(p_alts[0])
+                                && lfsr_tag_isle(p_alts[0])) {
+                            weight -= p_weights[0];
+                        }
+                        lower_rid -= weight;
+                        lfsr_tag_flip2(
+                                &alt, &weight,
+                                p_alts[0], p_weights[0],
+                                lower_rid, upper_rid);
+                        branch_ = d_branch;
                     }
+
+                    printf("%04x->%04x: dtag 0x%x w%d (%d %d)\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight,
+                            lower_rid,
+                            upper_rid);
+
+                    // TODO doc
+                    y_branch = d_branch;
+                    goto dont_trim_me;
                 }
 
                 branch = branch_;
@@ -3018,6 +3098,7 @@ again:;
                 weight = 0;
             }
 
+        dont_trim_me:;
             // prune?
             //            <b                    >b
             //          .-'|                  .-'|
@@ -3050,6 +3131,11 @@ again:;
 
                 // prune unreachable red-black alts
                 if (lfsr_tag_isred(p_alts[0])) {
+                    printf("%04x->%04x: rbprune 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
                     alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
@@ -3059,12 +3145,22 @@ again:;
                 } else if (lfsr_tag_isred(alt)
                         // prune unreachable black alts if root
                         || (!p_alts[0] && !lfsr_d_isdiverged(d_state))) {
+                    printf("%04x->%04x: rprune 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
                     branch = branch_;
                     continue;
 
                 // convert unreachable non-root black alts into alt-nevers,
                 // if we prune these it would break the coloring of our tree
                 } else {
+                    printf("%04x->%04x: bprune 0x%x w%d\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight);
                     alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
                     weight = 0;
                     jump = 0;
@@ -3089,6 +3185,16 @@ again:;
                         p_alts[0], p_weights[0],
                         lower_rid, upper_rid,
                         a_rid, a_tag)) {
+                    printf("%04x->%04x: ysplit1 0x%x w%d 0x%x w%d (%x %x %x)\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight,
+                            p_alts[0],
+                            p_weights[0],
+                            p_jumps[0],
+                            jump,
+                            branch_);
                     lfsr_tag_flip2(&alt, &weight,
                             p_alts[0], p_weights[0],
                             lower_rid, upper_rid);
@@ -3117,6 +3223,16 @@ again:;
                 // |  |  .-'|      |  |  .----'|
                 // 1  2  3  4      1  2  3  4  4
                 } else {
+                    printf("%04x->%04x: ysplit2 0x%x w%d 0x%x w%d (%x %x %x)\n",
+                            branch,
+                            rbyd->eoff,
+                            alt,
+                            weight,
+                            p_alts[0],
+                            p_weights[0],
+                            p_jumps[0],
+                            jump,
+                            branch_);
                     LFS_ASSERT(y_branch != 0);
                     p_alts[0] = alt;
                     p_weights[0] += weight;
@@ -3207,11 +3323,17 @@ again:;
     // no divergence? guess we only need one trunk then, actually write
     // it out this time
     if (d_state == LFSR_D_DIVERGINGLOWER) {
+        printf("%04x->%04x: not diverging\n",
+                branch,
+                rbyd->eoff);
         d_state = LFSR_D_NOTDIVERGING;
         goto again;
 
     // diverged lower trunk? we need an upper trunk too
     } else if (d_state == LFSR_D_DIVERGEDLOWER) {
+        printf("%04x->%04x: diverging again\n",
+                branch,
+                rbyd->eoff);
         // keep track of last alt on diverged trunk to stitch the trunks
         // together with
         d_state = LFSR_D_DIVERGINGUPPER;
