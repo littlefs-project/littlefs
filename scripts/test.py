@@ -1306,7 +1306,7 @@ def run(runner, test_ids=[], **args):
             stdout = failure.stdout
             if failure.assert_ is not None:
                 stdout = stdout[:-1]
-            for line in stdout[len(stdout)-args.get('context', 5):]:
+            for line in stdout[max(len(stdout)-args.get('context', 5), 0):]:
                 sys.stdout.write(line)
 
         if failure.assert_ is not None:
