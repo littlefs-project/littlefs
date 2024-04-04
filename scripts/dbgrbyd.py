@@ -768,12 +768,13 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 d=t_depth-1 - alt['h'],
                 c=alt['c'],
             ))
-            tree.add(TBranch(
-                a=alt['nft'],
-                b=alt['ft'],
-                d=t_depth-1 - alt['h'],
-                c='b',
-            ))
+            if alt['ft'] != alt['nft']:
+                tree.add(TBranch(
+                    a=alt['nft'],
+                    b=alt['ft'],
+                    d=t_depth-1 - alt['h'],
+                    c='b',
+                ))
 
         # find the max depth from the tree
         t_depth = max((branch.d+1 for branch in tree), default=0)

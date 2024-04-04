@@ -579,12 +579,13 @@ class Rbyd:
                 d=t_depth-1 - alt['h'],
                 c=alt['c'],
             ))
-            tree.add(TBranch(
-                a=alt['nft'],
-                b=alt['ft'],
-                d=t_depth-1 - alt['h'],
-                c='b',
-            ))
+            if alt['ft'] != alt['nft']:
+                tree.add(TBranch(
+                    a=alt['nft'],
+                    b=alt['ft'],
+                    d=t_depth-1 - alt['h'],
+                    c='b',
+                ))
 
         return tree, t_depth
 
