@@ -2980,7 +2980,7 @@ again:;
                         p_alts[0],
                         p_weights[0]);
                 if (d_upper) {
-                    //alt &= ~LFSR_TAG_R;
+                    alt &= ~LFSR_TAG_R;
                     diverged = true;
 
 //                    alt = LFSR_TAG_ALT(
@@ -2992,11 +2992,20 @@ again:;
 //                    } else {
 //                        weight = (upper_rid - lower_rid) - weight;
 //                    }
+
+                    if (lfsr_tag_follow2(
+                            alt, weight,
+                            p_alts[0], p_weights[0],
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)) {
+                        lfsr_tag_flip2(
+                                &alt, &weight,
+                                p_alts[0], p_weights[0],
+                                lower_rid, upper_rid);
+                        lfs_swap32(&jump, &branch_);
+                    }
+
                     if (lfsr_tag_isle(alt)) {
-                        alt = LFSR_TAG_ALT(
-                                LFSR_TAG_LE,
-                                alt & LFSR_TAG_R,
-                                d_tag);
                         printf("%04x->%04x: dle 0x%x %d w%d (%d %d)\n",
                                 branch,
                                 rbyd->eoff,
@@ -3005,43 +3014,55 @@ again:;
                                 weight,
                                 lower_rid,
                                 upper_rid);
-                        lower_rid += weight;
-                        weight = d_rid - lower_rid + weight;
-                        if (lfsr_tag_isred(p_alts[0])
-                                && lfsr_tag_isle(p_alts[0])) {
-                            weight -= p_weights[0];
-                        }
-                        lower_rid -= weight;
-//                        jump = d_branch;
-                    } else {
-                        lfsr_tag_flip2(
-                                &alt, &weight,
-                                p_alts[0], p_weights[0],
-                                lower_rid, upper_rid);
                         alt = LFSR_TAG_ALT(
                                 LFSR_TAG_LE,
                                 alt & LFSR_TAG_R,
                                 d_tag);
-                        printf("%04x->%04x: dgt 0x%x %d w%d (%d %d)\n",
-                                branch,
-                                rbyd->eoff,
-                                d_tag,
-                                d_rid,
-                                weight,
-                                lower_rid,
-                                upper_rid);
-                        lower_rid += weight;
-                        weight = d_rid - lower_rid + weight;
+                        lfsr_rid_t weight_ = d_rid - lower_rid;
                         if (lfsr_tag_isred(p_alts[0])
                                 && lfsr_tag_isle(p_alts[0])) {
-                            weight -= p_weights[0];
+                            weight_ -= p_weights[0];
                         }
-                        lower_rid -= weight;
-                        lfsr_tag_flip2(
-                                &alt, &weight,
-                                p_alts[0], p_weights[0],
-                                lower_rid, upper_rid);
-//                        branch_ = d_branch;
+                        lower_rid += weight - weight_;
+                        weight = weight_;
+//                        lower_rid += weight;
+//                        weight = d_rid - lower_rid + weight;
+//                        if (lfsr_tag_isred(p_alts[0])
+//                                && lfsr_tag_isle(p_alts[0])) {
+//                            weight -= p_weights[0];
+//                        }
+//                        lower_rid -= weight;
+//                        jump = d_branch;
+                    } else {
+                        LFS_UNREACHABLE();
+//                        printf("%04x->%04x: dgt 0x%x %d w%d (%d %d)\n",
+//                                branch,
+//                                rbyd->eoff,
+//                                d_tag,
+//                                d_rid,
+//                                weight,
+//                                lower_rid,
+//                                upper_rid);
+//                        lfsr_tag_flip2(
+//                                &alt, &weight,
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid);
+//                        alt = LFSR_TAG_ALT(
+//                                LFSR_TAG_LE,
+//                                alt & LFSR_TAG_R,
+//                                d_tag);
+//                        lower_rid += weight;
+//                        weight = d_rid - lower_rid + weight;
+//                        if (lfsr_tag_isred(p_alts[0])
+//                                && lfsr_tag_isle(p_alts[0])) {
+//                            weight -= p_weights[0];
+//                        }
+//                        lower_rid -= weight;
+//                        lfsr_tag_flip2(
+//                                &alt, &weight,
+//                                p_alts[0], p_weights[0],
+//                                lower_rid, upper_rid);
+////                        branch_ = d_branch;
                     }
 
                     printf("%04x->%04x: dtag 0x%x w%d (%d %d)\n",
@@ -3051,8 +3072,11 @@ again:;
                             weight,
                             lower_rid,
                             upper_rid);
+
+                    goto push;
+
                 } else {
-                    //alt &= ~LFSR_TAG_R;
+                    alt &= ~LFSR_TAG_R;
                     //d_will_diverge = true;
                     diverged = true;
                 }
@@ -3526,6 +3550,7 @@ again:;
                     }
                 }
 
+            push:;
                 // trim alts from our current bounds
                 lfsr_tag_trim2(
                         alt, weight,
