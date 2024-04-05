@@ -3289,7 +3289,7 @@ again:;
                     goto push;
 
                 } else {
-                    alt &= ~LFSR_TAG_R;
+                    //alt &= ~LFSR_TAG_R;
                     //d_will_diverge = true;
                     diverged = true;
                 }
