@@ -2888,14 +2888,12 @@ trunk:;
         goto leaf;
     }
 
-    // keep track of the tag we find at the end of the trunk
-    lfsr_tag_t tag_ = 0;
-
     // queue of pending alts we can emulate rotations with
     lfsr_alt_t p[3] = {{0}, {0}, {0}};
-
     // keep track of the last incoming branch for yellow splits
     lfs_size_t y_branch = 0;
+    // keep track of the tag we find at the end of the trunk
+    lfsr_tag_t tag_ = 0;
 
     // descend down tree, building alt pointers
     while (true) {
@@ -2949,16 +2947,16 @@ trunk:;
                                         b_rid, b_tag)))) {
                 d_state = lfsr_d_diverge(d_state);
 
-                // diverged red? flip
+                // diverging red? flip
                 if (lfsr_tag_isred(p[0].alt)
-                        && (lfsr_tag_follow(
+                        && lfsr_tag_follow(
                                 p[0].alt, p[0].weight,
                                 lower_rid, upper_rid,
                                 a_rid, a_tag)
                             ^ lfsr_tag_follow(
                                 p[0].alt, p[0].weight,
                                 lower_rid, upper_rid,
-                                b_rid, b_tag))) {
+                                b_rid, b_tag)) {
                     if (lfsr_tag_isparallel(alt, p[0].alt)) {
                         lfsr_tag_flip2(&alt, &weight,
                                 p[0].alt, p[0].weight,
@@ -2993,9 +2991,8 @@ trunk:;
                     }
                 }
 
-                // diverged upper? stitch together both trunks
+                // diverging upper? stitch together both trunks
                 if (lfsr_d_isupper(d_state)) {
-                    // flip
                     if (lfsr_tag_isgt(alt)) {
                         lfsr_tag_flip2(
                                 &alt, &weight,
@@ -3003,8 +3000,6 @@ trunk:;
                                 lower_rid, upper_rid);
                         lfs_swap32(&jump, &branch_);
                     }
-
-                    // trim
                     lfsr_tag_trim2(
                             alt, weight,
                             p[0].alt, p[0].weight,
@@ -3025,15 +3020,18 @@ trunk:;
                     continue;
                 }
 
-            // trim unreachable diverged alts so they end up pruned
+            // force diverged alts to be pruned
             } else if (lfsr_d_isdiverged(d_state)
-                    && (lfsr_d_isupper(d_state)
-                        ^ lfsr_tag_isgt(alt)
+                    && lfsr_tag_follow2(
+                            alt, weight,
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            a_rid, a_tag)
                         ^ lfsr_tag_follow2(
                             alt, weight,
                             p[0].alt, p[0].weight,
                             lower_rid, upper_rid,
-                            a_rid, a_tag))) {
+                            b_rid, b_tag)) {
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p[0].alt, p[0].weight,
