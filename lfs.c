@@ -2852,9 +2852,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     a_tag = lfs_max16(a_tag, 0x1);
     b_tag = lfs_max16(b_tag, 0x1);
 
-    // follow the current trunk
-    lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
-
     // keep track of diverged state
     //
     // this is only used if we operate on a range of tags, in which case
@@ -2869,7 +2866,10 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_srid_t d_rid = 0;
     lfsr_tag_t d_tag = 0;
 
-again:;
+    // follow the current trunk
+    lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
+
+trunk:;
     // the new trunk starts here
     lfs_size_t trunk_ = rbyd->eoff;
 
@@ -3227,49 +3227,50 @@ again:;
         } else {
             // update the found tag
             tag_ = lfsr_tag_key(alt);
-            break;
+
+            // the last alt should always end up black
+            LFS_ASSERT(lfsr_tag_isblack(p[0].alt));
+
+            // diverged lower trunk? move on to upper trunk
+            if (d_state == LFSR_D_DIVERGEDLOWER) {
+                d_state = LFSR_D_NOTDIVERGEDUPPER;
+                // keep track of the lower diverged bound
+                d_rid = lower_rid;
+                d_tag = lower_tag;
+
+                // flush any pending alts
+                err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
+                if (err) {
+                    return err;
+                }
+
+                // terminate diverged trunk with an unreachable tag
+                err = lfsr_rbyd_appendattr_(lfs, rbyd,
+                        (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
+                            | LFSR_TAG_NULL,
+                        0,
+                        LFSR_DATA_NULL());
+                if (err) {
+                    return err;
+                }
+
+                // swap tag/rid and move on to upper trunk
+                branch = trunk_;
+                lfs_swap16(&a_tag, &b_tag);
+                lfs_sswap32(&a_rid, &b_rid);
+                goto trunk;
+
+            } else if (d_state == LFSR_D_DIVERGEDUPPER) {
+                // use the lower diverged bound for leaf weight calculation
+                lower_rid = d_rid;
+                lower_tag = d_tag;
+            }
+
+            goto stem;
         }
     }
 
-    // the last alt should always end up black
-    LFS_ASSERT(lfsr_tag_isblack(p[0].alt));
-
-    // diverged lower trunk? move on to upper trunk
-    if (d_state == LFSR_D_DIVERGEDLOWER) {
-        d_state = LFSR_D_NOTDIVERGEDUPPER;
-        // keep track of the lower diverged bound
-        d_rid = lower_rid;
-        d_tag = lower_tag;
-
-        // flush any pending alts
-        err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
-        if (err) {
-            return err;
-        }
-
-        // terminate diverged trunk with an unreachable tag
-        err = lfsr_rbyd_appendattr_(lfs, rbyd,
-                (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
-                    | LFSR_TAG_NULL,
-                0,
-                LFSR_DATA_NULL());
-        if (err) {
-            return err;
-        }
-
-        // swap tag/rid and move on to upper trunk
-        // TODO handle trunk differently? do we need to bother to stage this?
-        branch = trunk_;
-        lfs_swap16(&a_tag, &b_tag);
-        lfs_sswap32(&a_rid, &b_rid);
-        goto again;
-
-    } else if (d_state == LFSR_D_DIVERGEDUPPER) {
-        // use the lower diverged bound for leaf weight calculation
-        lower_rid = d_rid;
-        lower_tag = d_tag;
-    }
-
+stem:;
     // split leaf nodes?
     //
     // note we bias the weights here so that lfsr_rbyd_lookupnext
