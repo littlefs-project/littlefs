@@ -2657,18 +2657,22 @@ static int lfsr_rbyd_prepareappend(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
 // helper functions for managing the 3-element fifo used in
 // lfsr_rbyd_appendattr
+typedef struct lfsr_alt {
+    lfsr_tag_t alt;
+    lfsr_rid_t weight;
+    lfs_size_t jump;
+} lfsr_alt_t;
+
 static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_tag_t p_alts[static 3],
-        lfsr_rid_t p_weights[static 3],
-        lfs_size_t p_jumps[static 3],
+        lfsr_alt_t p[static 3],
         int count) {
     // write out some number of alt pointers in our queue
     for (int i = 0; i < count; i++) {
-        if (p_alts[3-1-i]) {
+        if (p[3-1-i].alt) {
             // change to a relative jump at the last minute
-            lfsr_tag_t alt = p_alts[3-1-i];
-            lfsr_rid_t weight = p_weights[3-1-i];
-            lfs_size_t jump = rbyd->eoff - p_jumps[3-1-i];
+            lfsr_tag_t alt = p[3-1-i].alt;
+            lfsr_rid_t weight = p[3-1-i].weight;
+            lfs_size_t jump = rbyd->eoff - p[3-1-i].jump;
 
             int err = lfsr_rbyd_appendtag(lfs, rbyd, alt, weight, jump);
             if (err) {
@@ -2681,83 +2685,66 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_tag_t p_alts[static 3],
-        lfsr_rid_t p_weights[static 3],
-        lfs_size_t p_jumps[static 3],
+        lfsr_alt_t p[static 3],
         lfsr_tag_t alt, lfsr_srid_t weight, lfs_size_t jump) {
-    int err = lfsr_rbyd_p_flush(lfs, rbyd, p_alts, p_weights, p_jumps, 1);
+    int err = lfsr_rbyd_p_flush(lfs, rbyd, p, 1);
     if (err) {
         return err;
     }
 
-    memmove(p_alts+1, p_alts, 2*sizeof(lfsr_tag_t));
-    memmove(p_weights+1, p_weights, 2*sizeof(lfsr_rid_t));
-    memmove(p_jumps+1, p_jumps, 2*sizeof(lfs_size_t));
-    p_alts[0] = alt;
-    p_weights[0] = weight;
-    p_jumps[0] = jump;
-
+    memmove(p+1, p, 2*sizeof(lfsr_alt_t));
+    p[0].alt = alt;
+    p[0].weight = weight;
+    p[0].jump = jump;
     return 0;
 }
 
 static inline void lfsr_rbyd_p_pop(
-        lfsr_tag_t p_alts[static 3],
-        lfsr_rid_t p_weights[static 3],
-        lfs_size_t p_jumps[static 3]) {
-    memmove(p_alts, p_alts+1, 2*sizeof(lfsr_tag_t));
-    memmove(p_weights, p_weights+1, 2*sizeof(lfsr_rid_t));
-    memmove(p_jumps, p_jumps+1, 2*sizeof(lfs_size_t));
-    p_alts[2] = 0;
-    p_weights[2] = 0;
-    p_jumps[2] = 0;
+        lfsr_alt_t p[static 3]) {
+    memmove(p, p+1, 2*sizeof(lfsr_alt_t));
+    p[2].alt = 0;
 }
 
 static void lfsr_rbyd_p_recolor(
-        lfsr_tag_t p_alts[static 3],
-        lfsr_rid_t p_weights[static 3],
-        lfs_size_t p_jumps[static 3]) {
+        lfsr_alt_t p[static 3]) {
     // propagate a red edge upwards
-    p_alts[0] &= ~LFSR_TAG_R;
+    p[0].alt &= ~LFSR_TAG_R;
 
-    if (p_alts[1]) {
-        p_alts[1] |= LFSR_TAG_R;
+    if (p[1].alt) {
+        p[1].alt |= LFSR_TAG_R;
 
         // alt-never? we can prune this now
-        if (lfsr_tag_isn(p_alts[1])) {
-            p_alts[1] = p_alts[2];
-            p_weights[1] = p_weights[2];
-            p_jumps[1] = p_jumps[2];
-            p_alts[2] = 0;
-            p_weights[2] = 0;
-            p_jumps[2] = 0;
+        if (lfsr_tag_isn(p[1].alt)) {
+            p[1] = p[2];
+            p[2].alt = 0;
 
         // reorder so that top two edges always go in the same direction
-        } else if (lfsr_tag_isred(p_alts[2])) {
-            if (lfsr_tag_isparallel(p_alts[1], p_alts[2])) {
+        } else if (lfsr_tag_isred(p[2].alt)) {
+            if (lfsr_tag_isparallel(p[1].alt, p[2].alt)) {
                 // no reorder needed
-            } else if (lfsr_tag_isparallel(p_alts[0], p_alts[2])) {
-                lfsr_tag_t alt_ = p_alts[1];
-                lfsr_rid_t weight_ = p_weights[1];
-                lfs_size_t jump_ = p_jumps[1];
-                p_alts[1] = p_alts[0] | LFSR_TAG_R;
-                p_weights[1] = p_weights[0];
-                p_jumps[1] = p_jumps[0];
-                p_alts[0] = alt_ & ~LFSR_TAG_R;
-                p_weights[0] = weight_;
-                p_jumps[0] = jump_;
-            } else if (lfsr_tag_isparallel(p_alts[0], p_alts[1])) {
-                lfsr_tag_t alt_ = p_alts[2];
-                lfsr_rid_t weight_ = p_weights[2];
-                lfs_size_t jump_ = p_jumps[2];
-                p_alts[2] = p_alts[1] | LFSR_TAG_R;
-                p_weights[2] = p_weights[1];
-                p_jumps[2] = p_jumps[1];
-                p_alts[1] = p_alts[0] | LFSR_TAG_R;
-                p_weights[1] = p_weights[0];
-                p_jumps[1] = p_jumps[0];
-                p_alts[0] = alt_ & ~LFSR_TAG_R;
-                p_weights[0] = weight_;
-                p_jumps[0] = jump_;
+            } else if (lfsr_tag_isparallel(p[0].alt, p[2].alt)) {
+                lfsr_tag_t alt_ = p[1].alt;
+                lfsr_rid_t weight_ = p[1].weight;
+                lfs_size_t jump_ = p[1].jump;
+                p[1].alt = p[0].alt | LFSR_TAG_R;
+                p[1].weight = p[0].weight;
+                p[1].jump = p[0].jump;
+                p[0].alt = alt_ & ~LFSR_TAG_R;
+                p[0].weight = weight_;
+                p[0].jump = jump_;
+            } else if (lfsr_tag_isparallel(p[0].alt, p[1].alt)) {
+                lfsr_tag_t alt_ = p[2].alt;
+                lfsr_rid_t weight_ = p[2].weight;
+                lfs_size_t jump_ = p[2].jump;
+                p[2].alt = p[1].alt | LFSR_TAG_R;
+                p[2].weight = p[1].weight;
+                p[2].jump = p[1].jump;
+                p[1].alt = p[0].alt | LFSR_TAG_R;
+                p[1].weight = p[0].weight;
+                p[1].jump = p[0].jump;
+                p[0].alt = alt_ & ~LFSR_TAG_R;
+                p[0].weight = weight_;
+                p[0].jump = jump_;
             } else {
                 LFS_UNREACHABLE();
             }
@@ -2905,9 +2892,7 @@ again:;
     lfsr_tag_t tag_ = 0;
 
     // queue of pending alts we can emulate rotations with
-    lfsr_tag_t p_alts[3] = {0, 0, 0};
-    lfsr_rid_t p_weights[3] = {0, 0, 0};
-    lfs_size_t p_jumps[3] = {0, 0, 0};
+    lfsr_alt_t p[3] = {{0}, {0}, {0}};
 
     // keep track of the last incoming branch for yellow splits
     lfs_size_t y_branch = 0;
@@ -2915,7 +2900,7 @@ again:;
     // descend down tree, building alt pointers
     while (true) {
         // keep track of incoming branch
-        if (lfsr_tag_isblack(p_alts[0])) {
+        if (lfsr_tag_isblack(p[0].alt)) {
             y_branch = branch;
         }
 
@@ -2941,70 +2926,70 @@ again:;
                     // diverging black?
                     && (((lfsr_tag_isblack(alt)
                                 // give up if we find a yellow alt
-                                || lfsr_tag_isred(p_alts[0]))
+                                || lfsr_tag_isred(p[0].alt))
                             && lfsr_tag_follow2(
                                     alt, weight,
-                                    p_alts[0], p_weights[0],
+                                    p[0].alt, p[0].weight,
                                     lower_rid, upper_rid,
                                     a_rid, a_tag)
                                 ^ lfsr_tag_follow2(
                                     alt, weight,
-                                    p_alts[0], p_weights[0],
+                                    p[0].alt, p[0].weight,
                                     lower_rid, upper_rid,
                                     b_rid, b_tag))
                         // diverging red?
-                        || (lfsr_tag_isred(p_alts[0])
+                        || (lfsr_tag_isred(p[0].alt)
                                 && lfsr_tag_follow(
-                                        p_alts[0], p_weights[0],
+                                        p[0].alt, p[0].weight,
                                         lower_rid, upper_rid,
                                         a_rid, a_tag)
                                     ^ lfsr_tag_follow(
-                                        p_alts[0], p_weights[0],
+                                        p[0].alt, p[0].weight,
                                         lower_rid, upper_rid,
                                         b_rid, b_tag)))) {
                 d_state = lfsr_d_diverge(d_state);
 
                 // diverged red? flip
-                if (lfsr_tag_isred(p_alts[0])
+                if (lfsr_tag_isred(p[0].alt)
                         && (lfsr_tag_follow(
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid,
                                 a_rid, a_tag)
                             ^ lfsr_tag_follow(
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid,
                                 b_rid, b_tag))) {
-                    if (lfsr_tag_isparallel(alt, p_alts[0])) {
+                    if (lfsr_tag_isparallel(alt, p[0].alt)) {
                         lfsr_tag_flip2(&alt, &weight,
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid);
                         lfs_swap32(&jump, &branch_);
                     }
 
-                    lfs_swap16(&p_alts[0], &alt);
-                    lfs_swap32(&p_weights[0], &weight);
-                    lfs_swap32(&p_jumps[0], &jump);
-                    p_alts[0] |= LFSR_TAG_R;
+                    lfs_swap16(&p[0].alt, &alt);
+                    lfs_swap32(&p[0].weight, &weight);
+                    lfs_swap32(&p[0].jump, &jump);
+                    p[0].alt |= LFSR_TAG_R;
                     alt &= ~LFSR_TAG_R;
 
                     // both diverging? collapse
                     if (lfsr_tag_follow(
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid,
                                 a_rid, a_tag)
                             ^ lfsr_tag_follow(
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid,
                                 b_rid, b_tag)) {
-                        LFS_ASSERT(!lfsr_tag_isparallel(alt, p_alts[0]));
+                        LFS_ASSERT(!lfsr_tag_isparallel(alt, p[0].alt));
                         lfsr_tag_flip2(&alt, &weight,
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid);
                         lfs_swap32(&jump, &branch_);
 
-                        weight += p_weights[0];
-                        jump = p_jumps[0];
-                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+                        weight += p[0].weight;
+                        jump = p[0].jump;
+                        lfsr_rbyd_p_pop(p);
                     }
                 }
 
@@ -3014,7 +2999,7 @@ again:;
                     if (lfsr_tag_isgt(alt)) {
                         lfsr_tag_flip2(
                                 &alt, &weight,
-                                p_alts[0], p_weights[0],
+                                p[0].alt, p[0].weight,
                                 lower_rid, upper_rid);
                         lfs_swap32(&jump, &branch_);
                     }
@@ -3022,13 +3007,12 @@ again:;
                     // trim
                     lfsr_tag_trim2(
                             alt, weight,
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
 
                     // stitch together both trunks
-                    err = lfsr_rbyd_p_push(lfs, rbyd,
-                            p_alts, p_weights, p_jumps,
+                    err = lfsr_rbyd_p_push(lfs, rbyd, p,
                             LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
                             d_rid - (lower_rid - weight),
                             jump);
@@ -3047,17 +3031,17 @@ again:;
                         ^ lfsr_tag_isgt(alt)
                         ^ lfsr_tag_follow2(
                             alt, weight,
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             lower_rid, upper_rid,
                             a_rid, a_tag))) {
                 if (lfsr_tag_follow2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag)) {
                     lfsr_tag_flip2(
                             &alt, &weight,
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
                 }
@@ -3081,32 +3065,32 @@ again:;
             // 1  2  3  4  4      1  2  3  4  4  2
             if (lfsr_tag_unavoidable2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         lower_tag, upper_tag)
                     || lfsr_tag_unreachable2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         lower_tag, upper_tag)) {
                 // note if only yellow pruning this could be much simpler
                 if (lfsr_tag_unavoidable2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         lower_tag, upper_tag)) {
                     lfs_swap32(&jump, &branch_);
                 }
 
                 // prune unreachable red-black alts
-                if (lfsr_tag_isred(p_alts[0])) {
-                    alt = p_alts[0] & ~LFSR_TAG_R;
-                    weight = p_weights[0];
-                    jump = p_jumps[0];
-                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+                if (lfsr_tag_isred(p[0].alt)) {
+                    alt = p[0].alt & ~LFSR_TAG_R;
+                    weight = p[0].weight;
+                    jump = p[0].jump;
+                    lfsr_rbyd_p_pop(p);
 
                 // prune unreachable root alts and red alts
-                } else if (!p_alts[0] || lfsr_tag_isred(alt)) {
+                } else if (!p[0].alt || lfsr_tag_isred(alt)) {
                     branch = branch_;
                     continue;
 
@@ -3120,8 +3104,8 @@ again:;
             }
 
             // two reds makes a yellow, split?
-            if (lfsr_tag_isred(alt) && lfsr_tag_isred(p_alts[0])) {
-                LFS_ASSERT(lfsr_tag_isparallel(alt, p_alts[0]));
+            if (lfsr_tag_isred(alt) && lfsr_tag_isred(p[0].alt)) {
+                LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
 
                 // if we take the red or yellow alt we can just point
                 // to the black alt
@@ -3134,24 +3118,24 @@ again:;
                 // 1  2  3  4      1  2  3  4  1
                 if (lfsr_tag_follow2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag)) {
                     lfsr_tag_flip2(&alt, &weight,
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
 
-                    lfs_swap16(&p_alts[0], &alt);
-                    lfs_swap32(&p_weights[0], &weight);
-                    lfs_swap32(&p_jumps[0], &jump);
+                    lfs_swap16(&p[0].alt, &alt);
+                    lfs_swap32(&p[0].weight, &weight);
+                    lfs_swap32(&p[0].jump, &jump);
                     alt &= ~LFSR_TAG_R;
 
                     lfsr_tag_trim(
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
-                    lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
+                    lfsr_rbyd_p_recolor(p);
 
                 // otherwise we need to point to the yellow alt and
                 // prune later
@@ -3166,15 +3150,15 @@ again:;
                 // 1  2  3  4      1  2  3  4  4
                 } else {
                     LFS_ASSERT(y_branch != 0);
-                    p_alts[0] = alt;
-                    p_weights[0] += weight;
-                    p_jumps[0] = y_branch;
+                    p[0].alt = alt;
+                    p[0].weight += weight;
+                    p[0].jump = y_branch;
 
                     lfsr_tag_trim(
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
-                    lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
+                    lfsr_rbyd_p_recolor(p);
 
                     branch = branch_;
                     continue;
@@ -3189,11 +3173,11 @@ again:;
                 // 1  2      1  2  1
                 if (lfsr_tag_follow2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag)) {
                     lfsr_tag_flip2(&alt, &weight,
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
                 }
@@ -3204,18 +3188,18 @@ again:;
                 // |    <b  =>        | >b
                 // |  .-'|         .--|-'|
                 // 1  2  3      1  2  3  1
-                if (lfsr_tag_isred(p_alts[0])
-                        && lfsr_tag_follow(p_alts[0], p_weights[0],
+                if (lfsr_tag_isred(p[0].alt)
+                        && lfsr_tag_follow(p[0].alt, p[0].weight,
                             lower_rid, upper_rid,
                             a_rid, a_tag)) {
-                    lfs_swap16(&p_alts[0], &alt);
-                    lfs_swap32(&p_weights[0], &weight);
-                    lfs_swap32(&p_jumps[0], &jump);
-                    p_alts[0] |= LFSR_TAG_R;
+                    lfs_swap16(&p[0].alt, &alt);
+                    lfs_swap32(&p[0].weight, &weight);
+                    lfs_swap32(&p[0].jump, &jump);
+                    p[0].alt |= LFSR_TAG_R;
                     alt &= ~LFSR_TAG_R;
 
                     lfsr_tag_flip2(&alt, &weight,
-                            p_alts[0], p_weights[0],
+                            p[0].alt, p[0].weight,
                             lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
                 }
@@ -3223,14 +3207,13 @@ again:;
                 // trim alts from our current bounds
                 lfsr_tag_trim2(
                         alt, weight,
-                        p_alts[0], p_weights[0],
+                        p[0].alt, p[0].weight,
                         &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
             }
 
             // push alt onto our queue
-            err = lfsr_rbyd_p_push(lfs, rbyd,
-                    p_alts, p_weights, p_jumps,
+            err = lfsr_rbyd_p_push(lfs, rbyd, p,
                     alt, weight, jump);
             if (err) {
                 return err;
@@ -3249,7 +3232,7 @@ again:;
     }
 
     // the last alt should always end up black
-    LFS_ASSERT(lfsr_tag_isblack(p_alts[0]));
+    LFS_ASSERT(lfsr_tag_isblack(p[0].alt));
 
     // diverged lower trunk? move on to upper trunk
     if (d_state == LFSR_D_DIVERGEDLOWER) {
@@ -3259,8 +3242,7 @@ again:;
         d_tag = lower_tag;
 
         // flush any pending alts
-        err = lfsr_rbyd_p_flush(lfs, rbyd,
-                p_alts, p_weights, p_jumps, 3);
+        err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
         if (err) {
             return err;
         }
@@ -3349,20 +3331,18 @@ again:;
     }
 
     if (alt) {
-        err = lfsr_rbyd_p_push(lfs, rbyd,
-                p_alts, p_weights, p_jumps,
+        err = lfsr_rbyd_p_push(lfs, rbyd, p,
                 alt, weight, branch);
         if (err) {
             return err;
         }
 
         // introduce a red edge
-        lfsr_rbyd_p_recolor(p_alts, p_weights, p_jumps);
+        lfsr_rbyd_p_recolor(p);
     }
 
     // flush any pending alts
-    err = lfsr_rbyd_p_flush(lfs, rbyd,
-            p_alts, p_weights, p_jumps, 3);
+    err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
     if (err) {
         return err;
     }
