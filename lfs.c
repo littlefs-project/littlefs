@@ -1037,6 +1037,39 @@ static inline bool lfsr_tag_unreachable2(
             lower_tag, upper_tag);
 }
 
+static inline bool lfsr_tag_diverging(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_srid_t a_rid, lfsr_tag_t a_tag,
+        lfsr_srid_t b_rid, lfsr_tag_t b_tag) {
+    return lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                a_rid, a_tag)
+            ^ lfsr_tag_follow(
+                alt, weight,
+                lower_rid, upper_rid,
+                b_rid, b_tag);
+}
+
+static inline bool lfsr_tag_diverging2(
+        lfsr_tag_t alt, lfsr_rid_t weight,
+        lfsr_tag_t alt2, lfsr_rid_t weight2,
+        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
+        lfsr_srid_t a_rid, lfsr_tag_t a_tag,
+        lfsr_srid_t b_rid, lfsr_tag_t b_tag) {
+    return lfsr_tag_follow2(
+                alt, weight,
+                alt2, weight2,
+                lower_rid, upper_rid,
+                a_rid, a_tag)
+            ^ lfsr_tag_follow2(
+                alt, weight,
+                alt2, weight2,
+                lower_rid, upper_rid,
+                b_rid, b_tag);
+}
+
 
 // support for encoding/decoding tags on disk
 
@@ -2925,38 +2958,28 @@ trunk:;
                     && (((lfsr_tag_isblack(alt)
                                 // give up if we find a yellow alt
                                 || lfsr_tag_isred(p[0].alt))
-                            && lfsr_tag_follow2(
-                                    alt, weight,
-                                    p[0].alt, p[0].weight,
-                                    lower_rid, upper_rid,
-                                    a_rid, a_tag)
-                                ^ lfsr_tag_follow2(
-                                    alt, weight,
-                                    p[0].alt, p[0].weight,
-                                    lower_rid, upper_rid,
-                                    b_rid, b_tag))
+                            && lfsr_tag_diverging2(
+                                alt, weight,
+                                p[0].alt, p[0].weight,
+                                lower_rid, upper_rid,
+                                a_rid, a_tag,
+                                b_rid, b_tag))
                         // diverging red?
                         || (lfsr_tag_isred(p[0].alt)
-                                && lfsr_tag_follow(
-                                        p[0].alt, p[0].weight,
-                                        lower_rid, upper_rid,
-                                        a_rid, a_tag)
-                                    ^ lfsr_tag_follow(
-                                        p[0].alt, p[0].weight,
-                                        lower_rid, upper_rid,
-                                        b_rid, b_tag)))) {
+                            && lfsr_tag_diverging(
+                                p[0].alt, p[0].weight,
+                                lower_rid, upper_rid,
+                                a_rid, a_tag,
+                                b_rid, b_tag)))) {
                 d_state = lfsr_d_diverge(d_state);
 
                 // diverging red? flip
                 if (lfsr_tag_isred(p[0].alt)
-                        && lfsr_tag_follow(
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                a_rid, a_tag)
-                            ^ lfsr_tag_follow(
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                b_rid, b_tag)) {
+                        && lfsr_tag_diverging(
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            a_rid, a_tag,
+                            b_rid, b_tag)) {
                     if (lfsr_tag_isparallel(alt, p[0].alt)) {
                         lfsr_tag_flip2(&alt, &weight,
                                 p[0].alt, p[0].weight,
@@ -2971,14 +2994,11 @@ trunk:;
                     alt &= ~LFSR_TAG_R;
 
                     // both diverging? collapse
-                    if (lfsr_tag_follow(
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                a_rid, a_tag)
-                            ^ lfsr_tag_follow(
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                b_rid, b_tag)) {
+                    if (lfsr_tag_diverging(
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            a_rid, a_tag,
+                            b_rid, b_tag)) {
                         LFS_ASSERT(!lfsr_tag_isparallel(alt, p[0].alt));
                         lfsr_tag_flip2(&alt, &weight,
                                 p[0].alt, p[0].weight,
@@ -3022,16 +3042,12 @@ trunk:;
 
             // force diverged alts to be pruned
             } else if (lfsr_d_isdiverged(d_state)
-                    && lfsr_tag_follow2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            a_rid, a_tag)
-                        ^ lfsr_tag_follow2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            b_rid, b_tag)) {
+                    && lfsr_tag_diverging2(
+                        alt, weight,
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        a_rid, a_tag,
+                        b_rid, b_tag)) {
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p[0].alt, p[0].weight,
