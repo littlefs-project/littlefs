@@ -2935,38 +2935,28 @@ trunk:;
             }
 
             // do bounds want to take different paths? begin diverging
+            bool diverging = lfsr_tag_diverging2(
+                    alt, weight,
+                    p[0].alt, p[0].weight,
+                    lower_rid, upper_rid,
+                    a_rid, a_tag,
+                    b_rid, b_tag);
+            bool diverging_red = lfsr_tag_isred(p[0].alt)
+                    && lfsr_tag_diverging(
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        a_rid, a_tag,
+                        b_rid, b_tag);
             if (!diverged
                     // diverging black?
                     && (lfsr_tag_isblack(alt)
                         // give up if we find a yellow alt
                         || lfsr_tag_isred(p[0].alt))
-                    && (lfsr_tag_diverging2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            a_rid, a_tag,
-                            b_rid, b_tag)
-                        || (lfsr_tag_isred(p[0].alt)
-                            && lfsr_tag_diverging(
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                a_rid, a_tag,
-                                b_rid, b_tag)))) {
+                    && (diverging || diverging_red)) {
                 diverged = true;
 
-                // both diverged? collapse
-                if (lfsr_tag_diverging2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            a_rid, a_tag,
-                            b_rid, b_tag)
-                        && (lfsr_tag_isred(p[0].alt)
-                            && lfsr_tag_diverging(
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                a_rid, a_tag,
-                                b_rid, b_tag))) {
+                // both diverging? collapse
+                if (diverging && diverging_red) {
                     LFS_ASSERT(a_rid < b_rid || a_tag < b_tag);
                     LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
 
@@ -2997,15 +2987,8 @@ trunk:;
                     continue;
                 }
 
-            // force diverged alts to be pruned
-            } else if (diverged
-                    && lfsr_tag_diverging2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        a_rid, a_tag,
-                        b_rid, b_tag)) {
-                // one diverged? trim so alt is pruned
+            // trim diverging alts so they can be pruned
+            } else if (diverged && diverging) {
                 lfsr_tag_trim(
                         alt, weight,
                         &lower_rid, &upper_rid,
