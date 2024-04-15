@@ -2897,54 +2897,6 @@ trunk:;
             LFS_ASSERT(!(lfsr_tag_isred(alt) && lfsr_tag_isred(p[0].alt))
                     || lfsr_tag_isparallel(alt, p[0].alt));
 
-            // force diverged alts to be pruned
-            if (diverged
-                    && lfsr_tag_diverging2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        a_rid, a_tag,
-                        b_rid, b_tag)) {
-                // both diverged? collapse
-                if (lfsr_tag_isred(p[0].alt)
-                        && lfsr_tag_diverging(
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            a_rid, a_tag,
-                            b_rid, b_tag)) {
-                    if (!lfsr_tag_isparallel(alt, p[0].alt)) {
-                        lfsr_tag_flip2(&alt, &weight,
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid);
-                        lfs_swap32(&jump, &branch_);
-                    }
-
-                    p[0].alt = alt | LFSR_TAG_R;
-                    p[0].weight += weight;
-                    weight = 0;
-
-                // one diverged? trim so alt is pruned
-                } else {
-                    if (lfsr_tag_follow2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            a_rid, a_tag)) {
-                        lfsr_tag_flip2(
-                                &alt, &weight,
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid);
-                        lfs_swap32(&jump, &branch_);
-                    }
-
-                    lfsr_tag_trim(
-                            alt, weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-                    weight = 0;
-                }
-            }
-
             // take black alt? needs a flip
             //   <b           >b
             // .-'|  =>     .-'|
@@ -2980,6 +2932,85 @@ trunk:;
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid);
                 lfs_swap32(&jump, &branch_);
+            }
+
+            // do bounds want to take different paths? begin diverging
+            if (!diverged
+                    // diverging black?
+                    && (lfsr_tag_isblack(alt)
+                        // give up if we find a yellow alt
+                        || lfsr_tag_isred(p[0].alt))
+                    && (lfsr_tag_diverging2(
+                            alt, weight,
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            a_rid, a_tag,
+                            b_rid, b_tag)
+                        || (lfsr_tag_isred(p[0].alt)
+                            && lfsr_tag_diverging(
+                                p[0].alt, p[0].weight,
+                                lower_rid, upper_rid,
+                                a_rid, a_tag,
+                                b_rid, b_tag)))) {
+                diverged = true;
+
+                // both diverged? collapse
+                if (lfsr_tag_diverging2(
+                            alt, weight,
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            a_rid, a_tag,
+                            b_rid, b_tag)
+                        && (lfsr_tag_isred(p[0].alt)
+                            && lfsr_tag_diverging(
+                                p[0].alt, p[0].weight,
+                                lower_rid, upper_rid,
+                                a_rid, a_tag,
+                                b_rid, b_tag))) {
+                    LFS_ASSERT(a_rid < b_rid || a_tag < b_tag);
+                    LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
+
+                    p[0].alt = alt | LFSR_TAG_R;
+                    p[0].weight += weight;
+                    weight = 0;
+                }
+
+                // diverging upper? stitch together both trunks
+                if (a_rid > b_rid || a_tag > b_tag) {
+                    lfsr_tag_trim2(
+                            alt, weight,
+                            p[0].alt, p[0].weight,
+                            &lower_rid, &upper_rid,
+                            &lower_tag, &upper_tag);
+
+                    // stitch together both trunks
+                    err = lfsr_p_push(lfs, rbyd, p,
+                            LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
+                            d_rid - (lower_rid - weight),
+                            jump);
+                    if (err) {
+                        return err;
+                    }
+
+                    // continue to next alt
+                    branch = branch_;
+                    continue;
+                }
+
+            // force diverged alts to be pruned
+            } else if (diverged
+                    && lfsr_tag_diverging2(
+                        alt, weight,
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        a_rid, a_tag,
+                        b_rid, b_tag)) {
+                // one diverged? trim so alt is pruned
+                lfsr_tag_trim(
+                        alt, weight,
+                        &lower_rid, &upper_rid,
+                        &lower_tag, &upper_tag);
+                weight = 0;
             }
 
             // prune?
@@ -3024,47 +3055,6 @@ trunk:;
                     alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
                     weight = 0;
                     jump = 0;
-                }
-            }
-
-            // do bounds want to take different paths? begin diverging
-            if (!diverged
-                    // eagerly diverge on lower trunk
-                    && ((a_rid < b_rid || a_tag < b_tag)
-                        // diverging black?
-                        || lfsr_tag_isblack(alt)
-                        // give up if we find a yellow alt
-                        || lfsr_tag_isred(p[0].alt))
-                    // we only need to check the second alt, either
-                    // lower or upper trunk will flip on follow
-                    && lfsr_tag_diverging2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        a_rid, a_tag,
-                        b_rid, b_tag)) {
-                diverged = true;
-
-                // diverging upper? stitch together both trunks
-                if (a_rid > b_rid || a_tag > b_tag) {
-                    lfsr_tag_trim2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-
-                    // stitch together both trunks
-                    err = lfsr_p_push(lfs, rbyd, p,
-                            LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
-                            d_rid - (lower_rid - weight),
-                            jump);
-                    if (err) {
-                        return err;
-                    }
-
-                    // continue to next alt
-                    branch = branch_;
-                    continue;
                 }
             }
 
