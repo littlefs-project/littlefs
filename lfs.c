@@ -967,41 +967,6 @@ static inline void lfsr_tag_trim2(
             lower_tag, upper_tag);
 }
 
-static inline bool lfsr_tag_unavoidable(
-        lfsr_tag_t alt, lfsr_rid_t weight,
-        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
-        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
-    if (lfsr_tag_isgt(alt)) {
-        return lfsr_tag_follow(
-                alt, weight,
-                lower_rid, upper_rid,
-                lower_rid-1, lower_tag+1);
-    } else {
-        return lfsr_tag_follow(
-                alt, weight,
-                lower_rid, upper_rid,
-                upper_rid-1, upper_tag-1);
-    }
-}
-
-static inline bool lfsr_tag_unavoidable2(
-        lfsr_tag_t alt, lfsr_rid_t weight,
-        lfsr_tag_t alt2, lfsr_rid_t weight2,
-        lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
-        lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
-    if (lfsr_tag_isred(alt2)) {
-        lfsr_tag_trim(
-                alt2, weight2,
-                &lower_rid, &upper_rid,
-                &lower_tag, &upper_tag);
-    }
-
-    return lfsr_tag_unavoidable(
-            alt, weight,
-            lower_rid, upper_rid,
-            lower_tag, upper_tag);
-}
-
 static inline bool lfsr_tag_unreachable(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
@@ -2980,56 +2945,6 @@ trunk:;
                 }
             }
 
-            // prune?
-            //            <b                    >b
-            //          .-'|                  .-'|
-            //         <y  |                  |  |
-            // .-------'|  |                  |  |
-            // |       <r  |  =>              | <b
-            // |  .----'   |      .-----------|-'|
-            // |  |       <b      |          <b  |
-            // |  |  .----'|      |     .----'|  |
-            // 1  2  3  4  4      1  2  3  4  4  2
-            if (lfsr_tag_unavoidable2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)
-                    || lfsr_tag_unreachable2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)) {
-                // note if only yellow pruning this could be much simpler
-                if (lfsr_tag_unavoidable2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)) {
-                    lfs_swap32(&jump, &branch_);
-                }
-
-                // prune unreachable red-black alts
-                if (lfsr_tag_isred(p[0].alt)) {
-                    alt = p[0].alt & ~LFSR_TAG_R;
-                    weight = p[0].weight;
-                    jump = p[0].jump;
-                    lfsr_p_pop(p);
-
-                // prune unreachable root alts and red alts
-                } else if (!p[0].alt || lfsr_tag_isred(alt)) {
-                    branch = branch_;
-                    continue;
-
-                // convert unreachable non-root black alts into alt-nevers,
-                // if we prune these it would break the coloring of our tree
-                } else {
-                    alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
-                    weight = 0;
-                    jump = 0;
-                }
-            }
-
             // take black alt? needs a flip
             //   <b           >b
             // .-'|  =>     .-'|
@@ -3065,6 +2980,51 @@ trunk:;
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid);
                 lfs_swap32(&jump, &branch_);
+            }
+
+            // prune?
+            //            <b                    >b
+            //          .-'|                  .-'|
+            //         <y  |                  |  |
+            // .-------'|  |                  |  |
+            // |       <r  |  =>              | <b
+            // |  .----'   |      .-----------|-'|
+            // |  |       <b      |          <b  |
+            // |  |  .----'|      |     .----'|  |
+            // 1  2  3  4  4      1  2  3  4  4  2
+            if (lfsr_tag_isred(p[0].alt)
+                    && lfsr_tag_unreachable(
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)) {
+                alt &= ~LFSR_TAG_R;
+                lfsr_p_pop(p);
+            }
+
+            if (lfsr_tag_unreachable2(
+                    alt, weight,
+                    p[0].alt, p[0].weight,
+                    lower_rid, upper_rid,
+                    lower_tag, upper_tag)) {
+                // prune unreachable red-black alts
+                if (lfsr_tag_isred(p[0].alt)) {
+                    alt = p[0].alt & ~LFSR_TAG_R;
+                    weight = p[0].weight;
+                    jump = p[0].jump;
+                    lfsr_p_pop(p);
+
+                // prune unreachable root alts and red alts
+                } else if (!p[0].alt || lfsr_tag_isred(alt)) {
+                    branch = branch_;
+                    continue;
+
+                // convert unreachable non-root black alts into alt-nevers,
+                // if we prune these it would break the coloring of our tree
+                } else {
+                    alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
+                    weight = 0;
+                    jump = 0;
+                }
             }
 
             // do bounds want to take different paths? begin diverging
