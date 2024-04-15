@@ -2919,9 +2919,9 @@ trunk:;
                         lfs_swap32(&jump, &branch_);
                     }
 
-                    weight += p[0].weight;
-                    jump = p[0].jump;
-                    lfsr_p_pop(p);
+                    p[0].alt = alt | LFSR_TAG_R;
+                    p[0].weight += weight;
+                    weight = 0;
 
                 // one diverged? trim so alt is pruned
                 } else {
