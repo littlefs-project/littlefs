@@ -234,8 +234,11 @@ License Identifiers that are here available: http://spdx.org/licenses/
 - [littlefs-disk-img-viewer] - A memory-efficient web application for viewing
   littlefs disk images in your web browser.
 
-- [mklfs] - A command line tool built by the [Lua RTOS] guys for making
-  littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
+- [mklfs] - A command line tool for creating littlefs images. Used in the Lua
+  RTOS ecosystem.
+
+- [mklittlefs] - A command line tool for creating littlefs images. Used in the
+  ESP8266 and RP2040 ecosystem.
 
 - [pico-littlefs-usb] - An interface for littlefs that emulates a FAT12
   filesystem over USB. Allows mounting littlefs on a host PC without additional
@@ -272,7 +275,7 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [littlefs-js]: https://github.com/geky/littlefs-js
 [littlefs-js-demo]:http://littlefs.geky.net/demo.html
 [mklfs]: https://github.com/whitecatboard/Lua-RTOS-ESP32/tree/master/components/mklfs/src
-[Lua RTOS]: https://github.com/whitecatboard/Lua-RTOS-ESP32
+[mklittlefs]: https://github.com/earlephilhower/mklittlefs
 [Mbed OS]: https://github.com/armmbed/mbed-os
 [LittleFileSystem]: https://os.mbed.com/docs/mbed-os/latest/apis/littlefilesystem.html
 [SPIFFS]: https://github.com/pellepl/spiffs
