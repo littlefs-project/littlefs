@@ -254,7 +254,7 @@ jobs:
               tag_name: env.LFS_VERSION,
               name: env.LFS_VERSION | rtrimstr(".0"),
               target_commitish: "${{github.event.workflow_run.head_sha}}",
-              draft: env.LFS_VERSION | endswith(".0"),
+              draft: true,
               body: $release,
             }' | tee /dev/stderr)"
 
