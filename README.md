@@ -237,6 +237,10 @@ License Identifiers that are here available: http://spdx.org/licenses/
 - [mklfs] - A command line tool built by the [Lua RTOS] guys for making
   littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
 
+- [pico-littlefs-usb] - An interface for littlefs that emulates a FAT12
+  filesystem over USB. Allows mounting littlefs on a host PC without additional
+  drivers.
+
 - [Mbed OS] - The easiest way to get started with littlefs is to jump into Mbed
   which already has block device drivers for most forms of embedded storage.
   littlefs is available in Mbed OS as the [LittleFileSystem] class.
@@ -278,3 +282,4 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [littlefs2-rust]: https://crates.io/crates/littlefs2
 [chamelon]: https://github.com/yomimono/chamelon
 [nim-littlefs]: https://github.com/Graveflo/nim-littlefs
+[pico-littlefs-usb]: https://github.com/oyama/pico-littlefs-usb
