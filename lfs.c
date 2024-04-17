@@ -688,7 +688,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         if (lfs->lookahead.ckpoint <= 0) {
             LFS_ERROR("No more free space 0x%"PRIx32,
                     (lfs->lookahead.start + lfs->lookahead.next)
-                        % lfs->cfg->block_count);
+                        % lfs->block_count);
             return LFS_ERR_NOSPC;
         }
 

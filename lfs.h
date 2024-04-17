@@ -204,6 +204,7 @@ struct lfs_config {
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.
+    // If 0, will attempt to infer block_count from existing filesystem.
     lfs_size_t block_count;
 
     // Number of erase cycles before littlefs evicts metadata logs and moves
