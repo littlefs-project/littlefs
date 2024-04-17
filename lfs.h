@@ -59,7 +59,8 @@ typedef uint32_t lfs_block_t;
 #endif
 
 // Maximum size of custom attributes in bytes, may be redefined, but there is
-// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
+// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022. Stored
+// in superblock and must be respected by other littlefs drivers.
 #ifndef LFS_ATTR_MAX
 #define LFS_ATTR_MAX 1022
 #endif
@@ -203,7 +204,8 @@ struct lfs_config {
     // program sizes.
     lfs_size_t block_size;
 
-    // Number of erasable blocks on the device.
+    // Number of erasable blocks on the device. Defaults to block_count stored
+    // on disk when zero.
     lfs_size_t block_count;
 
     // Number of erase cycles before littlefs evicts metadata logs and moves
@@ -252,18 +254,18 @@ struct lfs_config {
 
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
-    // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
-    // superblock and must be respected by other littlefs drivers.
+    // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX or name_max stored on
+    // disk when zero.
     lfs_size_t name_max;
 
     // Optional upper limit on files in bytes. No downside for larger files
-    // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
-    // in superblock and must be respected by other littlefs drivers.
+    // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX or file_max stored
+    // on disk when zero.
     lfs_size_t file_max;
 
     // Optional upper limit on custom attributes in bytes. No downside for
     // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
-    // LFS_ATTR_MAX when zero.
+    // LFS_ATTR_MAX or attr_max stored on disk when zero.
     lfs_size_t attr_max;
 
     // Optional upper limit on total space given to metadata pairs in bytes. On

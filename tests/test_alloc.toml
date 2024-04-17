@@ -8,17 +8,22 @@ defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 defines.GC = [false, true]
 defines.COMPACT_THRESH = ['-1', '0', 'BLOCK_SIZE/2']
+defines.INFER_BC = [false, true]
 code = '''
     const char *names[] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
 
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
-    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+    lfs_mount(&lfs, &cfg_) => 0;
     lfs_mkdir(&lfs, "breakfast") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, cfg) => 0;
+    lfs_mount(&lfs, &cfg_) => 0;
     for (int n = 0; n < FILES; n++) {
         char path[1024];
         sprintf(path, "breakfast/%s", names[n]);
@@ -39,7 +44,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, cfg) => 0;
+    lfs_mount(&lfs, &cfg_) => 0;
     for (int n = 0; n < FILES; n++) {
         char path[1024];
         sprintf(path, "breakfast/%s", names[n]);
@@ -62,17 +67,22 @@ defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 defines.GC = [false, true]
 defines.COMPACT_THRESH = ['-1', '0', 'BLOCK_SIZE/2']
+defines.INFER_BC = [false, true]
 code = '''
     const char *names[] = {"bacon", "eggs", "pancakes"};
 
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
-    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+    lfs_mount(&lfs, &cfg_) => 0;
     lfs_mkdir(&lfs, "breakfast") => 0;
     lfs_unmount(&lfs) => 0;
 
     for (int n = 0; n < FILES; n++) {
-        lfs_mount(&lfs, cfg) => 0;
+        lfs_mount(&lfs, &cfg_) => 0;
         char path[1024];
         sprintf(path, "breakfast/%s", names[n]);
         lfs_file_t file;
@@ -91,7 +101,7 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 
-    lfs_mount(&lfs, cfg) => 0;
+    lfs_mount(&lfs, &cfg_) => 0;
     for (int n = 0; n < FILES; n++) {
         char path[1024];
         sprintf(path, "breakfast/%s", names[n]);
@@ -113,19 +123,24 @@ code = '''
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 defines.CYCLES = [1, 10]
+defines.INFER_BC = [false, true]
 code = '''
     const char *names[] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
 
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
 
     for (int c = 0; c < CYCLES; c++) {
-        lfs_mount(&lfs, cfg) => 0;
+        lfs_mount(&lfs, &cfg_) => 0;
         lfs_mkdir(&lfs, "breakfast") => 0;
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, cfg) => 0;
+        lfs_mount(&lfs, &cfg_) => 0;
         for (int n = 0; n < FILES; n++) {
             char path[1024];
             sprintf(path, "breakfast/%s", names[n]);
@@ -143,7 +158,7 @@ code = '''
         }
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, cfg) => 0;
+        lfs_mount(&lfs, &cfg_) => 0;
         for (int n = 0; n < FILES; n++) {
             char path[1024];
             sprintf(path, "breakfast/%s", names[n]);
@@ -159,7 +174,7 @@ code = '''
         }
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, cfg) => 0;
+        lfs_mount(&lfs, &cfg_) => 0;
         for (int n = 0; n < FILES; n++) {
             char path[1024];
             sprintf(path, "breakfast/%s", names[n]);
@@ -175,19 +190,24 @@ code = '''
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 defines.CYCLES = [1, 10]
+defines.INFER_BC = [false, true]
 code = '''
     const char *names[] = {"bacon", "eggs", "pancakes"};
 
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
 
     for (int c = 0; c < CYCLES; c++) {
-        lfs_mount(&lfs, cfg) => 0;
+        lfs_mount(&lfs, &cfg_) => 0;
         lfs_mkdir(&lfs, "breakfast") => 0;
         lfs_unmount(&lfs) => 0;
 
         for (int n = 0; n < FILES; n++) {
-            lfs_mount(&lfs, cfg) => 0;
+            lfs_mount(&lfs, &cfg_) => 0;
             char path[1024];
             sprintf(path, "breakfast/%s", names[n]);
             lfs_file_t file;
@@ -232,10 +252,15 @@ code = '''
 
 # exhaustion test
 [cases.test_alloc_exhaustion]
+defines.INFER_BC = [false, true]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
-    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+    lfs_mount(&lfs, &cfg_) => 0;
     lfs_file_t file;
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size_t size = strlen("exhaustion");
@@ -263,7 +288,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, cfg) => 0;
+    lfs_mount(&lfs, &cfg_) => 0;
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
     lfs_file_size(&lfs, &file) => size;
@@ -276,10 +301,15 @@ code = '''
 # exhaustion wraparound test
 [cases.test_alloc_exhaustion_wraparound]
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-4)) / 3)'
+defines.INFER_BC = [false, true]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
-    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+    lfs_mount(&lfs, &cfg_) => 0;
 
     lfs_file_t file;
     lfs_file_open(&lfs, &file, "padding", LFS_O_WRONLY | LFS_O_CREAT);
@@ -317,7 +347,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, cfg) => 0;
+    lfs_mount(&lfs, &cfg_) => 0;
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
     lfs_file_size(&lfs, &file) => size;
@@ -330,10 +360,15 @@ code = '''
 
 # dir exhaustion test
 [cases.test_alloc_dir_exhaustion]
+defines.INFER_BC = [false, true]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
-    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+    lfs_mount(&lfs, &cfg_) => 0;
 
     // find out max file size
     lfs_mkdir(&lfs, "exhaustiondir") => 0;
