@@ -957,12 +957,14 @@ static inline void lfsr_tag_trim2(
         lfsr_srid_t *lower_rid, lfsr_srid_t *upper_rid,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
     if (lfsr_tag_isred(alt2)) {
-        lfsr_tag_trim(alt2, weight2,
+        lfsr_tag_trim(
+                alt2, weight2,
                 lower_rid, upper_rid,
                 lower_tag, upper_tag);
     }
 
-    lfsr_tag_trim(alt, weight,
+    lfsr_tag_trim(
+            alt, weight,
             lower_rid, upper_rid,
             lower_tag, upper_tag);
 }
@@ -2456,12 +2458,23 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
-            if (lfsr_tag_follow(alt, weight, lower_rid, upper_rid, rid, tag)) {
-                lfsr_tag_flip(&alt, &weight, lower_rid, upper_rid);
-                lfsr_tag_trim(alt, weight, &lower_rid, &upper_rid, NULL, NULL);
+            if (lfsr_tag_follow(
+                    alt, weight,
+                    lower_rid, upper_rid,
+                    rid, tag)) {
+                lfsr_tag_flip(
+                        &alt, &weight,
+                        lower_rid, upper_rid);
+                lfsr_tag_trim(
+                        alt, weight,
+                        &lower_rid, &upper_rid,
+                        NULL, NULL);
                 branch = branch - jump;
             } else {
-                lfsr_tag_trim(alt, weight, &lower_rid, &upper_rid, NULL, NULL);
+                lfsr_tag_trim(
+                        alt, weight,
+                        &lower_rid, &upper_rid,
+                        NULL, NULL);
                 branch = branch + d;
             }
 
@@ -2906,7 +2919,8 @@ trunk:;
                     p[0].alt, p[0].weight,
                     lower_rid, upper_rid,
                     a_rid, a_tag)) {
-                lfsr_tag_flip2(&alt, &weight,
+                lfsr_tag_flip2(
+                        &alt, &weight,
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid);
                 lfs_swap32(&jump, &branch_);
@@ -2919,7 +2933,8 @@ trunk:;
             // |  .-'|         .--|-'|
             // 1  2  3      1  2  3  1
             if (lfsr_tag_isred(p[0].alt)
-                    && lfsr_tag_follow(p[0].alt, p[0].weight,
+                    && lfsr_tag_follow(
+                        p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag)) {
                 lfs_swap16(&p[0].alt, &alt);
@@ -2928,7 +2943,8 @@ trunk:;
                 alt = (alt & ~LFSR_TAG_R) | (p[0].alt & LFSR_TAG_R);
                 p[0].alt |= LFSR_TAG_R;
 
-                lfsr_tag_flip2(&alt, &weight,
+                lfsr_tag_flip2(
+                        &alt, &weight,
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid);
                 lfs_swap32(&jump, &branch_);
@@ -3155,7 +3171,8 @@ trunk:;
             if (lfsr_tag_isred(alt)) {
                 // undo flip temporarily
                 if (branch_ < branch) {
-                    lfsr_tag_flip2(&alt, &weight,
+                    lfsr_tag_flip2(
+                            &alt, &weight,
                             p[0].alt, p[0].weight,
                             lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
