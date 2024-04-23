@@ -980,7 +980,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
             if (off+lfs_tag_dsize(ptag) < dir->off) {
                 off += lfs_tag_dsize(ptag);
                 int err = lfs_bd_read(lfs,
-                        NULL, &lfs->rcache, sizeof(tag),
+                        NULL, &lfs->rcache, lfs->cfg->block_size,
                         dir->pair[0], off, &tag, sizeof(tag));
                 if (err) {
                     return err;
