@@ -105,7 +105,7 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
     }
 
     #elif !defined(LFS_FASTER_CRC32C)
-    static const uint32_t lfs_crc32c_table[64] = {
+    static const uint32_t lfs_crc32c_table[16] = {
         0x00000000, 0x105ec76f, 0x20bd8ede, 0x30e349b1,
         0x417b1dbc, 0x5125dad3, 0x61c69362, 0x7198540d,
         0x82f63b78, 0x92a8fc17, 0xa24bb5a6, 0xb21572c9,
