@@ -179,7 +179,7 @@ if __name__ == "__main__":
             for x in x.split(',')),
         help="Show this many bytes, may be a range.")
     parser.add_argument(
-        '-x', '--cksum', '--crc32c',
+        '-c', '--cksum', '--crc32c',
         action='store_true',
         help="Calculate and show the crc32c of the data.")
     sys.exit(main(**{k: v
