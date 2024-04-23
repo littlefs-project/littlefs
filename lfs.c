@@ -250,13 +250,15 @@ static int lfs_bd_crc(lfs_t *lfs,
 }
 
 #ifndef LFS_READONLY
-static int lfs_bd_flush(lfs_t *lfs,
-        lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
-    if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
-        LFS_ASSERT(pcache->block < lfs->block_count);
-        lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
-        int err = lfs->cfg->prog(lfs->cfg, pcache->block,
-                pcache->off, pcache->buffer, diff);
+static int lfs_bd_flush_direct(lfs_t *lfs,
+        lfs_cache_t *rcache, lfs_block_t block,
+        lfs_off_t off, const void *buffer, lfs_size_t diff, bool validate) {
+    if (block != LFS_BLOCK_NULL && block != LFS_BLOCK_INLINE) {
+        LFS_ASSERT(block < lfs->block_count);
+        LFS_ASSERT(diff % lfs->cfg->prog_size == 0);
+        LFS_ASSERT(off % lfs->cfg->prog_size == 0);
+        int err = lfs->cfg->prog(lfs->cfg, block,
+                off, buffer, diff);
         LFS_ASSERT(err <= 0);
         if (err) {
             return err;
@@ -267,7 +269,7 @@ static int lfs_bd_flush(lfs_t *lfs,
             lfs_cache_drop(lfs, rcache);
             int res = lfs_bd_cmp(lfs,
                     NULL, rcache, diff,
-                    pcache->block, pcache->off, pcache->buffer, diff);
+                    block, off, buffer, diff);
             if (res < 0) {
                 return res;
             }
@@ -277,11 +279,24 @@ static int lfs_bd_flush(lfs_t *lfs,
             }
         }
 
-        lfs_cache_zero(lfs, pcache);
     }
 
     return 0;
 }
+
+static int lfs_bd_flush(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
+    int ret = 0;
+    if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
+        lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
+        ret = lfs_bd_flush_direct(lfs, rcache, pcache->block, pcache->off,
+                        pcache->buffer, diff, validate);
+        if (ret == 0)
+                lfs_cache_zero(lfs, pcache);
+    }
+    return ret;
+}
+
 #endif
 
 #ifndef LFS_READONLY
@@ -337,6 +352,23 @@ static int lfs_bd_prog(lfs_t *lfs,
         // pcache must have been flushed, either by programming and
         // entire block or manually flushing the pcache
         LFS_ASSERT(pcache->block == LFS_BLOCK_NULL);
+
+        if (size >= lfs->cfg->cache_size) {
+            // data do not fit in cache, direct write
+            // XXX align on cache_size : the file flush logic between
+            // block is triggered by "pcache->size == lfs->cfg->cache_size"
+            // could be prog_size in theory
+            lfs_size_t diff = lfs_aligndown(size, lfs->cfg->cache_size);
+            int err = lfs_bd_flush_direct(lfs, rcache, block, off,
+                    data, diff, validate);
+            if (err) {
+                return err;
+            }
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
 
         // prepare pcache, first condition can no longer fail
         pcache->block = block;
