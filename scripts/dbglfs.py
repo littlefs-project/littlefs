@@ -1460,15 +1460,6 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
                     else ''))
             prbyd = rbyd
 
-            # show in-device representation
-            if args.get('device'):
-                print('%11s  %*s %*s%s%04x %08x %07x' % (
-                    '',
-                    m_width, '',
-                    t_width, '',
-                    '%*s ' % (2*w_width+1, ''),
-                    tag, w if i == 0 else 0, len(data)))
-
             # show on-disk encoding of tags/data
             if args.get('raw'):
                 for o, line in enumerate(xxd(rbyd.data[j:j+d])):
@@ -1521,16 +1512,6 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             ' (%s)' % ', '.join(notes) if notes else '',
             '\x1b[m' if color and notes else ''))
         prbyd = rbyd
-
-        # show in-device representation
-        if args.get('device'):
-            _, j, d, data_ = bptr
-            print('%11s  %*s %*s%s%04x %08x %07x' % (
-                '',
-                m_width, '',
-                t_width, '',
-                '%*s ' % (2*w_width+1, ''),
-                tag, w, len(data_)))
 
         # show on-disk encoding of tags/bptr/data
         if args.get('raw'):
@@ -1911,13 +1892,6 @@ def main(disk, mroots=None, *,
                         if not args.get('raw')
                             and not args.get('no_truncate') else ''))
 
-                # show in-device representation
-                if args.get('device'):
-                    print('%11s  %*s %04x %08x %07x' % (
-                        '',
-                        2*w_width+1, '',
-                        tag, 0, len(data)))
-
                 # show on-disk encoding
                 if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
@@ -1936,13 +1910,6 @@ def main(disk, mroots=None, *,
                     next(xxd(data, 8), '')
                         if not args.get('raw')
                             and not args.get('no_truncate') else ''))
-
-                # show in-device representation
-                if args.get('device'):
-                    print('%11s  %*s %04x %08x %07x' % (
-                        '',
-                        2*w_width+1, '',
-                        tag, 0, len(data)))
 
                 # show on-disk encoding
                 if args.get('raw') or args.get('no_truncate'):
@@ -1966,13 +1933,6 @@ def main(disk, mroots=None, *,
                                 if not args.get('raw')
                                     and not args.get('no_truncate') else '',
                             '\x1b[m' if color else ''))
-
-                        # show in-device representation
-                        if args.get('device'):
-                            print('%11s  %*s %04x %08x %07x' % (
-                                '',
-                                2*w_width+1, '',
-                                tag, 0, len(data)))
 
                         # show on-disk encoding
                         if args.get('raw'):
@@ -2096,13 +2056,6 @@ def main(disk, mroots=None, *,
                                     if not args.get('raw')
                                         and not args.get('no_truncate')
                                     else ''))
-
-                            # show in-device representation
-                            if args.get('device'):
-                                print('%11s  %*s %04x %08x %07x' % (
-                                    '',
-                                    2*w_width+1, '',
-                                    tag_, w_, len(data)))
 
                             # show on-disk encoding
                             if args.get('raw'):
@@ -2236,10 +2189,6 @@ if __name__ == "__main__":
         '-r', '--raw',
         action='store_true',
         help="Show the raw data including tag encodings.")
-    parser.add_argument(
-        '-x', '--device',
-        action='store_true',
-        help="Show the device-side representation of tags.")
     parser.add_argument(
         '-T', '--no-truncate',
         action='store_true',

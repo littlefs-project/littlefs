@@ -577,19 +577,6 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             ' %s' % jumprepr(j)
                 if args.get('jumps') and not notes else ''))
 
-        # show in-device representation, including some extra
-        # cksum/parity info
-        if args.get('device'):
-            print('%s%8s  %*s%*s %-*s  %08x %x%s' % (
-                '\x1b[90m' if color and j >= eoff else '',
-                '',
-                lifetime_width, '',
-                2*w_width+1, '',
-                21+w_width, '%04x %08x %07x' % (tag, w, size),
-                cksum,
-                popc(cksum) & 1,
-                '\x1b[m' if color and j >= eoff else ''))
-
         # show on-disk encoding of tags
         if args.get('raw'):
             for o, line in enumerate(xxd(data[j:j+d])):
@@ -851,14 +838,6 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 if not args.get('raw') and not args.get('no_truncate')
                     and not tag & TAG_ALT else ''))
 
-        # show in-device representation
-        if args.get('device'):
-            print('%8s  %*s%*s %04x %08x %07x' % (
-                '',
-                t_width, '',
-                2*w_width+1, '',
-                tag, w, size))
-
         # show on-disk encoding of tags
         if args.get('raw'):
             for o, line in enumerate(xxd(data[j:j+d])):
@@ -1081,10 +1060,6 @@ if __name__ == "__main__":
         '-r', '--raw',
         action='store_true',
         help="Show the raw data including tag encodings.")
-    parser.add_argument(
-        '-x', '--device',
-        action='store_true',
-        help="Show the device-side representation of tags.")
     parser.add_argument(
         '-T', '--no-truncate',
         action='store_true',

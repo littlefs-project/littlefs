@@ -1416,14 +1416,6 @@ def main(disk, mroots=None, *,
                                 and not args.get('no_truncate')
                             else '')))
 
-                # show in-device representation
-                if args.get('device'):
-                    print('%11s  %*s%*s %04x %08x %07x' % (
-                        '',
-                        t_width, '',
-                        2*w_width+1, '',
-                        tag, w, len(data)));
-
                 # show on-disk encoding of tags
                 if args.get('raw'):
                     for o, line in enumerate(xxd(mdir.data[j:j+d])):
@@ -1470,14 +1462,6 @@ def main(disk, mroots=None, *,
                         if not args.get('raw') and not args.get('no_truncate')
                         else ''))
                 prbyd = rbyd
-
-                # show in-device representation
-                if args.get('device'):
-                    print('%11s  %*s%*s %04x %08x %07x' % (
-                        '',
-                        t_width, '',
-                        2*w_width+1, '',
-                        tag, w if i == 0 else 0, len(data)));
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
@@ -1701,10 +1685,6 @@ if __name__ == "__main__":
         '-r', '--raw',
         action='store_true',
         help="Show the raw data including tag encodings.")
-    parser.add_argument(
-        '-x', '--device',
-        action='store_true',
-        help="Show the device-side representation of tags.")
     parser.add_argument(
         '-T', '--no-truncate',
         action='store_true',

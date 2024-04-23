@@ -926,14 +926,6 @@ def main(disk, roots=None, *,
                         else ''))
                 prbyd = rbyd
 
-                # show in-device representation
-                if args.get('device'):
-                    print('%9s  %*s%*s %04x %08x %07x' % (
-                        '',
-                        t_width, '',
-                        2*w_width+1, '',
-                        tag, w if i == 0 else 0, len(data)))
-
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
                     for o, line in enumerate(xxd(rbyd.data[j:j+d])):
@@ -1050,10 +1042,6 @@ if __name__ == "__main__":
         '-r', '--raw',
         action='store_true',
         help="Show the raw data including tag encodings.")
-    parser.add_argument(
-        '-x', '--device',
-        action='store_true',
-        help="Show the device-side representation of tags.")
     parser.add_argument(
         '-T', '--no-truncate',
         action='store_true',
