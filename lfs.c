@@ -3768,6 +3768,10 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
                 // connect with an altle
+                //
+                // note we can't use an altas here, we need to encode the
+                // exact tag so we know the largest tag when building the
+                // next layer
                 err = lfsr_rbyd_appendtag(lfs, rbyd,
                         LFSR_TAG_ALT(
                             (i == 0 && off < layer_)
