@@ -51,8 +51,8 @@ TAG_SHRUB           = 0x1000
 TAG_CKSUM           = 0x3000
 TAG_ECKSUM          = 0x3100
 TAG_ALT             = 0x4000
-TAG_GT              = 0x2000
-TAG_R               = 0x1000
+TAG_R               = 0x2000
+TAG_GT              = 0x1000
 
 
 # some ways of block geometry representations
@@ -371,7 +371,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                     wastrunk = True
                     lower_, upper_ = 0, 0
 
-                if (tag & 0xf000) == TAG_ALT:
+                if tag & TAG_ALT and not tag & TAG_GT:
                     lower_ += w
                 else:
                     upper_ += w
@@ -548,7 +548,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 wastrunk = True
                 lower_, upper_ = 0, 0
 
-            if (tag & 0xe000) == TAG_ALT:
+            if tag & TAG_ALT and not tag & TAG_GT:
                 lower_ += w
             else:
                 upper_ += w

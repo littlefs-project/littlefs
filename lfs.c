@@ -758,10 +758,10 @@ enum lfsr_tag {
 
     // alt pointers form the inner nodes of our rbyd trees
     LFSR_TAG_ALT            = 0x4000,
-    LFSR_TAG_LE             = 0x0000,
-    LFSR_TAG_GT             = 0x2000,
     LFSR_TAG_B              = 0x0000,
-    LFSR_TAG_R              = 0x1000,
+    LFSR_TAG_R              = 0x2000,
+    LFSR_TAG_LE             = 0x0000,
+    LFSR_TAG_GT             = 0x1000,
 
     // checksum tags
     LFSR_TAG_CKSUM          = 0x3000,
@@ -783,10 +783,10 @@ enum lfsr_tag {
 };
 
 // some other tag encodings with their own subfields
-#define LFSR_TAG_ALT(d, c, key) \
+#define LFSR_TAG_ALT(c, d, key) \
     (LFSR_TAG_ALT \
-        | (0x2000 & (d)) \
-        | (0x1000 & (c)) \
+        | (0x2000 & (c)) \
+        | (0x1000 & (d)) \
         | (0x0fff & (lfsr_tag_t)(key)))
 
 #define LFSR_TAG_UATTR(attr) \
@@ -874,11 +874,11 @@ static inline bool lfsr_tag_isgt(lfsr_tag_t tag) {
 }
 
 static inline bool lfsr_tag_isa(lfsr_tag_t tag) {
-    return (tag & 0x2fff) == (LFSR_TAG_GT | 0);
+    return (tag & 0x1fff) == (LFSR_TAG_GT | 0);
 }
 
 static inline bool lfsr_tag_isn(lfsr_tag_t tag) {
-    return (tag & 0x2fff) == (LFSR_TAG_LE | 0);
+    return (tag & 0x1fff) == (LFSR_TAG_LE | 0);
 }
 
 static inline lfsr_tag_t lfsr_tag_isparallel(lfsr_tag_t a, lfsr_tag_t b) {
@@ -3010,7 +3010,7 @@ trunk:;
 
                     // stitch together both trunks
                     err = lfsr_p_push(lfs, rbyd, p,
-                            LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, d_tag),
+                            LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag),
                             d_rid - (lower_rid - weight),
                             jump);
                     if (err) {
@@ -3105,7 +3105,7 @@ trunk:;
                 // .-'|         .--'
                 // 3  4      3  4  x
                 } else {
-                    alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, 0);
+                    alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, 0);
                     weight = 0;
                     jump = 0;
                 }
@@ -3278,12 +3278,12 @@ stem:;
                             && lfsr_tag_key(tag_) < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, lower_tag);
+            alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, lower_tag);
             weight = upper_rid - lower_rid + delta;
             upper_rid -= weight;
         } else {
             // split less than
-            alt = LFSR_TAG_ALT(LFSR_TAG_LE, LFSR_TAG_B, tag_);
+            alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, tag_);
             weight = upper_rid - lower_rid;
             lower_rid += weight;
         }
@@ -3299,12 +3299,12 @@ stem:;
                             && lfsr_tag_key(tag_) > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, lower_tag);
+            alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, lower_tag);
             weight = upper_rid - lower_rid + delta;
             upper_rid -= weight;
         } else {
             // split greater than
-            alt = LFSR_TAG_ALT(LFSR_TAG_GT, LFSR_TAG_B, tag);
+            alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, tag);
             weight = upper_rid - (rid+1);
             upper_rid -= weight;
         }
@@ -3770,10 +3770,10 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // connect with an altle
                 err = lfsr_rbyd_appendtag(lfs, rbyd,
                         LFSR_TAG_ALT(
-                            LFSR_TAG_LE,
                             (i == 0 && off < layer_)
                                 ? LFSR_TAG_R
                                 : LFSR_TAG_B,
+                            LFSR_TAG_LE,
                             tag),
                         weight,
                         rbyd->eoff - trunk);
