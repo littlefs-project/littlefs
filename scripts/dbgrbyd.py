@@ -241,8 +241,8 @@ def tagrepr(tag, w=None, size=None, off=None):
             ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
             ' w%d' % w if w is not None else '',
             ' 0x%x' % (0xffffffff & (off-size))
-                if size is not None and off is not None
-                else ' -%d' % size if size is not None
+                if size and off is not None
+                else ' -%d' % size if size
                 else '')
     else:
         return '0x%04x%s%s' % (
@@ -267,8 +267,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             if not tag & TAG_ALT:
                 j_ += size
 
-            # skip alt-nevers
-            if tag & TAG_ALT and tag & ~TAG_R != TAG_ALT:
+            if tag & TAG_ALT and size:
                 # figure out which alt color
                 if tag & TAG_R:
                     _, ntag, _, _, _ = fromtag(data[j_:])

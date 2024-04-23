@@ -2458,6 +2458,9 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
+            lfs_size_t branch_ = branch + d;
+
+            // take alt?
             if (lfsr_tag_follow(
                     alt, weight,
                     lower_rid, upper_rid,
@@ -2465,18 +2468,15 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 lfsr_tag_flip(
                         &alt, &weight,
                         lower_rid, upper_rid);
-                lfsr_tag_trim(
-                        alt, weight,
-                        &lower_rid, &upper_rid,
-                        NULL, NULL);
-                branch = branch - jump;
-            } else {
-                lfsr_tag_trim(
-                        alt, weight,
-                        &lower_rid, &upper_rid,
-                        NULL, NULL);
-                branch = branch + d;
+                branch_ = branch - jump;
             }
+
+            lfsr_tag_trim(
+                    alt, weight,
+                    &lower_rid, &upper_rid,
+                    NULL, NULL);
+            LFS_ASSERT(branch_ != branch);
+            branch = branch_;
 
         // found end of tree?
         } else {
@@ -2683,7 +2683,9 @@ static int lfsr_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // change to a relative jump at the last minute
             lfsr_tag_t alt = p[3-1-i].alt;
             lfsr_rid_t weight = p[3-1-i].weight;
-            lfs_size_t jump = rbyd->eoff - p[3-1-i].jump;
+            lfs_size_t jump = (p[3-1-i].jump)
+                    ? rbyd->eoff - p[3-1-i].jump
+                    : 0;
 
             int err = lfsr_rbyd_appendtag(lfs, rbyd, alt, weight, jump);
             if (err) {
@@ -3196,6 +3198,7 @@ trunk:;
             }
 
             // continue to next alt
+            LFS_ASSERT(branch_ != branch);
             branch = branch_;
             continue;
 

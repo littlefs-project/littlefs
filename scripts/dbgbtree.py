@@ -239,8 +239,8 @@ def tagrepr(tag, w=None, size=None, off=None):
             ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
             ' w%d' % w if w is not None else '',
             ' 0x%x' % (0xffffffff & (off-size))
-                if size is not None and off is not None
-                else ' -%d' % size if size is not None
+                if size and off is not None
+                else ' -%d' % size if size
                 else '')
     else:
         return '0x%04x%s%s' % (
