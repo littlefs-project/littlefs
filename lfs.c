@@ -2674,7 +2674,7 @@ typedef struct lfsr_alt {
     lfs_size_t jump;
 } lfsr_alt_t;
 
-static int lfsr_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_alt_t p[static 3],
         int count) {
     // write out some number of alt pointers in our queue
@@ -2697,10 +2697,10 @@ static int lfsr_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-static inline int lfsr_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_alt_t p[static 3],
         lfsr_tag_t alt, lfsr_srid_t weight, lfs_size_t jump) {
-    int err = lfsr_p_flush(lfs, rbyd, p, 1);
+    int err = lfsr_rbyd_p_flush(lfs, rbyd, p, 1);
     if (err) {
         return err;
     }
@@ -2712,13 +2712,13 @@ static inline int lfsr_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-static inline void lfsr_p_pop(
+static inline void lfsr_rbyd_p_pop(
         lfsr_alt_t p[static 3]) {
     memmove(p, p+1, 2*sizeof(lfsr_alt_t));
     p[2].alt = 0;
 }
 
-static void lfsr_p_recolor(
+static void lfsr_rbyd_p_recolor(
         lfsr_alt_t p[static 3]) {
     // propagate a red edge upwards
     p[0].alt &= ~LFSR_TAG_R;
@@ -3011,7 +3011,7 @@ trunk:;
                             &lower_tag, &upper_tag);
 
                     // stitch together both trunks
-                    err = lfsr_p_push(lfs, rbyd, p,
+                    err = lfsr_rbyd_p_push(lfs, rbyd, p,
                             LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag),
                             d_rid - (lower_rid - weight),
                             jump);
@@ -3057,7 +3057,7 @@ trunk:;
                         lower_rid, upper_rid,
                         lower_tag, upper_tag)) {
                 alt &= ~LFSR_TAG_R;
-                lfsr_p_pop(p);
+                lfsr_rbyd_p_pop(p);
             }
 
             // prune other unreachable alts
@@ -3086,7 +3086,7 @@ trunk:;
                     alt = p[0].alt & ~LFSR_TAG_R;
                     weight = p[0].weight;
                     jump = p[0].jump;
-                    lfsr_p_pop(p);
+                    lfsr_rbyd_p_pop(p);
 
                 // prune unreachable root alts and red alts
                 //       :               :
@@ -3139,7 +3139,7 @@ trunk:;
                             p[0].alt, p[0].weight,
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
-                    lfsr_p_recolor(p);
+                    lfsr_rbyd_p_recolor(p);
 
                 // otherwise we need to point to the yellow alt and
                 // prune later
@@ -3162,7 +3162,7 @@ trunk:;
                             p[0].alt, p[0].weight,
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
-                    lfsr_p_recolor(p);
+                    lfsr_rbyd_p_recolor(p);
 
                     branch = branch_;
                     continue;
@@ -3191,7 +3191,7 @@ trunk:;
             }
 
             // push alt onto our queue
-            err = lfsr_p_push(lfs, rbyd, p,
+            err = lfsr_rbyd_p_push(lfs, rbyd, p,
                     alt, weight, jump);
             if (err) {
                 return err;
@@ -3218,7 +3218,7 @@ trunk:;
                     d_tag = lower_tag;
 
                     // flush any pending alts
-                    err = lfsr_p_flush(lfs, rbyd, p, 3);
+                    err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
                     if (err) {
                         return err;
                     }
@@ -3314,18 +3314,18 @@ stem:;
     }
 
     if (alt) {
-        err = lfsr_p_push(lfs, rbyd, p,
+        err = lfsr_rbyd_p_push(lfs, rbyd, p,
                 alt, weight, branch);
         if (err) {
             return err;
         }
 
         // introduce a red edge
-        lfsr_p_recolor(p);
+        lfsr_rbyd_p_recolor(p);
     }
 
     // flush any pending alts
-    err = lfsr_p_flush(lfs, rbyd, p, 3);
+    err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
     if (err) {
         return err;
     }
