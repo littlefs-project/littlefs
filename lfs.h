@@ -526,6 +526,9 @@ typedef struct lfsr_file {
     uint8_t *buffer;
     lfs_size_t buffer_size;
 
+    lfs_block_t eblock;
+    lfs_size_t eoff;
+
     const struct lfs_file_config *cfg;
 } lfsr_file_t;
 

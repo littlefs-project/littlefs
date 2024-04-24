@@ -743,7 +743,6 @@ enum lfsr_tag {
     LFSR_TAG_BSHRUB         = 0x0308,
     LFSR_TAG_BTREE          = 0x030c,
     LFSR_TAG_DID            = 0x0310,
-    LFSR_TAG_BECKSUM        = 0x0314,
     LFSR_TAG_BRANCH         = 0x031c,
     LFSR_TAG_MROOT          = 0x0321,
     LFSR_TAG_MDIR           = 0x0325,
@@ -9594,6 +9593,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->m.flags = flags;
     file->cfg = cfg;
     file->pos = 0;
+    file->eblock = 0;
+    file->eoff = -1;
     // default data state
     file->bshrub = LFSR_BSHRUB_BNULL();
 
@@ -9859,7 +9860,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
 static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
-        lfsr_bptr_t *bptr_, lfsr_ecksum_t *becksum_) {
+        lfsr_bptr_t *bptr_) {
     if (pos >= lfsr_bshrub_size(&file->bshrub)) {
         return LFS_ERR_NOENT;
     }
@@ -9880,9 +9881,6 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         if (bptr_) {
             bptr_->data = file->bshrub.u.bsprout;
         }
-        if (becksum_) {
-            becksum_->cksize = -1;
-        }
         return 0;
 
     // block pointer?
@@ -9898,9 +9896,6 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         }
         if (bptr_) {
             *bptr_ = file->bshrub.u.bptr;
-        }
-        if (becksum_) {
-            becksum_->cksize = -1;
         }
         return 0;
 
@@ -9941,23 +9936,6 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
                 }
             }
             LFS_ASSERT(lfsr_data_size(bptr_->data) <= weight);
-        }
-        if (becksum_) {
-            // need an extra lookup to find becksums
-            err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_BECKSUM,
-                    &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err == LFS_ERR_NOENT) {
-                becksum_->cksize = -1;
-            } else {
-                err = lfsr_data_readecksum(lfs, &data, becksum_);
-                if (err) {
-                    return err;
-                }
-            }
         }
         return 0;
 
@@ -10024,7 +10002,7 @@ static lfs_ssize_t lfsr_bshrub_readnext(lfs_t *lfs, const lfsr_file_t *file,
     lfsr_bid_t weight;
     lfsr_bptr_t bptr;
     int err = lfsr_bshrub_lookupnext(lfs, file, pos_,
-            &bid, &tag, &weight, &bptr, NULL);
+            &bid, &tag, &weight, &bptr);
     if (err) {
         return err;
     }
@@ -10235,7 +10213,7 @@ evict:;
 
 static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
-        lfsr_tag_t tag, const lfsr_bptr_t *bptr, const lfsr_ecksum_t *becksum) {
+        lfsr_tag_t tag, const lfsr_bptr_t *bptr) {
     // Note! This function has some rather special constraints:
     //
     // 1. We must never allow our btree size to overflow, even temporarily.
@@ -10255,7 +10233,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     lfsr_bid_t bid = lfsr_bshrub_size(&file->bshrub);
     lfsr_attr_t attrs[5];
     lfs_size_t attr_count = 0;
-    uint8_t buf[3*LFSR_BPTR_DSIZE+2*LFSR_ECKSUM_DSIZE];
+    uint8_t buf[3*LFSR_BPTR_DSIZE];
     lfs_size_t buf_size = 0;
 
     // always convert to bshrub/btree when this function is called
@@ -10316,14 +10294,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     lfsr_tag_t right_tag_ = 0;
     lfsr_bid_t right_weight_;
     lfsr_bptr_t right_bptr_;
-    lfsr_ecksum_t right_becksum_;
     while (pos < lfsr_bshrub_size(&file->bshrub)) {
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
-        lfsr_ecksum_t becksum_;
         int err = lfsr_bshrub_lookupnext(lfs, file, pos,
-                &bid, &tag_, &weight_, &bptr_, &becksum_);
+                &bid, &tag_, &weight_, &bptr_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -10474,9 +10450,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     .cksum = bptr_.cksum,
                 };
 
-                // copy over becksum since erase-state is still valid
-                right_becksum_ = becksum_;
-
             } else {
                 LFS_UNREACHABLE();
             }
@@ -10515,14 +10488,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     lfsr_data_frombptr(bptr, &buf[buf_size]));
             buf_size += LFSR_BPTR_DSIZE;
 
-            // append becksum?
-            if (becksum && becksum->cksize != -1) {
-                attrs[attr_count++] = LFSR_ATTR(
-                        LFSR_TAG_BECKSUM, 0,
-                        lfsr_data_fromecksum(becksum, &buf[buf_size]));
-                buf_size += LFSR_ECKSUM_DSIZE;
-            }
-
         } else {
             LFS_UNREACHABLE();
         }
@@ -10542,14 +10507,6 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_TAG_BLOCK, +right_weight_,
                     lfsr_data_frombptr(&right_bptr_, &buf[buf_size]));
             buf_size += LFSR_BPTR_DSIZE;
-
-            // copy over becksum since erase-state is still valid
-            if (right_becksum_.cksize != -1) {
-                attrs[attr_count++] = LFSR_ATTR(
-                        LFSR_TAG_BECKSUM, 0,
-                        lfsr_data_fromecksum(&right_becksum_, &buf[buf_size]));
-                buf_size += LFSR_ECKSUM_DSIZE;
-            }
 
         } else {
             LFS_UNREACHABLE();
@@ -10602,10 +10559,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
-            lfsr_ecksum_t becksum;
             int err = lfsr_bshrub_lookupnext(lfs, file,
                     lfs_smax32(pos - (lfs->cfg->crystal_thresh-1), 0),
-                    &bid, &tag, &weight, &bptr, &becksum);
+                    &bid, &tag, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -10623,33 +10579,24 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             } else {
                 crystal_start = lfs_min32(bid+1, pos);
 
-                // wait, found block-level erased-state?
+                // wait, found erased-state?
                 if (tag == LFSR_TAG_BLOCK
-                        && becksum.cksize != -1
-                        // data not truncated?
+                        && bptr.data.u.disk.block == file->eblock
                         && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
-                            == bptr.cksize
+                            == file->eoff
                         // not clobbering data?
                         && crystal_start - (bid-(weight-1))
                             >= lfsr_data_size(bptr.data)
                         // enough for prog alignment?
                         && crystal_end - crystal_start
                             >= lfs->cfg->prog_size) {
-                    LFS_ASSERT(bptr.cksize + becksum.cksize
-                            <= lfs->cfg->block_size);
+                    // mark as unerased in case of failure
+                    file->eblock = 0;
+                    file->eoff = -1;
 
-                    err = lfsr_ecksum_validate(lfs, &becksum,
-                            bptr.data.u.disk.block, bptr.cksize);
-                    if (err && err != LFS_ERR_CORRUPT) {
-                        return err;
-                    }
-
-                    // found _valid_ block-level erased-state? eagerly
-                    // append
-                    if (err != LFS_ERR_CORRUPT) {
-                        block_start = bid-(weight-1);
-                        goto compact;
-                    }
+                    // try to use erased-state
+                    block_start = bid-(weight-1);
+                    goto compact;
                 }
             }
         }
@@ -10665,7 +10612,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     lfs_min32(
                         crystal_start + (lfs->cfg->crystal_thresh-1),
                         lfsr_bshrub_size(&file->bshrub)-1),
-                    &bid, &tag, &weight, &bptr, NULL);
+                    &bid, &tag, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -10706,12 +10653,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
-            lfsr_ecksum_t becksum;
             int err = lfsr_bshrub_lookupnext(lfs, file,
                     lfs_min32(
                         crystal_start-1,
                         lfsr_bshrub_size(&file->bshrub)-1),
-                    &bid, &tag, &weight, &bptr, &becksum);
+                    &bid, &tag, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -10723,32 +10669,20 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     && lfsr_data_size(bptr.data) > 0) {
                 block_start = bid-(weight-1);
 
-                // wait, found block-level erased-state?
+                // wait, found erased-state?
                 if (tag == LFSR_TAG_BLOCK
-                        && becksum.cksize != -1
-                        // data not truncated?
+                        && bptr.data.u.disk.block == file->eblock
                         && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
-                            == bptr.cksize
+                            == file->eoff
                         // not clobbering data?
                         && crystal_start - (bid-(weight-1))
-                            >= lfsr_data_size(bptr.data)
-                        // enough for prog alignment?
-                        && crystal_end - crystal_start
-                            >= lfs->cfg->prog_size) {
-                    LFS_ASSERT(bptr.cksize + becksum.cksize
-                            <= lfs->cfg->block_size);
+                            >= lfsr_data_size(bptr.data)) {
+                    // mark as unerased in case of failure
+                    file->eblock = 0;
+                    file->eoff = -1;
 
-                    err = lfsr_ecksum_validate(lfs, &becksum,
-                            bptr.data.u.disk.block, bptr.cksize);
-                    if (err && err != LFS_ERR_CORRUPT) {
-                        return err;
-                    }
-
-                    // found _valid_ block-level erased-state? eagerly
-                    // append
-                    if (err != LFS_ERR_CORRUPT) {
-                        goto compact;
-                    }
+                    // try to use erased-state
+                    goto compact;
                 }
 
             // no? is our left neighbor at least our left block neighbor?
@@ -10821,7 +10755,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 lfsr_bid_t weight_;
                 lfsr_bptr_t bptr_;
                 err = lfsr_bshrub_lookupnext(lfs, file, pos_,
-                        &bid_, &tag_, &weight_, &bptr_, NULL);
+                        &bid_, &tag_, &weight_, &bptr_);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
@@ -10831,7 +10765,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 // loop may never terminate
                 if (bid_-(weight_-1) >= crystal_end
                         // is this data a pure hole? stop early to better
-                        // leverage becksums in sparse files
+                        // leverage erased-state in sparse files
                         && (pos_ >= bid_-(weight_-1)
                                 + lfsr_data_size(bptr_.data)
                             // does this data exceed our block_size?
@@ -10915,26 +10849,18 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 bptr.cksize - bptr.data.u.disk.off);
         lfs_off_t block_end = block_start + lfsr_data_size(bptr.data);
 
-        // do we have space for a block ecksum?
-        lfsr_ecksum_t becksum = {.cksize=-1};
-        if (bptr.cksize < lfs->cfg->block_size) {
-            becksum.cksize = lfs->cfg->prog_size;
-            becksum.cksum = 0;
-            err = lfsr_bd_cksum(lfs,
-                    bptr.data.u.disk.block, bptr.cksize, becksum.cksize,
-                    becksum.cksize,
-                    &becksum.cksum);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-        }
-
         // and write it into our tree
         err = lfsr_file_carve(lfs, file,
                 block_start, block_end - block_start, 0,
-                LFSR_TAG_BLOCK, &bptr, &becksum);
+                LFSR_TAG_BLOCK, &bptr);
         if (err) {
             return err;
+        }
+
+        // keep track of any remaining erased-state
+        if (bptr.cksize < lfs->cfg->block_size) {
+            file->eblock = bptr.data.u.disk.block;
+            file->eoff = bptr.cksize;
         }
 
         // note compacting fragments -> blocks may not actually make any
@@ -10969,7 +10895,7 @@ fragment:;
             lfsr_bptr_t bptr;
             int err = lfsr_bshrub_lookupnext(lfs, file,
                     fragment_start-1,
-                    &bid, &tag, &weight, &bptr, NULL);
+                    &bid, &tag, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -11006,7 +10932,7 @@ fragment:;
             lfsr_bptr_t bptr;
             int err = lfsr_bshrub_lookupnext(lfs, file,
                     fragment_end,
-                    &bid, &tag, &weight, &bptr, NULL);
+                    &bid, &tag, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -11036,7 +10962,7 @@ fragment:;
         lfsr_data_t data = lfsr_data_fromcat(datas, data_count);
         int err = lfsr_file_carve(lfs, file,
                 fragment_start, fragment_end - fragment_start, 0,
-                LFSR_TAG_DATA, (const lfsr_bptr_t*)&data, NULL);
+                LFSR_TAG_DATA, (const lfsr_bptr_t*)&data);
         if (err && err != LFS_ERR_RANGE) {
             return err;
         }
@@ -11617,7 +11543,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
                 lfs_min32(size, size_),
                 size - lfs_min32(size, size_),
                 +size_ - size,
-                LFSR_TAG_DATA, NULL, NULL);
+                LFSR_TAG_DATA, NULL);
         if (err) {
             goto failed;
         }
@@ -11735,7 +11661,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
                 0,
                 lfs_smax32(size - size_, 0),
                 +size_ - size,
-                LFSR_TAG_DATA, NULL, NULL);
+                LFSR_TAG_DATA, NULL);
         if (err) {
             goto failed;
         }
