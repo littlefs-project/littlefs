@@ -742,11 +742,11 @@ enum lfsr_tag {
     LFSR_TAG_BLOCK          = 0x0304,
     LFSR_TAG_BSHRUB         = 0x0308,
     LFSR_TAG_BTREE          = 0x030c,
-    LFSR_TAG_DID            = 0x0310,
-    LFSR_TAG_BRANCH         = 0x031c,
-    LFSR_TAG_MROOT          = 0x0321,
-    LFSR_TAG_MDIR           = 0x0325,
-    LFSR_TAG_MTREE          = 0x032c,
+    LFSR_TAG_MROOT          = 0x0311,
+    LFSR_TAG_MDIR           = 0x0315,
+    LFSR_TAG_MTREE          = 0x031c,
+    LFSR_TAG_DID            = 0x0320,
+    LFSR_TAG_BRANCH         = 0x032c,
 
     // user/sys attributes
     LFSR_TAG_UATTR          = 0x0400,
