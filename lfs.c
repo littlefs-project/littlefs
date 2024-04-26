@@ -28,6 +28,62 @@ enum {
 
 /// Caching block device operations ///
 
+enum {
+    LFS_CACHE_TRACE_EVICT,
+    LFS_CACHE_TRACE_BYPASS,
+    LFS_CACHE_TRACE_DROP,
+};
+
+#ifdef LFS_CACHE_TRACE
+static lfs_size_t read_cache_start_used = 0, read_cache_end_used = 0;
+static lfs_size_t read_cache_traffic = 0;
+static int read_cache_alloc_line = 0, read_cache_recache = 0;
+static inline void lfs_cache_trace_log(lfs_t *lfs, int op, lfs_cache_t *rcache, lfs_block_t block, lfs_off_t off, lfs_size_t size, int line)
+{
+    switch (op) {
+        case LFS_CACHE_TRACE_EVICT:
+        case LFS_CACHE_TRACE_DROP:
+            if (rcache->block != LFS_BLOCK_NULL) {
+                LFS_DEBUG("cache %d:%d size %d access=[%d-%d] byte_read=%d line=%d\n",
+                    rcache->block, rcache->off, rcache->size,
+                    read_cache_start_used - rcache->off,
+                    read_cache_end_used - rcache->off,
+                    read_cache_traffic, read_cache_alloc_line);
+                if (rcache->block == block)
+                    read_cache_recache++;
+                else if (read_cache_recache) {
+                    LFS_DEBUG("cache recache for block %d number %d line=%d\n",
+                        rcache->block, read_cache_recache, read_cache_alloc_line);
+                    read_cache_recache = 0;
+                }
+            }
+            read_cache_start_used = off + lfs->cfg->cache_size;
+            read_cache_end_used = 0;
+            read_cache_traffic = 0;
+            read_cache_alloc_line = line;
+
+            break;
+        case LFS_CACHE_TRACE_BYPASS:
+            LFS_DEBUG("cache no %d:%d size %d line=%d\n", block, off, size, line);
+            break;
+    }
+}
+
+static inline void lfs_cache_trace_access(lfs_cache_t *rcache, lfs_off_t off, lfs_size_t size)
+{
+    (void)rcache;
+    if (read_cache_end_used < off + size)
+        read_cache_end_used = off + size;
+    if (read_cache_start_used > off)
+        read_cache_start_used = off;
+
+    read_cache_traffic += size;
+}
+#else
+#define lfs_cache_trace_log(...)
+#define lfs_cache_trace_access(...)
+#endif
+
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
@@ -41,11 +97,13 @@ static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     pcache->block = LFS_BLOCK_NULL;
 }
 
-static int lfs_bd_read(lfs_t *lfs,
+#define lfs_bd_read(...) lfs_bd_read_raw(__VA_ARGS__, __LINE__)
+static int lfs_bd_read_raw(lfs_t *lfs,
         const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
         lfs_block_t block, lfs_off_t off,
-        void *buffer, lfs_size_t size) {
+        void *buffer, lfs_size_t size, int line) {
     uint8_t *data = buffer;
+    (void)line;
     if (off+size > lfs->cfg->block_size
             || (lfs->block_count && block >= lfs->block_count)) {
         return LFS_ERR_CORRUPT;
@@ -77,6 +135,7 @@ static int lfs_bd_read(lfs_t *lfs,
                 // is already in rcache?
                 diff = lfs_min(diff, rcache->size - (off-rcache->off));
                 memcpy(data, &rcache->buffer[off-rcache->off], diff);
+                lfs_cache_trace_access(rcache, off, diff);
 
                 data += diff;
                 off += diff;
@@ -97,12 +156,15 @@ static int lfs_bd_read(lfs_t *lfs,
                 return err;
             }
 
+            lfs_cache_trace_log(lfs, LFS_CACHE_TRACE_BYPASS, rcache, block, off, diff, line);
             data += diff;
             off += diff;
             size -= diff;
+
             continue;
         }
 
+        lfs_cache_trace_log(lfs, LFS_CACHE_TRACE_EVICT, rcache, block, off, diff, line);
         // load to cache, first condition can no longer fail
         LFS_ASSERT(!lfs->block_count || block < lfs->block_count);
         rcache->block = block;
