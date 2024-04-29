@@ -231,11 +231,25 @@ License Identifiers that are here available: http://spdx.org/licenses/
   to use littlefs in a Rust-friendly API, reaping the benefits of Rust's memory
   safety and other guarantees.
 
+- [nim-littlefs] - A Nim wrapper and API for littlefs. Includes a fuse
+  implementation based on [littlefs-fuse]
+
+- [chamelon] - A pure-OCaml implementation of (most of) littlefs, designed for
+  use with the MirageOS library operating system project. It is interoperable
+  with the reference implementation, with some caveats.
+
 - [littlefs-disk-img-viewer] - A memory-efficient web application for viewing
   littlefs disk images in your web browser.
 
-- [mklfs] - A command line tool built by the [Lua RTOS] guys for making
-  littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
+- [mklfs] - A command line tool for creating littlefs images. Used in the Lua
+  RTOS ecosystem.
+
+- [mklittlefs] - A command line tool for creating littlefs images. Used in the
+  ESP8266 and RP2040 ecosystem.
+
+- [pico-littlefs-usb] - An interface for littlefs that emulates a FAT12
+  filesystem over USB. Allows mounting littlefs on a host PC without additional
+  drivers.
 
 - [Mbed OS] - The easiest way to get started with littlefs is to jump into Mbed
   which already has block device drivers for most forms of embedded storage.
@@ -254,27 +268,21 @@ License Identifiers that are here available: http://spdx.org/licenses/
   for microcontroller-scale devices. Due to limitations of FAT it can't provide
   power-loss resilience, but it does allow easy interop with PCs.
 
-- [chamelon] - A pure-OCaml implementation of (most of) littlefs, designed for
-  use with the MirageOS library operating system project. It is interoperable
-  with the reference implementation, with some caveats.
-
-- [nim-littlefs] - A Nim wrapper and API for littlefs. Includes a fuse 
-  implementation based on [littlefs-fuse]
-
 [BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
-[littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
 [littlefs-fuse]: https://github.com/geky/littlefs-fuse
 [FUSE]: https://github.com/libfuse/libfuse
 [littlefs-js]: https://github.com/geky/littlefs-js
 [littlefs-js-demo]:http://littlefs.geky.net/demo.html
+[littlefs-python]: https://pypi.org/project/littlefs-python/
+[littlefs2-rust]: https://crates.io/crates/littlefs2
+[nim-littlefs]: https://github.com/Graveflo/nim-littlefs
+[chamelon]: https://github.com/yomimono/chamelon
+[littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
 [mklfs]: https://github.com/whitecatboard/Lua-RTOS-ESP32/tree/master/components/mklfs/src
-[Lua RTOS]: https://github.com/whitecatboard/Lua-RTOS-ESP32
+[mklittlefs]: https://github.com/earlephilhower/mklittlefs
+[pico-littlefs-usb]: https://github.com/oyama/pico-littlefs-usb
 [Mbed OS]: https://github.com/armmbed/mbed-os
 [LittleFileSystem]: https://os.mbed.com/docs/mbed-os/latest/apis/littlefilesystem.html
 [SPIFFS]: https://github.com/pellepl/spiffs
 [Dhara]: https://github.com/dlbeer/dhara
 [ChaN's FatFs]: http://elm-chan.org/fsw/ff/00index_e.html
-[littlefs-python]: https://pypi.org/project/littlefs-python/
-[littlefs2-rust]: https://crates.io/crates/littlefs2
-[chamelon]: https://github.com/yomimono/chamelon
-[nim-littlefs]: https://github.com/Graveflo/nim-littlefs

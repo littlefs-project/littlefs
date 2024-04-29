@@ -2191,7 +2191,8 @@ static int lfs2_dir_splittingcompact(lfs2_t *lfs2, lfs2_mdir_t *dir,
                 // we can do, we'll error later if we've become frozen
                 LFS2_WARN("Unable to expand superblock");
             } else {
-                end = begin;
+                // duplicate the superblock entry into the new superblock
+                end = 1;
             }
         }
     }
@@ -2358,7 +2359,9 @@ fixmlist:;
 
             while (d->id >= d->m.count && d->m.split) {
                 // we split and id is on tail now
-                d->id -= d->m.count;
+                if (lfs2_pair_cmp(d->m.tail, lfs2->root) != 0) {
+                    d->id -= d->m.count;
+                }
                 int err = lfs2_dir_fetch(lfs2, &d->m, d->m.tail);
                 if (err) {
                     return err;
@@ -4466,6 +4469,7 @@ static int lfs2_mount_(lfs2_t *lfs2, const struct lfs2_config *cfg) {
             // found older minor version? set an in-device only bit in the
             // gstate so we know we need to rewrite the superblock before
             // the first write
+            bool needssuperblock = false;
             if (minor_version < lfs2_fs_disk_version_minor(lfs2)) {
                 LFS2_DEBUG("Found older minor version "
                         "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
@@ -4473,10 +4477,11 @@ static int lfs2_mount_(lfs2_t *lfs2, const struct lfs2_config *cfg) {
                         minor_version,
                         lfs2_fs_disk_version_major(lfs2),
                         lfs2_fs_disk_version_minor(lfs2));
-                // note this bit is reserved on disk, so fetching more gstate
-                // will not interfere here
-                lfs2_fs_prepsuperblock(lfs2, true);
+                needssuperblock = true;
             }
+            // note this bit is reserved on disk, so fetching more gstate
+            // will not interfere here
+            lfs2_fs_prepsuperblock(lfs2, needssuperblock);
 
             // check superblock configuration
             if (superblock.name_max) {
