@@ -1540,7 +1540,8 @@ nextname:
                     LFS_MKTAG(0x780, 0, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, namelen),
                      // are we last name?
-                    (strchr(name, '/') == NULL) ? id : NULL,
+                    (strcspn(name, "/") + strspn(name + strcspn(name, "/"), "/")
+			== strlen(name)) ? id : NULL,
                     lfs_dir_find_match, &(struct lfs_dir_find_match){
                         lfs, name, namelen});
             if (tag < 0) {
@@ -2608,7 +2609,8 @@ static int lfs_mkdir_(lfs_t *lfs, const char *path) {
     }
 
     // check that name fits
-    lfs_size_t nlen = strlen(path);
+    // if name ends with slash, ignore it
+    lfs_size_t nlen = strcspn(path, "/");
     if (nlen > lfs->name_max) {
         return LFS_ERR_NAMETOOLONG;
     }
