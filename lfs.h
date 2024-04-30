@@ -341,13 +341,14 @@ typedef struct lfsr_rbyd {
     // sign(weight)=0 => rbyd
     lfsr_rid_t weight;
     lfs_block_t blocks[2];
-    // sign(trunk)=0    => normal rbyd
-    // sign(trunk)=1    => shrub rbyd
+    // sign(trunk)=0 => normal rbyd
+    // sign(trunk)=1 => shrub rbyd
+    lfs_ssize_t trunk;
+    // sign(eoff)       => commit parity
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
-    lfs_ssize_t trunk;
-    lfs_size_t eoff;
+    lfs_ssize_t eoff;
     uint32_t cksum;
 } lfsr_rbyd_t;
 

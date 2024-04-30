@@ -37,7 +37,8 @@ TAG_UATTR           = 0x0400
 TAG_SATTR           = 0x0600
 TAG_SHRUB           = 0x1000
 TAG_CKSUM           = 0x3000
-TAG_ECKSUM          = 0x3100
+TAG_PERTURB         = 0x3100
+TAG_ECKSUM          = 0x3200
 TAG_ALT             = 0x4000
 TAG_R               = 0x2000
 TAG_GT              = 0x1000
@@ -180,6 +181,11 @@ def tagrepr(tag, w=None, size=None, off=None):
     elif (tag & 0x7f00) == TAG_CKSUM:
         return 'cksum 0x%02x%s%s' % (
             tag & 0xff,
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_PERTURB:
+        return 'perturb%s%s%s' % (
+            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_ECKSUM:

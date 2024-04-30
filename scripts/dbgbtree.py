@@ -39,7 +39,8 @@ TAG_UATTR           = 0x0400
 TAG_SATTR           = 0x0600
 TAG_SHRUB           = 0x1000
 TAG_CKSUM           = 0x3000
-TAG_ECKSUM          = 0x3100
+TAG_PERTURB         = 0x3100
+TAG_ECKSUM          = 0x3200
 TAG_ALT             = 0x4000
 TAG_R               = 0x2000
 TAG_GT              = 0x1000
@@ -115,6 +116,9 @@ def crc32c(data, crc=0):
 
 def popc(x):
     return bin(x).count('1')
+
+def parity(x):
+    return popc(x) & 1
 
 def fromle32(data):
     return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
@@ -222,6 +226,11 @@ def tagrepr(tag, w=None, size=None, off=None):
             tag & 0xff,
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_PERTURB:
+        return 'perturb%s%s%s' % (
+            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_ECKSUM:
         return 'ecksum%s%s%s' % (
             ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
@@ -252,13 +261,14 @@ TBranch = co.namedtuple('TBranch', 'a, b, d, c')
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, block, data, rev, eoff, trunk, weight):
+    def __init__(self, block, data, rev, eoff, trunk, weight, cksum):
         self.block = block
         self.data = data
         self.rev = rev
         self.eoff = eoff
         self.trunk = trunk
         self.weight = weight
+        self.cksum = cksum
         self.redund_blocks = []
 
     def addr(self):
@@ -309,7 +319,10 @@ class Rbyd:
         rev = fromle32(data[0:4])
         cksum = 0
         cksum_ = crc32c(data[0:4])
+        cksum__ = cksum_
+        parity__ = parity(cksum_)
         eoff = 0
+        eoff_ = None
         j_ = 4
         trunk_ = 0
         trunk__ = 0
@@ -317,13 +330,14 @@ class Rbyd:
         weight = 0
         weight_ = 0
         weight__ = 0
-        wastrunk = False
-        trunkeoff = None
         while j_ < len(data) and (not trunk or eoff <= trunk):
             v, tag, w, size, d = fromtag(data[j_:])
-            if v != (popc(cksum_) & 1):
+            if v != parity__:
                 break
-            cksum_ = crc32c(data[j_:j_+d], cksum_)
+            parity__ ^= parity(cksum__)
+            cksum__ = crc32c([data[j_] & ~0x80], cksum__)
+            cksum__ = crc32c(data[j_+1:j_+d], cksum__)
+            parity__ ^= parity(cksum__)
             j_ += d
             if not tag & TAG_ALT and j_ + size > len(data):
                 break
@@ -331,24 +345,27 @@ class Rbyd:
             # take care of cksums
             if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
-                    cksum_ = crc32c(data[j_:j_+size], cksum_)
+                    parity__ ^= parity(cksum__)
+                    cksum__ = crc32c(data[j_:j_+size], cksum__)
+                    parity__ ^= parity(cksum__)
                 # found a cksum?
                 else:
-                    cksum__ = fromle32(data[j_:j_+4])
-                    if cksum_ != cksum__:
+                    cksum___ = fromle32(data[j_:j_+4])
+                    if cksum__ != cksum___:
                         break
                     # commit what we have
-                    eoff = trunkeoff if trunkeoff else j_ + size
+                    eoff = eoff_ if eoff_ else j_ + size
                     cksum = cksum_
                     trunk_ = trunk__
                     weight = weight_
+                    # revert to data cksum
+                    cksum__ = cksum_
 
             # evaluate trunks
             if (tag & 0xf000) != TAG_CKSUM and (
-                    not trunk or trunk >= j_-d or wastrunk):
+                    not trunk or j_-d <= trunk or trunk___):
                 # new trunk?
-                if not wastrunk:
-                    wastrunk = True
+                if not trunk___:
                     trunk___ = j_-d
                     weight__ = 0
 
@@ -357,24 +374,26 @@ class Rbyd:
 
                 # end of trunk?
                 if not tag & TAG_ALT:
-                    wastrunk = False
+                    # update data checksum
+                    cksum_ = cksum__
                     # update trunk/weight unless we found a shrub or an
                     # explicit trunk (which may be a shrub) is requested
-                    if not tag & TAG_SHRUB or trunk:
+                    if not tag & TAG_SHRUB or trunk___ == trunk:
                         trunk__ = trunk___
                         weight_ = weight__
                         # keep track of eoff for best matching trunk
                         if trunk and j_ + size > trunk:
-                            trunkeoff = j_ + size
-                            eoff = trunkeoff
+                            eoff_ = j_ + size
+                            eoff = eoff_
                             cksum = cksum_
                             trunk_ = trunk__
                             weight = weight_
+                    trunk___ = 0
 
             if not tag & TAG_ALT:
                 j_ += size
 
-        return cls(block, data, rev, eoff, trunk_, weight)
+        return cls(block, data, rev, eoff, trunk_, weight, cksum)
 
     def lookup(self, rid, tag):
         if not self:
@@ -591,8 +610,8 @@ def main(disk, roots=None, *,
 
         # fetch the root
         btree = Rbyd.fetch(f, block_size, roots, trunk)
-        print('btree %s, rev %d, weight %d' % (
-            btree.addr(), btree.rev, btree.weight))
+        print('btree %s, rev %d, weight %d, cksum %08x' % (
+            btree.addr(), btree.rev, btree.weight, btree.cksum))
 
         # look up a bid, while keeping track of the search path
         def btree_lookup(bid, *,
