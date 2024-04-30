@@ -656,6 +656,12 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+#ifndef LFS_READONLY
+// Get the absolute path of the open file.
+//
+// Returns a negative error code on failure.
+int lfs_file_path(lfs_t *lfs, lfs_file_t *file, char *path, lfs_size_t size);
+#endif
 
 /// Directory operations ///
 
@@ -706,6 +712,12 @@ lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 // Returns a negative error code on failure.
 int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
+#ifndef LFS_READONLY
+// Get the absolute path of the directory
+//
+// Returns a negative error code on failure.
+int lfs_dir_path(lfs_t *lfs, lfs_dir_t *dir, char *path, lfs_size_t size);
+#endif
 
 /// Filesystem-level filesystem operations
 
