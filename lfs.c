@@ -99,11 +99,16 @@ static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
 
 #define lfs_bd_read(...) lfs_bd_read_raw(__VA_ARGS__, __LINE__)
 static int lfs_bd_read_raw(lfs_t *lfs,
-        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_ssize_t shint,
         lfs_block_t block, lfs_off_t off,
         void *buffer, lfs_size_t size, int line) {
     uint8_t *data = buffer;
     (void)line;
+    lfs_size_t hint = shint;
+    int reverse = shint < 0;
+    if (reverse) {
+            hint = -hint;
+    }
     if (off+size > lfs->cfg->block_size
             || (lfs->block_count && block >= lfs->block_count)) {
         return LFS_ERR_CORRUPT;
@@ -168,10 +173,20 @@ static int lfs_bd_read_raw(lfs_t *lfs,
         // load to cache, first condition can no longer fail
         LFS_ASSERT(!lfs->block_count || block < lfs->block_count);
         rcache->block = block;
-        rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
+        lfs_off_t moff = off;
+        if (reverse) {
+                lfs_size_t msize;
+                moff = off + size;
+                msize = lfs_min(hint, lfs->cfg->cache_size);
+                if (moff > msize)
+                        moff = lfs_alignup(moff - msize, lfs->cfg->read_size);
+                else
+                        moff = 0;
+        }
+        rcache->off = lfs_aligndown(moff, lfs->cfg->read_size);
         rcache->size = lfs_min(
                 lfs_min(
-                    lfs_alignup(off+hint, lfs->cfg->read_size),
+                    lfs_alignup(moff+hint, lfs->cfg->read_size),
                     lfs->cfg->block_size)
                 - rcache->off,
                 lfs->cfg->cache_size);
@@ -787,7 +802,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
         off -= lfs_tag_dsize(ntag);
         lfs_tag_t tag = ntag;
         int err = lfs_bd_read(lfs,
-                NULL, &lfs->rcache, sizeof(ntag),
+                NULL, &lfs->rcache, -lfs->cfg->block_size,
                 dir->pair[0], off, &ntag, sizeof(ntag));
         if (err) {
             return err;
