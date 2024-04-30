@@ -543,6 +543,8 @@ static uint16_t lfs_fs_disk_version_minor(lfs_t *lfs) {
 
 /// Internal operations predeclared here ///
 #ifndef LFS_READONLY
+static lfs_ssize_t lfs_dir_path_(lfs_t *lfs,
+        lfs_mdir_t *dir, uint16_t id, char *path, lfs_size_t size);
 static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         const struct lfs_mattr *attrs, int attrcount);
 static int lfs_dir_compact(lfs_t *lfs,
@@ -3833,6 +3835,55 @@ static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     return file->ctz.size;
 }
 
+#ifndef LFS_READONLY
+static lfs_ssize_t lfs_dir_path_(lfs_t *lfs,
+         lfs_mdir_t *dir, uint16_t id, char *path, lfs_size_t size) {
+    struct lfs_info info;
+    char *next = path;
+    lfs_mdir_t parent;
+    lfs_ssize_t len;
+    lfs_stag_t tag;
+    int err;
+
+    if (lfs_pair_cmp(lfs->root, dir->pair) != 0) {
+        tag = lfs_fs_parent(lfs, dir->pair, &parent);
+        if (tag < 0) {
+            return tag;
+        }
+
+        len = lfs_dir_path_(lfs, &parent, lfs_tag_id(tag), next, size);
+        if (len < 0) {
+            return len;
+        }
+
+        next += len;
+        size -= len;
+    }
+
+    err = lfs_dir_getinfo(lfs, dir, id, &info);
+    if (err < 0) {
+        return err;
+    }
+
+    len = strlen(info.name);
+    if (len >= (lfs_ssize_t)size) {
+        return LFS_ERR_INVAL;
+    }
+
+    memcpy(next, info.name, len + 1);
+    next += len;
+
+    if (info.type == LFS_TYPE_DIR) {
+        *next++ = '/';
+        if (++len >= (lfs_ssize_t)size) {
+            return LFS_ERR_INVAL;
+        }
+        *next = '\0';
+    }
+
+    return next - path;
+}
+#endif
 
 /// General fs operations ///
 static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info) {
@@ -6236,6 +6287,24 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 }
 
 #ifndef LFS_READONLY
+int lfs_file_path(lfs_t *lfs, lfs_file_t *file, char *path, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_path(%p, %p)", (void*)lfs, (void*)file);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_dir_path_(lfs, &file->m, file->id, path, size);
+
+    LFS_TRACE("lfs_file_path -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err < 0 ? err : 0;
+}
+#endif
+
+#ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
@@ -6365,6 +6434,22 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
     LFS_UNLOCK(lfs->cfg);
     return res;
 }
+
+#ifndef LFS_READONLY
+int lfs_dir_path(lfs_t *lfs, lfs_dir_t *dir, char *path, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_path(%p, %p)", (void*)lfs, (void*)dir);
+    err = lfs_dir_path_(lfs, &dir->m, dir->id, path, size);
+
+    LFS_TRACE("lfs_dir_path -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err < 0 ? err : 0;
+}
+#endif
 
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void *, lfs_block_t), void *data) {
     int err = LFS_LOCK(lfs->cfg);
