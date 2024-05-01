@@ -2384,7 +2384,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (lfsr_rbyd_eoff(rbyd) < lfs->cfg->block_size
             && lfsr_rbyd_eoff(rbyd) % lfs->cfg->prog_size == 0
             && ecksum.cksize != -1) {
-        // TODO is this correct for erased=corrupt?
         uint8_t e = 0;
         err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), ecksum.cksize,
@@ -2397,7 +2396,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if ((e >> 7) != lfsr_rbyd_parity(rbyd)) {
             // check that erased-state matches our checksum, if this fails
             // most likely a write was interrupted
-            uint32_t ecksum_ = lfs_crc32c(0, &e, 1);
+            uint32_t ecksum_ = 0;
+            if (err != LFS_ERR_CORRUPT) {
+                ecksum_ = lfs_crc32c(0, &e, 1);
+            }
             int err = lfsr_bd_cksum(lfs,
                     rbyd->blocks[0], lfsr_rbyd_eoff(rbyd)+1, 0,
                     ecksum.cksize-1,
@@ -3458,7 +3460,10 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         // calculate the erased-state checksum
         lfsr_ecksum_t ecksum;
         ecksum.cksize = lfs->cfg->prog_size;
-        ecksum.cksum = lfs_crc32c(0, &e, 1);
+        ecksum.cksum = 0;
+        if (err != LFS_ERR_CORRUPT) {
+            ecksum.cksum = lfs_crc32c(0, &e, 1);
+        }
         err = lfsr_bd_cksum(lfs,
                 rbyd->blocks[0], off_+1, ecksum.cksize-1,
                 ecksum.cksize-1,
