@@ -1087,9 +1087,10 @@ static lfs_ssize_t lfsr_bd_readtag_(lfs_t *lfs,
     LFS_ASSERT(size <= 0x0fffffff);
     d += d_;
 
-    // ignore the valid bit when calculating optional checksum
-    tag_buf[0] &= ~0x80;
+    // optional checksum
     if (cksum_) {
+        // ignore the valid bit when calculating checksums
+        *cksum_ ^= tag_buf[0] & 0x80;
         *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
     }
 
@@ -1146,17 +1147,15 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     }
     d += d_;
 
+    // ignore the valid bit when calculating checksums
+    if (cksum_) {
+        *cksum_ ^= tag_buf[0] & 0x80;
+    }
     int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d,
-            NULL);
+            cksum_);
     if (err) {
         LFS_ASSERT(err < 0);
         return err;
-    }
-
-    // ignore the valid bit when calculating optional checksum
-    tag_buf[0] &= ~0x80;
-    if (cksum_) {
-        *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
     }
 
     return d;
