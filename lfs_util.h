@@ -274,6 +274,15 @@ static inline uint32_t lfs_popc(uint32_t a) {
 #endif
 }
 
+// Returns true if there is an odd number of binary ones in a
+static inline bool lfs_parity(uint32_t a) {
+#if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
+    return __builtin_parity(a);
+#else
+    return lfs_popc(a) & 1;
+#endif
+}
+
 // Find the sequence comparison of a and b, this is the distance
 // between a and b ignoring overflow
 static inline int lfs_scmp(uint32_t a, uint32_t b) {

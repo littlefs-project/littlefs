@@ -2223,7 +2223,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // temporary state until we validate a cksum
     uint32_t cksum_ = cksum;
-    bool parity_ = lfs_popc(cksum) & 1;
+    bool parity_ = lfs_parity(cksum);
     lfs_size_t off = sizeof(uint32_t);
     lfs_size_t trunk_ = 0;
     lfs_size_t trunk__ = 0;
@@ -2255,7 +2255,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             break;
         }
         tag &= 0x7fff;
-        parity_ ^= lfs_popc(cksum_ ^ cksum__) & 1;
+        parity_ ^= lfs_parity(cksum_ ^ cksum__);
         cksum_ = cksum__;
 
         // tag goes out of range?
@@ -2277,7 +2277,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     }
                     return err;
                 }
-                parity_ ^= lfs_popc(cksum_ ^ cksum__) & 1;
+                parity_ ^= lfs_parity(cksum_ ^ cksum__);
                 cksum_ = cksum__;
 
                 // found an ecksum? save for later
@@ -2631,7 +2631,7 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 
     // update eoff, xor cksum parity
     rbyd->eoff
-            += ((lfs_popc(rbyd->cksum ^ cksum_) & 1)
+            += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
                 << (8*sizeof(lfs_size_t)-1))
             + sizeof(uint32_t);
     rbyd->cksum = cksum_;
@@ -2655,7 +2655,7 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // update eoff, xor cksum parity
     rbyd->eoff
-            += ((lfs_popc(rbyd->cksum ^ cksum_) & 1)
+            += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
                 << (8*sizeof(lfs_size_t)-1))
             + d;
     rbyd->cksum = cksum_;
@@ -2674,7 +2674,7 @@ static int lfsr_rbyd_appenddata(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // update eoff, xor cksum parity
     rbyd->eoff
-            += ((lfs_popc(rbyd->cksum ^ cksum_) & 1)
+            += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
                 << (8*sizeof(lfs_size_t)-1))
             + lfsr_data_size(data);
     rbyd->cksum = cksum_;
@@ -3506,8 +3506,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // xor in the tag parity
     cksum_buf[0] ^= (uint8_t)lfsr_rbyd_parity(rbyd) << 7;
     // find the new parity
-    bool parity_ = lfsr_rbyd_parity(rbyd)
-            ^ (lfs_popc(rbyd->cksum ^ cksum_) & 1);
+    bool parity_ = lfsr_rbyd_parity(rbyd) ^ lfs_parity(rbyd->cksum ^ cksum_);
     // and intentionally perturb the commit so the next tag appears invalid
     if ((e >> 7) == parity_) {
         cksum_buf[1] ^= 0x01;
