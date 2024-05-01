@@ -2,7 +2,7 @@
 after = 'test_bd'
 
 # test with a number of different erase values
-defines.ERASE_VALUE = [0xff, 0x00, 0x1b]
+defines.ERASE_VALUE = [0xff, 0x00, -1]
 
 # set block_size to the full size of disk so we can test arbitrarily
 # large rbyd trees, we don't really care about block sizes at this

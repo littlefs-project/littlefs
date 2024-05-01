@@ -1075,7 +1075,9 @@ static lfs_ssize_t lfsr_bd_readtag_(lfs_t *lfs,
         return d_;
     }
     // weights should be limited to 31-bits
-    LFS_ASSERT(weight <= 0x7fffffff);
+    if (weight > 0x7fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
     d += d_;
 
     lfs_size_t size;
@@ -1084,7 +1086,9 @@ static lfs_ssize_t lfsr_bd_readtag_(lfs_t *lfs,
         return d_;
     }
     // sizes should be limited to 28-bits
-    LFS_ASSERT(size <= 0x0fffffff);
+    if (size > 0x0fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
     d += d_;
 
     // optional checksum
@@ -1405,7 +1409,9 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
         return d;
     }
     // all leb128s in our system reserve the sign bit
-    LFS_ASSERT(*word_ <= 0x7fffffff);
+    if (*word_ > 0x7fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
 
     *data = lfsr_data_slice(*data, d, -1);
     return 0;
@@ -1422,9 +1428,11 @@ static inline int lfsr_data_readlleb128(lfs_t *lfs, lfsr_data_t *data,
     if (err) {
         return err;
     }
-
     // little-leb128s should be limited to 28-bits
-    LFS_ASSERT(*word_ <= 0x0fffffff);
+    if (*word_ > 0x0fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
+
     return 0;
 }
 
