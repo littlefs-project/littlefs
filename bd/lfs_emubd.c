@@ -138,7 +138,6 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
             return LFS_ERR_NOMEM;
         }
         bd->disk->rc = 1;
-        bd->disk->scratch = NULL;
 
         #ifdef _WIN32
         bd->disk->fd = open(bd->cfg->disk_path,
@@ -153,31 +152,28 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
             return err;
         }
 
-        // if we're emulating erase values, we can keep a block around in
-        // memory of just the erase state to speed up emulated erases
-        if (bd->cfg->erase_value != -1) {
-            bd->disk->scratch = malloc(cfg->block_size);
-            if (!bd->disk->scratch) {
-                LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
-                return LFS_ERR_NOMEM;
-            }
-            memset(bd->disk->scratch,
-                    bd->cfg->erase_value,
-                    cfg->block_size);
+        // go ahead and erase all of the disk, otherwise the file will not
+        // match our internal representation
+        uint8_t *scratch = malloc(cfg->block_size);
+        if (!scratch) {
+            LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
+            return LFS_ERR_NOMEM;
+        }
+        memset(scratch,
+                (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
+                cfg->block_size);
 
-            // go ahead and erase all of the disk, otherwise the file will not
-            // match our internal representation
-            for (size_t i = 0; i < cfg->block_count; i++) {
-                ssize_t res = write(bd->disk->fd,
-                        bd->disk->scratch,
-                        cfg->block_size);
-                if (res < 0) {
-                    int err = -errno;
-                    LFS_EMUBD_TRACE("lfs_emubd_create -> %d", err);
-                    return err;
-                }
+        for (size_t i = 0; i < cfg->block_count; i++) {
+            ssize_t res = write(bd->disk->fd, scratch, cfg->block_size);
+            if (res < 0) {
+                int err = -errno;
+                free(scratch);
+                LFS_EMUBD_TRACE("lfs_emubd_create -> %d", err);
+                return err;
             }
         }
+
+        free(scratch);
     }
 
     LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", 0);
@@ -216,7 +212,6 @@ int lfs_emubd_destroy(const struct lfs_config *cfg) {
         bd->disk->rc -= 1;
         if (bd->disk->rc == 0) {
             close(bd->disk->fd);
-            free(bd->disk->scratch);
             free(bd->disk);
         }
     }
@@ -418,9 +413,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 return err;
             }
 
-            ssize_t res2 = write(bd->disk->fd,
-                    bd->disk->scratch,
-                    cfg->block_size);
+            ssize_t res2 = write(bd->disk->fd, b->data, cfg->block_size);
             if (res2 < 0) {
                 int err = -errno;
                 LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);

@@ -67,9 +67,8 @@ typedef int64_t lfs_emubd_ssleep_t;
 
 // emubd config, this is required for testing
 struct lfs_emubd_config {
-    // 8-bit erase value to use for simulating erases. -1 does not simulate
-    // erases, which can speed up testing by avoiding the extra block-device
-    // operations to store the erase value.
+    // 8-bit erase value to use for simulating erases. -1 simulates a noop
+    // erase, which is faster than simulating a fixed erase value.
     int32_t erase_value;
 
     // Number of erase cycles before a block becomes "bad". The exact behavior
@@ -127,7 +126,6 @@ typedef struct lfs_emubd_block {
 typedef struct lfs_emubd_disk {
     uint32_t rc;
     int fd;
-    uint8_t *scratch;
 } lfs_emubd_disk_t;
 
 // emubd state
