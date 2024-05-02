@@ -371,21 +371,6 @@ typedef struct lfsr_opened {
     lfsr_mdir_t mdir;
 } lfsr_opened_t;
 
-// grm encoding:
-// .---.                  mode:  1 leb128   1 byte
-// |mod|                  mids:  2 leb128s  <=2x5 bytes
-// +- -+- -+- -+- -+- -.  total:            <=11 bytes
-// ' mid x mod         '
-// +                   +
-// '                   '
-// '- -+- -+- -+- -+- -'
-//
-#define LFSR_GRM_DSIZE (1+5+5)
-
-typedef struct lfsr_grm {
-    lfsr_smid_t rms[2];
-} lfsr_grm_t;
-
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
@@ -431,13 +416,6 @@ typedef struct lfsr_data {
         } cat;
     } u;
 } lfsr_data_t;
-
-// erased-state checksum
-typedef struct lfsr_ecksum {
-    // cksize=-1 indicates no ecksum
-    lfs_ssize_t cksize;
-    uint32_t cksum;
-} lfsr_ecksum_t;
 
 // littlefs directory type
 typedef struct lfs_dir {
@@ -559,6 +537,21 @@ typedef struct lfsr_mtree {
         lfsr_btree_t btree;
     } u;
 } lfsr_mtree_t;
+
+// grm encoding:
+// .---.                  mode:  1 leb128   1 byte
+// |mod|                  mids:  2 leb128s  <=2x5 bytes
+// +- -+- -+- -+- -+- -.  total:            <=11 bytes
+// ' mid x mod         '
+// +                   +
+// '                   '
+// '- -+- -+- -+- -+- -'
+//
+#define LFSR_GRM_DSIZE (1+5+5)
+
+typedef struct lfsr_grm {
+    lfsr_smid_t rms[2];
+} lfsr_grm_t;
 
 // The littlefs filesystem type
 typedef struct lfs {

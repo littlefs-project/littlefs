@@ -1754,6 +1754,13 @@ typedef struct lfsr_tinfo {
 //#endif
 
 
+// erased-state checksum
+typedef struct lfsr_ecksum {
+    // cksize=-1 indicates no ecksum
+    lfs_ssize_t cksize;
+    uint32_t cksum;
+} lfsr_ecksum_t;
+
 // erased-state checksum on-disk encoding
 
 // ecksum encoding:
