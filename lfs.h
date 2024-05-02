@@ -355,6 +355,16 @@ typedef struct lfsr_rbyd {
 // a btree is just the root rbyd
 typedef lfsr_rbyd_t lfsr_btree_t;
 
+// a shrub is a secondary trunk in an mdir
+typedef struct {
+    // this mostly lines up with lfsr_rbyd_t
+    lfsr_rid_t weight;
+    lfs_block_t blocks[2];
+    lfs_ssize_t trunk;
+    // except for shrub estimate, which takes the place of eoff, etc
+    lfs_size_t estimate;
+} lfsr_shrub_t;
+
 typedef struct lfsr_mptr {
     lfs_block_t blocks[2];
 } lfsr_mptr_t;
@@ -463,14 +473,6 @@ typedef struct lfsr_bptr {
     lfs_size_t cksize;
     uint32_t cksum;
 } lfsr_bptr_t;
-
-// a shrub is a secondary trunk in an mdir
-//
-// note:
-// - sign(trunk)=1 => shrub
-// - we shove our shrub estimate into rbyd.eoff, C makes it too annoying
-//   to union another field
-typedef lfsr_rbyd_t lfsr_shrub_t;
 
 // the lfsr_bshrub_t struct represents the on-disk component of a file
 typedef struct lfsr_bshrub {

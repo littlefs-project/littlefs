@@ -3960,7 +3960,8 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->trunk |= LFSR_RBYD_ISSHRUB;
 
     // compact our shrub
-    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, -1, -1, shrub);
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, -1, -1,
+            (const lfsr_rbyd_t*)shrub);
     if (err) {
         return err;
     }
@@ -5219,10 +5220,25 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
 // shrub things
 
+// helper functions
+static inline bool lfsr_shrub_isshrub(const lfsr_shrub_t *shrub) {
+    return lfsr_rbyd_isshrub((const lfsr_rbyd_t*)shrub);
+}
+
+static inline lfs_size_t lfsr_shrub_trunk(const lfsr_shrub_t *shrub) {
+    return lfsr_rbyd_trunk((const lfsr_rbyd_t*)shrub);
+}
+
+static inline bool lfsr_shrub_hastrunk(const lfsr_shrub_t *shrub) {
+    return lfsr_rbyd_trunk((const lfsr_rbyd_t*)shrub) != 0;
+}
+
 static inline int lfsr_shrub_cmp(
         const lfsr_shrub_t *a,
         const lfsr_shrub_t *b) {
-    return lfsr_rbyd_cmp(a, b);
+    return lfsr_rbyd_cmp(
+            (const lfsr_rbyd_t*)a,
+            (const lfsr_rbyd_t*)b);
 }
 
 // shrub on-disk encoding
@@ -5242,11 +5258,11 @@ static inline int lfsr_shrub_cmp(
 static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
     // shrub trunks should never be null
-    LFS_ASSERT(lfsr_rbyd_trunk(shrub) != 0);
+    LFS_ASSERT(lfsr_shrub_trunk(shrub) != 0);
     // weight should not exceed 31-bits
     LFS_ASSERT(shrub->weight <= 0x7fffffff);
     // trunk should not exceed 28-bits
-    LFS_ASSERT(lfsr_rbyd_trunk(shrub) <= 0x0fffffff);
+    LFS_ASSERT(lfsr_shrub_trunk(shrub) <= 0x0fffffff);
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
@@ -5254,7 +5270,8 @@ static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    d_ = lfs_toleb128(lfsr_rbyd_trunk(shrub), &buffer[d], 4);
+    d_ = lfs_toleb128(lfsr_shrub_trunk(shrub),
+            &buffer[d], 4);
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
@@ -5267,7 +5284,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
     // copy the mdir block
     shrub->blocks[0] = mdir->rbyd.blocks[0];
     // force estimate recalculation if we write to this shrub
-    shrub->eoff = -1;
+    shrub->estimate = -1;
 
     int err = lfsr_data_readleb128(lfs, data, &shrub->weight);
     if (err) {
@@ -5279,7 +5296,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
     // shrub trunks should never be null
-    LFS_ASSERT(lfsr_rbyd_hastrunk(shrub));
+    LFS_ASSERT(lfsr_shrub_hastrunk(shrub));
 
     // set the shrub bit in our trunk
     shrub->trunk |= LFSR_RBYD_ISSHRUB;
@@ -5303,7 +5320,7 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
         return 0;
     }
 
-    return lfsr_rbyd_estimate(lfs, shrub, -1, -1,
+    return lfsr_rbyd_estimate(lfs, (const lfsr_rbyd_t*)shrub, -1, -1,
             NULL);
 }
 
@@ -5378,6 +5395,7 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     rbyd_->weight = weight;
     return 0;
 }
+
 
 
 /// Metadata pair stuff ///
@@ -10053,7 +10071,7 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
 
     // bshrub/btree?
     } else if (lfsr_bshrub_isbshruborbtree(&file->bshrub)) {
-        int err = lfsr_btree_traverse_(lfs, &file->bshrub.u.bshrub, t,
+        int err = lfsr_btree_traverse_(lfs, &file->bshrub.u.btree, t,
                 bid_, tinfo_);
         if (err) {
             return err;
@@ -10206,8 +10224,8 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
         // does our estimate exceed our shrub_size? need to recalculate an
         // accurate estimate
         lfs_ssize_t estimate = (alloc)
-                ? -1
-                : file->bshrub.u.bshrub.eoff;
+                ? (lfs_size_t)-1
+                : file->bshrub.u.bshrub.estimate;
         // this double condition avoids overflow issues
         if ((lfs_size_t)estimate > lfs->cfg->shrub_size
                 || estimate + commit_estimate > lfs->cfg->shrub_size) {
@@ -10251,15 +10269,15 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
             if (file_->m.type == LFS_TYPE_REG
                     && file_->m.mdir.mid == file->m.mdir.mid
                     && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)) {
-                file_->bshrub.u.bshrub.eoff = estimate;
+                file_->bshrub.u.bshrub.estimate = estimate;
             }
         }
-        LFS_ASSERT(file->bshrub.u.bshrub.eoff = (lfs_size_t)estimate);
+        LFS_ASSERT(file->bshrub.u.bshrub.estimate == (lfs_size_t)estimate);
 
         return 0;
     }
 
-    LFS_ASSERT(lfsr_rbyd_hastrunk(&file->bshrub.u.bshrub));
+    LFS_ASSERT(lfsr_shrub_hastrunk(&file->bshrub.u.bshrub));
     return 0;
 
 evict:;
@@ -10272,7 +10290,8 @@ evict:;
 
     // note this may be a new root
     if (!alloc) {
-        err = lfsr_rbyd_compact(lfs, &rbyd, -1, -1, &file->bshrub.u.bshrub);
+        err = lfsr_rbyd_compact(lfs, &rbyd, -1, -1,
+                &file->bshrub.u.btree);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -10339,7 +10358,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         file->bshrub.u.bshrub.trunk = LFSR_RBYD_ISSHRUB | 0;
         file->bshrub.u.bshrub.weight = 0;
         // force estimate recalculation
-        file->bshrub.u.bshrub.eoff = -1;
+        file->bshrub.u.bshrub.estimate = -1;
 
         if (attr_count > 0) {
             LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
