@@ -2180,12 +2180,8 @@ static inline lfs_size_t lfsr_rbyd_trunk(const lfsr_rbyd_t *rbyd) {
     return rbyd->trunk & ~LFSR_RBYD_ISSHRUB;
 }
 
-static inline bool lfsr_rbyd_hastrunk(const lfsr_rbyd_t *rbyd) {
-    return lfsr_rbyd_trunk(rbyd) != 0;
-}
-
 static inline bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
-    return !(lfsr_rbyd_hastrunk(rbyd) && rbyd->eoff == 0);
+    return !lfsr_rbyd_trunk(rbyd) || rbyd->eoff;
 }
 
 static inline bool lfsr_rbyd_parity(const lfsr_rbyd_t *rbyd) {
@@ -2390,7 +2386,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // no valid commits?
-    if (!lfsr_rbyd_hastrunk(rbyd)) {
+    if (!lfsr_rbyd_trunk(rbyd)) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -2480,7 +2476,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     tag = lfs_max16(tag, 0x1);
 
     // out of bounds? no trunk yet?
-    if (rid >= (lfsr_srid_t)rbyd->weight || !lfsr_rbyd_hastrunk(rbyd)) {
+    if (rid >= (lfsr_srid_t)rbyd->weight || !lfsr_rbyd_trunk(rbyd)) {
         return LFS_ERR_NOENT;
     }
 
@@ -4423,15 +4419,15 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_srid_t pid = 0;
         // are we root?
         if (rbyd.blocks[0] == btree->blocks[0]
-                || !lfsr_rbyd_hastrunk(&rbyd)) {
+                || !lfsr_rbyd_trunk(&rbyd)) {
             // new root? shrub root? yield the final root commit to
             // higher-level btree/bshrub logic
-            if (!lfsr_rbyd_hastrunk(&rbyd)
+            if (!lfsr_rbyd_trunk(&rbyd)
                     || lfsr_rbyd_isshrub(btree)) {
                 *bid_ = rid;
                 *attrs_ = attrs;
                 *attr_count_ = attr_count;
-                return (!lfsr_rbyd_hastrunk(&rbyd)) ? LFS_ERR_RANGE : 0;
+                return (!lfsr_rbyd_trunk(&rbyd)) ? LFS_ERR_RANGE : 0;
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -4489,7 +4485,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
     finalize:;
         // done?
-        if (!lfsr_rbyd_hastrunk(&parent)) {
+        if (!lfsr_rbyd_trunk(&parent)) {
             LFS_ASSERT(bid == 0);
             *btree = rbyd_;
             *attr_count_ = 0;
@@ -4550,7 +4546,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t sibling;
         if ((lfs_size_t)estimate <= lfs->cfg->block_size/4
                 // no parent? can't merge
-                && lfsr_rbyd_hastrunk(&parent)) {
+                && lfsr_rbyd_trunk(&parent)) {
             // try the right sibling
             if (pid+1 < (lfsr_srid_t)parent.weight) {
                 // try looking up the sibling
@@ -4787,7 +4783,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         attr_count = 0;
         buf_size = 0;
         // new root?
-        if (!lfsr_rbyd_hastrunk(&parent)) {
+        if (!lfsr_rbyd_trunk(&parent)) {
             attrs__[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, +rbyd_.weight,
                     lfsr_data_frombranch(&rbyd_, &buf__[buf_size]));
@@ -4870,7 +4866,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
         // we must have a parent at this point, but is our parent the root
         // and is the root degenerate?
-        LFS_ASSERT(lfsr_rbyd_hastrunk(&parent));
+        LFS_ASSERT(lfsr_rbyd_trunk(&parent));
         if (rbyd.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             *btree = rbyd_;
@@ -4936,7 +4932,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree, lfsr_bid_t bid,
         *btree = rbyd;
     }
 
-    LFS_ASSERT(lfsr_rbyd_hastrunk(btree));
+    LFS_ASSERT(lfsr_rbyd_trunk(btree));
     return 0;
 }
 
@@ -5229,10 +5225,6 @@ static inline lfs_size_t lfsr_shrub_trunk(const lfsr_shrub_t *shrub) {
     return lfsr_rbyd_trunk((const lfsr_rbyd_t*)shrub);
 }
 
-static inline bool lfsr_shrub_hastrunk(const lfsr_shrub_t *shrub) {
-    return lfsr_rbyd_trunk((const lfsr_rbyd_t*)shrub) != 0;
-}
-
 static inline int lfsr_shrub_cmp(
         const lfsr_shrub_t *a,
         const lfsr_shrub_t *b) {
@@ -5296,7 +5288,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
     // shrub trunks should never be null
-    LFS_ASSERT(lfsr_shrub_hastrunk(shrub));
+    LFS_ASSERT(lfsr_shrub_trunk(shrub));
 
     // set the shrub bit in our trunk
     shrub->trunk |= LFSR_RBYD_ISSHRUB;
@@ -10277,7 +10269,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
         return 0;
     }
 
-    LFS_ASSERT(lfsr_shrub_hastrunk(&file->bshrub.u.bshrub));
+    LFS_ASSERT(lfsr_shrub_trunk(&file->bshrub.u.bshrub));
     return 0;
 
 evict:;
