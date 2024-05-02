@@ -343,12 +343,12 @@ typedef struct lfsr_rbyd {
     lfs_block_t blocks[2];
     // sign(trunk)=0 => normal rbyd
     // sign(trunk)=1 => shrub rbyd
-    lfs_ssize_t trunk;
+    lfs_size_t trunk;
     // sign(eoff)       => commit parity
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
-    lfs_ssize_t eoff;
+    lfs_size_t eoff;
     uint32_t cksum;
 } lfsr_rbyd_t;
 
@@ -360,7 +360,7 @@ typedef struct {
     // this mostly lines up with lfsr_rbyd_t
     lfsr_rid_t weight;
     lfs_block_t blocks[2];
-    lfs_ssize_t trunk;
+    lfs_size_t trunk;
     // except for shrub estimate, which takes the place of eoff, etc
     lfs_size_t estimate;
 } lfsr_shrub_t;
@@ -406,22 +406,22 @@ typedef struct lfs_mdir {
 //
 typedef struct lfsr_data {
     union {
-        lfs_ssize_t size;
+        lfs_size_t size;
         struct {
-            lfs_ssize_t size;
+            lfs_size_t size;
             lfs_block_t block;
             lfs_size_t off;
         } disk;
         struct {
-            lfs_ssize_t size;
+            lfs_size_t size;
             const uint8_t *buffer;
         } buf;
         struct {
-            lfs_ssize_t size;
+            lfs_size_t size;
             uint8_t buf[8];
         } imm;
         struct {
-            lfs_ssize_t size;
+            lfs_size_t size;
             const struct lfsr_data *datas;
         } cat;
     } u;
@@ -442,7 +442,7 @@ typedef struct lfsr_dir {
     lfsr_opened_t p; // pos mdir
     lfsr_opened_t b; // bookmark mdir
     lfsr_did_t did;
-    lfs_soff_t pos;
+    lfs_off_t pos;
 } lfsr_dir_t;
 
 // littlefs file type
@@ -486,7 +486,7 @@ typedef struct lfsr_bshrub {
     // sign(size)=0, data.block!=mdir.block => btree
     //
     union {
-        lfs_soff_t size;
+        lfs_off_t size;
         lfsr_sprout_t bsprout;
         lfsr_bptr_t bptr;
         lfsr_shrub_t bshrub;
@@ -531,9 +531,9 @@ typedef struct lfsr_mtree {
     union {
         // the sign bit indicates if this is an inlined mdir/direct mdir
         // pointer or a full mtree
-        lfsr_smid_t weight;
+        lfsr_mid_t weight;
         struct {
-            lfsr_smid_t weight;
+            lfsr_mid_t weight;
             lfsr_mptr_t mptr;
         } mptr;
         lfsr_btree_t btree;

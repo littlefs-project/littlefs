@@ -1780,7 +1780,7 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
     // you shouldn't try to encode a not-ecksum, that doesn't make sense
     LFS_ASSERT(ecksum->cksize != -1);
     // cksize should not exceed 28-bits
-    LFS_ASSERT((uint32_t)ecksum->cksize <= 0x0fffffff);
+    LFS_ASSERT((lfs_size_t)ecksum->cksize <= 0x0fffffff);
 
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(ecksum->cksize, &buffer[d], 4);
@@ -1795,7 +1795,7 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
 
 static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ecksum_t *ecksum) {
-    int err = lfsr_data_readlleb128(lfs, data, (uint32_t*)&ecksum->cksize);
+    int err = lfsr_data_readlleb128(lfs, data, (lfs_size_t*)&ecksum->cksize);
     if (err) {
         return err;
     }
@@ -1868,8 +1868,7 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
 static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         lfsr_bptr_t *bptr) {
     // read the block, offset, size
-    int err = lfsr_data_readlleb128(lfs, data,
-            (uint32_t*)&bptr->data.u.disk.size);
+    int err = lfsr_data_readlleb128(lfs, data, &bptr->data.u.disk.size);
     if (err) {
         return err;
     }
@@ -2095,11 +2094,11 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
     }
 
     for (uint8_t i = 0; i < mode; i++) {
-        int err = lfsr_data_readleb128(lfs, data, (uint32_t*)&grm->rms[i]);
+        int err = lfsr_data_readleb128(lfs, data, (lfsr_mid_t*)&grm->rms[i]);
         if (err) {
             return err;
         }
-        LFS_ASSERT((uint32_t)grm->rms[i] < lfs_max32(
+        LFS_ASSERT((lfsr_mid_t)grm->rms[i] < lfs_max32(
                 lfsr_mtree_weight(&lfs->mtree),
                 lfsr_mleafweight(lfs)));
     }
@@ -2185,7 +2184,7 @@ static inline bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
 }
 
 static inline bool lfsr_rbyd_parity(const lfsr_rbyd_t *rbyd) {
-    return (lfs_size_t)rbyd->eoff >> (8*sizeof(lfs_size_t)-1);
+    return rbyd->eoff >> (8*sizeof(lfs_size_t)-1);
 }
 
 static inline lfs_size_t lfsr_rbyd_eoff(const lfsr_rbyd_t *rbyd) {
@@ -2215,7 +2214,7 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 }
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block, lfs_ssize_t trunk) {
+        lfs_block_t block, lfs_size_t trunk) {
     // set up some initial state
     rbyd->blocks[0] = block;
     rbyd->trunk = (trunk & LFSR_RBYD_ISSHRUB) | 0;
@@ -2246,7 +2245,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // scan tags, checking valid bits, cksums, etc
     while (off < lfs->cfg->block_size
-            && (!trunk || lfsr_rbyd_eoff(rbyd) <= (lfs_size_t)trunk)) {
+            && (!trunk || lfsr_rbyd_eoff(rbyd) <= trunk)) {
         lfsr_tag_t tag;
         lfsr_rid_t weight__;
         lfs_size_t size;
@@ -2347,7 +2346,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // found a trunk of a tree?
         if (lfsr_tag_istrunk(tag)
-                && (!trunk || off <= (lfs_size_t)trunk || trunk__)) {
+                && (!trunk || off <= trunk || trunk__)) {
             // start of trunk?
             if (!trunk__) {
                 // keep track of trunk's entry point
@@ -2369,7 +2368,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // update data checksum
                 cksum = cksum_;
                 // update trunk and weight, unless we are a shrub trunk
-                if (!lfsr_tag_isshrub(tag) || trunk__ == (lfs_size_t)trunk) {
+                if (!lfsr_tag_isshrub(tag) || trunk__ == trunk) {
                     trunk_ = trunk__;
                     weight = weight_;
                 }
@@ -2411,7 +2410,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (err != LFS_ERR_CORRUPT) {
                 ecksum_ = lfs_crc32c(0, &e, 1);
             }
-            int err = lfsr_bd_cksum(lfs,
+            err = lfsr_bd_cksum(lfs,
                     rbyd->blocks[0], lfsr_rbyd_eoff(rbyd)+1, 0,
                     ecksum.cksize-1,
                     &ecksum_);
@@ -2432,7 +2431,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 // a more aggressive fetch when checksum is known
 static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block, lfs_ssize_t trunk, lfsr_rid_t weight,
+        lfs_block_t block, lfs_size_t trunk, lfsr_rid_t weight,
         uint32_t cksum) {
     int err = lfsr_rbyd_fetch(lfs, rbyd, block, trunk);
     if (err) {
@@ -2458,7 +2457,7 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // if trunk/weight mismatch _after_ cksums match, that's not a storage
     // error, that's a programming error
-    LFS_ASSERT(lfsr_rbyd_trunk(rbyd) == (lfs_size_t)trunk);
+    LFS_ASSERT(lfsr_rbyd_trunk(rbyd) == trunk);
     LFS_ASSERT(rbyd->weight == weight);
     return 0;
 }
@@ -2764,7 +2763,7 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_alt_t p[static 3],
-        lfsr_tag_t alt, lfsr_srid_t weight, lfs_size_t jump) {
+        lfsr_tag_t alt, lfsr_rid_t weight, lfs_size_t jump) {
     int err = lfsr_rbyd_p_flush(lfs, rbyd, p, 1);
     if (err) {
         return err;
@@ -4144,7 +4143,7 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readlleb128(lfs, data, (uint32_t*)&branch->trunk);
+    err = lfsr_data_readlleb128(lfs, data, &branch->trunk);
     if (err) {
         return err;
     }
@@ -5283,7 +5282,7 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    err = lfsr_data_readlleb128(lfs, data, (uint32_t*)&shrub->trunk);
+    err = lfsr_data_readlleb128(lfs, data, &shrub->trunk);
     if (err) {
         return err;
     }
@@ -5319,7 +5318,7 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
 static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_shrub_t *shrub_, const lfsr_shrub_t *shrub) {
     // save our current trunk/weight
-    lfs_ssize_t trunk = rbyd_->trunk;
+    lfs_size_t trunk = rbyd_->trunk;
     lfsr_srid_t weight = rbyd_->weight;
 
     // compact our bshrub
@@ -5368,7 +5367,7 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // things up too much
     //
     // it is important that these rbyds share eoff/cksum/etc
-    lfs_ssize_t trunk = rbyd_->trunk;
+    lfs_size_t trunk = rbyd_->trunk;
     lfsr_srid_t weight = rbyd_->weight;
     rbyd_->trunk = shrub->trunk;
     rbyd_->weight = shrub->weight;
@@ -5693,7 +5692,7 @@ static bool lfsr_mid_isopen(lfs_t *lfs, lfsr_smid_t mid) {
         : LFSR_BTREE_DSIZE)
 
 static inline bool lfsr_mtree_isnull(const lfsr_mtree_t *mtree) {
-    return (lfsr_mid_t)mtree->u.weight == (LFSR_MTREE_ISMPTR | 0);
+    return mtree->u.weight == (LFSR_MTREE_ISMPTR | 0);
 }
 
 static inline bool lfsr_mtree_ismptr(const lfsr_mtree_t *mtree) {
@@ -8063,14 +8062,12 @@ static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
 
 static int lfsr_data_readgeometry(lfs_t *lfs, lfsr_data_t *data,
         lfsr_geometry_t *geometry) {
-    int err = lfsr_data_readlleb128(lfs, data,
-            (uint32_t*)&geometry->block_size);
+    int err = lfsr_data_readlleb128(lfs, data, &geometry->block_size);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data,
-            (uint32_t*)&geometry->block_count);
+    err = lfsr_data_readleb128(lfs, data, &geometry->block_count);
     if (err) {
         return err;
     }
@@ -8196,7 +8193,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     // read the name limit
-    uint32_t name_limit = 0xff;
+    lfs_size_t name_limit = 0xff;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
             &data);
     if (err && err != LFS_ERR_NOENT) {
@@ -8222,7 +8219,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     lfs->name_limit = name_limit;
 
     // read the size limit
-    uint32_t size_limit = 0x7fffffff;
+    lfs_off_t size_limit = 0x7fffffff;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_SIZELIMIT,
             &data);
     if (err && err != LFS_ERR_NOENT) {
@@ -8348,9 +8345,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
             }
 
             // check for any orphaned files
-            for (lfs_size_t rid = 0;
-                    rid < (lfs_size_t)tinfo.u.mdir.rbyd.weight;
-                    rid++) {
+            for (lfs_size_t rid = 0; rid < tinfo.u.mdir.rbyd.weight; rid++) {
                 err = lfsr_rbyd_lookup(lfs, &tinfo.u.mdir.rbyd,
                         rid, LFSR_TAG_ORPHAN,
                         NULL);
