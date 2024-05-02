@@ -461,57 +461,57 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
 /// Additional extended API for driving test features ///
 
-static int lfs_emubd_rawcrc(const struct lfs_config *cfg,
-        lfs_block_t block, uint32_t *crc) {
+static int lfs_emubd_rawcksum(const struct lfs_config *cfg,
+        lfs_block_t block, uint32_t *cksum) {
     lfs_emubd_t *bd = cfg->context;
 
-    // check if crc is valid
+    // check if block is valid
     LFS_ASSERT(block < cfg->block_count);
 
-    // crc the block
-    uint32_t crc_ = 0xffffffff;
+    // checksum the block
+    uint32_t cksum_ = 0;
     const lfs_emubd_block_t *b = bd->blocks[block];
     if (b) {
-        crc_ = lfs_crc(crc_, b->data, cfg->block_size);
+        cksum_ = lfs_crc32c(cksum_, b->data, cfg->block_size);
     } else {
         uint8_t erase_value = (bd->cfg->erase_value != -1)
                 ? bd->cfg->erase_value
                 : 0;
         for (lfs_size_t i = 0; i < cfg->block_size; i++) {
-            crc_ = lfs_crc(crc_, &erase_value, 1);
+            cksum_ = lfs_crc32c(cksum_, &erase_value, 1);
         }
     }
-    *crc = 0xffffffff ^ crc_;
+    *cksum = cksum_;
 
     return 0;
 }
 
-int lfs_emubd_crc(const struct lfs_config *cfg,
-        lfs_block_t block, uint32_t *crc) {
-    LFS_EMUBD_TRACE("lfs_emubd_crc(%p, %"PRIu32", %p)",
-            (void*)cfg, block, crc);
-    int err = lfs_emubd_rawcrc(cfg, block, crc);
-    LFS_EMUBD_TRACE("lfs_emubd_crc -> %d", err);
+int lfs_emubd_cksum(const struct lfs_config *cfg,
+        lfs_block_t block, uint32_t *cksum) {
+    LFS_EMUBD_TRACE("lfs_emubd_cksum(%p, %"PRIu32", %p)",
+            (void*)cfg, block, cksum);
+    int err = lfs_emubd_rawcksum(cfg, block, cksum);
+    LFS_EMUBD_TRACE("lfs_emubd_cksum -> %d", err);
     return err;
 }
 
-int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *crc) {
-    LFS_EMUBD_TRACE("lfs_emubd_bdcrc(%p, %p)", (void*)cfg, crc);
+int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *cksum) {
+    LFS_EMUBD_TRACE("lfs_emubd_bdcksum(%p, %p)", (void*)cfg, cksum);
 
-    uint32_t crc_ = 0xffffffff;
+    uint32_t cksum_ = 0;
     for (lfs_block_t i = 0; i < cfg->block_count; i++) {
-        uint32_t i_crc;
-        int err = lfs_emubd_rawcrc(cfg, i, &i_crc);
+        uint32_t i_cksum;
+        int err = lfs_emubd_rawcksum(cfg, i, &i_cksum);
         if (err) {
-            LFS_EMUBD_TRACE("lfs_emubd_bdcrc -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_bdcksum -> %d", err);
             return err;
         }
 
-        crc_ = lfs_crc(crc_, &i_crc, sizeof(uint32_t));
+        cksum_ = lfs_crc32c(cksum_, &i_cksum, sizeof(uint32_t));
     }
-    *crc = 0xffffffff ^ crc_;
+    *cksum = cksum_;
 
-    LFS_EMUBD_TRACE("lfs_emubd_bdcrc -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_bdcksum -> %d", 0);
     return 0;
 }
 

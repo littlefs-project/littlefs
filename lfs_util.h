@@ -359,8 +359,8 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);
 
 
 
-// Calculate CRC-32 with polynomial = 0x04c11db7
-uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
+//// Calculate CRC-32 with polynomial = 0x04c11db7
+//uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 
 // Calculate crc32c incrementally
 //
