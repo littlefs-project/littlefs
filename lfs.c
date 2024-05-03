@@ -3552,9 +3552,8 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     return 0;
 }
 
-static int lfsr_rbyd_appendattrs(lfs_t *lfs,
-        lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
+static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_srid_t rid, lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -3597,9 +3596,8 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs,
     return 0;
 }
 
-static int lfsr_rbyd_commit(lfs_t *lfs,
-        lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_srid_t rid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     int err = lfsr_rbyd_appendattrs(lfs, rbyd, rid, -1, -1,
             attrs, attr_count);
@@ -3723,8 +3721,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        const lfsr_rbyd_t *rbyd) {
+        const lfsr_rbyd_t *rbyd, lfsr_srid_t start_rid, lfsr_srid_t end_rid) {
     // copy over tags in the rbyd in order
     lfsr_srid_t rid = start_rid;
     lfsr_tag_t tag = 0;
@@ -3891,11 +3888,10 @@ done:;
 }
 
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        const lfsr_rbyd_t *rbyd) {
+        const lfsr_rbyd_t *rbyd, lfsr_srid_t start_rid, lfsr_srid_t end_rid) {
     // append rbyd
-    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_, start_rid, end_rid,
-            rbyd);
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd_,
+            rbyd, start_rid, end_rid);
     if (err) {
         return err;
     }
@@ -3955,8 +3951,8 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->trunk |= LFSR_RBYD_ISSHRUB;
 
     // compact our shrub
-    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd, -1, -1,
-            (const lfsr_rbyd_t*)shrub);
+    int err = lfsr_rbyd_appendcompactrbyd(lfs, rbyd,
+            (const lfsr_rbyd_t*)shrub, -1, -1);
     if (err) {
         return err;
     }
@@ -4660,8 +4656,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // try to compact
-        err = lfsr_rbyd_compact(lfs, &rbyd_, -1, -1,
-                &rbyd);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, &rbyd, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4703,8 +4698,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // copy over tags < split_rid
-        err = lfsr_rbyd_compact(lfs, &rbyd_, -1, split_rid,
-                &rbyd);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, &rbyd, -1, split_rid);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4729,8 +4723,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         }
         
         // copy over tags >= split_rid
-        err = lfsr_rbyd_compact(lfs, &sibling, split_rid, -1,
-                &rbyd);
+        err = lfsr_rbyd_compact(lfs, &sibling, &rbyd, split_rid, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4830,13 +4823,13 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // merge the siblings together
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, -1, -1, &rbyd);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, &rbyd, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, -1, -1, &sibling);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, &sibling, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4898,8 +4891,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 }
 
 // this is atomic
-static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree, lfsr_bid_t bid,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
+        lfsr_bid_t bid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // we need some scratch space for tail-recursive attrs
     lfsr_attr_t attrs__[4];
     uint8_t buffer[2*LFSR_BRANCH_DSIZE];
@@ -6328,8 +6321,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 }
 
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
-        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        const lfsr_mdir_t *mdir) {
+        const lfsr_mdir_t *mdir, lfsr_srid_t start_rid, lfsr_srid_t end_rid) {
     // this is basically the same as lfsr_rbyd_compact, but with special
     // handling for inlined trees.
     //
@@ -6513,8 +6505,7 @@ compact:;
     }
 
     // compact our mdir
-    err = lfsr_mdir_compact__(lfs, &mdir_, start_rid, end_rid,
-            mdir);
+    err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid, end_rid);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -6670,8 +6661,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        err = lfsr_mdir_compact__(lfs, &mdir_, 0, split_rid,
-                mdir);
+        err = lfsr_mdir_compact__(lfs, &mdir_, mdir, 0, split_rid);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -6690,8 +6680,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        err = lfsr_mdir_compact__(lfs, &msibling_, split_rid, -1,
-                mdir);
+        err = lfsr_mdir_compact__(lfs, &msibling_, mdir, split_rid, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -6984,7 +6973,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // commit the new mroot anchor
             lfsr_mdir_t mrootanchor_;
-            err = lfsr_mdir_swap__(lfs, &mrootanchor_, &mrootchild, -1);
+            err = lfsr_mdir_swap__(lfs, &mrootanchor_, &mrootchild, true);
             if (err) {
                 return err;
             }
@@ -10148,8 +10137,8 @@ static lfs_ssize_t lfsr_bshrub_read(lfs_t *lfs, const lfsr_file_t *file,
 }
 
 // this is atomic
-static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file, lfsr_bid_t bid,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
+        lfsr_bid_t bid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // file must be a bshrub/btree here
     LFS_ASSERT(lfsr_bshrub_isbshruborbtree(&file->bshrub));
 
@@ -10277,8 +10266,8 @@ evict:;
 
     // note this may be a new root
     if (!alloc) {
-        err = lfsr_rbyd_compact(lfs, &rbyd, -1, -1,
-                &file->bshrub.u.btree);
+        err = lfsr_rbyd_compact(lfs, &rbyd,
+                &file->bshrub.u.btree, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
