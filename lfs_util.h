@@ -221,16 +221,6 @@ static inline void lfs_sswap32(int32_t *a, int32_t *b) {
     *b = t;
 }
 
-// Find alignment of a type at compile time
-#if !defined(LFS_NO_INTRINSICS)
-#define LFS_ALIGNOF(t) __alignof__(t)
-#else
-#define LFS_ALIGNOF(t) ((size_t)&((struct {char a; t b;}*)0)->b)
-#endif
-
-// Find size necessary to align type at compile time
-#define LFS_ALIGNEDSIZEOF(t) (sizeof(t) + LFS_ALIGNOF(t)-1)
-
 // Align to nearest multiple of a size
 static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
     return a - (a % alignment);
