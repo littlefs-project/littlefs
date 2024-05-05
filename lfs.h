@@ -393,18 +393,10 @@ typedef struct lfs_mdir {
     lfs_block_t tail[2];
 } lfs_mdir_t;
 
-// Either an on-disk or in-device data pointer
-//
-// The top 2 bits of data's size indicates the actual encoding
-// 0b00 => in-RAM buffer
-// 0b01 => a single leb128
-// 0b10 => on-disk reference
-// 0b11 => concatenated datas
-//
-// Note concatenated datas can only be 1 level deep. Concatenating
-// concatenated datas would require recursion to resolve.
-//
+// either an on-disk or in-device data pointer
 typedef struct lfsr_data {
+    // sign(size)=0 => in-RAM buffer
+    // sign(size)=1 => on-disk reference
     union {
         lfs_size_t size;
         struct {
@@ -416,14 +408,6 @@ typedef struct lfsr_data {
             lfs_size_t size;
             const uint8_t *buffer;
         } buf;
-        struct {
-            lfs_size_t size;
-            uint8_t buf[8];
-        } imm;
-        struct {
-            lfs_size_t size;
-            const struct lfsr_data *datas;
-        } cat;
     } u;
 } lfsr_data_t;
 
