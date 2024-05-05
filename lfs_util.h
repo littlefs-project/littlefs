@@ -142,16 +142,16 @@ extern "C"
 // toolchain-specific implementations. LFS_NO_INTRINSICS falls back to a more
 // expensive basic C implementation for debugging purposes
 
-// Min/max functions for unsigned 32-bit numbers
-static inline uint32_t lfs_max(uint32_t a, uint32_t b) {
-    return (a > b) ? a : b;
-}
+// Compile time min/max
+#define LFS_MIN(a, b) ((a < b) ? a : b)
+#define LFS_MAX(a, b) ((a > b) ? a : b)
 
+// Min/max functions for unsigned 32-bit numbers
 static inline uint32_t lfs_min(uint32_t a, uint32_t b) {
     return (a < b) ? a : b;
 }
 
-static inline uint32_t lfs_max32(uint32_t a, uint32_t b) {
+static inline uint32_t lfs_max(uint32_t a, uint32_t b) {
     return (a > b) ? a : b;
 }
 
@@ -159,7 +159,7 @@ static inline uint32_t lfs_min32(uint32_t a, uint32_t b) {
     return (a < b) ? a : b;
 }
 
-static inline int32_t lfs_smax32(int32_t a, int32_t b) {
+static inline uint32_t lfs_max32(uint32_t a, uint32_t b) {
     return (a > b) ? a : b;
 }
 
@@ -167,13 +167,17 @@ static inline int32_t lfs_smin32(int32_t a, int32_t b) {
     return (a < b) ? a : b;
 }
 
-// TODO other 16-bit ops?
-static inline uint16_t lfs_max16(uint16_t a, uint16_t b) {
+static inline int32_t lfs_smax32(int32_t a, int32_t b) {
     return (a > b) ? a : b;
 }
 
+// TODO other 16-bit ops?
 static inline uint16_t lfs_min16(uint16_t a, uint16_t b) {
     return (a < b) ? a : b;
+}
+
+static inline uint16_t lfs_max16(uint16_t a, uint16_t b) {
+    return (a > b) ? a : b;
 }
 
 // Clamp is useful as the logic for min/max when clamping can become confusing
@@ -216,6 +220,16 @@ static inline void lfs_sswap32(int32_t *a, int32_t *b) {
     *a = *b;
     *b = t;
 }
+
+// Find alignment of a type at compile time
+#if !defined(LFS_NO_INTRINSICS)
+#define LFS_ALIGNOF(t) __alignof__(t)
+#else
+#define LFS_ALIGNOF(t) ((size_t)&((struct {char a; t b;}*)0)->b)
+#endif
+
+// Find size necessary to align type at compile time
+#define LFS_ALIGNEDSIZEOF(t) (sizeof(t) + LFS_ALIGNOF(t)-1)
 
 // Align to nearest multiple of a size
 static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
