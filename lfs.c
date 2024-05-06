@@ -1510,11 +1510,18 @@ static inline lfsr_cat_t lfsr_cat_fromlleb128(uint32_t word,
     return LFSR_CAT_BUF(buffer, d);
 }
 
+// a bit hacky, but we really don't need the last word in our name's
+// lfsr_data_t
+typedef struct lfsr_data_name {
+    lfsr_data_t did_data;
+    lfsr_cat_t name_data;
+} lfsr_data_name_t;
+
 #define LFSR_CAT_NAME(_did, _name, _name_size) \
     LFSR_CAT_DATAS( \
-        ((const lfsr_data_t[2]){ \
+        (lfsr_data_t*)(&(lfsr_data_name_t){ \
             lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
-            LFSR_DATA_BUF(_name, _name_size)}), \
+            LFSR_CAT_BUF(_name, _name_size)}), \
         2)
 
 // cat <-> bd interactions
