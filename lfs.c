@@ -1446,11 +1446,6 @@ typedef struct lfsr_cat {
 #define LFSR_CAT_DATAS(_datas, _count) \
     lfsr_cat_fromdatas(_datas, _count)
 
-#define LFSR_CAT_CAT(...) \
-    lfsr_cat_fromdatas( \
-        (const lfsr_data_t[]){__VA_ARGS__}, \
-        sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
-
 // cat helpers
 static inline bool lfsr_cat_isbuf(lfsr_cat_t cat) {
     return !(cat.u.size & LFSR_CAT_ISCAT);
@@ -1516,9 +1511,11 @@ static inline lfsr_cat_t lfsr_cat_fromlleb128(uint32_t word,
 }
 
 #define LFSR_CAT_NAME(_did, _name, _name_size) \
-    LFSR_CAT_CAT( \
-        lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
-        LFSR_DATA_BUF(_name, _name_size))
+    LFSR_CAT_DATAS( \
+        ((const lfsr_data_t[2]){ \
+            lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
+            LFSR_DATA_BUF(_name, _name_size)}), \
+        2)
 
 // cat <-> bd interactions
 //
@@ -10393,9 +10390,9 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_ATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(weight_ - lfs->cfg->fragment_size),
-                        LFSR_CAT_CAT(
+                        LFSR_CAT_DATA((lfsr_data_t[]){
                             lfsr_data_truncate(left_slice_,
-                                lfs->cfg->fragment_size))),
+                                lfs->cfg->fragment_size)})),
                     LFSR_ATTR(
                         LFSR_TAG_BLOCK, +(weight_ - lfs->cfg->fragment_size),
                         LFSR_CAT_BPTR(&bptr_))));
@@ -10426,9 +10423,9 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_ATTR(
                         LFSR_TAG_DATA,
                             +(weight_ - lfsr_data_size(bptr_.data)),
-                        LFSR_CAT_CAT(
+                        LFSR_CAT_DATA((lfsr_data_t[]){
                             lfsr_data_fruncate(right_slice_,
-                                lfs->cfg->fragment_size)))));
+                                lfs->cfg->fragment_size)}))));
             if (err) {
                 return err;
             }
