@@ -1416,19 +1416,19 @@ typedef struct lfsr_cat {
     // sign(size)=0 => single in-RAM buffer
     // sign(size)=1 => multiple concatenated datas
     union {
-        lfs_size_t size;
+        uint16_t size;
         struct {
-            lfs_size_t size;
+            uint16_t size;
             const uint8_t *buffer;
         } buf;
         struct {
-            lfs_size_t size;
+            uint16_t size;
             const lfsr_data_t *datas;
         } cat;
     } u;
 } lfsr_cat_t;
 
-#define LFSR_CAT_ISCAT 0x80000000
+#define LFSR_CAT_ISCAT 0x8000
 
 #define LFSR_CAT_NULL() \
     ((lfsr_cat_t){ \
@@ -1441,10 +1441,14 @@ typedef struct lfsr_cat {
         .u.buf.buffer=(const void*)(_buffer)})
 
 #define LFSR_CAT_DATA(_data) \
-    lfsr_cat_fromdatas(_data, 1)
+    ((lfsr_cat_t){ \
+        .u.cat.size=LFSR_CAT_ISCAT | 1, \
+        .u.cat.datas=_data})
 
 #define LFSR_CAT_DATAS(_datas, _count) \
-    lfsr_cat_fromdatas(_datas, _count)
+    ((lfsr_cat_t){ \
+        .u.cat.size=LFSR_CAT_ISCAT | (_count), \
+        .u.cat.datas=_datas})
 
 // cat helpers
 static inline bool lfsr_cat_isbuf(lfsr_cat_t cat) {
@@ -1455,29 +1459,29 @@ static inline bool lfsr_cat_iscat(lfsr_cat_t cat) {
     return cat.u.size & LFSR_CAT_ISCAT;
 }
 
-static inline lfs_size_t lfsr_cat_size(lfsr_cat_t cat) {
-    return cat.u.size & ~LFSR_CAT_ISCAT;
-}
-
 static inline lfsr_data_t lfsr_cat_data(lfsr_cat_t cat) {
     // this only works if cat is a simple buffer
     LFS_ASSERT(lfsr_cat_isbuf(cat));
     return LFSR_DATA_BUF(cat.u.buf.buffer, cat.u.buf.size);
 }
 
-// some initializers just can't be macros, we at least make these inline
-// so most of the internal logic is hopefully elided
-static inline lfsr_cat_t lfsr_cat_fromdatas(
-        const lfsr_data_t *datas, lfs_size_t count) {
-    // find total size, we store this instead of count
-    lfs_size_t size = 0;
-    for (uint8_t i = 0; i < count; i++) {
-        size += lfsr_data_size(datas[i]);
-    }
+static inline uint16_t lfsr_cat_count(lfsr_cat_t cat) {
+    LFS_ASSERT(lfsr_cat_iscat(cat));
+    return cat.u.size & ~LFSR_CAT_ISCAT;
+}
 
-    return (lfsr_cat_t){
-            .u.cat.size=LFSR_CAT_ISCAT | size,
-            .u.cat.datas=datas};
+static inline lfs_size_t lfsr_cat_size(lfsr_cat_t cat) {
+    // this gets a bit complicated for concatenated data
+    if (lfsr_cat_isbuf(cat)) {
+        return cat.u.buf.size;
+    } else {
+        uint16_t count = lfsr_cat_count(cat);
+        lfs_size_t size = 0;
+        for (uint16_t i = 0; i < count; i++) {
+            size += lfsr_data_size(cat.u.cat.datas[i]);
+        }
+        return size;
+    }
 }
 
 // some more cats
@@ -1514,14 +1518,16 @@ static inline lfsr_cat_t lfsr_cat_fromlleb128(uint32_t word,
 // lfsr_data_t
 typedef struct lfsr_data_name {
     lfsr_data_t did_data;
-    lfsr_cat_t name_data;
+    lfs_size_t name_size;
+    const uint8_t *name;
 } lfsr_data_name_t;
 
 #define LFSR_CAT_NAME(_did, _name, _name_size) \
     LFSR_CAT_DATAS( \
-        (lfsr_data_t*)(&(lfsr_data_name_t){ \
-            lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
-            LFSR_CAT_BUF(_name, _name_size)}), \
+        ((lfsr_data_t*)&(lfsr_data_name_t){ \
+            .did_data=lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
+            .name_size=_name_size, \
+            .name=(const void*)(_name)}), \
         2)
 
 // cat <-> bd interactions
@@ -1539,20 +1545,16 @@ static int lfsr_bd_progcat(lfs_t *lfs,
 
     // indirect concatenated data?
     } else {
-        lfs_size_t size = lfsr_cat_size(cat);
-        const lfsr_data_t *data = cat.u.cat.datas;
-        while (size > 0) {
-            int err = lfsr_bd_progdata(lfs, block, off, *data,
+        uint16_t count = lfsr_cat_count(cat);
+        for (uint16_t i = 0; i < count; i++) {
+            int err = lfsr_bd_progdata(lfs, block, off, cat.u.cat.datas[i],
                     cksum_);
             if (err) {
                 return err;
             }
 
-            off += lfsr_data_size(*data);
-            size -= lfsr_data_size(*data);
-            data += 1;
+            off += lfsr_data_size(cat.u.cat.datas[i]);
         }
-
         return 0;
     }
 }
@@ -1560,10 +1562,26 @@ static int lfsr_bd_progcat(lfs_t *lfs,
 
 // operations on attribute lists
 
+// needed for lfsr_attr
+typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
+
 typedef struct lfsr_attr {
     lfsr_tag_t tag;
+    uint16_t size;
     lfsr_srid_t delta;
-    lfsr_cat_t cat;
+
+    // sign(size)=0 => single in-RAM buffer
+    // sign(size)=1 => multiple concatenated datas
+    // special tags => other types
+    union {
+        const uint8_t *buffer;
+        const lfsr_data_t *datas;
+
+        lfsr_grm_t *grm;
+        const lfsr_mdir_t *mdir;
+        const lfsr_shrubcommit_t *shrubcommit;
+        const lfsr_shrub_t *shrub;
+    } u;
 } lfsr_attr_t;
 
 #define LFSR_ATTR(_tag, _delta, _cat) \
@@ -1571,10 +1589,19 @@ typedef struct lfsr_attr {
 
 static inline lfsr_attr_t lfsr_attr(
         lfsr_tag_t tag, lfsr_srid_t delta, lfsr_cat_t cat) {
-    return (lfsr_attr_t){tag, delta, cat};
+    return (lfsr_attr_t){
+            .tag=tag,
+            .size=cat.u.cat.size,
+            .delta=delta,
+            .u.datas=cat.u.cat.datas};
 }
 
-#define LFSR_ATTR_NOOP() LFSR_ATTR(LFSR_TAG_NULL, 0, LFSR_CAT_NULL())
+#define LFSR_ATTR_NOOP() \
+    ((lfsr_attr_t){ \
+        .tag=LFSR_TAG_NULL, \
+        .size=0, \
+        .delta=0, \
+        .u.datas=NULL})
 
 // create an attribute list
 #define LFSR_ATTRS(...) \
@@ -1586,24 +1613,25 @@ static inline lfsr_attr_t lfsr_attr(
 // a move of all attrs from an mdir entry
 #define LFSR_ATTR_MOVE(_tag, _delta, _mdir) \
     ((const lfsr_attr_t){ \
-        _tag, _delta, \
-        .cat.u.buf.buffer=(const void*)(const lfsr_mdir_t*){_mdir}})
+        .tag=_tag, \
+        .delta=_delta, \
+        .u.mdir=_mdir})
 
 // a grm update, note this is mutable! we may update the grm during
 // mdir commits
 #define LFSR_ATTR_GRM(_tag, _delta, _grm) \
     ((const lfsr_attr_t){ \
-        _tag, _delta, \
-        .cat.u.buf.buffer=(const void*)(lfsr_grm_t*){_grm}})
+        .tag=_tag, \
+        .delta=_delta, \
+        .u.grm=_grm})
 
 // writing to an unrelated trunk in the rbyd
-typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
-
 #define LFSR_ATTR_SHRUBCOMMIT(_tag, _delta, \
         _shrub, _rid, _attrs, _attr_count) \
     ((const lfsr_attr_t){ \
-        _tag, _delta, \
-        .cat.u.buf.buffer=(const void*)&(const lfsr_shrubcommit_t){ \
+        .tag=_tag, \
+        .delta=_delta, \
+        .u.shrubcommit=&(const lfsr_shrubcommit_t){ \
             .shrub=_shrub, \
             .rid=_rid, \
             .attrs=_attrs, \
@@ -1611,8 +1639,9 @@ typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
 
 #define LFSR_ATTR_SHRUBTRUNK(_tag, _delta, _shrub) \
     ((const lfsr_attr_t){ \
-        _tag, _delta, \
-        .cat.u.buf.buffer=(const void*)(const lfsr_shrub_t*){_shrub}})
+        .tag=_tag, \
+        .delta=_delta, \
+        .u.shrub=_shrub})
 
 // some helpers
 static inline bool lfsr_attr_isnoop(const lfsr_attr_t *attr) {
@@ -1623,21 +1652,10 @@ static inline bool lfsr_attr_isinsert(const lfsr_attr_t *attr) {
     return !lfsr_tag_isgrow(attr->tag) && attr->delta > 0;
 }
 
-static inline lfsr_grm_t *lfsr_attr_grm(const lfsr_attr_t *attr) {
-    return (lfsr_grm_t*)attr->cat.u.buf.buffer;
-}
-
-static inline lfsr_mdir_t *lfsr_attr_mdir(const lfsr_attr_t *attr) {
-    return (lfsr_mdir_t*)attr->cat.u.buf.buffer;
-}
-
-static inline const lfsr_shrubcommit_t *lfsr_attr_shrubcommit(
-        const lfsr_attr_t *attr) {
-    return (const lfsr_shrubcommit_t*)attr->cat.u.buf.buffer;
-}
-
-static inline lfsr_shrub_t *lfsr_attr_shrubtrunk(const lfsr_attr_t *attr) {
-    return (lfsr_shrub_t*)attr->cat.u.buf.buffer;
+static inline lfsr_cat_t lfsr_attr_cat(const lfsr_attr_t *attr) {
+    return (lfsr_cat_t){
+        .u.cat.size=attr->size,
+        .u.cat.datas=attr->u.datas};
 }
 
 
@@ -3583,7 +3601,7 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
             int err = lfsr_rbyd_appendattr(lfs, rbyd,
                     rid - lfs_smax32(start_rid, 0),
-                    attrs[i].tag, attrs[i].delta, attrs[i].cat);
+                    attrs[i].tag, attrs[i].delta, lfsr_attr_cat(&attrs[i]));
             if (err) {
                 return err;
             }
@@ -5975,7 +5993,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else if (attrs[i].tag == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
                 LFS_ASSERT(attrs[i].delta == 0);
-                const lfsr_mdir_t *mdir__ = lfsr_attr_mdir(&attrs[i]);
+                const lfsr_mdir_t *mdir__ = attrs[i].u.mdir;
 
                 // skip the name tag, this is always replaced by upper layers
                 lfsr_tag_t tag = LFSR_TAG_STRUCT-1;
@@ -6097,7 +6115,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else if (attrs[i].tag == LFSR_TAG_SHRUBALLOC
                     || attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
                 const lfsr_shrubcommit_t *bshrubcommit
-                        = lfsr_attr_shrubcommit(&attrs[i]);
+                        = attrs[i].u.shrubcommit;
 
                 // SHRUBALLOC is roughly the same as SHRUBCOMMIT but also
                 // resets the shrub, we need to do this here so bshrub root
@@ -6123,7 +6141,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // TODO should we preserve mode for all of these?
             // TODO should we do the same for sprouts?
             } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                lfsr_shrub_t *shrub = lfsr_attr_shrubtrunk(&attrs[i]);
+                const lfsr_shrub_t *shrub = attrs[i].u.shrub;
 
                 int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                         rid - lfs_smax32(start_rid, 0),
@@ -6141,7 +6159,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                         rid - lfs_smax32(start_rid, 0),
-                        attrs[i].tag, attrs[i].delta, attrs[i].cat);
+                        attrs[i].tag,
+                        attrs[i].delta,
+                        lfsr_attr_cat(&attrs[i]));
                 if (err) {
                     return err;
                 }
@@ -6597,7 +6617,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
-            lfsr_grm_t *grm = lfsr_attr_grm(&attrs[i]);
+            lfsr_grm_t *grm = attrs[i].u.grm;
             lfsr_gdelta_xorgrm(lfs, lfs->grm_d, LFSR_GRM_DSIZE, grm);
 
             // xor with our current gstate to find our initial gdelta
@@ -6880,7 +6900,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // gd' = gd xor (grm' xor grm)
             //
-            lfsr_grm_t *grm = lfsr_attr_grm(&attrs[i]);
+            lfsr_grm_t *grm = attrs[i].u.grm;
             lfsr_gdelta_xorgrm(lfs, lfs->grm_d, LFSR_GRM_DSIZE, grm);
 
             // patch our grm
@@ -7015,7 +7035,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // update any gstate changes
         if (attrs[i].tag == LFSR_TAG_GRM) {
-            lfs->grm = *lfsr_attr_grm(&attrs[i]);
+            lfs->grm = *attrs[i].u.grm;
 
             // keep track of the exact encoding on-disk
             lfsr_cat_fromgrm(&lfs->grm, lfs->grm_g);
@@ -10189,7 +10209,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
                     && !lfsr_tag_isrm(attrs[i].tag)) {
                 commit_estimate += lfs->attr_estimate;
             }
-            commit_estimate += lfsr_cat_size(attrs[i].cat);
+            commit_estimate += lfsr_cat_size(lfsr_attr_cat(&attrs[i]));
         }
 
         // does our estimate exceed our shrub_size? need to recalculate an
@@ -11387,7 +11407,10 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         lfsr_attr_t attrs[2];
         lfs_size_t attr_count = 0;
         lfsr_data_t name_data;
-        uint8_t buf[LFSR_BTREE_DSIZE];
+        union {
+            lfsr_data_t data;
+            uint8_t buf[LFSR_BTREE_DSIZE];
+        } data;
 
         // not created yet? need to convert orphan to normal file
         if (lfsr_f_isorphan(file->m.flags)) {
@@ -11413,9 +11436,10 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                     LFSR_CAT_NULL());
         // small file inlined in mdir?
         } else if (lfsr_f_isunflush(file->m.flags)) {
+            data.data = LFSR_DATA_BUF(file->buffer, file->buffer_size);
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                    LFSR_CAT_BUF(file->buffer, file->buffer_size));
+                    LFSR_CAT_DATA(&data.data));
         // bshrub?
         } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR_SHRUBTRUNK(
@@ -11425,7 +11449,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         } else if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                    lfsr_cat_frombtree(&file->bshrub.u.btree, buf));
+                    lfsr_cat_frombtree(&file->bshrub.u.btree, data.buf));
         } else {
             LFS_UNREACHABLE();
         }
