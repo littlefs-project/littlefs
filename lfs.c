@@ -1567,7 +1567,12 @@ typedef struct lfsr_attr {
 } lfsr_attr_t;
 
 #define LFSR_ATTR(_tag, _delta, _cat) \
-    ((const lfsr_attr_t){_tag, _delta, _cat})
+    lfsr_attr(_tag, _delta, _cat)
+
+static inline lfsr_attr_t lfsr_attr(
+        lfsr_tag_t tag, lfsr_srid_t delta, lfsr_cat_t cat) {
+    return (lfsr_attr_t){tag, delta, cat};
+}
 
 #define LFSR_ATTR_NOOP() LFSR_ATTR(LFSR_TAG_NULL, 0, LFSR_CAT_NULL())
 
