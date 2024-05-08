@@ -1440,15 +1440,23 @@ typedef struct lfsr_cat {
         .u.buf.size=_size, \
         .u.buf.buffer=(const void*)(_buffer)})
 
-#define LFSR_CAT_DATA(_data) \
+#define LFSR_CAT_DATA_(_data) \
     ((lfsr_cat_t){ \
         .u.cat.size=LFSR_CAT_ISCAT | 1, \
         .u.cat.datas=_data})
 
-#define LFSR_CAT_DATAS(_datas, _count) \
+#define LFSR_CAT_DATA(_data) \
+    LFSR_CAT_DATA_((const lfsr_data_t[1]){_data})
+
+#define LFSR_CAT_DATAS_(_datas, _count) \
     ((lfsr_cat_t){ \
         .u.cat.size=LFSR_CAT_ISCAT | (_count), \
         .u.cat.datas=_datas})
+
+#define LFSR_CAT_DATAS(...) \
+    LFSR_CAT_DATAS_( \
+        (const lfsr_data_t[]){__VA_ARGS__}, \
+        sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
 
 // cat helpers
 static inline bool lfsr_cat_isbuf(lfsr_cat_t cat) {
@@ -1523,7 +1531,7 @@ typedef struct lfsr_data_name {
 } lfsr_data_name_t;
 
 #define LFSR_CAT_NAME(_did, _name, _name_size) \
-    LFSR_CAT_DATAS( \
+    LFSR_CAT_DATAS_( \
         ((lfsr_data_t*)&(lfsr_data_name_t){ \
             .did_data=lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
             .name_size=_name_size, \
@@ -1785,8 +1793,11 @@ typedef struct lfsr_ecksum {
 //
 #define LFSR_ECKSUM_DSIZE (4+4)
 
+#define LFSR_CAT_ECKSUM_(_ecksum, _buffer) \
+    lfsr_cat_fromecksum(_ecksum, _buffer)
+
 #define LFSR_CAT_ECKSUM(_ecksum) \
-    lfsr_cat_fromecksum(_ecksum, (uint8_t[LFSR_ECKSUM_DSIZE]){0})
+    LFSR_CAT_ECKSUM_(_ecksum, (uint8_t[LFSR_ECKSUM_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
@@ -1839,8 +1850,11 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 //
 #define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
+#define LFSR_CAT_BPTR_(_bptr, _buffer) \
+    lfsr_cat_frombptr(_bptr, _buffer)
+
 #define LFSR_CAT_BPTR(_bptr) \
-    lfsr_cat_frombptr(_bptr, (uint8_t[LFSR_BPTR_DSIZE]){0})
+    LFSR_CAT_BPTR_(_bptr, (uint8_t[LFSR_BPTR_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]) {
@@ -2048,8 +2062,11 @@ static inline bool lfsr_grm_isrm(const lfsr_grm_t *grm, lfsr_smid_t mid) {
     return grm->rms[0] == mid || grm->rms[1] == mid;
 }
 
+#define LFSR_CAT_GRM_(_grm, _buffer) \
+    lfsr_cat_fromgrm(_grm, _buffer)
+
 #define LFSR_CAT_GRM(_grm) \
-    lfsr_cat_fromgrm(_grm, (uint8_t[LFSR_GRM_DSIZE]){0})
+    LFSR_CAT_GRM_(_grm, (uint8_t[LFSR_GRM_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_fromgrm(const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
@@ -3760,7 +3777,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
         // write the tag
         err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-                tag, weight, LFSR_CAT_DATA(&data));
+                tag, weight, LFSR_CAT_DATA_(&data));
         if (err) {
             return err;
         }
@@ -4116,8 +4133,11 @@ static inline int lfsr_btree_cmp(
 //
 #define LFSR_BRANCH_DSIZE (5+4+4)
 
+#define LFSR_CAT_BRANCH_(_branch, _buffer) \
+    lfsr_cat_frombranch(_branch, _buffer)
+
 #define LFSR_CAT_BRANCH(_branch) \
-    lfsr_cat_frombranch(_branch, (uint8_t[LFSR_BRANCH_DSIZE]){0})
+    LFSR_CAT_BRANCH_(_branch, (uint8_t[LFSR_BRANCH_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_frombranch(const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
@@ -4186,8 +4206,11 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 //
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
+#define LFSR_CAT_BTREE_(_btree, _buffer) \
+    lfsr_cat_frombtree(_btree, _buffer)
+
 #define LFSR_CAT_BTREE(_btree) \
-    lfsr_cat_frombtree(_btree, (uint8_t[LFSR_BTREE_DSIZE]){0})
+    LFSR_CAT_BTREE_(_btree, (uint8_t[LFSR_BTREE_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_frombtree(const lfsr_btree_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]) {
@@ -4529,7 +4552,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         } else {
             scratch->attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, 0,
-                    lfsr_cat_frombranch(&rbyd_, scratch->buf));
+                    LFSR_CAT_BRANCH_(&rbyd_, scratch->buf));
             if (rbyd_.weight != rbyd.weight) {
                 scratch->attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_GROW, -rbyd.weight + rbyd_.weight,
@@ -4796,25 +4819,25 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         if (!lfsr_rbyd_trunk(&parent)) {
             scratch->attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, +rbyd_.weight,
-                    lfsr_cat_frombranch(
+                    LFSR_CAT_BRANCH_(
                         &rbyd_,
                         &scratch->buf[0*LFSR_BRANCH_DSIZE]));
             scratch->attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
-                    lfsr_cat_frombranch(
+                    LFSR_CAT_BRANCH_(
                         &sibling,
                         &scratch->buf[1*LFSR_BRANCH_DSIZE]));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 scratch->attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_NAME, 0,
-                        LFSR_CAT_DATA(&scratch->split_data));
+                        LFSR_CAT_DATA_(&scratch->split_data));
             }
         // split root?
         } else {
             bid -= pid - (rbyd.weight-1);
             scratch->attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, 0,
-                    lfsr_cat_frombranch(
+                    LFSR_CAT_BRANCH_(
                         &rbyd_,
                         &scratch->buf[0*LFSR_BRANCH_DSIZE]));
             if (rbyd_.weight != rbyd.weight) {
@@ -4824,13 +4847,13 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             }
             scratch->attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
-                    lfsr_cat_frombranch(
+                    LFSR_CAT_BRANCH_(
                         &sibling,
                         &scratch->buf[1*LFSR_BRANCH_DSIZE]));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 scratch->attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_NAME, 0,
-                        LFSR_CAT_DATA(&scratch->split_data));
+                        LFSR_CAT_DATA_(&scratch->split_data));
             }
         }
         attrs = scratch->attrs;
@@ -4898,7 +4921,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 LFSR_TAG_RM, -sibling.weight, LFSR_CAT_NULL());
         scratch->attrs[attr_count++] = LFSR_ATTR(
                 LFSR_TAG_BRANCH, 0,
-                lfsr_cat_frombranch(&rbyd_, scratch->buf));
+                LFSR_CAT_BRANCH_(&rbyd_, scratch->buf));
         if (rbyd_.weight != rbyd.weight) {
             scratch->attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_GROW, -rbyd.weight + rbyd_.weight,
@@ -5254,8 +5277,11 @@ static inline int lfsr_shrub_cmp(
 //
 #define LFSR_SHRUB_DSIZE (5+4)
 
+#define LFSR_CAT_SHRUB_(_rbyd, _buffer) \
+    lfsr_cat_fromshrub(_rbyd, _buffer)
+
 #define LFSR_CAT_SHRUB(_rbyd) \
-    lfsr_cat_fromshrub(_rbyd, (uint8_t[LFSR_SHRUB_DSIZE]){0})
+    LFSR_CAT_SHRUB_(_rbyd, (uint8_t[LFSR_SHRUB_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
@@ -5456,8 +5482,11 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
 //
 #define LFSR_MPTR_DSIZE (5+5)
 
+#define LFSR_CAT_MPTR_(_mptr, _buffer) \
+    lfsr_cat_frommptr(_mptr, _buffer)
+
 #define LFSR_CAT_MPTR(_mptr) \
-    lfsr_cat_frommptr(_mptr, (uint8_t[LFSR_MPTR_DSIZE]){0})
+    LFSR_CAT_MPTR_(_mptr, (uint8_t[LFSR_MPTR_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_frommptr(const lfsr_mptr_t *mptr,
         uint8_t buffer[static LFSR_MPTR_DSIZE]) {
@@ -5997,7 +6026,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     if (tag == LFSR_TAG_DATA) {
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                                 rid - lfs_smax32(start_rid, 0),
-                                tag, 0, LFSR_CAT_DATA(&data));
+                                tag, 0, LFSR_CAT_DATA_(&data));
                         if (err) {
                             return err;
                         }
@@ -6038,7 +6067,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     } else {
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
                                 rid - lfs_smax32(start_rid, 0),
-                                tag, 0, LFSR_CAT_DATA(&data));
+                                tag, 0, LFSR_CAT_DATA_(&data));
                         if (err) {
                             return err;
                         }
@@ -6063,7 +6092,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 != rbyd_.blocks[0]) {
                         int err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_,
                                 LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
-                                LFSR_CAT_DATA(&file->bshrub.u.bsprout));
+                                LFSR_CAT_DATA_(&file->bshrub.u.bsprout));
                         if (err) {
                             LFS_ASSERT(err != LFS_ERR_RANGE);
                             return err;
@@ -6371,7 +6400,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         // we need to update any opened inlined files
         if (tag == LFSR_TAG_DATA) {
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
-                    tag, weight, LFSR_CAT_DATA(&data));
+                    tag, weight, LFSR_CAT_DATA_(&data));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -6413,7 +6442,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         } else {
             // write the tag
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
-                    tag, weight, LFSR_CAT_DATA(&data));
+                    tag, weight, LFSR_CAT_DATA_(&data));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -6446,7 +6475,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     != mdir_->rbyd.blocks[0]) {
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->rbyd,
                     LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
-                    LFSR_CAT_DATA(&file->bshrub.u.bsprout));
+                    LFSR_CAT_DATA_(&file->bshrub.u.bsprout));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -6778,7 +6807,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             LFSR_CAT_MPTR(lfsr_mdir_mptr(&mdir_))),
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +lfsr_mleafweight(lfs),
-                            LFSR_CAT_DATA(&split_data)),
+                            LFSR_CAT_DATA_(&split_data)),
                         LFSR_ATTR(
                             LFSR_TAG_MDIR, 0,
                             LFSR_CAT_MPTR(lfsr_mdir_mptr(&msibling_)))));
@@ -6798,7 +6827,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             LFSR_CAT_MPTR(lfsr_mdir_mptr(&mdir_))),
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +lfsr_mleafweight(lfs),
-                            LFSR_CAT_DATA(&split_data)),
+                            LFSR_CAT_DATA_(&split_data)),
                         LFSR_ATTR(
                             LFSR_TAG_MDIR, 0,
                             LFSR_CAT_MPTR(lfsr_mdir_mptr(&msibling_)))));
@@ -8045,8 +8074,11 @@ typedef struct lfsr_geometry {
 // '---+- -+- -+- -+- -'
 #define LFSR_GEOMETRY_DSIZE (4+5)
 
+#define LFSR_CAT_GEOMETRY_(_geometry, _buffer) \
+    lfsr_cat_fromgeometry(_geometry, _buffer)
+
 #define LFSR_CAT_GEOMETRY(_geometry) \
-    lfsr_cat_fromgeometry(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
+    LFSR_CAT_GEOMETRY_(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
 
 static lfsr_cat_t lfsr_cat_fromgeometry(const lfsr_geometry_t *geometry,
         uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
@@ -10325,11 +10357,11 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_DATA, +lfsr_bshrub_size(&file->bshrub),
-                    LFSR_CAT_DATA(&file->bshrub.u.bsprout));
+                    LFSR_CAT_DATA_(&file->bshrub.u.bsprout));
         } else if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BLOCK, +lfsr_bshrub_size(&file->bshrub),
-                    lfsr_cat_frombptr(&file->bshrub.u.bptr, left.buf));
+                    LFSR_CAT_BPTR_(&file->bshrub.u.bptr, left.buf));
         }
 
         file->bshrub.u.bshrub.blocks[0] = file->m.mdir.rbyd.blocks[0];
@@ -10404,9 +10436,9 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_ATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(weight_ - lfs->cfg->fragment_size),
-                        LFSR_CAT_DATA((lfsr_data_t[]){
+                        LFSR_CAT_DATA(
                             lfsr_data_truncate(left_slice_,
-                                lfs->cfg->fragment_size)})),
+                                lfs->cfg->fragment_size))),
                     LFSR_ATTR(
                         LFSR_TAG_BLOCK, +(weight_ - lfs->cfg->fragment_size),
                         LFSR_CAT_BPTR(&bptr_))));
@@ -10437,9 +10469,9 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_ATTR(
                         LFSR_TAG_DATA,
                             +(weight_ - lfsr_data_size(bptr_.data)),
-                        LFSR_CAT_DATA((lfsr_data_t[]){
+                        LFSR_CAT_DATA(
                             lfsr_data_fruncate(right_slice_,
-                                lfs->cfg->fragment_size)}))));
+                                lfs->cfg->fragment_size)))));
             if (err) {
                 return err;
             }
@@ -10464,18 +10496,18 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(bid+1 - pos),
-                        LFSR_CAT_DATA(&left.data));
+                        LFSR_CAT_DATA_(&left.data));
 
             // carve bptr?
             } else if (tag_ == LFSR_TAG_BLOCK) {
                 attrs[attr_count++] = LFSR_ATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
                             -(bid+1 - pos),
-                        lfsr_cat_frombptr(
-                            &(lfsr_bptr_t){
+                        LFSR_CAT_BPTR_(
+                            (&(lfsr_bptr_t){
                                 .data = left_slice_,
                                 .cksize = bptr_.cksize,
-                                .cksum = bptr_.cksum},
+                                .cksum = bptr_.cksum}),
                             left.buf));
 
             } else {
@@ -10517,17 +10549,17 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 right.data = right_slice_;
                 right_tag_ = tag_;
                 right_weight_ = bid+1 - (pos+weight);
-                right_cat_ = LFSR_CAT_DATA(&right.data);
+                right_cat_ = LFSR_CAT_DATA_(&right.data);
 
             // carve bptr?
             } else if (tag_ == LFSR_TAG_BLOCK) {
                 right_tag_ = tag_;
                 right_weight_ = bid+1 - (pos+weight);
-                right_cat_ = lfsr_cat_frombptr(
-                        &(lfsr_bptr_t){
+                right_cat_ = LFSR_CAT_BPTR_(
+                        (&(lfsr_bptr_t){
                             .data = right_slice_,
                             .cksize = bptr_.cksize,
-                            .cksum = bptr_.cksum},
+                            .cksum = bptr_.cksum}),
                         right.buf);
 
             } else {
@@ -11015,7 +11047,7 @@ fragment:;
         // our tree
         int err = lfsr_file_carve(lfs, file,
                 fragment_start, fragment_end - fragment_start, 0,
-                LFSR_TAG_DATA, LFSR_CAT_DATAS(datas, data_count));
+                LFSR_TAG_DATA, LFSR_CAT_DATAS_(datas, data_count));
         if (err && err != LFS_ERR_RANGE) {
             return err;
         }
@@ -11403,7 +11435,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_REG, 0,
-                    LFSR_CAT_DATA(&name_data));
+                    LFSR_CAT_DATA_(&name_data));
         }
 
         // commit the file state
@@ -11427,7 +11459,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         } else if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                    lfsr_cat_frombtree(&file->bshrub.u.btree, buf));
+                    LFSR_CAT_BTREE_(&file->bshrub.u.btree, buf));
         } else {
             LFS_UNREACHABLE();
         }

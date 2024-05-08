@@ -4036,7 +4036,7 @@ code = '''
                 int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
-                            LFSR_CAT_DATA(&split_data)),
+                            LFSR_CAT_DATA_(&split_data)),
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +1,
                             LFSR_CAT_NAME(0, name, 3)),
@@ -4224,7 +4224,7 @@ code = '''
                 int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
-                            LFSR_CAT_DATA(&split_data)),
+                            LFSR_CAT_DATA_(&split_data)),
                         LFSR_ATTR(
                             LFSR_TAG_NAME, +weight,
                             LFSR_CAT_NAME(0, name, 3)),
