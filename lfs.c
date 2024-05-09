@@ -1440,6 +1440,9 @@ typedef struct lfsr_cat {
         .u.buf.size=_size, \
         .u.buf.buffer=(const void*)(_buffer)})
 
+#define LFSR_CAT_DAT(_data) \
+    (*(lfsr_cat_t*)(lfsr_data_t[1]){_data})
+
 #define LFSR_CAT_DATA_(_data) \
     ((lfsr_cat_t){ \
         .u.cat.size=LFSR_CAT_ISCAT | 1, \
@@ -1467,12 +1470,6 @@ static inline bool lfsr_cat_iscat(lfsr_cat_t cat) {
     return cat.u.size & LFSR_CAT_ISCAT;
 }
 
-static inline lfsr_data_t lfsr_cat_data(lfsr_cat_t cat) {
-    // this only works if cat is a simple buffer
-    LFS_ASSERT(lfsr_cat_isbuf(cat));
-    return LFSR_DATA_BUF(cat.u.buf.buffer, cat.u.buf.size);
-}
-
 static inline lfs_size_t lfsr_cat_count(lfsr_cat_t cat) {
     LFS_ASSERT(lfsr_cat_iscat(cat));
     return cat.u.size & ~LFSR_CAT_ISCAT;
@@ -1497,29 +1494,31 @@ static inline lfs_size_t lfsr_cat_size(lfsr_cat_t cat) {
 #define LFSR_LLEB128_DSIZE 4
 
 #define LFSR_CAT_LEB128(_word) \
-    lfsr_cat_fromleb128(_word, (uint8_t[LFSR_LEB128_DSIZE]){0})
+    LFSR_CAT_DAT( \
+        lfsr_data_fromleb128(_word, (uint8_t[LFSR_LEB128_DSIZE]){0}))
 
 #define LFSR_CAT_LLEB128(_word) \
-    lfsr_cat_fromlleb128(_word, (uint8_t[LFSR_LLEB128_DSIZE]){0})
+    LFSR_CAT_DAT( \
+        lfsr_data_fromlleb128(_word, (uint8_t[LFSR_LLEB128_DSIZE]){0}))
 
-static inline lfsr_cat_t lfsr_cat_fromleb128(uint32_t word,
+static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
         uint8_t buffer[static LFSR_LEB128_DSIZE]) {
     // leb128s should not exceed 31-bits
     LFS_ASSERT(word <= 0x7fffffff);
 
     lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
     LFS_ASSERT(d >= 0);
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
-static inline lfsr_cat_t lfsr_cat_fromlleb128(uint32_t word,
+static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
         uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
     // little-leb128s should not exceed 28-bits
     LFS_ASSERT(word <= 0x0fffffff);
 
     lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
     LFS_ASSERT(d >= 0);
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 // a bit hacky, but we really don't need the last word in our name's
@@ -1533,7 +1532,8 @@ typedef struct lfsr_data_name {
 #define LFSR_CAT_NAME(_did, _name, _name_size) \
     LFSR_CAT_DATAS_( \
         ((lfsr_data_t*)&(lfsr_data_name_t){ \
-            .did_data=lfsr_cat_data(LFSR_CAT_LEB128(_did)), \
+            .did_data=lfsr_data_fromleb128( \
+                _did, (uint8_t[LFSR_LEB128_DSIZE]){0}), \
             .name_size=_name_size, \
             .name=(const void*)(_name)}), \
         2)
@@ -1548,7 +1548,7 @@ static int lfsr_bd_progcat(lfs_t *lfs,
         uint32_t *cksum_) {
     // direct buffer?
     if (lfsr_cat_isbuf(cat)) {
-        return lfsr_bd_progdata(lfs, block, off, lfsr_cat_data(cat),
+        return lfsr_bd_prog(lfs, block, off, cat.u.buf.buffer, cat.u.buf.size,
                 cksum_);
 
     // indirect concatenated data?
@@ -1794,12 +1794,12 @@ typedef struct lfsr_ecksum {
 #define LFSR_ECKSUM_DSIZE (4+4)
 
 #define LFSR_CAT_ECKSUM_(_ecksum, _buffer) \
-    lfsr_cat_fromecksum(_ecksum, _buffer)
+    LFSR_CAT_DAT(lfsr_data_fromecksum(_ecksum, _buffer))
 
 #define LFSR_CAT_ECKSUM(_ecksum) \
     LFSR_CAT_ECKSUM_(_ecksum, (uint8_t[LFSR_ECKSUM_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_fromecksum(const lfsr_ecksum_t *ecksum,
+static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
     // you shouldn't try to encode a not-ecksum, that doesn't make sense
     LFS_ASSERT(ecksum->cksize != -1);
@@ -1814,7 +1814,7 @@ static lfsr_cat_t lfsr_cat_fromecksum(const lfsr_ecksum_t *ecksum,
     lfs_tole32_(ecksum->cksum, &buffer[d]);
     d += 4;
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
@@ -1851,12 +1851,12 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
 #define LFSR_CAT_BPTR_(_bptr, _buffer) \
-    lfsr_cat_frombptr(_bptr, _buffer)
+    LFSR_CAT_DAT(lfsr_data_frombptr(_bptr, _buffer))
 
 #define LFSR_CAT_BPTR(_bptr) \
     LFSR_CAT_BPTR_(_bptr, (uint8_t[LFSR_BPTR_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_frombptr(const lfsr_bptr_t *bptr,
+static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]) {
     // size should not exceed 28-bits
     LFS_ASSERT(lfsr_data_size(bptr->data) <= 0x0fffffff);
@@ -1889,7 +1889,7 @@ static lfsr_cat_t lfsr_cat_frombptr(const lfsr_bptr_t *bptr,
     lfs_tole32_(bptr->cksum, &buffer[d]);
     d += 4;
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
@@ -2063,12 +2063,12 @@ static inline bool lfsr_grm_isrm(const lfsr_grm_t *grm, lfsr_smid_t mid) {
 }
 
 #define LFSR_CAT_GRM_(_grm, _buffer) \
-    lfsr_cat_fromgrm(_grm, _buffer)
+    LFSR_CAT_DAT(lfsr_data_fromgrm(_grm, _buffer))
 
 #define LFSR_CAT_GRM(_grm) \
     LFSR_CAT_GRM_(_grm, (uint8_t[LFSR_GRM_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_fromgrm(const lfsr_grm_t *grm,
+static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     // make sure to zero so we don't leak any info
     memset(buffer, 0, LFSR_GRM_DSIZE);
@@ -2086,7 +2086,7 @@ static lfsr_cat_t lfsr_cat_fromgrm(const lfsr_grm_t *grm,
         d += d_;
     }
 
-    return LFSR_CAT_BUF(buffer, lfsr_gdelta_size(buffer, LFSR_GRM_DSIZE));
+    return LFSR_DATA_BUF(buffer, lfsr_gdelta_size(buffer, LFSR_GRM_DSIZE));
 }
 
 static inline void lfsr_gdelta_xorgrm(lfs_t *lfs,
@@ -2097,7 +2097,7 @@ static inline void lfsr_gdelta_xorgrm(lfs_t *lfs,
     // TODO should gdelta be handled differently?
     uint8_t buf[LFSR_GRM_DSIZE];
     int err = lfsr_gdelta_xor(lfs, gdelta, size,
-            lfsr_cat_data(lfsr_cat_fromgrm(grm, buf)));
+            lfsr_data_fromgrm(grm, buf));
     LFS_ASSERT(!err);
 }
 
@@ -4134,12 +4134,12 @@ static inline int lfsr_btree_cmp(
 #define LFSR_BRANCH_DSIZE (5+4+4)
 
 #define LFSR_CAT_BRANCH_(_branch, _buffer) \
-    lfsr_cat_frombranch(_branch, _buffer)
+    LFSR_CAT_DAT(lfsr_data_frombranch(_branch, _buffer))
 
 #define LFSR_CAT_BRANCH(_branch) \
     LFSR_CAT_BRANCH_(_branch, (uint8_t[LFSR_BRANCH_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_frombranch(const lfsr_rbyd_t *branch,
+static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
     // block should not exceed 31-bits
     LFS_ASSERT(branch->blocks[0] <= 0x7fffffff);
@@ -4158,7 +4158,7 @@ static lfsr_cat_t lfsr_cat_frombranch(const lfsr_rbyd_t *branch,
     lfs_tole32_(branch->cksum, &buffer[d]);
     d += 4;
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
@@ -4207,12 +4207,12 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
 #define LFSR_CAT_BTREE_(_btree, _buffer) \
-    lfsr_cat_frombtree(_btree, _buffer)
+    LFSR_CAT_DAT(lfsr_data_frombtree(_btree, _buffer))
 
 #define LFSR_CAT_BTREE(_btree) \
     LFSR_CAT_BTREE_(_btree, (uint8_t[LFSR_BTREE_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_frombtree(const lfsr_btree_t *btree,
+static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]) {
     // weight should not exceed 31-bits
     LFS_ASSERT(btree->weight <= 0x7fffffff);
@@ -4222,10 +4222,10 @@ static lfsr_cat_t lfsr_cat_frombtree(const lfsr_btree_t *btree,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    lfsr_cat_t cat = lfsr_cat_frombranch(btree, &buffer[d]);
-    d += lfsr_cat_size(cat);
+    lfsr_data_t data = lfsr_data_frombranch(btree, &buffer[d]);
+    d += lfsr_data_size(data);
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
@@ -5278,12 +5278,12 @@ static inline int lfsr_shrub_cmp(
 #define LFSR_SHRUB_DSIZE (5+4)
 
 #define LFSR_CAT_SHRUB_(_rbyd, _buffer) \
-    lfsr_cat_fromshrub(_rbyd, _buffer)
+    LFSR_CAT_DAT(lfsr_data_fromshrub(_rbyd, _buffer))
 
 #define LFSR_CAT_SHRUB(_rbyd) \
     LFSR_CAT_SHRUB_(_rbyd, (uint8_t[LFSR_SHRUB_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_fromshrub(const lfsr_shrub_t *shrub,
+static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
     // shrub trunks should never be null
     LFS_ASSERT(lfsr_shrub_trunk(shrub) != 0);
@@ -5303,7 +5303,7 @@ static lfsr_cat_t lfsr_cat_fromshrub(const lfsr_shrub_t *shrub,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
@@ -5483,12 +5483,12 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
 #define LFSR_MPTR_DSIZE (5+5)
 
 #define LFSR_CAT_MPTR_(_mptr, _buffer) \
-    lfsr_cat_frommptr(_mptr, _buffer)
+    LFSR_CAT_DAT(lfsr_data_frommptr(_mptr, _buffer))
 
 #define LFSR_CAT_MPTR(_mptr) \
     LFSR_CAT_MPTR_(_mptr, (uint8_t[LFSR_MPTR_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_frommptr(const lfsr_mptr_t *mptr,
+static lfsr_data_t lfsr_data_frommptr(const lfsr_mptr_t *mptr,
         uint8_t buffer[static LFSR_MPTR_DSIZE]) {
     // blocks should not exceed 31-bits
     LFS_ASSERT(mptr->blocks[0] <= 0x7fffffff);
@@ -5501,7 +5501,7 @@ static lfsr_cat_t lfsr_cat_frommptr(const lfsr_mptr_t *mptr,
         d += d_;
     }
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
@@ -7049,7 +7049,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->grm = *lfsr_attr_grm(&attrs[i]);
 
             // keep track of the exact encoding on-disk
-            lfsr_cat_fromgrm(&lfs->grm, lfs->grm_g);
+            lfsr_data_fromgrm(&lfs->grm, lfs->grm_g);
         }
 
         // adjust any opened mdirs
@@ -8075,12 +8075,12 @@ typedef struct lfsr_geometry {
 #define LFSR_GEOMETRY_DSIZE (4+5)
 
 #define LFSR_CAT_GEOMETRY_(_geometry, _buffer) \
-    lfsr_cat_fromgeometry(_geometry, _buffer)
+    LFSR_CAT_DAT(lfsr_data_fromgeometry(_geometry, _buffer))
 
 #define LFSR_CAT_GEOMETRY(_geometry) \
     LFSR_CAT_GEOMETRY_(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
 
-static lfsr_cat_t lfsr_cat_fromgeometry(const lfsr_geometry_t *geometry,
+static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
         uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(geometry->block_size-1, &buffer[d], 4);
@@ -8091,7 +8091,7 @@ static lfsr_cat_t lfsr_cat_fromgeometry(const lfsr_geometry_t *geometry,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
-    return LFSR_CAT_BUF(buffer, d);
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 static int lfsr_data_readgeometry(lfs_t *lfs, lfsr_data_t *data,
