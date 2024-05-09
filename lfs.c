@@ -1463,10 +1463,9 @@ static inline lfsr_cat_t lfsr_data_cat(lfsr_data_t data) {
     // only simple data can be converted directly to cats
     LFS_ASSERT(lfsr_data_isbuf(data));
     LFS_ASSERT(lfsr_data_size(data) <= 0x7fff);
-    lfsr_cat_t cat;
-    cat.u.buf.size = data.u.buf.size;
-    cat.u.buf.buffer = data.u.buf.buffer;
-    return cat;
+    return (lfsr_cat_t){
+        .u.buf.size=data.u.buf.size,
+        .u.buf.buffer=data.u.buf.buffer};
 }
 
 // cat helpers
@@ -1595,13 +1594,11 @@ typedef struct lfsr_attr {
 
 static inline lfsr_attr_t lfsr_attr(
         lfsr_tag_t tag, lfsr_srid_t delta, lfsr_cat_t cat) {
-    // don't use a compound literal here, GCC hates it
-    lfsr_attr_t attr;
-    attr.tag = tag;
-    attr.size = cat.u.cat.size;
-    attr.delta = delta;
-    attr.u.datas = cat.u.cat.datas;
-    return attr;
+    return (lfsr_attr_t){
+        .tag=tag,
+        .size=cat.u.cat.size,
+        .delta=delta,
+        .u.datas=cat.u.cat.datas};
 }
 
 #define LFSR_ATTR_NOOP() \
