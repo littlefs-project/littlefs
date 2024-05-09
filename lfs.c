@@ -1440,9 +1440,6 @@ typedef struct lfsr_cat {
         .u.buf.size=_size, \
         .u.buf.buffer=(const void*)(_buffer)})
 
-#define LFSR_CAT_DAT(_data) \
-    (*(lfsr_cat_t*)(lfsr_data_t[1]){_data})
-
 #define LFSR_CAT_DATA_(_data) \
     ((lfsr_cat_t){ \
         .u.cat.size=LFSR_CAT_ISCAT | 1, \
@@ -1460,6 +1457,17 @@ typedef struct lfsr_cat {
     LFSR_CAT_DATAS_( \
         (const lfsr_data_t[]){__VA_ARGS__}, \
         sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
+
+// data can be converted straight to a cat sometimes
+static inline lfsr_cat_t lfsr_data_cat(lfsr_data_t data) {
+    // only simple data can be converted directly to cats
+    LFS_ASSERT(lfsr_data_isbuf(data));
+    LFS_ASSERT(lfsr_data_size(data) <= 0x7fff);
+    lfsr_cat_t cat;
+    cat.u.buf.size = data.u.buf.size;
+    cat.u.buf.buffer = data.u.buf.buffer;
+    return cat;
+}
 
 // cat helpers
 static inline bool lfsr_cat_isbuf(lfsr_cat_t cat) {
@@ -1494,11 +1502,11 @@ static inline lfs_size_t lfsr_cat_size(lfsr_cat_t cat) {
 #define LFSR_LLEB128_DSIZE 4
 
 #define LFSR_CAT_LEB128(_word) \
-    LFSR_CAT_DAT( \
+    lfsr_data_cat( \
         lfsr_data_fromleb128(_word, (uint8_t[LFSR_LEB128_DSIZE]){0}))
 
 #define LFSR_CAT_LLEB128(_word) \
-    LFSR_CAT_DAT( \
+    lfsr_data_cat( \
         lfsr_data_fromlleb128(_word, (uint8_t[LFSR_LLEB128_DSIZE]){0}))
 
 static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
@@ -1822,7 +1830,7 @@ typedef struct lfsr_ecksum {
 #define LFSR_ECKSUM_DSIZE (4+4)
 
 #define LFSR_CAT_ECKSUM_(_ecksum, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_fromecksum(_ecksum, _buffer))
+    lfsr_data_cat(lfsr_data_fromecksum(_ecksum, _buffer))
 
 #define LFSR_CAT_ECKSUM(_ecksum) \
     LFSR_CAT_ECKSUM_(_ecksum, (uint8_t[LFSR_ECKSUM_DSIZE]){0})
@@ -1879,7 +1887,7 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
 #define LFSR_CAT_BPTR_(_bptr, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_frombptr(_bptr, _buffer))
+    lfsr_data_cat(lfsr_data_frombptr(_bptr, _buffer))
 
 #define LFSR_CAT_BPTR(_bptr) \
     LFSR_CAT_BPTR_(_bptr, (uint8_t[LFSR_BPTR_DSIZE]){0})
@@ -2091,7 +2099,7 @@ static inline bool lfsr_grm_isrm(const lfsr_grm_t *grm, lfsr_smid_t mid) {
 }
 
 #define LFSR_CAT_GRM_(_grm, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_fromgrm(_grm, _buffer))
+    lfsr_data_cat(lfsr_data_fromgrm(_grm, _buffer))
 
 #define LFSR_CAT_GRM(_grm) \
     LFSR_CAT_GRM_(_grm, (uint8_t[LFSR_GRM_DSIZE]){0})
@@ -4162,7 +4170,7 @@ static inline int lfsr_btree_cmp(
 #define LFSR_BRANCH_DSIZE (5+4+4)
 
 #define LFSR_CAT_BRANCH_(_branch, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_frombranch(_branch, _buffer))
+    lfsr_data_cat(lfsr_data_frombranch(_branch, _buffer))
 
 #define LFSR_CAT_BRANCH(_branch) \
     LFSR_CAT_BRANCH_(_branch, (uint8_t[LFSR_BRANCH_DSIZE]){0})
@@ -4235,7 +4243,7 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
 #define LFSR_CAT_BTREE_(_btree, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_frombtree(_btree, _buffer))
+    lfsr_data_cat(lfsr_data_frombtree(_btree, _buffer))
 
 #define LFSR_CAT_BTREE(_btree) \
     LFSR_CAT_BTREE_(_btree, (uint8_t[LFSR_BTREE_DSIZE]){0})
@@ -5306,7 +5314,7 @@ static inline int lfsr_shrub_cmp(
 #define LFSR_SHRUB_DSIZE (5+4)
 
 #define LFSR_CAT_SHRUB_(_rbyd, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_fromshrub(_rbyd, _buffer))
+    lfsr_data_cat(lfsr_data_fromshrub(_rbyd, _buffer))
 
 #define LFSR_CAT_SHRUB(_rbyd) \
     LFSR_CAT_SHRUB_(_rbyd, (uint8_t[LFSR_SHRUB_DSIZE]){0})
@@ -5511,7 +5519,7 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
 #define LFSR_MPTR_DSIZE (5+5)
 
 #define LFSR_CAT_MPTR_(_mptr, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_frommptr(_mptr, _buffer))
+    lfsr_data_cat(lfsr_data_frommptr(_mptr, _buffer))
 
 #define LFSR_CAT_MPTR(_mptr) \
     LFSR_CAT_MPTR_(_mptr, (uint8_t[LFSR_MPTR_DSIZE]){0})
@@ -8105,7 +8113,7 @@ typedef struct lfsr_geometry {
 #define LFSR_GEOMETRY_DSIZE (4+5)
 
 #define LFSR_CAT_GEOMETRY_(_geometry, _buffer) \
-    LFSR_CAT_DAT(lfsr_data_fromgeometry(_geometry, _buffer))
+    lfsr_data_cat(lfsr_data_fromgeometry(_geometry, _buffer))
 
 #define LFSR_CAT_GEOMETRY(_geometry) \
     LFSR_CAT_GEOMETRY_(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
