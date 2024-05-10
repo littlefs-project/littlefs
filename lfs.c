@@ -1172,31 +1172,31 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 #define LFSR_DATA_NULL() \
     ((lfsr_data_t){ \
-        .u.buf.size=0, \
-        .u.buf.buffer=NULL})
+        .size=0, \
+        .u.buffer=NULL})
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
     ((lfsr_data_t){ \
-        .u.disk.size=LFSR_DATA_ONDISK | (_size), \
+        .size=LFSR_DATA_ONDISK | (_size), \
         .u.disk.block=_block, \
         .u.disk.off=_off})
 
 #define LFSR_DATA_BUF(_buffer, _size) \
     ((lfsr_data_t){ \
-        .u.buf.size=_size, \
-        .u.buf.buffer=(const void*)(_buffer)})
+        .size=_size, \
+        .u.buffer=(const void*)(_buffer)})
 
 // data helpers
 static inline bool lfsr_data_ondisk(lfsr_data_t data) {
-    return data.u.size & LFSR_DATA_ONDISK;
+    return data.size & LFSR_DATA_ONDISK;
 }
 
 static inline bool lfsr_data_isbuf(lfsr_data_t data) {
-    return !(data.u.size & LFSR_DATA_ONDISK);
+    return !(data.size & LFSR_DATA_ONDISK);
 }
 
 static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
-    return data.u.size & ~LFSR_DATA_ONDISK;
+    return data.size & ~LFSR_DATA_ONDISK;
 }
 
 static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
@@ -1213,12 +1213,12 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
     // on-disk?
     if (lfsr_data_ondisk(data)) {
         data.u.disk.off += off_;
-        data.u.disk.size = LFSR_DATA_ONDISK | size_;
+        data.size = LFSR_DATA_ONDISK | size_;
 
     // buffer?
     } else {
-        data.u.buf.buffer += off_;
-        data.u.buf.size = size_;
+        data.u.buffer += off_;
+        data.size = size_;
     }
 
     return data;
@@ -1260,7 +1260,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
 
     // buffer?
     } else {
-        memcpy(buffer, data->u.buf.buffer, d);
+        memcpy(buffer, data->u.buffer, d);
     }
 
     *data = lfsr_data_slice(*data, d, -1);
@@ -1345,7 +1345,7 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
 
     // buffer?
     } else {
-        int cmp = memcmp(data.u.buf.buffer, buffer, d);
+        int cmp = memcmp(data.u.buffer, buffer, d);
         if (cmp < 0) {
             return LFS_CMP_LT;
         } else if (cmp > 0) {
@@ -1399,7 +1399,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
     // buffer?
     } else {
         int err = lfsr_bd_prog(lfs, block, off,
-                data.u.buf.buffer, data.u.buf.size,
+                data.u.buffer, data.size,
                 cksum_);
         if (err) {
             return err;
@@ -1415,16 +1415,10 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 typedef struct lfsr_cat {
     // sign(size)=0 => single in-RAM buffer
     // sign(size)=1 => multiple concatenated datas
+    uint16_t size;
     union {
-        uint16_t size;
-        struct {
-            uint16_t size;
-            const uint8_t *buffer;
-        } buf;
-        struct {
-            uint16_t size;
-            const lfsr_data_t *datas;
-        } cat;
+        const uint8_t *buffer;
+        const lfsr_data_t *datas;
     } u;
 } lfsr_cat_t;
 
@@ -1432,26 +1426,26 @@ typedef struct lfsr_cat {
 
 #define LFSR_CAT_NULL() \
     ((lfsr_cat_t){ \
-        .u.buf.size=0, \
-        .u.buf.buffer=NULL})
+        .size=0, \
+        .u.buffer=NULL})
 
 #define LFSR_CAT_BUF(_buffer, _size) \
     ((lfsr_cat_t){ \
-        .u.buf.size=_size, \
-        .u.buf.buffer=(const void*)(_buffer)})
+        .size=_size, \
+        .u.buffer=(const void*)(_buffer)})
 
 #define LFSR_CAT_DATA_(_data) \
     ((lfsr_cat_t){ \
-        .u.cat.size=LFSR_CAT_ISCAT | 1, \
-        .u.cat.datas=_data})
+        .size=LFSR_CAT_ISCAT | 1, \
+        .u.datas=_data})
 
 #define LFSR_CAT_DATA(_data) \
     LFSR_CAT_DATA_((const lfsr_data_t[1]){_data})
 
 #define LFSR_CAT_DATAS_(_datas, _count) \
     ((lfsr_cat_t){ \
-        .u.cat.size=LFSR_CAT_ISCAT | (_count), \
-        .u.cat.datas=_datas})
+        .size=LFSR_CAT_ISCAT | (_count), \
+        .u.datas=_datas})
 
 #define LFSR_CAT_DATAS(...) \
     LFSR_CAT_DATAS_( \
@@ -1464,33 +1458,33 @@ static inline lfsr_cat_t lfsr_data_cat(lfsr_data_t data) {
     LFS_ASSERT(lfsr_data_isbuf(data));
     LFS_ASSERT(lfsr_data_size(data) <= 0x7fff);
     return (lfsr_cat_t){
-        .u.buf.size=data.u.buf.size,
-        .u.buf.buffer=data.u.buf.buffer};
+        .size=data.size,
+        .u.buffer=data.u.buffer};
 }
 
 // cat helpers
 static inline bool lfsr_cat_isbuf(lfsr_cat_t cat) {
-    return !(cat.u.size & LFSR_CAT_ISCAT);
+    return !(cat.size & LFSR_CAT_ISCAT);
 }
 
 static inline bool lfsr_cat_iscat(lfsr_cat_t cat) {
-    return cat.u.size & LFSR_CAT_ISCAT;
+    return cat.size & LFSR_CAT_ISCAT;
 }
 
 static inline lfs_size_t lfsr_cat_count(lfsr_cat_t cat) {
     LFS_ASSERT(lfsr_cat_iscat(cat));
-    return cat.u.size & ~LFSR_CAT_ISCAT;
+    return cat.size & ~LFSR_CAT_ISCAT;
 }
 
 static inline lfs_size_t lfsr_cat_size(lfsr_cat_t cat) {
     // this gets a bit complicated for concatenated data
     if (lfsr_cat_isbuf(cat)) {
-        return cat.u.size;
+        return cat.size;
     } else {
         lfs_size_t count = lfsr_cat_count(cat);
         lfs_size_t size = 0;
         for (lfs_size_t i = 0; i < count; i++) {
-            size += lfsr_data_size(cat.u.cat.datas[i]);
+            size += lfsr_data_size(cat.u.datas[i]);
         }
         return size;
     }
@@ -1555,20 +1549,20 @@ static int lfsr_bd_progcat(lfs_t *lfs,
         uint32_t *cksum_) {
     // direct buffer?
     if (lfsr_cat_isbuf(cat)) {
-        return lfsr_bd_prog(lfs, block, off, cat.u.buf.buffer, cat.u.buf.size,
+        return lfsr_bd_prog(lfs, block, off, cat.u.buffer, cat.size,
                 cksum_);
 
     // indirect concatenated data?
     } else {
         lfs_size_t count = lfsr_cat_count(cat);
         for (lfs_size_t i = 0; i < count; i++) {
-            int err = lfsr_bd_progdata(lfs, block, off, cat.u.cat.datas[i],
+            int err = lfsr_bd_progdata(lfs, block, off, cat.u.datas[i],
                     cksum_);
             if (err) {
                 return err;
             }
 
-            off += lfsr_data_size(cat.u.cat.datas[i]);
+            off += lfsr_data_size(cat.u.datas[i]);
         }
         return 0;
     }
@@ -1596,9 +1590,9 @@ static inline lfsr_attr_t lfsr_attr(
         lfsr_tag_t tag, lfsr_srid_t delta, lfsr_cat_t cat) {
     return (lfsr_attr_t){
         .tag=tag,
-        .size=cat.u.cat.size,
+        .size=cat.size,
         .delta=delta,
-        .u.datas=cat.u.cat.datas};
+        .u.datas=cat.u.datas};
 }
 
 #define LFSR_ATTR_NOOP() \
@@ -1656,8 +1650,8 @@ static inline bool lfsr_attr_isinsert(lfsr_attr_t attr) {
 
 static inline lfsr_cat_t lfsr_attr_cat(lfsr_attr_t attr) {
     return (lfsr_cat_t){
-        .u.cat.size=attr.size,
-        .u.cat.datas=attr.u.datas};
+        .size=attr.size,
+        .u.datas=attr.u.datas};
 }
 
 static inline lfs_size_t lfsr_attr_size(lfsr_attr_t attr) {
@@ -1926,7 +1920,7 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
 static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         lfsr_bptr_t *bptr) {
     // read the block, offset, size
-    int err = lfsr_data_readlleb128(lfs, data, &bptr->data.u.disk.size);
+    int err = lfsr_data_readlleb128(lfs, data, &bptr->data.size);
     if (err) {
         return err;
     }
@@ -1954,7 +1948,7 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
 
     // all bptrs have this flag set, this is used to differentiate
     // bptrs from btrees in files
-    bptr->data.u.disk.size |= LFSR_DATA_ONDISK;
+    bptr->data.size |= LFSR_DATA_ONDISK;
     return 0;
 }
 

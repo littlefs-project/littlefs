@@ -397,17 +397,13 @@ typedef struct lfs_mdir {
 typedef struct lfsr_data {
     // sign(size)=0 => in-RAM buffer
     // sign(size)=1 => on-disk reference
+    lfs_size_t size;
     union {
-        lfs_size_t size;
         struct {
-            lfs_size_t size;
             lfs_block_t block;
             lfs_size_t off;
         } disk;
-        struct {
-            lfs_size_t size;
-            const uint8_t *buffer;
-        } buf;
+        const uint8_t *buffer;
     } u;
 } lfsr_data_t;
 
