@@ -1415,7 +1415,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 #define LFSR_LEB128_DSIZE  5
 
 #define LFSR_DATA_LEB128_(_word, _buffer) \
-    lfsr_data_fromleb128(_word, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_fromleb128(_word, _buffer)})
 
 #define LFSR_DATA_LEB128(_word) \
     LFSR_DATA_LEB128_(_word, (uint8_t[LFSR_LEB128_DSIZE]){0})
@@ -1433,7 +1433,7 @@ static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
 #define LFSR_LLEB128_DSIZE 4
 
 #define LFSR_DATA_LLEB128_(_word, _buffer) \
-    lfsr_data_fromlleb128(_word, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_fromlleb128(_word, _buffer)})
 
 #define LFSR_DATA_LLEB128(_word) \
     LFSR_DATA_LLEB128_(_word, (uint8_t[LFSR_LLEB128_DSIZE]){0})
@@ -1472,7 +1472,7 @@ typedef struct lfsr_attr {
         .cat=_cat})
 
 #define LFSR_ATTR(_tag, _delta, _data) \
-    lfsr_attr(_tag, _delta, *(lfsr_data_t[1]){_data})
+    (*(lfsr_attr_t[1]){lfsr_attr(_tag, _delta, _data)})
 
 static inline lfsr_attr_t lfsr_attr(
         lfsr_tag_t tag, lfsr_srid_t delta, lfsr_data_t data) {
@@ -1776,7 +1776,7 @@ typedef struct lfsr_ecksum {
 #define LFSR_ECKSUM_DSIZE (4+4)
 
 #define LFSR_DATA_ECKSUM_(_ecksum, _buffer) \
-    lfsr_data_fromecksum(_ecksum, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_fromecksum(_ecksum, _buffer)})
 
 #define LFSR_DATA_ECKSUM(_ecksum) \
     LFSR_DATA_ECKSUM_(_ecksum, (uint8_t[LFSR_ECKSUM_DSIZE]){0})
@@ -1833,7 +1833,7 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
 #define LFSR_DATA_BPTR_(_bptr, _buffer) \
-    lfsr_data_frombptr(_bptr, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_frombptr(_bptr, _buffer)})
 
 #define LFSR_DATA_BPTR(_bptr) \
     LFSR_DATA_BPTR_(_bptr, (uint8_t[LFSR_BPTR_DSIZE]){0})
@@ -2045,7 +2045,7 @@ static inline bool lfsr_grm_isrm(const lfsr_grm_t *grm, lfsr_smid_t mid) {
 }
 
 #define LFSR_DATA_GRM_(_grm, _buffer) \
-    lfsr_data_fromgrm(_grm, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_fromgrm(_grm, _buffer)})
 
 #define LFSR_DATA_GRM(_grm) \
     LFSR_DATA_GRM_(_grm, (uint8_t[LFSR_GRM_DSIZE]){0})
@@ -4120,7 +4120,7 @@ static inline int lfsr_btree_cmp(
 #define LFSR_BRANCH_DSIZE (5+4+4)
 
 #define LFSR_DATA_BRANCH_(_branch, _buffer) \
-    lfsr_data_frombranch(_branch, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_frombranch(_branch, _buffer)})
 
 #define LFSR_DATA_BRANCH(_branch) \
     LFSR_DATA_BRANCH_(_branch, (uint8_t[LFSR_BRANCH_DSIZE]){0})
@@ -4193,7 +4193,7 @@ static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
 
 #define LFSR_DATA_BTREE_(_btree, _buffer) \
-    lfsr_data_frombtree(_btree, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_frombtree(_btree, _buffer)})
 
 #define LFSR_DATA_BTREE(_btree) \
     LFSR_DATA_BTREE_(_btree, (uint8_t[LFSR_BTREE_DSIZE]){0})
@@ -5264,7 +5264,7 @@ static inline int lfsr_shrub_cmp(
 #define LFSR_SHRUB_DSIZE (5+4)
 
 #define LFSR_DATA_SHRUB_(_rbyd, _buffer) \
-    lfsr_data_fromshrub(_rbyd, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_fromshrub(_rbyd, _buffer)})
 
 #define LFSR_DATA_SHRUB(_rbyd) \
     LFSR_DATA_SHRUB_(_rbyd, (uint8_t[LFSR_SHRUB_DSIZE]){0})
@@ -5469,7 +5469,7 @@ static inline bool lfsr_mptr_ismrootanchor(const lfsr_mptr_t *mptr) {
 #define LFSR_MPTR_DSIZE (5+5)
 
 #define LFSR_DATA_MPTR_(_mptr, _buffer) \
-    lfsr_data_frommptr(_mptr, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_frommptr(_mptr, _buffer)})
 
 #define LFSR_DATA_MPTR(_mptr) \
     LFSR_DATA_MPTR_(_mptr, (uint8_t[LFSR_MPTR_DSIZE]){0})
@@ -8064,7 +8064,7 @@ typedef struct lfsr_geometry {
 #define LFSR_GEOMETRY_DSIZE (4+5)
 
 #define LFSR_DATA_GEOMETRY_(_geometry, _buffer) \
-    lfsr_data_fromgeometry(_geometry, _buffer)
+    (*(lfsr_data_t[1]){lfsr_data_fromgeometry(_geometry, _buffer)})
 
 #define LFSR_DATA_GEOMETRY(_geometry) \
     LFSR_DATA_GEOMETRY_(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
