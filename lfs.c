@@ -1574,7 +1574,9 @@ static int lfsr_bd_progcat(lfs_t *lfs,
 
 // other attr helpers
 static inline bool lfsr_attr_isnoop(lfsr_attr_t attr) {
-    return !attr.tag && attr.delta == 0;
+    // noop attrs must have zero delta
+    LFS_ASSERT(attr.tag || attr.delta == 0);
+    return !attr.tag;
 }
 
 static inline bool lfsr_attr_isinsert(lfsr_attr_t attr) {
@@ -2855,8 +2857,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(attr.delta >= -(lfsr_srid_t)rbyd->weight);
 
     // ignore noops
-    if (!attr.tag) {
-        LFS_ASSERT(attr.delta == 0);
+    if (lfsr_attr_isnoop(attr)) {
         return 0;
     }
 
