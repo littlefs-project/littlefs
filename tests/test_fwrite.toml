@@ -29,8 +29,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -135,8 +135,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -313,8 +313,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -495,7 +495,7 @@ defines.TO = [
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
-    # these just save testing time
+    # this just saves testing time
     'FROM / FRAGMENT_SIZE <= 4096',
     'TO / FRAGMENT_SIZE <= 4096',
 ]
@@ -617,7 +617,7 @@ defines.TO = [
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
-    # these just save testing time
+    # this just saves testing time
     'FROM / FRAGMENT_SIZE <= 4096',
     'AND / FRAGMENT_SIZE <= 4096',
     'TO / FRAGMENT_SIZE <= 4096',
@@ -749,7 +749,7 @@ defines.TO = [
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
-    # these just save testing time
+    # this just saves testing time
     'FROM / FRAGMENT_SIZE <= 4096',
     'TO / FRAGMENT_SIZE <= 4096',
 ]
@@ -875,7 +875,7 @@ defines.TO = [
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
-    # these just save testing time
+    # this just saves testing time
     'FROM / FRAGMENT_SIZE <= 4096',
     'AND / FRAGMENT_SIZE <= 4096',
     'TO / FRAGMENT_SIZE <= 4096',
@@ -1011,8 +1011,10 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
 ]
 code = '''
     lfs_t lfs;
@@ -1147,8 +1149,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -1334,8 +1336,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -1520,8 +1522,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -1661,8 +1663,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -1804,8 +1806,8 @@ defines.SIZE = [
 defines.CHUNK = [32, 8]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -1887,8 +1889,8 @@ defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -2027,8 +2029,8 @@ defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -2186,8 +2188,8 @@ defines.SIZE = [
 defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS_O_RDONLY', 'LFS_O_WRONLY', 'LFS_O_RDWR']
 if = [
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;
@@ -2291,8 +2293,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
-    # this just save testing time
-    'SIZE / FRAGMENT_SIZE <= 4096',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
 code = '''
     lfs_t lfs;

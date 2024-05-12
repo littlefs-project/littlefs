@@ -1496,7 +1496,7 @@ defines.PARENT = [false, true]
 # SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 32'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -1631,7 +1631,7 @@ defines.PARENT = [0, 1, 2]
 # SEEK=2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 32'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test

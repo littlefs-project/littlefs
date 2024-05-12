@@ -534,7 +534,7 @@ code = '''
 
 [cases.test_fsync_rrrr_fuzz]
 defines.R = 4
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -687,7 +687,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -873,7 +873,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -1066,7 +1066,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -1279,7 +1279,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -1391,7 +1391,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -1525,7 +1525,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2426,7 +2426,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2619,7 +2619,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2827,7 +2827,7 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -2944,7 +2944,7 @@ defines.RW = 4
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'CACHE_SIZE/2',
@@ -3093,7 +3093,7 @@ defines.RW = 4
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'CACHE_SIZE/2',

@@ -772,7 +772,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
@@ -1122,7 +1122,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
@@ -2058,7 +2058,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
@@ -2252,7 +2252,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;

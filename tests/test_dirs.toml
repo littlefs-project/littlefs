@@ -742,7 +742,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 32'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -825,7 +825,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 32'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -1280,9 +1280,9 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 64'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -3283,7 +3283,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PLS || N <= 32',
+    '!TEST_PLS || N <= 16',
 ]
 reentrant = true
 code = '''
@@ -3406,7 +3406,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PLS || N <= 32',
+    '!TEST_PLS || N <= 16',
 ]
 reentrant = true
 code = '''
@@ -4203,9 +4203,9 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 64'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -5735,7 +5735,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 32'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -5858,7 +5858,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 32'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -6671,9 +6671,9 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 64'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -6816,9 +6816,9 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
-defines.SEED = 'range(10)'
+defines.SEED = 'range(20)'
 # limit powerloss testing due to time
-if = '!TEST_PLS || N <= 64'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
