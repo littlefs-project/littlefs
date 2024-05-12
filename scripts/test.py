@@ -972,6 +972,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
         last_id = None
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
+        last_time = time.time()
         try:
             while True:
                 # parse a line for state changes
@@ -999,6 +1000,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                         last_id = m.group('id')
                         last_stdout.clear()
                         last_assert = None
+                        last_time = time.time()
                     elif op == 'powerloss':
                         last_id = m.group('id')
                         powerlosses += 1
@@ -1020,8 +1022,10 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                             output_.writerow({
                                 'suite': suite,
                                 'case': case,
+                                **defines,
                                 'test_passed': '1/1',
-                                **defines})
+                                'test_time': '%.6f' % (
+                                    time.time() - last_time)})
                     elif op == 'skipped':
                         locals.seen_perms += 1
                     elif op == 'assert':
@@ -1215,7 +1219,7 @@ def run(runner, test_ids=[], **args):
     if args.get('output'):
         output = TestOutput(args['output'],
             ['suite', 'case'],
-            ['test_passed'])
+            ['test_passed', 'test_time'])
 
     # measure runtime
     start = time.time()
