@@ -350,22 +350,32 @@ def infer(fields_, results,
     def __new__(cls, **r):
         return cls.__mro__[1].__new__(cls,
             **{k: r.get(k, '') for k in by},
-            **{k: r[k] if k in r and isinstance(r[k], list)
-                else [types[k](r[k])] if k in r
-                else []
+            **{k: r[k] if k in r and isinstance(r[k], tuple)
+                else ([types[k](r[k])], 1) if k in r
+                else ([], 0)
                 for k in fields})
 
     def __add__(self, other):
+        # reuse lists if possible
+        def extend(a, b):
+            if len(a[0]) == a[1]:
+                a[0].extend(b[0][:b[1]])
+                return (a[0], a[1] + b[1])
+            else:
+                return (a[0][:a[1]] + b[0][:b[1]], a[1] + b[1])
+
         return self.__class__(
             **{k: getattr(self, k) for k in by},
-            **{k: object.__getattribute__(self, k)
-                + object.__getattribute__(other, k)
+            **{k: extend(
+                    object.__getattribute__(self, k),
+                    object.__getattribute__(other, k))
                 for k in fields})
 
     def __getattribute__(self, k):
         if k in fields:
-            if object.__getattribute__(self, k):
-                return ops.get(k, OPS['sum'])(object.__getattribute__(self, k))
+            v = object.__getattribute__(self, k)
+            if v[1]:
+                return ops.get(k, OPS['sum'])(v[0][:v[1]])
             else:
                 return None
         return object.__getattribute__(self, k)
