@@ -29,10 +29,10 @@ GCOV_PATH = ['gcov']
 
 
 # integer fields
-class Int(co.namedtuple('Int', 'x')):
+class RInt(co.namedtuple('RInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, Int):
+        if isinstance(x, RInt):
             return x
         if isinstance(x, str):
             try:
@@ -104,16 +104,16 @@ class Int(co.namedtuple('Int', 'x')):
         return self.__class__(self.x * other.x)
 
 # fractional fields, a/b
-class Frac(co.namedtuple('Frac', 'a,b')):
+class RFrac(co.namedtuple('RFrac', 'a,b')):
     __slots__ = ()
     def __new__(cls, a=0, b=None):
-        if isinstance(a, Frac) and b is None:
+        if isinstance(a, RFrac) and b is None:
             return a
         if isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
         if b is None:
             b = a
-        return super().__new__(cls, Int(a), Int(b))
+        return super().__new__(cls, RInt(a), RInt(b))
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
@@ -132,15 +132,15 @@ class Frac(co.namedtuple('Frac', 'a,b')):
             else '%.1f%%' % (100*t)]
 
     def diff(self, other):
-        new_a, new_b = self if self else (Int(0), Int(0))
-        old_a, old_b = other if other else (Int(0), Int(0))
+        new_a, new_b = self if self else (RInt(0), RInt(0))
+        old_a, old_b = other if other else (RInt(0), RInt(0))
         return '%11s' % ('%s/%s' % (
             new_a.diff(old_a).strip(),
             new_b.diff(old_b).strip()))
 
     def ratio(self, other):
-        new_a, new_b = self if self else (Int(0), Int(0))
-        old_a, old_b = other if other else (Int(0), Int(0))
+        new_a, new_b = self if self else (RInt(0), RInt(0))
+        old_a, old_b = other if other else (RInt(0), RInt(0))
         new = new_a.x/new_b.x if new_b.x else 1.0
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
@@ -176,14 +176,15 @@ class CovResult(co.namedtuple('CovResult', [
     _fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
     _sort = ['funcs', 'lines', 'branches', 'hits', 'calls']
     _types = {
-        'calls': Int, 'hits': Int,
-        'funcs': Frac, 'lines': Frac, 'branches': Frac}
+        'calls': RInt, 'hits': RInt,
+        'funcs': RFrac, 'lines': RFrac, 'branches': RFrac}
 
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
             calls=0, hits=0, funcs=0, lines=0, branches=0):
-        return super().__new__(cls, file, function, int(Int(line)),
-            Int(calls), Int(hits), Frac(funcs), Frac(lines), Frac(branches))
+        return super().__new__(cls, file, function, int(RInt(line)),
+            RInt(calls), RInt(hits),
+            RFrac(funcs), RFrac(lines), RFrac(branches))
 
     def __add__(self, other):
         return CovResult(self.file, self.function, self.line,
@@ -265,7 +266,7 @@ def collect(gcda_paths, *,
                 results.append(CovResult(
                     file_name, func_name, func['start_line'],
                     func['execution_count'], 0,
-                    Frac(1 if func['execution_count'] > 0 else 0, 1),
+                    RFrac(1 if func['execution_count'] > 0 else 0, 1),
                     0,
                     0))
 
@@ -282,8 +283,8 @@ def collect(gcda_paths, *,
                     file_name, func_name, line['line_number'],
                     0, line['count'],
                     0,
-                    Frac(1 if line['count'] > 0 else 0, 1),
-                    Frac(
+                    RFrac(1 if line['count'] > 0 else 0, 1),
+                    RFrac(
                         sum(1 if branch['count'] > 0 else 0
                             for branch in line['branches']),
                         len(line['branches']))))

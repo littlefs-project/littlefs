@@ -38,10 +38,10 @@ THRESHOLD = (0.5, 0.85)
 
 
 # integer fields
-class Int(co.namedtuple('Int', 'x')):
+class RInt(co.namedtuple('RInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, Int):
+        if isinstance(x, RInt):
             return x
         if isinstance(x, str):
             try:
@@ -121,16 +121,18 @@ class PerfResult(co.namedtuple('PerfResult', [
     _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
     _sort = ['cycles', 'bmisses', 'cmisses', 'branches', 'caches']
     _types = {
-        'cycles': Int,
-        'bmisses': Int, 'branches': Int,
-        'cmisses': Int, 'caches': Int}
+        'cycles': RInt,
+        'bmisses': RInt, 'branches': RInt,
+        'cmisses': RInt, 'caches': RInt}
 
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
             cycles=0, bmisses=0, branches=0, cmisses=0, caches=0,
             children=[]):
-        return super().__new__(cls, file, function, int(Int(line)),
-            Int(cycles), Int(bmisses), Int(branches), Int(cmisses), Int(caches),
+        return super().__new__(cls, file, function, int(RInt(line)),
+            RInt(cycles),
+            RInt(bmisses), RInt(branches),
+            RInt(cmisses), RInt(caches),
             children)
 
     def __add__(self, other):

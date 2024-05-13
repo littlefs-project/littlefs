@@ -25,10 +25,10 @@ OBJDUMP_PATH = ['objdump']
 
 
 # integer fields
-class Int(co.namedtuple('Int', 'x')):
+class RInt(co.namedtuple('RInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, Int):
+        if isinstance(x, RInt):
             return x
         if isinstance(x, str):
             try:
@@ -104,12 +104,12 @@ class StructResult(co.namedtuple('StructResult', ['file', 'struct', 'size'])):
     _by = ['file', 'struct']
     _fields = ['size']
     _sort = ['size']
-    _types = {'size': Int}
+    _types = {'size': RInt}
 
     __slots__ = ()
     def __new__(cls, file='', struct='', size=0):
         return super().__new__(cls, file, struct,
-            Int(size))
+            RInt(size))
 
     def __add__(self, other):
         return StructResult(self.file, self.struct,

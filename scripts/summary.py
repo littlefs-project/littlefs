@@ -30,14 +30,14 @@ OPS = {
     'prod':    lambda xs: m.prod(xs[1:], start=xs[0]),
     'min':     min,
     'max':     max,
-    'avg':     lambda xs: Float(sum(float(x) for x in xs) / len(xs)),
+    'avg':     lambda xs: RFloat(sum(float(x) for x in xs) / len(xs)),
     'stddev':  lambda xs: (
-        lambda avg: Float(
+        lambda avg: RFloat(
             m.sqrt(sum((float(x) - avg)**2 for x in xs) / len(xs)))
         )(sum(float(x) for x in xs) / len(xs)),
-    'gmean':   lambda xs: Float(m.prod(float(x) for x in xs)**(1/len(xs))),
+    'gmean':   lambda xs: RFloat(m.prod(float(x) for x in xs)**(1/len(xs))),
     'gstddev': lambda xs: (
-        lambda gmean: Float(
+        lambda gmean: RFloat(
             m.exp(m.sqrt(sum(m.log(float(x)/gmean)**2 for x in xs) / len(xs)))
             if gmean else m.inf)
         )(m.prod(float(x) for x in xs)**(1/len(xs))),
@@ -45,10 +45,10 @@ OPS = {
 
 
 # integer fields
-class Int(co.namedtuple('Int', 'x')):
+class RInt(co.namedtuple('RInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, Int):
+        if isinstance(x, RInt):
             return x
         if isinstance(x, str):
             try:
@@ -120,10 +120,10 @@ class Int(co.namedtuple('Int', 'x')):
         return self.__class__(self.x * other.x)
 
 # float fields
-class Float(co.namedtuple('Float', 'x')):
+class RFloat(co.namedtuple('RFloat', 'x')):
     __slots__ = ()
     def __new__(cls, x=0.0):
-        if isinstance(x, Float):
+        if isinstance(x, RFloat):
             return x
         if isinstance(x, str):
             try:
@@ -150,8 +150,8 @@ class Float(co.namedtuple('Float', 'x')):
     def __float__(self):
         return float(self.x)
 
-    none = Int.none
-    table = Int.table
+    none = RInt.none
+    table = RInt.table
 
     def diff(self, other):
         new = self.x if self else 0
@@ -164,22 +164,22 @@ class Float(co.namedtuple('Float', 'x')):
         else:
             return '%+7.1f' % diff
 
-    ratio = Int.ratio
-    __add__ = Int.__add__
-    __sub__ = Int.__sub__
-    __mul__ = Int.__mul__
+    ratio = RInt.ratio
+    __add__ = RInt.__add__
+    __sub__ = RInt.__sub__
+    __mul__ = RInt.__mul__
 
 # fractional fields, a/b
-class Frac(co.namedtuple('Frac', 'a,b')):
+class RFrac(co.namedtuple('RFrac', 'a,b')):
     __slots__ = ()
     def __new__(cls, a=0, b=None):
-        if isinstance(a, Frac) and b is None:
+        if isinstance(a, RFrac) and b is None:
             return a
         if isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
         if b is None:
             b = a
-        return super().__new__(cls, Int(a), Int(b))
+        return super().__new__(cls, RInt(a), RInt(b))
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
@@ -198,15 +198,15 @@ class Frac(co.namedtuple('Frac', 'a,b')):
             else '%.1f%%' % (100*t)]
 
     def diff(self, other):
-        new_a, new_b = self if self else (Int(0), Int(0))
-        old_a, old_b = other if other else (Int(0), Int(0))
+        new_a, new_b = self if self else (RInt(0), RInt(0))
+        old_a, old_b = other if other else (RInt(0), RInt(0))
         return '%11s' % ('%s/%s' % (
             new_a.diff(old_a).strip(),
             new_b.diff(old_b).strip()))
 
     def ratio(self, other):
-        new_a, new_b = self if self else (Int(0), Int(0))
-        old_a, old_b = other if other else (Int(0), Int(0))
+        new_a, new_b = self if self else (RInt(0), RInt(0))
+        old_a, old_b = other if other else (RInt(0), RInt(0))
         new = new_a.x/new_b.x if new_b.x else 1.0
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
@@ -236,9 +236,9 @@ class Frac(co.namedtuple('Frac', 'a,b')):
 
 # available types
 TYPES = co.OrderedDict([
-    ('int',   Int),
-    ('float', Float),
-    ('frac',  Frac)
+    ('int',   RInt),
+    ('float', RFloat),
+    ('frac',  RFrac)
 ])
 
 

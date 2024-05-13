@@ -20,10 +20,10 @@ import re
 
 
 # integer fields
-class Int(co.namedtuple('Int', 'x')):
+class RInt(co.namedtuple('RInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, Int):
+        if isinstance(x, RInt):
             return x
         if isinstance(x, str):
             try:
@@ -100,13 +100,13 @@ class StackResult(co.namedtuple('StackResult', [
     _by = ['file', 'function']
     _fields = ['frame', 'limit']
     _sort = ['limit', 'frame']
-    _types = {'frame': Int, 'limit': Int}
+    _types = {'frame': RInt, 'limit': RInt}
 
     __slots__ = ()
     def __new__(cls, file='', function='',
             frame=0, limit=0, children=set()):
         return super().__new__(cls, file, function,
-            Int(frame), Int(limit),
+            RInt(frame), RInt(limit),
             children)
 
     def __add__(self, other):
