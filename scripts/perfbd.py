@@ -753,8 +753,7 @@ def table(Result, results, diff_results=None, *,
                     '+∞%' if t == +m.inf
                     else '-∞%' if t == -m.inf
                     else '%+.1f%%' % (100*t)
-                    for t in ratios
-                    if t)
+                    for t in ratios)
                 if any(ratios) else '')
         return entry
 
