@@ -157,7 +157,18 @@ class Float(co.namedtuple('Float', 'x')):
     table = Int.table
     diff_none = Int.diff_none
     diff_table = Int.diff_table
-    diff_diff = Int.diff_diff
+
+    def diff_diff(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        diff = new - old
+        if diff == +m.inf:
+            return '%7s' % '+∞'
+        elif diff == -m.inf:
+            return '%7s' % '-∞'
+        else:
+            return '%+7.1f' % diff
+
     ratio = Int.ratio
     __add__ = Int.__add__
     __sub__ = Int.__sub__
