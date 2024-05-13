@@ -67,10 +67,7 @@ class Int(co.namedtuple('Int', 'x')):
     def table(self):
         return '%7s' % (self,)
 
-    diff_none = '%7s' % '-'
-    diff_table = table
-
-    def diff_diff(self, other):
+    def diff(self, other):
         new = self.x if self else 0
         old = other.x if other else 0
         diff = new - old
@@ -124,25 +121,22 @@ class Frac(co.namedtuple('Frac', 'a,b')):
     def __float__(self):
         return float(self.a)
 
-    none = '%11s %7s' % ('-', '-')
+    none = '%11s' % '-'
     def table(self):
-        t = self.a.x/self.b.x if self.b.x else 1.0
-        return '%11s %7s' % (
-            self,
-            '∞%' if t == +m.inf
-            else '-∞%' if t == -m.inf
-            else '%.1f%%' % (100*t))
-
-    diff_none = '%11s' % '-'
-    def diff_table(self):
         return '%11s' % (self,)
 
-    def diff_diff(self, other):
+    def notes(self):
+        t = self.a.x/self.b.x if self.b.x else 1.0
+        return ['∞%' if t == +m.inf
+            else '-∞%' if t == -m.inf
+            else '%.1f%%' % (100*t)]
+
+    def diff(self, other):
         new_a, new_b = self if self else (Int(0), Int(0))
         old_a, old_b = other if other else (Int(0), Int(0))
         return '%11s' % ('%s/%s' % (
-            new_a.diff_diff(old_a).strip(),
-            new_b.diff_diff(old_b).strip()))
+            new_a.diff(old_a).strip(),
+            new_b.diff(old_b).strip()))
 
     def ratio(self, other):
         new_a, new_b = self if self else (Int(0), Int(0))
@@ -408,7 +402,7 @@ def table(Result, results, diff_results=None, *,
     header.append('')
     lines.append(header)
 
-    def table_entry(name, r, diff_r=None, ratios=[]):
+    def table_entry(name, r, diff_r=None):
         entry = []
         entry.append(name)
         if diff_results is None:
@@ -418,37 +412,43 @@ def table(Result, results, diff_results=None, *,
                     else types[k].none)
         elif percent:
             for k in fields:
-                entry.append(getattr(r, k).diff_table()
+                entry.append(getattr(r, k).table()
                     if getattr(r, k, None) is not None
-                    else types[k].diff_none)
+                    else types[k].none)
         else:
             for k in fields:
-                entry.append(getattr(diff_r, k).diff_table()
+                entry.append(getattr(diff_r, k).table()
                     if getattr(diff_r, k, None) is not None
-                    else types[k].diff_none)
+                    else types[k].none)
             for k in fields:
-                entry.append(getattr(r, k).diff_table()
+                entry.append(getattr(r, k).table()
                     if getattr(r, k, None) is not None
-                    else types[k].diff_none)
+                    else types[k].none)
             for k in fields:
-                entry.append(types[k].diff_diff(
+                entry.append(types[k].diff(
                         getattr(r, k, None),
                         getattr(diff_r, k, None)))
         if diff_results is None:
-            entry.append('')
-        elif percent:
-            entry.append(' (%s)' % ', '.join(
-                '+∞%' if t == +m.inf
-                else '-∞%' if t == -m.inf
-                else '%+.1f%%' % (100*t)
-                for t in ratios))
+            notes = []
+            for k in fields:
+                try:
+                    notes.extend(getattr(r, k).notes())
+                except AttributeError:
+                    pass
+            entry.append(' (%s)' % ', '.join(notes)
+                if notes else '')
         else:
+            ratios = [
+                types[k].ratio(
+                    getattr(r, k, None),
+                    getattr(diff_r, k, None))
+                for k in fields]
             entry.append(' (%s)' % ', '.join(
                     '+∞%' if t == +m.inf
                     else '-∞%' if t == -m.inf
                     else '%+.1f%%' % (100*t)
                     for t in ratios)
-                if any(ratios) else '')
+                if percent or any(ratios) else '')
         return entry
 
     # entries
@@ -457,34 +457,26 @@ def table(Result, results, diff_results=None, *,
             r = table.get(name)
             if diff_results is None:
                 diff_r = None
-                ratios = None
             else:
                 diff_r = diff_table.get(name)
-                ratios = [
-                    types[k].ratio(
-                        getattr(r, k, None),
-                        getattr(diff_r, k, None))
-                    for k in fields]
-                if not all_ and not any(ratios):
+                if not all_ and not any(
+                        types[k].ratio(
+                            getattr(r, k, None),
+                            getattr(diff_r, k, None))
+                        for k in fields):
                     continue
-            lines.append(table_entry(name, r, diff_r, ratios))
+            lines.append(table_entry(name, r, diff_r))
 
     # total
     r = next(iter(fold(Result, results, by=[])), None)
     if diff_results is None:
         diff_r = None
-        ratios = None
     else:
         diff_r = next(iter(fold(Result, diff_results, by=[])), None)
-        ratios = [
-            types[k].ratio(
-                getattr(r, k, None),
-                getattr(diff_r, k, None))
-            for k in fields]
-    lines.append(table_entry('TOTAL', r, diff_r, ratios))
+    lines.append(table_entry('TOTAL', r, diff_r))
 
-    # find the best widths, note that column 0 contains the names and column -1
-    # the ratios, so those are handled a bit differently
+    # find the best widths, note that column 0 contains the names and
+    # column -1 the ratios/notes, so those are handled a bit differently
     widths = [
         ((max(it.chain([w], (len(l[i]) for l in lines)))+1+4-1)//4)*4-1
         for w, i in zip(
