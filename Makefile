@@ -34,7 +34,7 @@ OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
 DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
 ASM  := $(SRC:%.c=$(BUILDDIR)/%.s)
 CI   := $(SRC:%.c=$(BUILDDIR)/%.ci)
-GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.gcda)
+GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
