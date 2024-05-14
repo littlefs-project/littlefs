@@ -119,7 +119,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))) \
     BENCH_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                           ) \
     BENCH_DEFINE(SHRUB_SIZE,         INLINE_SIZE                            ) \
-    BENCH_DEFINE(FRAGMENT_SIZE,      CACHE_SIZE                             ) \
+    BENCH_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                           ) \
     BENCH_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                           ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
     BENCH_DEFINE(BLOCK_CYCLES,       -1                                     ) \

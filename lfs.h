@@ -267,10 +267,34 @@ struct lfs_config {
 //    // Defaults to block_size when zero.
 //    lfs_size_t metadata_max;
 
-    // TODO document
+    // TODO these are pretty low-level details, should we have reasonable
+    // defaults? need to benchmark.
+
+    // Maximum size on inlined files in bytes. Inlined files decrease storage
+    // requirements, but may impact metadata-related performance. Must be <=
+    // block_size/4.
+    //
+    // 0 disables inline files.
     lfs_size_t inline_size;
+
+    // Maximum size of inlined trees (shrubs) in bytes. Shrubs reduce B-tree
+    // root overhead, but may impact metadata-related performance. Must be <=
+    // blocksize/4.
+    //
+    // 0 disables shrubs.
     lfs_size_t shrub_size;
+
+    // Maximum size of a non-block B-tree leaf in bytes. Smaller values may
+    // make small random-writes cheaper, but increase metadata overhead. Must
+    // be <= block_size/8.
     lfs_size_t fragment_size;
+
+    // Threshold for compacting multiple fragments into a block. Smaller
+    // values will compact more frequently, reducing disk usage, but
+    // increasing the cost of random-writes.
+    //
+    // 0 only writes blocks, minimizing disk usage, while -1 or any value >=
+    // block_size only writes fragments, minimizing random-write cost.
     lfs_size_t crystal_thresh;
 };
 

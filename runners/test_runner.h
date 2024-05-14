@@ -103,7 +103,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))                          ) \
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
     TEST_DEFINE(SHRUB_SIZE,         INLINE_SIZE                             ) \
-    TEST_DEFINE(FRAGMENT_SIZE,      CACHE_SIZE                              ) \
+    TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
     TEST_DEFINE(BLOCK_CYCLES,       -1                                      ) \
