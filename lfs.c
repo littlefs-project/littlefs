@@ -11452,10 +11452,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         lfsr_attr_t attrs[2];
         lfs_size_t attr_count = 0;
         lfsr_data_t name_data;
-        union {
-            lfsr_data_t data;
-            uint8_t buf[LFSR_BTREE_DSIZE];
-        } data;
+        uint8_t buf[LFSR_BTREE_DSIZE];
 
         // not created yet? need to convert orphan to normal file
         if (lfsr_f_isorphan(file->m.flags)) {
@@ -11481,10 +11478,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                     LFSR_DATA_NULL());
         // small file inlined in mdir?
         } else if (lfsr_f_isunflush(file->m.flags)) {
-            data.data = LFSR_DATA_BUF(file->buffer.buffer, file->buffer.size);
             attrs[attr_count++] = LFSR_ATTR_CAT_(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                    &data.data, 1);
+                    (const lfsr_data_t*)&file->buffer, 1);
         // bshrub?
         } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR_SHRUBTRUNK(
@@ -11494,7 +11490,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         } else if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                    LFSR_DATA_BTREE_(&file->bshrub.u.btree, data.buf));
+                    LFSR_DATA_BTREE_(&file->bshrub.u.btree, buf));
         } else {
             LFS_UNREACHABLE();
         }

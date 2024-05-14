@@ -519,10 +519,11 @@ typedef struct lfsr_file {
     lfsr_bshrub_t bshrub_;
     lfs_off_t pos;
 
+    // note this lines up with lfsr_data_t's buffer representation
     struct {
-        lfs_off_t pos;
         lfs_off_t size;
         uint8_t *buffer;
+        lfs_off_t pos;
     } buffer;
 
     lfs_block_t eblock;
