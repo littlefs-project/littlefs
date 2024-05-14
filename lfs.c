@@ -6102,7 +6102,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 &file->m.mdir, &file->bshrub)
                             // only compact once, first compact should stage
                             // the new block
-                            && file->bshrub.u.bshrub.blocks[0]
+                            && file->bshrub_.u.bshrub.blocks[0]
                                 != rbyd_.blocks[0]) {
                         int err = lfsr_shrub_compact(lfs, &rbyd_,
                                 &file->bshrub_.u.bshrub,
@@ -6487,7 +6487,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         // inlined shrub?
         } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)
                 // only compact once, first compact should stage the new block
-                && file->bshrub.u.bshrub.blocks[0]
+                && file->bshrub_.u.bshrub.blocks[0]
                     != mdir_->rbyd.blocks[0]) {
             err = lfsr_shrub_compact(lfs, &mdir_->rbyd,
                     &file->bshrub_.u.bshrub, &file->bshrub.u.bshrub);
