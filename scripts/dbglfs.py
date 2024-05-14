@@ -18,7 +18,7 @@ TAG_WCOMPAT         = 0x0006
 TAG_OCOMPAT         = 0x0007
 TAG_GEOMETRY        = 0x0009
 TAG_NAMELIMIT       = 0x000c
-TAG_SIZELIMIT       = 0x000d
+TAG_FILELIMIT       = 0x000d
 TAG_GDELTA          = 0x0100
 TAG_GRMDELTA        = 0x0100
 TAG_NAME            = 0x0200
@@ -202,8 +202,8 @@ def tagrepr(tag, w=None, size=None, off=None):
                 else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
                 else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
                 else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
-                else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
                 else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
+                else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
@@ -1109,11 +1109,11 @@ class Config:
             return None
 
     @ft.cached_property
-    def size_limit(self):
-        if TAG_SIZELIMIT in self.config:
-            _, data = self.config[TAG_SIZELIMIT]
-            size_limit, _ = fromleb128(data)
-            return size_limit
+    def file_limit(self):
+        if TAG_FILELIMIT in self.config:
+            _, data = self.config[TAG_FILELIMIT]
+            file_limit, _ = fromleb128(data)
+            return file_limit
         else:
             return None
 
@@ -1136,10 +1136,10 @@ class Config:
                     '%x' % f for f in reversed(self.ocompat))
             elif tag == TAG_GEOMETRY:
                 return 'geometry %dx%d' % self.geometry
-            elif tag == TAG_SIZELIMIT:
-                return 'sizelimit %d' % self.size_limit
             elif tag == TAG_NAMELIMIT:
                 return 'namelimit %d' % self.name_limit
+            elif tag == TAG_FILELIMIT:
+                return 'filelimit %d' % self.file_limit
             else:
                 return 'config 0x%02x %d' % (tag, len(data))
 

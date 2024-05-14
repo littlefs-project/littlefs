@@ -249,7 +249,7 @@ struct lfs_config {
     // Optional upper limit on files in bytes. No downside for larger files
     // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
-    lfs_size_t size_limit;
+    lfs_size_t file_limit;
 
     // TODO document
     lfs_size_t uattr_limit;
@@ -588,7 +588,7 @@ typedef struct lfs {
 
     const struct lfs_config *cfg;
     lfs_size_t name_limit;
-    lfs_off_t size_limit;
+    lfs_off_t file_limit;
     lfs_size_t uattr_limit;
     lfs_size_t sattr_limit;
 

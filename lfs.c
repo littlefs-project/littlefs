@@ -723,7 +723,7 @@ enum lfsr_tag {
     LFSR_TAG_OCOMPAT        = 0x0007,
     LFSR_TAG_GEOMETRY       = 0x0009,
     LFSR_TAG_NAMELIMIT      = 0x000c,
-    LFSR_TAG_SIZELIMIT      = 0x000d,
+    LFSR_TAG_FILELIMIT      = 0x000d,
 
     // global-state tags
     LFSR_TAG_GDELTA         = 0x0100,
@@ -8265,35 +8265,35 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     lfs->name_limit = name_limit;
 
-    // read the size limit
-    lfs_off_t size_limit = 0x7fffffff;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_SIZELIMIT,
+    // read the file limit
+    lfs_off_t file_limit = 0x7fffffff;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_FILELIMIT,
             &data);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
     if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &size_limit);
+        err = lfsr_data_readleb128(lfs, &data, &file_limit);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
         if (err == LFS_ERR_CORRUPT) {
-            size_limit = -1;
+            file_limit = -1;
         }
     }
 
-    if (size_limit > lfs->size_limit) {
-        LFS_ERROR("Incompatible size limit (%"PRId32" > %"PRId32")",
-                size_limit,
-                lfs->size_limit);
+    if (file_limit > lfs->file_limit) {
+        LFS_ERROR("Incompatible file limit (%"PRId32" > %"PRId32")",
+                file_limit,
+                lfs->file_limit);
         return LFS_ERR_INVAL;
     }
 
-    lfs->size_limit = size_limit;
+    lfs->file_limit = file_limit;
 
     // check for unknown configs
     lfsr_tag_t tag;
-    err = lfsr_mdir_lookupnext(lfs, mroot, LFSR_TAG_SIZELIMIT+1,
+    err = lfsr_mdir_lookupnext(lfs, mroot, LFSR_TAG_FILELIMIT+1,
             &tag, NULL);
     if (err && err != LFS_ERR_NOENT) {
         return err;
@@ -8506,8 +8506,8 @@ static int lfsr_formatinited(lfs_t *lfs) {
                     LFSR_TAG_NAMELIMIT, 0,
                     LFSR_DATA_LLEB128(lfs->name_limit)),
                 LFSR_ATTR(
-                    LFSR_TAG_SIZELIMIT, 0,
-                    LFSR_DATA_LEB128(lfs->size_limit)),
+                    LFSR_TAG_FILELIMIT, 0,
+                    LFSR_DATA_LEB128(lfs->file_limit)),
                 LFSR_ATTR(
                     LFSR_TAG_BOOKMARK, +1,
                     LFSR_DATA_LEB128(0))));
@@ -11178,8 +11178,8 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->m.flags));
 
-    // would this write make our file larger than our size limit?
-    if (size > lfs->size_limit - file->pos) {
+    // would this write make our file larger than our file limit?
+    if (size > lfs->file_limit - file->pos) {
         return LFS_ERR_FBIG;
     }
 
@@ -11557,7 +11557,7 @@ lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // out of range?
-    if (pos_ > lfs->size_limit) {
+    if (pos_ > lfs->file_limit) {
         return LFS_ERR_INVAL;
     }
 
@@ -11583,8 +11583,8 @@ lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
 }
 
 int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
-    // exceeds our size limit?
-    if (size_ > lfs->size_limit) {
+    // exceeds our file limit?
+    if (size_ > lfs->file_limit) {
         return LFS_ERR_FBIG;
     }
 
@@ -11688,8 +11688,8 @@ failed:;
 }
 
 int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
-    // exceeds our size limit?
-    if (size_ > lfs->size_limit) {
+    // exceeds our file limit?
+    if (size_ > lfs->file_limit) {
         return LFS_ERR_FBIG;
     }
 
@@ -15286,10 +15286,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->name_limit = LFS_NAME_MAX;
     }
 
-    LFS_ASSERT(lfs->cfg->size_limit <= LFS_FILE_MAX);
-    lfs->size_limit = lfs->cfg->size_limit;
-    if (!lfs->size_limit) {
-        lfs->size_limit = LFS_FILE_MAX;
+    LFS_ASSERT(lfs->cfg->file_limit <= LFS_FILE_MAX);
+    lfs->file_limit = lfs->cfg->file_limit;
+    if (!lfs->file_limit) {
+        lfs->file_limit = LFS_FILE_MAX;
     }
 
     LFS_ASSERT(lfs->cfg->uattr_limit <= LFS_UATTR_MAX);
@@ -15350,14 +15350,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // block-size. The weight can never exceed size-limit, and the size/jump
     // field can never exceed a single block:
     //
-    //   t = 2 + log128(size_limit+1) + log128(block_size)
+    //   t = 2 + log128(file_limit+1) + log128(block_size)
     //
     // Note this is different from LFSR_TAG_DSIZE, which is the worst case
     // tag encoding at compile-time.
     //
     uint8_t tag_estimate
             = 2
-            + (lfs_nlog2(lfs->size_limit+1)+7-1)/7
+            + (lfs_nlog2(lfs->file_limit+1)+7-1)/7
             + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
     LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
     lfs->attr_estimate = 3*tag_estimate + 4;
