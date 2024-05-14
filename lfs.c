@@ -15231,8 +15231,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
     // shrub_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->shrub_size <= lfs->cfg->block_size/4);
-    // fragment_size must be <= block_size/8
-    LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/8);
+    // fragment_size must be <= block_size/4
+    LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
 
     // setup read cache
     lfs->rcache.block = 0;

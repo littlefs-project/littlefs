@@ -286,7 +286,7 @@ struct lfs_config {
 
     // Maximum size of a non-block B-tree leaf in bytes. Smaller values may
     // make small random-writes cheaper, but increase metadata overhead. Must
-    // be <= block_size/8.
+    // be <= block_size/4.
     lfs_size_t fragment_size;
 
     // Threshold for compacting multiple fragments into a block. Smaller
