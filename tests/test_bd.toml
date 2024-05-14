@@ -10,7 +10,7 @@
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[lfs_max(READ, PROG)];
+    uint8_t buffer[LFS_MAX(READ, PROG)];
 
     // write data
     CFG->erase(CFG, 0) => 0;
@@ -35,7 +35,7 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[lfs_max(READ, PROG)];
+    uint8_t buffer[LFS_MAX(READ, PROG)];
     lfs_block_t block;
 
     // write block 0
@@ -93,7 +93,7 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[lfs_max(READ, PROG)];
+    uint8_t buffer[LFS_MAX(READ, PROG)];
     lfs_block_t block;
 
     // write block 0
@@ -151,7 +151,7 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[lfs_max(READ, PROG)];
+    uint8_t buffer[LFS_MAX(READ, PROG)];
 
     // write/read every power of 2
     lfs_block_t block = 1;
@@ -197,7 +197,7 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[lfs_max(READ, PROG)];
+    uint8_t buffer[LFS_MAX(READ, PROG)];
 
     // write/read every fibonacci number on our device
     lfs_block_t block = 1;

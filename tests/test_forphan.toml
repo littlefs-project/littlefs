@@ -12,7 +12,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -212,7 +212,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 reentrant = true
 code = '''
     // format once per test
@@ -376,7 +376,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -566,7 +566,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -755,7 +755,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -1073,7 +1073,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1182,7 +1182,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 # SYNC=0x1 => sync before orphaning
 # SYNC=0x2 => sync after orphaning
 defines.SYNC = [0, 1, 2, 3]
@@ -1461,7 +1461,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2143,7 +2143,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2270,7 +2270,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2397,7 +2397,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -2623,7 +2623,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -2849,7 +2849,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -3110,7 +3110,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -4403,7 +4403,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -4639,7 +4639,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -4935,7 +4935,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -5280,7 +5280,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.CHUNK = 'lfs_min(64, SIZE)'
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]

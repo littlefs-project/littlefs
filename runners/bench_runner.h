@@ -115,8 +115,8 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(BLOCK_SIZE,         4096                                   ) \
     BENCH_DEFINE(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                   ) \
     BENCH_DEFINE(DISK_SIZE,          1024*1024                              ) \
-    BENCH_DEFINE(RCACHE_SIZE,        lfs_max(16, READ_SIZE)                 ) \
-    BENCH_DEFINE(PCACHE_SIZE,        lfs_max(16, PROG_SIZE)                 ) \
+    BENCH_DEFINE(RCACHE_SIZE,        LFS_MAX(16, READ_SIZE)                 ) \
+    BENCH_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                 ) \
     BENCH_DEFINE(FBUFFER_SIZE,       16                                     ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
     BENCH_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                           ) \

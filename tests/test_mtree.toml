@@ -3992,10 +3992,10 @@ code = '''
     // note if we lose power we may not have the magic string in both blocks!
     // but we don't lose power in this test so we can assert the magic string
     // is present in both
-    uint8_t magic[lfs_max(16, READ_SIZE)];
-    CFG->read(CFG, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    uint8_t magic[LFS_MAX(16, READ_SIZE)];
+    CFG->read(CFG, 0, 0, magic, LFS_MAX(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
-    CFG->read(CFG, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 1, 0, magic, LFS_MAX(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
@@ -4046,10 +4046,10 @@ code = '''
     // note if we lose power we may not have the magic string in both blocks!
     // but we don't lose power in this test so we can assert the magic string
     // is present in both
-    uint8_t magic[lfs_max(16, READ_SIZE)];
-    CFG->read(CFG, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    uint8_t magic[LFS_MAX(16, READ_SIZE)];
+    CFG->read(CFG, 0, 0, magic, LFS_MAX(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
-    CFG->read(CFG, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 1, 0, magic, LFS_MAX(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
@@ -4117,9 +4117,9 @@ code = '''
     // note if we lose power we may not have the magic string in both blocks!
     // but we don't lose power in this test so we can assert the magic string
     // is present in both
-    uint8_t magic[lfs_max(16, READ_SIZE)];
-    CFG->read(CFG, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    uint8_t magic[LFS_MAX(16, READ_SIZE)];
+    CFG->read(CFG, 0, 0, magic, LFS_MAX(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
-    CFG->read(CFG, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 1, 0, magic, LFS_MAX(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''

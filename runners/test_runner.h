@@ -99,8 +99,8 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(BLOCK_SIZE,         4096                                    ) \
     TEST_DEFINE(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                    ) \
     TEST_DEFINE(DISK_SIZE,          1024*1024                               ) \
-    TEST_DEFINE(RCACHE_SIZE,        lfs_max(16, READ_SIZE)                  ) \
-    TEST_DEFINE(PCACHE_SIZE,        lfs_max(16, PROG_SIZE)                  ) \
+    TEST_DEFINE(RCACHE_SIZE,        LFS_MAX(16, READ_SIZE)                  ) \
+    TEST_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                  ) \
     TEST_DEFINE(FBUFFER_SIZE,       16                                      ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
