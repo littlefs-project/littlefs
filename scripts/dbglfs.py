@@ -1273,6 +1273,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             mdir.rev,
             mdir.eoff,
             j,
+            0,
             0)
         w = len(data)
     # direct block?
@@ -1283,6 +1284,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             mdir.rev,
             mdir.eoff,
             j,
+            0,
             0)
         size, block, off, cksize, cksum = frombptr(data)
         w = size
@@ -1573,6 +1575,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
             mdir.rev,
             mdir.eoff,
             j,
+            0,
             0), w-1, [(tag, j, d, data)], -1)
 
     # traverse and print entries
