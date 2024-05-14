@@ -190,18 +190,17 @@ struct lfs_config {
     int (*unlock)(const struct lfs_config *c);
 #endif
 
-    // Minimum size of a block read in bytes. All read operations will be a
+    // Minimum size of a read in bytes. All read operations will be a
     // multiple of this value.
     lfs_size_t read_size;
 
-    // Minimum size of a block program in bytes. All program operations will be
-    // a multiple of this value.
+    // Minimum size of a program in bytes. All program operations will be a
+    // multiple of this value.
     lfs_size_t prog_size;
 
     // Size of an erasable block in bytes. This does not impact ram consumption
-    // and may be larger than the physical erase size. However, non-inlined
-    // files take up at minimum one block. Must be a multiple of the read and
-    // program sizes.
+    // and may be larger than the physical erase size. Must be a multiple of
+    // the read and program sizes.
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.
@@ -215,26 +214,34 @@ struct lfs_config {
     // Set to -1 to disable block-level wear-leveling.
     int32_t block_cycles;
 
-    // Size of block caches in bytes. Each cache buffers a portion of a block in
-    // RAM. The littlefs needs a read cache, a program cache, and one additional
-    // cache per file. Larger caches can improve performance by storing more
-    // data and reducing the number of disk accesses. Must be a multiple of the
-    // read and program sizes, and a factor of the block size.
-    lfs_size_t cache_size;
+    // Size of the read cache in bytes. Larger buffers can improve
+    // performance by storing more data and reducing the number of disk
+    // accesses. Must be a multiple of the read size.
+    lfs_size_t rcache_size;
+
+    // Size of the program cache in bytes. Larger buffers can improve
+    // performance by storing more data and reducing the number of disk
+    // accesses. Must be a multiple of the program size.
+    lfs_size_t pcache_size;
+
+    // Size of file buffers in bytes. In addition to filesystem-wide
+    // read/prog buffers, each file gets its own buffer to reduce disk
+    // accesses.
+    lfs_size_t fbuffer_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
     // lookahead buffer is stored as a compact bitmap, so each byte of RAM
-    // can track 8 blocks. Must be a multiple of 8.
+    // can track 8 blocks.
     lfs_size_t lookahead_size;
 
-    // Optional statically allocated read buffer. Must be cache_size.
-    // By default lfs_malloc is used to allocate this buffer.
-    void *read_buffer;
+    // Optional statically allocated read buffer. Must be rcache_size. By
+    // default lfs_malloc is used to allocate this buffer.
+    void *rcache_buffer;
 
-    // Optional statically allocated program buffer. Must be cache_size.
-    // By default lfs_malloc is used to allocate this buffer.
-    void *prog_buffer;
+    // Optional statically allocated program buffer. Must be pcache_size. By
+    // default lfs_malloc is used to allocate this buffer.
+    void *pcache_buffer;
 
     // Optional statically allocated lookahead buffer. Must be lookahead_size.
     // By default lfs_malloc is used to allocate this buffer.
@@ -329,9 +336,14 @@ struct lfs_attr {
 
 // Optional configuration provided during lfs_file_opencfg
 struct lfs_file_config {
-    // Optional statically allocated file buffer. Must be cache_size.
+    // Optional statically allocated file buffer. Must be buffer_size.
     // By default lfs_malloc is used to allocate this buffer.
     void *buffer;
+
+    // Size of the file buffer in bytes. In addition to filesystem-wide
+    // read/prog buffers, each file gets its own buffer to reduce disk
+    // accesses. Defaults to file_buffer_size.
+    lfs_size_t buffer_size;
 
     // Optional list of custom attributes related to the file. If the file
     // is opened with read access, these attributes will be read from disk
@@ -507,9 +519,11 @@ typedef struct lfsr_file {
     lfsr_bshrub_t bshrub_;
     lfs_off_t pos;
 
-    lfs_off_t buffer_pos;
-    uint8_t *buffer;
-    lfs_size_t buffer_size;
+    struct {
+        lfs_off_t pos;
+        lfs_off_t size;
+        uint8_t *buffer;
+    } buffer;
 
     lfs_block_t eblock;
     lfs_size_t eoff;
@@ -561,8 +575,18 @@ typedef struct lfsr_grm {
 
 // The littlefs filesystem type
 typedef struct lfs {
-    lfs_cache_t rcache;
-    lfs_cache_t pcache;
+    struct {
+        lfs_block_t block;
+        lfs_size_t off;
+        lfs_size_t size;
+        uint8_t *buffer;
+    } rcache;
+    struct {
+        lfs_block_t block;
+        lfs_size_t off;
+        lfs_size_t size;
+        uint8_t *buffer;
+    } pcache;
     uint32_t pcksum;
 
     lfs_block_t root[2];

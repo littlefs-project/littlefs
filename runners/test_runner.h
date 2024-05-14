@@ -99,13 +99,14 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(BLOCK_SIZE,         4096                                    ) \
     TEST_DEFINE(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                    ) \
     TEST_DEFINE(DISK_SIZE,          1024*1024                               ) \
-    TEST_DEFINE(CACHE_SIZE, \
-        lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))                          ) \
+    TEST_DEFINE(RCACHE_SIZE,        lfs_max(16, READ_SIZE)                  ) \
+    TEST_DEFINE(PCACHE_SIZE,        lfs_max(16, PROG_SIZE)                  ) \
+    TEST_DEFINE(FBUFFER_SIZE,       16                                      ) \
+    TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
     TEST_DEFINE(SHRUB_SIZE,         INLINE_SIZE                             ) \
     TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
-    TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
     TEST_DEFINE(BLOCK_CYCLES,       -1                                      ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
     TEST_DEFINE(ERASE_CYCLES,       0                                       ) \
@@ -126,12 +127,14 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .block_size         = BLOCK_SIZE,           \
     .block_count        = BLOCK_COUNT,          \
     .block_cycles       = BLOCK_CYCLES,         \
-    .cache_size         = CACHE_SIZE,           \
+    .rcache_size        = RCACHE_SIZE,          \
+    .pcache_size        = PCACHE_SIZE,          \
+    .fbuffer_size       = FBUFFER_SIZE,         \
+    .lookahead_size     = LOOKAHEAD_SIZE,       \
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \
     .fragment_size      = FRAGMENT_SIZE,        \
-    .crystal_thresh     = CRYSTAL_THRESH,       \
-    .lookahead_size     = LOOKAHEAD_SIZE,
+    .crystal_thresh     = CRYSTAL_THRESH,
 
 #define TEST_BDCFG \
     .erase_value        = ERASE_VALUE,          \

@@ -590,22 +590,22 @@ code = '''
 # try writing larger files
 #
 # note:
-# - at 2*CACHE_SIZE we need a shrub
+# - at 2*FBUFFER_SIZE we need a shrub
 # - at BLOCK_SIZE/2 we need a block pointer
 # - at 2*BLOCK_SIZE we need a btree
 #
 [cases.test_files_more]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -672,8 +672,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -764,8 +764,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.DENSITY = 2
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -900,15 +900,15 @@ code = '''
 [cases.test_files_rm]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -967,8 +967,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.REMAINING = [4, 1, 0]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1114,8 +1114,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.DENSITY = 2
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1268,8 +1268,8 @@ code = '''
 [cases.test_files_mv]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1277,7 +1277,7 @@ defines.SIZE = [
 ]
 defines.N = [0, 128]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1367,8 +1367,8 @@ code = '''
 [cases.test_files_mv_replace]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1376,7 +1376,7 @@ defines.SIZE = [
 ]
 defines.N = [0, 128]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1476,15 +1476,15 @@ code = '''
 [cases.test_files_mv_noop]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1559,15 +1559,15 @@ code = '''
 [cases.test_files_mv_not_file]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1653,15 +1653,15 @@ code = '''
 [cases.test_files_mv_not_dir]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1747,15 +1747,15 @@ code = '''
 [cases.test_files_mv_not_root]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1830,15 +1830,15 @@ code = '''
 [cases.test_files_mv_not_noent]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
 defines.REMOUNT = [false, true]
-defines.CACHE_SIZE = 64
+defines.FBUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1914,8 +1914,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2050,8 +2050,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.DENSITY = 2
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2244,8 +2244,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.DENSITY = 2
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

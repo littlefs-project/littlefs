@@ -487,8 +487,8 @@ code = '''
 [cases.test_fsync_rrrr]
 defines.R = 4
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -537,8 +537,8 @@ defines.R = 4
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -600,8 +600,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -690,8 +690,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -791,8 +791,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -876,8 +876,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -967,8 +967,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1069,8 +1069,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1181,8 +1181,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1282,8 +1282,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1394,8 +1394,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1528,8 +1528,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2334,8 +2334,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2429,8 +2429,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2535,8 +2535,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2622,8 +2622,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2720,8 +2720,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2830,8 +2830,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2947,8 +2947,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3096,8 +3096,8 @@ defines.FLUSH = [0, 1, 2]
 defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

@@ -109,19 +109,20 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 
 // a few preconfigured defines that control how benches run
 #define BENCH_IMPLICIT_DEFINES \
-    /*        name                value (overridable)                      */ \
+    /*        name                   value (overridable)                   */ \
     BENCH_DEFINE(READ_SIZE,          1                                      ) \
     BENCH_DEFINE(PROG_SIZE,          1                                      ) \
     BENCH_DEFINE(BLOCK_SIZE,         4096                                   ) \
     BENCH_DEFINE(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                   ) \
     BENCH_DEFINE(DISK_SIZE,          1024*1024                              ) \
-    BENCH_DEFINE(CACHE_SIZE, \
-        lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE))) \
+    BENCH_DEFINE(RCACHE_SIZE,        lfs_max(16, READ_SIZE)                 ) \
+    BENCH_DEFINE(PCACHE_SIZE,        lfs_max(16, PROG_SIZE)                 ) \
+    BENCH_DEFINE(FBUFFER_SIZE,       16                                     ) \
+    BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
     BENCH_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                           ) \
     BENCH_DEFINE(SHRUB_SIZE,         INLINE_SIZE                            ) \
     BENCH_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                           ) \
     BENCH_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                           ) \
-    BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
     BENCH_DEFINE(BLOCK_CYCLES,       -1                                     ) \
     BENCH_DEFINE(ERASE_VALUE,        0xff                                   ) \
     BENCH_DEFINE(ERASE_CYCLES,       0                                      ) \
@@ -137,17 +138,19 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 
 // map defines to cfg struct fields
 #define BENCH_CFG \
-    .read_size          = READ_SIZE,        \
-    .prog_size          = PROG_SIZE,        \
-    .block_size         = BLOCK_SIZE,       \
-    .block_count        = BLOCK_COUNT,      \
-    .block_cycles       = BLOCK_CYCLES,     \
-    .cache_size         = CACHE_SIZE,       \
-    .inline_size        = INLINE_SIZE,      \
-    .shrub_size         = SHRUB_SIZE,       \
-    .fragment_size      = FRAGMENT_SIZE,    \
-    .crystal_thresh     = CRYSTAL_THRESH,   \
-    .lookahead_size     = LOOKAHEAD_SIZE,
+    .read_size          = READ_SIZE,            \
+    .prog_size          = PROG_SIZE,            \
+    .block_size         = BLOCK_SIZE,           \
+    .block_count        = BLOCK_COUNT,          \
+    .block_cycles       = BLOCK_CYCLES,         \
+    .rcache_size        = RCACHE_SIZE,          \
+    .pcache_size        = PCACHE_SIZE,          \
+    .fbuffer_size       = FBUFFER_SIZE,         \
+    .lookahead_size     = LOOKAHEAD_SIZE,       \
+    .inline_size        = INLINE_SIZE,          \
+    .shrub_size         = SHRUB_SIZE,           \
+    .fragment_size      = FRAGMENT_SIZE,        \
+    .crystal_thresh     = CRYSTAL_THRESH,
 
 #define BENCH_BDCFG \
     .erase_value        = ERASE_VALUE,          \

@@ -17,8 +17,8 @@ defines.PROG_SIZE = [1, 16]
 [cases.test_fwrite_incr]
 defines.SIZE = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -116,8 +116,8 @@ code = '''
 # write strategies
 [cases.test_fwrite_overwrite]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -294,8 +294,8 @@ code = '''
 # similar to overwrite files, but without underlying data
 [cases.test_fwrite_holes]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -476,8 +476,8 @@ code = '''
 [cases.test_fwrite_truncate]
 defines.FROM = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -485,8 +485,8 @@ defines.FROM = [
 ]
 defines.TO = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -589,8 +589,8 @@ code = '''
 [cases.test_fwrite_truncate_truncate]
 defines.FROM = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -598,8 +598,8 @@ defines.FROM = [
 ]
 defines.AND = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -607,8 +607,8 @@ defines.AND = [
 ]
 defines.TO = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -730,8 +730,8 @@ code = '''
 [cases.test_fwrite_fruncate]
 defines.FROM = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -739,8 +739,8 @@ defines.FROM = [
 ]
 defines.TO = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -847,8 +847,8 @@ code = '''
 [cases.test_fwrite_fruncate_fruncate]
 defines.FROM = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -856,8 +856,8 @@ defines.FROM = [
 ]
 defines.AND = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -865,8 +865,8 @@ defines.AND = [
 ]
 defines.TO = [
     '0',
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -995,8 +995,8 @@ code = '''
 # writing any data structure backwards always reveals issues
 [cases.test_fwrite_reversed]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1126,8 +1126,8 @@ code = '''
 # trigger compaction
 [cases.test_fwrite_overwrite_compaction]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1313,8 +1313,8 @@ code = '''
 
 [cases.test_fwrite_hole_compaction]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1506,8 +1506,8 @@ code = '''
 defines.N = 20
 defines.SEED = 'range(10)'
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1646,8 +1646,8 @@ code = '''
 defines.N = 20
 defines.SEED = 'range(10)'
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1795,8 +1795,8 @@ defines.N = 20
 defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1873,8 +1873,8 @@ defines.N = 10
 defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2013,8 +2013,8 @@ defines.N = 10
 defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2175,8 +2175,8 @@ code = '''
 [cases.test_fwrite_seek_negative]
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2276,8 +2276,8 @@ code = '''
 defines.N = 20
 defines.SEED = 'range(10)'
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

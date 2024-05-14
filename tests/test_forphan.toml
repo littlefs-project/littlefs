@@ -5,8 +5,8 @@ after = ['test_fwrite', 'test_fsync']
 # Some specific tests
 [cases.test_forphan_create]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -205,8 +205,8 @@ code = '''
 
 [cases.test_forphan_create_pl]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -282,8 +282,8 @@ code = '''
 
 [cases.test_forphan_create_many_pl]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
 ]
 defines.CHUNK = 8
 defines.N = 128
@@ -369,8 +369,8 @@ code = '''
 
 [cases.test_forphan_create_sync_wr]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -559,8 +559,8 @@ code = '''
 
 [cases.test_forphan_create_sync_rw]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -748,8 +748,8 @@ code = '''
 
 [cases.test_forphan_create_desync_wdwr]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1066,8 +1066,8 @@ code = '''
 
 [cases.test_forphan_orphan]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1175,8 +1175,8 @@ code = '''
 
 [cases.test_forphan_orphan_wdwr]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1454,8 +1454,8 @@ code = '''
 defines.N = 'range(6)'
 defines.M = 'range(6)'
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2136,8 +2136,8 @@ code = '''
 
 [cases.test_forphan_zombie]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2263,8 +2263,8 @@ code = '''
 
 [cases.test_forphan_zombie_posthumous]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2390,8 +2390,8 @@ code = '''
 
 [cases.test_forphan_zombie_rwrw]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2616,8 +2616,8 @@ code = '''
 
 [cases.test_forphan_zombie_rwrw_posthumous]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2842,8 +2842,8 @@ code = '''
 
 [cases.test_forphan_zombie_zombie_rwrwrw]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3103,8 +3103,8 @@ code = '''
 
 [cases.test_forphan_zombie_zombie_rwrwrw_posthumous]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -4396,8 +4396,8 @@ code = '''
 # them here
 [cases.test_forphan_rename]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -4632,8 +4632,8 @@ code = '''
 
 [cases.test_forphan_rename_postrename]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -4928,8 +4928,8 @@ code = '''
 
 [cases.test_forphan_rename_rwrw]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5273,8 +5273,8 @@ code = '''
 
 [cases.test_forphan_rename_rwrw_postrename]
 defines.SIZE = [
-    'CACHE_SIZE/2',
-    '2*CACHE_SIZE',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
