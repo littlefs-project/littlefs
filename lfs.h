@@ -689,6 +689,24 @@ int lfs_file_setattr(lfs_t *lfs, lfs_file_t* file,
 // See lfs_removeattr. Fails if attribute is cached.
 int lfs_file_removeattr(lfs_t *lfs, lfs_file_t* file, uint8_t type);
 
+// Parameters used during attribute enumeration
+struct lfs_attr_enum_t {
+    void* param;
+    void* buffer;
+    size_t bufsize;
+};
+
+// Callback to receive details for each file attribute
+//
+// Return true to continue enumeration, false to stop
+typedef bool (*lfs_attr_callback_t)
+        (struct lfs_attr_enum_t* e, uint8_t type, lfs_size_t size);
+
+// Enumerate file attributes
+//
+// Invokes a callback for each attribute found
+int lfs_file_enumattr(lfs_t *lfs, lfs_file_t* file,
+    lfs_attr_callback_t callback, struct lfs_attr_enum_t* e);
 
 /// Directory operations ///
 

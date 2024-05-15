@@ -3848,16 +3848,24 @@ static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     return file->ctz.size;
 }
 
-static lfs_ssize_t lfs_file_getattr_(lfs_t *lfs, lfs_file_t* file,
-        uint8_t type, void *buffer, lfs_size_t size) {
-    // If attribute is registered then retrieve cached value
+static const struct lfs_attr* lfs_file_find_attribute(lfs_file_t* file, uint8_t type) {
     for (unsigned i = 0; i < file->cfg->attr_count; i++) {
         struct lfs_attr* const attr = &file->cfg->attrs[i];
         if(type == attr->type) {
-            LFS_ASSERT(size <= attr->size);
-            memcpy(buffer, attr->buffer, size);
-            return attr->size;
+            return attr;
         }
+    }
+    return NULL;
+}
+
+static lfs_ssize_t lfs_file_getattr_(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    // If attribute is registered then retrieve cached value
+    const struct lfs_attr* attr = lfs_file_find_attribute(file, type);
+    if(attr != NULL) {
+        LFS_ASSERT(size <= attr->size);
+        memcpy(buffer, attr->buffer, lfs_min(size, attr->size));
+        return attr->size;
     }
 
     lfs_stag_t tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x7ff, 0x3ff, 0),
@@ -3884,17 +3892,15 @@ static int lfs_file_setattr_(lfs_t *lfs, lfs_file_t* file,
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
 
     // If attribute is registered then set cached value for consistency
-    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
-        struct lfs_attr* const attr = &file->cfg->attrs[i];
-        if(type == attr->type) {
-            LFS_ASSERT(size == attr->size);
-            // Little cost here to check if value is different
-            if(memcmp(attr->buffer, buffer, size) != 0) {
-                memcpy(attr->buffer, buffer, size);
-                file->flags |= LFS_F_DIRTY;
-            }
-            return 0;
+    const struct lfs_attr* attr = lfs_file_find_attribute(file, type);
+    if(attr != NULL) {
+        LFS_ASSERT(size == attr->size);
+        // Little cost here to check if value is different
+        if(memcmp(attr->buffer, buffer, size) != 0) {
+            memcpy(attr->buffer, buffer, size);
+            file->flags |= LFS_F_DIRTY;
         }
+        return 0;
     }
 
     // Otherwise commit attribute to storage
@@ -3906,12 +3912,9 @@ static int lfs_file_setattr_(lfs_t *lfs, lfs_file_t* file,
 #ifndef LFS_READONLY
 static int lfs_file_removeattr_(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
     // Cannot remove registered attributes
-    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
-        struct lfs_attr* const attr = &file->cfg->attrs[i];
-        LFS_ASSERT(type != attr->type);
-        if(type == attr->type) {
-            return LFS_ERR_EXIST;
-        }
+    if(lfs_file_find_attribute(file, type) != NULL) {
+        LFS_ASSERT(false);
+        return LFS_ERR_EXIST;
     }
 
     return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
@@ -3919,6 +3922,100 @@ static int lfs_file_removeattr_(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
 }
 #endif
 
+static int lfs_file_enumattr_(lfs_t* lfs, lfs_file_t* file,
+        lfs_attr_callback_t callback, struct lfs_attr_enum_t* e)
+{
+    size_t count = 0;
+
+    // Set of flags to avoid returning old versions of an attribute
+    uint8_t found_attrs[256 / 8] = {0};
+
+    // Enumerate registered attributes first as they may have been updated
+    for(unsigned i = 0; i < file->cfg->attr_count; i++) {
+        struct lfs_attr* const attr = &file->cfg->attrs[i];
+        memcpy(e->buffer, attr->buffer, lfs_min(attr->size, e->bufsize));
+        ++count;
+        if(!callback(e, attr->type, attr->size)) {
+            return count;
+        }
+        uint8_t offset = attr->type / 8;
+        uint8_t mask = 1 << (attr->type % 8);
+        found_attrs[offset] |= mask;
+    }
+
+    // Enumerate on-disk attributes
+
+    lfs_mdir_t* dir = &file->m;
+    lfs_off_t off = dir->off;
+    lfs_tag_t ntag = dir->etag;
+    lfs_stag_t gdiff = 0;
+
+    lfs_tag_t gmask = LFS_MKTAG(LFS_TYPE_USERATTR, 0x3ff, 0);
+    lfs_size_t gsize = lfs_min(e->bufsize, lfs->attr_max);
+    lfs_tag_t gtag = LFS_MKTAG(LFS_TYPE_USERATTR + 0, file->id, gsize);
+
+    if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair) &&
+            lfs_tag_id(gmask) != 0 &&
+            lfs_tag_id(lfs->gdisk.tag) <= lfs_tag_id(gtag)) {
+        // synthetic moves
+        gdiff -= LFS_MKTAG(0, 1, 0);
+    }
+
+    // iterate over dir block backwards (for faster lookups)
+    while (off >= sizeof(lfs_tag_t) + lfs_tag_dsize(ntag)) {
+        off -= lfs_tag_dsize(ntag);
+        lfs_tag_t tag = ntag;
+        int err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, sizeof(ntag),
+                dir->pair[0], off, &ntag, sizeof(ntag));
+        if (err) {
+            return err;
+        }
+
+        ntag = (lfs_frombe32(ntag) ^ tag) & 0x7fffffff;
+
+        if (lfs_tag_type1(tag) == LFS_TYPE_SPLICE
+                && lfs_tag_id(tag) <= lfs_tag_id(gtag - gdiff)) {
+            if (tag == (LFS_MKTAG(LFS_TYPE_CREATE, 0, 0) |
+                    (LFS_MKTAG(0, 0x3ff, 0) & (gtag - gdiff)))) {
+                // found where we were created
+                break;
+            }
+
+            // move around splices
+            gdiff += LFS_MKTAG(0, lfs_tag_splice(tag), 0);
+        }
+
+        if ((gmask & tag) != (gmask & (gtag - gdiff))) {
+            continue;
+        }
+        if (lfs_tag_isdelete(tag)) {
+            continue;
+        }
+
+        // Skip old versions of attributes
+        uint8_t attrnum = lfs_tag_chunk(tag);
+        uint8_t offset = attrnum / 8;
+        uint8_t mask = 1 << (attrnum % 8);
+        if(found_attrs[offset] & mask) {
+            continue;
+        }
+        found_attrs[offset] |= mask;
+
+        lfs_size_t diff = lfs_min(lfs_tag_size(tag), gsize);
+        err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, diff,
+                dir->pair[0], off + sizeof(tag), e->buffer, diff);
+        if (err) {
+            return err;
+        }
+
+        callback(e, attrnum, lfs_tag_size(tag));
+        ++count;
+    }
+
+    return count;
+}
 
 /// General fs operations ///
 static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info,
@@ -6374,6 +6471,23 @@ int lfs_file_removeattr(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
     return err;
 }
 #endif
+
+int lfs_file_enumattr(lfs_t* lfs, lfs_file_t* file,
+        lfs_attr_callback_t callback, struct lfs_attr_enum_t* e)
+{
+	int err = LFS_LOCK(lfs->cfg);
+	if(err) {
+		return err;
+	}
+	LFS_TRACE("lfs_file_enumattr(%p, %p, %p)", (void*)lfs, (void*)file, (void*)e);
+	LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+	err = lfs_file_enumattr_(lfs, file, callback, e);
+
+	LFS_TRACE("lfs_file_enumattr -> %d", err);
+	LFS_UNLOCK(lfs->cfg);
+	return err;
+}
 
 #ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {
