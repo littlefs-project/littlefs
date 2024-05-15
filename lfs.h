@@ -510,8 +510,8 @@ typedef struct lfsr_bshrub {
 } lfsr_bshrub_t;
 
 typedef struct lfsr_file {
-    lfsr_opened_t m;
     const struct lfs_file_config *cfg;
+    lfsr_opened_t m;
 
     // files contain both an active bshrub and staging bshrub, to allow
     // staging during mdir compacts
