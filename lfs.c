@@ -3070,15 +3070,26 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
     file->off = 0;
     file->cache.buffer = NULL;
 
-    // allocate entry for file if it doesn't exist
-    lfs_stag_t tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
-    if (tag < 0 && !(tag == LFS_ERR_NOENT && file->id != 0x3ff)) {
-        err = tag;
-        goto cleanup;
+    lfs_stag_t tag;
+    // special case for root
+    if (path == NULL || *path == '\0' || strcmp(path, "/") == 0) {
+        tag = 0x3ff;
+        file->type = LFS_TYPE_DIR;
+        err = lfs_dir_fetch(lfs, &file->m, lfs->root);
+        if (err) {
+            goto cleanup;
+        }
+    } else {
+        // allocate entry for file if it doesn't exist
+        tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
+        file->type = (tag == LFS_ERR_NOENT) ? LFS_TYPE_REG : lfs_tag_type3(tag);
+        if (tag < 0 && !(tag == LFS_ERR_NOENT && file->id != 0x3ff)) {
+            err = tag;
+            goto cleanup;
+        }
     }
 
     // get id, add to list of mdirs to catch update changes
-    file->type = LFS_TYPE_REG;
     lfs_mlist_append(lfs, (struct lfs_mlist *)file);
 
 #ifdef LFS_READONLY
@@ -3117,16 +3128,20 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
         err = LFS_ERR_EXIST;
         goto cleanup;
 #endif
-    } else if (lfs_tag_type3(tag) != LFS_TYPE_REG) {
-        err = LFS_ERR_ISDIR;
+    } else if (file->type != LFS_TYPE_REG && file->type != LFS_TYPE_DIR) {
+        err = LFS_ERR_NOENT;
         goto cleanup;
 #ifndef LFS_READONLY
     } else if (flags & LFS_O_TRUNC) {
+        if(file->type != LFS_TYPE_REG) {
+            err = LFS_ERR_ISDIR;
+            goto cleanup;
+        }
         // truncate if requested
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0);
         file->flags |= LFS_F_DIRTY;
 #endif
-    } else {
+    } else if (file->type == LFS_TYPE_REG) {
         // try to load what's on disk, if it's inlined we'll fix it later
         tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, file->id, 8), &file->ctz);
@@ -3327,6 +3342,10 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 #endif
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
+
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
             lfs_cache_drop(lfs, &file->cache);
@@ -3341,6 +3360,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         if (!(file->flags & LFS_F_INLINE)) {
             // copy over anything after current branch
             lfs_file_t orig = {
+                .type = file->type,
                 .ctz.head = file->ctz.head,
                 .ctz.size = file->ctz.size,
                 .flags = LFS_O_RDONLY,
@@ -3408,6 +3428,10 @@ relocate:
 
 #ifndef LFS_READONLY
 static int lfs_file_sync_(lfs_t *lfs, lfs_file_t *file) {
+    if (file->type != LFS_TYPE_REG) {
+        return 0;
+    }
+
     if (file->flags & LFS_F_ERRED) {
         // it's not safe to do anything if our file errored
         return 0;
@@ -3533,6 +3557,10 @@ static lfs_ssize_t lfs_file_read_(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY);
 
+    if (file->type != LFS_TYPE_REG) {
+        return 0;
+    }
+
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         // flush out any writes
@@ -3636,6 +3664,10 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
 
+    if (file->type != LFS_TYPE_REG) {
+        return (size == 0) ? 0 : LFS_ERR_ISDIR;
+    }
+
     if (file->flags & LFS_F_READING) {
         // drop any reads
         int err = lfs_file_flush(lfs, file);
@@ -3678,6 +3710,10 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
 
 static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
+
     // find new pos
     lfs_off_t npos = file->pos;
     if (whence == LFS_SEEK_SET) {
@@ -3742,6 +3778,10 @@ static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
 #ifndef LFS_READONLY
 static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
@@ -3824,6 +3864,9 @@ static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
 static lfs_soff_t lfs_file_tell_(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
     return file->pos;
 }
 
@@ -3838,6 +3881,10 @@ static int lfs_file_rewind_(lfs_t *lfs, lfs_file_t *file) {
 
 static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+
+    if (file->type != LFS_TYPE_REG) {
+        return 0;
+    }
 
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {

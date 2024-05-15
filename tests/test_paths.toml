@@ -218,8 +218,8 @@ code = '''
 
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
     lfs_file_t file;
-    lfs_file_open(&lfs, &file, "/", LFS_O_WRONLY | LFS_O_CREAT)
-            => LFS_ERR_ISDIR;
+    lfs_file_open(&lfs, &file, "/", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file) => 0;
 
     lfs_remove(&lfs, "/") => LFS_ERR_INVAL;
     lfs_unmount(&lfs) => 0;
