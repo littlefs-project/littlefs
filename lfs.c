@@ -1398,7 +1398,7 @@ static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
 }
 
 static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
-        uint16_t id, struct lfs_info *info) {
+        uint16_t id, struct lfs_info *info, const struct lfs_stat_config* config) {
     if (id == 0x3ff) {
         // special case for root
         strcpy(info->name, "/");
@@ -1426,6 +1426,20 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         info->size = ctz.size;
     } else if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         info->size = lfs_tag_size(tag);
+    }
+
+    // fetch attrs
+    if(config != NULL) {
+        for (unsigned i = 0; i < config->attr_count; i++) {
+            lfs_stag_t res = lfs_dir_get(lfs, dir,
+                    LFS_MKTAG(0x7ff, 0x3ff, 0),
+                    LFS_MKTAG(LFS_TYPE_USERATTR + config->attrs[i].type,
+                        id, config->attrs[i].size),
+                        config->attrs[i].buffer);
+            if (res < 0 && res != LFS_ERR_NOENT) {
+                return res;
+            }
+        }
     }
 
     return 0;
@@ -2739,7 +2753,8 @@ static int lfs_dir_close_(lfs_t *lfs, lfs_dir_t *dir) {
     return 0;
 }
 
-static int lfs_dir_read_(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+static int lfs_dir_read_(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     memset(info, 0, sizeof(*info));
 
     // special offset for '.' and '..'
@@ -2769,7 +2784,7 @@ static int lfs_dir_read_(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             dir->id = 0;
         }
 
-        int err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info);
+        int err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info, config);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -3055,15 +3070,26 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
     file->off = 0;
     file->cache.buffer = NULL;
 
-    // allocate entry for file if it doesn't exist
-    lfs_stag_t tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
-    if (tag < 0 && !(tag == LFS_ERR_NOENT && file->id != 0x3ff)) {
-        err = tag;
-        goto cleanup;
+    lfs_stag_t tag;
+    // special case for root
+    if (path == NULL || *path == '\0' || strcmp(path, "/") == 0) {
+        tag = 0x3ff;
+        file->type = LFS_TYPE_DIR;
+        err = lfs_dir_fetch(lfs, &file->m, lfs->root);
+        if (err) {
+            goto cleanup;
+        }
+    } else {
+        // allocate entry for file if it doesn't exist
+        tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
+        file->type = (tag == LFS_ERR_NOENT) ? LFS_TYPE_REG : lfs_tag_type3(tag);
+        if (tag < 0 && !(tag == LFS_ERR_NOENT && file->id != 0x3ff)) {
+            err = tag;
+            goto cleanup;
+        }
     }
 
     // get id, add to list of mdirs to catch update changes
-    file->type = LFS_TYPE_REG;
     lfs_mlist_append(lfs, (struct lfs_mlist *)file);
 
 #ifdef LFS_READONLY
@@ -3102,16 +3128,20 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
         err = LFS_ERR_EXIST;
         goto cleanup;
 #endif
-    } else if (lfs_tag_type3(tag) != LFS_TYPE_REG) {
-        err = LFS_ERR_ISDIR;
+    } else if (file->type != LFS_TYPE_REG && file->type != LFS_TYPE_DIR) {
+        err = LFS_ERR_NOENT;
         goto cleanup;
 #ifndef LFS_READONLY
     } else if (flags & LFS_O_TRUNC) {
+        if(file->type != LFS_TYPE_REG) {
+            err = LFS_ERR_ISDIR;
+            goto cleanup;
+        }
         // truncate if requested
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0);
         file->flags |= LFS_F_DIRTY;
 #endif
-    } else {
+    } else if (file->type == LFS_TYPE_REG) {
         // try to load what's on disk, if it's inlined we'll fix it later
         tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, file->id, 8), &file->ctz);
@@ -3312,6 +3342,10 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 #endif
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
+
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
             lfs_cache_drop(lfs, &file->cache);
@@ -3326,6 +3360,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         if (!(file->flags & LFS_F_INLINE)) {
             // copy over anything after current branch
             lfs_file_t orig = {
+                .type = file->type,
                 .ctz.head = file->ctz.head,
                 .ctz.size = file->ctz.size,
                 .flags = LFS_O_RDONLY,
@@ -3393,6 +3428,10 @@ relocate:
 
 #ifndef LFS_READONLY
 static int lfs_file_sync_(lfs_t *lfs, lfs_file_t *file) {
+    if (file->type != LFS_TYPE_REG) {
+        return 0;
+    }
+
     if (file->flags & LFS_F_ERRED) {
         // it's not safe to do anything if our file errored
         return 0;
@@ -3518,6 +3557,10 @@ static lfs_ssize_t lfs_file_read_(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY);
 
+    if (file->type != LFS_TYPE_REG) {
+        return 0;
+    }
+
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         // flush out any writes
@@ -3621,6 +3664,10 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
 
+    if (file->type != LFS_TYPE_REG) {
+        return (size == 0) ? 0 : LFS_ERR_ISDIR;
+    }
+
     if (file->flags & LFS_F_READING) {
         // drop any reads
         int err = lfs_file_flush(lfs, file);
@@ -3663,6 +3710,10 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
 
 static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
+
     // find new pos
     lfs_off_t npos = file->pos;
     if (whence == LFS_SEEK_SET) {
@@ -3727,6 +3778,10 @@ static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
 #ifndef LFS_READONLY
 static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
@@ -3809,6 +3864,9 @@ static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
 static lfs_soff_t lfs_file_tell_(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+    if (file->type != LFS_TYPE_REG) {
+        return LFS_ERR_ISDIR;
+    }
     return file->pos;
 }
 
@@ -3824,6 +3882,10 @@ static int lfs_file_rewind_(lfs_t *lfs, lfs_file_t *file) {
 static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
 
+    if (file->type != LFS_TYPE_REG) {
+        return 0;
+    }
+
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         return lfs_max(file->pos, file->ctz.size);
@@ -3833,16 +3895,185 @@ static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     return file->ctz.size;
 }
 
+static const struct lfs_attr* lfs_file_find_attribute(lfs_file_t* file, uint8_t type) {
+    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
+        struct lfs_attr* const attr = &file->cfg->attrs[i];
+        if(type == attr->type) {
+            return attr;
+        }
+    }
+    return NULL;
+}
+
+static lfs_ssize_t lfs_file_getattr_(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    // If attribute is registered then retrieve cached value
+    const struct lfs_attr* attr = lfs_file_find_attribute(file, type);
+    if(attr != NULL) {
+        LFS_ASSERT(size <= attr->size);
+        memcpy(buffer, attr->buffer, lfs_min(size, attr->size));
+        return attr->size;
+    }
+
+    lfs_stag_t tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_USERATTR + type,
+                file->id, lfs_min(size, lfs->attr_max)),
+            buffer);
+    if (tag < 0) {
+        if (tag == LFS_ERR_NOENT) {
+            return LFS_ERR_NOATTR;
+        }
+
+        return tag;
+    }
+
+    return lfs_tag_size(tag);
+}
+
+#ifndef LFS_READONLY
+static int lfs_file_setattr_(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    if (size > lfs->attr_max) {
+        return LFS_ERR_NOSPC;
+    }
+    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    // If attribute is registered then set cached value for consistency
+    const struct lfs_attr* attr = lfs_file_find_attribute(file, type);
+    if(attr != NULL) {
+        LFS_ASSERT(size == attr->size);
+        // Little cost here to check if value is different
+        if(memcmp(attr->buffer, buffer, size) != 0) {
+            memcpy(attr->buffer, buffer, size);
+            file->flags |= LFS_F_DIRTY;
+        }
+        return 0;
+    }
+
+    // Otherwise commit attribute to storage
+    return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_USERATTR + type, file->id, size), buffer}));
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_file_removeattr_(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
+    // Cannot remove registered attributes
+    if(lfs_file_find_attribute(file, type) != NULL) {
+        LFS_ASSERT(false);
+        return LFS_ERR_EXIST;
+    }
+
+    return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_USERATTR + type, file->id, 0x3ff), NULL}));
+}
+#endif
+
+static int lfs_file_enumattr_(lfs_t* lfs, lfs_file_t* file,
+        lfs_attr_callback_t callback, struct lfs_attr_enum_t* e)
+{
+    size_t count = 0;
+
+    // Set of flags to avoid returning old versions of an attribute
+    uint8_t found_attrs[256 / 8] = {0};
+
+    // Enumerate registered attributes first as they may have been updated
+    for(unsigned i = 0; i < file->cfg->attr_count; i++) {
+        struct lfs_attr* const attr = &file->cfg->attrs[i];
+        memcpy(e->buffer, attr->buffer, lfs_min(attr->size, e->bufsize));
+        ++count;
+        if(!callback(e, attr->type, attr->size)) {
+            return count;
+        }
+        uint8_t offset = attr->type / 8;
+        uint8_t mask = 1 << (attr->type % 8);
+        found_attrs[offset] |= mask;
+    }
+
+    // Enumerate on-disk attributes
+
+    lfs_mdir_t* dir = &file->m;
+    lfs_off_t off = dir->off;
+    lfs_tag_t ntag = dir->etag;
+    lfs_stag_t gdiff = 0;
+
+    lfs_tag_t gmask = LFS_MKTAG(LFS_TYPE_USERATTR, 0x3ff, 0);
+    lfs_size_t gsize = lfs_min(e->bufsize, lfs->attr_max);
+    lfs_tag_t gtag = LFS_MKTAG(LFS_TYPE_USERATTR + 0, file->id, gsize);
+
+    if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair) &&
+            lfs_tag_id(gmask) != 0 &&
+            lfs_tag_id(lfs->gdisk.tag) <= lfs_tag_id(gtag)) {
+        // synthetic moves
+        gdiff -= LFS_MKTAG(0, 1, 0);
+    }
+
+    // iterate over dir block backwards (for faster lookups)
+    while (off >= sizeof(lfs_tag_t) + lfs_tag_dsize(ntag)) {
+        off -= lfs_tag_dsize(ntag);
+        lfs_tag_t tag = ntag;
+        int err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, sizeof(ntag),
+                dir->pair[0], off, &ntag, sizeof(ntag));
+        if (err) {
+            return err;
+        }
+
+        ntag = (lfs_frombe32(ntag) ^ tag) & 0x7fffffff;
+
+        if (lfs_tag_type1(tag) == LFS_TYPE_SPLICE
+                && lfs_tag_id(tag) <= lfs_tag_id(gtag - gdiff)) {
+            if (tag == (LFS_MKTAG(LFS_TYPE_CREATE, 0, 0) |
+                    (LFS_MKTAG(0, 0x3ff, 0) & (gtag - gdiff)))) {
+                // found where we were created
+                break;
+            }
+
+            // move around splices
+            gdiff += LFS_MKTAG(0, lfs_tag_splice(tag), 0);
+        }
+
+        if ((gmask & tag) != (gmask & (gtag - gdiff))) {
+            continue;
+        }
+        if (lfs_tag_isdelete(tag)) {
+            continue;
+        }
+
+        // Skip old versions of attributes
+        uint8_t attrnum = lfs_tag_chunk(tag);
+        uint8_t offset = attrnum / 8;
+        uint8_t mask = 1 << (attrnum % 8);
+        if(found_attrs[offset] & mask) {
+            continue;
+        }
+        found_attrs[offset] |= mask;
+
+        lfs_size_t diff = lfs_min(lfs_tag_size(tag), gsize);
+        err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, diff,
+                dir->pair[0], off + sizeof(tag), e->buffer, diff);
+        if (err) {
+            return err;
+        }
+
+        callback(e, attrnum, lfs_tag_size(tag));
+        ++count;
+    }
+
+    return count;
+}
 
 /// General fs operations ///
-static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info) {
+static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
         return (int)tag;
     }
 
-    return lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
+    return lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info, config);
 }
 
 #ifndef LFS_READONLY
@@ -5986,14 +6217,15 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 }
 #endif
 
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+int lfs_statcfg(lfs_t *lfs, const char *path, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
         return err;
     }
     LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
 
-    err = lfs_stat_(lfs, path, info);
+    err = lfs_stat_(lfs, path, info, config);
 
     LFS_TRACE("lfs_stat -> %d", err);
     LFS_UNLOCK(lfs->cfg);
@@ -6235,6 +6467,75 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     return res;
 }
 
+lfs_ssize_t lfs_file_getattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_getattr(%p, %p, %"PRIu8", %p, %"PRIu32")",
+            (void*)lfs, (void*)file, type, buffer, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    lfs_ssize_t res = lfs_file_getattr_(lfs, file, type, buffer, size);
+
+    LFS_TRACE("lfs_file_getattr -> %"PRId32, res);
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+#ifndef LFS_READONLY
+int lfs_file_setattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_setattr(%p, %p, %"PRIu8", %p, %"PRIu32")",
+            (void*)lfs, (void*)file, type, buffer, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_setattr_(lfs, file, type, buffer, size);
+
+    LFS_TRACE("lfs_file_setattr -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_file_removeattr(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_removeattr(%p, %p, %"PRIu8")", (void*)lfs, (void*)file, type);
+
+    err = lfs_file_removeattr_(lfs, file, type);
+
+    LFS_TRACE("lfs_file_removeattr -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+int lfs_file_enumattr(lfs_t* lfs, lfs_file_t* file,
+        lfs_attr_callback_t callback, struct lfs_attr_enum_t* e)
+{
+	int err = LFS_LOCK(lfs->cfg);
+	if(err) {
+		return err;
+	}
+	LFS_TRACE("lfs_file_enumattr(%p, %p, %p)", (void*)lfs, (void*)file, (void*)e);
+	LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+	err = lfs_file_enumattr_(lfs, file, callback, e);
+
+	LFS_TRACE("lfs_file_enumattr -> %d", err);
+	LFS_UNLOCK(lfs->cfg);
+	return err;
+}
+
 #ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {
     int err = LFS_LOCK(lfs->cfg);
@@ -6280,7 +6581,8 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     return err;
 }
 
-int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+int lfs_dir_readcfg(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
         return err;
@@ -6288,7 +6590,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     LFS_TRACE("lfs_dir_read(%p, %p, %p)",
             (void*)lfs, (void*)dir, (void*)info);
 
-    err = lfs_dir_read_(lfs, dir, info);
+    err = lfs_dir_read_(lfs, dir, info, config);
 
     LFS_TRACE("lfs_dir_read -> %d", err);
     LFS_UNLOCK(lfs->cfg);

@@ -365,6 +365,14 @@ struct lfs_file_config {
     lfs_size_t attr_count;
 };
 
+// Configuration provided during lfs_dir_readcfg and lfs_statcfg
+struct lfs_stat_config {
+    // Optional list of custom attributes to read
+    struct lfs_attr *attrs;
+
+    // Number of custom attributes in the list
+    lfs_size_t attr_count;
+};
 
 /// internal littlefs data structures ///
 typedef struct lfs_cache {
@@ -519,11 +527,17 @@ int lfs_remove(lfs_t *lfs, const char *path);
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 #endif
 
+// Find info about a file or directory and read set of custom attributes
+int lfs_statcfg(lfs_t *lfs, const char *path, struct lfs_info *info,
+        const struct lfs_stat_config* config);
+
 // Find info about a file or directory
 //
 // Fills out the info structure, based on the specified file or directory.
 // Returns a negative error code on failure.
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
+static inline int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+    return lfs_statcfg(lfs, path, info, NULL);
+}
 
 // Get a custom attribute
 //
@@ -656,6 +670,43 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+// Read attribute from open file
+//
+// See lfs_getattr.
+lfs_ssize_t lfs_file_getattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size);
+
+// Set attribute on open file
+//
+// See lfs_setattr.
+// Note that if attribute is cached it won't be written to disk
+// until flushed or closed.
+int lfs_file_setattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, const void *buffer, lfs_size_t size);
+
+// Remove attribute from open file
+//
+// See lfs_removeattr. Fails if attribute is cached.
+int lfs_file_removeattr(lfs_t *lfs, lfs_file_t* file, uint8_t type);
+
+// Parameters used during attribute enumeration
+struct lfs_attr_enum_t {
+    void* param;
+    void* buffer;
+    size_t bufsize;
+};
+
+// Callback to receive details for each file attribute
+//
+// Return true to continue enumeration, false to stop
+typedef bool (*lfs_attr_callback_t)
+        (struct lfs_attr_enum_t* e, uint8_t type, lfs_size_t size);
+
+// Enumerate file attributes
+//
+// Invokes a callback for each attribute found
+int lfs_file_enumattr(lfs_t *lfs, lfs_file_t* file,
+    lfs_attr_callback_t callback, struct lfs_attr_enum_t* e);
 
 /// Directory operations ///
 
@@ -678,12 +729,18 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
 // Returns a negative error code on failure.
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
 
+// Read directory entry plus attributes
+int lfs_dir_readcfg(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
+        const struct lfs_stat_config* config);
+
 // Read an entry in the directory
 //
 // Fills out the info structure, based on the specified file or directory.
 // Returns a positive value on success, 0 at the end of directory,
 // or a negative error code on failure.
-int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
+static inline int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+    return lfs_dir_readcfg(lfs, dir, info, NULL);
+}
 
 // Change the position of the directory
 //

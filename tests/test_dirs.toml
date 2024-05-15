@@ -749,11 +749,12 @@ code = '''
     lfs_dir_open(&lfs, &dir, "tomato") => LFS_ERR_NOENT;
     lfs_dir_open(&lfs, &dir, "burito") => LFS_ERR_NOTDIR;
     lfs_file_open(&lfs, &file, "tomato", LFS_O_RDONLY) => LFS_ERR_NOENT;
-    lfs_file_open(&lfs, &file, "potato", LFS_O_RDONLY) => LFS_ERR_ISDIR;
     lfs_file_open(&lfs, &file, "tomato", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfs_file_open(&lfs, &file, "potato", LFS_O_WRONLY) => LFS_ERR_ISDIR;
+
     lfs_file_open(&lfs, &file, "potato",
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file, "abc", 3) => LFS_ERR_ISDIR;
+    lfs_file_close(&lfs, &file) => 0;
 
     lfs_file_open(&lfs, &file, "tacoto", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_close(&lfs, &file) => 0;
@@ -763,10 +764,6 @@ code = '''
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
     lfs_file_open(&lfs, &file, "/",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => LFS_ERR_EXIST;
-    lfs_file_open(&lfs, &file, "/", LFS_O_RDONLY) => LFS_ERR_ISDIR;
-    lfs_file_open(&lfs, &file, "/", LFS_O_WRONLY) => LFS_ERR_ISDIR;
-    lfs_file_open(&lfs, &file, "/",
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
 
     // check that errors did not corrupt directory
     lfs_dir_open(&lfs, &dir, "/") => 0;
