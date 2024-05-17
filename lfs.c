@@ -9834,8 +9834,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             }
         }
 
-        // mark as unsync and uncreat, we need to convert to reg file
-        // first sync
+        // mark as unsynced and orphaned, we need to convert to reg file
+        // on first sync
         file->o.flags |= LFS_F_UNSYNC | LFS_F_ORPHAN;
 
     } else {
@@ -11478,7 +11478,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // small files must be inlined entirely in our buffer
     LFS_ASSERT(!lfsr_f_isunflush(file->o.flags)
             || file->buffer.size <= lfsr_file_inlinesize(lfs, file));
-    // uncreat files must be unsync
+    // orphaned files must be unsynced
     LFS_ASSERT(!lfsr_f_isorphan(file->o.flags)
             || lfsr_f_isunsync(file->o.flags));
 

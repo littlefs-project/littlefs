@@ -139,9 +139,9 @@ enum lfs_open_flags {
 #endif
 
     // internally used flags
-    LFS_F_UNFLUSH   = 0x1000,   // File's data does not match storage
-    LFS_F_UNSYNC    = 0x2000,   // File's metadata does not match storage
-    LFS_F_ORPHAN    = 0x4000,   // File does not exist yet
+    LFS_F_UNFLUSH   = 0x1000,   // File's data does not match disk
+    LFS_F_UNSYNC    = 0x2000,   // File's metadata does not match disk
+    LFS_F_ORPHAN    = 0x4000,   // File does not exist
     LFS_F_ZOMBIE    = 0x8000,   // File has been removed
 };
 
