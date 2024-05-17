@@ -453,8 +453,7 @@ typedef struct lfsr_data {
 //} lfs_dir_t;
 
 typedef struct lfsr_dir {
-    lfsr_opened_t p; // pos mdir
-    lfsr_opened_t b; // bookmark mdir
+    lfsr_opened_t m;
     lfsr_did_t did;
     lfs_off_t pos;
 } lfsr_dir_t;

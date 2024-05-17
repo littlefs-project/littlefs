@@ -5293,15 +5293,6 @@ static inline const lfsr_dir_t *lfsr_opened_constdir(
     return (lfsr_dir_t*)o;
 }
 
-static inline lfsr_dir_t *lfsr_opened_bookmark(lfsr_opened_t *o) {
-    return (lfsr_dir_t*)(o - 1);
-}
-
-static inline const lfsr_dir_t *lfsr_opened_constbookmark(
-        const lfsr_opened_t *o) {
-    return (const lfsr_dir_t*)(o - 1);
-}
-
 static inline lfsr_file_t *lfsr_opened_file(lfsr_opened_t *o) {
     return (lfsr_file_t*)((struct lfs_file_config**)o - 1);
 }
@@ -7102,34 +7093,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // adjust opened mdirs?
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
                     && o->mdir.mid >= mid) {
-                // replaced?
-                if (o->mdir.mid == mid - attrs[i].weight
-                        && lfsr_tag_issup(attrs[i].tag)) {
-                    o->flags |= LFS_F_ZOMBIE
-                            | LFS_F_UNSYNC
-                            | LFS_O_DESYNC;
-                    o->flags &= ~LFS_F_ORPHAN;
                 // removed?
-                } else if (o->mdir.mid < mid - attrs[i].weight) {
+                if (o->mdir.mid < mid - attrs[i].weight) {
                     // we should not be removing opened regular files
                     LFS_ASSERT(o->type != LFS_TYPE_REG);
-                    o->flags |= LFS_F_ZOMBIE;
+                    if (o->type == LFS_TYPE_DIR) {
+                        lfsr_opened_dir(o)->pos
+                                += (mid - attrs[i].weight) - o->mdir.mid;
+                    }
                     o->mdir.mid = mid;
                 } else {
                     o->mdir.mid += attrs[i].weight;
-                    // adjust dir position?
-                    if (o->type == LFS_TYPE_DIR) {
-                        lfsr_opened_dir(o)->pos += attrs[i].weight;
-                    } else if (o->type == LFS_TYPE_BOOKMARK) {
-                        lfsr_opened_bookmark(o)->pos -= attrs[i].weight;
-                    }
-                }
-            } else if (o->mdir.mid > mid) {
-                // adjust dir position?
-                if (o->type == LFS_TYPE_DIR) {
-                    lfsr_opened_dir(o)->pos += attrs[i].weight;
-                } else if (o->type == LFS_TYPE_BOOKMARK) {
-                    lfsr_opened_bookmark(o)->pos -= attrs[i].weight;
                 }
             }
         }
@@ -9060,6 +9034,26 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         return err;
     }
 
+    // update in-device state
+    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        // mark any clobbered orphans as zombied
+        if (exists
+                && o->type == LFS_TYPE_REG
+                && o->mdir.mid == mdir.mid) {
+            o->flags = (o->flags & ~LFS_F_ORPHAN)
+                    | LFS_F_ZOMBIE
+                    | LFS_F_UNSYNC
+                    | LFS_O_DESYNC;
+
+        // update dir positions
+        } else if (!exists
+                && o->type == LFS_TYPE_DIR
+                && lfsr_opened_dir(o)->did == did
+                && o->mdir.mid >= mdir.mid) {
+            lfsr_opened_dir(o)->pos += 1;
+        }
+    }
+
     return 0;
 }
 
@@ -9090,6 +9084,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     // if we're removing a directory, we need to also remove the
     // bookmark entry
     lfsr_grm_t grm = lfs->grm;
+    lfsr_did_t did_ = 0;
     if (tag == LFSR_TAG_DIR) {
         // first lets figure out the did
         lfsr_data_t data;
@@ -9099,8 +9094,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             return err;
         }
 
-        lfsr_did_t did;
-        err = lfsr_data_readleb128(lfs, &data, &did);
+        err = lfsr_data_readleb128(lfs, &data, &did_);
         if (err) {
             return err;
         }
@@ -9108,7 +9102,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         // then lookup the bookmark entry
         lfsr_mdir_t bookmark_mdir;
         err = lfsr_mtree_namelookup(lfs, &lfs->mtree,
-                did, NULL, 0,
+                did_, NULL, 0,
                 &bookmark_mdir, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -9164,12 +9158,28 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    // lfsr_mdir_commit implicitly marks removed files as zombied, but
-    // we also need to mark them as uncreate to indicate that the mid
-    // needs to be cleaned up on close
+    // update in-device state
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
-        if (o->type == LFS_TYPE_REG && o->mdir.mid == mdir.mid) {
-            o->flags |= LFS_F_ORPHAN;
+        // mark any clobbered orphans as zombied orphans
+        if (zombie
+                && o->type == LFS_TYPE_REG
+                && o->mdir.mid == mdir.mid) {
+            o->flags |= LFS_F_ORPHAN
+                    | LFS_F_ZOMBIE
+                    | LFS_F_UNSYNC
+                    | LFS_O_DESYNC;
+
+        // mark any removed dirs as zombies
+        } else if (did_
+                && o->type == LFS_TYPE_DIR
+                && lfsr_opened_dir(o)->did == did_) {
+            o->flags |= LFS_F_ZOMBIE;
+
+        // update dir positions
+        } else if (o->type == LFS_TYPE_DIR
+                && lfsr_opened_dir(o)->did == did
+                && o->mdir.mid >= mdir.mid) {
+            lfsr_opened_dir(o)->pos -= 1;
         }
     }
 
@@ -9188,9 +9198,10 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // lookup old entry
     lfsr_mdir_t old_mdir;
     lfsr_tag_t old_tag;
+    lfsr_did_t old_did;
     err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, old_path,
             &old_mdir, &old_tag,
-            NULL, NULL, NULL);
+            &old_did, NULL, NULL);
     if (err && err != LFS_ERR_EXIST) {
         return err;
     }
@@ -9217,6 +9228,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     }
     // already exists?
     bool exists = (err == LFS_ERR_EXIST);
+    lfsr_did_t new_did_ = 0;
 
     // there are a few cases we need to watch out for
     if (!exists) {
@@ -9259,8 +9271,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                 return err;
             }
 
-            lfsr_did_t did;
-            err = lfsr_data_readleb128(lfs, &data, &did);
+            err = lfsr_data_readleb128(lfs, &data, &new_did_);
             if (err) {
                 return err;
             }
@@ -9268,7 +9279,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             // then lookup the bookmark entry
             lfsr_mdir_t bookmark_mdir;
             err = lfsr_mtree_namelookup(lfs, &lfs->mtree,
-                    did, NULL, 0,
+                    new_did_, NULL, 0,
                     &bookmark_mdir, NULL, NULL);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -9311,11 +9322,42 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         return err;
     }
 
-    // update moved files with the new mdir
+    // update in-device state
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
-        if (o->type == LFS_TYPE_REG
+        // mark any clobbered orphans as zombied
+        if (exists
+                && o->type == LFS_TYPE_REG
+                && o->mdir.mid == new_mdir.mid) {
+            o->flags = (o->flags & ~LFS_F_ORPHAN)
+                    | LFS_F_ZOMBIE
+                    | LFS_F_UNSYNC
+                    | LFS_O_DESYNC;
+
+        // update moved files with the new mdir
+        } else if (o->type == LFS_TYPE_REG
+                // TODO can we avoid this double check?
                 && lfsr_grm_isrm(&lfs->grm, o->mdir.mid)) {
             o->mdir = new_mdir;
+
+        // mark any removed dirs as zombies
+        } else if (new_did_
+                && o->type == LFS_TYPE_DIR
+                && lfsr_opened_dir(o)->did == new_did_) {
+            o->flags |= LFS_F_ZOMBIE;
+
+        // update dir positions
+        } else if (o->type == LFS_TYPE_DIR) {
+            if (!exists
+                    && lfsr_opened_dir(o)->did == new_did
+                    && o->mdir.mid >= new_mdir.mid) {
+                lfsr_opened_dir(o)->pos += 1;
+
+            }
+
+            if (lfsr_opened_dir(o)->did == old_did
+                    && o->mdir.mid >= lfs->grm.rms[0]) {
+                lfsr_opened_dir(o)->pos -= 1;
+            }
         }
     }
 
@@ -9405,10 +9447,8 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     // setup dir state
-    dir->p.type = LFS_TYPE_DIR;
-    dir->p.flags = 0;
-    dir->b.type = LFS_TYPE_BOOKMARK;
-    dir->b.flags = 0;
+    dir->m.type = LFS_TYPE_DIR;
+    dir->m.flags = 0;
 
     // lookup our directory
     lfsr_mdir_t mdir;
@@ -9447,15 +9487,6 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
         }
     }
 
-    // lookup our bookmark in the mtree
-    err = lfsr_mtree_namelookup(lfs, &lfs->mtree,
-            dir->did, NULL, 0,
-            &dir->b.mdir, NULL, NULL);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_NOENT);
-        return err;
-    }
-
     // let rewind initialize the pos state
     err = lfsr_dir_rewind(lfs, dir);
     if (err) {
@@ -9463,21 +9494,19 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &dir->p);
-    lfsr_opened_add(lfs, &dir->b);
+    lfsr_opened_add(lfs, &dir->m);
     return 0;
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &dir->p);
-    lfsr_opened_remove(lfs, &dir->b);
+    lfsr_opened_remove(lfs, &dir->m);
     return 0;
 }
 
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     // was our dir removed?
-    if (lfsr_f_iszombie(dir->b.flags)) {
+    if (lfsr_f_iszombie(dir->m.flags)) {
         return LFS_ERR_NOENT;
     }
 
@@ -9497,7 +9526,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     }
 
     // seek in case our mdir was dropped
-    int err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->p.mdir, 0);
+    int err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, 0);
     if (err) {
         return err;
     }
@@ -9506,7 +9535,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         // lookup the next name tag
         lfsr_tag_t tag;
         lfsr_data_t data;
-        err = lfsr_mdir_sublookup(lfs, &dir->p.mdir, LFSR_TAG_NAME,
+        err = lfsr_mdir_sublookup(lfs, &dir->m.mdir, LFSR_TAG_NAME,
                 &tag, &data);
         if (err) {
             return err;
@@ -9527,7 +9556,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         // skip orphans, we pretend these don't exist
         if (tag != LFSR_TAG_ORPHAN) {
             // fill out our info struct
-            err = lfsr_stat_(lfs, &dir->p.mdir, tag, data,
+            err = lfsr_stat_(lfs, &dir->m.mdir, tag, data,
                     info);
             if (err) {
                 return err;
@@ -9535,7 +9564,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         }
 
         // eagerly look up the next entry
-        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->p.mdir, 1);
+        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, 1);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -9549,7 +9578,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
     // do nothing if removed
-    if (lfsr_f_iszombie(dir->b.flags)) {
+    if (lfsr_f_iszombie(dir->m.flags)) {
         return 0;
     }
 
@@ -9564,7 +9593,7 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
     //
     // note the -2 to adjust for dot entries
     if (off > 2) {
-        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->p.mdir, off - 2);
+        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, off - 2);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -9581,16 +9610,24 @@ lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     // do nothing if removed
-    if (lfsr_f_iszombie(dir->b.flags)) {
+    if (lfsr_f_iszombie(dir->m.flags)) {
         return 0;
     }
 
     // reset pos
     dir->pos = 0;
 
-    // copy bookmark mdir and eagerly lookup the next entry
-    dir->p.mdir = dir->b.mdir;
-    int err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->p.mdir, 1);
+    // lookup our bookmark in the mtree
+    int err = lfsr_mtree_namelookup(lfs, &lfs->mtree,
+            dir->did, NULL, 0,
+            &dir->m.mdir, NULL, NULL);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
+    }
+
+    // eagerly lookup the next entry
+    err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, 1);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -9803,6 +9840,15 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                         did, name, name_size)));
             if (err) {
                 return err;
+            }
+
+            // update dir positions
+            for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+                if (o->type == LFS_TYPE_DIR
+                        && lfsr_opened_dir(o)->did == did
+                        && o->mdir.mid >= file->m.mdir.mid) {
+                    lfsr_opened_dir(o)->pos += 1;
+                }
             }
         }
 

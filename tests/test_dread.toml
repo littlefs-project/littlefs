@@ -1479,6 +1479,111 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# test removing and recreating the directory we are iterating over
+[cases.test_dread_read_rm_remkdir]
+defines.N = 5
+# where in the dir read do we remove?
+defines.I = 'range(6)'
+# NEIGHBORS&0x2 = left neighbor
+# NEIGHBORS&0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+# SEEK=0 => don't seek
+# SEEK=1 => seek
+# SEEK=2 => rewind then seek
+defines.SEEK = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    lfsr_mkdir(&lfs, "pricklypear") => 0;
+
+    if (NEIGHBORS & 0x2) {
+        assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+        lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
+    }
+
+    if (NEIGHBORS & 0x1) {
+        assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+        lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "pricklypear/dir%03x", i+1);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "pricklypear") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%03x", i+1);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+    }
+
+    // remove the directory
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "pricklypear/dir%03x", i+1);
+        lfsr_remove(&lfs, name) => 0;
+    }
+    lfsr_remove(&lfs, "pricklypear") => 0;
+
+    // recreate the directory, note this is technically a different
+    // directory
+    lfsr_mkdir(&lfs, "pricklypear") => 0;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "pricklypear/dir%03x", i+1);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // we should have ended up with the same did, which is what makes
+    // this tricky
+    lfsr_dir_t dir_;
+    lfsr_dir_open(&lfs, &dir_, "pricklypear") => 0;
+    assert(dir.did == dir_.did);
+    lfsr_dir_close(&lfs, &dir_) => 0;
+
+    // seek after mkdir?
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 0);
+        if (SEEK >= 2) {
+            lfsr_dir_rewind(&lfs, &dir) => 0;
+        }
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // try to read, but this should return an error
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 
 ## Recursive tests
