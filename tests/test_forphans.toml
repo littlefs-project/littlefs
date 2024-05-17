@@ -3,7 +3,7 @@ after = ['test_fwrite', 'test_fsync']
 
 
 # Some specific tests
-[cases.test_forphan_create]
+[cases.test_forphans_create]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -203,7 +203,7 @@ code = '''
     lfsr_unmount(&lfs_) => 0;
 '''
 
-[cases.test_forphan_create_pl]
+[cases.test_forphans_create_pl]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -280,7 +280,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_create_many_pl]
+[cases.test_forphans_create_many_pl]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -367,7 +367,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_create_sync_wr]
+[cases.test_forphans_create_sync_wr]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -557,7 +557,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_create_sync_rw]
+[cases.test_forphans_create_sync_rw]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -746,7 +746,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_create_desync_wdwr]
+[cases.test_forphans_create_desync_wdwr]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1064,7 +1064,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan]
+[cases.test_forphans_orphan]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1173,7 +1173,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_wdwr]
+[cases.test_forphans_orphan_wdwr]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1449,7 +1449,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_unrelated]
+[cases.test_forphans_orphan_unrelated]
 # different number of orphan require different methods of cleanup
 defines.N = 'range(6)'
 defines.M = 'range(6)'
@@ -1663,7 +1663,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_open]
+[cases.test_forphans_orphan_open]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -1755,7 +1755,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_mkdir]
+[cases.test_forphans_orphan_mkdir]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -1836,7 +1836,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_remove]
+[cases.test_forphans_orphan_remove]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -1910,7 +1910,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_rename_dst]
+[cases.test_forphans_orphan_rename_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -2059,7 +2059,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_orphan_rename_src]
+[cases.test_forphans_orphan_rename_src]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -2134,7 +2134,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie]
+[cases.test_forphans_zombie]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -2261,7 +2261,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_posthumous]
+[cases.test_forphans_zombie_posthumous]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -2388,7 +2388,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_rwrw]
+[cases.test_forphans_zombie_rwrw]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -2614,7 +2614,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_rwrw_posthumous]
+[cases.test_forphans_zombie_rwrw_posthumous]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -2840,7 +2840,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_zombie_rwrwrw]
+[cases.test_forphans_zombie_zombie_rwrwrw]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -3101,7 +3101,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_zombie_rwrwrw_posthumous]
+[cases.test_forphans_zombie_zombie_rwrwrw_posthumous]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -3362,7 +3362,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_open]
+[cases.test_forphans_zombie_open]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 # CLOSE=2 => close before op
@@ -3467,7 +3467,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_mkdir]
+[cases.test_forphans_zombie_mkdir]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 # CLOSE=2 => close before op
@@ -3560,7 +3560,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_remove]
+[cases.test_forphans_zombie_remove]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 # CLOSE=2 => close before op
@@ -3646,7 +3646,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_rename_dst]
+[cases.test_forphans_zombie_rename_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -3806,7 +3806,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombie_rename_src]
+[cases.test_forphans_zombie_rename_src]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 # CLOSE=2 => close before op
@@ -3893,7 +3893,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombify_mkdir]
+[cases.test_forphans_zombify_mkdir]
 defines.CLOSE = [false, true]
 defines.REMOUNT = [false, true]
 defines.POSTHUMOUS = [false, true]
@@ -3970,7 +3970,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_zombify_rename_dst]
+[cases.test_forphans_zombify_rename_dst]
 defines.ORPHAN = [false, true]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
@@ -4121,7 +4121,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_file_on_zombie_remove]
+[cases.test_forphans_file_on_zombie_remove]
 defines.DIR = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -4220,7 +4220,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_file_on_zombie_rename_dst]
+[cases.test_forphans_file_on_zombie_rename_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -4394,7 +4394,7 @@ code = '''
 
 # these doesn't really involve scratch files, but we might as well test
 # them here
-[cases.test_forphan_rename]
+[cases.test_forphans_rename]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -4630,7 +4630,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_rename_postrename]
+[cases.test_forphans_rename_postrename]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -4926,7 +4926,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_rename_rwrw]
+[cases.test_forphans_rename_rwrw]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -5271,7 +5271,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_rename_rwrw_postrename]
+[cases.test_forphans_rename_rwrw_postrename]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -5608,7 +5608,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_rename_rename_src]
+[cases.test_forphans_rename_rename_src]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -5768,7 +5768,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphan_file_on_zombie_rename_src]
+[cases.test_forphans_file_on_zombie_rename_src]
 defines.DIR = [false, true]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
