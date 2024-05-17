@@ -5326,8 +5326,8 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
     const lfsr_sprout_t *last = NULL;
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->m.type == LFS_TYPE_REG
-                && lfsr_bshrub_isbsprout(&file_->m.mdir, &file_->bshrub)
+        if (file_->o.type == LFS_TYPE_REG
+                && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
                 && lfsr_sprout_cmp(&file_->bshrub.u.bsprout, sprout) == 0) {
             last = &file_->bshrub.u.bsprout;
         }
@@ -5355,8 +5355,8 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
     // can update these later if our commit is a success
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->m.type == LFS_TYPE_REG
-                && lfsr_bshrub_isbsprout(&file_->m.mdir, &file_->bshrub)
+        if (file_->o.type == LFS_TYPE_REG
+                && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
                 && lfsr_sprout_cmp(
                     &file_->bshrub.u.bsprout,
                     sprout) == 0) {
@@ -5460,8 +5460,8 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
     const lfsr_shrub_t *last = NULL;
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->m.type == LFS_TYPE_REG
-                && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)
+        if (file_->o.type == LFS_TYPE_REG
+                && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
                 && lfsr_shrub_cmp(&file_->bshrub.u.bshrub, shrub) == 0) {
             last = &file_->bshrub.u.bshrub;
         }
@@ -5492,8 +5492,8 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // this should include our current bshrub
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->m.type == LFS_TYPE_REG
-                && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)
+        if (file_->o.type == LFS_TYPE_REG
+                && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
                 && lfsr_shrub_cmp(&file_->bshrub.u.bshrub, shrub) == 0) {
             file_->bshrub_.u.bshrub.blocks[0] = rbyd_->blocks[0];
             file_->bshrub_.u.bshrub.trunk = rbyd_->trunk;
@@ -6074,13 +6074,13 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
                     lfsr_file_t *file = (lfsr_file_t*)o;
                     // belongs to our mid?
-                    if (file->m.type != LFS_TYPE_REG
-                            || file->m.mdir.mid != mdir__->mid) {
+                    if (file->o.type != LFS_TYPE_REG
+                            || file->o.mdir.mid != mdir__->mid) {
                         continue;
                     }
 
                     // inlined sprout?
-                    if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)
+                    if (lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub)
                             // only compact once, first compact should stage
                             // the new block
                             && file->bshrub_.u.bsprout.u.disk.block
@@ -6104,7 +6104,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                     // inlined shrub?
                     } else if (lfsr_bshrub_isbshrub(
-                                &file->m.mdir, &file->bshrub)
+                                &file->o.mdir, &file->bshrub)
                             // only compact once, first compact should stage
                             // the new block
                             && file->bshrub_.u.bshrub.blocks[0]
@@ -6314,14 +6314,14 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
         for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             // belongs to our mdir + rid?
-            if (file->m.type != LFS_TYPE_REG
-                    || lfsr_mdir_cmp(&file->m.mdir, mdir) != 0
-                    || lfsr_mid_rid(lfs, file->m.mdir.mid) != a_rid) {
+            if (file->o.type != LFS_TYPE_REG
+                    || lfsr_mdir_cmp(&file->o.mdir, mdir) != 0
+                    || lfsr_mid_rid(lfs, file->o.mdir.mid) != a_rid) {
                 continue;
             }
 
             // inlined sprout?
-            if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
+            if (lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub)) {
                 lfs_ssize_t dsize__ = lfsr_sprout_estimate(lfs,
                         &file->bshrub.u.bsprout);
                 if (dsize__ < 0) {
@@ -6330,7 +6330,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 dsize_ += dsize__;
 
             // inlined shrub?
-            } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)) {
+            } else if (lfsr_bshrub_isbshrub(&file->o.mdir, &file->bshrub)) {
                 lfs_ssize_t dsize__ = lfsr_shrub_estimate(lfs,
                         &file->bshrub.u.bshrub);
                 if (dsize__ < 0) {
@@ -6460,16 +6460,16 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file = (lfsr_file_t*)o;
         // belongs to our mdir?
-        if (file->m.type != LFS_TYPE_REG
-                || lfsr_mdir_cmp(&file->m.mdir, mdir) != 0
-                || lfsr_mid_rid(lfs, file->m.mdir.mid) < start_rid
-                || (lfsr_rid_t)lfsr_mid_rid(lfs, file->m.mdir.mid)
+        if (file->o.type != LFS_TYPE_REG
+                || lfsr_mdir_cmp(&file->o.mdir, mdir) != 0
+                || lfsr_mid_rid(lfs, file->o.mdir.mid) < start_rid
+                || (lfsr_rid_t)lfsr_mid_rid(lfs, file->o.mdir.mid)
                     >= (lfsr_rid_t)end_rid) {
             continue;
         }
 
         // inlined sprout?
-        if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)
+        if (lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub)
                 // only compact once, first compact should stage the new block
                 && file->bshrub_.u.bsprout.u.disk.block
                     != mdir_->rbyd.blocks[0]) {
@@ -6490,7 +6490,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             }
 
         // inlined shrub?
-        } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)
+        } else if (lfsr_bshrub_isbshrub(&file->o.mdir, &file->bshrub)
                 // only compact once, first compact should stage the new block
                 && file->bshrub_.u.bshrub.blocks[0]
                     != mdir_->rbyd.blocks[0]) {
@@ -7445,7 +7445,7 @@ typedef struct lfsr_traversal {
     // we really don't want to pay the RAM cost for a full file,
     // so only store the relevant bits, is this a hack? yes
     struct {
-        lfsr_opened_t m;
+        lfsr_opened_t o;
         const struct lfs_file_config *cfg;
         lfsr_bshrub_t bshrub;
     } file;
@@ -7503,7 +7503,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         //
         case LFSR_TRAVERSAL_MROOTANCHOR:;
             // fetch the first mroot 0x{0,1}
-            int err = lfsr_mdir_fetch(lfs, &t->file.m.mdir,
+            int err = lfsr_mdir_fetch(lfs, &t->file.o.mdir,
                     -1, &LFSR_MPTR_MROOTANCHOR());
             if (err) {
                 return err;
@@ -7514,7 +7514,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
             if (tinfo_) {
                 tinfo_->tag = LFSR_TAG_MDIR;
-                tinfo_->u.mdir = t->file.m.mdir;
+                tinfo_->u.mdir = t->file.o.mdir;
             }
             return 0;
 
@@ -7523,14 +7523,14 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
             // lookup mroot, if we find one this is a fake mroot
             lfsr_tag_t tag;
             lfsr_data_t data;
-            err = lfsr_mdir_sublookup(lfs, &t->file.m.mdir,
+            err = lfsr_mdir_sublookup(lfs, &t->file.o.mdir,
                     LFSR_TAG_STRUCT,
                     &tag, &data);
             if (err) {
                 // if we have no mtree/mdir (inlined mdir), we need to traverse
                 // any files in our mroot next
                 if (err == LFS_ERR_NOENT) {
-                    t->file.m.mdir.mid = 0;
+                    t->file.o.mdir.mid = 0;
                     t->state = LFSR_TRAVERSAL_MDIR;
                     continue;
                 }
@@ -7568,14 +7568,14 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                 t->u.mtortoise.step += 1;
 
                 // fetch this mroot
-                err = lfsr_mdir_fetch(lfs, &t->file.m.mdir, -1, &mptr);
+                err = lfsr_mdir_fetch(lfs, &t->file.o.mdir, -1, &mptr);
                 if (err) {
                     return err;
                 }
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_MDIR;
-                    tinfo_->u.mdir = t->file.m.mdir;
+                    tinfo_->u.mdir = t->file.o.mdir;
                 }
                 return 0;
 
@@ -7588,7 +7588,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                     return err;
                 }
 
-                err = lfsr_mdir_fetch(lfs, &t->file.m.mdir, 0, &mptr);
+                err = lfsr_mdir_fetch(lfs, &t->file.o.mdir, 0, &mptr);
                 if (err) {
                     return err;
                 }
@@ -7598,7 +7598,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_MDIR;
-                    tinfo_->u.mdir = t->file.m.mdir;
+                    tinfo_->u.mdir = t->file.o.mdir;
                 }
                 return 0;
 
@@ -7701,7 +7701,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                     return err;
                 }
 
-                err = lfsr_mdir_fetch(lfs, &t->file.m.mdir,
+                err = lfsr_mdir_fetch(lfs, &t->file.o.mdir,
                         LFSR_MID(lfs, bid, 0),
                         &mptr);
                 if (err) {
@@ -7713,7 +7713,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
                 if (tinfo_) {
                     tinfo_->tag = LFSR_TAG_MDIR;
-                    tinfo_->u.mdir = t->file.m.mdir;
+                    tinfo_->u.mdir = t->file.o.mdir;
                 }
                 return 0;
 
@@ -7727,14 +7727,14 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
             // not traversing all blocks? have we exceeded our mdir's weight?
             // return to mtree traversal
             if (!lfsr_traversal_isall(t)
-                    || lfsr_mid_rid(lfs, t->file.m.mdir.mid)
-                        >= (lfsr_srid_t)t->file.m.mdir.rbyd.weight) {
+                    || lfsr_mid_rid(lfs, t->file.o.mdir.mid)
+                        >= (lfsr_srid_t)t->file.o.mdir.rbyd.weight) {
                 t->state = LFSR_TRAVERSAL_MTREE;
                 continue;
             }
 
             // do we have a block/btree?
-            err = lfsr_mdir_lookupnext(lfs, &t->file.m.mdir, LFSR_TAG_DATA,
+            err = lfsr_mdir_lookupnext(lfs, &t->file.o.mdir, LFSR_TAG_DATA,
                     &tag, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -7749,7 +7749,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
             // found a bshrub (inlined btree)?
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-                err = lfsr_data_readshrub(lfs, &data, &t->file.m.mdir,
+                err = lfsr_data_readshrub(lfs, &data, &t->file.o.mdir,
                         &t->file.bshrub.u.bshrub);
                 if (err) {
                     return err;
@@ -7765,7 +7765,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
             // no? continue to next file
             } else {
-                t->file.m.mdir.mid += 1;
+                t->file.o.mdir.mid += 1;
                 continue;
             }
 
@@ -7790,7 +7790,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
             // start traversing the file
             const lfsr_file_t *file = (const lfsr_file_t*)t->u.o;
-            t->file.m.mdir = file->m.mdir;
+            t->file.o.mdir = file->o.mdir;
             t->file.bshrub = file->bshrub;
             t->bt = LFSR_BTRAVERSAL();
             t->state = LFSR_TRAVERSAL_OPENEDBTREE;
@@ -7808,7 +7808,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                 if (err == LFS_ERR_NOENT) {
                     // end of btree? go to next file
                     if (t->state == LFSR_TRAVERSAL_MDIRBTREE) {
-                        t->file.m.mdir.mid += 1;
+                        t->file.o.mdir.mid += 1;
                         t->state = LFSR_TRAVERSAL_MDIR;
                         continue;
                     } else if (t->state == LFSR_TRAVERSAL_OPENEDBTREE) {
@@ -9429,8 +9429,8 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     // setup dir state
-    dir->m.type = LFS_TYPE_DIR;
-    dir->m.flags = 0;
+    dir->o.type = LFS_TYPE_DIR;
+    dir->o.flags = 0;
 
     // lookup our directory
     lfsr_mdir_t mdir;
@@ -9476,19 +9476,19 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &dir->m);
+    lfsr_opened_add(lfs, &dir->o);
     return 0;
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &dir->m);
+    lfsr_opened_remove(lfs, &dir->o);
     return 0;
 }
 
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     // was our dir removed?
-    if (lfsr_f_iszombie(dir->m.flags)) {
+    if (lfsr_f_iszombie(dir->o.flags)) {
         return LFS_ERR_NOENT;
     }
 
@@ -9508,7 +9508,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     }
 
     // seek in case our mdir was dropped
-    int err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, 0);
+    int err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->o.mdir, 0);
     if (err) {
         return err;
     }
@@ -9517,7 +9517,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         // lookup the next name tag
         lfsr_tag_t tag;
         lfsr_data_t data;
-        err = lfsr_mdir_sublookup(lfs, &dir->m.mdir, LFSR_TAG_NAME,
+        err = lfsr_mdir_sublookup(lfs, &dir->o.mdir, LFSR_TAG_NAME,
                 &tag, &data);
         if (err) {
             return err;
@@ -9538,7 +9538,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         // skip orphans, we pretend these don't exist
         if (tag != LFSR_TAG_ORPHAN) {
             // fill out our info struct
-            err = lfsr_stat_(lfs, &dir->m.mdir, tag, data,
+            err = lfsr_stat_(lfs, &dir->o.mdir, tag, data,
                     info);
             if (err) {
                 return err;
@@ -9546,7 +9546,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         }
 
         // eagerly look up the next entry
-        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, 1);
+        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->o.mdir, 1);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -9560,7 +9560,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
     // do nothing if removed
-    if (lfsr_f_iszombie(dir->m.flags)) {
+    if (lfsr_f_iszombie(dir->o.flags)) {
         return 0;
     }
 
@@ -9575,7 +9575,7 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
     //
     // note the -2 to adjust for dot entries
     if (off > 2) {
-        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, off - 2);
+        err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->o.mdir, off - 2);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -9592,7 +9592,7 @@ lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     // do nothing if removed
-    if (lfsr_f_iszombie(dir->m.flags)) {
+    if (lfsr_f_iszombie(dir->o.flags)) {
         return 0;
     }
 
@@ -9602,14 +9602,14 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     // lookup our bookmark in the mtree
     int err = lfsr_mtree_namelookup(lfs, &lfs->mtree,
             dir->did, NULL, 0,
-            &dir->m.mdir, NULL, NULL);
+            &dir->o.mdir, NULL, NULL);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_NOENT);
         return err;
     }
 
     // eagerly lookup the next entry
-    err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->m.mdir, 1);
+    err = lfsr_mtree_seek(lfs, &lfs->mtree, &dir->o.mdir, 1);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -9780,8 +9780,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // setup file state
-    file->m.type = LFS_TYPE_REG;
-    file->m.flags = flags;
+    file->o.type = LFS_TYPE_REG;
+    file->o.flags = flags;
     file->cfg = cfg;
     file->pos = 0;
     file->eblock = 0;
@@ -9795,7 +9795,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     const char *name;
     lfs_size_t name_size;
     int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
-            &file->m.mdir, &tag,
+            &file->o.mdir, &tag,
             &did, &name, &name_size);
     if (err && err != LFS_ERR_EXIST) {
         return err;
@@ -9816,7 +9816,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // create an orphan entry if we don't have one, this reserves the
         // mid until first sync
         if (!err) {
-            err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+            err = lfsr_mdir_commit(lfs, &file->o.mdir, LFSR_ATTRS(
                     LFSR_ATTR_NAME(
                         LFSR_TAG_ORPHAN, +1,
                         did, name, name_size)));
@@ -9828,7 +9828,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
                 if (o->type == LFS_TYPE_DIR
                         && ((lfsr_dir_t*)o)->did == did
-                        && o->mdir.mid >= file->m.mdir.mid) {
+                        && o->mdir.mid >= file->o.mdir.mid) {
                     ((lfsr_dir_t*)o)->pos += 1;
                 }
             }
@@ -9836,7 +9836,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // mark as unsync and uncreat, we need to convert to reg file
         // first sync
-        file->m.flags |= LFS_F_UNSYNC | LFS_F_ORPHAN;
+        file->o.flags |= LFS_F_UNSYNC | LFS_F_ORPHAN;
 
     } else {
         if (lfsr_o_isexcl(flags)) {
@@ -9855,7 +9855,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // read any inlined state
             lfsr_tag_t tag;
             lfsr_data_t data;
-            err = lfsr_mdir_lookupnext(lfs, &file->m.mdir, LFSR_TAG_DATA,
+            err = lfsr_mdir_lookupnext(lfs, &file->o.mdir, LFSR_TAG_DATA,
                     &tag, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -9879,7 +9879,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
             // or a bshrub (inlined btree)
             } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-                err = lfsr_data_readshrub(lfs, &data, &file->m.mdir,
+                err = lfsr_data_readshrub(lfs, &data, &file->o.mdir,
                         &file->bshrub.u.bshrub);
                 if (err) {
                     return err;
@@ -9917,14 +9917,14 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // small files remain perpetually unflushed
-        file->m.flags |= LFS_F_UNFLUSH;
+        file->o.flags |= LFS_F_UNFLUSH;
         file->buffer.pos = 0;
         file->buffer.size = lfsr_bshrub_size(&file->bshrub);
         file->bshrub = LFSR_BSHRUB_BNULL();
     }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &file->m);
+    lfsr_opened_add(lfs, &file->o);
     return 0;
 
 failed:;
@@ -9950,13 +9950,13 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     // don't call lfsr_file_sync if we're readonly or desynced
     int err = 0;
-    if (!lfsr_o_isrdonly(file->m.flags)
-            && !lfsr_o_isdesync(file->m.flags)) {
+    if (!lfsr_o_isrdonly(file->o.flags)
+            && !lfsr_o_isdesync(file->o.flags)) {
         err = lfsr_file_sync(lfs, file);
     }
 
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &file->m);
+    lfsr_opened_remove(lfs, &file->o);
 
     // clean up memory
     if (!file->cfg->buffer) {
@@ -9966,15 +9966,15 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     // are we orphaning a file?
     //
     // make sure we check _after_ removing ourselves
-    if (lfsr_f_isorphan(file->m.flags)
-            && !lfsr_mid_isopen(lfs, file->m.mdir.mid)) {
+    if (lfsr_f_isorphan(file->o.flags)
+            && !lfsr_mid_isopen(lfs, file->o.mdir.mid)) {
         // this gets a bit tricky, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
         // a few tricks
 
         // first try to push onto our grm queue
         if (lfsr_grm_count(&lfs->grm) < 2) {
-            lfsr_grm_pushrm(&lfs->grm, file->m.mdir.mid);
+            lfsr_grm_pushrm(&lfs->grm, file->o.mdir.mid);
 
         // fallback to just marking the filesystem as orphaned
         } else {
@@ -9996,7 +9996,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     // including the on-disk sprout/shrub
     lfsr_tag_t tag;
     lfsr_data_t data;
-    int err = lfsr_mdir_lookupnext(lfs, &file->m.mdir, LFSR_TAG_DATA,
+    int err = lfsr_mdir_lookupnext(lfs, &file->o.mdir, LFSR_TAG_DATA,
             &tag, &data);
     if (err && err != LFS_ERR_NOENT) {
         LFS_ASSERT(err < 0);
@@ -10012,7 +10012,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
 
     } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
         lfsr_shrub_t shrub;
-        err = lfsr_data_readshrub(lfs, &data, &file->m.mdir,
+        err = lfsr_data_readshrub(lfs, &data, &file->o.mdir,
                 &shrub);
         if (err) {
             LFS_ASSERT(err < 0);
@@ -10029,9 +10029,9 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     // this includes our current shrub
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->m.type == LFS_TYPE_REG
-                && file_->m.mdir.mid == file->m.mdir.mid) {
-            if (lfsr_bshrub_isbsprout(&file_->m.mdir, &file_->bshrub)) {
+        if (file_->o.type == LFS_TYPE_REG
+                && file_->o.mdir.mid == file->o.mdir.mid) {
+            if (lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)) {
                 lfs_ssize_t dsize = lfsr_sprout_estimate(lfs,
                         &file_->bshrub.u.bsprout);
                 if (dsize < 0) {
@@ -10039,7 +10039,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
                 }
                 estimate += dsize;
 
-            } else if (lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)) {
+            } else if (lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)) {
                 lfs_ssize_t dsize = lfsr_shrub_estimate(lfs,
                         &file_->bshrub.u.bshrub);
                 if (dsize < 0) {
@@ -10064,7 +10064,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
     LFS_ASSERT(!lfsr_bshrub_isbnull(&file->bshrub));
 
     // inlined sprout?
-    if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
+    if (lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub)) {
         if (bid_) {
             *bid_ = lfsr_data_size(file->bshrub.u.bsprout)-1;
         }
@@ -10080,7 +10080,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         return 0;
 
     // block pointer?
-    } else if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
+    } else if (lfsr_bshrub_isbptr(&file->o.mdir, &file->bshrub)) {
         if (bid_) {
             *bid_ = lfsr_data_size(file->bshrub.u.bptr.data)-1;
         }
@@ -10145,12 +10145,12 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t *bid_, lfsr_tinfo_t *tinfo_) {
     // bnull/bsprout do nothing
     if (lfsr_bshrub_isbnull(&file->bshrub)
-            || lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
+            || lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub)) {
         return LFS_ERR_NOENT;
     }
 
     // block pointer?
-    if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
+    if (lfsr_bshrub_isbptr(&file->o.mdir, &file->bshrub)) {
         if (t->bid > 0) {
             return LFS_ERR_NOENT;
         }
@@ -10263,10 +10263,10 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
 
     // before we touch anything, we need to mark all other btree references
     // as unerased
-    if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
+    if (lfsr_bshrub_isbtree(&file->o.mdir, &file->bshrub)) {
         for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
-            if (file_->m.type == LFS_TYPE_REG
+            if (file_->o.type == LFS_TYPE_REG
                     && file_ != file
                     && lfsr_bshrub_isbshruborbtree(&file_->bshrub)
                     && lfsr_btree_cmp(
@@ -10343,7 +10343,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
         estimate += commit_estimate;
 
         // commit to shrub
-        int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+        int err = lfsr_mdir_commit(lfs, &file->o.mdir, LFSR_ATTRS(
                 LFSR_ATTR_SHRUBCOMMIT(
                     (alloc)
                         ? LFSR_TAG_SHRUBALLOC
@@ -10357,9 +10357,9 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
         // update _all_ shrubs with the new estimate
         for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
-            if (file_->m.type == LFS_TYPE_REG
-                    && file_->m.mdir.mid == file->m.mdir.mid
-                    && lfsr_bshrub_isbshrub(&file_->m.mdir, &file_->bshrub)) {
+            if (file_->o.type == LFS_TYPE_REG
+                    && file_->o.mdir.mid == file->o.mdir.mid
+                    && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)) {
                 file_->bshrub.u.bshrub.estimate = estimate;
             }
         }
@@ -10439,17 +10439,17 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // this does risk losing our sprout/leaf if there is an error,
         // but note that's already a risk with how file carve deletes
         // data before insertion
-        if (lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub)) {
+        if (lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR_CAT_(
                     LFSR_TAG_DATA, +lfsr_bshrub_size(&file->bshrub),
                     &file->bshrub.u.bsprout, 1);
-        } else if (lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub)) {
+        } else if (lfsr_bshrub_isbptr(&file->o.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_BLOCK, +lfsr_bshrub_size(&file->bshrub),
                     LFSR_DATA_BPTR_(&file->bshrub.u.bptr, left.buf));
         }
 
-        file->bshrub.u.bshrub.blocks[0] = file->m.mdir.rbyd.blocks[0];
+        file->bshrub.u.bshrub.blocks[0] = file->o.mdir.rbyd.blocks[0];
         file->bshrub.u.bshrub.trunk = LFSR_RBYD_ISSHRUB | 0;
         file->bshrub.u.bshrub.weight = 0;
         // force estimate recalculation
@@ -11158,7 +11158,7 @@ fragment:;
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
     // can't read from writeonly files
-    LFS_ASSERT(!lfsr_o_iswronly(file->m.flags));
+    LFS_ASSERT(!lfsr_o_iswronly(file->o.flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
 
     lfs_off_t pos_ = file->pos;
@@ -11211,7 +11211,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             // note that flush does not change the actual file data, so if
             // a read fails it's ok to fall back to our flushed state
             //
-            if (lfsr_f_isunflush(file->m.flags)) {
+            if (lfsr_f_isunflush(file->o.flags)) {
                 int err = lfsr_file_flush(lfs, file);
                 if (err) {
                     return err;
@@ -11249,7 +11249,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
     // can't write to readonly files
-    LFS_ASSERT(!lfsr_o_isrdonly(file->m.flags));
+    LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags));
 
     // would this write make our file larger than our file limit?
     if (size > lfs->file_limit - file->pos) {
@@ -11270,14 +11270,14 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     // update pos if we are appending
     lfs_off_t pos = file->pos;
-    if (lfsr_o_isappend(file->m.flags)) {
+    if (lfsr_o_isappend(file->o.flags)) {
         pos = lfsr_file_size_(file);
     }
 
     // if we're a small file, we may need to append zeros
     if (pos > lfsr_file_size_(file)
             && pos <= lfsr_file_inlinesize(lfs, file)) {
-        LFS_ASSERT(lfsr_f_isunflush(file->m.flags));
+        LFS_ASSERT(lfsr_f_isunflush(file->o.flags));
         LFS_ASSERT(lfsr_file_size_(file) == file->buffer.size);
         memset(&file->buffer.buffer[file->buffer.size],
                 0,
@@ -11294,7 +11294,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        if (!lfsr_f_isunflush(file->m.flags)
+        if (!lfsr_f_isunflush(file->o.flags)
                 && size >= lfsr_file_buffersize(lfs, file)) {
             err = lfsr_file_flush_(lfs, file,
                     pos, buffer_, size);
@@ -11329,14 +11329,14 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // 2. Bypassing the buffer above means we only write to the
         //    buffer once, and flush at most twice.
         //
-        if (!lfsr_f_isunflush(file->m.flags)
+        if (!lfsr_f_isunflush(file->o.flags)
                 || (pos >= file->buffer.pos
                     && pos <= file->buffer.pos + file->buffer.size
                     && pos
                         < file->buffer.pos
                             + lfsr_file_buffersize(lfs, file))) {
             // unused buffer? we can move it where we need it
-            if (!lfsr_f_isunflush(file->m.flags)) {
+            if (!lfsr_f_isunflush(file->o.flags)) {
                 file->buffer.pos = pos;
                 file->buffer.size = 0;
             }
@@ -11350,7 +11350,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     file->buffer.size,
                     pos+d - file->buffer.pos);
 
-            file->m.flags |= LFS_F_UNFLUSH;
+            file->o.flags |= LFS_F_UNFLUSH;
             written += d;
             pos += d;
             buffer_ += d;
@@ -11364,11 +11364,11 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         if (err) {
             goto failed;
         }
-        file->m.flags &= ~LFS_F_UNFLUSH;
+        file->o.flags &= ~LFS_F_UNFLUSH;
     }
 
     // mark as unsynced
-    file->m.flags |= LFS_F_UNSYNC;
+    file->o.flags |= LFS_F_UNSYNC;
     // update our pos
     file->pos = pos;
 
@@ -11376,7 +11376,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     //
     // this seems unreachable, but it's possible if we transition from
     // a small file to a non-small file
-    if (lfsr_o_isflush(file->m.flags)) {
+    if (lfsr_o_isflush(file->o.flags)) {
         err = lfsr_file_flush(lfs, file);
         if (err) {
             goto failed;
@@ -11384,7 +11384,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // sync if requested
-    if (lfsr_o_issync(file->m.flags)) {
+    if (lfsr_o_issync(file->o.flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
             goto failed;
@@ -11395,18 +11395,18 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
 failed:;
     // mark as desync so lfsr_file_close doesn't write to disk
-    file->m.flags |= LFS_O_DESYNC;
+    file->o.flags |= LFS_O_DESYNC;
     return err;
 }
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // readonly files should do nothing
-    LFS_ASSERT(!lfsr_o_isrdonly(file->m.flags)
-            || !lfsr_f_isunflush(file->m.flags)
+    LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags)
+            || !lfsr_f_isunflush(file->o.flags)
             || lfsr_file_size_(file) <= lfsr_file_inlinesize(lfs, file));
 
     // do nothing if our file is already flushed
-    if (!lfsr_f_isunflush(file->m.flags)) {
+    if (!lfsr_f_isunflush(file->o.flags)) {
         return 0;
     }
 
@@ -11424,7 +11424,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     int err;
 
     // flush our buffer if it contains any unwritten data
-    if (lfsr_f_isunflush(file->m.flags)
+    if (lfsr_f_isunflush(file->o.flags)
             && file->buffer.size != 0) {
         // flush
         err = lfsr_file_flush_(lfs, file,
@@ -11435,18 +11435,18 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as flushed
-    file->m.flags &= ~LFS_F_UNFLUSH;
+    file->o.flags &= ~LFS_F_UNFLUSH;
     return 0;
 
 failed:;
     // mark as desync so lfsr_file_close doesn't write to disk
-    file->m.flags |= LFS_O_DESYNC;
+    file->o.flags |= LFS_O_DESYNC;
     return err;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // removed? we can't sync
-    if (lfsr_f_iszombie(file->m.flags)) {
+    if (lfsr_f_iszombie(file->o.flags)) {
         return LFS_ERR_NOENT;
     }
 
@@ -11467,23 +11467,23 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // or bptr
     //
     // this is convenient because bptrs are a bit annoying to commit
-    LFS_ASSERT(!lfsr_bshrub_isbsprout(&file->m.mdir, &file->bshrub));
-    LFS_ASSERT(!lfsr_bshrub_isbptr(&file->m.mdir, &file->bshrub));
+    LFS_ASSERT(!lfsr_bshrub_isbsprout(&file->o.mdir, &file->bshrub));
+    LFS_ASSERT(!lfsr_bshrub_isbptr(&file->o.mdir, &file->bshrub));
     // small files should start as zero, const prop should optimize this out
-    LFS_ASSERT(!lfsr_f_isunflush(file->m.flags)
+    LFS_ASSERT(!lfsr_f_isunflush(file->o.flags)
             || file->buffer.pos == 0);
     // small files/btree should be exclusive here
-    LFS_ASSERT(!lfsr_f_isunflush(file->m.flags)
+    LFS_ASSERT(!lfsr_f_isunflush(file->o.flags)
             || lfsr_bshrub_size(&file->bshrub) == 0);
     // small files must be inlined entirely in our buffer
-    LFS_ASSERT(!lfsr_f_isunflush(file->m.flags)
+    LFS_ASSERT(!lfsr_f_isunflush(file->o.flags)
             || file->buffer.size <= lfsr_file_inlinesize(lfs, file));
     // uncreat files must be unsync
-    LFS_ASSERT(!lfsr_f_isorphan(file->m.flags)
-            || lfsr_f_isunsync(file->m.flags));
+    LFS_ASSERT(!lfsr_f_isorphan(file->o.flags)
+            || lfsr_f_isunsync(file->o.flags));
 
     // don't write to disk if our disk is already in-sync
-    if (lfsr_f_isunsync(file->m.flags)) {
+    if (lfsr_f_isunsync(file->o.flags)) {
         // readonly files should do nothing
         //
         // but readonly files _can_ end up unsynced, in the roundabout
@@ -11494,7 +11494,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // 3. we try to sync our original file handle
         //
         // the best thing we can do in this case is return an error
-        if (lfsr_o_isrdonly(file->m.flags)) {
+        if (lfsr_o_isrdonly(file->o.flags)) {
             err = LFS_ERR_INVAL;
             goto failed;
         }
@@ -11509,8 +11509,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         uint8_t buf[LFSR_BTREE_DSIZE];
 
         // not created yet? need to convert orphan to normal file
-        if (lfsr_f_isorphan(file->m.flags)) {
-            err = lfsr_mdir_lookup(lfs, &file->m.mdir, LFSR_TAG_ORPHAN,
+        if (lfsr_f_isorphan(file->o.flags)) {
+            err = lfsr_mdir_lookup(lfs, &file->o.mdir, LFSR_TAG_ORPHAN,
                     &name_data);
             if (err) {
                 // we must have an orphan at this point
@@ -11526,22 +11526,22 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // commit the file state
 
         // null? no attr?
-        if (lfsr_f_isunflush(file->m.flags) && file->buffer.size == 0) {
+        if (lfsr_f_isunflush(file->o.flags) && file->buffer.size == 0) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_STRUCT, 0,
                     LFSR_DATA_NULL());
         // small file inlined in mdir?
-        } else if (lfsr_f_isunflush(file->m.flags)) {
+        } else if (lfsr_f_isunflush(file->o.flags)) {
             attrs[attr_count++] = LFSR_ATTR_CAT_(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     (const lfsr_data_t*)&file->buffer, 1);
         // bshrub?
-        } else if (lfsr_bshrub_isbshrub(&file->m.mdir, &file->bshrub)) {
+        } else if (lfsr_bshrub_isbshrub(&file->o.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR_SHRUBTRUNK(
                     LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
                     &file->bshrub_.u.bshrub);
         // btree?
-        } else if (lfsr_bshrub_isbtree(&file->m.mdir, &file->bshrub)) {
+        } else if (lfsr_bshrub_isbtree(&file->o.mdir, &file->bshrub)) {
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
                     LFSR_DATA_BTREE_(&file->bshrub.u.btree, buf));
@@ -11551,7 +11551,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
         LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
 
-        err = lfsr_mdir_commit(lfs, &file->m.mdir,
+        err = lfsr_mdir_commit(lfs, &file->o.mdir,
                 attrs, attr_count);
         if (err) {
             goto failed;
@@ -11561,24 +11561,24 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // but do update other file handles
     for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->m.type == LFS_TYPE_REG
-                && file_->m.mdir.mid == file->m.mdir.mid
+        if (file_->o.type == LFS_TYPE_REG
+                && file_->o.mdir.mid == file->o.mdir.mid
                 // don't double update
                 && file_ != file) {
             // notify all files of creation
-            file_->m.flags &= ~LFS_F_ORPHAN;
+            file_->o.flags &= ~LFS_F_ORPHAN;
 
             // mark desynced files an unsynced
-            if (lfsr_o_isdesync(file_->m.flags)) {
-                file_->m.flags |= LFS_F_UNSYNC;
+            if (lfsr_o_isdesync(file_->o.flags)) {
+                file_->o.flags |= LFS_F_UNSYNC;
 
             // update synced files
             } else {
-                file_->m.flags &= ~LFS_F_UNSYNC;
-                if (lfsr_f_isunflush(file->m.flags)) {
-                    file_->m.flags |= LFS_F_UNFLUSH;
+                file_->o.flags &= ~LFS_F_UNSYNC;
+                if (lfsr_f_isunflush(file->o.flags)) {
+                    file_->o.flags |= LFS_F_UNFLUSH;
                 } else {
-                    file_->m.flags &= ~LFS_F_UNFLUSH;
+                    file_->o.flags &= ~LFS_F_UNFLUSH;
                 }
                 file_->bshrub = file->bshrub;
                 file_->buffer.pos = file->buffer.pos;
@@ -11593,17 +11593,17 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->m.flags &= ~LFS_F_UNSYNC & ~LFS_F_ORPHAN & ~LFS_O_DESYNC;
+    file->o.flags &= ~LFS_F_UNSYNC & ~LFS_F_ORPHAN & ~LFS_O_DESYNC;
     return 0;
 
 failed:;
-    file->m.flags |= LFS_O_DESYNC;
+    file->o.flags |= LFS_O_DESYNC;
     return err;
 }
 
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-    file->m.flags |= LFS_O_DESYNC;
+    file->o.flags |= LFS_O_DESYNC;
     return 0;
 }
 
@@ -11698,7 +11698,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // small files remain perpetually unflushed
-        file->m.flags |= LFS_F_UNFLUSH;
+        file->o.flags |= LFS_F_UNFLUSH;
         file->buffer.pos = 0;
         file->buffer.size = size_;
         file->bshrub = LFSR_BSHRUB_BNULL();
@@ -11723,13 +11723,13 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // mark as unsynced
-    file->m.flags |= LFS_F_UNSYNC;
+    file->o.flags |= LFS_F_UNSYNC;
 
     // flush if requested
     //
     // this seems unreachable, but it's possible if we transition from
     // a small file to a non-small file
-    if (lfsr_o_isflush(file->m.flags)) {
+    if (lfsr_o_isflush(file->o.flags)) {
         err = lfsr_file_flush(lfs, file);
         if (err) {
             goto failed;
@@ -11737,7 +11737,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // sync if requested
-    if (lfsr_o_issync(file->m.flags)) {
+    if (lfsr_o_issync(file->o.flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
             goto failed;
@@ -11748,7 +11748,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
 failed:;
     // mark as desync so lfsr_file_close doesn't write to disk
-    file->m.flags |= LFS_O_DESYNC;
+    file->o.flags |= LFS_O_DESYNC;
     return err;
 }
 
@@ -11814,7 +11814,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // small files remain perpetually unflushed
-        file->m.flags |= LFS_F_UNFLUSH;
+        file->o.flags |= LFS_F_UNFLUSH;
         file->buffer.pos = 0;
         file->buffer.size = size_;
         file->bshrub = LFSR_BSHRUB_BNULL();
@@ -11854,13 +11854,13 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // mark as unsynced
-    file->m.flags |= LFS_F_UNSYNC;
+    file->o.flags |= LFS_F_UNSYNC;
 
     // flush if requested
     //
     // this seems unreachable, but it's possible if we transition from
     // a small file to a non-small file
-    if (lfsr_o_isflush(file->m.flags)) {
+    if (lfsr_o_isflush(file->o.flags)) {
         err = lfsr_file_flush(lfs, file);
         if (err) {
             goto failed;
@@ -11868,7 +11868,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // sync if requested
-    if (lfsr_o_issync(file->m.flags)) {
+    if (lfsr_o_issync(file->o.flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
             goto failed;
@@ -11879,7 +11879,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
 failed:;
     // mark as desync so lfsr_file_close doesn't write to disk
-    file->m.flags |= LFS_O_DESYNC;
+    file->o.flags |= LFS_O_DESYNC;
     return err;
 }
 

@@ -453,7 +453,7 @@ typedef struct lfsr_data {
 //} lfs_dir_t;
 
 typedef struct lfsr_dir {
-    lfsr_opened_t m;
+    lfsr_opened_t o;
     lfsr_did_t did;
     lfs_off_t pos;
 } lfsr_dir_t;
@@ -509,7 +509,7 @@ typedef struct lfsr_bshrub {
 } lfsr_bshrub_t;
 
 typedef struct lfsr_file {
-    lfsr_opened_t m;
+    lfsr_opened_t o;
     const struct lfs_file_config *cfg;
 
     // files contain both an active bshrub and staging bshrub, to allow
