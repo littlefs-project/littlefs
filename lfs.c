@@ -1457,7 +1457,7 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 
 typedef struct lfsr_attr {
     lfsr_tag_t tag;
-    uint16_t cat_count;
+    int16_t cat_count;
     lfsr_srid_t weight;
     // sign(size)=0 => single in-RAM buffer
     // sign(size)=1 => multiple concatenated datas
@@ -1465,13 +1465,10 @@ typedef struct lfsr_attr {
     const void *cat;
 } lfsr_attr_t;
 
-// cat can either be a simple in-RAM buffer or concatenated datas
-#define LFSR_CAT_ISCAT 0x8000
-
 #define LFSR_ATTR_(_tag, _weight, _cat, _cat_count) \
     ((lfsr_attr_t){ \
         .tag=_tag, \
-        .cat_count=_cat_count, \
+        .cat_count=(uint16_t){_cat_count}, \
         .weight=_weight, \
         .cat=_cat})
 
@@ -1493,7 +1490,7 @@ static inline lfsr_attr_t lfsr_attr(
 #define LFSR_ATTR_CAT_(_tag, _weight, _datas, _data_count) \
     ((lfsr_attr_t){ \
         .tag=_tag, \
-        .cat_count=LFSR_CAT_ISCAT | (_data_count), \
+        .cat_count=-(uint16_t){_data_count}, \
         .weight=_weight, \
         .cat=_datas})
 
@@ -1513,34 +1510,14 @@ static inline lfsr_attr_t lfsr_attr(
     sizeof((const lfsr_attr_t[]){__VA_ARGS__}) / sizeof(lfsr_attr_t)
 
 // cat helpers
-static inline bool lfsr_cat_isbuf(const void *cat, uint16_t cat_count) {
-    (void)cat;
-    return !(cat_count & LFSR_CAT_ISCAT);
-}
-
-static inline bool lfsr_cat_iscat(const void *cat, uint16_t cat_count) {
-    (void)cat;
-    return cat_count & LFSR_CAT_ISCAT;
-}
-
-static inline lfs_size_t lfsr_cat_size_(const void *cat, uint16_t cat_count) {
-    LFS_ASSERT(lfsr_cat_isbuf(cat, cat_count));
-    return cat_count;
-}
-
-static inline lfs_size_t lfsr_cat_count(const void *cat, uint16_t cat_count) {
-    LFS_ASSERT(lfsr_cat_iscat(cat, cat_count));
-    return cat_count & ~LFSR_CAT_ISCAT;
-}
-
-static inline lfs_size_t lfsr_cat_size(const void *cat, uint16_t cat_count) {
+static inline lfs_size_t lfsr_cat_size(const void *cat, int16_t cat_count) {
     // this gets a bit complicated for concatenated data
-    if (lfsr_cat_isbuf(cat, cat_count)) {
+    if (cat_count >= 0) {
         return cat_count;
 
     } else {
         const lfsr_data_t *datas = cat;
-        lfs_size_t data_count = lfsr_cat_count(cat, cat_count);
+        lfs_size_t data_count = -cat_count;
         lfs_size_t size = 0;
         for (lfs_size_t i = 0; i < data_count; i++) {
             size += lfsr_data_size(datas[i]);
@@ -1552,17 +1529,17 @@ static inline lfs_size_t lfsr_cat_size(const void *cat, uint16_t cat_count) {
 // cat <-> bd interactions
 static int lfsr_bd_progcat(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off,
-        const void *cat, uint16_t cat_count,
+        const void *cat, int16_t cat_count,
         uint32_t *cksum_) {
     // direct buffer?
-    if (lfsr_cat_isbuf(cat, cat_count)) {
+    if (cat_count >= 0) {
         return lfsr_bd_prog(lfs, block, off, cat, cat_count,
                 cksum_);
 
     // indirect concatenated data?
     } else {
         const lfsr_data_t *datas = cat;
-        lfs_size_t data_count = lfsr_cat_count(cat, cat_count);
+        lfs_size_t data_count = -cat_count;
         for (lfs_size_t i = 0; i < data_count; i++) {
             int err = lfsr_bd_progdata(lfs, block, off, datas[i],
                     cksum_);
@@ -2694,7 +2671,7 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        const void *cat, uint16_t cat_count) {
+        const void *cat, int16_t cat_count) {
     uint32_t cksum_ = rbyd->cksum;
     int err = lfsr_bd_progcat(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             cat, cat_count,
