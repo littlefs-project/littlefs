@@ -1457,7 +1457,7 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 
 typedef struct lfsr_attr {
     lfsr_tag_t tag;
-    int16_t cat_count;
+    int16_t count;
     lfsr_srid_t weight;
     // sign(size)=0 => single in-RAM buffer
     // sign(size)=1 => multiple concatenated datas
@@ -1465,10 +1465,10 @@ typedef struct lfsr_attr {
     const void *cat;
 } lfsr_attr_t;
 
-#define LFSR_ATTR_(_tag, _weight, _cat, _cat_count) \
+#define LFSR_ATTR_(_tag, _weight, _cat, _count) \
     ((lfsr_attr_t){ \
         .tag=_tag, \
-        .cat_count=(uint16_t){_cat_count}, \
+        .count=(uint16_t){_count}, \
         .weight=_weight, \
         .cat=_cat})
 
@@ -1482,7 +1482,7 @@ static inline lfsr_attr_t lfsr_attr(
     LFS_ASSERT(lfsr_data_size(data) <= 0x7fff);
     return (lfsr_attr_t){
         .tag=tag,
-        .cat_count=lfsr_data_size(data),
+        .count=lfsr_data_size(data),
         .weight=weight,
         .cat=data.u.buffer};
 }
@@ -1490,7 +1490,7 @@ static inline lfsr_attr_t lfsr_attr(
 #define LFSR_ATTR_CAT_(_tag, _weight, _datas, _data_count) \
     ((lfsr_attr_t){ \
         .tag=_tag, \
-        .cat_count=-(uint16_t){_data_count}, \
+        .count=-(uint16_t){_data_count}, \
         .weight=_weight, \
         .cat=_datas})
 
@@ -1510,14 +1510,14 @@ static inline lfsr_attr_t lfsr_attr(
     sizeof((const lfsr_attr_t[]){__VA_ARGS__}) / sizeof(lfsr_attr_t)
 
 // cat helpers
-static inline lfs_size_t lfsr_cat_size(const void *cat, int16_t cat_count) {
+static inline lfs_size_t lfsr_cat_size(const void *cat, int16_t count) {
     // this gets a bit complicated for concatenated data
-    if (cat_count >= 0) {
-        return cat_count;
+    if (count >= 0) {
+        return count;
 
     } else {
         const lfsr_data_t *datas = cat;
-        lfs_size_t data_count = -cat_count;
+        lfs_size_t data_count = -count;
         lfs_size_t size = 0;
         for (lfs_size_t i = 0; i < data_count; i++) {
             size += lfsr_data_size(datas[i]);
@@ -1529,17 +1529,17 @@ static inline lfs_size_t lfsr_cat_size(const void *cat, int16_t cat_count) {
 // cat <-> bd interactions
 static int lfsr_bd_progcat(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off,
-        const void *cat, int16_t cat_count,
+        const void *cat, int16_t count,
         uint32_t *cksum_) {
     // direct buffer?
-    if (cat_count >= 0) {
-        return lfsr_bd_prog(lfs, block, off, cat, cat_count,
+    if (count >= 0) {
+        return lfsr_bd_prog(lfs, block, off, cat, count,
                 cksum_);
 
     // indirect concatenated data?
     } else {
         const lfsr_data_t *datas = cat;
-        lfs_size_t data_count = -cat_count;
+        lfs_size_t data_count = -count;
         for (lfs_size_t i = 0; i < data_count; i++) {
             int err = lfsr_bd_progdata(lfs, block, off, datas[i],
                     cksum_);
@@ -1565,7 +1565,7 @@ static inline bool lfsr_attr_isinsert(lfsr_attr_t attr) {
 }
 
 static inline lfs_size_t lfsr_attr_size(lfsr_attr_t attr) {
-    return lfsr_cat_size(attr.cat, attr.cat_count);
+    return lfsr_cat_size(attr.cat, attr.count);
 }
 
 // special attrs - here be hacks
@@ -2671,10 +2671,10 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        const void *cat, int16_t cat_count) {
+        const void *cat, int16_t count) {
     uint32_t cksum_ = rbyd->cksum;
     int err = lfsr_bd_progcat(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
-            cat, cat_count,
+            cat, count,
             &cksum_);
     if (err) {
         return err;
@@ -2684,7 +2684,7 @@ static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->eoff
             += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
                 << (8*sizeof(lfs_size_t)-1))
-            + lfsr_cat_size(cat, cat_count);
+            + lfsr_cat_size(cat, count);
     rbyd->cksum = cksum_;
     return 0;
 }
@@ -2697,7 +2697,7 @@ static int lfsr_rbyd_appendattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return err;
     }
 
-    err = lfsr_rbyd_appendcat(lfs, rbyd, attr.cat, attr.cat_count);
+    err = lfsr_rbyd_appendcat(lfs, rbyd, attr.cat, attr.count);
     if (err) {
         return err;
     }
@@ -3406,7 +3406,7 @@ leaf:;
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(attr.tag)),
             upper_rid - lower_rid + attr.weight,
-            attr.cat, attr.cat_count));
+            attr.cat, attr.count));
     if (err) {
         return err;
     }
@@ -3712,7 +3712,7 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     err = lfsr_rbyd_appendattr_(lfs, rbyd, LFSR_ATTR_(
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | attr.tag,
             attr.weight,
-            attr.cat, attr.cat_count));
+            attr.cat, attr.count));
     if (err) {
         return err;
     }
@@ -10653,7 +10653,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
             attrs[attr_count++] = LFSR_ATTR_(
                     attr.tag, +(weight + attr.weight),
-                    attr.cat, attr.cat_count);
+                    attr.cat, attr.count);
         }
     }
 
