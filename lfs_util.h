@@ -96,7 +96,7 @@ extern "C"
 #ifndef LFS_ASSERT
 #ifndef LFS_NO_ASSERT
 #define LFS_ASSERT(test) assert(test)
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
 #define LFS_ASSERT(test) ((test) ? (void)0 : __builtin_unreachable())
 #else
 #define LFS_ASSERT(test)
@@ -106,7 +106,7 @@ extern "C"
 #ifndef LFS_UNREACHABLE
 #ifndef LFS_NO_ASSERT
 #define LFS_UNREACHABLE() LFS_ASSERT(false)
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
 #define LFS_UNREACHABLE() __builtin_unreachable()
 #else
 #define LFS_UNREACHABLE()
@@ -140,7 +140,7 @@ extern "C"
 
 
 // Builtin functions, these may be replaced by more efficient
-// toolchain-specific implementations. LFS_NO_INTRINSICS falls back to a more
+// toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more
 // expensive basic C implementation for debugging purposes
 
 // Compile time min/max
@@ -238,7 +238,7 @@ static inline uint32_t lfs_npw2(uint32_t a) {
         return a;
     }
 
-#if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
+#if !defined(LFS_NO_BUILTINS) && (defined(__GNUC__) || defined(__CC_ARM))
     return 32 - __builtin_clz(a-1);
 #else
     uint32_t r = 0;
@@ -261,7 +261,7 @@ static inline uint32_t lfs_nlog2(uint32_t a) {
 // Count the number of trailing binary zeros in a
 // lfs_ctz(0) may be undefined
 static inline uint32_t lfs_ctz(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && defined(__GNUC__)
+#if !defined(LFS_NO_BUILTINS) && defined(__GNUC__)
     return __builtin_ctz(a);
 #else
     return lfs_npw2((a & -a) + 1) - 1;
@@ -270,7 +270,7 @@ static inline uint32_t lfs_ctz(uint32_t a) {
 
 // Count the number of binary ones in a
 static inline uint32_t lfs_popc(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
+#if !defined(LFS_NO_BUILTINS) && (defined(__GNUC__) || defined(__CC_ARM))
     return __builtin_popcount(a);
 #else
     a = a - ((a >> 1) & 0x55555555);
@@ -281,7 +281,7 @@ static inline uint32_t lfs_popc(uint32_t a) {
 
 // Returns true if there is an odd number of binary ones in a
 static inline bool lfs_parity(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
+#if !defined(LFS_NO_BUILTINS) && (defined(__GNUC__) || defined(__CC_ARM))
     return __builtin_parity(a);
 #else
     return lfs_popc(a) & 1;
@@ -296,9 +296,9 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
 
 // Convert between 32-bit little-endian and native order
 static inline uint32_t lfs_fromle32(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && defined(LFS_LITTLE_ENDIAN)
+#if !defined(LFS_NO_BUILTINS) && defined(LFS_LITTLE_ENDIAN)
     return a;
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
     return __builtin_bswap32(a);
 #else
     return (((uint8_t*)&a)[0] <<  0) |
@@ -314,9 +314,9 @@ static inline uint32_t lfs_tole32(uint32_t a) {
 
 // Convert between 32-bit big-endian and native order
 static inline uint32_t lfs_frombe32(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && defined(LFS_LITTLE_ENDIAN)
+#if !defined(LFS_NO_BUILTINS) && defined(LFS_LITTLE_ENDIAN)
     return __builtin_bswap32(a);
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
     return a;
 #else
     return (((uint8_t*)&a)[0] << 24) |
@@ -366,7 +366,7 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);
 // Compare n bytes of memory
 #if !defined(LFS_NO_STRINGH)
 #define lfs_memcmp memcmp
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
 #define lfs_memcmp __builtin_memcmp
 #else
 static inline int lfs_memcmp(const void *a, const void *b, size_t size) {
@@ -385,7 +385,7 @@ static inline int lfs_memcmp(const void *a, const void *b, size_t size) {
 // Copy n bytes from src to dst, src and dst must not overlap
 #if !defined(LFS_NO_STRINGH)
 #define lfs_memcpy memcpy
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
 #define lfs_memcpy __builtin_memcpy
 #else
 static inline void *lfs_memcpy(
@@ -403,7 +403,7 @@ static inline void *lfs_memcpy(
 // Copy n bytes from src to dst, src and dst may overlap
 #if !defined(LFS_NO_STRINGH)
 #define lfs_memmove memmove
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
 #define lfs_memmove __builtin_memmove
 #else
 static inline void *lfs_memmove(void *dst, const void *src, size_t size) {
@@ -426,7 +426,7 @@ static inline void *lfs_memmove(void *dst, const void *src, size_t size) {
 // Set n bytes to c
 #if !defined(LFS_NO_STRINGH)
 #define lfs_memset memset
-#elif !defined(LFS_NO_INTRINSICS)
+#elif !defined(LFS_NO_BUILTINS)
 #define lfs_memset __builtin_memset
 #else
 static inline void *lfs_memset(void *dst, int c, size_t size) {
