@@ -1563,6 +1563,15 @@ static inline bool lfsr_attr_isinsert(lfsr_attr_t attr) {
     return !lfsr_tag_isgrow(attr.tag) && attr.weight > 0;
 }
 
+static inline lfsr_srid_t lfsr_attr_nextrid(lfsr_attr_t attr,
+        lfsr_srid_t rid) {
+    if (lfsr_attr_isinsert(attr)) {
+        return rid + attr.weight-1;
+    } else {
+        return rid + attr.weight;
+    }
+}
+
 static inline lfs_size_t lfsr_attr_size(lfsr_attr_t attr) {
     return lfsr_cat_size(attr.cat, attr.count);
 }
@@ -3434,10 +3443,7 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // adjust rid
-        rid += attrs[i].weight;
-        if (lfsr_attr_isinsert(attrs[i])) {
-            rid -= 1;
-        }
+        rid = lfsr_attr_nextrid(attrs[i], rid);
     }
 
     return 0;
@@ -6147,10 +6153,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             // adjust rid
-            rid += attrs[i].weight;
-            if (lfsr_attr_isinsert(attrs[i])) {
-                rid -= 1;
-            }
+            rid = lfsr_attr_nextrid(attrs[i], rid);
         }
     }
 
@@ -6620,10 +6623,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // adjust mid
-        mid_ += attrs[i].weight;
-        if (lfsr_attr_isinsert(attrs[i])) {
-            mid_ -= 1;
-        }
+        mid_ = lfsr_attr_nextrid(attrs[i], mid_);
     }
 
     // setup any pending gdeltas
@@ -7074,10 +7074,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // adjust mid
-        mid_ += attrs[i].weight;
-        if (lfsr_attr_isinsert(attrs[i])) {
-            mid_ -= 1;
-        }
+        mid_ = lfsr_attr_nextrid(attrs[i], mid_);
     }
 
     // update any staged bsprouts/bshrubs
