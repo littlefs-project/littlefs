@@ -568,7 +568,7 @@ typedef struct lfsr_mtree {
 #define LFSR_GRM_DSIZE (1+5+5)
 
 typedef struct lfsr_grm {
-    lfsr_smid_t rms[2];
+    lfsr_smid_t mids[2];
 } lfsr_grm_t;
 
 // The littlefs filesystem type
@@ -614,7 +614,7 @@ typedef struct lfs {
     } lookahead;
 
     lfsr_grm_t grm;
-    uint8_t grm_g[LFSR_GRM_DSIZE];
+    uint8_t grm_p[LFSR_GRM_DSIZE];
     uint8_t grm_d[LFSR_GRM_DSIZE];
 } lfs_t;
 

@@ -24,7 +24,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -132,7 +132,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -223,7 +223,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -292,7 +292,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -362,7 +362,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -475,7 +475,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked
@@ -658,7 +658,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -765,7 +765,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -848,7 +848,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -937,7 +937,7 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
-                assert(lfs.grm_g[0] == 0);
+                assert(lfs.grm_p[0] == 0);
             }
         }
     }
@@ -1070,7 +1070,7 @@ code = '''
                     lfsr_unmount(&lfs) => 0;
                     lfsr_mount(&lfs, CFG) => 0;
                     // grm should be zero here
-                    assert(lfs.grm_g[0] == 0);
+                    assert(lfs.grm_p[0] == 0);
                 }
             }
         }
@@ -1230,7 +1230,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -1336,7 +1336,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // test that our directories match our simulation
@@ -1437,7 +1437,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -1548,7 +1548,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -1735,7 +1735,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -1918,7 +1918,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -2103,7 +2103,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -2288,7 +2288,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -2380,7 +2380,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -2416,7 +2416,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that remove worked with stat 
@@ -2469,7 +2469,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -2528,7 +2528,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -2627,7 +2627,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -2661,7 +2661,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that remove worked with stat 
@@ -2714,7 +2714,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -2815,7 +2815,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked
@@ -2864,7 +2864,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our remove worked
@@ -2906,7 +2906,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our remove worked
@@ -2941,7 +2941,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our remove worked
@@ -3067,7 +3067,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -3140,7 +3140,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our remove worked
@@ -3206,7 +3206,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our remove worked
@@ -3253,7 +3253,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our remove worked
@@ -3308,7 +3308,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked
@@ -3355,7 +3355,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -3431,7 +3431,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked
@@ -3478,7 +3478,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -3565,7 +3565,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -3650,7 +3650,7 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
-                assert(lfs.grm_g[0] == 0);
+                assert(lfs.grm_p[0] == 0);
             }
         }
 
@@ -3665,7 +3665,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -3792,7 +3792,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -3913,7 +3913,7 @@ code = '''
                     lfsr_unmount(&lfs) => 0;
                     lfsr_mount(&lfs, CFG) => 0;
                     // grm should be zero here
-                    assert(lfs.grm_g[0] == 0);
+                    assert(lfs.grm_p[0] == 0);
                 }
             }
 
@@ -3928,7 +3928,7 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
-                assert(lfs.grm_g[0] == 0);
+                assert(lfs.grm_p[0] == 0);
             }
         }
 
@@ -3943,7 +3943,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -4101,7 +4101,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked
@@ -4153,7 +4153,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -4277,7 +4277,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // test that our directories match our simulation
@@ -4350,7 +4350,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -4386,7 +4386,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that rename worked with stat 
@@ -4440,7 +4440,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -4480,7 +4480,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that rename worked with stat 
@@ -4532,7 +4532,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -4568,7 +4568,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that rename worked with stat 
@@ -4631,7 +4631,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -4691,7 +4691,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -4814,7 +4814,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked with stat
@@ -4848,7 +4848,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that rename worked with stat 
@@ -4906,7 +4906,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // and check that this didn't interfere with our original directory
@@ -5047,7 +5047,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdir worked
@@ -5096,7 +5096,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our rename worked
@@ -5145,7 +5145,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our rename worked
@@ -5194,7 +5194,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our rename worked
@@ -5443,7 +5443,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our mkdirs worked
@@ -5516,7 +5516,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our rename worked
@@ -5589,7 +5589,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our rename worked
@@ -5662,7 +5662,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // check that our rename worked
@@ -5763,7 +5763,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         // check that our mkdir worked
@@ -5814,7 +5814,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -5886,7 +5886,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         // check that our mkdir worked
@@ -5937,7 +5937,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
     }
 
@@ -6016,7 +6016,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         // check that our mkdirs worked
@@ -6102,7 +6102,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         for (lfs_size_t j = 0; j < N; j++) {
@@ -6121,7 +6121,7 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
-                assert(lfs.grm_g[0] == 0);
+                assert(lfs.grm_p[0] == 0);
             }
         }
     }
@@ -6244,7 +6244,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         // check that our mkdirs worked
@@ -6365,7 +6365,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         for (lfs_size_t j = 0; j < N; j++) {
@@ -6384,7 +6384,7 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
-                assert(lfs.grm_g[0] == 0);
+                assert(lfs.grm_p[0] == 0);
             }
 
             for (lfs_size_t k = 0; k < N; k++) {
@@ -6405,7 +6405,7 @@ code = '''
                     lfsr_unmount(&lfs) => 0;
                     lfsr_mount(&lfs, CFG) => 0;
                     // grm should be zero here
-                    assert(lfs.grm_g[0] == 0);
+                    assert(lfs.grm_p[0] == 0);
                 }
             }
         }
@@ -6557,7 +6557,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         // check that our mkdir worked
@@ -6617,7 +6617,7 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
-            assert(lfs.grm_g[0] == 0);
+            assert(lfs.grm_p[0] == 0);
         }
 
         // update old_name's path
@@ -6768,7 +6768,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // test that our directories match our simulation
@@ -6927,7 +6927,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
         lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
-        assert(lfs.grm_g[0] == 0);
+        assert(lfs.grm_p[0] == 0);
     }
 
     // test that our directories match our simulation
