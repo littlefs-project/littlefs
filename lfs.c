@@ -125,7 +125,7 @@ static int lfsr_bd_read_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_size_t size_ = lfs_min(
                 size - (off_-off),
                 lfs->pcache.size - (off_-lfs->pcache.off));
-        memcpy(&buffer_[off_-off],
+        lfs_memcpy(&buffer_[off_-off],
                 &lfs->pcache.buffer[off_-lfs->pcache.off],
                 size_);
     }
@@ -150,7 +150,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_size_t size_ = lfs_min(
                 size - (off_-off),
                 lfs->rcache.size - (off_-lfs->rcache.off));
-        memcpy(&lfs->rcache.buffer[off_-lfs->rcache.off],
+        lfs_memcpy(&lfs->rcache.buffer[off_-lfs->rcache.off],
                 &buffer_[off_-off],
                 size_);
     }
@@ -275,7 +275,7 @@ static int lfsr_bd_read(lfs_t *lfs,
             return err;
         }
 
-        memcpy(buffer_, buffer__, size__);
+        lfs_memcpy(buffer_, buffer__, size__);
 
         off_ += size__;
         hint_ -= size__;
@@ -295,7 +295,7 @@ static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_) {
         lfs_size_t aligned_size = lfs_alignup(
                 lfs->pcache.size,
                 lfs->cfg->prog_size);
-        memset(&lfs->pcache.buffer[lfs->pcache.size],
+        lfs_memset(&lfs->pcache.buffer[lfs->pcache.size],
                 0xff,
                 aligned_size - lfs->pcache.size);
 
@@ -341,7 +341,7 @@ static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     }
 
     // zero to avoid any information leaks
-    memset(&lfs->pcache.buffer[lfs->pcache.size],
+    lfs_memset(&lfs->pcache.buffer[lfs->pcache.size],
             0xff,
             (off-lfs->pcache.off) - lfs->pcache.size);
     lfs->pcache.size = lfs_max(
@@ -411,7 +411,7 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
             return err;
         }
 
-        memcpy(buffer__, buffer_, size__);
+        lfs_memcpy(buffer__, buffer_, size__);
 
         off_ += size__;
         buffer_ += size__;
@@ -531,7 +531,7 @@ static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
             return err;
         }
 
-        int res = memcmp(buffer__, buffer_, size__);
+        int res = lfs_memcmp(buffer__, buffer_, size__);
         if (res != 0) {
             return (res < 0) ? LFS_CMP_LT : LFS_CMP_GT;
         }
@@ -604,7 +604,7 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
             return err;
         }
 
-        memset(buffer__, c, size__);
+        lfs_memset(buffer__, c, size__);
 
         // optional checksum
         if (cksum_) {
@@ -1263,7 +1263,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
 
     // buffer?
     } else {
-        memcpy(buffer, data->u.buffer, d);
+        lfs_memcpy(buffer, data->u.buffer, d);
     }
 
     *data = lfsr_data_slice(*data, d, -1);
@@ -1348,7 +1348,7 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
 
     // buffer?
     } else {
-        int cmp = memcmp(data.u.buffer, buffer, d);
+        int cmp = lfs_memcmp(data.u.buffer, buffer, d);
         if (cmp < 0) {
             return LFS_CMP_LT;
         } else if (cmp > 0) {
@@ -2621,7 +2621,7 @@ static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return err;
     }
 
-    memmove(p+1, p, 2*sizeof(lfsr_alt_t));
+    lfs_memmove(p+1, p, 2*sizeof(lfsr_alt_t));
     p[0].alt = alt;
     p[0].weight = weight;
     p[0].jump = jump;
@@ -2630,7 +2630,7 @@ static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 static inline void lfsr_rbyd_p_pop(
         lfsr_alt_t p[static 3]) {
-    memmove(p, p+1, 2*sizeof(lfsr_alt_t));
+    lfs_memmove(p, p+1, 2*sizeof(lfsr_alt_t));
     p[2].alt = 0;
 }
 
@@ -5344,13 +5344,7 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static inline bool lfsr_gdelta_iszero(
         const uint8_t *gdelta, lfs_size_t size) {
-    for (lfs_size_t i = 0; i < size; i++) {
-        if (gdelta[i] != 0) {
-            return false;
-        }
-    }
-
-    return true;
+    return lfs_memcchr(gdelta, 0, size) == NULL;
 }
 
 static inline lfs_size_t lfsr_gdelta_size(
@@ -5363,13 +5357,9 @@ static inline lfs_size_t lfsr_gdelta_size(
     return size;
 }
 
-static inline uint8_t *lfsr_gdelta_xor(
+static inline void lfsr_gdelta_xor(
         uint8_t *a, const uint8_t *b, lfs_size_t size) {
-    for (lfs_size_t i = 0; i < size; i++) {
-        a[i] ^= b[i];
-    }
-
-    return a;
+    lfs_memxor(a, b, size);
 }
 
 
@@ -5407,7 +5397,7 @@ static inline bool lfsr_grm_ispending(const lfsr_grm_t *grm,
 static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     // make sure to zero so we don't leak any info
-    memset(buffer, 0, LFSR_GRM_DSIZE);
+    lfs_memset(buffer, 0, LFSR_GRM_DSIZE);
 
     // first encode the number of grms, this can be 0, 1, or 2 and may
     // be extended to a general purpose leb128 type field in the future
@@ -5462,7 +5452,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
 // some mdir-related gstate things we need
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
-    memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
+    lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 }
 
 static void lfsr_fs_preparegdelta(lfs_t *lfs) {
@@ -5502,7 +5492,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         }
 
         uint8_t grm_d[LFSR_GRM_DSIZE];
-        memset(grm_d, 0, LFSR_GRM_DSIZE);
+        lfs_memset(grm_d, 0, LFSR_GRM_DSIZE);
         if (err != LFS_ERR_NOENT) {
             lfs_ssize_t d = lfsr_data_read(lfs, &data, grm_d, LFSR_GRM_DSIZE);
             if (d < 0) {
@@ -7289,12 +7279,12 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
     lfs_size_t name_size = 0;
     while (true) {
         // skip slashes
-        path += strspn(path, "/");
-        lfs_size_t name_size__ = strcspn(path, "/");
+        path += lfs_strspn(path, "/");
+        lfs_size_t name_size__ = lfs_strcspn(path, "/");
 
         // skip '.' and root '..'
-        if ((name_size__ == 1 && memcmp(path, ".", 1) == 0)
-                || (name_size__ == 2 && memcmp(path, "..", 2) == 0)) {
+        if ((name_size__ == 1 && lfs_memcmp(path, ".", 1) == 0)
+                || (name_size__ == 2 && lfs_memcmp(path, "..", 2) == 0)) {
             path += name_size__;
             goto next;
         }
@@ -7304,13 +7294,13 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfs_size_t suffix_size;
         int depth = 1;
         while (true) {
-            suffix += strspn(suffix, "/");
-            suffix_size = strcspn(suffix, "/");
+            suffix += lfs_strspn(suffix, "/");
+            suffix_size = lfs_strcspn(suffix, "/");
             if (suffix_size == 0) {
                 break;
             }
 
-            if (suffix_size == 2 && memcmp(suffix, "..", 2) == 0) {
+            if (suffix_size == 2 && lfs_memcmp(suffix, "..", 2) == 0) {
                 depth -= 1;
                 if (depth == 0) {
                     path = suffix + suffix_size;
@@ -7379,7 +7369,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
                 &mdir, &tag, NULL);
         if (err) {
             // report where to insert if we are the last name in our path
-            if (err == LFS_ERR_NOENT && strchr(name, '/') == NULL) {
+            if (err == LFS_ERR_NOENT && lfs_strchr(name, '/') == NULL) {
                 if (mdir_) {
                     *mdir_ = mdir;
                 }
@@ -8404,7 +8394,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk
-    memcpy(lfs->grm_p, lfs->grm_d, LFSR_GRM_DSIZE);
+    lfs_memcpy(lfs->grm_p, lfs->grm_d, LFSR_GRM_DSIZE);
 
     // decode grm so we can report any removed files as missing
     int err = lfsr_data_readgrm(lfs,
@@ -8636,7 +8626,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
         lfs->lookahead.size = lfs_min32(
                 8*lfs->cfg->lookahead_size,
                 lfs->lookahead.ckpoint);
-        memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
+        lfs_memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
 
         // traverse the filesystem, building up knowledge of what blocks are
         // in use in our lookahead window
@@ -8942,7 +8932,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             lfs_nlog2(lfsr_mtree_weight(&lfs->mtree))
                 + lfs_nlog2(lfs->cfg->block_size/32),
             31)) - 1;
-    lfsr_did_t did_ = lfs_crc32c(0, path, strlen(path)) & dmask;
+    lfsr_did_t did_ = lfs_crc32c(0, path, lfs_strlen(path)) & dmask;
 
     // Check if we have a collision. If we do, search for the next
     // available did
@@ -9387,7 +9377,7 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 
     // special case for root
     if (err == LFS_ERR_INVAL) {
-        strcpy(info->name, "/");
+        lfs_strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
         info->size = 0;
         return 0;
@@ -9466,13 +9456,13 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
     // handle dots specially
     if (dir->pos == 0) {
-        strcpy(info->name, ".");
+        lfs_strcpy(info->name, ".");
         info->type = LFS_TYPE_DIR;
         info->size = 0;
         dir->pos += 1;
         return 0;
     } else if (dir->pos == 1) {
-        strcpy(info->name, "..");
+        lfs_strcpy(info->name, "..");
         info->type = LFS_TYPE_DIR;
         info->size = 0;
         dir->pos += 1;
@@ -10199,7 +10189,7 @@ static lfs_ssize_t lfsr_bshrub_readnext(lfs_t *lfs, const lfsr_file_t *file,
 
     // found a hole? fill with zeros
     lfs_ssize_t d = lfs_min32(size, bid+1 - pos_);
-    memset(buffer, 0, d);
+    lfs_memset(buffer, 0, d);
 
     pos_ += d;
     buffer += d;
@@ -11146,7 +11136,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
                 lfs_ssize_t d_ = lfs_min32(
                         d,
                         file->buffer.size - (pos_ - file->buffer.pos));
-                memcpy(buffer_,
+                lfs_memcpy(buffer_,
                         &file->buffer.buffer[pos_ - file->buffer.pos],
                         d_);
 
@@ -11205,7 +11195,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // found a hole? fill with zeros
-        memset(buffer_, 0, d);
+        lfs_memset(buffer_, 0, d);
         
         pos_ += d;
         buffer_ += d;
@@ -11251,7 +11241,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             && pos <= lfsr_file_inlinesize(lfs, file)) {
         LFS_ASSERT(lfsr_f_isunflush(file->o.flags));
         LFS_ASSERT(lfsr_file_size_(file) == file->buffer.size);
-        memset(&file->buffer.buffer[file->buffer.size],
+        lfs_memset(&file->buffer.buffer[file->buffer.size],
                 0,
                 pos - file->buffer.size);
         file->buffer.size = pos;
@@ -11279,7 +11269,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             // note we need to clear the buffer anyways to avoid any
             // out-of-date data
             file->buffer.pos = pos + size - lfsr_file_buffersize(lfs, file);
-            memcpy(file->buffer.buffer,
+            lfs_memcpy(file->buffer.buffer,
                     &buffer_[size - lfsr_file_buffersize(lfs, file)],
                     lfsr_file_buffersize(lfs, file));
             file->buffer.size = lfsr_file_buffersize(lfs, file);
@@ -11317,7 +11307,9 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     size,
                     lfsr_file_buffersize(lfs, file)
                         - (pos - file->buffer.pos));
-            memcpy(&file->buffer.buffer[pos - file->buffer.pos], buffer_, d);
+            lfs_memcpy(&file->buffer.buffer[pos - file->buffer.pos],
+                    buffer_,
+                    d);
             file->buffer.size = lfs_max32(
                     file->buffer.size,
                     pos+d - file->buffer.pos);
@@ -11556,7 +11548,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 file_->buffer.pos = file->buffer.pos;
                 LFS_ASSERT(file->buffer.size
                         <= lfsr_file_buffersize(lfs, file));
-                memcpy(file_->buffer.buffer,
+                lfs_memcpy(file_->buffer.buffer,
                         file->buffer.buffer,
                         file->buffer.size);
                 file_->buffer.size = file->buffer.size;
@@ -11664,7 +11656,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // we may need to zero some of our buffer
         if (size_ > file->buffer.size) {
-            memset(&file->buffer.buffer[file->buffer.size],
+            lfs_memset(&file->buffer.buffer[file->buffer.size],
                     0,
                     size_ - file->buffer.size);
         }
@@ -11771,16 +11763,16 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // we may need to move the data in our buffer
         if (file->buffer.size > size_) {
-            memmove(file->buffer.buffer,
+            lfs_memmove(file->buffer.buffer,
                     &file->buffer.buffer[file->buffer.size - size_],
                     file->buffer.size);
         }
         // we may need to zero some of our buffer
         if (size_ > file->buffer.size) {
-            memmove(&file->buffer.buffer[size_ - file->buffer.size],
+            lfs_memmove(&file->buffer.buffer[size_ - file->buffer.size],
                     file->buffer.buffer,
                     file->buffer.size);
-            memset(file->buffer.buffer,
+            lfs_memset(file->buffer.buffer,
                     0,
                     size_ - file->buffer.size);
         }
@@ -11804,7 +11796,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // fruncate our buffer
-        memmove(file->buffer.buffer,
+        lfs_memmove(file->buffer.buffer,
                 &file->buffer.buffer[lfs_min32(
                     lfs_smax32(
                         size - size_ - file->buffer.pos,
@@ -15422,8 +15414,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->opened = NULL;
 
     // zero gstate
-    memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
-    memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
+    lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
+    lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 
     return 0;
 

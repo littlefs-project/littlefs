@@ -24,9 +24,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
-#include <string.h>
 #include <inttypes.h>
-
+#ifndef LFS_NO_STRINGH
+#include <string.h>
+#endif
 #ifndef LFS_NO_MALLOC
 #include <stdlib.h>
 #endif
@@ -362,6 +363,243 @@ ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size);
 ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);
 
 
+// Compare n bytes of memory
+#if !defined(LFS_NO_STRINGH)
+#define lfs_memcmp memcmp
+#elif !defined(LFS_NO_INTRINSICS)
+#define lfs_memcmp __builtin_memcmp
+#else
+static inline int lfs_memcmp(const void *a, const void *b, size_t size) {
+    const uint8_t *a_ = a;
+    const uint8_t *b_ = b;
+    for (size_t i = 0; i < size; i++) {
+        if (a_[i] != b_[i]) {
+            return (int)a_[i] - (int)b_[i];
+        }
+    }
+
+    return 0;
+}
+#endif
+
+// Copy n bytes from src to dst, src and dst must not overlap
+#if !defined(LFS_NO_STRINGH)
+#define lfs_memcpy memcpy
+#elif !defined(LFS_NO_INTRINSICS)
+#define lfs_memcpy __builtin_memcpy
+#else
+static inline void *lfs_memcpy(
+        void *restrict dst, const void *restrict src, size_t size) {
+    uint8_t *dst_ = dst;
+    const uint8_t *src_ = src;
+    for (size_t i = 0; i < size; i++) {
+        dst_[i] = src_[i];
+    }
+
+    return dst_;
+}
+#endif
+
+// Copy n bytes from src to dst, src and dst may overlap
+#if !defined(LFS_NO_STRINGH)
+#define lfs_memmove memmove
+#elif !defined(LFS_NO_INTRINSICS)
+#define lfs_memmove __builtin_memmove
+#else
+static inline void *lfs_memmove(void *dst, const void *src, size_t size) {
+    uint8_t *dst_ = dst;
+    const uint8_t *src_ = src;
+    if (dst_ < src_) {
+        for (size_t i = 0; i < size; i++) {
+            dst_[i] = src_[i];
+        }
+    } else if (dst_ > src_) {
+        for (size_t i = 0; i < size; i++) {
+            dst_[(size-1)-i] = src_[(size-1)-i];
+        }
+    }
+
+    return dst_;
+}
+#endif
+
+// Set n bytes to c
+#if !defined(LFS_NO_STRINGH)
+#define lfs_memset memset
+#elif !defined(LFS_NO_INTRINSICS)
+#define lfs_memset __builtin_memset
+#else
+static inline void *lfs_memset(void *dst, int c, size_t size) {
+    uint8_t *dst_ = dst;
+    for (size_t i = 0; i < size; i++) {
+        dst_[i] = c;
+    }
+
+    return dst_;
+}
+#endif
+
+// Find the first occurrence of c or NULL
+#if !defined(LFS_NO_STRINGH)
+#define lfs_memchr memchr
+#else
+static inline void *lfs_memchr(const void *a, int c, size_t size) {
+    const uint8_t *a_ = a;
+    for (size_t i = 0; i < size; i++) {
+        if (a_[i] == c) {
+            return (void*)&a_[i];
+        }
+    }
+
+    return NULL;
+}
+#endif
+
+// Find the first occurrence of anything not c or NULL
+static inline void *lfs_memcchr(const void *a, int c, size_t size) {
+    const uint8_t *a_ = a;
+    for (size_t i = 0; i < size; i++) {
+        if (a_[i] != c) {
+            return (void*)&a_[i];
+        }
+    }
+
+    return NULL;
+}
+
+// Xor n bytes from b into a
+static inline void *lfs_memxor(
+        void *restrict a, const void *restrict b, size_t size) {
+    uint8_t *a_ = a;
+    const uint8_t *b_ = b;
+    for (size_t i = 0; i < size; i++) {
+        a_[i] ^= b_[i];
+    }
+
+    return a_;
+}
+
+
+// Find the length of a null-terminated string
+#if !defined(LFS_NO_STRINGH)
+#define lfs_strlen strlen
+#else
+static inline size_t lfs_strlen(const char *a) {
+    const char *a_ = a;
+    while (*a_) {
+        a_++;
+    }
+
+    return a_ - a;
+}
+#endif
+
+// Compare two null-terminated strings
+#if !defined(LFS_NO_STRINGH)
+#define lfs_strcmp strcmp
+#else
+static inline int lfs_strcmp(const char *a, const char *b) {
+    while (*a && *a == *b) {
+        a++;
+        b++;
+    }
+
+    return (int)*a - (int)*b;
+}
+#endif
+
+// Copy a null-terminated string from src to dst
+#if !defined(LFS_NO_STRINGH)
+#define lfs_strcpy strcpy
+#else
+static inline char *lfs_strcpy(
+        char *restrict dst, const char *restrict src) {
+    char *dst_ = dst;
+    while (*src) {
+        *dst_ = *src;
+        dst_++;
+        src++;
+    }
+
+    *dst_ = '\0';
+    return dst;
+}
+#endif
+
+// Find first occurrence of c or NULL
+#ifndef LFS_NO_STRINGH
+#define lfs_strchr strchr
+#else
+static inline char *lfs_strchr(const char *a, int c) {
+    while (*a) {
+        if (*a == c) {
+            return (char*)a;
+        }
+
+        a++;
+    }
+
+    return NULL;
+}
+#endif
+
+// Find first occurrence of anything not c or NULL
+static inline char *lfs_strcchr(const char *a, int c) {
+    while (*a) {
+        if (*a != c) {
+            return (char*)a;
+        }
+
+        a++;
+    }
+
+    return NULL;
+}
+
+// Find length of a that does not contain any char in cs
+#ifndef LFS_NO_STRINGH
+#define lfs_strspn strspn
+#else
+static inline size_t lfs_strspn(const char *a, const char *cs) {
+    const char *a_ = a;
+    while (*a_) {
+        const char *cs_ = cs;
+        while (*cs_) {
+            if (*a_ != *cs_) {
+                return a_ - a;
+            }
+            cs_++;
+        }
+
+        a_++;
+    }
+
+    return a_ - a;
+}
+#endif
+
+// Find length of a that only contains chars in cs
+#ifndef LFS_NO_STRINGH
+#define lfs_strcspn strcspn
+#else
+static inline size_t lfs_strcspn(const char *a, const char *cs) {
+    const char *a_ = a;
+    while (*a_) {
+        const char *cs_ = cs;
+        while (*cs_) {
+            if (*a_ == *cs_) {
+                return a_ - a;
+            }
+            cs_++;
+        }
+
+        a_++;
+    }
+
+    return a_ - a;
+}
+#endif
+
 
 //// Calculate CRC-32 with polynomial = 0x04c11db7
 //uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
@@ -377,23 +615,23 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size);
 
 // Allocate memory, only used if buffers are not provided to littlefs
 // Note, memory must be 64-bit aligned
-static inline void *lfs_malloc(size_t size) {
 #ifndef LFS_NO_MALLOC
-    return malloc(size);
+#define lfs_malloc malloc
 #else
+static inline void *lfs_malloc(size_t size) {
     (void)size;
     return NULL;
-#endif
 }
+#endif
 
 // Deallocate memory, only used if buffers are not provided to littlefs
-static inline void lfs_free(void *p) {
 #ifndef LFS_NO_MALLOC
-    free(p);
+#define lfs_free free
 #else
+static inline void lfs_free(void *p) {
     (void)p;
-#endif
 }
+#endif
 
 
 #ifdef __cplusplus
