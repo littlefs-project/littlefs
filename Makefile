@@ -523,10 +523,10 @@ $(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
 $(BUILDDIR)/%.a.c: %.c
-	$(PRETTYASSERTS) -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
+	$(PRETTYASSERTS) -Plfs_ $< -o $@
 
 $(BUILDDIR)/%.a.c: $(BUILDDIR)/%.c
-	$(PRETTYASSERTS) -a LFS_ASSERT -u LFS_UNREACHABLE $< -o $@
+	$(PRETTYASSERTS) -Plfs_ $< -o $@
 
 $(BUILDDIR)/%.t.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@

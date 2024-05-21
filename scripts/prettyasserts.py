@@ -26,12 +26,14 @@ CMP = {
 
 LEXEMES = {
     'ws':           [r'(?:\s|\n|#.*?(?<!\\)\n|//.*?(?<!\\)\n|/\*.*?\*/)+'],
-    'assert':       ['__builtin_assert', 'assert'],
-    'unreachable':  ['__builtin_unreachable', 'unreachable'],
+    'assert':       [r'\bassert\b', r'\b__builtin_assert\b'],
+    'unreachable':  [r'\bunreachable\b', r'\b__builtin_unreachable\b'],
+    'memcmp':       [r'\bmemcmp\b', r'\b__builtin_memcmp\b'],
+    'strcmp':       [r'\bstrcmp\b', r'\b__builtin_strcmp\b'],
     'arrow':        ['=>'],
     'string':       [r'"(?:\\.|[^"])*"', r"'(?:\\.|[^'])\'"],
     'paren':        ['\(', '\)'],
-    'cmp':          CMP.keys(),
+    'cmp':          list(CMP.keys()),
     'logic':        ['\&\&', '\|\|'],
     'sep':          [':', ';', '\{', '\}', ','],
     # specifically ops that conflict with cmp
@@ -363,7 +365,7 @@ def p_expr(p):
             except ParseFailure:
                 p.pop(state)
                 res.append(p.expect('unreachable'))
-        elif p.accept('string', 'op', 'ws', None):
+        elif p.accept('memcmp', 'strcmp', 'string', 'op', 'ws', None):
             res.append(p.m)
         else:
             return ''.join(res)
@@ -421,23 +423,45 @@ def p_stmt(p):
     else:
         return ws + lh
 
-def main(input=None, output=None,
+def main(input=None, output=None, *,
+        prefix=[],
+        prefix_insensitive=[],
         assert_=[],
         unreachable=[],
-        arrow=False,
+        memcmp=[],
+        strcmp=[],
         no_defaults=False,
+        no_upper=False,
+        no_arrows=False,
         limit=LIMIT):
     with openio(input or '-', 'r') as in_f:
         # create parser
-        lexemes = LEXEMES.copy()
+        lexemes = {n: l.copy() for n, l in LEXEMES.items()}
         if no_defaults:
             lexemes['assert'] = []
             lexemes['unreachable'] = []
+            lexemes['memcmp'] = []
+            lexemes['strcmp'] = []
+        if no_arrows:
             lexemes['arrow'] = []
-        lexemes['assert'] += assert_
-        lexemes['unreachable'] += unreachable
-        if arrow and no_defaults:
-            lexemes['arrow'].append('=>')
+        for p in prefix + prefix_insensitive:
+            lexemes['assert'].append(r'\b%sassert\b' % p)
+            lexemes['unreachable'].append(r'\b%sunreachable\b' % p)
+            lexemes['memcmp'].append(r'\b%smemcmp\b' % p)
+            lexemes['strcmp'].append(r'\b%sstrcmp\b' % p)
+        for p in prefix_insensitive:
+            lexemes['assert'].append(r'\b%sassert\b' % p.lower())
+            lexemes['unreachable'].append(r'\b%sunreachable\b' % p.lower())
+            lexemes['memcmp'].append(r'\b%smemcmp\b' % p.lower())
+            lexemes['strcmp'].append(r'\b%sstrcmp\b' % p.lower())
+            lexemes['assert'].append(r'\b%sASSERT\b' % p.upper())
+            lexemes['unreachable'].append(r'\b%sUNREACHABLE\b' % p.upper())
+            lexemes['memcmp'].append(r'\b%sMEMCMP\b' % p.upper())
+            lexemes['strcmp'].append(r'\b%sSTRCMP\b' % p.upper())
+        lexemes['assert'].extend(r'\b%s\b' % r for r in assert_)
+        lexemes['unreachable'].extend(r'\b%s\b' % r for r in unreachable)
+        lexemes['memcmp'].extend(r'\b%s\b' % r for r in memcmp)
+        lexemes['strcmp'].extend(r'\b%s\b' % r for r in strcmp)
         p = Parser(in_f, lexemes)
 
         with openio(output or '-', 'w') as f:
@@ -481,22 +505,38 @@ if __name__ == "__main__":
         required=True,
         help="Output C file.")
     parser.add_argument(
-        '-a', '--assert',
+        '-p', '--prefix',
+        action='append',
+        help="Additional prefixes for symbols.")
+    parser.add_argument(
+        '-P', '--prefix-insensitive',
+        action='append',
+        help="Additional prefixes for lower/upper case symbol variants.")
+    parser.add_argument(
+        '--assert',
         dest='assert_',
         action='append',
         help="Additional symbols for assert statements.")
     parser.add_argument(
-        '-u', '--unreachable',
+        '--unreachable',
         action='append',
         help="Additional symbols for unreachable statements.")
     parser.add_argument(
-        '-A', '--arrow',
-        action='store_true',
-        help="Enable arrow (=>) expressions, this is enabled by default.")
+        '--memcmp',
+        action='append',
+        help="Additional symbols for memcmp expressions.")
+    parser.add_argument(
+        '--strcmp',
+        action='append',
+        help="Additional symbols for strcmp expressions.")
     parser.add_argument(
         '-n', '--no-defaults',
         action='store_true',
-        help="Disable the default statements/expressions.")
+        help="Disable default symbols.")
+    parser.add_argument(
+        '-A', '--no-arrows',
+        action='store_true',
+        help="Disable arrow (=>) expressions.")
     parser.add_argument(
         '-l', '--limit',
         type=lambda x: int(x, 0),
