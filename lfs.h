@@ -206,13 +206,13 @@ struct lfs_config {
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
 
-    // Number of erase cycles before littlefs evicts metadata logs and moves
-    // the metadata to another block. Suggested values are in the
-    // range 100-1000, with large values having better performance at the cost
-    // of less consistent wear distribution.
+    // Number of erase cycles before metadata blocks are relocated for
+    // wear-leveling. Suggested values are in the range 16-1024. Larger values
+    // relocate less frequently, improving average performance, at the cost
+    // of worse wear distribution. Note this is rounded down to a power-of-2.
     //
     // Set to -1 to disable block-level wear-leveling.
-    int32_t block_cycles;
+    int32_t block_recycles;
 
     // Size of the read cache in bytes. Larger buffers can improve
     // performance by storing more data and reducing the number of disk
@@ -581,6 +581,7 @@ typedef struct lfs {
     // purpose flags field? this has been useful for lfsr_file_t
     bool hasorphans;
 
+    int8_t recycle_bits;
     uint8_t attr_estimate;
     uint8_t mleaf_bits;
 

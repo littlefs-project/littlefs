@@ -2177,12 +2177,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     break;
                 }
 
-                // toss our cksum into the filesystem seed for
-                // pseudorandom numbers, note we use another cksum here
-                // as a collection function because it is sufficiently
-                // random and convenient
-                lfs->seed = lfs_crc32c(lfs->seed, &cksum, sizeof(uint32_t));
-
                 // save what we've found so far
                 rbyd->eoff
                         = ((lfs_size_t)parity_ << (8*sizeof(lfs_size_t)-1))
@@ -5541,6 +5535,45 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
 }
 
 
+/// Revision count things ///
+
+// in mdirs, our revision count is broken down into three parts:
+//
+//   vvvvrrrr rrrrrrnn nnnnnnnn nnnnnnnn
+//   '-.''----.----''---------.--------'
+//     '------|---------------|---------- 4-bit relocation revision
+//            '---------------|---------- recycle-bits recycle counter
+//                            '---------- pseudorandom nonce
+
+static inline uint32_t lfsr_rev_init(lfs_t *lfs, uint32_t rev) {
+    // we really only care about the top revision bits here
+    rev &= ~((1 << 28)-1);
+    // increment revision
+    rev += 1 << 28;
+    // xor in a pseudorandom nonce
+    rev ^= ((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1) & lfs->seed;
+    return rev;
+}
+
+static inline bool lfsr_rev_needsrelocation(lfs_t *lfs, uint32_t rev) {
+    if (lfs->recycle_bits == -1) {
+        return false;
+    }
+
+    // does out recycle counter overflow?
+    uint32_t rev_ = rev + (1 << (28-lfs_smax32(lfs->recycle_bits, 0)));
+    return (rev_ >> 28) != (rev >> 28);
+}
+
+static inline uint32_t lfsr_rev_inc(lfs_t *lfs, uint32_t rev) {
+    // increment recycle counter/revision
+    rev += 1 << (28-lfs_smax32(lfs->recycle_bits, 0));
+    // xor in a pseudorandom nonce
+    rev ^= ((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1) & lfs->seed;
+    return rev;
+}
+
+
 
 /// Metadata pair stuff ///
 
@@ -5868,11 +5901,8 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
 
-    // align revision count in new mdirs to our block_cycles, this makes
-    // sure we don't immediately try to relocate the mdir
-    if (lfs->cfg->block_cycles > 0) {
-        rev = lfs_alignup(rev+1, lfs->cfg->block_cycles)-1;
-    }
+    // reset recycle bits in revision count and increment
+    rev = lfsr_rev_init(lfs, rev);
 
     // erase, preparing for compact
     err = lfsr_bd_erase(lfs, mdir->rbyd.blocks[0]);
@@ -5880,9 +5910,8 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
         return err;
     }
 
-    // increment our revision count and write it to our rbyd
-    // TODO rev things
-    err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev + 1);
+    // write our revision count
+    err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev);
     if (err) {
         return err;
     }
@@ -5906,10 +5935,7 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
 
     // decide if we need to relocate
-    if (!force
-            && lfs->cfg->block_cycles > 0
-            // TODO rev things
-            && (rev + 1) % lfs->cfg->block_cycles == 0) {
+    if (!force && lfsr_rev_needsrelocation(lfs, rev)) {
         // alloc a new mdir
         return lfsr_mdir_alloc__(lfs, mdir_, mdir->mid);
     }
@@ -5929,8 +5955,7 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     // increment our revision count and write it to our rbyd
-    // TODO rev things
-    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, rev + 1);
+    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, lfsr_rev_inc(lfs, rev));
     if (err) {
         return err;
     }
@@ -7036,6 +7061,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_ASSERT(lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE));
 
     // success? update in-device state, we must not error at this point
+
+    // toss our cksum into the filesystem seed for pseudorandom numbers
+    lfs->seed ^= mdir_.rbyd.cksum;
 
     // update any gstate changes
     lfsr_fs_commitgdelta(lfs);
@@ -8345,6 +8373,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
                             lfsr_mleafweight(lfs));
                 }
             }
+
+            // toss our cksum into the filesystem seed for pseudorandom
+            // numbers
+            lfs->seed ^= tinfo.u.mdir.rbyd.cksum;
 
             // collect any gdeltas from this mdir
             err = lfsr_fs_consumegdelta(lfs, &tinfo.u.mdir);
@@ -15248,14 +15280,17 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 //    // check that the block size is large enough to fit ctz pointers
 //    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
 //            <= lfs->cfg->block_size);
+//
+//    // block_cycles = 0 is no longer supported.
+//    //
+//    // block_cycles is the number of erase cycles before littlefs evicts
+//    // metadata logs as a part of wear leveling. Suggested values are in the
+//    // range of 100-1000, or set block_cycles to -1 to disable block-level
+//    // wear-leveling.
+//    LFS_ASSERT(lfs->cfg->block_cycles != 0);
 
-    // block_cycles = 0 is no longer supported.
-    //
-    // block_cycles is the number of erase cycles before littlefs evicts
-    // metadata logs as a part of wear leveling. Suggested values are in the
-    // range of 100-1000, or set block_cycles to -1 to disable block-level
-    // wear-leveling.
-    LFS_ASSERT(lfs->cfg->block_cycles != 0);
+    // block_recycles should not be zero, use -1 to disable
+    LFS_ASSERT(lfs->cfg->block_recycles != 0);
 
     // inline_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
@@ -15340,6 +15375,19 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->hasorphans = false;
 
     // TODO do we need to recalculate these after mount?
+
+    // find the number of bits to use for recycle counters
+    //
+    // Multiply by 2, since we alternate which metadata block we erase each
+    // compaction, and limit to 28-bits so we always have some bits to
+    // determine the most recent revision.
+    if (lfs->cfg->block_recycles != -1) {
+        lfs->recycle_bits = lfs_min(
+                lfs_nlog2(2*lfs->cfg->block_recycles+1)-1,
+                28);
+    } else {
+        lfs->recycle_bits = -1;
+    }
 
     // calculate the upper-bound cost of a single rbyd attr after compaction
     //

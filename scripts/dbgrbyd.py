@@ -1030,7 +1030,7 @@ def main(disk, blocks=None, *,
         weights[i],
         cksums[i])
 
-    print('rbyd %s, rev %d, size %d, weight %d, cksum %08x' % (
+    print('rbyd %s, rev %08x, size %d, weight %d, cksum %08x' % (
         '0x%x.%x' % (block, trunk_)
             if len(blocks) == 1
             else '0x{%x,%s}.%x' % (

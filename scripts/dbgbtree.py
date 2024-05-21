@@ -610,7 +610,7 @@ def main(disk, roots=None, *,
 
         # fetch the root
         btree = Rbyd.fetch(f, block_size, roots, trunk)
-        print('btree %s, rev %d, weight %d, cksum %08x' % (
+        print('btree %s, rev %08x, weight %d, cksum %08x' % (
             btree.addr(), btree.rev, btree.weight, btree.cksum))
 
         # look up a bid, while keeping track of the search path

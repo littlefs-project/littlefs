@@ -99,6 +99,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(BLOCK_SIZE,         4096                                    ) \
     TEST_DEFINE(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                    ) \
     TEST_DEFINE(DISK_SIZE,          1024*1024                               ) \
+    TEST_DEFINE(BLOCK_RECYCLES,     -1                                      ) \
     TEST_DEFINE(RCACHE_SIZE,        LFS_MAX(16, READ_SIZE)                  ) \
     TEST_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                  ) \
     TEST_DEFINE(FBUFFER_SIZE,       16                                      ) \
@@ -107,7 +108,6 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(SHRUB_SIZE,         INLINE_SIZE                             ) \
     TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
-    TEST_DEFINE(BLOCK_CYCLES,       -1                                      ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
     TEST_DEFINE(ERASE_CYCLES,       0                                       ) \
     TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR            ) \
@@ -126,7 +126,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .prog_size          = PROG_SIZE,            \
     .block_size         = BLOCK_SIZE,           \
     .block_count        = BLOCK_COUNT,          \
-    .block_cycles       = BLOCK_CYCLES,         \
+    .block_recycles     = BLOCK_RECYCLES,       \
     .rcache_size        = RCACHE_SIZE,          \
     .pcache_size        = PCACHE_SIZE,          \
     .fbuffer_size       = FBUFFER_SIZE,         \
