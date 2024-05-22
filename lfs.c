@@ -8454,7 +8454,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 }
 
 static int lfsr_formatinited(lfs_t *lfs) {
-    for (int i = 0; i < 2; i++) {
+    for (lfs_size_t i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
         lfsr_rbyd_t rbyd = {.blocks[0]=i, .eoff=0, .trunk=0};
@@ -8464,10 +8464,14 @@ static int lfsr_formatinited(lfs_t *lfs) {
             return err;
         }
 
-        // note the initial revision count is arbitrary, but we use
-        // -1 and 0 here to help test that our sequence comparison
-        // works correctly
-        err = lfsr_rbyd_appendrev(lfs, &rbyd, (uint32_t)i - 1);
+        // the initial revision count is arbitrary, but it's nice to have
+        // something here to tell the initial mroot apart from btree nodes
+        // (rev=0), it's also useful for start with -1 and 0 in the upper
+        // bits to help test overflow/sequence comparison
+        uint32_t rev = ((i-1) << 28)
+                | (((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1)
+                    & 0x00216968);
+        err = lfsr_rbyd_appendrev(lfs, &rbyd, rev);
         if (err) {
             return err;
         }
