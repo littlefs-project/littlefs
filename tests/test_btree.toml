@@ -970,7 +970,6 @@ code = '''
 
 [cases.test_btree_update_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.SAMPLES = 10
 defines.SEED = 'range(20)'
 in = 'lfs.c'
 code = '''

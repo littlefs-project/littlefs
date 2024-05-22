@@ -6082,7 +6082,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                                     LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
                                     &file->bshrub.u.bsprout, 1));
                         if (err) {
-                            LFS_ASSERT(err != LFS_ERR_RANGE);
                             return err;
                         }
 
@@ -6090,7 +6089,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 &file->bshrub_.u.bsprout,
                                 &file->bshrub.u.bsprout);
                         if (err) {
-                            LFS_ASSERT(err != LFS_ERR_RANGE);
                             return err;
                         }
 
@@ -6105,7 +6103,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 &file->bshrub_.u.bshrub,
                                 &file->bshrub.u.bshrub);
                         if (err) {
-                            LFS_ASSERT(err != LFS_ERR_RANGE);
                             return err;
                         }
                     }
