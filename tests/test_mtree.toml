@@ -1136,7 +1136,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1221,7 +1221,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1318,7 +1318,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1415,7 +1415,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1469,7 +1469,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 # force our block to compact by setting prog_size=block_size, we don't have
 # an easy way to force the intermediary mroots to compact otherwise
 defines.PROG_SIZE = 'BLOCK_SIZE'
@@ -1540,7 +1540,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1603,7 +1603,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1705,7 +1705,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1824,7 +1824,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1914,7 +1914,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1990,7 +1990,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2076,7 +2076,7 @@ code = '''
 [cases.test_mtree_relocate_fuzz]
 defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
-defines.BLOCK_RECYCLES = [5, 2, 1]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.SEED = 'range(500)'
 in = 'lfs.c'
 code = '''
@@ -2555,7 +2555,7 @@ code = '''
 
 [cases.test_mtree_opened_extend]
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2613,7 +2613,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2702,7 +2702,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3528,7 +3528,7 @@ code = '''
 [cases.test_mtree_traversal_extend]
 defines.VALIDATE = [false, true]
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4003,7 +4003,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4057,7 +4057,7 @@ code = '''
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
-defines.BLOCK_RECYCLES = 1
+defines.BLOCK_RECYCLES = 0
 # force our block to compact by setting prog_size=block_size, we don't have
 # any way to indirectly force the intermediary mroots to compact otherwise
 defines.PROG_SIZE = 'BLOCK_SIZE'

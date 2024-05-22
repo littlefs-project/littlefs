@@ -209,9 +209,11 @@ struct lfs_config {
     // Number of erase cycles before metadata blocks are relocated for
     // wear-leveling. Suggested values are in the range 16-1024. Larger values
     // relocate less frequently, improving average performance, at the cost
-    // of worse wear distribution. Note this is rounded down to a power-of-2.
+    // of worse wear distribution. Note this ends up rounded down to a
+    // power-of-2.
     //
-    // Set to -1 to disable block-level wear-leveling.
+    // 0 results in pure copy-on-write, which may be counter-productive. Set
+    // to -1 to disable block-level wear-leveling.
     int32_t block_recycles;
 
     // Size of the read cache in bytes. Larger buffers can improve

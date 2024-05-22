@@ -15286,9 +15286,6 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 //    // wear-leveling.
 //    LFS_ASSERT(lfs->cfg->block_cycles != 0);
 
-    // block_recycles should not be zero, use -1 to disable
-    LFS_ASSERT(lfs->cfg->block_recycles != 0);
-
     // inline_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
     // shrub_size must be <= block_size/4
@@ -15375,12 +15372,13 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // find the number of bits to use for recycle counters
     //
-    // Multiply by 2, since we alternate which metadata block we erase each
-    // compaction, and limit to 28-bits so we always have some bits to
-    // determine the most recent revision.
+    // Add 1, to include the initial erase, multiply by 2, since we
+    // alternate which metadata block we erase each compaction, and limit
+    // to 28-bits so we always have some bits to determine the most recent
+    // revision.
     if (lfs->cfg->block_recycles != -1) {
         lfs->recycle_bits = lfs_min(
-                lfs_nlog2(2*lfs->cfg->block_recycles+1)-1,
+                lfs_nlog2(2*(lfs->cfg->block_recycles+1)+1)-1,
                 28);
     } else {
         lfs->recycle_bits = -1;
