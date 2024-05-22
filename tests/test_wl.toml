@@ -513,7 +513,7 @@ code = '''
             }
             lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
             lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => ((!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT);
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -859,7 +859,7 @@ code = '''
             }
             lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
             lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => ((!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT);
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {

@@ -35,7 +35,8 @@ LEXEMES = {
     'paren':        ['\(', '\)'],
     'cmp':          list(CMP.keys()),
     'logic':        ['\&\&', '\|\|'],
-    'sep':          [':', ';', '\{', '\}', ','],
+    'sep':          ['\?', ':', ','],
+    'term':         [';', '\{', '\}'],
     # specifically ops that conflict with cmp
     'op':           ['->', '>>', '<<'],
 }
@@ -346,7 +347,7 @@ def p_expr(p):
             res.append(p.m)
             while True:
                 res.append(p_exprs(p))
-                if p.accept('sep'):
+                if p.accept('sep', 'term'):
                     res.append(p.m)
                 else:
                     break
@@ -374,7 +375,7 @@ def p_exprs(p):
     res = []
     while True:
         res.append(p_expr(p))
-        if p.accept('cmp', 'logic', ','):
+        if p.accept('cmp', 'logic', 'sep'):
             res.append(p.m)
         else:
             return ''.join(res)
@@ -479,7 +480,7 @@ def main(input=None, output=None, *,
             try:
                 while True:
                     f.write(p_stmt(p))
-                    if p.accept('sep'):
+                    if p.accept('term'):
                         f.write(p.m)
                     else:
                         break
