@@ -5944,6 +5944,709 @@ code = '''
 '''
 
 
+
+# one particularly nasty case is renaming over an mdir split, since shrubs
+# can be moved around quite a few times when that happens
+#
+# here we spam renames over an increasing number of files to hopefully hit
+# that case
+#
+[cases.test_forphans_rename_split]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# keep unsynced data open?
+defines.UNSYNC = [false, true]
+# keep a desynced file open?
+defines.DESYNC = [false, true]
+# keep a zombie open?
+defines.ZOMBIE = [false, true]
+if = '(SIZE*N*(1+DESYNC+ZOMBIE))/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // we need a file handle for each file + desync + zombie
+    lfsr_file_t files[N];
+    lfsr_file_t desyncs[N];
+    lfsr_file_t zombies[N];
+
+    // create this many files while renaming
+    uint32_t prng = 42;
+    uint32_t unsync_prng = 43;
+    uint32_t desync_prng = 44;
+    uint32_t zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // create a zombie?
+        if (ZOMBIE) {
+            lfsr_file_open(&lfs, &zombies[i], "batman!!!",
+                    LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+            lfsr_file_write(&lfs, &zombies[i], wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &zombies[i]) => 0;
+            lfsr_remove(&lfs, "batman!!!") => 0;
+        }
+
+        // always create as first file
+        lfsr_file_open(&lfs, &files[i], "batman!!!",
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        lfsr_file_sync(&lfs, &files[i]) => 0;
+
+        // keep unsynced data?
+        if (UNSYNC) {
+            lfsr_file_rewind(&lfs, &files[i]) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&unsync_prng) % 26);
+            }
+            lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        }
+
+        // keep a desynced file open?
+        if (DESYNC) {
+            lfsr_file_open(&lfs, &desyncs[i], "batman!!!",
+                    LFS_O_RDWR | LFS_O_DESYNC | LFS_O_TRUNC) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+            lfsr_file_write(&lfs, &desyncs[i], wbuf, SIZE) => SIZE;
+        }
+
+        // rename!
+        char name[256];
+        sprintf(name, "batman%03x", i);
+        lfsr_rename(&lfs, "batman!!!", name) => 0;
+    }
+
+    // check that renames worked
+    prng = 42;
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman!!!", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "batman%03x", i);
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that file handles are as expected
+    prng = (!UNSYNC) ? 42 : 43;
+    desync_prng = 44;
+    zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check size
+        assert(lfsr_file_size(&lfs, &files[i]) == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // check any desynced files
+        if (DESYNC) {
+            assert(lfsr_file_size(&lfs, &desyncs[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &desyncs[i]) => 0;
+            lfsr_file_read(&lfs, &desyncs[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+
+        // check any zombied files
+        if (ZOMBIE) {
+            assert(lfsr_file_size(&lfs, &zombies[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &zombies[i]) => 0;
+            lfsr_file_read(&lfs, &zombies[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // try syncing any unsynced files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_sync(&lfs, &files[i]) => 0;
+    }
+
+    // check that sync worked
+    prng = (!UNSYNC) ? 42 : 43;
+    lfsr_stat(&lfs, "batman!!!", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "batman%03x", i);
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that file handles are as expected
+    prng = (!UNSYNC) ? 42 : 43;
+    desync_prng = 44;
+    zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check size
+        assert(lfsr_file_size(&lfs, &files[i]) == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // check any desynced files
+        if (DESYNC) {
+            assert(lfsr_file_size(&lfs, &desyncs[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &desyncs[i]) => 0;
+            lfsr_file_read(&lfs, &desyncs[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+
+        // check any zombied files
+        if (ZOMBIE) {
+            assert(lfsr_file_size(&lfs, &zombies[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &zombies[i]) => 0;
+            lfsr_file_read(&lfs, &zombies[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // try rewriting our open files
+    uint32_t rewrite_prng = 52;
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&rewrite_prng) % 26);
+        }
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        lfsr_file_sync(&lfs, &files[i]) => 0;
+    }
+
+    // check that rewrites worked
+    rewrite_prng = 52;
+    lfsr_stat(&lfs, "batman!!!", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "batman%03x", i);
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&rewrite_prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that file handles are as expected
+    rewrite_prng = 52;
+    desync_prng = 44;
+    zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check size
+        assert(lfsr_file_size(&lfs, &files[i]) == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&rewrite_prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // check any desynced files
+        if (DESYNC) {
+            assert(lfsr_file_size(&lfs, &desyncs[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &desyncs[i]) => 0;
+            lfsr_file_read(&lfs, &desyncs[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+
+        // check any zombied files
+        if (ZOMBIE) {
+            assert(lfsr_file_size(&lfs, &zombies[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &zombies[i]) => 0;
+            lfsr_file_read(&lfs, &zombies[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // cleanup files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_close(&lfs, &files[i]) => 0;
+    }
+    if (DESYNC) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &desyncs[i]) => 0;
+        }
+    }
+    if (ZOMBIE) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &zombies[i]) => 0;
+        }
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_rename_split_backwards]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# keep unsynced data open?
+defines.UNSYNC = [false, true]
+# keep a desynced file open?
+defines.DESYNC = [false, true]
+# keep a zombie open?
+defines.ZOMBIE = [false, true]
+if = '(SIZE*N*(1+DESYNC+ZOMBIE))/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // we need a file handle for each file + desync + zombie
+    lfsr_file_t files[N];
+    lfsr_file_t desyncs[N];
+    lfsr_file_t zombies[N];
+
+    // create this many files while renaming
+    uint32_t prng = 42;
+    uint32_t unsync_prng = 43;
+    uint32_t desync_prng = 44;
+    uint32_t zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // create a zombie?
+        if (ZOMBIE) {
+            lfsr_file_open(&lfs, &zombies[i], "batman???",
+                    LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+            lfsr_file_write(&lfs, &zombies[i], wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &zombies[i]) => 0;
+            lfsr_remove(&lfs, "batman???") => 0;
+        }
+
+        // always create as last file
+        lfsr_file_open(&lfs, &files[i], "batman???",
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        lfsr_file_sync(&lfs, &files[i]) => 0;
+
+        // keep unsynced data?
+        if (UNSYNC) {
+            lfsr_file_rewind(&lfs, &files[i]) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&unsync_prng) % 26);
+            }
+            lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        }
+
+        // keep a desynced file open?
+        if (DESYNC) {
+            lfsr_file_open(&lfs, &desyncs[i], "batman???",
+                    LFS_O_RDWR | LFS_O_DESYNC | LFS_O_TRUNC) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+            lfsr_file_write(&lfs, &desyncs[i], wbuf, SIZE) => SIZE;
+        }
+
+        // rename!
+        char name[256];
+        sprintf(name, "batman%03x", (uint32_t)(N-1-i));
+        lfsr_rename(&lfs, "batman???", name) => 0;
+    }
+
+    // check that renames worked
+    prng = 42;
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman???", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "batman%03x", (uint32_t)(N-1-i));
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that file handles are as expected
+    prng = (!UNSYNC) ? 42 : 43;
+    desync_prng = 44;
+    zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check size
+        assert(lfsr_file_size(&lfs, &files[i]) == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // check any desynced files
+        if (DESYNC) {
+            assert(lfsr_file_size(&lfs, &desyncs[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &desyncs[i]) => 0;
+            lfsr_file_read(&lfs, &desyncs[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+
+        // check any zombied files
+        if (ZOMBIE) {
+            assert(lfsr_file_size(&lfs, &zombies[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &zombies[i]) => 0;
+            lfsr_file_read(&lfs, &zombies[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // try syncing any unsynced files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_sync(&lfs, &files[i]) => 0;
+    }
+
+    // check that sync worked
+    prng = (!UNSYNC) ? 42 : 43;
+    lfsr_stat(&lfs, "batman???", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "batman%03x", (uint32_t)(N-1-i));
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that file handles are as expected
+    prng = (!UNSYNC) ? 42 : 43;
+    desync_prng = 44;
+    zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check size
+        assert(lfsr_file_size(&lfs, &files[i]) == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // check any desynced files
+        if (DESYNC) {
+            assert(lfsr_file_size(&lfs, &desyncs[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &desyncs[i]) => 0;
+            lfsr_file_read(&lfs, &desyncs[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+
+        // check any zombied files
+        if (ZOMBIE) {
+            assert(lfsr_file_size(&lfs, &zombies[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &zombies[i]) => 0;
+            lfsr_file_read(&lfs, &zombies[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // try rewriting our open files
+    uint32_t rewrite_prng = 52;
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&rewrite_prng) % 26);
+        }
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        lfsr_file_sync(&lfs, &files[i]) => 0;
+    }
+
+    // check that rewrites worked
+    rewrite_prng = 52;
+    lfsr_stat(&lfs, "batman???", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "batman%03x", (uint32_t)(N-1-i));
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&rewrite_prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that file handles are as expected
+    rewrite_prng = 52;
+    desync_prng = 44;
+    zombie_prng = 45;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check size
+        assert(lfsr_file_size(&lfs, &files[i]) == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&rewrite_prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // check any desynced files
+        if (DESYNC) {
+            assert(lfsr_file_size(&lfs, &desyncs[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&desync_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &desyncs[i]) => 0;
+            lfsr_file_read(&lfs, &desyncs[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+
+        // check any zombied files
+        if (ZOMBIE) {
+            assert(lfsr_file_size(&lfs, &zombies[i]) == SIZE);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&zombie_prng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_rewind(&lfs, &zombies[i]) => 0;
+            lfsr_file_read(&lfs, &zombies[i], rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // cleanup files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_close(&lfs, &files[i]) => 0;
+    }
+    if (DESYNC) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &desyncs[i]) => 0;
+        }
+    }
+    if (ZOMBIE) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &zombies[i]) => 0;
+        }
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
 # fuzz tests involving many orphans + zombies, this gets a bit crazy
 [cases.test_forphans_orphanzombie_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64]

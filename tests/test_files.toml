@@ -2043,6 +2043,159 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# one particularly nasty case is renaming over an mdir split, since shrubs
+# can be moved around quite a few times when that happens
+#
+# here we spam renames over an increasing number of files to hopefully hit
+# that case
+#
+[cases.test_files_mv_split]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.REMOUNT = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files while renaming
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // always create as first file
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "amethyst",
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // rename!
+        char name[256];
+        sprintf(name, "basalt%03x", i);
+        lfsr_rename(&lfs, "amethyst", name) => 0;
+    }
+
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // check that renames worked
+    prng = 42;
+    struct lfs_info info;
+    lfsr_stat(&lfs, "amethyst", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "basalt%03x", i);
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_files_mv_split_backwards]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FBUFFER_SIZE/2',
+    '2*FBUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.REMOUNT = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files while renaming
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // always create as last file
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "cobalt",
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // rename!
+        char name[256];
+        sprintf(name, "basalt%03x", (uint32_t)(N-1-i));
+        lfsr_rename(&lfs, "cobalt", name) => 0;
+    }
+
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // check that renames worked
+    prng = 42;
+    struct lfs_info info;
+    lfsr_stat(&lfs, "cobalt", &info) => LFS_ERR_NOENT;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "basalt%03x", (uint32_t)(N-1-i));
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
 # fuzz test file creation and rename
 [cases.test_files_mv_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -2236,6 +2389,7 @@ code = '''
     free(sim_prngs);
     lfsr_unmount(&lfs) => 0;
 '''
+
 
 # fuzz test file creation/deletion/rename
 [cases.test_files_mvrm_fuzz]

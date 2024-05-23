@@ -6697,42 +6697,54 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
         }
 
-        // compact into new mdir tags < split_rid
-        err = lfsr_mdir_alloc__(lfs, &mdir_, lfs_smax32(mdir->mid, 0));
-        if (err) {
-            goto failed;
-        }
+        // order the split compacts so that that mdir containing our mid
+        // is committed last, this is a bit of a hack but necessary so
+        // shrubs are staged correctly
+        for (int i = 0; i < 2; i++) {
+            if ((i == 0) ^ (lfsr_mid_rid(lfs, mdir->mid) >= split_rid)) {
+                // compact into new mdir tags >= split_rid
+                err = lfsr_mdir_alloc__(lfs, &msibling_,
+                        lfs_smax32(mdir->mid, 0));
+                if (err) {
+                    goto failed;
+                }
 
-        err = lfsr_mdir_compact__(lfs, &mdir_, mdir, 0, split_rid);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            goto failed;
-        }
+                err = lfsr_mdir_compact__(lfs, &msibling_,
+                        mdir, split_rid, -1);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    goto failed;
+                }
 
-        err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid,
-                mdir->mid, attrs, attr_count);
-        if (err && err != LFS_ERR_NOENT) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            goto failed;
-        }
+                err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1,
+                        mdir->mid, attrs, attr_count);
+                if (err && err != LFS_ERR_NOENT) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    goto failed;
+                }
 
-        // compact into new mdir tags >= split_rid
-        err = lfsr_mdir_alloc__(lfs, &msibling_, lfs_smax32(mdir->mid, 0));
-        if (err) {
-            goto failed;
-        }
+            } else {
+                // compact into new mdir tags < split_rid
+                err = lfsr_mdir_alloc__(lfs, &mdir_,
+                        lfs_smax32(mdir->mid, 0));
+                if (err) {
+                    goto failed;
+                }
 
-        err = lfsr_mdir_compact__(lfs, &msibling_, mdir, split_rid, -1);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            goto failed;
-        }
+                err = lfsr_mdir_compact__(lfs, &mdir_,
+                        mdir, 0, split_rid);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    goto failed;
+                }
 
-        err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1,
-                mdir->mid, attrs, attr_count);
-        if (err && err != LFS_ERR_NOENT) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            goto failed;
+                err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid,
+                        mdir->mid, attrs, attr_count);
+                if (err && err != LFS_ERR_NOENT) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    goto failed;
+                }
+            }
         }
 
         // adjust our sibling's mid after committing attrs
@@ -10348,6 +10360,8 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
         if (err) {
             return err;
         }
+        LFS_ASSERT(file->bshrub.u.bshrub.blocks[0]
+                == file->o.mdir.rbyd.blocks[0]);
 
         // update _all_ shrubs with the new estimate
         for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
