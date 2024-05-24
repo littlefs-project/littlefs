@@ -6619,7 +6619,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // adjust pending grms?
         } else {
-            for (lfs_size_t j = 0; j < 2; j++) {
+            for (int j = 0; j < 2; j++) {
                 if (lfsr_mid_bid(lfs, lfs->grm.mids[j])
                             == lfsr_mid_bid(lfs, mid_)
                         && lfs->grm.mids[j] >= mid_) {
@@ -8449,7 +8449,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 }
 
 static int lfsr_formatinited(lfs_t *lfs) {
-    for (lfs_size_t i = 0; i < 2; i++) {
+    for (int i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
         lfsr_rbyd_t rbyd = {.blocks[0]=i, .eoff=0, .trunk=0};
@@ -8463,7 +8463,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // something here to tell the initial mroot apart from btree nodes
         // (rev=0), it's also useful for start with -1 and 0 in the upper
         // bits to help test overflow/sequence comparison
-        uint32_t rev = ((i-1) << 28)
+        uint32_t rev = (((uint32_t)i-1) << 28)
                 | (((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1)
                     & 0x00216968);
         err = lfsr_rbyd_appendrev(lfs, &rbyd, rev);
