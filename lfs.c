@@ -7051,7 +7051,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // success? update in-device state, we must not error at this point
 
     // toss our cksum into the filesystem seed for pseudorandom numbers
-    lfs->seed ^= mdir_[0].rbyd.cksum;
+    if (mdelta >= 0) {
+        lfs->seed ^= mdir_[0].rbyd.cksum;
+    }
+    if (mdelta > 0) {
+        lfs->seed ^= mdir_[1].rbyd.cksum;
+    }
 
     // update any gstate changes
     lfsr_fs_commitgdelta(lfs);
