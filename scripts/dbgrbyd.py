@@ -1030,7 +1030,7 @@ def main(disk, blocks=None, *,
         weights[i],
         cksums[i])
 
-    print('rbyd %s, rev %08x, size %d, weight %d, cksum %08x' % (
+    print('rbyd %s w%d, rev %08x, size %d, cksum %08x' % (
         '0x%x.%x' % (block, trunk_)
             if len(blocks) == 1
             else '0x{%x,%s}.%x' % (
@@ -1038,7 +1038,10 @@ def main(disk, blocks=None, *,
                 ','.join('%x' % blocks[(i+1+j) % len(blocks)]
                     for j in range(len(blocks)-1)),
                 trunk_),
-        rev, eoff, weight, cksum))
+        weight,
+        rev,
+        eoff,
+        cksum))
 
     if args.get('log'):
         dbg_log(data, block_size, rev, eoff, weight,

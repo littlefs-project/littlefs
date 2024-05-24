@@ -1500,10 +1500,10 @@ def main(disk, mroots=None, *,
         #### actual debugging begins here
 
         # print some information about the mtree
-        print('mtree %s, rev %08x, weight %d.%d, cksum %08x' % (
+        print('mtree %s w%d.%d, rev %08x, cksum %08x' % (
             mroot.addr(),
-            mroot.rev,
             bweight//mleaf_weight, 1*mleaf_weight,
+            mroot.rev,
             mroot.cksum))
 
         # dynamically size the id field
