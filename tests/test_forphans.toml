@@ -1836,7 +1836,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_remove]
+[cases.test_forphans_orphan_rm]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -1910,7 +1910,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_rename_dst]
+[cases.test_forphans_orphan_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -2059,7 +2059,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_rename_src]
+[cases.test_forphans_orphan_mv_src]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -3560,7 +3560,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_remove]
+[cases.test_forphans_zombie_rm]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 # CLOSE=2 => close before op
@@ -3646,7 +3646,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_rename_dst]
+[cases.test_forphans_zombie_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -3806,7 +3806,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_rename_src]
+[cases.test_forphans_zombie_mv_src]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 # CLOSE=2 => close before op
@@ -3970,7 +3970,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombify_rename_dst]
+[cases.test_forphans_zombify_mv_dst]
 defines.ORPHAN = [false, true]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
@@ -4121,7 +4121,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_on_zombie_remove]
+[cases.test_forphans_file_on_zombie_rm]
 defines.DIR = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -4220,7 +4220,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_on_zombie_rename_dst]
+[cases.test_forphans_file_on_zombie_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -4394,7 +4394,7 @@ code = '''
 
 # these doesn't really involve scratch files, but we might as well test
 # them here
-[cases.test_forphans_rename]
+[cases.test_forphans_mv]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -4630,7 +4630,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_rename_postrename]
+[cases.test_forphans_mv_postmv]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -4926,7 +4926,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_rename_rwrw]
+[cases.test_forphans_mv_rwrw]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -5271,7 +5271,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_rename_rwrw_postrename]
+[cases.test_forphans_mv_rwrw_postmv]
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -5608,7 +5608,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_rename_rename_src]
+[cases.test_forphans_mv_mv_src]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -5621,7 +5621,7 @@ defines.CLOSE = [0, 1, 2]
 # REMOUNT=1 => remount after op
 # REMOUNT=2 => remount before op
 defines.REMOUNT = [0, 1, 2]
-defines.POSTRENAME = [false, true]
+defines.POSTMV = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
@@ -5658,7 +5658,7 @@ code = '''
     lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfsr_file_sync(&lfs, &file) => 0;
-    if (!POSTRENAME) {
+    if (!POSTMV) {
         lfsr_file_write(&lfs, &file,
                 "catman!", strlen("catman!"))
                 => strlen("catman!");
@@ -5681,7 +5681,7 @@ code = '''
             (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
-        if (POSTRENAME) {
+        if (POSTMV) {
             lfsr_file_write(&lfs, &file,
                     "catman!", strlen("catman!"))
                     => strlen("catman!");
@@ -5712,7 +5712,7 @@ code = '''
     lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
-    if ((SYNC || CLOSE >= 1) && !(POSTRENAME && CLOSE >= 2)) {
+    if ((SYNC || CLOSE >= 1) && !(POSTMV && CLOSE >= 2)) {
         assert(info.size == strlen("catman!"));
     } else {
         assert(info.size == 0);
@@ -5732,7 +5732,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
-    if ((SYNC || CLOSE >= 1) && !(POSTRENAME && CLOSE >= 2)) {
+    if ((SYNC || CLOSE >= 1) && !(POSTMV && CLOSE >= 2)) {
         assert(info.size == strlen("catman!"));
     } else {
         assert(info.size == 0);
@@ -5754,7 +5754,7 @@ code = '''
     lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     uint8_t rbuf[256];
-    if ((SYNC || CLOSE >= 1) && !(POSTRENAME && CLOSE >= 2)) {
+    if ((SYNC || CLOSE >= 1) && !(POSTMV && CLOSE >= 2)) {
         lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
         assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
     } else {
@@ -5768,7 +5768,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_on_zombie_rename_src]
+[cases.test_forphans_file_on_zombie_mv_src]
 defines.DIR = [false, true]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
@@ -5951,7 +5951,7 @@ code = '''
 # here we spam renames over an increasing number of files to hopefully hit
 # that case
 #
-[cases.test_forphans_rename_split]
+[cases.test_forphans_mv_split]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -6298,7 +6298,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_rename_split_backwards]
+[cases.test_forphans_mv_split_backwards]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',

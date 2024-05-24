@@ -6818,7 +6818,7 @@ code = '''
 '''
 
 # test all of the operations together
-[cases.test_dirs_general_fuzz]
+[cases.test_dirs_mvrm_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # do more ops than dirs to encourage rename collisions
 defines.DENSITY = 2
