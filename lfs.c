@@ -4944,21 +4944,17 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
 
 /// metadata-id things ///
 
-static inline lfsr_mid_t lfsr_mleafweight(const lfs_t *lfs) {
-    return 1 << lfs->mleaf_bits;
-}
-
 #define LFSR_MID(_lfs, _bid, _rid) \
-    (((_bid) & ~((1 << (_lfs)->mleaf_bits)-1)) + (_rid))
+    (((_bid) & ~((1 << (_lfs)->mdir_bits)-1)) + (_rid))
 
 static inline lfsr_sbid_t lfsr_mid_bid(const lfs_t *lfs, lfsr_smid_t mid) {
-    return mid | ((1 << lfs->mleaf_bits) - 1);
+    return mid | ((1 << lfs->mdir_bits) - 1);
 }
 
 static inline lfsr_srid_t lfsr_mid_rid(const lfs_t *lfs, lfsr_smid_t mid) {
     // bit of a strange mapping, but we want to preserve mid=-1 => rid=-1
     return (mid >> (8*sizeof(lfsr_smid_t)-1))
-            | (mid & ((1 << lfs->mleaf_bits) - 1));
+            | (mid & ((1 << lfs->mdir_bits) - 1));
 }
 
 
@@ -5438,7 +5434,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
         }
         LFS_ASSERT((lfsr_mid_t)grm->mids[i] < lfs_max32(
                 lfsr_mtree_weight(&lfs->mtree),
-                lfsr_mleafweight(lfs)));
+                1 << lfs->mdir_bits));
     }
 
     return 0;
@@ -5783,7 +5779,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
     // looking up mroot?
     if (lfsr_mtree_isnull(mtree)) {
         LFS_ASSERT(mid >= 0);
-        LFS_ASSERT(mid < (lfsr_smid_t)lfsr_mleafweight(lfs));
+        LFS_ASSERT(mid < (1 << lfs->mdir_bits));
         mdir_->mid = mid;
         mdir_->rbyd = lfs->mroot.rbyd;
         return 0;
@@ -5791,7 +5787,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
     // looking up direct mdir?
     } else if (lfsr_mtree_ismptr(mtree)) {
         LFS_ASSERT(mid >= 0);
-        LFS_ASSERT(mid < (lfsr_smid_t)lfsr_mleafweight(lfs));
+        LFS_ASSERT(mid < (1 << lfs->mdir_bits));
 
         // fetch mdir
         return lfsr_mdir_fetch(lfs, mdir_, mid, &mtree->u.mptr.mptr);
@@ -5837,14 +5833,14 @@ static int lfsr_mtree_seek(lfs_t *lfs, const lfsr_mtree_t *mtree,
         // we don't know how many rids are in each mdir until we fetch
         while (rid >= (lfsr_srid_t)mdir->rbyd.weight) {
             // end of mtree?
-            if (bid+lfsr_mleafweight(lfs) >= lfsr_mtree_weight(mtree)) {
+            if (bid+(1 << lfs->mdir_bits) >= lfsr_mtree_weight(mtree)) {
                 // if we hit the end of the mtree, park the mdir so all future
                 // seeks return noent
-                mdir->mid = bid + lfsr_mleafweight(lfs);
+                mdir->mid = bid + (1 << lfs->mdir_bits);
                 return LFS_ERR_NOENT;
             }
 
-            bid += lfsr_mleafweight(lfs);
+            bid += (1 << lfs->mdir_bits);
             rid -= mdir->rbyd.weight;
             int err = lfsr_mtree_lookup(lfs, mtree, bid, mdir);
             if (err) {
@@ -6728,13 +6724,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // adjust our sibling's mid after committing attrs
-        mdir_[1].mid += lfsr_mleafweight(lfs);
+        mdir_[1].mid += (1 << lfs->mdir_bits);
 
         LFS_DEBUG("Splitting mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} "
                 "-> 0x{%"PRIx32",%"PRIx32"}, "
                 "0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mleaf_bits,
+                mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1],
                 mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
@@ -6746,11 +6742,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (mdir_[0].rbyd.weight == 0 && mdir_[1].rbyd.weight == 0) {
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[0].mid >> lfs->mleaf_bits,
+                    mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[1].mid >> lfs->mleaf_bits,
+                    mdir_[1].mid >> lfs->mdir_bits,
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
             goto drop;
 
@@ -6758,7 +6754,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         } else if (mdir_[0].rbyd.weight == 0) {
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[0].mid >> lfs->mleaf_bits,
+                    mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             mdir_[0].rbyd = mdir_[1].rbyd;
             goto relocate;
@@ -6767,13 +6763,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         } else if (mdir_[1].rbyd.weight == 0) {
             LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[1].mid >> lfs->mleaf_bits,
+                    mdir_[1].mid >> lfs->mdir_bits,
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
             goto relocate;
         }
 
         // no siblings reduced to zero, update our mtree
-        mdelta = +lfsr_mleafweight(lfs);
+        mdelta = +(1 << lfs->mdir_bits);
 
         // lookup first name in sibling to use as the split name
         //
@@ -6798,12 +6794,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             err = lfsr_btree_commit(lfs, &mtree_.u.btree,
                     0, LFSR_ATTRS(
                         LFSR_ATTR(
-                            LFSR_TAG_MDIR, +lfsr_mleafweight(lfs),
+                            LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
                             LFSR_DATA_MPTR_(
                                 lfsr_mdir_mptr(&mdir_[0]),
                                 &mdir_buf[0*LFSR_MPTR_DSIZE])),
                         LFSR_ATTR_CAT_(
-                            LFSR_TAG_NAME, +lfsr_mleafweight(lfs),
+                            LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_data, 1),
                         LFSR_ATTR(
                             LFSR_TAG_MDIR, 0,
@@ -6828,7 +6824,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 lfsr_mdir_mptr(&mdir_[0]),
                                 &mdir_buf[0*LFSR_MPTR_DSIZE])),
                         LFSR_ATTR_CAT_(
-                            LFSR_TAG_NAME, +lfsr_mleafweight(lfs),
+                            LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_data, 1),
                         LFSR_ATTR(
                             LFSR_TAG_MDIR, 0,
@@ -6844,7 +6840,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     } else if (err == LFS_ERR_NOENT) {
         LFS_DEBUG("Dropping mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mleaf_bits,
+                mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
 
         // consume gstate so we don't lose any info
@@ -6854,7 +6850,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
     drop:;
-        mdelta = -lfsr_mleafweight(lfs);
+        mdelta = -(1 << lfs->mdir_bits);
 
         // we should never drop a direct mdir, because we always have our
         // root bookmark
@@ -6867,7 +6863,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         err = lfsr_btree_commit(lfs, &mtree_.u.btree,
                 lfsr_mid_bid(lfs, mdir->mid), LFSR_ATTRS(
                     LFSR_ATTR(
-                        LFSR_TAG_RM, -lfsr_mleafweight(lfs),
+                        LFSR_TAG_RM, -(1 << lfs->mdir_bits),
                         LFSR_DATA_NULL())));
         if (err) {
             goto failed;
@@ -6878,7 +6874,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             && lfsr_mdir_cmp(mdir, &lfs->mroot) != 0) {
         LFS_DEBUG("Relocating mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} -> 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mleaf_bits,
+                mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
 
@@ -6887,7 +6883,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (lfsr_mtree_ismptr(&lfs->mtree)) {
             mtree_ = LFSR_MTREE_MPTR(
                     *lfsr_mdir_mptr(&mdir_[0]),
-                    lfsr_mleafweight(lfs));
+                    1 << lfs->mdir_bits);
 
         } else {
             // mark as unerased in case of failure
@@ -6928,7 +6924,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             if (lfsr_mid_rid(lfs, lfs->grm.mids[j])
                     >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
                 lfs->grm.mids[j]
-                        += lfsr_mleafweight(lfs) - mdir_[0].rbyd.weight;
+                        += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
             }
         } else if (lfs->grm.mids[j] > mdir->mid) {
             lfs->grm.mids[j] += mdelta;
@@ -7108,7 +7104,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             if (mdelta > 0
                     && lfsr_mid_rid(lfs, o->mdir.mid)
                         >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
-                o->mdir.mid += lfsr_mleafweight(lfs) - mdir_[0].rbyd.weight;
+                o->mdir.mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
                 o->mdir.rbyd = mdir_[1].rbyd;
             } else {
                 o->mdir.rbyd = mdir_[0].rbyd;
@@ -7123,7 +7119,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (mdelta > 0
             && lfsr_mid_rid(lfs, mdir->mid)
                 >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
-        mdir->mid += lfsr_mleafweight(lfs) - mdir_[0].rbyd.weight;
+        mdir->mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
         mdir->rbyd = mdir_[1].rbyd;
     } else {
         mdir->rbyd = mdir_[0].rbyd;
@@ -7231,7 +7227,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
             return cmp;
         }
         LFS_ASSERT(tag == LFSR_TAG_MDIR);
-        LFS_ASSERT(weight == lfsr_mleafweight(lfs));
+        LFS_ASSERT(weight == (1U << lfs->mdir_bits));
 
         // decode mdir
         lfsr_mptr_t mptr;
@@ -7553,9 +7549,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                             mptr.blocks[1]);
                     return LFS_ERR_CORRUPT;
                 }
-                if (t->u.mtortoise.step
-                        // TODO why cast?
-                        == ((lfs_block_t)1 << t->u.mtortoise.power)) {
+                if (t->u.mtortoise.step == (1U << t->u.mtortoise.power)) {
                     t->u.mtortoise.mptr = mptr;
                     t->u.mtortoise.step = 0;
                     t->u.mtortoise.power += 1;
@@ -8362,7 +8356,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 if (lfsr_mtree_isnull(&lfs->mtree)) {
                     lfs->mtree = LFSR_MTREE_MPTR(
                             *lfsr_mdir_mptr(&tinfo.u.mdir),
-                            lfsr_mleafweight(lfs));
+                            (1 << lfs->mdir_bits));
                 }
             }
 
@@ -8390,7 +8384,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     LFS_DEBUG("Found orphaned file "
                             "%"PRId32".%"PRId32,
                             lfsr_mid_bid(lfs, tinfo.u.mdir.mid)
-                                >> lfs->mleaf_bits,
+                                >> lfs->mdir_bits,
                             rid);
                     lfs->hasorphans = true;
                 }
@@ -8434,13 +8428,13 @@ static int lfsr_mountinited(lfs_t *lfs) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
             LFS_DEBUG("Found pending grm "
                     "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mleaf_bits,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]),
-                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mleaf_bits,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[1]));
         } else if (lfsr_grm_count(&lfs->grm) == 1) {
             LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mleaf_bits,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]));
         }
     }
@@ -8540,8 +8534,8 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             lfs->mroot.rbyd.blocks[0],
             lfs->mroot.rbyd.blocks[1],
             lfsr_rbyd_trunk(&lfs->mroot.rbyd),
-            lfsr_mtree_weight(&lfs->mtree) / lfsr_mleafweight(lfs),
-            lfsr_mleafweight(lfs));
+            lfsr_mtree_weight(&lfs->mtree) >> lfs->mdir_bits,
+            1 << lfs->mdir_bits);
 
     return 0;
 }
@@ -8735,7 +8729,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         lfsr_mdir_t mdir;
         LFS_ASSERT(lfs->grm.mids[0] < lfs_smax32(
                 lfsr_mtree_weight(&lfs->mtree),
-                lfsr_mleafweight(lfs)));
+                1 << lfs->mdir_bits));
         int err = lfsr_mtree_lookup(lfs, &lfs->mtree, lfs->grm.mids[0],
                 &mdir);
         if (err) {
@@ -8830,13 +8824,13 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
             LFS_DEBUG("Fixing grm "
                     "%"PRId32".%"PRId32" %"PRId32".%"PRId32"...",
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mleaf_bits,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]),
-                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mleaf_bits,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[1]));
         } else {
             LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mleaf_bits,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]));
         }
         inconsistent = true;
@@ -15452,7 +15446,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // metadata entries per block. But we intentionally don't leverage this
     // to maintain compatibility with a theoretical perfect implementation.
     //
-    lfs->mleaf_bits = lfs_nlog2(lfs->cfg->block_size/8);
+    lfs->mdir_bits = lfs_nlog2(lfs->cfg->block_size/8);
 
     // zero linked-list of opened mdirs
     lfs->opened = NULL;

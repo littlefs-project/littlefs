@@ -585,7 +585,7 @@ typedef struct lfs {
 
     int8_t recycle_bits;
     uint8_t attr_estimate;
-    uint8_t mleaf_bits;
+    uint8_t mdir_bits;
 
     // linked-list of opened mdirs
     lfsr_opened_t *opened;
