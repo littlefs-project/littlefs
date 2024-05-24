@@ -21,7 +21,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // check that the file doesn't _really_ exist
@@ -29,7 +29,7 @@ code = '''
     lfsr_mount(&lfs_, CFG) => 0;
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs_, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs_, &dir, "/") => 0;
@@ -45,7 +45,7 @@ code = '''
     lfsr_dir_close(&lfs_, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     lfsr_unmount(&lfs_) => 0;
 
     // write to the file
@@ -60,7 +60,7 @@ code = '''
         // check that the file still doesn't _really_ exist
         lfsr_mount(&lfs_, CFG) => 0;
         // via stat
-        lfsr_stat(&lfs_, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_open(&lfs_, &dir, "/") => 0;
         lfsr_dir_read(&lfs_, &dir, &info) => 0;
@@ -74,7 +74,7 @@ code = '''
         lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs_, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         lfsr_unmount(&lfs_) => 0;
     }
     
@@ -85,8 +85,8 @@ code = '''
         // now it should show up
         lfsr_mount(&lfs_, CFG) => 0;
         // via stat
-        lfsr_stat(&lfs_, "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs_, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
@@ -100,13 +100,13 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs_, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs_, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
+        lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => 0;
         prng = 42;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
             uint8_t wbuf[CHUNK];
@@ -127,8 +127,8 @@ code = '''
     // now it should show up
     lfsr_mount(&lfs_, CFG) => 0;
     // via stat
-    lfsr_stat(&lfs_, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs_, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -142,13 +142,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs_, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs_, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -167,8 +167,8 @@ code = '''
     // should still be there
     lfsr_mount(&lfs_, CFG) => 0;
     // via stat
-    lfsr_stat(&lfs_, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs_, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -182,13 +182,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs_, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs_, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs_, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -227,7 +227,7 @@ code = '''
     //
     // note the excl flag
     lfsr_file_t file;
-    err = lfsr_file_open(&lfs, &file, "gello",
+    err = lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
     assert(!err || err == LFS_ERR_EXIST);
 
@@ -247,7 +247,7 @@ code = '''
     }
 
     // we should be able to read the file now
-    lfsr_file_open(&lfs, &file, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file, "batman", LFS_O_RDONLY) => 0;
     uint32_t prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -264,7 +264,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
     lfsr_mount(&lfs, CFG) => 0;
 
-    lfsr_file_open(&lfs, &file, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -301,7 +301,7 @@ code = '''
     for (lfs_size_t j = 0; j < N; j++) {
         // note the excl flag
         char name[256];
-        sprintf(name, "gello%03x", j);
+        sprintf(name, "batman%03x", j);
         lfsr_file_t file;
         err = lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
@@ -326,7 +326,7 @@ code = '''
     // we should be able to read the files now
     for (lfs_size_t j = 0; j < N; j++) {
         char name[256];
-        sprintf(name, "gello%03x", j);
+        sprintf(name, "batman%03x", j);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
         uint32_t prng = 42 + j;
@@ -348,7 +348,7 @@ code = '''
 
     for (lfs_size_t j = 0; j < N; j++) {
         char name[256];
-        sprintf(name, "gello%03x", j);
+        sprintf(name, "batman%03x", j);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
         uint32_t prng = 42 + j;
@@ -385,13 +385,13 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -407,10 +407,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // write to the file
     uint32_t prng = 42;
@@ -423,7 +423,7 @@ code = '''
 
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_open(&lfs, &dir, "/") => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -437,15 +437,15 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     // but we should still recieve sync broadcasts on sync/close
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     if (SYNC) {
@@ -454,8 +454,8 @@ code = '''
 
         // now it should show up
         // via stat
-        lfsr_stat(&lfs, "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
@@ -469,13 +469,13 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
         prng = 42;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
             uint8_t wbuf[CHUNK];
@@ -507,8 +507,8 @@ code = '''
 
     // now it should show up
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -522,13 +522,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -575,17 +575,17 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     // open a second reference
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -601,10 +601,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // write to the second file
     uint32_t prng = 42;
@@ -617,7 +617,7 @@ code = '''
 
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_open(&lfs, &dir, "/") => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -631,10 +631,10 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     if (SYNC) {
@@ -643,8 +643,8 @@ code = '''
 
         // now it should show up
         // via stat
-        lfsr_stat(&lfs, "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
@@ -658,13 +658,13 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
         prng = 42;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
             uint8_t wbuf[CHUNK];
@@ -696,8 +696,8 @@ code = '''
 
     // now it should show up
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -711,13 +711,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -764,15 +764,15 @@ code = '''
 
     // create a desync file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     // open a second reference
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     // and a third for checking sync broadcasts
     lfsr_file_t file___;
-    lfsr_file_open(&lfs, &file___, "gello",
+    lfsr_file_open(&lfs, &file___, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the first file
@@ -787,7 +787,7 @@ code = '''
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -803,10 +803,10 @@ code = '''
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     // write to the second file
@@ -821,7 +821,7 @@ code = '''
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -837,10 +837,10 @@ code = '''
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     if (SYNC) {
@@ -850,8 +850,8 @@ code = '''
         // now it should show up
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
@@ -866,14 +866,14 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
         prng = 42+1;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
             uint8_t wbuf[CHUNK];
@@ -906,8 +906,8 @@ code = '''
     // now it should show up
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -922,14 +922,14 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -960,8 +960,8 @@ code = '''
 
     // now it should show up
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -975,13 +975,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -1013,8 +1013,8 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -1028,13 +1028,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -1081,7 +1081,7 @@ code = '''
 
     // create a desync file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
 
     // write to the file
@@ -1096,7 +1096,7 @@ code = '''
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1112,10 +1112,10 @@ code = '''
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     // close
@@ -1124,7 +1124,7 @@ code = '''
     // because the file was desynced, it should still not exist
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1140,10 +1140,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // even after a remount
     lfsr_unmount(&lfs) => 0;
@@ -1151,7 +1151,7 @@ code = '''
 
     // because the file was desynced, it should still not exist
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -1165,10 +1165,10 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1193,15 +1193,15 @@ code = '''
 
     // create a desync file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     // open a second reference
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     // and a third for checking sync broadcasts
     lfsr_file_t file___;
-    lfsr_file_open(&lfs, &file___, "gello",
+    lfsr_file_open(&lfs, &file___, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the first file
@@ -1216,7 +1216,7 @@ code = '''
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1232,10 +1232,10 @@ code = '''
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     // write to the second file
@@ -1250,7 +1250,7 @@ code = '''
         // as far as the filesystem is concerned, the file does not exist yet
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1266,10 +1266,10 @@ code = '''
         lfsr_dir_close(&lfs, &dir) => 0;
         // rdonly rejected
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
     }
 
     if (SYNC & 0x1) {
@@ -1279,8 +1279,8 @@ code = '''
         // now it should show up
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
@@ -1295,14 +1295,14 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
         prng = 42+1;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
             uint8_t wbuf[CHUNK];
@@ -1340,8 +1340,8 @@ code = '''
         // now it should show up
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         // via readdir
@@ -1356,14 +1356,14 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
         prng = 42+1;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
             uint8_t wbuf[CHUNK];
@@ -1396,8 +1396,8 @@ code = '''
     // now it should show up
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -1412,14 +1412,14 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -1471,7 +1471,7 @@ code = '''
     lfsr_file_t orphans[N];
     for (lfs_size_t o = 0; o < N; o++) {
         char name[256];
-        sprintf(name, "fello%03x", o);
+        sprintf(name, "aatman%03x", o);
         lfsr_file_open(&lfs, &orphans[o], name,
                 LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
         uint32_t prng = 42+o;
@@ -1486,7 +1486,7 @@ code = '''
 
     // and an unrelated file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 52;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -1502,10 +1502,10 @@ code = '''
     struct lfs_info info;
     for (lfs_size_t o = 0; o < N; o++) {
         char name[256];
-        sprintf(name, "fello%03x", o);
+        sprintf(name, "aatman%03x", o);
         lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
     }
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1523,7 +1523,7 @@ code = '''
     lfsr_file_t file_;
     for (lfs_size_t o = 0; o < N; o++) {
         char name[256];
-        sprintf(name, "fello%03x", o);
+        sprintf(name, "aatman%03x", o);
         // rdonly rejected
         lfsr_file_open(&lfs, &file_, name, LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
@@ -1531,10 +1531,10 @@ code = '''
         lfsr_file_open(&lfs, &file_, name, LFS_O_RDWR) => LFS_ERR_NOENT;
     }
     // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // but we should still be able to read our orphans
     for (lfs_size_t o = 0; o < N; o++) {
@@ -1570,7 +1570,7 @@ code = '''
     // create a new unrelated file, this should trigger
     // and orphan cleanup
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "hello",
+    lfsr_file_open(&lfs, &file__, "catman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     prng = 62;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -1594,15 +1594,15 @@ code = '''
     // via stat
     for (lfs_size_t o = 0; o < N; o++) {
         char name[256];
-        sprintf(name, "fello%03x", o);
+        sprintf(name, "aatman%03x", o);
         lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
     }
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
+    lfsr_stat(&lfs, "catman", &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -1616,11 +1616,11 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
+    assert(strcmp(info.name, "catman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -1628,14 +1628,14 @@ code = '''
     // via open
     for (lfs_size_t o = 0; o < N; o++) {
         char name[256];
-        sprintf(name, "fello%03x", o);
+        sprintf(name, "aatman%03x", o);
         // rdonly rejected
         lfsr_file_open(&lfs, &file_, name, LFS_O_RDONLY) => LFS_ERR_NOENT;
         // non-create rejected
         lfsr_file_open(&lfs, &file_, name, LFS_O_WRONLY) => LFS_ERR_NOENT;
         lfsr_file_open(&lfs, &file_, name, LFS_O_RDWR) => LFS_ERR_NOENT;
     }
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 52;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -1647,7 +1647,7 @@ code = '''
         assert(memcmp(wbuf, rbuf, CHUNK) == 0);
     }
     lfsr_file_close(&lfs, &file_) => 0;
-    lfsr_file_open(&lfs, &file_, "hello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "catman", LFS_O_RDONLY) => 0;
     prng = 62;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -1680,7 +1680,7 @@ code = '''
     lfsr_file_t orphans[ORPHANS-1];
     for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
         char name[256];
-        sprintf(name, "fello%03x", i);
+        sprintf(name, "aatman%03x", i);
         lfsr_file_open(&lfs, &orphans[i], name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
         lfsr_file_write(&lfs, &orphans[i],
@@ -1690,7 +1690,7 @@ code = '''
 
     // create an orphaned file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     lfsr_file_write(&lfs, &file,
             "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -1709,10 +1709,10 @@ code = '''
     }
 
     // create a new file over the orphan
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-            => strlen("hello!");
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
     lfsr_file_close(&lfs, &file) => 0;
 
     if (REMOUNT == 1) {
@@ -1723,10 +1723,10 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
-    assert(info.size == strlen("hello!"));
+    assert(info.size == strlen("catman!"));
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1739,17 +1739,17 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
-    assert(info.size == strlen("hello!"));
+    assert(info.size == strlen("catman!"));
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     uint8_t rbuf[256];
-    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
     lfsr_file_close(&lfs, &file_) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -1772,7 +1772,7 @@ code = '''
     lfsr_file_t orphans[ORPHANS-1];
     for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
         char name[256];
-        sprintf(name, "fello%03x", i);
+        sprintf(name, "aatman%03x", i);
         lfsr_file_open(&lfs, &orphans[i], name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
         lfsr_file_write(&lfs, &orphans[i],
@@ -1782,7 +1782,7 @@ code = '''
 
     // create an orphaned file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     lfsr_file_write(&lfs, &file,
             "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -1801,7 +1801,7 @@ code = '''
     }
 
     // create a new dir over the orphan
-    lfsr_mkdir(&lfs, "gello") => 0;
+    lfsr_mkdir(&lfs, "batman") => 0;
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
@@ -1811,8 +1811,8 @@ code = '''
     // make sure the new dir is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     // via readdir
@@ -1827,7 +1827,7 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -1853,7 +1853,7 @@ code = '''
     lfsr_file_t orphans[ORPHANS-1];
     for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
         char name[256];
-        sprintf(name, "fello%03x", i);
+        sprintf(name, "aatman%03x", i);
         lfsr_file_open(&lfs, &orphans[i], name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
         lfsr_file_write(&lfs, &orphans[i],
@@ -1863,7 +1863,7 @@ code = '''
 
     // create an orphaned file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     lfsr_file_write(&lfs, &file,
             "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -1882,7 +1882,7 @@ code = '''
     }
 
     // orphans aren't real, so remove should fail
-    lfsr_remove(&lfs, "gello") => LFS_ERR_NOENT;
+    lfsr_remove(&lfs, "batman") => LFS_ERR_NOENT;
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
@@ -1892,7 +1892,7 @@ code = '''
     // just make sure things look ok
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1932,7 +1932,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -1942,13 +1942,13 @@ code = '''
     // make our src file before orphans, otherwise open just cleans
     // things up
     if (DIR) {
-        lfsr_mkdir(&lfs, (INTERDIR) ? "a/iello" : "iello") => 0;
+        lfsr_mkdir(&lfs, (INTERDIR) ? "a/datman" : "datman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/iello" : "iello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/datman" : "datman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-                => strlen("hello!");
+        lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+                => strlen("catman!");
         lfsr_file_close(&lfs, &file) => 0;
     }
 
@@ -1958,7 +1958,7 @@ code = '''
     lfsr_file_t orphans[ORPHANS-1];
     for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "c/fello%03x" : "fello%03x", i);
+        sprintf(name, (INTERDIR) ? "c/aatman%03x" : "aatman%03x", i);
         lfsr_file_open(&lfs, &orphans[i], name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
         lfsr_file_write(&lfs, &orphans[i],
@@ -1968,7 +1968,7 @@ code = '''
 
     // create an orphaned file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/gello" : "gello",
+    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/batman" : "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     lfsr_file_write(&lfs, &file,
             "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -1988,8 +1988,8 @@ code = '''
 
     // rename onto orphan
     lfsr_rename(&lfs,
-            (INTERDIR) ? "a/iello" : "iello",
-            (INTERDIR) ? "c/gello" : "gello") => 0;
+            (INTERDIR) ? "a/datman" : "datman",
+            (INTERDIR) ? "c/batman" : "batman") => 0;
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
@@ -1999,16 +1999,16 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "c/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "c/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
-    lfsr_stat(&lfs, (INTERDIR) ? "a/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "a/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "c" : "/") => 0;
@@ -2021,18 +2021,18 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, "hello%03x", i);
+            sprintf(name, "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -2044,15 +2044,15 @@ code = '''
     // via open
     if (DIR) {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "c/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "c/batman" : "batman",
                 LFS_O_RDONLY) => LFS_ERR_ISDIR;
     } else {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "c/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "c/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         uint8_t rbuf[256];
-        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
         lfsr_file_close(&lfs, &file_) => 0;
     }
 
@@ -2076,7 +2076,7 @@ code = '''
     lfsr_file_t orphans[ORPHANS-1];
     for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
         char name[256];
-        sprintf(name, "fello%03x", i);
+        sprintf(name, "aatman%03x", i);
         lfsr_file_open(&lfs, &orphans[i], name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
         lfsr_file_write(&lfs, &orphans[i],
@@ -2086,7 +2086,7 @@ code = '''
 
     // create an orphaned file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     lfsr_file_write(&lfs, &file,
             "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -2105,7 +2105,7 @@ code = '''
     }
 
     // orphans aren't real, so rename should fail
-    lfsr_rename(&lfs, "gello", "hello") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs, "batman", "catman") => LFS_ERR_NOENT;
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
@@ -2115,8 +2115,8 @@ code = '''
     // just make sure things look ok
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
-    lfsr_stat(&lfs, "hello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "catman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2151,7 +2151,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the file
@@ -2168,12 +2168,12 @@ code = '''
     lfsr_file_sync(&lfs, &file) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2189,10 +2189,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -2215,7 +2215,7 @@ code = '''
 
     // because the file was removed, it should still not exist
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -2229,17 +2229,17 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // even after a remount
     lfsr_unmount(&lfs) => 0;
     lfsr_mount(&lfs, CFG) => 0;
 
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -2253,10 +2253,10 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2278,14 +2278,14 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // need to sync so we can remove
     lfsr_file_sync(&lfs, &file) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // write to the file
     uint32_t prng = 42;
@@ -2300,7 +2300,7 @@ code = '''
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2316,10 +2316,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -2342,7 +2342,7 @@ code = '''
 
     // because the file was removed, it should still not exist
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -2356,17 +2356,17 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // even after a remount
     lfsr_unmount(&lfs) => 0;
     lfsr_mount(&lfs, CFG) => 0;
 
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -2380,10 +2380,10 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2406,7 +2406,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the file
@@ -2423,11 +2423,11 @@ code = '''
     lfsr_file_sync(&lfs, &file) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a second file
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the second file
@@ -2443,7 +2443,7 @@ code = '''
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2459,10 +2459,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -2471,8 +2471,8 @@ code = '''
 
     // second file should appear on disk now
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2486,13 +2486,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -2537,8 +2537,8 @@ code = '''
 
     // check disk again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2552,13 +2552,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -2577,8 +2577,8 @@ code = '''
 
     // check disk again again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2592,13 +2592,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -2632,18 +2632,18 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // need to sync so we can remove
     lfsr_file_sync(&lfs, &file) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a second file
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the second file
@@ -2669,7 +2669,7 @@ code = '''
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2685,10 +2685,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -2697,8 +2697,8 @@ code = '''
 
     // second file should appear on disk now
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2712,13 +2712,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -2763,8 +2763,8 @@ code = '''
 
     // check disk again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2778,13 +2778,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -2803,8 +2803,8 @@ code = '''
 
     // check disk again again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2818,13 +2818,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -2858,7 +2858,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the file
@@ -2875,11 +2875,11 @@ code = '''
     lfsr_file_sync(&lfs, &file) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a second file
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the second file
@@ -2896,11 +2896,11 @@ code = '''
     lfsr_file_sync(&lfs, &file__) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a third file
     lfsr_file_t file___;
-    lfsr_file_open(&lfs, &file___, "gello",
+    lfsr_file_open(&lfs, &file___, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the third file
@@ -2916,7 +2916,7 @@ code = '''
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2932,10 +2932,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -2945,8 +2945,8 @@ code = '''
 
     // third file should appear on disk now
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -2960,13 +2960,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+2;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -3024,8 +3024,8 @@ code = '''
 
     // check disk again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -3039,13 +3039,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+2;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -3064,8 +3064,8 @@ code = '''
 
     // check disk again again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -3079,13 +3079,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+2;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -3119,29 +3119,29 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // need to sync so we can remove
     lfsr_file_sync(&lfs, &file) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a second file
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "gello",
+    lfsr_file_open(&lfs, &file__, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // need to sync so we can remove
     lfsr_file_sync(&lfs, &file__) => 0;
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a third file
     lfsr_file_t file___;
-    lfsr_file_open(&lfs, &file___, "gello",
+    lfsr_file_open(&lfs, &file___, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the third file
@@ -3177,7 +3177,7 @@ code = '''
     // as far as the filesystem is concerned, the file does not exist yet
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -3193,10 +3193,10 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // rdonly rejected
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
     // non-create rejected
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -3206,8 +3206,8 @@ code = '''
 
     // third file should appear on disk now
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -3221,13 +3221,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+2;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -3285,8 +3285,8 @@ code = '''
 
     // check disk again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -3300,13 +3300,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+2;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -3325,8 +3325,8 @@ code = '''
 
     // check disk again again
     // via stat
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     // via readdir
@@ -3340,13 +3340,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     prng = 42+2;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
         uint8_t wbuf[CHUNK];
@@ -3380,7 +3380,7 @@ code = '''
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, "gello",
+    lfsr_file_open(&lfs, &zombie, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3388,7 +3388,7 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     if (CLOSE == 2) {
         lfsr_file_close(&lfs, &zombie) => 0;
@@ -3400,10 +3400,10 @@ code = '''
 
     // create a new file over the zombie
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "gello",
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-            => strlen("hello!");
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
     lfsr_file_close(&lfs, &file) => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
@@ -3432,10 +3432,10 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
-    assert(info.size == strlen("hello!"));
+    assert(info.size == strlen("catman!"));
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -3448,17 +3448,17 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
-    assert(info.size == strlen("hello!"));
+    assert(info.size == strlen("catman!"));
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "gello", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
     uint8_t rbuf[256];
-    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
     lfsr_file_close(&lfs, &file_) => 0;
 
     if (CLOSE == 0) {
@@ -3485,7 +3485,7 @@ code = '''
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, "gello",
+    lfsr_file_open(&lfs, &zombie, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3493,7 +3493,7 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     if (CLOSE == 2) {
         lfsr_file_close(&lfs, &zombie) => 0;
@@ -3504,7 +3504,7 @@ code = '''
     }
 
     // create a new dir over the zombie
-    lfsr_mkdir(&lfs, "gello") => 0;
+    lfsr_mkdir(&lfs, "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -3532,8 +3532,8 @@ code = '''
     // make sure the new dir is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     // via readdir
@@ -3548,7 +3548,7 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -3578,7 +3578,7 @@ code = '''
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, "gello",
+    lfsr_file_open(&lfs, &zombie, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3586,7 +3586,7 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     if (CLOSE == 2) {
         lfsr_file_close(&lfs, &zombie) => 0;
@@ -3597,7 +3597,7 @@ code = '''
     }
 
     // zombies aren't real, so remove should fail
-    lfsr_remove(&lfs, "gello") => LFS_ERR_NOENT;
+    lfsr_remove(&lfs, "batman") => LFS_ERR_NOENT;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -3625,7 +3625,7 @@ code = '''
     // just make sure things look ok
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -3673,7 +3673,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -3682,19 +3682,19 @@ code = '''
 
     // make our src file before zombies, just in case
     if (DIR) {
-        lfsr_mkdir(&lfs, (INTERDIR) ? "c/iello" : "iello") => 0;
+        lfsr_mkdir(&lfs, (INTERDIR) ? "c/datman" : "datman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-                => strlen("hello!");
+        lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+                => strlen("catman!");
         lfsr_file_close(&lfs, &file) => 0;
     }
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3702,7 +3702,7 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, (INTERDIR) ? "a/gello" : "gello") => 0;
+    lfsr_remove(&lfs, (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (CLOSE == 2) {
         lfsr_file_close(&lfs, &zombie) => 0;
@@ -3714,8 +3714,8 @@ code = '''
 
     // rename onto zombie
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -3743,16 +3743,16 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
-    lfsr_stat(&lfs, (INTERDIR) ? "a/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "a/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -3765,18 +3765,18 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, "hello%03x", i);
+            sprintf(name, "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -3788,15 +3788,15 @@ code = '''
     // via open
     if (DIR) {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => LFS_ERR_ISDIR;
     } else {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         uint8_t rbuf[256];
-        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
         lfsr_file_close(&lfs, &file_) => 0;
     }
 
@@ -3824,7 +3824,7 @@ code = '''
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, "gello",
+    lfsr_file_open(&lfs, &zombie, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3832,7 +3832,7 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     if (CLOSE == 2) {
         lfsr_file_close(&lfs, &zombie) => 0;
@@ -3843,7 +3843,7 @@ code = '''
     }
 
     // zombies aren't real, so rename should fail
-    lfsr_rename(&lfs, "gello", "hello") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs, "batman", "catman") => LFS_ERR_NOENT;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -3871,8 +3871,8 @@ code = '''
     // just make sure things look ok
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
-    lfsr_stat(&lfs, "hello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "catman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -3905,7 +3905,7 @@ code = '''
 
     // create a file, not a zombie yet
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, "gello",
+    lfsr_file_open(&lfs, &zombie, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3916,7 +3916,7 @@ code = '''
     // use mkdir on the same name, the file hasn't been created yet,
     // so this shouldn't fail, but because we have an open file handle
     // we create a zombie
-    lfsr_mkdir(&lfs, "gello") => 0;
+    lfsr_mkdir(&lfs, "batman") => 0;
 
     if (POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -3942,8 +3942,8 @@ code = '''
     // make sure the new dir is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     // via readdir
@@ -3958,7 +3958,7 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -3995,7 +3995,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -4004,19 +4004,19 @@ code = '''
 
     // make our src file before zombies, just in case
     if (DIR) {
-        lfsr_mkdir(&lfs, (INTERDIR) ? "c/iello" : "iello") => 0;
+        lfsr_mkdir(&lfs, (INTERDIR) ? "c/datman" : "datman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-                => strlen("hello!");
+        lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+                => strlen("catman!");
         lfsr_file_close(&lfs, &file) => 0;
     }
 
     // create a file, not a zombie yet
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -4031,8 +4031,8 @@ code = '''
     // conditions), but because we have an open file handle we create
     // a zombie
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -4058,16 +4058,16 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
-    lfsr_stat(&lfs, (INTERDIR) ? "a/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "a/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -4080,18 +4080,18 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, "hello%03x", i);
+            sprintf(name, "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4103,15 +4103,15 @@ code = '''
     // via open
     if (DIR) {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => LFS_ERR_ISDIR;
     } else {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         uint8_t rbuf[256];
-        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
         lfsr_file_close(&lfs, &file_) => 0;
     }
 
@@ -4140,7 +4140,7 @@ code = '''
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, "gello",
+    lfsr_file_open(&lfs, &zombie, "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -4148,14 +4148,14 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     // create a file on top of the zombie
     if (DIR) {
-        lfsr_mkdir(&lfs, "gello") => 0;
+        lfsr_mkdir(&lfs, "batman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "gello",
+        lfsr_file_open(&lfs, &file, "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -4171,7 +4171,7 @@ code = '''
     }
 
     // remove the file
-    lfsr_remove(&lfs, "gello") => 0;
+    lfsr_remove(&lfs, "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -4199,7 +4199,7 @@ code = '''
     // just make sure things look ok
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "gello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -4247,7 +4247,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -4256,19 +4256,19 @@ code = '''
 
     // make our src file before zombies, just in case
     if (DIR) {
-        lfsr_mkdir(&lfs, (INTERDIR) ? "c/iello" : "iello") => 0;
+        lfsr_mkdir(&lfs, (INTERDIR) ? "c/datman" : "datman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-                => strlen("hello!");
+        lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+                => strlen("catman!");
         lfsr_file_close(&lfs, &file) => 0;
     }
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -4276,14 +4276,14 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, (INTERDIR) ? "a/gello" : "gello") => 0;
+    lfsr_remove(&lfs, (INTERDIR) ? "a/batman" : "batman") => 0;
 
     // create a file on top of the zombie
     if (DIR) {
-        lfsr_mkdir(&lfs, (INTERDIR) ? "a/gello" : "gello") => 0;
+        lfsr_mkdir(&lfs, (INTERDIR) ? "a/batman" : "batman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -4300,8 +4300,8 @@ code = '''
 
     // rename onto the file
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -4329,16 +4329,16 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
-    lfsr_stat(&lfs, (INTERDIR) ? "a/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "a/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -4351,18 +4351,18 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4374,15 +4374,15 @@ code = '''
     // via open
     if (DIR) {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => LFS_ERR_ISDIR;
     } else {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         uint8_t rbuf[256];
-        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
         lfsr_file_close(&lfs, &file_) => 0;
     }
 
@@ -4420,7 +4420,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -4430,7 +4430,7 @@ code = '''
     // create our destination first, just in case
     if (EXISTS) {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -4439,7 +4439,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the file
@@ -4457,17 +4457,17 @@ code = '''
 
     // rename the file
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     // the file should have been renamed
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -4480,13 +4480,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4497,7 +4497,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -4529,11 +4529,11 @@ code = '''
 
     // close should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4545,13 +4545,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4561,7 +4561,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -4581,11 +4581,11 @@ code = '''
 
     // remount should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4597,13 +4597,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4613,7 +4613,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -4657,7 +4657,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -4667,7 +4667,7 @@ code = '''
     // create our destination first, just in case
     if (EXISTS) {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -4676,7 +4676,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // need to sync so we can rename
@@ -4684,8 +4684,8 @@ code = '''
 
     // rename the file
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     // write to the file
     uint32_t prng = 42;
@@ -4700,11 +4700,11 @@ code = '''
     // the file should have been renamed, but zero sized
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == 0);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -4717,13 +4717,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == 0);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4734,7 +4734,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     uint8_t rbuf[CHUNK];
     lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
@@ -4759,11 +4759,11 @@ code = '''
 
         // the data should now be visible
         // via stat
-        lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
-        lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info)
+        lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info)
                 => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -4776,13 +4776,13 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         if (!INTERDIR) {
             for (lfs_size_t i = 0; i < DISTANCE; i++) {
                 char name[256];
-                sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+                sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
                 lfsr_dir_read(&lfs, &dir, &info) => 0;
                 assert(strcmp(info.name, name) == 0);
                 assert(info.type == LFS_TYPE_REG);
@@ -4792,7 +4792,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         prng = 42;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -4825,11 +4825,11 @@ code = '''
 
     // the data should now be visible
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4841,13 +4841,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4857,7 +4857,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -4877,11 +4877,11 @@ code = '''
 
     // remount should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4893,13 +4893,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -4909,7 +4909,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -4953,7 +4953,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -4963,7 +4963,7 @@ code = '''
     // create our destination first, just in case
     if (EXISTS) {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -4972,7 +4972,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // write to the file
@@ -4990,7 +4990,7 @@ code = '''
 
     // create a second file
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file__, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_TRUNC) => 0;
 
     // write to the second file
@@ -5005,17 +5005,17 @@ code = '''
 
     // rename the file
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     // the file should have been renamed
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -5028,13 +5028,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5045,7 +5045,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5091,11 +5091,11 @@ code = '''
 
         // the second file's data should now be visible
         // via stat
-        lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
-        lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info)
+        lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info)
                 => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -5108,13 +5108,13 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         if (!INTERDIR) {
             for (lfs_size_t i = 0; i < DISTANCE; i++) {
                 char name[256];
-                sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+                sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
                 lfsr_dir_read(&lfs, &dir, &info) => 0;
                 assert(strcmp(info.name, name) == 0);
                 assert(info.type == LFS_TYPE_REG);
@@ -5124,7 +5124,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         prng = 42+1;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5170,11 +5170,11 @@ code = '''
 
     // close should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -5186,13 +5186,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5202,7 +5202,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5222,11 +5222,11 @@ code = '''
 
     // remount should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -5238,13 +5238,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5254,7 +5254,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5298,7 +5298,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -5308,7 +5308,7 @@ code = '''
     // create our destination first, just in case
     if (EXISTS) {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -5317,7 +5317,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
 
     // need to sync so we can rename
@@ -5325,13 +5325,13 @@ code = '''
 
     // create a second file
     lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file__, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_TRUNC) => 0;
 
     // rename the file
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     // write to the first file
     uint32_t prng = 42;
@@ -5356,11 +5356,11 @@ code = '''
     // the file should have been renamed, but zero sized
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == 0);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -5373,13 +5373,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == 0);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5390,7 +5390,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     uint8_t rbuf[CHUNK];
     lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
@@ -5428,11 +5428,11 @@ code = '''
 
         // the second file's data should now be visible
         // via stat
-        lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
-        lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info)
+        lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info)
                 => LFS_ERR_NOENT;
         // via readdir
         lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -5445,13 +5445,13 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "gello") == 0);
+        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
         if (!INTERDIR) {
             for (lfs_size_t i = 0; i < DISTANCE; i++) {
                 char name[256];
-                sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+                sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
                 lfsr_dir_read(&lfs, &dir, &info) => 0;
                 assert(strcmp(info.name, name) == 0);
                 assert(info.type == LFS_TYPE_REG);
@@ -5461,7 +5461,7 @@ code = '''
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
         // via open
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         prng = 42+1;
         for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5507,11 +5507,11 @@ code = '''
 
     // close should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -5523,13 +5523,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5539,7 +5539,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5559,11 +5559,11 @@ code = '''
 
     // remount should have no effect
     // via stat
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -5575,13 +5575,13 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5591,7 +5591,7 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     prng = 42+1;
     for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
@@ -5636,7 +5636,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -5646,7 +5646,7 @@ code = '''
     // create our destination first, just in case
     if (EXISTS) {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                 => strlen("hmmmmmmmm");
@@ -5655,13 +5655,13 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfsr_file_sync(&lfs, &file) => 0;
     if (!POSTRENAME) {
         lfsr_file_write(&lfs, &file,
-                "hello!", strlen("hello!"))
-                => strlen("hello!");
+                "catman!", strlen("catman!"))
+                => strlen("catman!");
         if (SYNC) {
             lfsr_file_sync(&lfs, &file) => 0;
         }
@@ -5677,14 +5677,14 @@ code = '''
 
     // rename while open
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTRENAME) {
             lfsr_file_write(&lfs, &file,
-                    "hello!", strlen("hello!"))
-                    => strlen("hello!");
+                    "catman!", strlen("catman!"))
+                    => strlen("catman!");
             if (SYNC) {
                 lfsr_file_sync(&lfs, &file) => 0;
             }
@@ -5694,8 +5694,8 @@ code = '''
         lfsr_file_rewind(&lfs, &file) => 0;
         uint8_t rbuf[256];
         lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf))
-                => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+                => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
 
         if (CLOSE == 1) {
             lfsr_file_close(&lfs, &file) => 0;
@@ -5709,15 +5709,15 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     if ((SYNC || CLOSE >= 1) && !(POSTRENAME && CLOSE >= 2)) {
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     } else {
         assert(info.size == 0);
     }
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -5730,17 +5730,17 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_REG);
     if ((SYNC || CLOSE >= 1) && !(POSTRENAME && CLOSE >= 2)) {
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     } else {
         assert(info.size == 0);
     }
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5751,12 +5751,12 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+    lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
             LFS_O_RDONLY) => 0;
     uint8_t rbuf[256];
     if ((SYNC || CLOSE >= 1) && !(POSTRENAME && CLOSE >= 2)) {
-        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
     } else {
         lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
     }
@@ -5796,7 +5796,7 @@ code = '''
     }
     for (lfs_size_t i = 0; i < DISTANCE; i++) {
         char name[256];
-        sprintf(name, (INTERDIR) ? "b/hello%03x" : "hello%03x", i);
+        sprintf(name, (INTERDIR) ? "b/catman%03x" : "catman%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -5806,10 +5806,10 @@ code = '''
     // create our destination first, just in case
     if (EXISTS) {
         if (DIR) {
-            lfsr_mkdir(&lfs, (INTERDIR) ? "a/gello" : "gello") => 0;
+            lfsr_mkdir(&lfs, (INTERDIR) ? "a/batman" : "batman") => 0;
         } else {
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/gello" : "gello",
+            lfsr_file_open(&lfs, &file, (INTERDIR) ? "a/batman" : "batman",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             lfsr_file_write(&lfs, &file, "hmmmmmmmm", strlen("hmmmmmmmm"))
                     => strlen("hmmmmmmmm");
@@ -5819,7 +5819,7 @@ code = '''
 
     // create a zombie
     lfsr_file_t zombie;
-    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "c/iello" : "iello",
+    lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "c/datman" : "datman",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
@@ -5827,17 +5827,17 @@ code = '''
                 => strlen("WoOoOoOoOoO");
     }
     lfsr_file_sync(&lfs, &zombie) => 0;
-    lfsr_remove(&lfs, (INTERDIR) ? "c/iello" : "iello") => 0;
+    lfsr_remove(&lfs, (INTERDIR) ? "c/datman" : "datman") => 0;
 
     // create a file on top of the zombie
     if (DIR) {
-        lfsr_mkdir(&lfs, (INTERDIR) ? "c/iello" : "iello") => 0;
+        lfsr_mkdir(&lfs, (INTERDIR) ? "c/datman" : "datman") => 0;
     } else {
         lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/iello" : "iello",
+        lfsr_file_open(&lfs, &file, (INTERDIR) ? "c/datman" : "datman",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, "hello!", strlen("hello!"))
-                => strlen("hello!");
+        lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+                => strlen("catman!");
         lfsr_file_close(&lfs, &file) => 0;
     }
 
@@ -5851,8 +5851,8 @@ code = '''
 
     // rename while open
     lfsr_rename(&lfs,
-            (INTERDIR) ? "c/iello" : "iello",
-            (INTERDIR) ? "a/gello" : "gello") => 0;
+            (INTERDIR) ? "c/datman" : "datman",
+            (INTERDIR) ? "a/batman" : "batman") => 0;
 
     if (CLOSE <= 1 && REMOUNT <= 1) {
         if (POSTHUMOUS) {
@@ -5880,16 +5880,16 @@ code = '''
     // make sure the new file is readable
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, (INTERDIR) ? "a/gello" : "gello", &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    lfsr_stat(&lfs, (INTERDIR) ? "a/batman" : "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
-    lfsr_stat(&lfs, (INTERDIR) ? "c/iello" : "iello", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, (INTERDIR) ? "c/datman" : "datman", &info) => LFS_ERR_NOENT;
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (INTERDIR) ? "a" : "/") => 0;
@@ -5902,18 +5902,18 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "gello") == 0);
+    assert(strcmp(info.name, "batman") == 0);
     if (DIR) {
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
     } else {
         assert(info.type == LFS_TYPE_REG);
-        assert(info.size == strlen("hello!"));
+        assert(info.size == strlen("catman!"));
     }
     if (!INTERDIR) {
         for (lfs_size_t i = 0; i < DISTANCE; i++) {
             char name[256];
-            sprintf(name, (INTERDIR) ? "a/hello%03x" : "hello%03x", i);
+            sprintf(name, (INTERDIR) ? "a/catman%03x" : "catman%03x", i);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
             assert(info.type == LFS_TYPE_REG);
@@ -5925,15 +5925,15 @@ code = '''
     // via open
     if (DIR) {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => LFS_ERR_ISDIR;
     } else {
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/gello" : "gello",
+        lfsr_file_open(&lfs, &file_, (INTERDIR) ? "a/batman" : "batman",
                 LFS_O_RDONLY) => 0;
         uint8_t rbuf[256];
-        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("hello!");
-        assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
         lfsr_file_close(&lfs, &file_) => 0;
     }
 
