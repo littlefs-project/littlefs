@@ -5931,7 +5931,17 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     // decide if we need to relocate
     if (!force && lfsr_rev_needsrelocation(lfs, rev)) {
         // alloc a new mdir
-        return lfsr_mdir_alloc__(lfs, mdir_, mdir->mid);
+        err = lfsr_mdir_alloc__(lfs, mdir_, mdir->mid);
+        if (err != LFS_ERR_NOSPC) {
+            return err;
+        }
+
+        // no more blocks? wear-leveling falls apart here, but
+        // we can not relocate
+        LFS_WARN("Overcompacting mdir %"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"}",
+                mdir->mid >> lfs->mdir_bits,
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
     }
 
     // swap our blocks
