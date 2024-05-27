@@ -320,15 +320,10 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -376,15 +371,10 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((N-1-i) % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((N-1-i) % 26)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -446,15 +436,10 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -521,15 +506,10 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -617,15 +597,10 @@ code = '''
         }
 
         // add to btree
-        int err = lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +weight,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -912,35 +887,17 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -987,19 +944,10 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     // set up a simulation to compare against
@@ -1017,15 +965,10 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % N;
 
         // update btree
-        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
 
         // update sim
         sim[bid] = 'A'+(i % 26);
@@ -1088,35 +1031,17 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i*W+W-1, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i*W+W-1, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -1179,19 +1104,10 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     // set up a simulation to compare against
@@ -1219,19 +1135,14 @@ code = '''
         }
 
         // update btree
-        int err = lfsr_btree_commit(&lfs, &btree,
+        lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)),
                     LFSR_ATTR(
                         LFSR_TAG_GROW, +weight-sim_weights[bid],
-                        LFSR_DATA_NULL())));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                        LFSR_DATA_NULL()))) => 0;
 
         // update sim
         sim[bid] = 'A'+(i % 26);
@@ -1632,33 +1543,15 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, N-1-i, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+        lfsr_btree_commit(&lfs, &btree, N-1-i, LFSR_ATTRS(
+                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     }
 
     printf("btree: w%d 0x%x.%x\n",
@@ -1730,33 +1623,15 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+        lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
+                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -1830,19 +1705,10 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     // set up a simulation to compare against
@@ -1861,13 +1727,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // remove from btree
-        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -1933,33 +1794,15 @@ code = '''
     lfsr_btree_t btree;
     lfsr_btree_alloc(&lfs, &btree) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, (N-1-i)*W+W-1, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -W, LFSR_DATA_NULL())));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+        lfsr_btree_commit(&lfs, &btree, (N-1-i)*W+W-1, LFSR_ATTRS(
+                LFSR_ATTR(LFSR_TAG_RM, -W, LFSR_DATA_NULL()))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2077,19 +1920,10 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        int err = lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +weight,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            printf("btree: w%d 0x%x.%x\n",
-                    btree.weight,
-                    btree.blocks[0],
-                    btree.trunk);
-            return;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         sim[i] = 'a'+(i % 26);
         sim_weights[i] = weight;
@@ -2107,16 +1941,11 @@ code = '''
         }
 
         // remove from btree
-        int err = lfsr_btree_commit(&lfs, &btree,
+        lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_RM, -sim_weights[bid],
-                        LFSR_DATA_NULL())));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                        LFSR_DATA_NULL()))) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -2227,18 +2056,13 @@ code = '''
                 LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1)),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -2303,18 +2127,13 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // split btree
-        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2386,18 +2205,13 @@ code = '''
                 LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1)),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +W,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -2475,7 +2289,7 @@ code = '''
         }
 
         // split btree
-        int err = lfsr_btree_commit(&lfs, &btree,
+        lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_GROW, +weight1-sim_weights[bid],
@@ -2485,12 +2299,7 @@ code = '''
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
                     LFSR_ATTR(
                         LFSR_TAG_DATA, +weight2,
-                        LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                        LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2928,15 +2737,10 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_DATA, +1,
-                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
             // push to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2945,28 +2749,18 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
             // update sim
             sim[bid] = 'a'+(i % 26);
 
         } else {
             // pop from btree
-            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3059,15 +2853,10 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            int err = lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
+            lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_DATA, +weight,
-                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
             // push to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -3079,19 +2868,14 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_commit(&lfs, &btree,
+            lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                         LFSR_ATTR(
                             LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
                         LFSR_ATTR(
                             LFSR_TAG_GROW, +weight-sim_weights[bid],
-                            LFSR_DATA_NULL())));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                            LFSR_DATA_NULL()))) => 0;
 
             // update sim
             sim[bid] = 'a'+(i % 26);
@@ -3099,16 +2883,11 @@ code = '''
 
         } else {
             // remove from btree
-            int err = lfsr_btree_commit(&lfs, &btree,
+            lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                         LFSR_ATTR(
                             LFSR_TAG_RM, -sim_weights[bid],
-                            LFSR_DATA_NULL())));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                            LFSR_DATA_NULL()))) => 0;
 
             // remove from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3545,7 +3324,7 @@ code = '''
         char name[3] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
-        int err = lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
@@ -3554,12 +3333,7 @@ code = '''
                     i*DID, name, 3),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -3645,7 +3419,7 @@ code = '''
         }
 
         // split btree
-        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
@@ -3654,12 +3428,7 @@ code = '''
                     0, name, 3),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -3743,7 +3512,7 @@ code = '''
         char name[3] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
-        int err = lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
@@ -3752,12 +3521,7 @@ code = '''
                     i*DID, name, 3),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, 0,
-                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -3856,7 +3620,7 @@ code = '''
         }
 
         // split btree
-        int err = lfsr_btree_commit(&lfs, &btree,
+        lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_GROW, +weight1-sim_weights[bid],
@@ -3869,12 +3633,7 @@ code = '''
                         0, name, 3),
                     LFSR_ATTR(
                         LFSR_TAG_DATA, 0,
-                        LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                        LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -4018,21 +3777,17 @@ code = '''
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
-                int err = lfsr_btree_commit(&lfs, &btree,
+                lfsr_btree_commit(&lfs, &btree,
                         split_bid, LFSR_ATTRS(
                             LFSR_ATTR_NAME(
                                 LFSR_TAG_NAME, +1,
                                 0, name, 3),
                             LFSR_ATTR(
                                 LFSR_TAG_DATA, 0,
-                                LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-                // ignore space issues
-                if (err == LFS_ERR_NOSPC) {
-                    break;
-                }
-                assert(err == 0);
+                                LFSR_DATA_BUF(
+                                    &(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             } else {
-                int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
+                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
                         LFSR_ATTR_CAT_(
                             LFSR_TAG_DATA, 0,
                             &split_data, 1),
@@ -4041,12 +3796,7 @@ code = '''
                             0, name, 3),
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
-                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-                // ignore space issues
-                if (err == LFS_ERR_NOSPC) {
-                    break;
-                }
-                assert(err == 0);
+                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             }
 
             // split sim
@@ -4058,28 +3808,18 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                     LFSR_ATTR(
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
-                        LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                        LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
 
             // update sim
             sim[bid] = '0'+(i % 10);
 
         } else {
             // pop from btree
-            int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -4206,21 +3946,17 @@ code = '''
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
-                int err = lfsr_btree_commit(&lfs, &btree,
+                lfsr_btree_commit(&lfs, &btree,
                         split_bid-(split_weight-1), LFSR_ATTRS(
                             LFSR_ATTR_NAME(
                                 LFSR_TAG_NAME, +weight,
                                 0, name, 3),
                             LFSR_ATTR(
                                 LFSR_TAG_DATA, 0,
-                                LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-                // ignore space issues
-                if (err == LFS_ERR_NOSPC) {
-                    break;
-                }
-                assert(err == 0);
+                                LFSR_DATA_BUF(
+                                    &(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             } else {
-                int err = lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
+                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
                         LFSR_ATTR_CAT_(
                             LFSR_TAG_DATA, 0,
                             &split_data, 1),
@@ -4229,12 +3965,7 @@ code = '''
                             0, name, 3),
                         LFSR_ATTR(
                             LFSR_TAG_DATA, 0,
-                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1))));
-                // ignore space issues
-                if (err == LFS_ERR_NOSPC) {
-                    break;
-                }
-                assert(err == 0);
+                            LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             }
 
             // split sim
@@ -4249,19 +3980,14 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            int err = lfsr_btree_commit(&lfs, &btree,
+            lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                         LFSR_ATTR(
                             LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
                         LFSR_ATTR(
                             LFSR_TAG_GROW, +weight-sim_weights[bid],
-                            LFSR_DATA_NULL())));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                            LFSR_DATA_NULL()))) => 0;
 
             // update sim
             sim[bid] = '0'+(i % 10);
@@ -4269,16 +3995,11 @@ code = '''
 
         } else {
             // pop from btree
-            int err = lfsr_btree_commit(&lfs, &btree,
+            lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
                         LFSR_ATTR(
                             LFSR_TAG_RM, -sim_weights[bid],
-                            LFSR_DATA_NULL())));
-            // ignore space issues
-            if (err == LFS_ERR_NOSPC) {
-                break;
-            }
-            assert(err == 0);
+                            LFSR_DATA_NULL()))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -4371,15 +4092,10 @@ code = '''
     lfsr_btree_alloc(&lfs, &btree) => 0;
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        int err = lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -4511,15 +4227,10 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        int err = lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1))));
-        // ignore space issues
-        if (err == LFS_ERR_NOSPC) {
-            break;
-        }
-        assert(err == 0);
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
