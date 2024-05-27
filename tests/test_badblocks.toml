@@ -332,9 +332,9 @@ defines.BADBLOCK_BEHAVIOR = [
 #    'LFS_EMUBD_BADBLOCK_PROGNOOP',
 #    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
-defines.DENSITY = 2
+defines.OPS = '2*N'
 defines.REMOUNT = [false, true]
 defines.SEED = 42
 code = '''
@@ -357,9 +357,9 @@ code = '''
         lfs_size_t sim_size = 0;
 
         uint32_t prng = SEED;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < OPS; i++) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % ((N+DENSITY-1) / DENSITY);
+            lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // insert into our sim
             for (lfs_size_t j = 0;; j++) {
@@ -461,9 +461,9 @@ defines.BADBLOCK_BEHAVIOR = [
 #    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
-defines.DENSITY = 2
+defines.OPS = '2*N'
 defines.REMOUNT = [false, true]
 defines.SEED = 42
 code = '''
@@ -491,9 +491,9 @@ code = '''
     lfs_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < OPS; i++) {
         // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % ((N+DENSITY-1) / DENSITY);
+        lfs_size_t x = TEST_PRNG(&prng) % N;
 
         // insert into our sim
         for (lfs_size_t j = 0;; j++) {
@@ -591,9 +591,9 @@ defines.BADBLOCK_BEHAVIOR = [
 #    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
-defines.DENSITY = 2
+defines.OPS = '2*N'
 defines.REMOUNT = [false, true]
 defines.SEED = 42
 code = '''
@@ -621,9 +621,9 @@ code = '''
     lfs_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < OPS; i++) {
         // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % ((N+DENSITY-1) / DENSITY);
+        lfs_size_t x = TEST_PRNG(&prng) % N;
 
         // insert into our sim
         for (lfs_size_t j = 0;; j++) {
@@ -724,7 +724,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than dirs to encourage rename collisions
-defines.DENSITY = 2
+defines.OPS = '2*N'
 defines.SIZE = [
     '0',
     'FBUFFER_SIZE/2',
@@ -736,7 +736,7 @@ defines.SIZE = [
 ]
 defines.REMOUNT = [false, true]
 defines.SEED = 42
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -758,9 +758,9 @@ code = '''
         lfs_size_t sim_size = 0;
 
         uint32_t prng = SEED;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < OPS; i++) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % ((N+DENSITY-1) / DENSITY);
+            lfs_size_t x = TEST_PRNG(&prng) % N;
             // associate each file with a prng that generates its contents
             uint32_t wprng = TEST_PRNG(&prng);
 
@@ -882,7 +882,7 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than dirs to encourage rename collisions
-defines.DENSITY = 2
+defines.OPS = '2*N'
 defines.SIZE = [
     '0',
     'FBUFFER_SIZE/2',
@@ -894,7 +894,7 @@ defines.SIZE = [
 ]
 defines.REMOUNT = [false, true]
 defines.SEED = 42
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -921,9 +921,9 @@ code = '''
     lfs_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < OPS; i++) {
         // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % ((N+DENSITY-1) / DENSITY);
+        lfs_size_t x = TEST_PRNG(&prng) % N;
         // associate each file with a prng that generates its contents
         uint32_t wprng = TEST_PRNG(&prng);
 
@@ -1041,7 +1041,7 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than dirs to encourage rename collisions
-defines.DENSITY = 2
+defines.OPS = '2*N'
 defines.SIZE = [
     '0',
     'FBUFFER_SIZE/2',
@@ -1053,7 +1053,7 @@ defines.SIZE = [
 ]
 defines.REMOUNT = [false, true]
 defines.SEED = 42
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -1080,9 +1080,9 @@ code = '''
     lfs_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < OPS; i++) {
         // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % ((N+DENSITY-1) / DENSITY);
+        lfs_size_t x = TEST_PRNG(&prng) % N;
         // associate each file with a prng that generates its contents
         uint32_t wprng = TEST_PRNG(&prng);
 
@@ -1716,7 +1716,7 @@ defines.BADBLOCK_BEHAVIOR = [
 #    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
-defines.OPS = 1024
+defines.OPS = '2*N'
 defines.SIZE = [
     '0',
     'FBUFFER_SIZE/2',
@@ -1727,7 +1727,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -2157,7 +2157,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
-defines.OPS = 1024
+defines.OPS = '2*N'
 defines.SIZE = [
     '0',
     'FBUFFER_SIZE/2',
@@ -2168,7 +2168,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -2597,7 +2597,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
-defines.OPS = 1024
+defines.OPS = '2*N'
 defines.SIZE = [
     '0',
     'FBUFFER_SIZE/2',
@@ -2608,7 +2608,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {

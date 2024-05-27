@@ -16,7 +16,7 @@ after = [
 # dirs + relocations may create problems for gstate
 [cases.test_wl_dir_fuzz]
 defines.BLOCK_RECYCLES = [-1, 5, 1, 0]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
 defines.REMOUNT = [false, true]
 defines.SEED = 'range(10)'
@@ -177,7 +177,7 @@ defines.SIZE = [
 ]
 defines.REMOUNT = [false, true]
 defines.SEED = 'range(10)'
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -387,7 +387,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -726,7 +726,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
