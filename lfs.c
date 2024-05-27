@@ -3900,8 +3900,9 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
 /// B-tree operations ///
 
-// convenience operations
+#define LFSR_BTREE_NULL() ((lfsr_btree_t){.weight=0, .trunk=0})
 
+// convenience operations
 static inline int lfsr_btree_cmp(
         const lfsr_btree_t *a,
         const lfsr_btree_t *b) {
@@ -4035,14 +4036,6 @@ static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
 
 
 // core btree operations
-
-static int lfsr_btree_alloc(lfs_t *lfs, lfsr_btree_t *btree) {
-    (void)lfs;
-    // TODO do we need this function then?
-    // allocate lazily
-    *btree = (lfsr_btree_t){.trunk=0, .weight=0};
-    return 0;
-}
 
 static int lfsr_btree_lookupnext_(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid,
@@ -5203,6 +5196,14 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
 
 // shrub things
+
+#define LFSR_SHRUB_NULL(_block) \
+    ((lfsr_shrub_t){ \
+        .weight=0, \
+        .blocks[0]=_block, \
+        .trunk=LFSR_RBYD_ISSHRUB | 0, \
+        /* force estimate recalculation */ \
+        .estimate=-1})
 
 // helper functions
 static inline bool lfsr_shrub_isshrub(const lfsr_shrub_t *shrub) {
@@ -6886,10 +6887,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // new mtree?
         if (lfsr_mtree_ismptr(&lfs->mtree)) {
-            err = lfsr_btree_alloc(lfs, &mtree_.u.btree);
-            if (err) {
-                goto failed;
-            }
+            mtree_.u.btree = LFSR_BTREE_NULL();
 
             uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_.u.btree,
@@ -10553,11 +10551,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_DATA_BPTR_(&file->bshrub.u.bptr, left.buf));
         }
 
-        file->bshrub.u.bshrub.blocks[0] = file->o.mdir.rbyd.blocks[0];
-        file->bshrub.u.bshrub.trunk = LFSR_RBYD_ISSHRUB | 0;
-        file->bshrub.u.bshrub.weight = 0;
-        // force estimate recalculation
-        file->bshrub.u.bshrub.estimate = -1;
+        file->bshrub.u.bshrub = LFSR_SHRUB_NULL(file->o.mdir.rbyd.blocks[0]);
 
         if (attr_count > 0) {
             LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
