@@ -4297,16 +4297,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
         lfsr_rbyd_t rbyd_ = rbyd;
-        int err = lfsr_rbyd_appendattrs(lfs, &rbyd_, rid, -1, -1,
+        int err = lfsr_rbyd_commit(lfs, &rbyd_, rid,
                 attrs, attr_count);
-        if (err) {
-            if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
-                goto compact;
-            }
-            return err;
-        }
-
-        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
                 goto compact;
@@ -4463,19 +4455,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, rid, -1, -1,
+        err = lfsr_rbyd_commit(lfs, &rbyd_, rid,
                 attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            // bad prog? try another block
-            if (err == LFS_ERR_CORRUPT) {
-                goto compact_relocate;
-            }
-            return err;
-        }
-
-        // finalize commit
-        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4693,19 +4674,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, rid, -1, -1,
+        err = lfsr_rbyd_commit(lfs, &rbyd_, rid,
                 attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            // bad prog? try another block
-            if (err == LFS_ERR_CORRUPT) {
-                goto merge_relocate;
-            }
-            return err;
-        }
-
-        // finalize the commit
-        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -10523,18 +10493,8 @@ relocate:;
         }
     }
 
-    err = lfsr_rbyd_appendattrs(lfs, &rbyd, bid, -1, -1,
+    err = lfsr_rbyd_commit(lfs, &rbyd, bid,
             attrs, attr_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        // bad prog? try another block
-        if (err == LFS_ERR_CORRUPT) {
-            goto relocate;
-        }
-        return err;
-    }
-
-    err = lfsr_rbyd_appendcksum(lfs, &rbyd);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
