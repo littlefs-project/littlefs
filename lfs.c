@@ -48,6 +48,8 @@ static int lfsr_bd_read__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     int err = lfs->cfg->read(lfs->cfg, block, off, buffer, size);
     LFS_ASSERT(err <= 0);
     if (err) {
+        LFS_DEBUG("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                block, off, size, err);
         return err;
     }
 
@@ -67,6 +69,8 @@ static int lfsr_bd_prog__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     int err = lfs->cfg->prog(lfs->cfg, block, off, buffer, size);
     LFS_ASSERT(err <= 0);
     if (err) {
+        LFS_DEBUG("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                block, off, size, err);
         return err;
     }
 
@@ -81,6 +85,8 @@ static int lfsr_bd_erase__(lfs_t *lfs, lfs_block_t block) {
     int err = lfs->cfg->erase(lfs->cfg, block);
     LFS_ASSERT(err <= 0);
     if (err) {
+        LFS_DEBUG("Bad erase 0x%"PRIx32" (%d)",
+                block, err);
         return err;
     }
 
@@ -92,6 +98,7 @@ static int lfsr_bd_sync__(lfs_t *lfs) {
     int err = lfs->cfg->sync(lfs->cfg);
     LFS_ASSERT(err <= 0);
     if (err) {
+        LFS_DEBUG("Bad sync (%d)", err);
         return err;
     }
 
@@ -304,6 +311,9 @@ static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_) {
                 lfs->pcache.off, lfs->pcache.buffer, aligned_size,
                 cksum_);
         if (err) {
+            // if an error occurs we really don't want to flush our
+            // cache again
+            lfsr_bd_droppcache(lfs);
             return err;
         }
 
@@ -4027,7 +4037,11 @@ static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
 // core btree operations
 
 static int lfsr_btree_alloc(lfs_t *lfs, lfsr_btree_t *btree) {
-    return lfsr_rbyd_alloc(lfs, btree);
+    (void)lfs;
+    // TODO do we need this function then?
+    // allocate lazily
+    *btree = (lfsr_btree_t){.trunk=0, .weight=0};
+    return 0;
 }
 
 static int lfsr_btree_lookupnext_(lfs_t *lfs, const lfsr_btree_t *btree,
@@ -4286,8 +4300,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         int err = lfsr_rbyd_appendattrs(lfs, &rbyd_, rid, -1, -1,
                 attrs, attr_count);
         if (err) {
-            // TODO wait should we also move if there is corruption here?
-            if (err == LFS_ERR_RANGE) {
+            if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
                 goto compact;
             }
             return err;
@@ -4295,54 +4308,13 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
-            if (err == LFS_ERR_RANGE) {
+            if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
                 goto compact;
             }
-            // TODO wait should we also move if there is corruption here?
             return err;
         }
 
-    finalize:;
-        // done?
-        if (!lfsr_rbyd_trunk(&parent)) {
-            LFS_ASSERT(bid == 0);
-            *btree = rbyd_;
-            *attr_count_ = 0;
-            return 0;
-        }
-
-        // is our parent the root and is the root degenerate?
-        if (rbyd.weight == btree->weight) {
-            // collapse the root, decreasing the height of the tree
-            *btree = rbyd_;
-            *attr_count_ = 0;
-            return 0;
-        }
-
-        // prepare commit to parent, tail recursing upwards
-        //
-        // note that since we defer merges to compaction time, we can
-        // end up removing an rbyd here
-        attr_count = 0;
-        bid -= pid - (rbyd.weight-1);
-        if (rbyd_.weight == 0) {
-            scratch->attrs[attr_count++] = LFSR_ATTR(
-                    LFSR_TAG_RM, -rbyd.weight, LFSR_DATA_NULL());
-        } else {
-            scratch->attrs[attr_count++] = LFSR_ATTR(
-                    LFSR_TAG_BRANCH, 0,
-                    LFSR_DATA_BRANCH_(&rbyd_, scratch->buf));
-            if (rbyd_.weight != rbyd.weight) {
-                scratch->attrs[attr_count++] = LFSR_ATTR(
-                        LFSR_TAG_GROW, -rbyd.weight + rbyd_.weight,
-                        LFSR_DATA_NULL());
-            }
-        }
-        attrs = scratch->attrs;
-
-        rbyd = parent;
-        rid = pid;
-        continue;
+        goto recurse;
 
     compact:;
         // estimate our compacted size
@@ -4471,6 +4443,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             }
         }
 
+    compact_relocate:;
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd_);
         if (err) {
@@ -4481,6 +4454,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_compact(lfs, &rbyd_, &rbyd, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto compact_relocate;
+            }
             return err;
         }
 
@@ -4490,6 +4467,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto compact_relocate;
+            }
             return err;
         }
 
@@ -4497,24 +4478,23 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto compact_relocate;
+            }
             return err;
         }
 
-        goto finalize;
+        goto recurse;
 
     split:;
         // we should have something to split here
         LFS_ASSERT(split_rid > 0
                 && split_rid < (lfsr_srid_t)rbyd.weight);
 
+    split_relocate_l:;
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd_);
-        if (err) {
-            return err;
-        }
-
-        // allocate a sibling
-        err = lfsr_rbyd_alloc(lfs, &sibling);
         if (err) {
             return err;
         }
@@ -4523,6 +4503,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_compact(lfs, &rbyd_, &rbyd, -1, split_rid);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_l;
+            }
             return err;
         }
 
@@ -4534,6 +4518,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_l;
+            }
             return err;
         }
 
@@ -4541,13 +4529,28 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_l;
+            }
             return err;
         }
-        
+
+    split_relocate_r:;
+        // allocate a sibling
+        err = lfsr_rbyd_alloc(lfs, &sibling);
+        if (err) {
+            return err;
+        }
+
         // copy over tags >= split_rid
         err = lfsr_rbyd_compact(lfs, &sibling, &rbyd, split_rid, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_r;
+            }
             return err;
         }
 
@@ -4559,13 +4562,21 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_r;
+            }
             return err;
         }
-        
+
         // finalize commit
         err = lfsr_rbyd_appendcksum(lfs, &sibling);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_r;
+            }
             return err;
         }
 
@@ -4575,7 +4586,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             if (rbyd_.weight == 0) {
                 rbyd_ = sibling;
             }
-            goto finalize;
+            goto recurse;
         }
 
         // lookup first name in sibling to use as the split name
@@ -4642,6 +4653,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         continue;
 
     merge:;
+    merge_relocate:;
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd_);
         if (err) {
@@ -4652,18 +4664,30 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, &rbyd, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto merge_relocate;
+            }
             return err;
         }
 
         err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, &sibling, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto merge_relocate;
+            }
             return err;
         }
 
         err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto merge_relocate;
+            }
             return err;
         }
 
@@ -4672,6 +4696,11 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_appendattrs(lfs, &rbyd_, rid, -1, -1,
                 attrs, attr_count);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto merge_relocate;
+            }
             return err;
         }
 
@@ -4679,6 +4708,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto merge_relocate;
+            }
             return err;
         }
 
@@ -4711,6 +4744,48 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         rbyd = parent;
         rid = pid + sibling.weight;
         continue;
+
+    recurse:;
+        // done?
+        if (!lfsr_rbyd_trunk(&parent)) {
+            LFS_ASSERT(bid == 0);
+            *btree = rbyd_;
+            *attr_count_ = 0;
+            return 0;
+        }
+
+        // is our parent the root and is the root degenerate?
+        if (rbyd.weight == btree->weight) {
+            // collapse the root, decreasing the height of the tree
+            *btree = rbyd_;
+            *attr_count_ = 0;
+            return 0;
+        }
+
+        // prepare commit to parent, tail recursing upwards
+        //
+        // note that since we defer merges to compaction time, we can
+        // end up removing an rbyd here
+        attr_count = 0;
+        bid -= pid - (rbyd.weight-1);
+        if (rbyd_.weight == 0) {
+            scratch->attrs[attr_count++] = LFSR_ATTR(
+                    LFSR_TAG_RM, -rbyd.weight, LFSR_DATA_NULL());
+        } else {
+            scratch->attrs[attr_count++] = LFSR_ATTR(
+                    LFSR_TAG_BRANCH, 0,
+                    LFSR_DATA_BRANCH_(&rbyd_, scratch->buf));
+            if (rbyd_.weight != rbyd.weight) {
+                scratch->attrs[attr_count++] = LFSR_ATTR(
+                        LFSR_TAG_GROW, -rbyd.weight + rbyd_.weight,
+                        LFSR_DATA_NULL());
+            }
+        }
+        attrs = scratch->attrs;
+
+        rbyd = parent;
+        rid = pid;
+        continue;
     }
 }
 
@@ -4729,6 +4804,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
     if (err == LFS_ERR_RANGE) {
         LFS_ASSERT(attr_count > 0);
 
+    relocate:;
         lfsr_rbyd_t rbyd;
         err = lfsr_rbyd_alloc(lfs, &rbyd);
         if (err) {
@@ -4738,6 +4814,10 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_commit(lfs, &rbyd, bid, attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
             return err;
         }
 
@@ -5865,22 +5945,18 @@ static int lfsr_mtree_seek(lfs_t *lfs, const lfsr_mtree_t *mtree,
 // making lfsr_mdir_commit quite involved and a bit of a mess.
 
 // low-level mdir operations needed by lfsr_mdir_commit
-static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
+static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
+        lfsr_smid_t mid, bool all) {
     // assign the mid
     mdir->mid = mid;
 
-    // allocate two blocks
-    for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[i], false);
+    if (all) {
+        // allocate one block without an erase
+        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[1], false);
         if (err) {
             return err;
         }
     }
-
-    mdir->rbyd.weight = 0;
-    mdir->rbyd.trunk = 0;
-    mdir->rbyd.eoff = 0;
-    mdir->rbyd.cksum = 0;
 
     // read the new revision count
     //
@@ -5894,19 +5970,27 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_smid_t mid) {
     }
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
-
     // reset recycle bits in revision count and increment
     rev = lfsr_rev_init(lfs, rev);
 
-    // erase, preparing for compact
-    err = lfsr_bd_erase(lfs, mdir->rbyd.blocks[0]);
+relocate:;
+    // allocate another block with an erase
+    err = lfs_alloc(lfs, &mdir->rbyd.blocks[0], true);
     if (err) {
         return err;
     }
+    mdir->rbyd.weight = 0;
+    mdir->rbyd.trunk = 0;
+    mdir->rbyd.eoff = 0;
+    mdir->rbyd.cksum = 0;
 
     // write our revision count
     err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev);
     if (err) {
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
@@ -5927,21 +6011,12 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
+    // increment our revision count
+    rev = lfsr_rev_inc(lfs, rev);
 
     // decide if we need to relocate
     if (!force && lfsr_rev_needsrelocation(lfs, rev)) {
-        // alloc a new mdir
-        err = lfsr_mdir_alloc__(lfs, mdir_, mdir->mid);
-        if (err != LFS_ERR_NOSPC) {
-            return err;
-        }
-
-        // no more blocks? wear-leveling falls apart here, but
-        // we can not relocate
-        LFS_WARN("Overcompacting mdir %"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mdir_bits,
-                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
+        return LFS_ERR_NOSPC;
     }
 
     // swap our blocks
@@ -5959,7 +6034,7 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     // increment our revision count and write it to our rbyd
-    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, lfsr_rev_inc(lfs, rev));
+    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, rev);
     if (err) {
         return err;
     }
@@ -6505,7 +6580,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     int err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
             mid, attrs, attr_count);
     if (err) {
-        if (err == LFS_ERR_RANGE) {
+        if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
             goto compact;
         }
         return err;
@@ -6531,14 +6606,46 @@ compact:;
     // swap blocks, increment revision count
     lfsr_mdir_t mdir_;
     err = lfsr_mdir_swap__(lfs, &mdir_, mdir, false);
-    if (err) {
+    if (err && err != LFS_ERR_NOSPC
+            && err != LFS_ERR_CORRUPT) {
         return err;
+    }
+
+    bool overcompactable = (err != LFS_ERR_CORRUPT);
+    bool all = true;
+relocate:;
+    // relocate? bad prog? ok, try allocating a new mdir
+    if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+        err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, all);
+        if (err && !(err == LFS_ERR_NOSPC && overcompactable)) {
+            return err;
+        }
+        all = false;
+
+        // no more blocks? wear-leveling falls apart here, but we can try
+        // without relocating
+        if (err == LFS_ERR_NOSPC) {
+            LFS_WARN("Overcompacting mdir %"PRId32" "
+                    "0x{%"PRIx32",%"PRIx32"}",
+                    mdir->mid >> lfs->mdir_bits,
+                    mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
+            overcompactable = false;
+
+            err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
+            if (err) {
+                return err;
+            }
+        }
     }
 
     // compact our mdir
     err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid, end_rid);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
@@ -6553,6 +6660,10 @@ compact:;
             mid, attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
@@ -6670,8 +6781,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfsr_srid_t split_rid;
     int err = lfsr_mdir_commit_(lfs, &mdir_[0], -1, -1, &split_rid,
             mdir->mid, attrs, attr_count);
-    if (err
-            && err != LFS_ERR_RANGE
+    if (err && err != LFS_ERR_RANGE
             && err != LFS_ERR_NOENT) {
         goto failed;
     }
@@ -6707,12 +6817,15 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // shrubs are staged correctly
             bool left = lfsr_mid_rid(lfs, mdir->mid) < split_rid;
 
+            bool all = true;
+        split_relocate:;
             // alloc and compact into new mdirs
             err = lfsr_mdir_alloc__(lfs, &mdir_[i^left],
-                    lfs_smax32(mdir->mid, 0));
+                    lfs_smax32(mdir->mid, 0), all);
             if (err) {
                 goto failed;
             }
+            all = false;
 
             err = lfsr_mdir_compact__(lfs, &mdir_[i^left],
                     mdir,
@@ -6720,6 +6833,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     ((i^left) == 0) ? split_rid :        -1);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
+                // bad prog? try another block
+                if (err == LFS_ERR_CORRUPT) {
+                    goto split_relocate;
+                }
                 goto failed;
             }
 
@@ -6729,6 +6846,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir->mid, attrs, attr_count);
             if (err && err != LFS_ERR_NOENT) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
+                // bad prog? try another block
+                if (err == LFS_ERR_CORRUPT) {
+                    goto split_relocate;
+                }
                 goto failed;
             }
         }
@@ -6758,7 +6879,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     "0x{%"PRIx32",%"PRIx32"}",
                     mdir_[1].mid >> lfs->mdir_bits,
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
-            goto drop;
+            goto dropped;
 
         // one sibling reduced to zero
         } else if (mdir_[0].rbyd.weight == 0) {
@@ -6767,7 +6888,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             mdir_[0].rbyd = mdir_[1].rbyd;
-            goto relocate;
+            goto relocated;
 
         // other sibling reduced to zero
         } else if (mdir_[1].rbyd.weight == 0) {
@@ -6775,7 +6896,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     "0x{%"PRIx32",%"PRIx32"}",
                     mdir_[1].mid >> lfs->mdir_bits,
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
-            goto relocate;
+            goto relocated;
         }
 
         // no siblings reduced to zero, update our mtree
@@ -6859,7 +6980,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             goto failed;
         }
 
-    drop:;
+    dropped:;
         mdelta = -(1 << lfs->mdir_bits);
 
         // we should never drop a direct mdir, because we always have our
@@ -6888,7 +7009,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
 
-    relocate:;
+    relocated:;
         // new mtree?
         if (lfsr_mtree_ismptr(&lfs->mtree)) {
             mtree_ = LFSR_MTREE_MPTR(
@@ -8612,10 +8733,15 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
                 // found a free block
                 *block = (lfs->lookahead.start + lfs->lookahead.next)
                         % lfs->cfg->block_count;
+
                 // erase requested?
                 if (erase) {
                     int err = lfsr_bd_erase(lfs, *block);
                     if (err) {
+                        // bad erase? try another block
+                        if (err == LFS_ERR_CORRUPT) {
+                            goto next;
+                        }
                         return err;
                     }
                 }
@@ -8629,11 +8755,14 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
                     if (lfs->lookahead.next >= lfs->lookahead.size
                             || !(lfs->lookahead.buffer[lfs->lookahead.next / 8]
                                 & (1 << (lfs->lookahead.next % 8)))) {
-                        return 0;
+                        break;
                     }
                 }
+
+                return 0;
             }
 
+        next:;
             lfs->lookahead.next += 1;
             lfs->lookahead.ckpoint -= 1;
         }
@@ -10334,7 +10463,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
             //
             if ((lfs_size_t)estimate > lfs->cfg->shrub_size/2
                     || estimate + commit_estimate > lfs->cfg->shrub_size) {
-                goto evict;
+                goto relocate;
             }
         }
 
@@ -10372,7 +10501,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(lfsr_shrub_trunk(&file->bshrub.u.bshrub));
     return 0;
 
-evict:;
+relocate:;
     // convert to btree
     lfsr_rbyd_t rbyd;
     err = lfsr_rbyd_alloc(lfs, &rbyd);
@@ -10386,6 +10515,10 @@ evict:;
                 &file->bshrub.u.btree, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
             return err;
         }
     }
@@ -10393,11 +10526,21 @@ evict:;
     err = lfsr_rbyd_appendattrs(lfs, &rbyd, bid, -1, -1,
             attrs, attr_count);
     if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
     err = lfsr_rbyd_appendcksum(lfs, &rbyd);
     if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
@@ -10866,7 +11009,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             }
         }
 
+    relocate:;
         // allocate a new block
+        //
+        // note if we relocate, we rewrite the entire block from block_start
+        // using what we can find in our tree
         int err = lfs_alloc(lfs, &bptr.data.u.disk.block, true);
         if (err) {
             return err;
@@ -10877,7 +11024,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         bptr.cksum = 0;
 
     compact:;
-        // compact data into our new block
+        // compact data into our block
         //
         // eagerly merge any right neighbors we see unless that would
         // put us over our block size
@@ -10908,6 +11055,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                             &bptr.cksum);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
+                        // bad prog? try another block
+                        if (err == LFS_ERR_CORRUPT) {
+                            goto relocate;
+                        }
                         return err;
                     }
 
@@ -10964,6 +11115,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                             &bptr.cksum);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
+                        // bad prog? try another block
+                        if (err == LFS_ERR_CORRUPT) {
+                            goto relocate;
+                        }
                         return err;
                     }
 
@@ -10982,6 +11137,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     &bptr.cksum);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
+                // bad prog? try another block
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
                 return err;
             }
 
@@ -10999,6 +11158,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     d,
                     &bptr.cksum);
             if (err) {
+                // bad prog? try another block
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
                 return err;
             }
 
@@ -11009,6 +11172,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         // finalize our write
         err = lfsr_bd_flush(lfs, &bptr.cksum);
         if (err) {
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
             return err;
         }
 
