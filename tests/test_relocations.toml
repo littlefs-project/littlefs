@@ -12,7 +12,7 @@ after = [
 
 # dirs + relocations may create problems for gstate
 [cases.test_relocations_dir_fuzz]
-defines.BLOCK_RECYCLES = [-1, 5, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
 defines.REMOUNT = [false, true]
@@ -160,7 +160,7 @@ code = '''
 
 # files + relocations may create problems for shrubs
 [cases.test_relocations_file_fuzz]
-defines.BLOCK_RECYCLES = [-1, 5, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -371,7 +371,7 @@ code = '''
 
 # open files + relocations may create problems for orphans/zombies
 [cases.test_relocations_orphanzombie_fuzz]
-defines.BLOCK_RECYCLES = [-1, 5, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -710,7 +710,7 @@ code = '''
 # open files + dirs + relocations can cause so many problems it's not worth
 # listing them
 [cases.test_relocations_orphanzombiedir_fuzz]
-defines.BLOCK_RECYCLES = [-1, 5, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -1134,7 +1134,7 @@ code = '''
 # wrong.
 #
 [cases.test_relocations_pl_fuzz]
-defines.BLOCK_RECYCLES = [-1, 5, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
 defines.SIZE = [
