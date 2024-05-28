@@ -10,25 +10,14 @@ $(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
 endif
 BUILDDIR ?= .
 
-# overridable target/src/tools/flags/etc
+# default to building a library
 ifneq ($(wildcard test.c main.c),)
 TARGET ?= $(BUILDDIR)/lfs
 else
 TARGET ?= $(BUILDDIR)/liblfs.a
 endif
 
-
-CC            ?= gcc
-AR            ?= ar
-SIZE          ?= size
-CTAGS         ?= ctags
-NM            ?= nm
-OBJDUMP       ?= objdump
-VALGRIND      ?= valgrind
-GDB           ?= gdb
-PERF          ?= perf
-PRETTYASSERTS ?= ./scripts/prettyasserts.py
-
+# find source files
 SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
 DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
@@ -70,6 +59,18 @@ BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
 
+# overridable tools/flags
+CC            ?= gcc
+AR            ?= ar
+SIZE          ?= size
+CTAGS         ?= ctags
+NM            ?= nm
+OBJDUMP       ?= objdump
+VALGRIND      ?= valgrind
+GDB           ?= gdb
+PERF          ?= perf
+PRETTYASSERTS ?= ./scripts/prettyasserts.py
+
 CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
@@ -92,6 +93,12 @@ endif
 ifdef PERFBDGEN
 CFLAGS += -fno-omit-frame-pointer
 endif
+
+TEST_CFLAGS += -Wno-unused-function
+TEST_CFLAGS += -Wno-format-overflow
+
+BENCH_CFLAGS += -Wno-unused-function
+BENCH_CFLAGS += -Wno-format-overflow
 
 ifdef VERBOSE
 CODEFLAGS    += -v
@@ -165,7 +172,7 @@ BENCHFLAGS += --perf-path="$(PERF)"
 endif
 
 
-# commands
+# top-level commands
 
 ## Build littlefs
 .PHONY: all build
@@ -355,17 +362,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 
 ## Build the test-runner
 .PHONY: test-runner build-test
-test-runner build-test: CFLAGS+=-Wno-unused-function
-test-runner build-test: CFLAGS+=-Wno-format-overflow
-ifdef COVGEN
-test-runner build-test: CFLAGS+=--coverage
-endif
-ifdef PERFGEN
-test-runner build-test: CFLAGS+=-fno-omit-frame-pointer
-endif
-ifdef PERFBDGEN
-test-runner build-test: CFLAGS+=-fno-omit-frame-pointer
-endif
+test-runner build-test: CFLAGS+=$(TEST_CFLAGS)
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 test-runner build-test: $(TEST_RUNNER)
@@ -408,17 +405,7 @@ testmarks-diff: $(TEST_CSV)
 
 ## Build the bench-runner
 .PHONY: bench-runner build-bench
-bench-runner build-bench: CFLAGS+=-Wno-unused-function
-bench-runner build-bench: CFLAGS+=-Wno-format-overflow
-ifdef COVGEN
-bench-runner build-bench: CFLAGS+=--coverage
-endif
-ifdef PERFGEN
-bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
-endif
-ifdef PERFBDGEN
-bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
-endif
+bench-runner build-bench: CFLAGS+=$(BENCH_CFLAGS)
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 bench-runner build-bench: $(BENCH_RUNNER)
@@ -465,7 +452,7 @@ benchmarks-diff: $(BENCH_CSV)
 
 
 
-# rules
+# low-level rules
 -include $(DEP)
 -include $(TEST_DEP)
 .SUFFIXES:
