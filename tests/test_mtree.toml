@@ -2076,7 +2076,7 @@ code = '''
 [cases.test_mtree_relocate_fuzz]
 defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
-defines.BLOCK_RECYCLES = [5, 1, 0]
+defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.SEED = 'range(500)'
 in = 'lfs.c'
 code = '''
