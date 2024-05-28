@@ -428,6 +428,7 @@ size_t bench_id_count = 1;
 size_t bench_step_start = 0;
 size_t bench_step_stop = -1;
 size_t bench_step_step = 1;
+bool bench_all = false;
 
 const char *bench_disk_path = NULL;
 const char *bench_trace_path = NULL;
@@ -848,7 +849,7 @@ void perm_count(
 
     state->total += 1;
 
-    if (case_->if_ && !case_->if_()) {
+    if (!bench_all && case_->if_ && !case_->if_()) {
         return;
     }
 
@@ -1333,7 +1334,7 @@ void perm_run(
     bench_step += 1;
 
     // filter?
-    if (case_->if_ && !case_->if_()) {
+    if (!bench_all && case_->if_ && !case_->if_()) {
         printf("skipped ");
         perm_printid(suite, case_);
         printf("\n");
@@ -1431,6 +1432,7 @@ enum opt_flags {
     OPT_DEFINE                   = 'D',
     OPT_DEFINE_DEPTH             = 6,
     OPT_STEP                     = 's',
+    OPT_ALL                      = 'a',
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
     OPT_TRACE_BACKTRACE          = 7,
@@ -1441,7 +1443,7 @@ enum opt_flags {
     OPT_ERASE_SLEEP              = 12,
 };
 
-const char *short_opts = "hYlLD:s:d:t:";
+const char *short_opts = "hYlLD:s:ad:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1458,6 +1460,7 @@ const struct option long_opts[] = {
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"step",             required_argument, NULL, OPT_STEP},
+    {"all",              no_argument,       NULL, OPT_ALL},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
@@ -1481,7 +1484,8 @@ const char *const help_text[] = {
     "List implicit defines in this bench-runner.",
     "Override a bench define.",
     "How deep to evaluate recursive defines before erroring.",
-    "Comma-separated range of bench permutations to run (start,stop,step).",
+    "Comma-separated range of permutations to run.",
+    "Ignore bench filters.",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
     "Include a backtrace with every trace statement.",
@@ -1803,6 +1807,10 @@ int main(int argc, char **argv) {
         step_unknown:;
             fprintf(stderr, "error: invalid step: %s\n", optarg);
             exit(-1);
+
+        case OPT_ALL:;
+            bench_all = true;
+            break;
 
         case OPT_DISK:;
             bench_disk_path = optarg;

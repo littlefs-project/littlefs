@@ -606,6 +606,8 @@ def find_runner(runner, id=None, **args):
     # other context
     if args.get('define_depth'):
         cmd.append('--define-depth=%s' % args['define_depth'])
+    if args.get('all'):
+        cmd.append('-a')
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -1481,6 +1483,10 @@ if __name__ == "__main__":
     bench_parser.add_argument(
         '--define-depth',
         help="How deep to evaluate recursive defines before erroring.")
+    bench_parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help="Ignore test filters.")
     bench_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")

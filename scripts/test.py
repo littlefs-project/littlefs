@@ -623,6 +623,8 @@ def find_runner(runner, id=None, **args):
         cmd.append('--define-depth=%s' % args['define_depth'])
     if args.get('powerloss'):
         cmd.append('-P%s' % args['powerloss'])
+    if args.get('all'):
+        cmd.append('-a')
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -1510,6 +1512,10 @@ if __name__ == "__main__":
     test_parser.add_argument(
         '-P', '--powerloss',
         help="Comma-separated list of power-loss scenarios to test.")
+    test_parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help="Ignore test filters.")
     test_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")
