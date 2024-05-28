@@ -202,7 +202,12 @@ help:
 			getline rule; \
 			while (rule ~ /^(#|\.PHONY|ifdef|ifndef)/) getline rule; \
 			gsub(/:.*/, "", rule); \
-			printf " "" %-25s %s\n", rule, $$0 \
+			if (length(rule) <= 21) { \
+				printf "%2s%-21s %s\n", "", rule, $$0; \
+			} else { \
+				printf "%2s%s\n", "", rule; \
+				printf "%24s%s\n", "", $$0; \
+			} \
 		}' $(MAKEFILE_LIST))
 
 ## Find the per-function code size
@@ -361,11 +366,11 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 			-q $(SUMMARYFLAGS) -o-))
 
 ## Build the test-runner
-.PHONY: test-runner build-test
-test-runner build-test: CFLAGS+=$(TEST_CFLAGS)
+.PHONY: test-runner build-tests
+test-runner build-tests: CFLAGS+=$(TEST_CFLAGS)
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
-test-runner build-test: $(TEST_RUNNER)
+test-runner build-tests: $(TEST_RUNNER)
 ifdef COVGEN
 	rm -f $(TEST_GCDA)
 endif
@@ -382,11 +387,11 @@ test: test-runner
 	./scripts/test.py -R$(TEST_RUNNER) $(TESTFLAGS)
 
 ## List the tests
-.PHONY: test-list
-test-list: test-runner
+.PHONY: test-list list-tests
+test-list list-tests: test-runner
 	./scripts/test.py -R$(TEST_RUNNER) $(TESTFLAGS) -l
 
-## Summarize the testmarks
+## Summarize the test results
 .PHONY: testmarks
 testmarks: SUMMARYFLAGS+=-spassed
 testmarks: $(TEST_CSV) $(BUILDDIR)/lfs.test.csv
@@ -395,7 +400,7 @@ testmarks: $(TEST_CSV) $(BUILDDIR)/lfs.test.csv
 		-fpassed=test_passed \
 		$(SUMMARYFLAGS))
 
-## Compare testmarks against a previous run
+## Compare test results against a previous run
 .PHONY: testmarks-diff
 testmarks-diff: $(TEST_CSV)
 	$(strip ./scripts/summary.py $^ \
@@ -404,11 +409,11 @@ testmarks-diff: $(TEST_CSV)
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.test.csv)
 
 ## Build the bench-runner
-.PHONY: bench-runner build-bench
-bench-runner build-bench: CFLAGS+=$(BENCH_CFLAGS)
+.PHONY: bench-runner build-benches
+bench-runner build-benches: CFLAGS+=$(BENCH_CFLAGS)
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
-bench-runner build-bench: $(BENCH_RUNNER)
+bench-runner build-benches: $(BENCH_RUNNER)
 ifdef COVGEN
 	rm -f $(BENCH_GCDA)
 endif
@@ -419,17 +424,17 @@ ifdef PERFBDGEN
 	rm -f $(BENCH_TRACE)
 endif
 
-## Run the benchmarks, -j enables parallel benchmarks
+## Run the benches, -j enables parallel benches
 .PHONY: bench
 bench: bench-runner
 	./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS)
 
-## List the benchmarks
-.PHONY: bench-list
-bench-list: bench-runner
+## List the benches
+.PHONY: bench-list list-benches
+bench-list list-benches: bench-runner
 	./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) -l
 
-## Summarize the benchmarks
+## Summarize the bench results
 .PHONY: benchmarks
 benchmarks: SUMMARYFLAGS+=-Serased -Sproged -Sreaded
 benchmarks: $(BENCH_CSV) $(BUILDDIR)/lfs.bench.csv
@@ -440,7 +445,7 @@ benchmarks: $(BENCH_CSV) $(BUILDDIR)/lfs.bench.csv
 		-ferased=bench_erased \
 		$(SUMMARYFLAGS))
 
-## Compare benchmarks against a previous run
+## Compare bench results against a previous run
 .PHONY: benchmarks-diff
 benchmarks-diff: $(BENCH_CSV)
 	$(strip ./scripts/summary.py $^ \
