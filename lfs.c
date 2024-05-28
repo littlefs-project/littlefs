@@ -6604,6 +6604,10 @@ relocate:;
 
             err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
             if (err) {
+                // bad prog? try another block
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
                 return err;
             }
         }
