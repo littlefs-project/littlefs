@@ -35,6 +35,7 @@ struct lfs_config;
 enum test_flags {
     TEST_INTERNAL  = 0x1,
     TEST_REENTRANT = 0x2,
+    TEST_FUZZ      = 0x4,
 };
 typedef uint8_t test_flags_t;
 

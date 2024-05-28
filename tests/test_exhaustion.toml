@@ -25,6 +25,7 @@ defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 42
+fuzz = 'SEED'
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
     // storage, and compare how many operations we were able to perform
@@ -223,6 +224,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
@@ -484,6 +486,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
@@ -887,6 +890,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the

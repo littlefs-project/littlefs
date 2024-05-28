@@ -3998,6 +3998,7 @@ code = '''
 [cases.test_rbyd_fuzz_append_removes]
 defines.N = 'range(1, 33)'
 defines.SEED = 'range(1000)'
+fuzz = 'SEED'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11818,6 +11819,7 @@ code = '''
 [cases.test_rbyd_fuzz_create_deletes]
 defines.N = 'range(1, 33)'
 defines.SEED = 'range(1000)'
+fuzz = 'SEED'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -14954,6 +14956,7 @@ code = '''
 defines.N = 'range(1, 33)'
 defines.M = 3
 defines.SEED = 'range(1000)'
+fuzz = 'SEED'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -15114,6 +15117,7 @@ code = '''
 defines.N = 'range(1, 33)'
 defines.W = 5
 defines.SEED = 'range(1000)'
+fuzz = 'SEED'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'

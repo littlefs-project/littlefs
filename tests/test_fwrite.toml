@@ -1524,7 +1524,6 @@ code = '''
 # fuzz testing
 [cases.test_fwrite_fuzz_aligned]
 defines.N = 20
-defines.SEED = 'range(10)'
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1540,6 +1539,8 @@ defines.CHUNK = [32, 8, 1]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -1666,7 +1667,6 @@ code = '''
 # fuzz testing
 [cases.test_fwrite_fuzz_unaligned]
 defines.N = 20
-defines.SEED = 'range(10)'
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1683,6 +1683,8 @@ defines.CHUNK = [32, 8]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -1816,7 +1818,6 @@ code = '''
 # more seek testing
 [cases.test_fwrite_r_seek]
 defines.N = 20
-defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -1828,6 +1829,8 @@ defines.SIZE = [
 ]
 # chunk is more an upper limit here
 defines.CHUNK = [32, 8]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -1894,7 +1897,6 @@ code = '''
 # different seek methods
 [cases.test_fwrite_w_seek]
 defines.N = 10
-defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -1911,6 +1913,8 @@ defines.CHUNK = [32, 8]
 # INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -2042,7 +2046,6 @@ code = '''
 # the above was just warmup, here's the real seek test
 [cases.test_fwrite_rw_seek]
 defines.N = 10
-defines.SEED = 'range(10)'
 defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -2059,6 +2062,8 @@ defines.CHUNK = [32, 8]
 # INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -2322,7 +2327,6 @@ code = '''
 # heavy fuzz test with rw seeks, truncate, and fruncate
 [cases.test_fwrite_rwtf_fuzz]
 defines.N = 20
-defines.SEED = 'range(10)'
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -2339,6 +2343,8 @@ defines.CHUNK = [32, 8]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time

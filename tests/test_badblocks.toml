@@ -16,9 +16,10 @@ defines.BADBLOCK_BEHAVIOR = [
 #    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.SEED = 42
 # maximize lookahead buffer to avoid alloc scans
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.SEED = 42
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     // test all possible bad blocks
@@ -122,9 +123,10 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.SEED = 42
 # maximize lookahead buffer to avoid alloc scans
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.SEED = 42
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     // test a large region of bad blocks
@@ -225,9 +227,10 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.SEED = 42
 # maximize lookahead buffer to avoid alloc scans
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.SEED = 42
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     // test a large region of bad blocks
@@ -333,6 +336,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
 defines.OPS = '2*N'
 defines.SEED = 42
+fuzz = 'SEED'
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -463,6 +467,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
 defines.OPS = '2*N'
 defines.SEED = 42
+fuzz = 'SEED'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -594,6 +599,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
 defines.OPS = '2*N'
 defines.SEED = 42
+fuzz = 'SEED'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -735,6 +741,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test all possible bad blocks
@@ -894,6 +901,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
@@ -1054,6 +1062,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
@@ -1203,7 +1212,6 @@ defines.BADBLOCK_BEHAVIOR = [
 #    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.N = 20
-defines.SEED = 42
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1220,6 +1228,8 @@ defines.CHUNK = [32, 8, 1]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -1376,7 +1386,6 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.MIRROR = [false, true]
 defines.N = 20
-defines.SEED = 42
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1393,6 +1402,8 @@ defines.CHUNK = [32, 8, 1]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -1550,7 +1561,6 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 defines.MIRROR = [false, true]
 defines.N = 20
-defines.SEED = 42
 defines.SIZE = [
     'FBUFFER_SIZE/2',
     '2*FBUFFER_SIZE',
@@ -1567,6 +1577,8 @@ defines.CHUNK = [32, 8, 1]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -1736,6 +1748,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test all possible bad blocks
@@ -2177,6 +2190,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks
@@ -2617,6 +2631,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 42
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test a large region of bad blocks

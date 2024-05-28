@@ -16,6 +16,7 @@ defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
 defines.SEED = 'range(10)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -175,6 +176,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
@@ -387,6 +389,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
@@ -726,6 +729,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
@@ -1150,6 +1154,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
+fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 reentrant = true
 code = '''

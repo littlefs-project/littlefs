@@ -59,10 +59,13 @@ class TestCase:
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
             config.pop('suite_in', None))
+        self.fuzz_ = config.pop('fuzz',
+            config.pop('suite_fuzz', None))
 
         self.internal = bool(self.in_)
         self.reentrant = config.pop('reentrant',
             config.pop('suite_reentrant', False))
+        self.fuzz = bool(self.fuzz_)
 
         # figure out defines and build possible permutations
         self.defines = set()
@@ -207,6 +210,7 @@ class TestSuite:
                     if not case_linenos or l < case_linenos[0][0]),
                 default=None)
             self.in_ = config.pop('in', None)
+            self.fuzz_ = config.pop('fuzz', None)
 
             self.after = config.pop('after', [])
             if not isinstance(self.after, list):
@@ -226,6 +230,7 @@ class TestSuite:
                     'suite_defines': defines,
                     'suite_in': self.in_,
                     'suite_reentrant': reentrant,
+                    'suite_fuzz': self.fuzz_,
                     **case},
                     args=args))
 
@@ -239,6 +244,7 @@ class TestSuite:
             # combine other per-case things
             self.internal = any(case.internal for case in self.cases)
             self.reentrant = any(case.reentrant for case in self.cases)
+            self.fuzz = any(case.fuzz for case in self.cases)
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -464,7 +470,8 @@ def compile(test_paths, **args):
                 f.writeln(4*' '+'.flags = %s,'
                     % (' | '.join(filter(None, [
                         'TEST_INTERNAL' if suite.internal else None,
-                        'TEST_REENTRANT' if suite.reentrant else None]))
+                        'TEST_REENTRANT' if suite.reentrant else None,
+                        'TEST_FUZZ' if suite.fuzz else None]))
                         or 0))
                 # create suite defines
                 if suite.defines:
@@ -484,7 +491,8 @@ def compile(test_paths, **args):
                         f.writeln(12*' '+'.flags = %s,'
                             % (' | '.join(filter(None, [
                                 'TEST_INTERNAL' if case.internal else None,
-                                'TEST_REENTRANT' if case.reentrant else None]))
+                                'TEST_REENTRANT' if case.reentrant else None,
+                                'TEST_FUZZ' if case.fuzz else None]))
                                 or 0))
                         # create case defines
                         if case.defines:

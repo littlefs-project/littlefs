@@ -859,9 +859,10 @@ static void summary(void) {
     char perm_buf[64];
     sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
     char flag_buf[64];
-    sprintf(flag_buf, "%s%s%s",
-            (flags & TEST_REENTRANT) ? "r" : "",
+    sprintf(flag_buf, "%s%s%s%s",
             (flags & TEST_INTERNAL)  ? "i" : "",
+            (flags & TEST_REENTRANT) ? "r" : "",
+            (flags & TEST_FUZZ)      ? "f" : "",
             (!flags)                 ? "-" : "");
     printf("%-23s  %7s %7zu %7zu %15s\n",
             "TOTAL",
@@ -918,9 +919,10 @@ static void list_suites(void) {
             char perm_buf[64];
             sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
             char flag_buf[64];
-            sprintf(flag_buf, "%s%s%s",
-                    (test_suites[i]->flags & TEST_REENTRANT) ? "r" : "",
+            sprintf(flag_buf, "%s%s%s%s",
                     (test_suites[i]->flags & TEST_INTERNAL)  ? "i" : "",
+                    (test_suites[i]->flags & TEST_REENTRANT) ? "r" : "",
+                    (test_suites[i]->flags & TEST_FUZZ)      ? "f" : "",
                     (!test_suites[i]->flags)                 ? "-" : "");
             printf("%-*s  %7s %7zu %15s\n",
                     name_width,
@@ -971,11 +973,13 @@ static void list_cases(void) {
                 char perm_buf[64];
                 sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
                 char flag_buf[64];
-                sprintf(flag_buf, "%s%s%s",
-                        (test_suites[i]->cases[j].flags & TEST_REENTRANT)
-                            ? "r" : "",
+                sprintf(flag_buf, "%s%s%s%s",
                         (test_suites[i]->cases[j].flags & TEST_INTERNAL)
                             ? "i" : "",
+                        (test_suites[i]->cases[j].flags & TEST_REENTRANT)
+                            ? "r" : "",
+                        (test_suites[i]->cases[j].flags & TEST_FUZZ)
+                            ? "f" : "",
                         (!test_suites[i]->cases[j].flags)
                             ? "-" : "");
                 printf("%-*s  %7s %15s\n",

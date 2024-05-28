@@ -472,6 +472,7 @@ code = '''
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.FORCE_COMPACTION = [false, true]
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1003,6 +1004,7 @@ code = '''
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.FORCE_COMPACTION = [false, true]
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2078,6 +2080,7 @@ defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.SEED = 'range(500)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3770,6 +3773,7 @@ defines.N = [5, 10, 20, 40, 80, 160]
 defines.VALIDATE = [false, true]
 defines.FORCE_COMPACTION = [false, true]
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;

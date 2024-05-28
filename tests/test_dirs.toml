@@ -1341,6 +1341,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.PARENT = [false, true]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 # limit powerloss testing due to time
 if = '!TEST_PLS || N <= 8'
 reentrant = true
@@ -4128,6 +4129,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.PARENT = [false, true]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 # limit powerloss testing due to time
 if = '!TEST_PLS || N <= 8'
 reentrant = true
@@ -6639,6 +6641,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.PARENT = [false, true]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 # limit powerloss testing due to time
 if = '!TEST_PLS || N <= 8'
 reentrant = true
@@ -6790,6 +6793,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.PARENT = [false, true]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 # limit powerloss testing due to time
 if = '!TEST_PLS || N <= 8'
 reentrant = true

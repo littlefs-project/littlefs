@@ -398,6 +398,7 @@ code = '''
 [cases.test_btree_push_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -547,6 +548,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -913,6 +915,7 @@ code = '''
 [cases.test_btree_update_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1071,6 +1074,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1664,6 +1668,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMAINING = [64, 2, 1, 0]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
@@ -1857,6 +1862,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
 defines.REMAINING = [64, 2, 1, 0]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
@@ -2066,6 +2072,7 @@ code = '''
 [cases.test_btree_split_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2214,6 +2221,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2669,6 +2677,7 @@ code = '''
 [cases.test_btree_general_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2774,6 +2783,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.W = 5
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3324,6 +3334,7 @@ code = '''
 [cases.test_btree_find_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3511,6 +3522,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3666,6 +3678,7 @@ code = '''
 [cases.test_btree_find_general_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3822,6 +3835,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.W = 5
 defines.SEED = 'range(100)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4148,6 +4162,7 @@ code = '''
 [cases.test_btree_traversal_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.SEED = 'range(20)'
+fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;

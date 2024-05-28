@@ -534,7 +534,6 @@ code = '''
 
 [cases.test_fsync_rrrr_fuzz]
 defines.R = 4
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -545,6 +544,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -687,7 +688,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -698,6 +698,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -873,7 +875,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -884,6 +885,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1066,7 +1069,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -1077,6 +1079,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1279,7 +1283,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -1290,6 +1293,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1391,7 +1396,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -1402,6 +1406,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -1525,7 +1531,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -1536,6 +1541,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2426,7 +2433,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -2437,6 +2443,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2619,7 +2627,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -2630,6 +2637,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2827,7 +2836,6 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 20
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -2838,6 +2846,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -2944,7 +2954,6 @@ defines.RW = 4
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -2955,6 +2964,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -3093,7 +3104,6 @@ defines.RW = 4
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
 defines.FLUSH = [0, 1, 2]
-defines.SEED = 'range(20)'
 defines.N = 40
 defines.SIZE = [
     'FBUFFER_SIZE/2',
@@ -3104,6 +3114,8 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.CHUNK = '(SIZE+16-1) / 16'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
