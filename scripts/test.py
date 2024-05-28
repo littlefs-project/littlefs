@@ -1085,7 +1085,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
 
             except TestFailure as failure:
                 # keep track of failures
-                if output_:
+                if output_ and failure.id is not None:
                     case, _ = failure.id.split(':', 1)
                     suite = case_suites[case]
                     # get defines and write to csv
