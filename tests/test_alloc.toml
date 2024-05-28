@@ -219,35 +219,43 @@ code = '''
     free(seen);
 
     // then check that we can read our directories after clobbering
-    for (lfs_size_t i = 0; i < N; i++) {
-        char name[256];
-        sprintf(name, "dir%03x", i);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-    }
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    for (lfs_size_t i = 0; i < N; i++) {
-        char name[256];
-        sprintf(name, "dir%03x", i);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
+        assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
     }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -389,29 +397,37 @@ code = '''
     free(seen);
 
     // then check that reading our files still works after clobbering
-    prng = 42;
-    for (lfs_size_t i = 0; i < N; i++) {
-        // check with stat
-        char name[256];
-        sprintf(name, "file%03x", i);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-
-        // try reading the file, note we reset prng above
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
         }
 
-        lfsr_file_t file;
-        uint8_t rbuf[SIZE];
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -430,7 +446,6 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 defines.VALIDATE = [false, true]
-defines.REMOUNT = [false, true]
 in = 'lfs.c'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
@@ -556,34 +571,37 @@ code = '''
         lfsr_file_close(&lfs, &files[i]) => 0;
     }
 
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
-
-    prng = 42;
-    for (lfs_size_t i = 0; i < N; i++) {
-        // check with stat
-        char name[256];
-        sprintf(name, "file%03x", i);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-
-        // try reading the file, note we reset prng above
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
         }
 
-        lfsr_file_t file;
-        uint8_t rbuf[SIZE];
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -595,7 +613,6 @@ code = '''
 # nospc tests mostly test that things still work when block allocation
 # wraparound occurs
 [cases.test_alloc_nospc_dirs]
-defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -613,44 +630,46 @@ code = '''
         }
     }
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // check that our mkdir worked until we ran out of space
-    for (lfs_size_t i = 0; i < n; i++) {
-        char name[256];
-        sprintf(name, "dir%08d", i);
+        // check that our mkdir worked until we ran out of space
+        for (lfs_size_t i = 0; i < n; i++) {
+            char name[256];
+            sprintf(name, "dir%08d", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
         struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-    }
-
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    for (lfs_size_t i = 0; i < n; i++) {
-        char name[256];
-        sprintf(name, "dir%08d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
+        assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < n; i++) {
+            char name[256];
+            sprintf(name, "dir%08d", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
     }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -665,7 +684,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -705,36 +723,38 @@ code = '''
         }
     }
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
-
-    // check that our file writes worked until we ran out of space
-    prng = 42;
-    for (lfs_size_t i = 0; i < n; i++) {
-        // check with stat
-        char name[256];
-        sprintf(name, "file%08d", i);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-
-        // try reading the file, note we reset prng above
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
         }
 
-        lfsr_file_t file;
-        uint8_t rbuf[SIZE];
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        // check that our file writes worked until we ran out of space
+        prng = 42;
+        for (lfs_size_t i = 0; i < n; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%08d", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
     }
 
     lfsr_unmount(&lfs) => 0;

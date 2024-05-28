@@ -332,7 +332,6 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
 defines.OPS = '2*N'
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 code = '''
     // test all possible bad blocks
@@ -382,49 +381,27 @@ code = '''
             assert(!err || err == LFS_ERR_EXIST);
         }
 
-        // remount?
-        if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
+        for (int remount = 0; remount < 2; remount++) {
+            // remount?
+            if (remount) {
+                lfsr_unmount(&lfs) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
+            }
 
-        // test that our directories match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
+            // test that our directories match our simulation
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                char name[256];
+                sprintf(name, "dir%03x", sim[j]);
+                struct lfs_info info;
+                lfsr_stat(&lfs, name, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+            }
+
+            lfsr_dir_t dir;
+            lfsr_dir_open(&lfs, &dir, "/") => 0;
             struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_open(&lfs, &dir, name) => 0;
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, ".") == 0);
             assert(info.type == LFS_TYPE_DIR);
@@ -433,8 +410,32 @@ code = '''
             assert(strcmp(info.name, "..") == 0);
             assert(info.type == LFS_TYPE_DIR);
             assert(info.size == 0);
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                char name[256];
+                sprintf(name, "dir%03x", sim[j]);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+            }
             lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
             lfsr_dir_close(&lfs, &dir) => 0;
+
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                char name[256];
+                sprintf(name, "dir%03x", sim[j]);
+                lfsr_dir_open(&lfs, &dir, name) => 0;
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, ".") == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, "..") == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+                lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+                lfsr_dir_close(&lfs, &dir) => 0;
+            }
         }
 
         // clean up sim/lfs
@@ -461,7 +462,6 @@ defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
 defines.OPS = '2*N'
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 code = '''
     // test a large region of bad blocks
@@ -516,49 +516,27 @@ code = '''
         assert(!err || err == LFS_ERR_EXIST);
     }
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // test that our directories match our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "dir%03x", sim[j]);
+        // test that our directories match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
         struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-    }
-
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "dir%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-    }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "dir%03x", sim[j]);
-        lfsr_dir_open(&lfs, &dir, name) => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -567,8 +545,32 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
+
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_open(&lfs, &dir, name) => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+        }
     }
 
     // clean up sim/lfs
@@ -591,7 +593,6 @@ defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # do more ops than dirs to encourage rename collisions
 defines.OPS = '2*N'
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 code = '''
     // test a large region of bad blocks
@@ -646,49 +647,27 @@ code = '''
         assert(!err || err == LFS_ERR_EXIST);
     }
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // test that our directories match our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "dir%03x", sim[j]);
+        // test that our directories match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
         struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-    }
-
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "dir%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-    }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "dir%03x", sim[j]);
-        lfsr_dir_open(&lfs, &dir, name) => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -697,8 +676,32 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
+
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_open(&lfs, &dir, name) => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+        }
     }
 
     // clean up sim/lfs
@@ -731,7 +734,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
@@ -797,62 +799,64 @@ code = '''
             lfsr_file_close(&lfs, &file) => 0;
         }
 
-        // remount?
-        if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
-
-        // check that our files match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        // check the file contents
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-
-            uint32_t wprng = sim_prngs[j];
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        for (int remount = 0; remount < 2; remount++) {
+            // remount?
+            if (remount) {
+                lfsr_unmount(&lfs) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
             }
 
-            uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
+            // check that our files match our simulation
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                char name[256];
+                sprintf(name, "amethyst%03x", sim[j]);
+                struct lfs_info info;
+                lfsr_stat(&lfs, name, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == SIZE);
+            }
+
+            lfsr_dir_t dir;
+            lfsr_dir_open(&lfs, &dir, "/") => 0;
+            struct lfs_info info;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                char name[256];
+                sprintf(name, "amethyst%03x", sim[j]);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == SIZE);
+            }
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+
+            // check the file contents
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                char name[256];
+                sprintf(name, "amethyst%03x", sim[j]);
+                lfsr_file_t file;
+                lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+                uint32_t wprng = sim_prngs[j];
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+
+                uint8_t rbuf[SIZE];
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                lfsr_file_close(&lfs, &file) => 0;
+            }
         }
 
         // clean up sim/lfs
@@ -889,7 +893,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
@@ -960,62 +963,64 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
     }
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
-
-    // check that our files match our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "amethyst%03x", sim[j]);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-    }
-
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "amethyst%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-    }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // check the file contents
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "amethyst%03x", sim[j]);
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-
-        uint32_t wprng = sim_prngs[j];
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
         }
 
-        uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        // check that our files match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // check the file contents
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
     }
 
     // clean up sim/lfs
@@ -1048,7 +1053,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
@@ -1119,62 +1123,64 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
     }
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-    }
-
-    // check that our files match our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "amethyst%03x", sim[j]);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-    }
-
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "amethyst%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
-    }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // check the file contents
-    for (lfs_size_t j = 0; j < sim_size; j++) {
-        char name[256];
-        sprintf(name, "amethyst%03x", sim[j]);
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-
-        uint32_t wprng = sim_prngs[j];
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
         }
 
-        uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        // check that our files match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // check the file contents
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
     }
 
     // clean up sim/lfs
@@ -1305,48 +1311,50 @@ code = '''
         }
         lfsr_file_close(&lfs, &file) => 0;
 
-        // remount?
-        if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+        for (int remount = 0; remount < 2; remount++) {
+            // remount?
+            if (remount) {
+                lfsr_unmount(&lfs) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
+            }
+
+            // check our file with stat
+            struct lfs_info info;
+            lfsr_stat(&lfs, "hello", &info) => 0;
+            assert(strcmp(info.name, "hello") == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == size);
+
+            // and with dir read
+            lfsr_dir_t dir;
+            lfsr_dir_open(&lfs, &dir, "/") => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "hello") == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == size);
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+
+            // try reading our file
+            lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+            // is size correct?
+            lfsr_file_size(&lfs, &file) => size;
+            // try reading
+            uint8_t rbuf[2*SIZE];
+            memset(rbuf, 0xaa, 2*SIZE);
+            lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+            // does our file match our simulation?
+            assert(memcmp(rbuf, sim, size) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
         }
-
-        // check our file with stat
-        struct lfs_info info;
-        lfsr_stat(&lfs, "hello", &info) => 0;
-        assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == size);
-
-        // and with dir read
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == size);
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        // try reading our file
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        // is size correct?
-        lfsr_file_size(&lfs, &file) => size;
-        // try reading
-        uint8_t rbuf[2*SIZE];
-        memset(rbuf, 0xaa, 2*SIZE);
-        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-        // does our file match our simulation?
-        assert(memcmp(rbuf, sim, size) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
 
         lfsr_unmount(&lfs) => 0;
 
@@ -1481,48 +1489,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1653,48 +1663,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''

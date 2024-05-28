@@ -66,47 +66,49 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => SIZE;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
-    assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -245,48 +247,50 @@ code = '''
 
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => SIZE;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -426,48 +430,50 @@ code = '''
 
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -539,47 +545,49 @@ code = '''
     // close
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => TO;
+        // try reading
+        uint8_t rbuf[2*TO];
+        memset(rbuf, 0xaa, 2*TO);
+        lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
+        assert(memcmp(rbuf, sim, TO) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => TO;
-    // try reading
-    uint8_t rbuf[2*TO];
-    memset(rbuf, 0xaa, 2*TO);
-    lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
-    assert(memcmp(rbuf, sim, TO) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -681,47 +689,49 @@ code = '''
     // close
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => TO;
+        // try reading
+        uint8_t rbuf[2*TO];
+        memset(rbuf, 0xaa, 2*TO);
+        lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
+        assert(memcmp(rbuf, sim, TO) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => TO;
-    // try reading
-    uint8_t rbuf[2*TO];
-    memset(rbuf, 0xaa, 2*TO);
-    lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
-    assert(memcmp(rbuf, sim, TO) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -797,47 +807,49 @@ code = '''
     // close
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => TO;
+        // try reading
+        uint8_t rbuf[2*TO];
+        memset(rbuf, 0xaa, 2*TO);
+        lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
+        assert(memcmp(rbuf, sim, TO) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => TO;
-    // try reading
-    uint8_t rbuf[2*TO];
-    memset(rbuf, 0xaa, 2*TO);
-    lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
-    assert(memcmp(rbuf, sim, TO) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -947,47 +959,49 @@ code = '''
     // close
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TO);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => TO;
+        // try reading
+        uint8_t rbuf[2*TO];
+        memset(rbuf, 0xaa, 2*TO);
+        lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
+        assert(memcmp(rbuf, sim, TO) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == TO);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => TO;
-    // try reading
-    uint8_t rbuf[2*TO];
-    memset(rbuf, 0xaa, 2*TO);
-    lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
-    assert(memcmp(rbuf, sim, TO) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1076,48 +1090,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => SIZE;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1265,48 +1281,50 @@ code = '''
 
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == SIZE);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => SIZE;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1455,48 +1473,50 @@ code = '''
 
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1595,48 +1615,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1742,48 +1764,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
     }
-
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
-
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1967,42 +1991,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
 
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2131,42 +2163,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
 
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2231,42 +2271,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
 
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2435,42 +2483,50 @@ code = '''
     }
     lfsr_file_close(&lfs, &file) => 0;
 
-    // check our file with stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
 
-    // and with dir read
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == size);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
 
-    // try reading our file
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    // is size correct?
-    lfsr_file_size(&lfs, &file) => size;
-    // try reading
-    uint8_t rbuf[2*SIZE];
-    memset(rbuf, 0xaa, 2*SIZE);
-    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-    // does our file match our simulation?
-    assert(memcmp(rbuf, sim, size) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     lfsr_unmount(&lfs) => 0;
 '''
