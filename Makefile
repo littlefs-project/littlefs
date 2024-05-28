@@ -393,7 +393,7 @@ test-list list-tests: test-runner
 
 ## Summarize the test results
 .PHONY: testmarks
-testmarks: SUMMARYFLAGS+=-Stime
+testmarks: SUMMARYFLAGS+=-spassed -Stime
 testmarks: $(TEST_CSV) $(BUILDDIR)/lfs.test.csv
 	$(strip ./scripts/summary.py $(TEST_CSV) \
 		-bsuite \

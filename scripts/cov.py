@@ -154,10 +154,18 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
     def __mul__(self, other):
         return self.__class__(self.a * other.a, self.b + other.b)
 
+    def __eq__(self, other):
+        self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
+        other_a, other_b = other if other.b.x else (RInt(1), RInt(1))
+        return self_a * other_b == other_a * self_b
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
-        self_t = self.a.x/self.b.x if self.b.x else 1.0
-        other_t = other.a.x/other.b.x if other.b.x else 1.0
-        return (self_t, self.a.x) < (other_t, other.a.x)
+        self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
+        other_a, other_b = other if other.b.x else (RInt(1), RInt(1))
+        return self_a * other_b < other_a * self_b
 
     def __gt__(self, other):
         return self.__class__.__lt__(other, self)
