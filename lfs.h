@@ -195,7 +195,7 @@ struct lfs_config {
     lfs_size_t read_size;
 
     // Minimum size of a program in bytes. All program operations will be a
-    // multiple of this value.
+    // multiple of this value. Must be a multiple of the read size.
     lfs_size_t prog_size;
 
     // Size of an erasable block in bytes. This does not impact ram consumption
@@ -301,6 +301,11 @@ struct lfs_config {
     // 0 only writes blocks, minimizing disk usage, while -1 or any value >=
     // block_size only writes fragments, minimizing random-write cost.
     lfs_size_t crystal_thresh;
+
+    // TODO should lfs_mount accept flags?
+
+    // Check progs by immediately reading back any progged data
+    bool check_progs;
 };
 
 // File info structure

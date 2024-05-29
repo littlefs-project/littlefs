@@ -148,6 +148,40 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         return err;
     }
 
+    // check progs?
+    if (lfs->cfg->check_progs) {
+        // we want to reuse our buffer, so use a checksum to compare
+        uint32_t pcksum = lfs_crc32c(0, buffer, size);
+
+        // pcache should have been dropped at this point
+        LFS_ASSERT(lfs->pcache.size == 0);
+
+        // read back our prog
+        uint32_t pcksum_ = 0;
+        lfs_size_t off_ = off;
+        while (off_ < off + size) {
+            lfs_size_t size_ = lfs_min(
+                    size - (off_-off),
+                    lfs->cfg->pcache_size);
+            err = lfsr_bd_read__(lfs, block, off_,
+                    lfs->pcache.buffer, size_);
+            if (err) {
+                return err;
+            }
+
+            pcksum_ = lfs_crc32c(pcksum_, lfs->pcache.buffer, size_);
+            off_ += size_;
+        }
+
+        if (pcksum != pcksum_) {
+            LFS_DEBUG("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" "
+                    "(%08"PRIx32" != %08"PRIx32")",
+                    block, off, size,
+                    pcksum, pcksum_);
+            return LFS_ERR_CORRUPT;
+        }
+    }
+
     // update rcache if we overlap
     if (block == lfs->rcache.block
             && off < lfs->rcache.off + lfs->rcache.size
@@ -306,19 +340,17 @@ static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_) {
                 0xff,
                 aligned_size - lfs->pcache.size);
 
+        // make this cache available, if we error anything in this cache
+        // would be useless anyways
+        lfsr_bd_droppcache(lfs);
+
         // flush
         int err = lfsr_bd_prog_(lfs, lfs->pcache.block,
                 lfs->pcache.off, lfs->pcache.buffer, aligned_size,
                 cksum_);
         if (err) {
-            // if an error occurs we really don't want to flush our
-            // cache again
-            lfsr_bd_droppcache(lfs);
             return err;
         }
-
-        // make this cache available
-        lfsr_bd_droppcache(lfs);
     }
 
     return 0;
@@ -2293,7 +2325,7 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (err) {
         if (err == LFS_ERR_CORRUPT) {
             LFS_ERROR("Found corrupted rbyd 0x%"PRIx32".%"PRIx32", "
-                    "cksum 0x%08"PRIx32,
+                    "cksum %08"PRIx32,
                     block, trunk, cksum);
         }
         return err;
@@ -2306,7 +2338,7 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // same trunk and pass its internal cksum
     if (rbyd->cksum != cksum) {
         LFS_ERROR("Found rbyd cksum mismatch rbyd 0x%"PRIx32".%"PRIx32", "
-                "cksum 0x%08"PRIx32" (!= 0x%08"PRIx32")",
+                "cksum %08"PRIx32" (!= %08"PRIx32")",
                 rbyd->blocks[0], lfsr_rbyd_trunk(rbyd), rbyd->cksum, cksum);
         return LFS_ERR_CORRUPT;
     }
@@ -15398,10 +15430,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->rcache_size != 0);
     LFS_ASSERT(lfs->cfg->pcache_size != 0);
 
-    // cache sizes must be a multiple of the operation size
+    // cache sizes must be a multiple of their operation sizes
     LFS_ASSERT(lfs->cfg->rcache_size % lfs->cfg->read_size == 0);
     LFS_ASSERT(lfs->cfg->pcache_size % lfs->cfg->prog_size == 0);
 
+    // prog_size must be a multiple of read_size
+    LFS_ASSERT(lfs->cfg->prog_size % lfs->cfg->read_size == 0);
     // block_size must be a multiple of both prog/read size
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->read_size == 0);
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->prog_size == 0);

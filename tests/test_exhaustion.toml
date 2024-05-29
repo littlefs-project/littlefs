@@ -23,6 +23,15 @@ after = [
 [cases.test_exhaustion_dir_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 42
 fuzz = 'SEED'
@@ -213,6 +222,15 @@ code = '''
 [cases.test_exhaustion_file_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -475,6 +493,15 @@ code = '''
 [cases.test_exhaustion_orphanzombie_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -879,6 +906,15 @@ code = '''
 [cases.test_exhaustion_orphanzombiedir_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
