@@ -816,9 +816,10 @@ def find_ids(runner, bench_ids=[], **args):
             bench_ids__.extend(suite
                 for suite in expected_suite_perms.keys()
                 if fnmatch.fnmatch(suite, name))
-            bench_ids__.extend(case_
-                for case_ in expected_case_perms.keys()
-                if fnmatch.fnmatch(case_, name))
+            if not bench_ids__:
+                bench_ids__.extend(case_
+                    for case_ in expected_case_perms.keys()
+                    if fnmatch.fnmatch(case_, name))
         # literal suite
         elif name in expected_suite_perms:
             bench_ids__.append(id)
