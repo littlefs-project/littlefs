@@ -125,11 +125,9 @@ static int lfsr_bd_readnext(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfs_size_t size,
         const uint8_t **buffer_, lfs_size_t *size_) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
     while (true) {
@@ -197,11 +195,9 @@ static int lfsr_bd_readnext(lfs_t *lfs,
 static int lfsr_bd_read(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         void *buffer, lfs_size_t size) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
     lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
@@ -381,11 +377,9 @@ static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_size_t size,
         uint8_t **buffer_, lfs_size_t *size_,
         uint32_t *cksum_) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     while (true) {
         // active pcache?
@@ -439,11 +433,9 @@ static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
         uint32_t *cksum_) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
     const uint8_t *buffer_ = buffer;
@@ -574,11 +566,9 @@ static int lfsr_bd_cksum(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfs_size_t size,
         uint32_t *cksum_) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
     lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
@@ -605,11 +595,9 @@ static int lfsr_bd_cksum(lfs_t *lfs,
 static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint, 
         const void *buffer, lfs_size_t size) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
     lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
@@ -645,16 +633,11 @@ static int lfsr_bd_cpy(lfs_t *lfs,
         uint32_t *cksum_) {
     // we don't really use hint here because we go through our pcache
     (void)hint;
-
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(dst_block < lfs->cfg->block_count);
-    if (dst_off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(dst_off+size <= lfs->cfg->block_size);
     LFS_ASSERT(src_block < lfs->cfg->block_count);
-    if (src_off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(src_off+size <= lfs->cfg->block_size);
 
     lfs_size_t dst_off_ = dst_off;
     lfs_size_t src_off_ = src_off;
@@ -694,11 +677,9 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint8_t c, lfs_size_t size,
         uint32_t *cksum_) {
-    // check for in-bounds
+    // must be in-bounds
     LFS_ASSERT(block < lfs->cfg->block_count);
-    if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
+    LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
     lfs_size_t size_ = size;
@@ -2607,6 +2588,12 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 // other low-level appends
 static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfsr_rid_t weight, lfs_size_t size) {
+    // do we fit?
+    if (lfsr_rbyd_eoff(rbyd) + LFSR_TAG_DSIZE
+            > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+
     // include the previous tag parity
     tag ^= (lfsr_tag_t)lfsr_rbyd_parity(rbyd) << 15;
 
@@ -2630,6 +2617,12 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const void *cat, int16_t count) {
+    // do we fit?
+    if (lfsr_rbyd_eoff(rbyd) + lfsr_cat_size(cat, count)
+            > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+
     uint32_t cksum_ = rbyd->cksum;
     int err = lfsr_bd_progcat(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             cat, count,
