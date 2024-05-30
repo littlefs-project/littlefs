@@ -611,7 +611,6 @@ typedef struct lfs {
         lfs_size_t size;
         uint8_t *buffer;
     } pcache;
-    uint32_t pcksum;
 
     struct lfs_lookahead {
         lfs_block_t start;

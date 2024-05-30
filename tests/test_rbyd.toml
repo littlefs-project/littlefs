@@ -2842,9 +2842,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                 backup_block, lfsr_rbyd_eoff(&rbyd),
-                NULL) => 0;
+                NULL, false) => 0;
         lfsr_bd_flush(&lfs,
-                NULL) => 0;
+                NULL, false) => 0;
 
         // update each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -3152,9 +3152,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -3302,9 +3302,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -3932,9 +3932,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                 backup_block, lfsr_rbyd_eoff(&rbyd),
-                NULL) => 0;
+                NULL, false) => 0;
         lfsr_bd_flush(&lfs,
-                NULL) => 0;
+                NULL, false) => 0;
 
         // remove each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -6081,9 +6081,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                 backup_block, lfsr_rbyd_eoff(&rbyd),
-                NULL) => 0;
+                NULL, false) => 0;
         lfsr_bd_flush(&lfs,
-                NULL) => 0;
+                NULL, false) => 0;
 
         // update each tag in permutation order
         for (unsigned j = 0; j < N*M; j++) {
@@ -6233,9 +6233,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j/M, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -6428,9 +6428,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                 backup_block, lfsr_rbyd_eoff(&rbyd),
-                NULL) => 0;
+                NULL, false) => 0;
         lfsr_bd_flush(&lfs,
-                NULL) => 0;
+                NULL, false) => 0;
 
         // remove each tag in permutation order
         for (unsigned j = 0; j < N*M; j++) {
@@ -10627,9 +10627,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
@@ -10796,9 +10796,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
@@ -10989,9 +10989,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
@@ -11126,9 +11126,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
@@ -11574,9 +11574,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                 backup_block, lfsr_rbyd_eoff(&rbyd),
-                NULL) => 0;
+                NULL, false) => 0;
         lfsr_bd_flush(&lfs,
-                NULL) => 0;
+                NULL, false) => 0;
 
         // delete each rid in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -11730,9 +11730,9 @@ code = '''
         lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
         lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                 backup_block, lfsr_rbyd_eoff(&rbyd),
-                NULL) => 0;
+                NULL, false) => 0;
         lfsr_bd_flush(&lfs,
-                NULL) => 0;
+                NULL, false) => 0;
 
         // delete each rid in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -13820,9 +13820,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_GROW, +D, LFSR_DATA_NULL()))) => 0;
@@ -13952,9 +13952,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -14096,9 +14096,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -14253,9 +14253,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_GROW, -D, LFSR_DATA_NULL()))) => 0;
@@ -14385,9 +14385,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -14529,9 +14529,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -14685,9 +14685,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(LFSR_TAG_RM, -W, LFSR_DATA_NULL()))) => 0;
@@ -14850,9 +14850,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, j*W+W-1, LFSR_ATTRS(
                     LFSR_ATTR(
@@ -15483,9 +15483,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -15627,9 +15627,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -15869,9 +15869,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -16023,9 +16023,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -16260,9 +16260,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -16404,9 +16404,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -16634,9 +16634,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // remove with a wide tag
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
@@ -16778,9 +16778,9 @@ code = '''
             lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
             lfsr_bd_prog(&lfs, rbyd.blocks[0], 0,
                     backup_block, lfsr_rbyd_eoff(&rbyd),
-                    NULL) => 0;
+                    NULL, false) => 0;
             lfsr_bd_flush(&lfs,
-                    NULL) => 0;
+                    NULL, false) => 0;
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, j, LFSR_ATTRS(
