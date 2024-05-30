@@ -118,7 +118,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(BLOCK_RECYCLES,     -1                                     ) \
     BENCH_DEFINE(RCACHE_SIZE,        LFS_MAX(16, READ_SIZE)                 ) \
     BENCH_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                 ) \
-    BENCH_DEFINE(FBUFFER_SIZE,       16                                     ) \
+    BENCH_DEFINE(FILE_BUFFER_SIZE,   16                                     ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
     BENCH_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                           ) \
     BENCH_DEFINE(SHRUB_SIZE,         INLINE_SIZE                            ) \
@@ -146,7 +146,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     .block_recycles     = BLOCK_RECYCLES,       \
     .rcache_size        = RCACHE_SIZE,          \
     .pcache_size        = PCACHE_SIZE,          \
-    .fbuffer_size       = FBUFFER_SIZE,         \
+    .file_buffer_size   = FILE_BUFFER_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \

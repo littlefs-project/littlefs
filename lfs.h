@@ -229,7 +229,7 @@ struct lfs_config {
     // Size of file buffers in bytes. In addition to filesystem-wide
     // read/prog buffers, each file gets its own buffer to reduce disk
     // accesses.
-    lfs_size_t fbuffer_size;
+    lfs_size_t file_buffer_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The

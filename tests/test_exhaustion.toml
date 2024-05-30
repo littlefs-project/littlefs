@@ -234,8 +234,8 @@ defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FBUFFER_SIZE/2',
-    '2*FBUFFER_SIZE',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -505,8 +505,8 @@ defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FBUFFER_SIZE/2',
-    '2*FBUFFER_SIZE',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -918,8 +918,8 @@ defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FBUFFER_SIZE/2',
-    '2*FBUFFER_SIZE',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

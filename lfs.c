@@ -9896,7 +9896,7 @@ static inline lfs_size_t lfsr_file_buffersize(lfs_t *lfs,
         const lfsr_file_t *file) {
     return (file->cfg->buffer_size)
             ? file->cfg->buffer_size
-            : lfs->cfg->fbuffer_size;
+            : lfs->cfg->file_buffer_size;
 }
 
 static inline lfs_size_t lfsr_file_inlinesize(lfs_t *lfs,
