@@ -195,7 +195,7 @@ struct lfs_config {
     lfs_size_t read_size;
 
     // Minimum size of a program in bytes. All program operations will be a
-    // multiple of this value. Must be a multiple of the read size.
+    // multiple of this value.
     lfs_size_t prog_size;
 
     // Size of an erasable block in bytes. This does not impact ram consumption

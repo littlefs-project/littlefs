@@ -165,6 +165,9 @@ static int lfsr_bd_readnext(lfs_t *lfs,
         lfsr_bd_droprcache(lfs);
 
         // load into rcache, above conditions can no longer fail
+        //
+        // note it's ok if we overlap the pcache a bit, pcache always
+        // takes priority until flush, which updates the rcache
         lfs_size_t off__ = lfs_aligndown(off, lfs->cfg->read_size);
         lfs_size_t size__ = lfs_alignup(
                 lfs_min(
@@ -289,6 +292,11 @@ static int lfsr_bd_read(lfs_t *lfs,
     return 0;
 }
 
+// needed in lfsr_bd_prog_ for prog validation
+static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        const void *buffer, lfs_size_t size);
+
 // low-level prog stuff
 static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
@@ -301,34 +309,21 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 
     // check progs?
     if (lfs->cfg->check_progs) {
-        // we want to reuse our buffer, so use a checksum to compare
-        uint32_t pcksum = lfs_crc32c(0, buffer, size);
-
         // pcache should have been dropped at this point
         LFS_ASSERT(lfs->pcache.size == 0);
 
-        // read back our prog
-        uint32_t pcksum_ = 0;
-        lfs_size_t off_ = off;
-        while (off_ < off + size) {
-            lfs_size_t size_ = lfs_min(
-                    size - (off_-off),
-                    lfs->cfg->pcache_size);
-            err = lfsr_bd_read__(lfs, block, off_,
-                    lfs->pcache.buffer, size_);
-            if (err) {
-                return err;
-            }
+        // invalidate rcache, we're going to clobber it anyways
+        lfsr_bd_droprcache(lfs);
 
-            pcksum_ = lfs_crc32c(pcksum_, lfs->pcache.buffer, size_);
-            off_ += size_;
+        lfs_scmp_t cmp = lfsr_bd_cmp(lfs, block, off, 0,
+                buffer, size);
+        if (cmp < 0) {
+            return cmp;
         }
 
-        if (pcksum != pcksum_) {
-            LFS_DEBUG("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" "
-                    "(%08"PRIx32" != %08"PRIx32")",
-                    block, off, size,
-                    pcksum, pcksum_);
+        if (cmp != LFS_CMP_EQ) {
+            LFS_DEBUG("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" (checked)",
+                    block, off, size);
             return LFS_ERR_CORRUPT;
         }
     }
@@ -648,6 +643,9 @@ static int lfsr_bd_cpy(lfs_t *lfs,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
         lfs_size_t size,
         uint32_t *cksum_) {
+    // we don't really use hint here because we go through our pcache
+    (void)hint;
+
     // check for in-bounds
     LFS_ASSERT(dst_block < lfs->cfg->block_count);
     if (dst_off+size > lfs->cfg->block_size) {
@@ -660,26 +658,33 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 
     lfs_size_t dst_off_ = dst_off;
     lfs_size_t src_off_ = src_off;
-    lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
     lfs_size_t size_ = size;
     while (size_ > 0) {
-        const uint8_t *buffer__;
+        // prefer the pcache here to avoid rcache conflicts with prog
+        // validation, if we're lucky we might even be able to avoid
+        // clobbering the rcache at all
+        uint8_t *buffer__;
         lfs_size_t size__;
-        int err = lfsr_bd_readnext(lfs, src_block, src_off_, hint_, size_,
-                &buffer__, &size__);
-        if (err) {
-            return err;
-        }
-
-        err = lfsr_bd_prog(lfs, dst_block, dst_off_, buffer__, size__,
+        int err = lfsr_bd_prognext(lfs, dst_block, dst_off_, size_,
+                &buffer__, &size__,
                 cksum_);
         if (err) {
             return err;
         }
 
+        err = lfsr_bd_read(lfs, src_block, src_off_, 0,
+                buffer__, size__);
+        if (err) {
+            return err;
+        }
+
+        // optional checksum
+        if (cksum_) {
+            *cksum_ = lfs_crc32c(*cksum_, buffer__, size__);
+        }
+
         dst_off_ += size__;
         src_off_ += size__;
-        hint_ -= size__;
         size_ -= size__;
     }
 
@@ -15495,8 +15500,6 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->rcache_size % lfs->cfg->read_size == 0);
     LFS_ASSERT(lfs->cfg->pcache_size % lfs->cfg->prog_size == 0);
 
-    // prog_size must be a multiple of read_size
-    LFS_ASSERT(lfs->cfg->prog_size % lfs->cfg->read_size == 0);
     // block_size must be a multiple of both prog/read size
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->read_size == 0);
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->prog_size == 0);
