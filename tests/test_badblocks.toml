@@ -1,10 +1,19 @@
 # Bad-block related tests
-after = ['test_dirs', 'test_files', 'test_fwrite', 'test_forphans']
+after = [
+    'test_dirs',
+    'test_files',
+    'test_fwrite',
+    'test_forphans'
+]
 
+
+## Single badblock tests
+#
+# first test with every possible single badblock
 
 # B-tree's ridiculous branching factor is great for performance, but it makes
 # them a bit of a pain to test, here we test them explicitly
-[cases.test_badblocks_one_btree]
+[cases.test_badblocks_single_btree_many]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
@@ -111,220 +120,8 @@ code = '''
     }
 '''
 
-# this should cause cascading failures
-[cases.test_badblocks_region_btree]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-# maximize lookahead buffer to avoid alloc scans
-defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
-defines.SEED = 42
-fuzz = 'SEED'
-in = 'lfs.c'
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
-        } else {
-            lfs_emubd_setwear(CFG, i + BLOCK_COUNT/2, 0xffffffff) => 0;
-        }
-    }
-
-    // test creating a btree
-    lfs_t lfs;
-    lfs_init(&lfs, CFG) => 0;
-    // create free lookahead
-    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
-    lfs_alloc_ckpoint(&lfs);
-
-    // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
-
-    // set up a simulation to compare against
-    char *sim = malloc(N);
-    lfs_size_t sim_size = 0;
-    memset(sim, 0, N);
-
-    uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < N; i++) {
-        // choose a pseudo-random bid
-        lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
-
-        // add to btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
-                    LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
-
-        // add to sim
-        memmove(&sim[bid+1], &sim[bid], sim_size-bid);
-        sim[bid] = 'a'+(i % 26);
-        sim_size += 1;
-    }
-
-    // check that btree matches sim
-    printf("expd: [");
-    bool first = true;
-    for (lfs_size_t i = 0; i < sim_size; i++) {
-        if (!first) {
-            printf(", ");
-        }
-        first = false;
-        printf("%c", sim[i]);
-    }
-    printf("]\n");
-    printf("btree: w%d 0x%x.%x\n",
-            btree.weight,
-            btree.blocks[0],
-            btree.trunk);
-    assert(btree.weight == sim_size);
-
-    uint8_t buffer[4];
-    lfsr_tag_t tag_;
-    lfs_size_t weight_;
-    lfsr_data_t data_;
-    for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_lookup(&lfs, &btree, i,
-                &tag_, &weight_, &data_) => 0;
-        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(tag_ == LFSR_TAG_DATA);
-        assert(weight_ == 1);
-        assert(memcmp(buffer, &sim[i], 1) == 0);
-    }
-
-    // and no extra elements
-    lfsr_btree_lookup(&lfs, &btree, sim_size,
-            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
-
-    // clean up sim
-    free(sim);
-    lfs_deinit(&lfs) => 0;
-'''
-
-# this should cause cascading failures
-[cases.test_badblocks_alternating_btree]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-# maximize lookahead buffer to avoid alloc scans
-defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
-defines.SEED = 42
-fuzz = 'SEED'
-in = 'lfs.c'
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
-        } else {
-            lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
-        }
-    }
-
-    // test creating a btree
-    lfs_t lfs;
-    lfs_init(&lfs, CFG) => 0;
-    // create free lookahead
-    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
-    lfs_alloc_ckpoint(&lfs);
-
-    // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
-
-    // set up a simulation to compare against
-    char *sim = malloc(N);
-    lfs_size_t sim_size = 0;
-    memset(sim, 0, N);
-
-    uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < N; i++) {
-        // choose a pseudo-random bid
-        lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
-
-        // add to btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
-                    LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
-
-        // add to sim
-        memmove(&sim[bid+1], &sim[bid], sim_size-bid);
-        sim[bid] = 'a'+(i % 26);
-        sim_size += 1;
-    }
-
-    // check that btree matches sim
-    printf("expd: [");
-    bool first = true;
-    for (lfs_size_t i = 0; i < sim_size; i++) {
-        if (!first) {
-            printf(", ");
-        }
-        first = false;
-        printf("%c", sim[i]);
-    }
-    printf("]\n");
-    printf("btree: w%d 0x%x.%x\n",
-            btree.weight,
-            btree.blocks[0],
-            btree.trunk);
-    assert(btree.weight == sim_size);
-
-    uint8_t buffer[4];
-    lfsr_tag_t tag_;
-    lfs_size_t weight_;
-    lfsr_data_t data_;
-    for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_lookup(&lfs, &btree, i,
-                &tag_, &weight_, &data_) => 0;
-        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
-        assert(tag_ == LFSR_TAG_DATA);
-        assert(weight_ == 1);
-        assert(memcmp(buffer, &sim[i], 1) == 0);
-    }
-
-    // and no extra elements
-    lfsr_btree_lookup(&lfs, &btree, sim_size,
-            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
-
-    // clean up sim
-    free(sim);
-    lfs_deinit(&lfs) => 0;
-'''
-
-
-
-# similar tests, but now over a real filesystem
-[cases.test_badblocks_one_dirs]
+# with dirs
+[cases.test_badblocks_single_dir_many]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
@@ -336,11 +133,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-# do more ops than dirs to encourage rename collisions
-defines.OPS = '2*N'
-defines.SEED = 42
-fuzz = 'SEED'
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -356,37 +149,12 @@ code = '''
         lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
 
-        // set up a simulation to compare against
-        lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-        lfs_size_t sim_size = 0;
-
-        uint32_t prng = SEED;
-        for (lfs_size_t i = 0; i < OPS; i++) {
-            // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % N;
-
-            // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
-                if (j >= sim_size || sim[j] >= x) {
-                    // already seen?
-                    if (j < sim_size && sim[j] == x) {
-                        // do nothing
-                    } else {
-                        // insert
-                        memmove(&sim[j+1], &sim[j],
-                                (sim_size-j)*sizeof(lfs_size_t));
-                        sim_size += 1;
-                        sim[j] = x;
-                    }
-                    break;
-                }
-            }
-
-            // create a directory here
+        // make this many directories
+        for (lfs_size_t i = 0; i < N; i++) {
             char name[256];
-            sprintf(name, "dir%03x", x);
+            sprintf(name, "dir%03x", i);
             int err = lfsr_mkdir(&lfs, name);
-            assert(!err || err == LFS_ERR_EXIST);
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
 
         for (int remount = 0; remount < 2; remount++) {
@@ -396,13 +164,205 @@ code = '''
                 lfsr_mount(&lfs, CFG) => 0;
             }
 
+            // grm should be zero here
+            assert(lfs.grm_p[0] == 0);
+
+            // check that our mkdir worked
+            for (lfs_size_t i = 0; i < N; i++) {
+                char name[256];
+                sprintf(name, "dir%03x", i);
+                struct lfs_info info;
+                lfsr_stat(&lfs, name, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+            }
+
+            lfsr_dir_t dir;
+            lfsr_dir_open(&lfs, &dir, "/") => 0;
+            struct lfs_info info;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            for (lfs_size_t i = 0; i < N; i++) {
+                char name[256];
+                sprintf(name, "dir%03x", i);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+            }
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+
+            for (lfs_size_t i = 0; i < N; i++) {
+                char name[256];
+                sprintf(name, "dir%03x", i);
+                lfsr_dir_open(&lfs, &dir, name) => 0;
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, ".") == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, "..") == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+                lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+                lfsr_dir_close(&lfs, &dir) => 0;
+            }
+        }
+
+        lfsr_unmount(&lfs) => 0;
+
+        // reset badblock
+        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+    }
+'''
+
+# fuzz dirs
+[cases.test_badblocks_single_dir_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK = -1
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+defines.OPS = '2*N'
+defines.SEED = 42
+fuzz = 'SEED'
+code = '''
+    // test all possible bad blocks
+    for (lfs_size_t i = 2;
+            i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
+            i++) {
+        lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
+        // mark our badblock as bad
+        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        printf("--- badblock: 0x%x ---\n", badblock);
+
+        // test fuzz with dirs
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // set up a simulation to compare against
+        lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+        lfs_size_t sim_size = 0;
+
+        uint32_t prng = SEED;
+        for (lfs_size_t i = 0; i < OPS; i++) {
+            // choose a pseudo-random op, either mkdir, remove, or rename
+            uint8_t op = TEST_PRNG(&prng) % 3;
+
+            if (op == 0 || sim_size == 0) {
+                // choose a pseudo-random number, truncate to 3 hexadecimals
+                lfs_size_t x = TEST_PRNG(&prng) % N;
+                // insert into our sim
+                for (lfs_size_t j = 0;; j++) {
+                    if (j >= sim_size || sim[j] >= x) {
+                        // already seen?
+                        if (j < sim_size && sim[j] == x) {
+                            // do nothing
+                        } else {
+                            // insert
+                            memmove(&sim[j+1], &sim[j],
+                                    (sim_size-j)*sizeof(lfs_size_t));
+                            sim_size += 1;
+                            sim[j] = x;
+                        }
+                        break;
+                    }
+                }
+
+                // create a directory here
+                char name[256];
+                sprintf(name, "dir%03x", x);
+                int err = lfsr_mkdir(&lfs, name);
+                assert(!err || err == LFS_ERR_EXIST);
+
+            } else if (op == 1) {
+                // choose a pseudo-random entry to delete
+                lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+                lfs_size_t x = sim[j];
+                // delete from our sim
+                memmove(&sim[j], &sim[j+1],
+                        (sim_size-(j+1))*sizeof(lfs_size_t));
+                sim_size -= 1;
+
+                // remove this directory
+                char name[256];
+                sprintf(name, "dir%03x", x);
+                lfsr_remove(&lfs, name) => 0;
+
+            } else {
+                // choose a pseudo-random entry to rename, and a pseudo-random
+                // number to rename to
+                lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+                lfs_size_t x = sim[j];
+                lfs_size_t y = TEST_PRNG(&prng) % N;
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= y) {
+                        // already seen and not a noop?
+                        if (k < sim_size && sim[k] == y && x != y) {
+                            // just delete the original entry
+                            memmove(&sim[j], &sim[j+1],
+                                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                            sim_size -= 1;
+                        } else {
+                            // first delete
+                            memmove(&sim[j], &sim[j+1],
+                                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                            if (k > j) {
+                                k -= 1;
+                            }
+                            // then insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            sim[k] = y;
+                        }
+                        break;
+                    }
+                }
+
+                // rename this directory
+                char old_name[256];
+                sprintf(old_name, "dir%03x", x);
+                char new_name[256];
+                sprintf(new_name, "dir%03x", y);
+                lfsr_rename(&lfs, old_name, new_name) => 0;
+            }
+        }
+
+        for (int remount = 0; remount < 2; remount++) {
+            // remount?
+            if (remount) {
+                lfsr_unmount(&lfs) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
+            }
+
+            // grm should be zero here
+            assert(lfs.grm_p[0] == 0);
+
             // test that our directories match our simulation
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 char name[256];
                 sprintf(name, "dir%03x", sim[j]);
                 struct lfs_info info;
                 lfsr_stat(&lfs, name, &info) => 0;
-                assert(strcmp(info.name, name) == 0);
+                char name2[256];
+                sprintf(name2, "dir%03x", sim[j]);
+                assert(strcmp(info.name, name2) == 0);
                 assert(info.type == LFS_TYPE_DIR);
                 assert(info.size == 0);
             }
@@ -428,22 +388,6 @@ code = '''
             }
             lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
             lfsr_dir_close(&lfs, &dir) => 0;
-
-            for (lfs_size_t j = 0; j < sim_size; j++) {
-                char name[256];
-                sprintf(name, "dir%03x", sim[j]);
-                lfsr_dir_open(&lfs, &dir, name) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                assert(strcmp(info.name, ".") == 0);
-                assert(info.type == LFS_TYPE_DIR);
-                assert(info.size == 0);
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                assert(strcmp(info.name, "..") == 0);
-                assert(info.type == LFS_TYPE_DIR);
-                assert(info.size == 0);
-                lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-                lfsr_dir_close(&lfs, &dir) => 0;
-            }
         }
 
         // clean up sim/lfs
@@ -455,275 +399,8 @@ code = '''
     }
 '''
 
-# this should cause cascading failures
-[cases.test_badblocks_region_dirs]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-# do more ops than dirs to encourage rename collisions
-defines.OPS = '2*N'
-defines.SEED = 42
-fuzz = 'SEED'
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
-            }
-        } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
-            }
-        }
-    }
-
-    // test creating directories
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-    lfs_size_t sim_size = 0;
-
-    uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
-        // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % N;
-
-        // insert into our sim
-        for (lfs_size_t j = 0;; j++) {
-            if (j >= sim_size || sim[j] >= x) {
-                // already seen?
-                if (j < sim_size && sim[j] == x) {
-                    // do nothing
-                } else {
-                    // insert
-                    memmove(&sim[j+1], &sim[j],
-                            (sim_size-j)*sizeof(lfs_size_t));
-                    sim_size += 1;
-                    sim[j] = x;
-                }
-                break;
-            }
-        }
-
-        // create a directory here
-        char name[256];
-        sprintf(name, "dir%03x", x);
-        int err = lfsr_mkdir(&lfs, name);
-        assert(!err || err == LFS_ERR_EXIST);
-    }
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
-
-        // test that our directories match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_open(&lfs, &dir, name) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, ".") == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, "..") == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-            lfsr_dir_close(&lfs, &dir) => 0;
-        }
-    }
-
-    // clean up sim/lfs
-    free(sim);
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# this should cause cascading failures
-[cases.test_badblocks_alternating_dirs]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-# do more ops than dirs to encourage rename collisions
-defines.OPS = '2*N'
-defines.SEED = 42
-fuzz = 'SEED'
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
-            }
-        } else {
-            if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
-            }
-        }
-    }
-
-    // test creating directories
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-    lfs_size_t sim_size = 0;
-
-    uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
-        // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % N;
-
-        // insert into our sim
-        for (lfs_size_t j = 0;; j++) {
-            if (j >= sim_size || sim[j] >= x) {
-                // already seen?
-                if (j < sim_size && sim[j] == x) {
-                    // do nothing
-                } else {
-                    // insert
-                    memmove(&sim[j+1], &sim[j],
-                            (sim_size-j)*sizeof(lfs_size_t));
-                    sim_size += 1;
-                    sim[j] = x;
-                }
-                break;
-            }
-        }
-
-        // create a directory here
-        char name[256];
-        sprintf(name, "dir%03x", x);
-        int err = lfsr_mkdir(&lfs, name);
-        assert(!err || err == LFS_ERR_EXIST);
-    }
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
-
-        // test that our directories match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_open(&lfs, &dir, name) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, ".") == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, "..") == 0);
-            assert(info.type == LFS_TYPE_DIR);
-            assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-            lfsr_dir_close(&lfs, &dir) => 0;
-        }
-    }
-
-    // clean up sim/lfs
-    free(sim);
-    lfsr_unmount(&lfs) => 0;
-'''
-
-
 # with files
-[cases.test_badblocks_one_files]
+[cases.test_badblocks_single_file_many]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
@@ -736,7 +413,104 @@ defines.BADBLOCK_BEHAVIOR = [
 # we need prog checking to detect read errors
 defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
-# do more ops than dirs to encourage rename collisions
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    // test all possible bad blocks
+    for (lfs_size_t i = 2;
+            i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
+            i++) {
+        lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
+        // mark our badblock as bad
+        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        printf("--- badblock: 0x%x ---\n", badblock);
+
+        // test creating files
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+
+        for (int remount = 0; remount < 2; remount++) {
+            // remount?
+            if (remount) {
+                lfsr_unmount(&lfs) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
+            }
+
+            // check that our writes worked
+            prng = 42;
+            for (lfs_size_t i = 0; i < N; i++) {
+                // check with stat
+                char name[256];
+                sprintf(name, "amethyst%03x", i);
+                struct lfs_info info;
+                lfsr_stat(&lfs, name, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == SIZE);
+
+                // try reading the file, note we reset prng above
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+
+                lfsr_file_t file;
+                uint8_t rbuf[SIZE];
+                lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                lfsr_file_close(&lfs, &file) => 0;
+            }
+        }
+
+        lfsr_unmount(&lfs) => 0;
+
+        // reset badblock
+        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+    }
+'''
+
+# fuzz files
+[cases.test_badblocks_single_file_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK = -1
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
     '0',
@@ -760,7 +534,7 @@ code = '''
         lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
-        // test creating files
+        // test fuzz with files
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
@@ -772,45 +546,122 @@ code = '''
 
         uint32_t prng = SEED;
         for (lfs_size_t i = 0; i < OPS; i++) {
-            // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % N;
-            // associate each file with a prng that generates its contents
-            uint32_t wprng = TEST_PRNG(&prng);
+            // choose which operation to do
+            uint8_t op = TEST_PRNG(&prng) % 3;
 
-            // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
-                if (j >= sim_size || sim[j] >= x) {
-                    // already seen?
-                    if (j < sim_size && sim[j] == x) {
-                        // new prng
-                        sim_prngs[j] = wprng;
-                    } else {
-                        // insert
-                        memmove(&sim[j+1], &sim[j],
-                                (sim_size-j)*sizeof(lfs_size_t));
-                        memmove(&sim_prngs[j+1], &sim_prngs[j],
-                                (sim_size-j)*sizeof(uint32_t));
-                        sim_size += 1;
-                        sim[j] = x;
-                        sim_prngs[j] = wprng;
+            // creating a new file?
+            if (op == 0 || sim_size == 0) {
+                // choose a pseudo-random number
+                lfs_size_t x = TEST_PRNG(&prng) % N;
+                // associate each file with a prng that generates its contents
+                uint32_t wprng = TEST_PRNG(&prng);
+
+                // insert into our sim
+                for (lfs_size_t j = 0;; j++) {
+                    if (j >= sim_size || sim[j] >= x) {
+                        // already seen?
+                        if (j < sim_size && sim[j] == x) {
+                            // new prng
+                            sim_prngs[j] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[j+1], &sim[j],
+                                    (sim_size-j)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[j+1], &sim_prngs[j],
+                                    (sim_size-j)*sizeof(uint32_t));
+                            sim_size += 1;
+                            sim[j] = x;
+                            sim_prngs[j] = wprng;
+                        }
+                        break;
                     }
-                    break;
                 }
-            }
 
-            // create a file here
-            char name[256];
-            sprintf(name, "amethyst%03x", x);
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
+                // create a file here
+                char name[256];
+                sprintf(name, "amethyst%03x", x);
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+                lfsr_file_t file;
+                lfsr_file_open(&lfs, &file, name,
+                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+                lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+                lfsr_file_close(&lfs, &file) => 0;
+
+            // deleting a file?
+            } else if (op == 1) {
+                // choose a random file to delete
+                lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+                lfs_size_t x = sim[j];
+                // delete from our sim
+                memmove(&sim[j], &sim[j+1],
+                        (sim_size-(j+1))*sizeof(lfs_size_t));
+                memmove(&sim_prngs[j], &sim_prngs[j+1],
+                        (sim_size-(j+1))*sizeof(uint32_t));
+                sim_size -= 1;
+
+                // delete this file
+                char name[256];
+                sprintf(name, "amethyst%03x", x);
+                lfsr_remove(&lfs, name) => 0;
+
+            // renaming a file?
+            } else {
+                // choose a random file to rename, and a random number to
+                // rename to
+                lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+                lfs_size_t x = sim[j];
+                lfs_size_t y = TEST_PRNG(&prng) % N;
+                uint32_t wprng = sim_prngs[j];
+
+                // update our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= y) {
+                        // renaming and replacing
+                        if (k < sim_size && sim[k] == y && x != y) {
+                            // delete the original entry
+                            memmove(&sim[j], &sim[j+1],
+                                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                    (sim_size-(j+1))*sizeof(uint32_t));
+                            sim_size -= 1;
+                            if (k > j) {
+                                k -= 1;
+                            }
+                            // update the prng
+                            sim_prngs[k] = wprng;
+                        // just renaming
+                        } else {
+                            // first delete
+                            memmove(&sim[j], &sim[j+1],
+                                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                    (sim_size-(j+1))*sizeof(uint32_t));
+                            if (k > j) {
+                                k -= 1;
+                            }
+                            // then insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            sim[k] = y;
+                            sim_prngs[k] = wprng;
+                        }
+                        break;
+                    }
+                }
+
+                // rename this file
+                char old_name[256];
+                sprintf(old_name, "amethyst%03x", x);
+                char new_name[256];
+                sprintf(new_name, "amethyst%03x", y);
+                lfsr_rename(&lfs, old_name, new_name) => 0;
+            }
         }
 
         for (int remount = 0; remount < 2; remount++) {
@@ -883,333 +734,8 @@ code = '''
     }
 '''
 
-# this should cause cascading failures
-[cases.test_badblocks_region_files]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64]
-# do more ops than dirs to encourage rename collisions
-defines.OPS = '2*N'
-defines.SIZE = [
-    '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
-    'BLOCK_SIZE/2',
-    'BLOCK_SIZE',
-    '2*BLOCK_SIZE',
-    '4*BLOCK_SIZE',
-]
-defines.SEED = 42
-fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
-            }
-        } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
-            }
-        }
-    }
-
-    // test creating files
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
-    lfs_size_t sim_size = 0;
-
-    uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
-        // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % N;
-        // associate each file with a prng that generates its contents
-        uint32_t wprng = TEST_PRNG(&prng);
-
-        // insert into our sim
-        for (lfs_size_t j = 0;; j++) {
-            if (j >= sim_size || sim[j] >= x) {
-                // already seen?
-                if (j < sim_size && sim[j] == x) {
-                    // new prng
-                    sim_prngs[j] = wprng;
-                } else {
-                    // insert
-                    memmove(&sim[j+1], &sim[j],
-                            (sim_size-j)*sizeof(lfs_size_t));
-                    memmove(&sim_prngs[j+1], &sim_prngs[j],
-                            (sim_size-j)*sizeof(uint32_t));
-                    sim_size += 1;
-                    sim[j] = x;
-                    sim_prngs[j] = wprng;
-                }
-                break;
-            }
-        }
-
-        // create a file here
-        char name[256];
-        sprintf(name, "amethyst%03x", x);
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
-        }
-
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
-    }
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
-
-        // check that our files match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        // check the file contents
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-
-            uint32_t wprng = sim_prngs[j];
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-
-            uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
-        }
-    }
-
-    // clean up sim/lfs
-    free(sim);
-    free(sim_prngs);
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# this should cause cascading failures
-[cases.test_badblocks_alternating_files]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = [1, 2, 4, 8, 16, 32, 64]
-# do more ops than dirs to encourage rename collisions
-defines.OPS = '2*N'
-defines.SIZE = [
-    '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
-    'BLOCK_SIZE/2',
-    'BLOCK_SIZE',
-    '2*BLOCK_SIZE',
-    '4*BLOCK_SIZE',
-]
-defines.SEED = 42
-fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
-            }
-        } else {
-            if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
-            }
-        }
-    }
-
-    // test creating files
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
-    lfs_size_t sim_size = 0;
-
-    uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
-        // choose a pseudo-random number
-        lfs_size_t x = TEST_PRNG(&prng) % N;
-        // associate each file with a prng that generates its contents
-        uint32_t wprng = TEST_PRNG(&prng);
-
-        // insert into our sim
-        for (lfs_size_t j = 0;; j++) {
-            if (j >= sim_size || sim[j] >= x) {
-                // already seen?
-                if (j < sim_size && sim[j] == x) {
-                    // new prng
-                    sim_prngs[j] = wprng;
-                } else {
-                    // insert
-                    memmove(&sim[j+1], &sim[j],
-                            (sim_size-j)*sizeof(lfs_size_t));
-                    memmove(&sim_prngs[j+1], &sim_prngs[j],
-                            (sim_size-j)*sizeof(uint32_t));
-                    sim_size += 1;
-                    sim[j] = x;
-                    sim_prngs[j] = wprng;
-                }
-                break;
-            }
-        }
-
-        // create a file here
-        char name[256];
-        sprintf(name, "amethyst%03x", x);
-        uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
-        }
-
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
-    }
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
-
-        // check that our files match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-
-        // check the file contents
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-
-            uint32_t wprng = sim_prngs[j];
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-
-            uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
-        }
-    }
-
-    // clean up sim/lfs
-    free(sim);
-    free(sim_prngs);
-    lfsr_unmount(&lfs) => 0;
-'''
-
-
 # with more complex file writes
-[cases.test_badblocks_one_fwrite_fuzz]
+[cases.test_badblocks_single_fwrite_fuzz]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
@@ -1221,7 +747,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.N = 20
+defines.OPS = 20
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -1231,13 +757,12 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 # chunk is more an upper limit here
-defines.CHUNK = [32, 8, 1]
+defines.CHUNK = 64
 # INIT=0 => no init
 # INIT=1 => fill with data
 # INIT=2 => truncate to size
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
@@ -1288,15 +813,7 @@ code = '''
             lfsr_file_sync(&lfs, &file) => 0;
         }
 
-        // remount?
-        if (REMOUNT) {
-            lfsr_file_close(&lfs, &file) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-        }
-
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < OPS; i++) {
             // choose a random location
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
             // and a random size, up to the chunk size
@@ -1320,15 +837,8 @@ code = '''
             if (SYNC) {
                 lfsr_file_sync(&lfs, &file) => 0;
             }
-
-            // remount?
-            if (REMOUNT) {
-                lfsr_file_close(&lfs, &file) => 0;
-                lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, CFG) => 0;
-                lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-            }
         }
+
         lfsr_file_close(&lfs, &file) => 0;
 
         for (int remount = 0; remount < 2; remount++) {
@@ -1383,9 +893,10 @@ code = '''
     }
 '''
 
-# this should cause cascading failures
-[cases.test_badblocks_region_fwrite_fuzz]
+# with orphans, zombies, etc
+[cases.test_badblocks_single_orphanzombie_fuzz]
 defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
@@ -1395,9 +906,10 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = 20
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
 defines.SIZE = [
+    '0',
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
     'BLOCK_SIZE/2',
@@ -1405,129 +917,280 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-# chunk is more an upper limit here
-defines.CHUNK = [32, 8, 1]
-# INIT=0 => no init
-# INIT=1 => fill with data
-# INIT=2 => truncate to size
-defines.INIT = [0, 1, 2]
-defines.SYNC = [false, true]
-defines.REMOUNT = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
-if = [
-    'CHUNK <= SIZE',
-    # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
-]
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+    // test all possible bad blocks
+    for (lfs_size_t i = 2;
+            i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
+            i++) {
+        lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        if (!MIRROR) {
-            if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
-            }
-        } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
-            }
-        }
-    }
+        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        printf("--- badblock: 0x%x ---\n", badblock);
 
-    // test with complex file writes
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    // simulate our file in ram
-    uint8_t sim[SIZE];
-    lfs_off_t size;
-    uint32_t prng = SEED;
-    if (INIT == 0) {
-        memset(sim, 0, SIZE);
-        size = 0;
-    } else if (INIT == 1) {
-        for (lfs_size_t i = 0; i < SIZE; i++) {
-            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
-        size = SIZE;
-    } else {
-        memset(sim, 0, SIZE);
-        lfsr_file_truncate(&lfs, &file, SIZE) => 0;
-        size = SIZE;
-    }
-
-    // sync?
-    if (SYNC) {
-        lfsr_file_sync(&lfs, &file) => 0;
-    }
-
-    // remount?
-    if (REMOUNT) {
-        lfsr_file_close(&lfs, &file) => 0;
-        lfsr_unmount(&lfs) => 0;
+        // test with orphans, zombies, etc
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-    }
 
-    for (lfs_size_t i = 0; i < N; i++) {
-        // choose a random location
-        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-        // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min32(
-                TEST_PRNG(&prng) % CHUNK,
-                SIZE - off);
+        // set up a simulation to compare against
+        lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+        uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+        lfs_size_t sim_size = 0;
 
-        // update sim
-        for (lfs_size_t j = 0; j < chunk; j++) {
-            sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+        typedef struct sim_file {
+            lfs_size_t x;
+            bool orphan;
+            bool zombie;
+            uint32_t prng;
+            lfsr_file_t file;
+        } sim_file_t;
+        sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
+        lfs_size_t sim_file_count = 0;
+
+        uint32_t prng = SEED;
+        for (lfs_size_t i = 0; i < OPS; i++) {
+        nonsense:;
+            // choose which operation to do
+            uint8_t op = TEST_PRNG(&prng) % 5;
+
+            // open a new file?
+            if (op == 0) {
+                if (sim_file_count >= N) {
+                    goto nonsense;
+                }
+                // choose a pseudo-random number
+                lfs_size_t x = TEST_PRNG(&prng) % N;
+
+                // already exists?
+                bool orphan = true;
+                uint32_t wprng = 0;
+                for (lfs_size_t j = 0; j < sim_size; j++) {
+                    if (sim[j] == x) {
+                        orphan = false;
+                        wprng = sim_prngs[j];
+                        break;
+                    }
+                }
+                // choose a random seed if we don't exist
+                if (orphan) {
+                    wprng = TEST_PRNG(&prng);
+                }
+
+                // open in our sim
+                lfs_size_t j = sim_file_count;
+                sim_files[j] = malloc(sizeof(sim_file_t));
+                sim_files[j]->x = x;
+                sim_files[j]->orphan = orphan;
+                sim_files[j]->zombie = false;
+                sim_files[j]->prng = wprng;
+                sim_file_count++;
+
+                // open the actual file
+                char name[256];
+                sprintf(name, "batman%03x", x);
+                lfsr_file_open(&lfs, &sim_files[j]->file, name,
+                        LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+                // write some initial data if we don't exist
+                if (orphan) {
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t k = 0; k < SIZE; k++) {
+                        wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    }
+                    lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                            => SIZE;
+                }
+
+            // write/rewrite a file?
+            } else if (op == 1) {
+                if (sim_file_count == 0) {
+                    goto nonsense;
+                }
+                // choose a random file handle
+                lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+                lfs_size_t x = sim_files[j]->x;
+                // choose a random seed
+                uint32_t wprng = TEST_PRNG(&prng);
+
+                // update sim
+                sim_files[j]->prng = wprng;
+                if (!sim_files[j]->zombie) {
+                    // insert into our sim
+                    for (lfs_size_t k = 0;; k++) {
+                        if (k >= sim_size || sim[k] >= x) {
+                            // already seen?
+                            if (k < sim_size && sim[k] == x) {
+                                // new prng
+                                sim_prngs[k] = wprng;
+                            } else {
+                                // insert
+                                memmove(&sim[k+1], &sim[k],
+                                        (sim_size-k)*sizeof(lfs_size_t));
+                                memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                        (sim_size-k)*sizeof(uint32_t));
+                                sim_size += 1;
+                                sim[k] = x;
+                                sim_prngs[k] = wprng;
+                            }
+                            break;
+                        }
+                    }
+
+                    // update related sim files
+                    for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                        if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                            sim_files[k]->orphan = false;
+                            sim_files[k]->prng = wprng;
+                        }
+                    }
+                }
+
+                // write to the file
+                lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_sync(&lfs, &sim_files[j]->file)
+                        => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
+            // close a file?
+            } else if (op == 2) {
+                if (sim_file_count == 0) {
+                    goto nonsense;
+                }
+                // choose a random file handle
+                lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+
+                // this doesn't really test anything, but if we don't close
+                // files eventually everything will end up zombies
+
+                // close the file without affected disk
+                lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
+                lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+
+                // remove from list
+                free(sim_files[j]);
+                sim_files[j] = sim_files[sim_file_count-1];
+                sim_file_count -= 1;
+
+            // remove a file?
+            } else if (op == 3) {
+                if (sim_size == 0) {
+                    goto nonsense;
+                }
+                // choose a random file to delete
+                lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+                lfs_size_t x = sim[j];
+
+                // delete from our sim
+                memmove(&sim[j], &sim[j+1],
+                        (sim_size-(j+1))*sizeof(lfs_size_t));
+                memmove(&sim_prngs[j], &sim_prngs[j+1],
+                        (sim_size-(j+1))*sizeof(uint32_t));
+                sim_size -= 1;
+
+                // mark any related sim files as zombied
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x) {
+                        sim_files[k]->zombie = true;
+                    }
+                }
+
+                // delete this file
+                char name[256];
+                sprintf(name, "batman%03x", x);
+                lfsr_remove(&lfs, name) => 0;
+
+            // rename a file?
+            } else if (op == 4) {
+                if (sim_size == 0) {
+                    goto nonsense;
+                }
+                // choose a random file to rename, and a random number to
+                // rename to
+                lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+                lfs_size_t x = sim[j];
+                lfs_size_t y = TEST_PRNG(&prng) % N;
+                uint32_t wprng = sim_prngs[j];
+
+                // update our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= y) {
+                        // renaming and replacing
+                        if (k < sim_size && sim[k] == y && x != y) {
+                            // delete the original entry
+                            memmove(&sim[j], &sim[j+1],
+                                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                    (sim_size-(j+1))*sizeof(uint32_t));
+                            sim_size -= 1;
+                            if (k > j) {
+                                k -= 1;
+                            }
+                            // update the prng
+                            sim_prngs[k] = wprng;
+                        // just renaming
+                        } else {
+                            // first delete
+                            memmove(&sim[j], &sim[j+1],
+                                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                    (sim_size-(j+1))*sizeof(uint32_t));
+                            if (k > j) {
+                                k -= 1;
+                            }
+                            // then insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            sim[k] = y;
+                            sim_prngs[k] = wprng;
+                        }
+                        break;
+                    }
+                }
+
+                // update any related sim files
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    // move source files
+                    if (sim_files[k]->x == x) {
+                        sim_files[k]->x = y;
+
+                    // mark target files as zombied
+                    } else if (sim_files[k]->x == y) {
+                        sim_files[k]->zombie = true;
+                    }
+                }
+
+                // rename this file
+                char old_name[256];
+                sprintf(old_name, "batman%03x", x);
+                char new_name[256];
+                sprintf(new_name, "batman%03x", y);
+                lfsr_rename(&lfs, old_name, new_name) => 0;
+            }
         }
-        if (chunk != 0) {
-            size = lfs_max32(size, off+chunk);
+
+        // check that disk matches our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "batman%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
         }
 
-        // update file
-        lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
-        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
-
-        // sync?
-        if (SYNC) {
-            lfsr_file_sync(&lfs, &file) => 0;
-        }
-
-        // remount?
-        if (REMOUNT) {
-            lfsr_file_close(&lfs, &file) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-        }
-    }
-    lfsr_file_close(&lfs, &file) => 0;
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-        }
-
-        // check our file with stat
-        struct lfs_info info;
-        lfsr_stat(&lfs, "hello", &info) => 0;
-        assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == size);
-
-        // and with dir read
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
         assert(info.type == LFS_TYPE_DIR);
@@ -1536,208 +1199,65 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == size);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "batman%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
 
-        // try reading our file
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        // is size correct?
-        lfsr_file_size(&lfs, &file) => size;
-        // try reading
-        uint8_t rbuf[2*SIZE];
-        memset(rbuf, 0xaa, 2*SIZE);
-        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-        // does our file match our simulation?
-        assert(memcmp(rbuf, sim, size) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
-    }
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "batman%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
 
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# this should cause cascading failures
-[cases.test_badblocks_alternating_fwrite_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGERROR',
-    'LFS_EMUBD_BADBLOCK_ERASEERROR',
-    'LFS_EMUBD_BADBLOCK_READERROR',
-    'LFS_EMUBD_BADBLOCK_PROGNOOP',
-    'LFS_EMUBD_BADBLOCK_ERASENOOP',
-]
-# we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
-defines.MIRROR = [false, true]
-defines.N = 20
-defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
-    'BLOCK_SIZE/2',
-    'BLOCK_SIZE',
-    '2*BLOCK_SIZE',
-    '4*BLOCK_SIZE',
-]
-# chunk is more an upper limit here
-defines.CHUNK = [32, 8, 1]
-# INIT=0 => no init
-# INIT=1 => fill with data
-# INIT=2 => truncate to size
-defines.INIT = [0, 1, 2]
-defines.SYNC = [false, true]
-defines.REMOUNT = [false, true]
-defines.SEED = 42
-fuzz = 'SEED'
-if = [
-    'CHUNK <= SIZE',
-    # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
-]
-code = '''
-    // test a large region of bad blocks
-    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
-        // mark our badblock as bad
-        if (!MIRROR) {
-            if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
             }
-        } else {
-            if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
-            }
-        }
-    }
 
-    // test with complex file writes
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    // simulate our file in ram
-    uint8_t sim[SIZE];
-    lfs_off_t size;
-    uint32_t prng = SEED;
-    if (INIT == 0) {
-        memset(sim, 0, SIZE);
-        size = 0;
-    } else if (INIT == 1) {
-        for (lfs_size_t i = 0; i < SIZE; i++) {
-            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
-        size = SIZE;
-    } else {
-        memset(sim, 0, SIZE);
-        lfsr_file_truncate(&lfs, &file, SIZE) => 0;
-        size = SIZE;
-    }
-
-    // sync?
-    if (SYNC) {
-        lfsr_file_sync(&lfs, &file) => 0;
-    }
-
-    // remount?
-    if (REMOUNT) {
-        lfsr_file_close(&lfs, &file) => 0;
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-    }
-
-    for (lfs_size_t i = 0; i < N; i++) {
-        // choose a random location
-        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-        // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min32(
-                TEST_PRNG(&prng) % CHUNK,
-                SIZE - off);
-
-        // update sim
-        for (lfs_size_t j = 0; j < chunk; j++) {
-            sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        if (chunk != 0) {
-            size = lfs_max32(size, off+chunk);
-        }
-
-        // update file
-        lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
-        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
-
-        // sync?
-        if (SYNC) {
-            lfsr_file_sync(&lfs, &file) => 0;
-        }
-
-        // remount?
-        if (REMOUNT) {
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
             lfsr_file_close(&lfs, &file) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-        }
-    }
-    lfsr_file_close(&lfs, &file) => 0;
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
         }
 
-        // check our file with stat
-        struct lfs_info info;
-        lfsr_stat(&lfs, "hello", &info) => 0;
-        assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == size);
+        // check that our file handles match our simulation
+        for (lfs_size_t j = 0; j < sim_file_count; j++) {
+            uint32_t wprng = sim_files[j]->prng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
 
-        // and with dir read
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == size);
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
 
-        // try reading our file
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        // is size correct?
-        lfsr_file_size(&lfs, &file) => size;
-        // try reading
-        uint8_t rbuf[2*SIZE];
-        memset(rbuf, 0xaa, 2*SIZE);
-        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
-        // does our file match our simulation?
-        assert(memcmp(rbuf, sim, size) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        // clean up sim/lfs
+        free(sim);
+        free(sim_prngs);
+        for (lfs_size_t j = 0; j < sim_file_count; j++) {
+            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            free(sim_files[j]);
+        }
+        free(sim_files);
+        lfsr_unmount(&lfs) => 0;
+        // reset badblock
+        lfs_emubd_setwear(CFG, badblock, 0) => 0;
     }
-
-    lfsr_unmount(&lfs) => 0;
 '''
-
 
 # with orphans, zombies, dirs, etc
-[cases.test_badblocks_one_orphanzombiedir_fuzz]
+[cases.test_badblocks_single_orphanzombiedir_fuzz]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
@@ -2179,7 +1699,1262 @@ code = '''
     }
 '''
 
-# this should cause cascading failures
+
+
+## Badblock regions
+#
+# Test with a region of badblocks, this chould cause cascading failures,
+# which can be tricky
+
+# B-tree's ridiculous branching factor is great for performance, but it makes
+# them a bit of a pain to test, here we test them explicitly
+[cases.test_badblocks_region_btree_many]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+# maximize lookahead buffer to avoid alloc scans
+defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.SEED = 42
+fuzz = 'SEED'
+in = 'lfs.c'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+        } else {
+            lfs_emubd_setwear(CFG, i + BLOCK_COUNT/2, 0xffffffff) => 0;
+        }
+    }
+
+    // test creating a btree
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+    // create free lookahead
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
+    lfs.lookahead.next = 0;
+    lfs_alloc_ckpoint(&lfs);
+
+    // create a btree
+    lfsr_btree_t btree = LFSR_BTREE_NULL();
+
+    // set up a simulation to compare against
+    char *sim = malloc(N);
+    lfs_size_t sim_size = 0;
+    memset(sim, 0, N);
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random bid
+        lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
+
+        // add to btree
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(
+                    LFSR_TAG_DATA, +1,
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+
+        // add to sim
+        memmove(&sim[bid+1], &sim[bid], sim_size-bid);
+        sim[bid] = 'a'+(i % 26);
+        sim_size += 1;
+    }
+
+    // check that btree matches sim
+    printf("expd: [");
+    bool first = true;
+    for (lfs_size_t i = 0; i < sim_size; i++) {
+        if (!first) {
+            printf(", ");
+        }
+        first = false;
+        printf("%c", sim[i]);
+    }
+    printf("]\n");
+    printf("btree: w%d 0x%x.%x\n",
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
+
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    for (lfs_size_t i = 0; i < sim_size; i++) {
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
+        assert(tag_ == LFSR_TAG_DATA);
+        assert(weight_ == 1);
+        assert(memcmp(buffer, &sim[i], 1) == 0);
+    }
+
+    // and no extra elements
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+
+    // clean up sim
+    free(sim);
+    lfs_deinit(&lfs) => 0;
+'''
+
+# with dirs
+[cases.test_badblocks_region_dir_many]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (i >= 2) {
+                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            }
+        } else {
+            if (i+BLOCK_COUNT/2 >= 2) {
+                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test creating directories
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%03x", i);
+        int err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs.grm_p[0] == 0);
+
+        // check that our mkdir worked
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_open(&lfs, &dir, name) => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz dirs
+[cases.test_badblocks_region_dir_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+defines.OPS = '2*N'
+defines.SEED = 42
+fuzz = 'SEED'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (i >= 2) {
+                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            }
+        } else {
+            if (i+BLOCK_COUNT/2 >= 2) {
+                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test fuzz with dirs
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs_size_t sim_size = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose a pseudo-random op, either mkdir, remove, or rename
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        if (op == 0 || sim_size == 0) {
+            // choose a pseudo-random number, truncate to 3 hexadecimals
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen?
+                    if (j < sim_size && sim[j] == x) {
+                        // do nothing
+                    } else {
+                        // insert
+                        memmove(&sim[j+1], &sim[j],
+                                (sim_size-j)*sizeof(lfs_size_t));
+                        sim_size += 1;
+                        sim[j] = x;
+                    }
+                    break;
+                }
+            }
+
+            // create a directory here
+            char name[256];
+            sprintf(name, "dir%03x", x);
+            int err = lfsr_mkdir(&lfs, name);
+            assert(!err || err == LFS_ERR_EXIST);
+
+        } else if (op == 1) {
+            // choose a pseudo-random entry to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            sim_size -= 1;
+
+            // remove this directory
+            char name[256];
+            sprintf(name, "dir%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        } else {
+            // choose a pseudo-random entry to rename, and a pseudo-random
+            // number to rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // already seen and not a noop?
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // just delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        sim_size -= 1;
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        sim[k] = y;
+                    }
+                    break;
+                }
+            }
+
+            // rename this directory
+            char old_name[256];
+            sprintf(old_name, "dir%03x", x);
+            char new_name[256];
+            sprintf(new_name, "dir%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs.grm_p[0] == 0);
+
+        // test that our directories match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            char name2[256];
+            sprintf(name2, "dir%03x", sim[j]);
+            assert(strcmp(info.name, name2) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with files
+[cases.test_badblocks_region_file_many]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (i >= 2) {
+                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            }
+        } else {
+            if (i+BLOCK_COUNT/2 >= 2) {
+                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test creating files
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "amethyst%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check that our writes worked
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "amethyst%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz files
+[cases.test_badblocks_region_file_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (i >= 2) {
+                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            }
+        } else {
+            if (i+BLOCK_COUNT/2 >= 2) {
+                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test fuzz with files
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    lfs_size_t sim_size = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        // creating a new file?
+        if (op == 0 || sim_size == 0) {
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // associate each file with a prng that generates its contents
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen?
+                    if (j < sim_size && sim[j] == x) {
+                        // new prng
+                        sim_prngs[j] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[j+1], &sim[j],
+                                (sim_size-j)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j+1], &sim_prngs[j],
+                                (sim_size-j)*sizeof(uint32_t));
+                        sim_size += 1;
+                        sim[j] = x;
+                        sim_prngs[j] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // create a file here
+            char name[256];
+            sprintf(name, "amethyst%03x", x);
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // deleting a file?
+        } else if (op == 1) {
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            sim_size -= 1;
+
+            // delete this file
+            char name[256];
+            sprintf(name, "amethyst%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // renaming a file?
+        } else {
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "amethyst%03x", x);
+            char new_name[256];
+            sprintf(new_name, "amethyst%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check that our files match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // check the file contents
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with more complex file writes
+[cases.test_badblocks_region_fwrite_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.OPS = 20
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# chunk is more an upper limit here
+defines.CHUNK = [32, 8, 1]
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
+defines.INIT = [0, 1, 2]
+defines.SYNC = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
+if = [
+    'CHUNK <= SIZE',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
+]
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (i >= 2) {
+                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            }
+        } else {
+            if (i+BLOCK_COUNT/2 >= 2) {
+                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test with complex file writes
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    lfs_off_t size;
+    uint32_t prng = SEED;
+    if (INIT == 0) {
+        memset(sim, 0, SIZE);
+        size = 0;
+    } else if (INIT == 1) {
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        size = SIZE;
+    } else {
+        memset(sim, 0, SIZE);
+        lfsr_file_truncate(&lfs, &file, SIZE) => 0;
+        size = SIZE;
+    }
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose a random location
+        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+        // and a random size, up to the chunk size
+        lfs_size_t chunk = lfs_min32(
+                TEST_PRNG(&prng) % CHUNK,
+                SIZE - off);
+
+        // update sim
+        for (lfs_size_t j = 0; j < chunk; j++) {
+            sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        if (chunk != 0) {
+            size = lfs_max32(size, off+chunk);
+        }
+
+        // update file
+        lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with orphans, zombies, etc
+[cases.test_badblocks_region_orphanzombie_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (i >= 2) {
+                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            }
+        } else {
+            if (i+BLOCK_COUNT/2 >= 2) {
+                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test with orphans, zombies, etc
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    lfs_size_t sim_size = 0;
+
+    typedef struct sim_file {
+        lfs_size_t x;
+        bool orphan;
+        bool zombie;
+        uint32_t prng;
+        lfsr_file_t file;
+    } sim_file_t;
+    sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
+    lfs_size_t sim_file_count = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+    nonsense:;
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 5;
+
+        // open a new file?
+        if (op == 0) {
+            if (sim_file_count >= N) {
+                goto nonsense;
+            }
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+
+            // already exists?
+            bool orphan = true;
+            uint32_t wprng = 0;
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                if (sim[j] == x) {
+                    orphan = false;
+                    wprng = sim_prngs[j];
+                    break;
+                }
+            }
+            // choose a random seed if we don't exist
+            if (orphan) {
+                wprng = TEST_PRNG(&prng);
+            }
+
+            // open in our sim
+            lfs_size_t j = sim_file_count;
+            sim_files[j] = malloc(sizeof(sim_file_t));
+            sim_files[j]->x = x;
+            sim_files[j]->orphan = orphan;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // open the actual file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_file_open(&lfs, &sim_files[j]->file, name,
+                    LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+            // write some initial data if we don't exist
+            if (orphan) {
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            }
+
+        // write/rewrite a file?
+        } else if (op == 1) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            // choose a random seed
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update sim
+            sim_files[j]->prng = wprng;
+            if (!sim_files[j]->zombie) {
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // already seen?
+                        if (k < sim_size && sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            sim_size += 1;
+                            sim[k] = x;
+                            sim_prngs[k] = wprng;
+                        }
+                        break;
+                    }
+                }
+
+                // update related sim files
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        sim_files[k]->orphan = false;
+                        sim_files[k]->prng = wprng;
+                    }
+                }
+            }
+
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
+        // close a file?
+        } else if (op == 2) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+
+            // this doesn't really test anything, but if we don't close
+            // files eventually everything will end up zombies
+
+            // close the file without affected disk
+            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
+            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+
+            // remove from list
+            free(sim_files[j]);
+            sim_files[j] = sim_files[sim_file_count-1];
+            sim_file_count -= 1;
+
+        // remove a file?
+        } else if (op == 3) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            sim_size -= 1;
+
+            // mark any related sim files as zombied
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // rename a file?
+        } else if (op == 4) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // update any related sim files
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                // move source files
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->x = y;
+
+                // mark target files as zombied
+                } else if (sim_files[k]->x == y) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+    }
+
+    // check that disk matches our simulation
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+        uint32_t wprng = sim_prngs[j];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that our file handles match our simulation
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        uint32_t wprng = sim_files[j]->prng;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+        free(sim_files[j]);
+    }
+    free(sim_files);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with orphans, zombies, dirs, etc
 [cases.test_badblocks_region_orphanzombiedir_fuzz]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
@@ -2621,7 +3396,1259 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# this should cause cascading failures
+
+
+## Alternating badblocks
+#
+# Test alternating badblocks, this can be difficult for pair allocations
+
+# B-tree's ridiculous branching factor is great for performance, but it makes
+# them a bit of a pain to test, here we test them explicitly
+[cases.test_badblocks_alternating_btree_many]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+# maximize lookahead buffer to avoid alloc scans
+defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.SEED = 42
+fuzz = 'SEED'
+in = 'lfs.c'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+        } else {
+            lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+        }
+    }
+
+    // test creating a btree
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+    // create free lookahead
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
+    lfs.lookahead.next = 0;
+    lfs_alloc_ckpoint(&lfs);
+
+    // create a btree
+    lfsr_btree_t btree = LFSR_BTREE_NULL();
+
+    // set up a simulation to compare against
+    char *sim = malloc(N);
+    lfs_size_t sim_size = 0;
+    memset(sim, 0, N);
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random bid
+        lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
+
+        // add to btree
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
+                LFSR_ATTR(
+                    LFSR_TAG_DATA, +1,
+                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+
+        // add to sim
+        memmove(&sim[bid+1], &sim[bid], sim_size-bid);
+        sim[bid] = 'a'+(i % 26);
+        sim_size += 1;
+    }
+
+    // check that btree matches sim
+    printf("expd: [");
+    bool first = true;
+    for (lfs_size_t i = 0; i < sim_size; i++) {
+        if (!first) {
+            printf(", ");
+        }
+        first = false;
+        printf("%c", sim[i]);
+    }
+    printf("]\n");
+    printf("btree: w%d 0x%x.%x\n",
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
+
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_data_t data_;
+    for (lfs_size_t i = 0; i < sim_size; i++) {
+        lfsr_btree_lookup(&lfs, &btree, i,
+                &tag_, &weight_, &data_) => 0;
+        lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
+        assert(tag_ == LFSR_TAG_DATA);
+        assert(weight_ == 1);
+        assert(memcmp(buffer, &sim[i], 1) == 0);
+    }
+
+    // and no extra elements
+    lfsr_btree_lookup(&lfs, &btree, sim_size,
+            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+
+    // clean up sim
+    free(sim);
+    lfs_deinit(&lfs) => 0;
+'''
+
+# with dirs
+[cases.test_badblocks_alternating_dir_many]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (2*i+0 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            }
+        } else {
+            if (2*i+1 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test creating directories
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%03x", i);
+        int err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs.grm_p[0] == 0);
+
+        // check that our mkdir worked
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_open(&lfs, &dir, name) => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz dirs
+[cases.test_badblocks_alternating_dir_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+defines.OPS = '2*N'
+defines.SEED = 42
+fuzz = 'SEED'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (2*i+0 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            }
+        } else {
+            if (2*i+1 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test fuzz with dirs
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs_size_t sim_size = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose a pseudo-random op, either mkdir, remove, or rename
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        if (op == 0 || sim_size == 0) {
+            // choose a pseudo-random number, truncate to 3 hexadecimals
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen?
+                    if (j < sim_size && sim[j] == x) {
+                        // do nothing
+                    } else {
+                        // insert
+                        memmove(&sim[j+1], &sim[j],
+                                (sim_size-j)*sizeof(lfs_size_t));
+                        sim_size += 1;
+                        sim[j] = x;
+                    }
+                    break;
+                }
+            }
+
+            // create a directory here
+            char name[256];
+            sprintf(name, "dir%03x", x);
+            int err = lfsr_mkdir(&lfs, name);
+            assert(!err || err == LFS_ERR_EXIST);
+
+        } else if (op == 1) {
+            // choose a pseudo-random entry to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            sim_size -= 1;
+
+            // remove this directory
+            char name[256];
+            sprintf(name, "dir%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        } else {
+            // choose a pseudo-random entry to rename, and a pseudo-random
+            // number to rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // already seen and not a noop?
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // just delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        sim_size -= 1;
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        sim[k] = y;
+                    }
+                    break;
+                }
+            }
+
+            // rename this directory
+            char old_name[256];
+            sprintf(old_name, "dir%03x", x);
+            char new_name[256];
+            sprintf(new_name, "dir%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs.grm_p[0] == 0);
+
+        // test that our directories match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            char name2[256];
+            sprintf(name2, "dir%03x", sim[j]);
+            assert(strcmp(info.name, name2) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with files
+[cases.test_badblocks_alternating_file_many]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (2*i+0 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            }
+        } else {
+            if (2*i+1 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test creating files
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "amethyst%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check that our writes worked
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "amethyst%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz files
+[cases.test_badblocks_alternating_file_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (2*i+0 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            }
+        } else {
+            if (2*i+1 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test fuzz with files
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    lfs_size_t sim_size = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        // creating a new file?
+        if (op == 0 || sim_size == 0) {
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // associate each file with a prng that generates its contents
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen?
+                    if (j < sim_size && sim[j] == x) {
+                        // new prng
+                        sim_prngs[j] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[j+1], &sim[j],
+                                (sim_size-j)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j+1], &sim_prngs[j],
+                                (sim_size-j)*sizeof(uint32_t));
+                        sim_size += 1;
+                        sim[j] = x;
+                        sim_prngs[j] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // create a file here
+            char name[256];
+            sprintf(name, "amethyst%03x", x);
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // deleting a file?
+        } else if (op == 1) {
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            sim_size -= 1;
+
+            // delete this file
+            char name[256];
+            sprintf(name, "amethyst%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // renaming a file?
+        } else {
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "amethyst%03x", x);
+            char new_name[256];
+            sprintf(new_name, "amethyst%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check that our files match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // check the file contents
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with more complex file writes
+[cases.test_badblocks_alternating_fwrite_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.OPS = 20
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# chunk is more an upper limit here
+defines.CHUNK = [32, 8, 1]
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
+defines.INIT = [0, 1, 2]
+defines.SYNC = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
+if = [
+    'CHUNK <= SIZE',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
+]
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (2*i+0 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            }
+        } else {
+            if (2*i+1 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test with complex file writes
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    lfs_off_t size;
+    uint32_t prng = SEED;
+    if (INIT == 0) {
+        memset(sim, 0, SIZE);
+        size = 0;
+    } else if (INIT == 1) {
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        size = SIZE;
+    } else {
+        memset(sim, 0, SIZE);
+        lfsr_file_truncate(&lfs, &file, SIZE) => 0;
+        size = SIZE;
+    }
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose a random location
+        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+        // and a random size, up to the chunk size
+        lfs_size_t chunk = lfs_min32(
+                (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
+                SIZE - off);
+
+        // update sim
+        for (lfs_size_t j = 0; j < chunk; j++) {
+            sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        size = lfs_max32(size, off+chunk);
+
+        // update file
+        lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with orphans, zombies, etc
+[cases.test_badblocks_alternating_orphanzombie_fuzz]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.MIRROR = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test a large region of bad blocks
+    for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
+        // mark our badblock as bad
+        if (!MIRROR) {
+            if (2*i+0 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            }
+        } else {
+            if (2*i+1 >= 2) {
+                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            }
+        }
+    }
+
+    // test with orphans, zombies, etc
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    lfs_size_t sim_size = 0;
+
+    typedef struct sim_file {
+        lfs_size_t x;
+        bool orphan;
+        bool zombie;
+        uint32_t prng;
+        lfsr_file_t file;
+    } sim_file_t;
+    sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
+    lfs_size_t sim_file_count = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+    nonsense:;
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 5;
+
+        // open a new file?
+        if (op == 0) {
+            if (sim_file_count >= N) {
+                goto nonsense;
+            }
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+
+            // already exists?
+            bool orphan = true;
+            uint32_t wprng = 0;
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                if (sim[j] == x) {
+                    orphan = false;
+                    wprng = sim_prngs[j];
+                    break;
+                }
+            }
+            // choose a random seed if we don't exist
+            if (orphan) {
+                wprng = TEST_PRNG(&prng);
+            }
+
+            // open in our sim
+            lfs_size_t j = sim_file_count;
+            sim_files[j] = malloc(sizeof(sim_file_t));
+            sim_files[j]->x = x;
+            sim_files[j]->orphan = orphan;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // open the actual file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_file_open(&lfs, &sim_files[j]->file, name,
+                    LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+            // write some initial data if we don't exist
+            if (orphan) {
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            }
+
+        // write/rewrite a file?
+        } else if (op == 1) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            // choose a random seed
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update sim
+            sim_files[j]->prng = wprng;
+            if (!sim_files[j]->zombie) {
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // already seen?
+                        if (k < sim_size && sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            sim_size += 1;
+                            sim[k] = x;
+                            sim_prngs[k] = wprng;
+                        }
+                        break;
+                    }
+                }
+
+                // update related sim files
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        sim_files[k]->orphan = false;
+                        sim_files[k]->prng = wprng;
+                    }
+                }
+            }
+
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
+        // close a file?
+        } else if (op == 2) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+
+            // this doesn't really test anything, but if we don't close
+            // files eventually everything will end up zombies
+
+            // close the file without affected disk
+            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
+            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+
+            // remove from list
+            free(sim_files[j]);
+            sim_files[j] = sim_files[sim_file_count-1];
+            sim_file_count -= 1;
+
+        // remove a file?
+        } else if (op == 3) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            sim_size -= 1;
+
+            // mark any related sim files as zombied
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // rename a file?
+        } else if (op == 4) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // update any related sim files
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                // move source files
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->x = y;
+
+                // mark target files as zombied
+                } else if (sim_files[k]->x == y) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+    }
+
+    // check that disk matches our simulation
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+        uint32_t wprng = sim_prngs[j];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that our file handles match our simulation
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        uint32_t wprng = sim_files[j]->prng;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+        free(sim_files[j]);
+    }
+    free(sim_files);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with orphans, zombies, dirs, etc
 [cases.test_badblocks_alternating_orphanzombiedir_fuzz]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
@@ -3064,7 +5091,8 @@ code = '''
 '''
 
 
-# other corner cases
+
+## other corner cases
 
 # test formatting with 0 or 1 bad, this should just error
 [cases.test_badblocks_mrootanchor]

@@ -2869,6 +2869,10 @@ code = '''
 
             uint8_t rbuf[SIZE];
             lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            // all data should be lowercase ascii
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                assert(rbuf[j] >= 'a' && rbuf[j] <= 'z');
+            }
             // sum should be equal to 'a' mod 26
             uint8_t ck = 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {

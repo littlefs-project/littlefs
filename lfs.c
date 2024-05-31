@@ -3461,8 +3461,8 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         return err;
     }
 
-    // flush our caches, finalizing the commit on-disk
-    err = lfsr_bd_sync(lfs);
+    // flush any pending progs
+    err = lfsr_bd_flush(lfs, NULL, false);
     if (err) {
         return err;
     }
@@ -7115,6 +7115,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
         }
 
+        // make sure mtree/mroot changes are on-disk before committing
+        // metadata
+        err = lfsr_bd_sync(lfs);
+        if (err) {
+            goto failed;
+        }
+
         // commit new mtree into our mroot
         //
         // note end_rid=0 here will delete any files leftover from a split
@@ -7157,6 +7164,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             mrootchild = mrootparent_;
 
+            // make sure mtree/mroot changes are on-disk before committing
+            // metadata
+            err = lfsr_bd_sync(lfs);
+            if (err) {
+                goto failed;
+            }
+
             // commit mrootchild
             uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mdir_commit_(lfs, &mrootparent_, -1, -1, NULL,
@@ -7186,6 +7200,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
                     mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
 
+            // make sure mtree/mroot changes are on-disk before committing
+            // metadata
+            err = lfsr_bd_sync(lfs);
+            if (err) {
+                goto failed;
+            }
+
             // commit the new mroot anchor
             lfsr_mdir_t mrootanchor_;
             err = lfsr_mdir_swap__(lfs, &mrootanchor_, &mrootchild, true);
@@ -7214,6 +7235,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // gstate must have been committed by a lower-level function at this point
     LFS_ASSERT(lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE));
+
+    // sync on-disk state
+    err = lfsr_bd_sync(lfs);
+    if (err) {
+        return err;
+    }
 
     // success? update in-device state, we must not error at this point
 
@@ -8672,8 +8699,14 @@ static int lfsr_formatinited(lfs_t *lfs) {
         }
     }
 
+    // sync on-disk state
+    int err = lfsr_bd_sync(lfs);
+    if (err) {
+        return err;
+    }
+
     // test that mount works with our formatted disk
-    int err = lfsr_mountinited(lfs);
+    err = lfsr_mountinited(lfs);
     if (err) {
         return err;
     }
@@ -11681,7 +11714,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // checkpoint the allocator again
         lfs_alloc_ckpoint(lfs);
 
-        // commit our file's metadata
+        // commit any changes to our file's metadata
         lfsr_attr_t attrs[2];
         lfs_size_t attr_count = 0;
         lfsr_data_t name_data;
@@ -11728,6 +11761,13 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             LFS_UNREACHABLE();
         }
 
+        // make sure data is on-disk before committing metadata
+        err = lfsr_bd_sync(lfs);
+        if (err) {
+            goto failed;
+        }
+
+        // commit!
         LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
 
         err = lfsr_mdir_commit(lfs, &file->o.mdir,

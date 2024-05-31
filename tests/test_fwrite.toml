@@ -1676,7 +1676,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 # chunk is more an upper limit here
-defines.CHUNK = [32, 8]
+defines.CHUNK = [64, 16]
 # INIT=0 => no init
 # INIT=1 => fill with data
 # INIT=2 => truncate to size
@@ -1736,16 +1736,14 @@ code = '''
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
         lfs_size_t chunk = lfs_min32(
-                TEST_PRNG(&prng) % CHUNK,
+                (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
         // update sim
         for (lfs_size_t j = 0; j < chunk; j++) {
             sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        if (chunk != 0) {
-            size = lfs_max32(size, off+chunk);
-        }
+        size = lfs_max32(size, off+chunk);
 
         // update file
         lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
@@ -1828,7 +1826,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 # chunk is more an upper limit here
-defines.CHUNK = [32, 8]
+defines.CHUNK = [64, 16]
 defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
@@ -1861,7 +1859,7 @@ code = '''
         lfs_soff_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
         lfs_size_t chunk = lfs_min32(
-                TEST_PRNG(&prng) % CHUNK,
+                (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
         // test different seek methods
@@ -1907,7 +1905,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 # chunk is more an upper limit here
-defines.CHUNK = [32, 8]
+defines.CHUNK = [64, 16]
 # INIT=0 => no init
 # INIT=1 => fill with data
 # INIT=2 => truncate to size
@@ -1956,7 +1954,7 @@ code = '''
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
         lfs_size_t chunk = lfs_min32(
-                TEST_PRNG(&prng) % CHUNK,
+                (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
         // test different seek methods
@@ -1975,9 +1973,7 @@ code = '''
         for (lfs_size_t j = 0; j < chunk; j++) {
             sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        if (chunk != 0) {
-            size = lfs_max32(size, off+chunk);
-        }
+        size = lfs_max32(size, off+chunk);
 
         // update the file
         lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
@@ -2056,7 +2052,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 # chunk is more an upper limit here
-defines.CHUNK = [32, 8]
+defines.CHUNK = [64, 16]
 # INIT=0 => no init
 # INIT=1 => fill with data
 # INIT=2 => truncate to size
@@ -2105,7 +2101,7 @@ code = '''
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
         lfs_size_t chunk = lfs_min32(
-                TEST_PRNG(&prng) % CHUNK,
+                (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
         // and if we are reading or writing
         uint8_t op = TEST_PRNG(&prng) % 2;
@@ -2128,9 +2124,7 @@ code = '''
             for (lfs_size_t j = 0; j < chunk; j++) {
                 sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
-            if (chunk != 0) {
-                size = lfs_max32(size, off+chunk);
-            }
+            size = lfs_max32(size, off+chunk);
 
             // update the file
             lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
@@ -2336,7 +2330,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 # chunk is more an upper limit here
-defines.CHUNK = [32, 8]
+defines.CHUNK = [64, 16]
 # INIT=0 => no init
 # INIT=1 => fill with data
 # INIT=2 => truncate to size
@@ -2401,7 +2395,7 @@ code = '''
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
             // and a random size, up to the chunk size
             lfs_size_t chunk = lfs_min32(
-                    TEST_PRNG(&prng) % CHUNK,
+                    (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                     SIZE - off);
 
             // seek
@@ -2411,9 +2405,7 @@ code = '''
             for (lfs_size_t j = 0; j < chunk; j++) {
                 sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
-            if (chunk != 0) {
-                size = lfs_max32(size, off+chunk);
-            }
+            size = lfs_max32(size, off+chunk);
 
             // update the file
             lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
@@ -2437,7 +2429,7 @@ code = '''
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
             // and a random size, up to the chunk size
             lfs_size_t chunk = lfs_min32(
-                    TEST_PRNG(&prng) % CHUNK,
+                    (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                     SIZE - off);
 
             // seek

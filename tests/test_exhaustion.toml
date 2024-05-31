@@ -2,6 +2,7 @@
 after = [
     'test_dirs',
     'test_files',
+    'test_fwrite',
     'test_forphans',
     'test_alloc',
     'test_badblocks',
@@ -489,7 +490,187 @@ code = '''
     assert(run_ops[1]*110/100 > 2*run_ops[0]);
 '''
 
-# just more things that could go wrong
+# with more complex file writes
+[cases.test_exhaustion_fwrite_fuzz]
+defines.ERASE_CYCLES = 10
+defines.BLOCK_RECYCLES = 4
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# chunk is more an upper limit here
+defines.CHUNK = 64
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
+defines.INIT = [0, 1, 2]
+defines.SYNC = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
+if = [
+    'CHUNK <= SIZE',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
+]
+code = '''
+    // run our test twice, once with 1/2 the storage, once with 2/2 the
+    // storage, and compare how many operations we were able to perform
+    // before filesystem death
+    uint32_t run_bc[2] = {BLOCK_COUNT/2, BLOCK_COUNT};
+    uint32_t run_ops[2] = {0, 0};
+
+    for (int run = 0; run < 2; run++) {
+        // clear any wear from the previous run
+        for (lfs_block_t i = 0; i < BLOCK_COUNT; i++) {
+            lfs_emubd_setwear(CFG, i, 0) => 0;
+        }
+
+        // configure the filesystem size
+        struct lfs_config cfg = *CFG;
+        cfg.block_count = run_bc[run];
+
+        // run the test
+        lfs_t lfs;
+        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_mount(&lfs, &cfg) => 0;
+
+        // create a file
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "hello",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        // simulate our file in ram
+        uint8_t sim[SIZE];
+        lfs_off_t size;
+        uint32_t prng = SEED;
+        if (INIT == 0) {
+            memset(sim, 0, SIZE);
+            size = 0;
+        } else if (INIT == 1) {
+            for (lfs_size_t i = 0; i < SIZE; i++) {
+                sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+            size = SIZE;
+        } else {
+            memset(sim, 0, SIZE);
+            lfsr_file_truncate(&lfs, &file, SIZE) => 0;
+            size = SIZE;
+        }
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        for (;; run_ops[run]++) {
+            // choose a random location
+            lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+            // and a random size, up to the chunk size
+            lfs_size_t chunk = lfs_min32(
+                    (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
+                    SIZE - off);
+
+            // update sim
+            for (lfs_size_t j = 0; j < chunk; j++) {
+                sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            size = lfs_max32(size, off+chunk);
+
+            // update file
+            lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+            lfs_ssize_t d = lfsr_file_write(&lfs, &file, &sim[off], chunk);
+            assert(d == (lfs_ssize_t)chunk || d == LFS_ERR_NOSPC);
+            if (d == LFS_ERR_NOSPC) {
+                goto dead;
+            }
+
+            // sync?
+            if (SYNC) {
+                int err = lfsr_file_sync(&lfs, &file);
+                assert(!err || err == LFS_ERR_NOSPC);
+                if (err == LFS_ERR_NOSPC) {
+                    goto dead;
+                }
+            }
+
+            // check our simulation every power-of-2 ops
+            if (lfs_popc(run_ops[run]) == 1 && SYNC) {
+                // check our file with stat
+                struct lfs_info info;
+                lfsr_stat(&lfs, "hello", &info) => 0;
+                assert(strcmp(info.name, "hello") == 0);
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == size);
+
+                // and with dir read
+                lfsr_dir_t dir;
+                lfsr_dir_open(&lfs, &dir, "/") => 0;
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, ".") == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, "..") == 0);
+                assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, "hello") == 0);
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == size);
+                lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+                lfsr_dir_close(&lfs, &dir) => 0;
+
+                // try reading our file
+                lfsr_file_t file_;
+                lfsr_file_open(&lfs, &file_, "hello", LFS_O_RDONLY) => 0;
+                // is size correct?
+                lfsr_file_size(&lfs, &file_) => size;
+                // try reading
+                uint8_t rbuf[2*SIZE];
+                memset(rbuf, 0xaa, 2*SIZE);
+                lfsr_file_read(&lfs, &file_, rbuf, 2*SIZE) => size;
+                // does our file match our simulation?
+                assert(memcmp(rbuf, sim, size) == 0);
+                lfsr_file_close(&lfs, &file_) => 0;
+            }
+        }
+
+    dead:;
+        // clean up sim/lfs
+        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_unmount(&lfs) => 0;
+
+        // print how many ops
+        printf("run %d, %dx%d, %d ec: %d ops\n",
+                run,
+                (int)BLOCK_SIZE,
+                run_bc[run],
+                (int)ERASE_CYCLES,
+                run_ops[run]);
+    }
+
+    // check that we increased the liftime by ~2x, with ~10% error
+    printf("lifetime: %d -> %d (x%.2f)\n",
+            run_ops[0],
+            run_ops[1],
+            (double)run_ops[1] / (double)run_ops[0]);
+    assert(run_ops[1]*110/100 > 2*run_ops[0]);
+'''
+
+# with orphans, zombies, etc
 [cases.test_exhaustion_orphanzombie_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
@@ -902,7 +1083,7 @@ code = '''
     assert(run_ops[1]*110/100 > 2*run_ops[0]);
 '''
 
-# just more things that could go wrong
+# with orphans, zombies, dirs, etc
 [cases.test_exhaustion_orphanzombiedir_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
