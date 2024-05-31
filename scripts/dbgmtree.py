@@ -1273,8 +1273,7 @@ def main(disk, mroots=None, *,
                 tree_, tdepth = mtree.btree_btree(
                     f, block_size,
                     depth=args.get('depth', mdepth)-mdepth,
-                    inner=args.get('inner'),
-                    rbyd=args.get('rbyd'))
+                    inner=args.get('inner'))
 
                 # connect a branch to the root of the tree
                 root = min(tree_, key=lambda branch: branch.d, default=None)
