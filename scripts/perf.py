@@ -99,7 +99,7 @@ class RInt(co.namedtuple('RInt', 'x')):
         elif not old and not new:
             return 0.0
         elif not old:
-            return 1.0
+            return +m.inf
         else:
             return (new-old) / old
 
