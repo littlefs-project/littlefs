@@ -1064,15 +1064,15 @@ def report(perf_paths, *,
                 if not all(k in r and r[k] in vs for k, vs in defines):
                     continue
 
-                if not any('perf_'+k in r and r['perf_'+k].strip()
+                if not any(k in r and r[k].strip()
                         for k in PerfResult._fields):
                     continue
                 try:
                     results.append(PerfResult(
                         **{k: r[k] for k in PerfResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['perf_'+k] for k in PerfResult._fields
-                            if 'perf_'+k in r and r['perf_'+k].strip()}))
+                        **{k: r[k] for k in PerfResult._fields
+                            if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -1094,14 +1094,14 @@ def report(perf_paths, *,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else PerfResult._by)
-                + ['perf_'+k for k in (
+                + [k for k in (
                     fields if fields is not None else PerfResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
                         by if by is not None else PerfResult._by)}
-                    | {'perf_'+k: getattr(r, k) for k in (
+                    | {k: getattr(r, k) for k in (
                         fields if fields is not None else PerfResult._fields)})
 
     # find previous results?
@@ -1115,15 +1115,15 @@ def report(perf_paths, *,
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
 
-                    if not any('perf_'+k in r and r['perf_'+k].strip()
+                    if not any(k in r and r[k].strip()
                             for k in PerfResult._fields):
                         continue
                     try:
                         diff_results.append(PerfResult(
                             **{k: r[k] for k in PerfResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['perf_'+k] for k in PerfResult._fields
-                                if 'perf_'+k in r and r['perf_'+k].strip()}))
+                            **{k: r[k] for k in PerfResult._fields
+                                if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:

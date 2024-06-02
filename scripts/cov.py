@@ -604,17 +604,16 @@ def main(gcda_paths, *,
                 if not all(k in r and r[k] in vs for k, vs in defines):
                     continue
 
-                if not any('cov_'+k in r and r['cov_'+k].strip()
+                if not any(k in r and r[k].strip()
                         for k in CovResult._fields):
                     continue
                 try:
                     results.append(CovResult(
                         **{k: r[k] for k in CovResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['cov_'+k]
+                        **{k: r[k]
                             for k in CovResult._fields
-                            if 'cov_'+k in r
-                                and r['cov_'+k].strip()}))
+                            if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -636,14 +635,14 @@ def main(gcda_paths, *,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else CovResult._by)
-                + ['cov_'+k for k in (
+                + [k for k in (
                     fields if fields is not None else CovResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
                         by if by is not None else CovResult._by)}
-                    | {'cov_'+k: getattr(r, k) for k in (
+                    | {k: getattr(r, k) for k in (
                         fields if fields is not None else CovResult._fields)})
 
     # find previous results?
@@ -657,17 +656,16 @@ def main(gcda_paths, *,
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
 
-                    if not any('cov_'+k in r and r['cov_'+k].strip()
+                    if not any(k in r and r[k].strip()
                             for k in CovResult._fields):
                         continue
                     try:
                         diff_results.append(CovResult(
                             **{k: r[k] for k in CovResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['cov_'+k]
+                            **{k: r[k]
                                 for k in CovResult._fields
-                                if 'cov_'+k in r
-                                    and r['cov_'+k].strip()}))
+                                if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:

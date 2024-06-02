@@ -1042,15 +1042,15 @@ def report(obj_path='', trace_paths=[], *,
                 if not all(k in r and r[k] in vs for k, vs in defines):
                     continue
 
-                if not any('perfbd_'+k in r and r['perfbd_'+k].strip()
+                if not any(k in r and r[k].strip()
                         for k in PerfBdResult._fields):
                     continue
                 try:
                     results.append(PerfBdResult(
                         **{k: r[k] for k in PerfBdResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['perfbd_'+k] for k in PerfBdResult._fields
-                            if 'perfbd_'+k in r and r['perfbd_'+k].strip()}))
+                        **{k: r[k] for k in PerfBdResult._fields
+                            if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -1072,14 +1072,14 @@ def report(obj_path='', trace_paths=[], *,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else PerfBdResult._by)
-                + ['perfbd_'+k for k in (
+                + [k for k in (
                     fields if fields is not None else PerfBdResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
                         by if by is not None else PerfBdResult._by)}
-                    | {'perfbd_'+k: getattr(r, k) for k in (
+                    | {k: getattr(r, k) for k in (
                         fields if fields is not None else PerfBdResult._fields)})
 
     # find previous results?
@@ -1093,16 +1093,15 @@ def report(obj_path='', trace_paths=[], *,
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
 
-                    if not any('perfbd_'+k in r and r['perfbd_'+k].strip()
+                    if not any(k in r and r[k].strip()
                             for k in PerfBdResult._fields):
                         continue
                     try:
                         diff_results.append(PerfBdResult(
                             **{k: r[k] for k in PerfBdResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['perfbd_'+k] for k in PerfBdResult._fields
-                                if 'perfbd_'+k in r
-                                    and r['perfbd_'+k].strip()}))
+                            **{k: r[k] for k in PerfBdResult._fields
+                                if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:

@@ -246,15 +246,15 @@ stack-diff: $(CI)
 ## Find function sizes
 .PHONY: funcs
 funcs: SUMMARYFLAGS+=-S
-funcs: \
-		$(BUILDDIR)/lfs.code.csv \
-		$(BUILDDIR)/lfs.data.csv \
-		$(BUILDDIR)/lfs.stack.csv
-	$(strip ./scripts/summary.py $^ \
-		-bfunction \
-		-fcode=code_size \
-		-fdata=data_size \
-		-fstack=stack_limit --max=stack \
+funcs: SHELL=/bin/bash
+funcs: $(BUILDDIR)/lfs.code.csv $(BUILDDIR)/lfs.stack.csv
+	$(strip ./scripts/summary.py \
+		<(./scripts/summary.py $(BUILDDIR)/lfs.code.csv \
+			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py $(BUILDDIR)/lfs.stack.csv \
+			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+		-bfunction -fcode -fstack \
+		--max=stack \
 		$(SUMMARYFLAGS))
 
 ## Compare function sizes
@@ -262,17 +262,20 @@ funcs: \
 funcs-diff: SHELL=/bin/bash
 funcs-diff: $(OBJ) $(CI)
 	$(strip ./scripts/summary.py \
-		<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
-		<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
-		<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
-		-bfunction \
-		-fcode=code_size \
-		-fdata=data_size \
-		-fstack=stack_limit --max=stack \
+		<(./scripts/summary.py \
+			<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
+			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py \
+			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
+			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+		-bfunction -fcode -fstack \
+		--max=stack \
 		$(SUMMARYFLAGS) -d <(./scripts/summary.py \
-			$(BUILDDIR)/lfs.code.csv \
-			$(BUILDDIR)/lfs.data.csv \
-			$(BUILDDIR)/lfs.stack.csv \
+			<(./scripts/summary.py $(BUILDDIR)/lfs.code.csv \
+				-fcode=size -q $(SUMMARYFLAGS) -o-) \
+			<(./scripts/summary.py $(BUILDDIR)/lfs.stack.csv \
+				-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+			-fcode -fstack \
 			-q $(SUMMARYFLAGS) -o-))
 
 ## Find struct sizes
@@ -333,37 +336,57 @@ perfbd-diff: $(BENCH_TRACE)
 
 ## Find a summary of compile-time sizes
 .PHONY: summary sizes
+summary sizes: SHELL=/bin/bash
 summary sizes: \
 		$(BUILDDIR)/lfs.code.csv \
 		$(BUILDDIR)/lfs.data.csv \
 		$(BUILDDIR)/lfs.stack.csv \
 		$(BUILDDIR)/lfs.structs.csv
-	$(strip ./scripts/summary.py $^ \
-		-fcode=code_size \
-		-fdata=data_size \
-		-fstack=stack_limit --max=stack \
-		-fstructs=struct_size \
-		-Y $(SUMMARYFLAGS))
+	$(strip ./scripts/summary.py \
+		<(./scripts/summary.py $(BUILDDIR)/lfs.code.csv \
+			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py $(BUILDDIR)/lfs.data.csv \
+			-fdata=size -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py $(BUILDDIR)/lfs.stack.csv \
+			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py $(BUILDDIR)/lfs.structs.csv \
+			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
+		-bfunction -fcode -fdata -fstack -fstructs \
+		--max=stack \
+		-Y $(SUMMARYFLAGS) \
+		| cut -c 25-)
 
 ## Compare compile-time sizes
 .PHONY: summary-diff sizes-diff
 summary-diff sizes-diff: SHELL=/bin/bash
 summary-diff sizes-diff: $(OBJ) $(CI)
 	$(strip ./scripts/summary.py \
-		<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
-		<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
-		<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
-		<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
-		-fcode=code_size \
-		-fdata=data_size \
-		-fstack=stack_limit --max=stack \
-		-fstructs=struct_size \
-		-Y $(SUMMARYFLAGS) -d <(./scripts/summary.py \
-			$(BUILDDIR)/lfs.code.csv \
-			$(BUILDDIR)/lfs.data.csv \
-			$(BUILDDIR)/lfs.stack.csv \
-			$(BUILDDIR)/lfs.structs.csv \
-			-q $(SUMMARYFLAGS) -o-))
+		<(./scripts/summary.py \
+			<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
+			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py \
+			<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
+			-fdata=size -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py \
+			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
+			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+		<(./scripts/summary.py \
+			<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
+			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
+		-bfunction -fcode -fdata -fstack -fstructs \
+		--max=stack \
+		-Y -p $(SUMMARYFLAGS) -d <(./scripts/summary.py \
+			<(./scripts/summary.py $(BUILDDIR)/lfs.code.csv \
+				-fcode=size -q $(SUMMARYFLAGS) -o-) \
+			<(./scripts/summary.py $(BUILDDIR)/lfs.data.csv \
+				-fdata=size -q $(SUMMARYFLAGS) -o-) \
+			<(./scripts/summary.py $(BUILDDIR)/lfs.stack.csv \
+				-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+			<(./scripts/summary.py $(BUILDDIR)/lfs.structs.csv \
+				-fstructs=size -q $(SUMMARYFLAGS) -o-) \
+			-fcode -fdata -fstack -fstructs \
+			-q $(SUMMARYFLAGS) -o-) \
+		| cut -c 25-)
 
 ## Build the test-runner
 .PHONY: test-runner build-tests
@@ -396,17 +419,14 @@ test-list list-tests: test-runner
 testmarks: SUMMARYFLAGS+=-spassed -Stime
 testmarks: $(TEST_CSV) $(BUILDDIR)/lfs.test.csv
 	$(strip ./scripts/summary.py $(TEST_CSV) \
-		-bsuite \
-		-fpassed=test_passed \
-		-ftime=test_time \
+		-bsuite -fpassed -ftime \
 		$(SUMMARYFLAGS))
 
 ## Compare test results against a previous run
 .PHONY: testmarks-diff
 testmarks-diff: $(TEST_CSV)
 	$(strip ./scripts/summary.py $^ \
-		-bsuite \
-		-fpassed=test_passed \
+		-bsuite -fpassed -ftime \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.test.csv)
 
 ## Build the bench-runner
@@ -440,20 +460,14 @@ bench-list list-benches: bench-runner
 benchmarks: SUMMARYFLAGS+=-Serased -Sproged -Sreaded
 benchmarks: $(BENCH_CSV) $(BUILDDIR)/lfs.bench.csv
 	$(strip ./scripts/summary.py $(BENCH_CSV) \
-		-bsuite \
-		-freaded=bench_readed \
-		-fproged=bench_proged \
-		-ferased=bench_erased \
+		-bsuite -freaded -fproged -ferased \
 		$(SUMMARYFLAGS))
 
 ## Compare bench results against a previous run
 .PHONY: benchmarks-diff
 benchmarks-diff: $(BENCH_CSV)
 	$(strip ./scripts/summary.py $^ \
-		-bsuite \
-		-freaded=bench_readed \
-		-fproged=bench_proged \
-		-ferased=bench_erased \
+		-bsuite -freaded -fproged -ferased \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.bench.csv)
 
 

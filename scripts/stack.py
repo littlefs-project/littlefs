@@ -558,15 +558,15 @@ def main(ci_paths,
                 if not all(k in r and r[k] in vs for k, vs in defines):
                     continue
 
-                if not any('stack_'+k in r and r['stack_'+k].strip()
+                if not any(k in r and r[k].strip()
                         for k in StackResult._fields):
                     continue
                 try:
                     results.append(StackResult(
                         **{k: r[k] for k in StackResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['stack_'+k] for k in StackResult._fields
-                            if 'stack_'+k in r and r['stack_'+k].strip()}))
+                        **{k: r[k] for k in StackResult._fields
+                            if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -588,14 +588,14 @@ def main(ci_paths,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else StackResult._by)
-                + ['stack_'+k for k in (
+                + [k for k in (
                     fields if fields is not None else StackResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
                         by if by is not None else StackResult._by)}
-                    | {'stack_'+k: getattr(r, k) for k in (
+                    | {k: getattr(r, k) for k in (
                         fields if fields is not None else StackResult._fields)})
 
     # find previous results?
@@ -609,15 +609,15 @@ def main(ci_paths,
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
 
-                    if not any('stack_'+k in r and r['stack_'+k].strip()
+                    if not any(k in r and r[k].strip()
                             for k in StackResult._fields):
                         continue
                     try:
                         diff_results.append(StackResult(
                             **{k: r[k] for k in StackResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['stack_'+k] for k in StackResult._fields
-                                if 'stack_'+k in r and r['stack_'+k].strip()}))
+                            **{k: r[k] for k in StackResult._fields
+                                if k in r and r[k].strip()}))
                     except TypeError:
                         raise
         except FileNotFoundError:

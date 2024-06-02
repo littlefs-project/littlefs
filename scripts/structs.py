@@ -481,17 +481,16 @@ def main(obj_paths, *,
                 if not all(k in r and r[k] in vs for k, vs in defines):
                     continue
 
-                if not any('struct_'+k in r and r['struct_'+k].strip()
+                if not any(k in r and r[k].strip()
                         for k in StructResult._fields):
                     continue
                 try:
                     results.append(StructResult(
                         **{k: r[k] for k in StructResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['struct_'+k]
+                        **{k: r[k]
                             for k in StructResult._fields
-                            if 'struct_'+k in r
-                                and r['struct_'+k].strip()}))
+                            if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -513,14 +512,14 @@ def main(obj_paths, *,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else StructResult._by)
-                + ['struct_'+k for k in (
+                + [k for k in (
                     fields if fields is not None else StructResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
                         by if by is not None else StructResult._by)}
-                    | {'struct_'+k: getattr(r, k) for k in (
+                    | {k: getattr(r, k) for k in (
                         fields if fields is not None else StructResult._fields)})
 
     # find previous results?
@@ -534,17 +533,16 @@ def main(obj_paths, *,
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
 
-                    if not any('struct_'+k in r and r['struct_'+k].strip()
+                    if not any(k in r and r[k].strip()
                             for k in StructResult._fields):
                         continue
                     try:
                         diff_results.append(StructResult(
                             **{k: r[k] for k in StructResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['struct_'+k]
+                            **{k: r[k]
                                 for k in StructResult._fields
-                                if 'struct_'+k in r
-                                    and r['struct_'+k].strip()}))
+                                if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:

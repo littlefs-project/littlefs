@@ -532,15 +532,15 @@ def main(obj_paths, *,
                 if not all(k in r and r[k] in vs for k, vs in defines):
                     continue
 
-                if not any('code_'+k in r and r['code_'+k].strip()
+                if not any(k in r and r[k].strip()
                         for k in CodeResult._fields):
                     continue
                 try:
                     results.append(CodeResult(
                         **{k: r[k] for k in CodeResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['code_'+k] for k in CodeResult._fields
-                            if 'code_'+k in r and r['code_'+k].strip()}))
+                        **{k: r[k] for k in CodeResult._fields
+                            if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -562,14 +562,14 @@ def main(obj_paths, *,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else CodeResult._by)
-                + ['code_'+k for k in (
+                + [k for k in (
                     fields if fields is not None else CodeResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
                         by if by is not None else CodeResult._by)}
-                    | {'code_'+k: getattr(r, k) for k in (
+                    | {k: getattr(r, k) for k in (
                         fields if fields is not None else CodeResult._fields)})
 
     # find previous results?
@@ -583,15 +583,15 @@ def main(obj_paths, *,
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
 
-                    if not any('code_'+k in r and r['code_'+k].strip()
+                    if not any(k in r and r[k].strip()
                             for k in CodeResult._fields):
                         continue
                     try:
                         diff_results.append(CodeResult(
                             **{k: r[k] for k in CodeResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['code_'+k] for k in CodeResult._fields
-                                if 'code_'+k in r and r['code_'+k].strip()}))
+                            **{k: r[k] for k in CodeResult._fields
+                                if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:

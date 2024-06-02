@@ -1034,8 +1034,8 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                                 'suite': suite,
                                 'case': case,
                                 **defines,
-                                'test_passed': '1/1',
-                                'test_time': '%.6f' % (
+                                'passed': '1/1',
+                                'time': '%.6f' % (
                                     time.time() - last_time)})
                     elif op == 'skipped':
                         locals.seen_perms += 1
@@ -1096,7 +1096,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                     output_.writerow({
                         'suite': suite,
                         'case': case,
-                        'test_passed': '0/1',
+                        'passed': '0/1',
                         **defines})
 
                 # race condition for multiple failures?
@@ -1230,7 +1230,7 @@ def run(runner, test_ids=[], **args):
     if args.get('output'):
         output = TestOutput(args['output'],
             ['suite', 'case'],
-            ['test_passed', 'test_time'])
+            ['passed', 'time'])
 
     # measure runtime
     start = time.time()

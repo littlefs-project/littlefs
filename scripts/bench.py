@@ -1058,12 +1058,12 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                 'suite': last_suite,
                                 'case': last_case,
                                 **last_defines,
-                                'bench_meas': meas,
-                                'bench_iter': iter,
-                                'bench_size': size,
-                                'bench_readed': readed_,
-                                'bench_proged': proged_,
-                                'bench_erased': erased_})
+                                'meas': meas,
+                                'iter': iter,
+                                'size': size,
+                                'readed': readed_,
+                                'proged': proged_,
+                                'erased': erased_})
                         # keep track of total for summary
                         readed += readed_
                         proged += proged_
@@ -1239,8 +1239,7 @@ def run(runner, bench_ids=[], **args):
     if args.get('output'):
         output = BenchOutput(args['output'],
             ['suite', 'case'],
-            ['bench_meas', 'bench_iter', 'bench_size',
-                'bench_readed', 'bench_proged', 'bench_erased'])
+            ['meas', 'iter', 'size', 'readed', 'proged', 'erased'])
 
     # measure runtime
     start = time.time()
