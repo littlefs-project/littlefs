@@ -648,6 +648,10 @@ def main(csv_paths, *,
             file=sys.stderr)
         sys.exit(-1)
 
+    # use is just an alias
+    if args.get('use'):
+        csv_paths = csv_paths + [args['use']]
+
     # find CSV files
     fields_, results = collect(csv_paths, renames, defines)
 
@@ -741,6 +745,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '-o', '--output',
         help="Specify CSV file to store results.")
+    parser.add_argument(
+        '-u', '--use',
+        help="Don't parse anything, use this CSV file.")
     parser.add_argument(
         '-d', '--diff',
         help="Specify CSV file to diff against.")
