@@ -348,14 +348,14 @@ def table(Result, results, diff_results=None, *,
     lines = []
 
     # header
-    header = []
-    header.append('%s%s' % (
-        ','.join(by),
-        ' (%d added, %d removed)' % (
-            sum(1 for n in table if n not in diff_table),
-            sum(1 for n in diff_table if n not in table))
-            if diff_results is not None and not percent else '')
-        if not summary else '')
+    header = [
+        '%s%s' % (
+            ','.join(by),
+            ' (%d added, %d removed)' % (
+                    sum(1 for n in table if n not in diff_table),
+                    sum(1 for n in diff_table if n not in table))
+                if diff_results is not None and not percent else '')
+            if not summary else '']
     if diff_results is None:
         for k in fields:
             header.append(k)
@@ -369,22 +369,29 @@ def table(Result, results, diff_results=None, *,
             header.append('n'+k)
         for k in fields:
             header.append('d'+k)
-    header.append('')
     lines.append(header)
 
     def table_entry(name, r, diff_r=None):
-        entry = []
-        entry.append(name)
+        entry = [name]
         if diff_results is None:
             for k in fields:
-                entry.append(getattr(r, k).table()
+                entry.append(
+                    (getattr(r, k).table(),
+                        getattr(getattr(r, k), 'notes', lambda: [])())
                     if getattr(r, k, None) is not None
                     else types[k].none)
         elif percent:
             for k in fields:
-                entry.append(getattr(r, k).table()
-                    if getattr(r, k, None) is not None
-                    else types[k].none)
+                entry.append(
+                    (getattr(r, k).table()
+                            if getattr(r, k, None) is not None
+                            else types[k].none,
+                        (lambda t: ['+∞%'] if t == +m.inf
+                                else ['-∞%'] if t == -m.inf
+                                else ['%+.1f%%' % (100*t)])(
+                            types[k].ratio(
+                                getattr(r, k, None),
+                                getattr(diff_r, k, None)))))
         else:
             for k in fields:
                 entry.append(getattr(diff_r, k).table()
@@ -395,30 +402,17 @@ def table(Result, results, diff_results=None, *,
                     if getattr(r, k, None) is not None
                     else types[k].none)
             for k in fields:
-                entry.append(types[k].diff(
-                        getattr(r, k, None),
-                        getattr(diff_r, k, None)))
-        if diff_results is None:
-            notes = []
-            for k in fields:
-                try:
-                    notes.extend(getattr(r, k).notes())
-                except AttributeError:
-                    pass
-            entry.append(' (%s)' % ', '.join(notes)
-                if notes else '')
-        else:
-            ratios = [
-                types[k].ratio(
-                    getattr(r, k, None),
-                    getattr(diff_r, k, None))
-                for k in fields]
-            entry.append(' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in ratios)
-                if percent or any(ratios) else '')
+                entry.append(
+                    (types[k].diff(
+                            getattr(r, k, None),
+                            getattr(diff_r, k, None)),
+                        (lambda t: ['+∞%'] if t == +m.inf
+                                else ['-∞%'] if t == -m.inf
+                                else ['%+.1f%%' % (100*t)] if t
+                                else [])(
+                            types[k].ratio(
+                                getattr(r, k, None),
+                                getattr(diff_r, k, None)))))
         return entry
 
     # entries
@@ -445,21 +439,28 @@ def table(Result, results, diff_results=None, *,
         diff_r = next(iter(fold(Result, diff_results, by=[])), None)
     lines.append(table_entry('TOTAL', r, diff_r))
 
-    # find the best widths, note that column 0 contains the names and
-    # column -1 the ratios/notes, so those are handled a bit differently
-    widths = [
-        ((max(it.chain([w], (len(l[i]) for l in lines)))+1+4-1)//4)*4-1
-        for w, i in zip(
-            it.chain([23], it.repeat(7)),
-            range(len(lines[0])-1))]
+    # homogenize
+    lines = [
+        [x if isinstance(x, tuple) else (x, []) for x in line]
+        for line in lines]
+
+    # find the best widths, note that column 0 contains the names and is
+    # handled a bit differently
+    widths = co.defaultdict(lambda: 7, {0: 23})
+    notes = co.defaultdict(lambda: 0)
+    for line in lines:
+        for i, x in enumerate(line):
+            widths[i] = max(widths[i], ((len(x[0])+1+4-1)//4)*4-1)
+            notes[i] = max(notes[i], 1+2*len(x[1])+sum(len(n) for n in x[1]))
 
     # print our table
     for line in lines:
-        print('%-*s  %s%s' % (
-            widths[0], line[0],
-            ' '.join('%*s' % (w, x)
-                for w, x in zip(widths[1:], line[1:-1])),
-            line[-1]))
+        print('%-*s  %s' % (
+            widths[0], line[0][0],
+            ' '.join('%*s%-*s' % (
+                    widths[i], x[0],
+                    notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
+                for i, x in enumerate(line[1:], 1))))
 
 
 def main(obj_paths, *,
