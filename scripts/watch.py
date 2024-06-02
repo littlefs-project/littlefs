@@ -67,15 +67,19 @@ else:
                 else:
                     self.add_watch(path, flags)
 
-class LinesIO:
-    def __init__(self, maxlen=None):
+class RingIO:
+    def __init__(self, maxlen=None, head=False):
         self.maxlen = maxlen
+        self.head = head
         self.lines = co.deque(maxlen=maxlen)
         self.tail = io.StringIO()
 
         # trigger automatic sizing
         if maxlen == 0:
             self.resize(0)
+
+    def __len__(self):
+        return len(self.lines)
 
     def write(self, s):
         # note using split here ensures the trailing string has no newline
@@ -104,40 +108,43 @@ class LinesIO:
         if self.maxlen == 0:
             self.resize(0)
 
+        # copy lines
+        lines = self.lines.copy()
+        # pad to fill any existing canvas, but truncate to terminal size
+        h = shutil.get_terminal_size((80, 5))[1]
+        lines.extend('' for _ in range(
+            len(lines),
+            min(RingIO.canvas_lines, h)))
+        while len(lines) > h:
+            if self.head:
+                lines.pop()
+            else:
+                lines.popleft()
+
         # first thing first, give ourself a canvas
-        while LinesIO.canvas_lines < len(self.lines):
+        while RingIO.canvas_lines < len(lines):
             sys.stdout.write('\n')
-            LinesIO.canvas_lines += 1
+            RingIO.canvas_lines += 1
 
-        # clear the bottom of the canvas if we shrink
-        shrink = LinesIO.canvas_lines - len(self.lines)
-        if shrink > 0:
-            for i in range(shrink):
-                sys.stdout.write('\r')
-                if shrink-1-i > 0:
-                    sys.stdout.write('\x1b[%dA' % (shrink-1-i))
-                sys.stdout.write('\x1b[K')
-                if shrink-1-i > 0:
-                    sys.stdout.write('\x1b[%dB' % (shrink-1-i))
-            sys.stdout.write('\x1b[%dA' % shrink)
-            LinesIO.canvas_lines = len(self.lines)
-
-        for i, line in enumerate(self.lines):
+        # write lines from top to bottom so later lines overwrite earlier
+        # lines, note [xA/[xB stop at terminal boundaries
+        for i, line in enumerate(lines):
             # move cursor, clear line, disable/reenable line wrapping
             sys.stdout.write('\r')
-            if len(self.lines)-1-i > 0:
-                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-i))
+            if len(lines)-1-i > 0:
+                sys.stdout.write('\x1b[%dA' % (len(lines)-1-i))
             sys.stdout.write('\x1b[K')
             sys.stdout.write('\x1b[?7l')
             sys.stdout.write(line)
             sys.stdout.write('\x1b[?7h')
-            if len(self.lines)-1-i > 0:
-                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-i))
+            if len(lines)-1-i > 0:
+                sys.stdout.write('\x1b[%dB' % (len(lines)-1-i))
         sys.stdout.flush()
 
 
 def main(command, *,
         lines=0,
+        head=False,
         cat=False,
         sleep=None,
         keep_open=False,
@@ -145,6 +152,11 @@ def main(command, *,
         buffer=False,
         ignore_errors=False,
         exit_on_error=False):
+    if not command:
+        print('usage: %s [options] command' % sys.argv[0],
+            file=sys.stderr)
+        sys.exit(-1)
+
     # if we have keep_open_paths, assume user wanted keep_open
     if keep_open_paths and not keep_open:
         keep_open = True
@@ -171,7 +183,7 @@ def main(command, *,
             if cat:
                 ring = sys.stdout
             else:
-                ring = LinesIO(lines)
+                ring = RingIO(lines, head)
 
             try:
                 # register inotify before running the command, this avoids
@@ -206,9 +218,10 @@ def main(command, *,
                     if not line:
                         break
 
-                    ring.write(line)
-                    if not cat and not buffer and not ignore_errors:
-                        ring.draw()
+                    if cat or not head or len(ring) < h:
+                        ring.write(line)
+                        if not cat and not buffer and not ignore_errors:
+                            ring.draw()
 
                 mpty.close()
                 proc.wait()
@@ -262,6 +275,10 @@ if __name__ == "__main__":
         const=0,
         help="Show this many lines of history. 0 uses the terminal height. "
             "Defaults to 0.")
+    parser.add_argument(
+        '-^', '--head',
+        action='store_true',
+        help="Show the first n lines.")
     parser.add_argument(
         '-z', '--cat',
         action='store_true',
