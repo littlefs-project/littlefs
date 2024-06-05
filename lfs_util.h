@@ -211,6 +211,12 @@ static inline uint32_t lfs_tobe32(uint32_t a) {
     return lfs_frombe32(a);
 }
 
+// Specify CRC-32 implementation specific match value that you get when
+// computing CRC over a payload and its CRC.
+#ifndef LFS_CRC_MATCH
+#define LFS_CRC_MATCH 0x00000000
+#endif
+
 // Calculate CRC-32 with polynomial = 0x04c11db7
 #ifdef LFS_CRC
 uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size) {

@@ -1775,7 +1775,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         return err;
     }
 
-    if (crc != 0) {
+    if (crc != LFS_CRC_MATCH) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -5401,7 +5401,7 @@ static int lfs1_dir_fetch(lfs_t *lfs,
             return err;
         }
 
-        if (crc != 0) {
+        if (crc != LFS_CRC_MATCH) {
             continue;
         }
 
