@@ -5095,7 +5095,7 @@ code = '''
 ## other corner cases
 
 # test formatting with 0 or 1 bad, this should just error
-[cases.test_badblocks_mrootanchor]
+[cases.test_badblocks_mrootanchor_format]
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCKS = [0x1, 0x2, 0x3]
 defines.BADBLOCK_BEHAVIOR = [
@@ -5118,6 +5118,53 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => LFS_ERR_CORRUPT;
 '''
+
+# test blocks 0 or 1 going bad, this should just error
+[cases.test_badblocks_mrootanchor_wear]
+defines.ERASE_CYCLES = 0xffffffff
+defines.BADBLOCKS = [0x1, 0x2]
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
+]
+# we need prog checking to detect read errors
+defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+
+    if (BADBLOCKS & 0x1) {
+        lfs_emubd_setwear(CFG, 0, 0xffffffff) => 0;
+    }
+    if (BADBLOCKS & 0x2) {
+        lfs_emubd_setwear(CFG, 1, 0xffffffff) => 0;
+    }
+
+    lfsr_mount(&lfs, CFG) => 0;
+
+    for (lfs_size_t i = 0;; i++) {
+        // this should eventually fail
+        assert(i <= BLOCK_COUNT);
+
+        int err = lfsr_mkdir(&lfs, "hi");
+        assert(!err || err == LFS_ERR_NOSPC);
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+
+        err = lfsr_remove(&lfs, "hi");
+        assert(!err || err == LFS_ERR_NOSPC);
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 
 

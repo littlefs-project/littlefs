@@ -6668,9 +6668,12 @@ relocate:;
 
             err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
             if (err) {
-                // bad prog? try another block
+                // bad prog? can't do much here, mdir stuck
                 if (err == LFS_ERR_CORRUPT) {
-                    goto relocate;
+                    LFS_DEBUG("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
+                            mdir->rbyd.blocks[0],
+                            mdir->rbyd.blocks[1]);
+                    return LFS_ERR_NOSPC;
                 }
                 return err;
             }
@@ -7211,6 +7214,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfsr_mdir_t mrootanchor_;
             err = lfsr_mdir_swap__(lfs, &mrootanchor_, &mrootchild, true);
             if (err) {
+                // bad prog? can't do much here, mroot stuck
+                if (err == LFS_ERR_CORRUPT) {
+                    LFS_DEBUG("Stuck mroot 0x{%"PRIx32",%"PRIx32"}",
+                            mrootanchor_.rbyd.blocks[0],
+                            mrootanchor_.rbyd.blocks[1]);
+                    return LFS_ERR_NOSPC;
+                }
                 goto failed;
             }
 
@@ -7228,6 +7238,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 LFS_ASSERT(err != LFS_ERR_NOENT);
+                // bad prog? can't do much here, mroot stuck
+                if (err == LFS_ERR_CORRUPT) {
+                    LFS_DEBUG("Stuck mroot 0x{%"PRIx32",%"PRIx32"}",
+                            mrootanchor_.rbyd.blocks[0],
+                            mrootanchor_.rbyd.blocks[1]);
+                    return LFS_ERR_NOSPC;
+                }
                 goto failed;
             }
         }
