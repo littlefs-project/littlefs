@@ -93,7 +93,7 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
     //
     //                code   stack     ins   ld/st  branch
     // naive            48      12  221192    4099   36865
-    // small-table     316      12   49160   12291    4097
+    // small-table     124      12   49160   12291    4097
     // big-table      1064       8   32776    8195    4097
     //
     #if defined(LFS_SMALLER_CRC32C)
