@@ -140,8 +140,8 @@ typedef struct lfs_emubd {
     lfs_emubd_io_t proged;
     lfs_emubd_io_t erased;
     lfs_emubd_powercycles_t power_cycles;
-    lfs_ssize_t ooo_block;
-    lfs_emubd_block_t *ooo_data;
+    lfs_emubd_block_t **ooo_before;
+    lfs_emubd_block_t **ooo_after;
     lfs_emubd_disk_t *disk;
 
     const struct lfs_emubd_config *cfg;
