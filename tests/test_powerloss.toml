@@ -19,6 +19,8 @@ after = [
 [cases.test_powerloss_dir_many]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_SOMEBITS',
+    'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
@@ -111,6 +113,8 @@ code = '''
 [cases.test_powerloss_file_many]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_SOMEBITS',
+    'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
 # inlining has a tendency to hide sync issues, so try without
@@ -205,6 +209,8 @@ code = '''
 [cases.test_powerloss_file_pl_fuzz]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_SOMEBITS',
+    'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
 # inlining has a tendency to hide sync issues, so try without
@@ -429,6 +435,8 @@ code = '''
 [cases.test_powerloss_filedir_pl_fuzz]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_SOMEBITS',
+    'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
 # inlining has a tendency to hide sync issues, so try without

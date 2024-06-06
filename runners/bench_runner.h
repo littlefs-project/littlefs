@@ -128,7 +128,8 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(ERASE_VALUE,        0xff                                   ) \
     BENCH_DEFINE(ERASE_CYCLES,       0                                      ) \
     BENCH_DEFINE(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR           ) \
-    BENCH_DEFINE(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_NOOP               )
+    BENCH_DEFINE(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_NOOP               ) \
+    BENCH_DEFINE(EMUBD_SEED,         0                                      )
 
 // declare defines as global intmax_ts
 #define BENCH_DEFINE(k, v) \
@@ -158,7 +159,8 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     .erase_value        = ERASE_VALUE,          \
     .erase_cycles       = ERASE_CYCLES,         \
     .badblock_behavior  = BADBLOCK_BEHAVIOR,    \
-    .powerloss_behavior = POWERLOSS_BEHAVIOR,
+    .powerloss_behavior = POWERLOSS_BEHAVIOR,   \
+    .seed               = EMUBD_SEED,
 
 
 #endif

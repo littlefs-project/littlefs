@@ -16865,6 +16865,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_UATTR(0), 0,
@@ -16913,6 +16914,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_UATTR(0), 0,
@@ -16971,6 +16973,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_UATTR(0), 0,
@@ -17028,6 +17031,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_UATTR(0), 0,
@@ -17095,6 +17099,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
+    lfsr_bd_erase(&lfs, rbyd.blocks[0]) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, -1, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_UATTR(0), 0,

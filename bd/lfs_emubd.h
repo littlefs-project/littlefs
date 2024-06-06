@@ -46,8 +46,10 @@ typedef enum lfs_emubd_badblock_behavior {
 // Mode determining how power-loss behaves during testing. For now this
 // only supports a noop behavior, leaving the data on-disk untouched.
 typedef enum lfs_emubd_powerloss_behavior {
-    LFS_EMUBD_POWERLOSS_NOOP = 0, // Progs are atomic
-    LFS_EMUBD_POWERLOSS_OOO  = 1, // Blocks are written out-of-order
+    LFS_EMUBD_POWERLOSS_NOOP     = 0, // Progs are atomic
+    LFS_EMUBD_POWERLOSS_SOMEBITS = 1, // One bit is progged
+    LFS_EMUBD_POWERLOSS_MOSTBITS = 2, // All-but-one bit is progged
+    LFS_EMUBD_POWERLOSS_OOO      = 3, // Blocks are written out-of-order
 } lfs_emubd_powerloss_behavior_t;
 
 // Type for measuring read/program/erase operations
@@ -94,6 +96,10 @@ struct lfs_emubd_config {
     // Data for power-loss callback
     void *powerloss_data;
 
+    // Seed for prng, which may be used for emulating failed progs. This does
+    // not affect normal operation.
+    uint32_t seed;
+
     // Path to file to use as a mirror of the disk. This provides a way to view
     // the current state of the block device.
     const char *disk_path;
@@ -135,6 +141,7 @@ typedef struct lfs_emubd {
     lfs_emubd_io_t readed;
     lfs_emubd_io_t proged;
     lfs_emubd_io_t erased;
+    uint32_t prng;
     lfs_emubd_powercycles_t power_cycles;
     lfs_emubd_block_t **ooo_before;
     lfs_emubd_block_t **ooo_after;

@@ -47,48 +47,63 @@ static void lfs_emubd_decblock(lfs_emubd_block_t *block) {
 
 static lfs_emubd_block_t *lfs_emubd_mutblock(
         const struct lfs_config *cfg,
-        lfs_emubd_block_t **block) {
-    lfs_emubd_block_t *block_ = *block;
-    if (block_ && block_->rc == 1) {
+        lfs_emubd_block_t *block) {
+    if (block && block->rc == 1) {
         // rc == 1? can modify
-        return block_;
+        return block;
 
-    } else if (block_) {
+    } else if (block) {
         // rc > 1? need to create a copy
-        lfs_emubd_block_t *nblock = malloc(
+        lfs_emubd_block_t *block_ = malloc(
                 sizeof(lfs_emubd_block_t) + cfg->block_size);
-        if (!nblock) {
+        if (!block_) {
             return NULL;
         }
 
-        memcpy(nblock, block_,
+        memcpy(block_, block,
                 sizeof(lfs_emubd_block_t) + cfg->block_size);
-        nblock->rc = 1;
+        block_->rc = 1;
 
-        lfs_emubd_decblock(block_);
-        *block = nblock;
-        return nblock;
+        lfs_emubd_decblock(block);
+        return block_;
 
     } else {
         // no block? need to allocate
-        lfs_emubd_block_t *nblock = malloc(
+        lfs_emubd_block_t *block_ = malloc(
                 sizeof(lfs_emubd_block_t) + cfg->block_size);
-        if (!nblock) {
+        if (!block_) {
             return NULL;
         }
 
-        nblock->rc = 1;
-        nblock->wear = 0;
+        block_->rc = 1;
+        block_->wear = 0;
 
         // zero for consistency
         lfs_emubd_t *bd = cfg->context;
-        memset(nblock->data,
+        memset(block_->data,
                 (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
                 cfg->block_size);
 
-        *block = nblock;
-        return nblock;
+        return block_;
     }
+}
+
+
+// prng used for some emulation things
+static uint32_t lfs_emubd_prng(uint32_t *state) {
+    // A simple xorshift32 generator, easily reproducible. Keep in mind
+    // determinism is much more important than actual randomness here.
+    uint32_t x = *state;
+    // must be non-zero, use uintmax here so that seed=0 is different
+    // from seed=1 and seed=range(0,n) makes a bit more sense
+    if (x == 0) {
+        x = -1;
+    }
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return x;
 }
 
 
@@ -104,7 +119,7 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
                 "%p {.erase_value=%"PRId32", .erase_cycles=%"PRIu32", "
                 ".badblock_behavior=%"PRIu8", .power_cycles=%"PRIu32", "
                 ".powerloss_behavior=%"PRIu8", .powerloss_cb=%p, "
-                ".powerloss_data=%p})",
+                ".powerloss_data=%p, seed=%"PRIu32"})",
             (void*)cfg, cfg->context,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
@@ -112,7 +127,7 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
             path, (void*)bdcfg, bdcfg->erase_value, bdcfg->erase_cycles,
             bdcfg->badblock_behavior, bdcfg->power_cycles,
             bdcfg->powerloss_behavior, (void*)(uintptr_t)bdcfg->powerloss_cb,
-            bdcfg->powerloss_data);
+            bdcfg->powerloss_data, bdcfg->seed);
     lfs_emubd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
@@ -121,6 +136,7 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
     bd->readed = 0;
     bd->proged = 0;
     bd->erased = 0;
+    bd->prng = bd->cfg->seed;
     bd->power_cycles = bd->cfg->power_cycles;
     bd->ooo_before = NULL;
     bd->ooo_after = NULL;
@@ -342,78 +358,100 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(size % cfg->prog_size == 0);
     LFS_ASSERT(off+size <= cfg->block_size);
 
-    // get the block
-    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
-    if (!b) {
-        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
-        return LFS_ERR_NOMEM;
-    }
-
-    // block bad?
-    if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles) {
-        if (bd->cfg->badblock_behavior ==
-                LFS_EMUBD_BADBLOCK_PROGERROR) {
-            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_CORRUPT);
-            return LFS_ERR_CORRUPT;
-        } else if (bd->cfg->badblock_behavior ==
-                LFS_EMUBD_BADBLOCK_PROGNOOP ||
-                bd->cfg->badblock_behavior ==
-                LFS_EMUBD_BADBLOCK_ERASENOOP) {
-            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
-            return 0;
-        }
-    }
-
     // were we erased properly?
-    if (bd->cfg->erase_value != -1) {
+    LFS_ASSERT(bd->blocks[block]);
+    if (bd->cfg->erase_value != -1
+            && !(bd->cfg->erase_cycles
+                && bd->blocks[block]->wear >= bd->cfg->erase_cycles)) {
         for (lfs_off_t i = 0; i < size; i++) {
-            LFS_ASSERT(b->data[off+i] == bd->cfg->erase_value);
+            LFS_ASSERT(bd->blocks[block]->data[off+i] == bd->cfg->erase_value);
         }
     }
 
-    // prog data
-    memcpy(&b->data[off], buffer, size);
-
-    // mirror to disk file?
-    if (bd->disk) {
-        off_t res1 = lseek(bd->disk->fd,
-                (off_t)block*cfg->block_size + (off_t)off,
-                SEEK_SET);
-        if (res1 < 0) {
-            int err = -errno;
-            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
-            return err;
-        }
-
-        ssize_t res2 = write(bd->disk->fd, buffer, size);
-        if (res2 < 0) {
-            int err = -errno;
-            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
-            return err;
-        }
-    }
-
-    // track progs
-    bd->proged += size;
-    if (bd->cfg->prog_sleep) {
-        int err = nanosleep(&(struct timespec){
-                .tv_sec=bd->cfg->prog_sleep/1000000000,
-                .tv_nsec=bd->cfg->prog_sleep%1000000000},
-            NULL);
-        if (err) {
-            err = -errno;
-            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
-            return err;
-        }
-    }
-
-    // lose power?
+    // losing power?
     if (bd->power_cycles > 0) {
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
-            // if we're emulating out-of-order writes, revert everything
-            // unsynced except for our current block
-            if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO) {
+            // if emulating some bits, choose a random bit to flip
+            if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_SOMEBITS) {
+                // mutate the block
+                lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg,
+                        bd->blocks[block]);
+                if (!b) {
+                    LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
+                    return LFS_ERR_NOMEM;
+                }
+                bd->blocks[block] = b;
+
+                // flip bit
+                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                        % (cfg->prog_size*8);
+                b->data[off + (bit/8)] ^= (1 << (bit%8));
+
+                // mirror to disk file?
+                if (bd->disk) {
+                    off_t res1 = lseek(bd->disk->fd,
+                            (off_t)block*cfg->block_size + (off_t)off,
+                            SEEK_SET);
+                    if (res1 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+                        return err;
+                    }
+
+                    ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
+                    if (res2 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+                        return err;
+                    }
+                }
+
+            // if emulating most bits, prog data and choose a random bit
+            // to flip
+            } else if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_MOSTBITS) {
+                // mutate the block
+                lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg,
+                        bd->blocks[block]);
+                if (!b) {
+                    LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
+                    return LFS_ERR_NOMEM;
+                }
+                bd->blocks[block] = b;
+
+                // prog data
+                memcpy(&b->data[off], buffer, size);
+
+                // flip bit
+                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                        % (cfg->prog_size*8);
+                b->data[off + (bit/8)] ^= (1 << (bit%8));
+
+                // mirror to disk file?
+                if (bd->disk) {
+                    off_t res1 = lseek(bd->disk->fd,
+                            (off_t)block*cfg->block_size + (off_t)off,
+                            SEEK_SET);
+                    if (res1 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+                        return err;
+                    }
+
+                    ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
+                    if (res2 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+                        return err;
+                    }
+                }
+
+            // if emulating out-of-order writes, revert everything unsynced
+            // except for our current block
+            } else if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_OOO) {
                 for (lfs_block_t i = 0; i < cfg->block_count; i++) {
                     lfs_emubd_decblock(bd->ooo_after[i]);
                     bd->ooo_after[i] = lfs_emubd_incblock(bd->blocks[i]);
@@ -486,6 +524,65 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // block bad?
+    if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles) {
+        if (bd->cfg->badblock_behavior ==
+                LFS_EMUBD_BADBLOCK_PROGERROR) {
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_CORRUPT);
+            return LFS_ERR_CORRUPT;
+        } else if (bd->cfg->badblock_behavior ==
+                LFS_EMUBD_BADBLOCK_PROGNOOP ||
+                bd->cfg->badblock_behavior ==
+                LFS_EMUBD_BADBLOCK_ERASENOOP) {
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
+            return 0;
+        }
+    }
+
+    // prog data
+    memcpy(&b->data[off], buffer, size);
+
+    // mirror to disk file?
+    if (bd->disk) {
+        off_t res1 = lseek(bd->disk->fd,
+                (off_t)block*cfg->block_size + (off_t)off,
+                SEEK_SET);
+        if (res1 < 0) {
+            int err = -errno;
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+            return err;
+        }
+
+        ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
+        if (res2 < 0) {
+            int err = -errno;
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+            return err;
+        }
+    }
+
+    // track progs
+    bd->proged += size;
+    if (bd->cfg->prog_sleep) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->prog_sleep/1000000000,
+                .tv_nsec=bd->cfg->prog_sleep%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+            return err;
+        }
+    }
+
     LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
     return 0;
 }
@@ -498,16 +595,174 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     // check if erase is valid
     LFS_ASSERT(block < cfg->block_count);
 
-    // get the block
-    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
+    // losing power?
+    if (bd->power_cycles > 0) {
+        bd->power_cycles -= 1;
+        if (bd->power_cycles == 0) {
+            // if emulating some bits, choose a random bit to flip
+            if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_SOMEBITS) {
+                // mutate the block
+                lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg,
+                        bd->blocks[block]);
+                if (!b) {
+                    LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_NOMEM);
+                    return LFS_ERR_NOMEM;
+                }
+                bd->blocks[block] = b;
+
+                // flip bit
+                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                        % (cfg->block_size*8);
+                b->data[(bit/8)] ^= (1 << (bit%8));
+
+                // mirror to disk file?
+                if (bd->disk) {
+                    off_t res1 = lseek(bd->disk->fd,
+                            (off_t)block*cfg->block_size,
+                            SEEK_SET);
+                    if (res1 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                        return err;
+                    }
+
+                    ssize_t res2 = write(bd->disk->fd,
+                            b->data, cfg->block_size);
+                    if (res2 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                        return err;
+                    }
+                }
+
+            // if emulating most bits, erase data and choose a random bit
+            // to flip
+            } else if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_MOSTBITS) {
+                // mutate the block
+                lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg,
+                        bd->blocks[block]);
+                if (!b) {
+                    LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_NOMEM);
+                    return LFS_ERR_NOMEM;
+                }
+                bd->blocks[block] = b;
+
+                // emulate an erase value?
+                if (bd->cfg->erase_value != -1) {
+                    memset(b->data, bd->cfg->erase_value, cfg->block_size);
+                }
+
+                // flip bit
+                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                        % (cfg->block_size*8);
+                b->data[(bit/8)] ^= (1 << (bit%8));
+
+                // mirror to disk file?
+                if (bd->disk) {
+                    off_t res1 = lseek(bd->disk->fd,
+                            (off_t)block*cfg->block_size,
+                            SEEK_SET);
+                    if (res1 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                        return err;
+                    }
+
+                    ssize_t res2 = write(bd->disk->fd,
+                            b->data, cfg->block_size);
+                    if (res2 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                        return err;
+                    }
+                }
+
+            // if emulating out-of-order writes, revert everything unsynced
+            // except for our current block
+            } else if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_OOO) {
+                for (lfs_block_t i = 0; i < cfg->block_count; i++) {
+                    if (i != block && bd->blocks[i] != bd->ooo_before[i]) {
+                        lfs_emubd_decblock(bd->blocks[i]);
+                        bd->blocks[i] = lfs_emubd_incblock(bd->ooo_before[i]);
+
+                        // mirror to disk file?
+                        if (bd->disk) {
+                            off_t res1 = lseek(bd->disk->fd,
+                                    (off_t)i*cfg->block_size,
+                                    SEEK_SET);
+                            if (res1 < 0) {
+                                int err = -errno;
+                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                                return err;
+                            }
+
+                            ssize_t res2 = write(bd->disk->fd,
+                                    (bd->blocks[i])
+                                        ? bd->blocks[i]->data
+                                        : bd->disk->scratch,
+                                    cfg->block_size);
+                            if (res2 < 0) {
+                                int err = -errno;
+                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                                return err;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // powerloss!
+            bd->cfg->powerloss_cb(bd->cfg->powerloss_data);
+
+            // oh, continuing? undo out-of-order write emulation
+            if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO) {
+                for (lfs_block_t i = 0; i < cfg->block_count; i++) {
+                    if (bd->blocks[i] != bd->ooo_after[i]) {
+                        lfs_emubd_decblock(bd->blocks[i]);
+                        bd->blocks[i] = lfs_emubd_incblock(bd->ooo_after[i]);
+
+                        // mirror to disk file?
+                        if (bd->disk) {
+                            off_t res1 = lseek(bd->disk->fd,
+                                    (off_t)i*cfg->block_size,
+                                    SEEK_SET);
+                            if (res1 < 0) {
+                                int err = -errno;
+                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                                return err;
+                            }
+
+                            ssize_t res2 = write(bd->disk->fd,
+                                    (bd->blocks[i])
+                                        ? bd->blocks[i]->data
+                                        : bd->disk->scratch,
+                                    cfg->block_size);
+                            if (res2 < 0) {
+                                int err = -errno;
+                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                                return err;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
         LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
+    bd->blocks[block] = b;
 
     // block bad?
     if (bd->cfg->erase_cycles) {
-        if (b->wear >= bd->cfg->erase_cycles) {
+        if (b && b->wear >= bd->cfg->erase_cycles) {
             if (bd->cfg->badblock_behavior ==
                     LFS_EMUBD_BADBLOCK_ERASEERROR) {
                 LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_CORRUPT);
@@ -558,85 +813,6 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
             err = -errno;
             LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
             return err;
-        }
-    }
-
-    // lose power?
-    if (bd->power_cycles > 0) {
-        bd->power_cycles -= 1;
-        if (bd->power_cycles == 0) {
-            // if we're emulating out-of-order writes, revert everything
-            // unsynced except for our current block
-            if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO) {
-                for (lfs_block_t i = 0; i < cfg->block_count; i++) {
-                    lfs_emubd_decblock(bd->ooo_after[i]);
-                    bd->ooo_after[i] = lfs_emubd_incblock(bd->blocks[i]);
-
-                    if (i != block && bd->blocks[i] != bd->ooo_before[i]) {
-                        lfs_emubd_decblock(bd->blocks[i]);
-                        bd->blocks[i] = lfs_emubd_incblock(bd->ooo_before[i]);
-
-                        // mirror to disk file?
-                        if (bd->disk) {
-                            off_t res1 = lseek(bd->disk->fd,
-                                    (off_t)i*cfg->block_size,
-                                    SEEK_SET);
-                            if (res1 < 0) {
-                                int err = -errno;
-                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
-                                return err;
-                            }
-
-                            ssize_t res2 = write(bd->disk->fd,
-                                    (bd->blocks[i])
-                                        ? bd->blocks[i]->data
-                                        : bd->disk->scratch,
-                                    cfg->block_size);
-                            if (res2 < 0) {
-                                int err = -errno;
-                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
-                                return err;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // powerloss!
-            bd->cfg->powerloss_cb(bd->cfg->powerloss_data);
-
-            // oh, continuing? undo out-of-order write emulation
-            if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO) {
-                for (lfs_block_t i = 0; i < cfg->block_count; i++) {
-                    if (bd->blocks[i] != bd->ooo_after[i]) {
-                        lfs_emubd_decblock(bd->blocks[i]);
-                        bd->blocks[i] = lfs_emubd_incblock(bd->ooo_after[i]);
-
-                        // mirror to disk file?
-                        if (bd->disk) {
-                            off_t res1 = lseek(bd->disk->fd,
-                                    (off_t)i*cfg->block_size,
-                                    SEEK_SET);
-                            if (res1 < 0) {
-                                int err = -errno;
-                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
-                                return err;
-                            }
-
-                            ssize_t res2 = write(bd->disk->fd,
-                                    (bd->blocks[i])
-                                        ? bd->blocks[i]->data
-                                        : bd->disk->scratch,
-                                    cfg->block_size);
-                            if (res2 < 0) {
-                                int err = -errno;
-                                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
-                                return err;
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -792,12 +968,15 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
     // check if block is valid
     LFS_ASSERT(block < cfg->block_count);
 
-    // set the wear
-    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
         LFS_EMUBD_TRACE("lfs_emubd_setwear -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
+    bd->blocks[block] = b;
+
+    // set the wear
     b->wear = wear;
 
     LFS_EMUBD_TRACE("lfs_emubd_setwear -> %d", 0);
@@ -866,6 +1045,7 @@ int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
     copy->readed = bd->readed;
     copy->proged = bd->proged;
     copy->erased = bd->erased;
+    copy->prng = bd->prng;
     copy->power_cycles = bd->power_cycles;
     copy->disk = bd->disk;
     if (copy->disk) {
