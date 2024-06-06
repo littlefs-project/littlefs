@@ -104,7 +104,7 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
                 "%p {.erase_value=%"PRId32", .erase_cycles=%"PRIu32", "
                 ".badblock_behavior=%"PRIu8", .power_cycles=%"PRIu32", "
                 ".powerloss_behavior=%"PRIu8", .powerloss_cb=%p, "
-                ".powerloss_data=%p, .track_branches=%d})",
+                ".powerloss_data=%p})",
             (void*)cfg, cfg->context,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
@@ -112,7 +112,7 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
             path, (void*)bdcfg, bdcfg->erase_value, bdcfg->erase_cycles,
             bdcfg->badblock_behavior, bdcfg->power_cycles,
             bdcfg->powerloss_behavior, (void*)(uintptr_t)bdcfg->powerloss_cb,
-            bdcfg->powerloss_data, bdcfg->track_branches);
+            bdcfg->powerloss_data);
     lfs_emubd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
