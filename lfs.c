@@ -836,9 +836,8 @@ enum lfsr_tag {
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_MOVE           = 0x0800,
-    LFSR_TAG_SHRUBALLOC     = 0x0801,
-    LFSR_TAG_SHRUBCOMMIT    = 0x0802,
-    LFSR_TAG_SHRUBTRUNK     = 0x0803,
+    LFSR_TAG_SHRUBCOMMIT    = 0x0801,
+    LFSR_TAG_SHRUBTRUNK     = 0x0802,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -6146,7 +6145,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             return err;
                         }
 
-                        // compact our bshrub
+                        // compact our shrub
                         err = lfsr_shrub_compact(lfs, &rbyd_, &shrub,
                                 &shrub);
                         if (err) {
@@ -6224,24 +6223,21 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
-            } else if (attrs[i].tag == LFSR_TAG_SHRUBALLOC
-                    || attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
-                const lfsr_shrubcommit_t *bshrubcommit = attrs[i].cat;
+            } else if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
+                const lfsr_shrubcommit_t *shrubcommit = attrs[i].cat;
 
-                // SHRUBALLOC is roughly the same as SHRUBCOMMIT but also
-                // resets the shrub, we need to do this here so bshrub root
-                // extensions are atomic
-                if (attrs[i].tag == LFSR_TAG_SHRUBALLOC) {
-                    bshrubcommit->shrub->blocks[0] = rbyd_.blocks[0];
-                    bshrubcommit->shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
-                    bshrubcommit->shrub->weight = 0;
+                // reset shrub if it doesn't live in our block, this happens
+                // when converting from a btree
+                if (shrubcommit->shrub->blocks[0] != rbyd_.blocks[0]) {
+                    shrubcommit->shrub->blocks[0] = rbyd_.blocks[0];
+                    shrubcommit->shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
+                    shrubcommit->shrub->weight = 0;
                 }
 
+                // commit to shrub
                 int err = lfsr_shrub_commit(lfs, &rbyd_,
-                        bshrubcommit->shrub,
-                        bshrubcommit->rid,
-                        bshrubcommit->attrs,
-                        bshrubcommit->attr_count);
+                        shrubcommit->shrub, shrubcommit->rid,
+                        shrubcommit->attrs, shrubcommit->attr_count);
                 if (err) {
                     return err;
                 }
@@ -10559,9 +10555,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
         // commit to shrub
         int err = lfsr_mdir_commit(lfs, &file->o.mdir, LFSR_ATTRS(
                 LFSR_ATTR_SHRUBCOMMIT(
-                    (alloc)
-                        ? LFSR_TAG_SHRUBALLOC
-                        : LFSR_TAG_SHRUBCOMMIT, 0,
+                    LFSR_TAG_SHRUBCOMMIT, 0,
                     &file->bshrub_.u.bshrub, bid,
                     attrs, attr_count)));
         if (err) {
