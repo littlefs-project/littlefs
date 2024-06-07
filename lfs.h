@@ -384,7 +384,7 @@ typedef struct lfsr_rbyd {
     // sign(trunk)=0 => normal rbyd
     // sign(trunk)=1 => shrub rbyd
     lfs_size_t trunk;
-    // sign(eoff)       => commit parity
+    // sign(eoff)       => perturb bit
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction

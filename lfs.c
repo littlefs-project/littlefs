@@ -830,7 +830,9 @@ enum lfsr_tag {
 
     // checksum tags
     LFSR_TAG_CKSUM          = 0x3000,
-    LFSR_TAG_PERTURB        = 0x3100,
+    LFSR_TAG_Q              = 0x0000,
+    LFSR_TAG_P              = 0x0001,
+    LFSR_TAG_NOISE          = 0x3100,
     LFSR_TAG_ECKSUM         = 0x3200,
 
     // in-device only tags, these should never get written to disk
@@ -898,6 +900,10 @@ static inline bool lfsr_tag_isshrub(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return lfsr_tag_mode(tag) != LFSR_TAG_CKSUM;
+}
+
+static inline bool lfsr_tag_perturb(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_P;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
@@ -1111,7 +1117,7 @@ static inline bool lfsr_tag_diverging2(
 //                                                total:            <=11 bytes
 #define LFSR_TAG_DSIZE (2+5+4)
 
-static lfs_ssize_t lfsr_bd_readtag_(lfs_t *lfs,
+static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfs_size_t *size_,
         uint32_t *cksum_) {
@@ -1132,6 +1138,15 @@ static lfs_ssize_t lfsr_bd_readtag_(lfs_t *lfs,
             = ((lfsr_tag_t)tag_buf[0] << 8)
             | ((lfsr_tag_t)tag_buf[1] << 0);
     lfs_ssize_t d = 2;
+
+    if (cksum_) {
+        // on-disk, the tags valid bit must reflect the parity of the
+        // preceding data, fortunately for crc32c, this is the same as the
+        // parity of the crc
+        if ((tag >> 15) != lfs_parity(*cksum_)) {
+            return LFS_ERR_CORRUPT;
+        }
+    }
 
     lfsr_rid_t weight;
     lfs_ssize_t d_ = lfs_fromleb128(&weight, &tag_buf[d], tag_dsize-d);
@@ -1157,32 +1172,14 @@ static lfs_ssize_t lfsr_bd_readtag_(lfs_t *lfs,
 
     // optional checksum
     if (cksum_) {
-        // ignore the valid bit when calculating checksums
-        *cksum_ ^= tag_buf[0] & 0x80;
         *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
     }
 
-    // save what we found
-    *tag_ = tag;
+    // save what we found, clearing the valid bit from the tag, note we
+    // checked this earlier
+    *tag_ = tag & 0x7fff;
     *weight_ = weight;
     *size_ = size;
-    return d;
-}
-
-// clear the valid bit, since most readtag calls don't care
-static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
-        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
-        lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfs_size_t *size_,
-        uint32_t *cksum_) {
-    lfs_ssize_t d = lfsr_bd_readtag_(lfs, block, off, hint,
-            tag_, weight_, size_, cksum_);
-    if (d < 0) {
-        return d;
-    }
-
-    if (tag_) {
-        *tag_ &= 0x7fff;
-    }
     return d;
 }
 
@@ -1190,12 +1187,19 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off,
         lfsr_tag_t tag, lfsr_rid_t weight, lfs_size_t size,
         uint32_t *cksum_, bool align) {
+    // we set the valid bit here
+    LFS_ASSERT(!(tag & 0x8000));
     // bit 7 is reserved for future subtype extensions
     LFS_ASSERT(!(tag & 0x80));
     // weight should not exceed 31-bits
     LFS_ASSERT(weight <= 0x7fffffff);
     // size should not exceed 28-bits
     LFS_ASSERT(size <= 0x0fffffff);
+
+    // set the valid bit to the parity of the current cksum
+    if (cksum_) {
+        tag |= (lfsr_tag_t)lfs_parity(*cksum_) << 15;
+    }
 
     // encode into a be16 and pair of leb128s
     uint8_t tag_buf[LFSR_TAG_DSIZE];
@@ -1215,10 +1219,6 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     }
     d += d_;
 
-    // ignore the valid bit when calculating checksums
-    if (cksum_ && !align) {
-        *cksum_ ^= tag_buf[0] & 0x80;
-    }
     int err = lfsr_bd_prog(lfs, block, off, tag_buf, d,
             cksum_, align);
     if (err) {
@@ -2081,7 +2081,7 @@ static void lfs_alloc_ckpoint(lfs_t *lfs);
 /// Red-black-yellow Dhara tree operations ///
 
 #define LFSR_RBYD_ISSHRUB 0x80000000
-#define LFSR_RBYD_PARITY  0x80000000
+#define LFSR_RBYD_PERTURB 0x80000000
 
 // helper functions
 static inline bool lfsr_rbyd_isshrub(const lfsr_rbyd_t *rbyd) {
@@ -2096,12 +2096,12 @@ static inline bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
     return !lfsr_rbyd_trunk(rbyd) || rbyd->eoff;
 }
 
-static inline bool lfsr_rbyd_parity(const lfsr_rbyd_t *rbyd) {
-    return rbyd->eoff >> (8*sizeof(lfs_size_t)-1);
+static inline bool lfsr_rbyd_perturb(const lfsr_rbyd_t *rbyd) {
+    return rbyd->eoff & LFSR_RBYD_PERTURB;
 }
 
 static inline lfs_size_t lfsr_rbyd_eoff(const lfsr_rbyd_t *rbyd) {
-    return rbyd->eoff & ~LFSR_RBYD_PARITY;
+    return rbyd->eoff & ~LFSR_RBYD_PERTURB;
 }
 
 static inline int lfsr_rbyd_cmp(
@@ -2146,7 +2146,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // temporary state until we validate a cksum
     uint32_t cksum_ = cksum;
-    bool parity_ = lfs_parity(cksum);
     lfs_size_t off = sizeof(uint32_t);
     lfs_size_t trunk_ = 0;
     lfs_size_t trunk__ = 0;
@@ -2155,16 +2154,22 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // assume unerased until proven otherwise
     lfsr_ecksum_t ecksum = {.cksize=-1};
+    lfsr_ecksum_t ecksum_ = {.cksize=-1};
 
     // scan tags, checking valid bits, cksums, etc
     while (off < lfs->cfg->block_size
             && (!trunk || lfsr_rbyd_eoff(rbyd) <= trunk)) {
+        // perturb?
+        if (lfsr_rbyd_perturb(rbyd)) {
+            cksum_ ^= 0x00000080;
+        }
+
+        // read next tag
         lfsr_tag_t tag;
         lfsr_rid_t weight__;
         lfs_size_t size;
-        uint32_t cksum__ = cksum_;
-        lfs_ssize_t d = lfsr_bd_readtag_(lfs, block, off, -1,
-                &tag, &weight__, &size, &cksum__);
+        lfs_ssize_t d = lfsr_bd_readtag(lfs, block, off, -1,
+                &tag, &weight__, &size, &cksum_);
         if (d < 0) {
             if (d == LFS_ERR_CORRUPT) {
                 break;
@@ -2172,14 +2177,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             return d;
         }
         lfs_size_t off_ = off + d;
-
-        // parity mismatch?
-        if ((tag >> 15) != parity_) {
-            break;
-        }
-        tag &= 0x7fff;
-        parity_ ^= lfs_parity(cksum_ ^ cksum__);
-        cksum_ = cksum__;
 
         // tag goes out of range?
         if (!lfsr_tag_isalt(tag) && off_ + size > lfs->cfg->block_size) {
@@ -2191,37 +2188,32 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // not an end-of-commit cksum
             if (lfsr_tag_suptype(tag) != LFSR_TAG_CKSUM) {
                 // cksum the entry, hopefully leaving it in the cache
-                uint32_t cksum__ = cksum_;
                 err = lfsr_bd_cksum(lfs, block, off_, -1, size,
-                        &cksum__);
+                        &cksum_);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         break;
                     }
                     return err;
                 }
-                parity_ ^= lfs_parity(cksum_ ^ cksum__);
-                cksum_ = cksum__;
 
                 // found an ecksum? save for later
                 if (tag == LFSR_TAG_ECKSUM) {
                     err = lfsr_data_readecksum(lfs,
                             &LFSR_DATA_DISK(block, off_,
                                 lfs->cfg->block_size - off_),
-                            &ecksum);
-                    if (err && err != LFS_ERR_CORRUPT) {
+                            &ecksum_);
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            break;
+                        }
                         return err;
-                    }
-
-                    // TODO ignore?? why not break?
-                    // ignore malformed ecksums
-                    if (err == LFS_ERR_CORRUPT) {
-                        ecksum.cksize = -1;
                     }
                 }
 
             // is an end-of-commit cksum
             } else {
+                // check cksum
                 uint32_t cksum__ = 0;
                 err = lfsr_bd_read(lfs, block, off_, -1,
                         &cksum__, sizeof(uint32_t));
@@ -2240,14 +2232,17 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                 // save what we've found so far
                 rbyd->eoff
-                        = ((lfs_size_t)parity_ << (8*sizeof(lfs_size_t)-1))
+                        = ((lfs_size_t)lfsr_tag_perturb(tag)
+                            << (8*sizeof(lfs_size_t)-1))
                         | (off_ + size);
                 rbyd->cksum = cksum;
                 rbyd->trunk = (LFSR_RBYD_ISSHRUB & rbyd->trunk) | trunk_;
                 rbyd->weight = weight;
+                ecksum = ecksum_;
 
                 // revert to data checksum
                 cksum_ = cksum;
+                ecksum_.cksize = -1;
             }
         }
 
@@ -2298,9 +2293,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // did we end on a valid commit? we may have erased-state
     bool erased = false;
-    if (lfsr_rbyd_eoff(rbyd) < lfs->cfg->block_size
-            && lfsr_rbyd_eoff(rbyd) % lfs->cfg->prog_size == 0
-            && ecksum.cksize != -1) {
+    if (ecksum.cksize != -1
+            && lfsr_rbyd_eoff(rbyd)+ecksum.cksize <= lfs->cfg->block_size
+            && lfsr_rbyd_eoff(rbyd) % lfs->cfg->prog_size == 0) {
+        // the next valid bit must _not_ match, or a commit was attempted
         uint8_t e = 0;
         err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), ecksum.cksize,
@@ -2309,8 +2305,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             return err;
         }
 
-        // the next valid bit must _not_ match, or a commit was attempted
-        if ((e >> 7) != lfsr_rbyd_parity(rbyd)) {
+        if (((e >> 7)^lfsr_rbyd_perturb(rbyd)) != lfs_parity(rbyd->cksum)) {
             // check that erased-state matches our checksum, if this fails
             // most likely a write was interrupted
             uint32_t ecksum_ = 0;
@@ -2540,20 +2535,15 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     uint8_t rev_buf[sizeof(uint32_t)];
     lfs_tole32_(rev, &rev_buf);
 
-    uint32_t cksum_ = rbyd->cksum;
-    int err = lfsr_bd_prog(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
+    int err = lfsr_bd_prog(lfs,
+            rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             &rev_buf, sizeof(uint32_t),
-            &cksum_, false);
+            &rbyd->cksum, false);
     if (err) {
         return err;
     }
 
-    // update eoff, xor cksum parity
-    rbyd->eoff
-            += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
-                << (8*sizeof(lfs_size_t)-1))
-            + sizeof(uint32_t);
-    rbyd->cksum = cksum_;
+    rbyd->eoff += sizeof(uint32_t);
     return 0;
 }
 
@@ -2566,24 +2556,20 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return LFS_ERR_RANGE;
     }
 
-    // include the previous tag parity
-    tag ^= (lfsr_tag_t)lfsr_rbyd_parity(rbyd) << 15;
+    // perturb?
+    if (lfsr_rbyd_perturb(rbyd)) {
+        rbyd->cksum ^= 0x00000080;
+    }
 
-    uint32_t cksum_ = rbyd->cksum;
     lfs_ssize_t d = lfsr_bd_progtag(lfs,
             rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             tag, weight, size,
-            &cksum_, false);
+            &rbyd->cksum, false);
     if (d < 0) {
         return d;
     }
 
-    // update eoff, xor cksum parity
-    rbyd->eoff
-            += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
-                << (8*sizeof(lfs_size_t)-1))
-            + d;
-    rbyd->cksum = cksum_;
+    rbyd->eoff += d;
     return 0;
 }
 
@@ -2595,20 +2581,15 @@ static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return LFS_ERR_RANGE;
     }
 
-    uint32_t cksum_ = rbyd->cksum;
-    int err = lfsr_bd_progcat(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
+    int err = lfsr_bd_progcat(lfs,
+            rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             cat, count,
-            &cksum_, false);
+            &rbyd->cksum, false);
     if (err) {
         return err;
     }
 
-    // update eoff, xor cksum parity
-    rbyd->eoff
-            += ((lfs_size_t)lfs_parity(rbyd->cksum ^ cksum_)
-                << (8*sizeof(lfs_size_t)-1))
-            + lfsr_cat_size(cat, count);
-    rbyd->cksum = cksum_;
+    rbyd->eoff += lfsr_cat_size(cat, count);
     return 0;
 }
 
@@ -3379,15 +3360,21 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             lfs->cfg->prog_size);
 
     // space for ecksum?
-    uint8_t e = 0;
+    bool perturb = false;
     if (off_ < lfs->cfg->block_size) {
-        // read the leading byte in case we need to perturb the next tag
+        // read the leading byte in case we need to perturb the next commit
+        uint8_t e = 0;
         err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], off_, lfs->cfg->prog_size,
                 &e, 1);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
+
+        // we don't want the next commit to appear as valid, so we
+        // intentionally perturb the commit if this happens, this is
+        // equivalent to inverting all tag's valid bits
+        perturb = ((e >> 7) == lfs_parity(cksum));
 
         // calculate the erased-state checksum
         lfsr_ecksum_t ecksum;
@@ -3421,16 +3408,23 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         return LFS_ERR_RANGE;
     }
 
+    // perturb?
+    if (lfsr_rbyd_perturb(rbyd)) {
+        rbyd->cksum ^= 0x00000080;
+    }
+
     // build end-of-commit cksum
     //
     // note padding-size depends on leb-encoding depends on padding-size
     // depends leb-encoding depends on... to get around this catch-22 we
     // just always write a fully-expanded leb128 encoding
     uint8_t cksum_buf[2+1+4+4];
-    cksum_buf[0] = (uint8_t)(LFSR_TAG_CKSUM >> 8);
+    cksum_buf[0] = (uint8_t)(LFSR_TAG_CKSUM >> 8)
+            // set the valid bit to the cksum parity
+            | ((uint8_t)lfs_parity(rbyd->cksum) << 7);
     cksum_buf[1] = (uint8_t)(LFSR_TAG_CKSUM >> 0)
-            // include tag parity in the perturb bits
-            | ((uint8_t)lfsr_rbyd_parity(rbyd) << 1);
+            // set the perturb bit so next commit is invalid
+            | perturb;
     cksum_buf[2] = 0;
 
     lfs_size_t padding = off_ - (lfsr_rbyd_eoff(rbyd) + 2+1+4);
@@ -3439,20 +3433,11 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     cksum_buf[5] = 0x80 | (0x7f & (padding >> 14));
     cksum_buf[6] = 0x00 | (0x7f & (padding >> 21));
 
-    // calculate checksum before tag parity
-    uint32_t cksum_ = lfs_crc32c(rbyd->cksum, cksum_buf, 2+1+4);
-    // xor in the tag parity
-    cksum_buf[0] ^= (uint8_t)lfsr_rbyd_parity(rbyd) << 7;
-    // find the new parity
-    bool parity_ = lfsr_rbyd_parity(rbyd) ^ lfs_parity(rbyd->cksum ^ cksum_);
-    // and intentionally perturb the commit so the next tag appears invalid
-    if ((e >> 7) == parity_) {
-        cksum_buf[1] ^= 0x01;
-        cksum_ ^= 0xef306b19;
-        parity_ ^= 0x1;
-    }
-    lfs_tole32_(cksum_, &cksum_buf[2+1+4]);
+    // calculate checksum
+    rbyd->cksum = lfs_crc32c(rbyd->cksum, cksum_buf, 2+1+4);
+    lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+4]);
 
+    // prog, when this lands on disk commit is committed
     err = lfsr_bd_prog(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             cksum_buf, 2+1+4+4,
             NULL, false);
@@ -3466,9 +3451,10 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         return err;
     }
 
-    // update the eoff and parity
+    // update the eoff and perturb
     rbyd->eoff
-            = ((lfs_size_t)parity_ << (8*sizeof(lfs_size_t)-1))
+            = ((lfs_size_t)perturb
+                << (8*sizeof(lfs_size_t)-1))
             | off_;
     // revert to data checksum
     rbyd->cksum = cksum;

@@ -38,12 +38,16 @@ TAG_BRANCH          = 0x032c
 TAG_UATTR           = 0x0400
 TAG_SATTR           = 0x0600
 TAG_SHRUB           = 0x1000
-TAG_CKSUM           = 0x3000
-TAG_PERTURB         = 0x3100
-TAG_ECKSUM          = 0x3200
 TAG_ALT             = 0x4000
+TAG_B               = 0x0000
 TAG_R               = 0x2000
+TAG_LE              = 0x0000
 TAG_GT              = 0x1000
+TAG_CKSUM           = 0x3000
+TAG_Q               = 0x0000
+TAG_P               = 0x0001
+TAG_NOISE           = 0x3100
+TAG_ECKSUM          = 0x3200
 
 
 # some ways of block geometry representations
@@ -236,21 +240,6 @@ def tagrepr(tag, w=None, size=None, off=None):
             ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
-    elif (tag & 0x7f00) == TAG_CKSUM:
-        return 'cksum 0x%02x%s%s' % (
-            tag & 0xff,
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
-    elif (tag & 0x7f00) == TAG_PERTURB:
-        return 'perturb%s%s%s' % (
-            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
-    elif (tag & 0x7f00) == TAG_ECKSUM:
-        return 'ecksum%s%s%s' % (
-            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:
         return 'alt%s%s%s%s%s' % (
             'r' if tag & TAG_R else 'b',
@@ -264,6 +253,23 @@ def tagrepr(tag, w=None, size=None, off=None):
                 if size and off is not None
                 else ' -%d' % size if size
                 else '')
+    elif (tag & 0x7f00) == TAG_CKSUM:
+        return 'cksum%s%s%s' % (
+            'p' if tag & 0xff == TAG_P
+                else 'q' if tag & 0xff == TAG_Q
+                else ' 0x%02x' % (tag & 0xff),
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_NOISE:
+        return 'noise%s%s%s' % (
+            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_ECKSUM:
+        return 'ecksum%s%s%s' % (
+            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+            ' w%d' % w if w else '',
+            ' %s' % size if size is not None else '')
     else:
         return '0x%04x%s%s' % (
             tag,
@@ -335,7 +341,7 @@ class Rbyd:
         cksum = 0
         cksum_ = crc32c(data[0:4])
         cksum__ = cksum_
-        parity__ = parity(cksum_)
+        perturb = False
         eoff = 0
         eoff_ = None
         j_ = 4
@@ -346,13 +352,15 @@ class Rbyd:
         weight_ = 0
         weight__ = 0
         while j_ < len(data) and (not trunk or eoff <= trunk):
+            # perturb?
+            if perturb:
+                cksum__ ^= 0x00000080
+
+            # read next tag
             v, tag, w, size, d = fromtag(data[j_:])
-            if v != parity__:
+            if v != parity(cksum__):
                 break
-            parity__ ^= parity(cksum__)
-            cksum__ = crc32c([data[j_] & ~0x80], cksum__)
-            cksum__ = crc32c(data[j_+1:j_+d], cksum__)
-            parity__ ^= parity(cksum__)
+            cksum__ = crc32c(data[j_:j_+d], cksum__)
             j_ += d
             if not tag & TAG_ALT and j_ + size > len(data):
                 break
@@ -360,9 +368,7 @@ class Rbyd:
             # take care of cksums
             if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
-                    parity__ ^= parity(cksum__)
                     cksum__ = crc32c(data[j_:j_+size], cksum__)
-                    parity__ ^= parity(cksum__)
                 # found a cksum?
                 else:
                     cksum___ = fromle32(data[j_:j_+4])
@@ -373,6 +379,8 @@ class Rbyd:
                     cksum = cksum_
                     trunk_ = trunk__
                     weight = weight_
+                    # update perturb bit
+                    perturb = tag & TAG_P
                     # revert to data cksum
                     cksum__ = cksum_
 
