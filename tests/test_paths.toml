@@ -219,10 +219,10 @@ code = '''
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
 
-    lfsr_mkdir(&lfs, "/") => LFS_ERR_INVAL;
+    lfsr_mkdir(&lfs, "/") => LFS_ERR_EXIST;
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "/",
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_INVAL;
+            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
 
     lfsr_remove(&lfs, "/") => LFS_ERR_INVAL;
     lfsr_unmount(&lfs) => 0;

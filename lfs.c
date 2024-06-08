@@ -9116,11 +9116,11 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST) {
+    if (err && err != LFS_ERR_EXIST && err != LFS_ERR_INVAL) {
         return err;
     }
     // already exists? note orphans don't really exist
-    bool exists = (err == LFS_ERR_EXIST);
+    bool exists = (err == LFS_ERR_EXIST || err == LFS_ERR_INVAL);
     if (exists && tag != LFSR_TAG_ORPHAN) {
         return LFS_ERR_EXIST;
     }
@@ -10005,7 +10005,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &file->o.mdir, &tag,
             &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST) {
+    if (err && err != LFS_ERR_EXIST && err != LFS_ERR_INVAL) {
         return err;
     }
 

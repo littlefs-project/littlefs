@@ -283,14 +283,14 @@ code = '''
     }
 
     // try to make root, which doesn't make sense
-    lfsr_mkdir(&lfs, "/") => LFS_ERR_INVAL;
+    lfsr_mkdir(&lfs, "/") => LFS_ERR_EXIST;
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
     assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to make root, which doesn't make sense
-    lfsr_mkdir(&lfs, "/") => LFS_ERR_INVAL;
+    lfsr_mkdir(&lfs, "/") => LFS_ERR_EXIST;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
