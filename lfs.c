@@ -830,8 +830,8 @@ enum lfsr_tag {
 
     // checksum tags
     LFSR_TAG_CKSUM          = 0x3000,
-    LFSR_TAG_Q              = 0x0000,
     LFSR_TAG_P              = 0x0001,
+    LFSR_TAG_Q              = 0x0002,
     LFSR_TAG_NOISE          = 0x3100,
     LFSR_TAG_ECKSUM         = 0x3200,
 
@@ -902,8 +902,12 @@ static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return lfsr_tag_mode(tag) != LFSR_TAG_CKSUM;
 }
 
-static inline bool lfsr_tag_perturb(lfsr_tag_t tag) {
+static inline bool lfsr_tag_p(lfsr_tag_t tag) {
     return tag & LFSR_TAG_P;
+}
+
+static inline bool lfsr_tag_q(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_Q;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
@@ -2213,6 +2217,12 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // is an end-of-commit cksum
             } else {
+                // check perturb bit
+                if (lfsr_rbyd_perturb(rbyd) != lfsr_tag_q(tag)) {
+                    // uh oh, perturb bits don't match
+                    break;
+                }
+
                 // check cksum
                 uint32_t cksum__ = 0;
                 err = lfsr_bd_read(lfs, block, off_, -1,
@@ -2232,7 +2242,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                 // save what we've found so far
                 rbyd->eoff
-                        = ((lfs_size_t)lfsr_tag_perturb(tag)
+                        = ((lfs_size_t)lfsr_tag_p(tag)
                             << (8*sizeof(lfs_size_t)-1))
                         | (off_ + size);
                 rbyd->cksum = cksum;
@@ -3423,8 +3433,10 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             // set the valid bit to the cksum parity
             | ((uint8_t)lfs_parity(rbyd->cksum) << 7);
     cksum_buf[1] = (uint8_t)(LFSR_TAG_CKSUM >> 0)
+            // include the current perturb bit
+            | ((uint8_t)lfsr_rbyd_perturb(rbyd) << 1)
             // set the perturb bit so next commit is invalid
-            | perturb;
+            | ((uint8_t)perturb << 0);
     cksum_buf[2] = 0;
 
     lfs_size_t padding = off_ - (lfsr_rbyd_eoff(rbyd) + 2+1+4);
