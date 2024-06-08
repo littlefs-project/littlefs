@@ -23,6 +23,7 @@ defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
+defines.MKCONSISTENT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 reentrant = true
 code = '''
@@ -32,6 +33,9 @@ code = '''
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
     // make this many directories
@@ -117,6 +121,7 @@ defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
+defines.MKCONSISTENT = [false, true]
 # inlining has a tendency to hide sync issues, so try without
 defines.INLINE_SIZE = ['BLOCK_SIZE/4', '0']
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -138,6 +143,9 @@ code = '''
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
     // create this many files
@@ -213,6 +221,7 @@ defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
+defines.MKCONSISTENT = [false, true]
 # inlining has a tendency to hide sync issues, so try without
 defines.INLINE_SIZE = ['BLOCK_SIZE/4', '0']
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -237,6 +246,9 @@ code = '''
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
     // keep some test state on disk to survive powerloss
@@ -439,6 +451,7 @@ defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
 ]
+defines.MKCONSISTENT = [false, true]
 # inlining has a tendency to hide sync issues, so try without
 defines.INLINE_SIZE = ['BLOCK_SIZE/4', '0']
 # note dirs x files grows O(n^2)
@@ -465,6 +478,9 @@ code = '''
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
         lfsr_mount(&lfs, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
     // keep some test state on disk to survive powerloss

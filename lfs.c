@@ -9094,6 +9094,10 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     return 0;
 }
 
+int lfsr_fs_mkconsistent(lfs_t *lfs) {
+    return lfsr_fs_preparemutation(lfs);
+}
+
 
 /// Directory operations ///
 
