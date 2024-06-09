@@ -8255,6 +8255,13 @@ static int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
     return lfsr_data_readrcompat(lfs, data, wcompat);
 }
 
+#define LFSR_DATA_OCOMPAT(_ocompat) LFSR_DATA_RCOMPAT(_ocompat)
+
+static int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_ocompat_t *ocompat) {
+    return lfsr_data_readrcompat(lfs, data, ocompat);
+}
+
 
 // disk geometry
 //
@@ -8908,7 +8915,16 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
 }
 
 
-/// Other filesystem traversal things  ///
+/// Other filesystem things  ///
+
+int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    fsinfo->disk_version = LFS_DISK_VERSION;
+    fsinfo->block_size = lfs->cfg->block_size;
+    fsinfo->block_count = lfs->cfg->block_count;
+    fsinfo->name_limit = lfs->name_limit;
+    fsinfo->file_limit = lfs->file_limit;
+    return 0;
+}
 
 lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
     lfs_size_t count = 0;

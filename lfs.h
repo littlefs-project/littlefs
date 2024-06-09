@@ -321,6 +321,26 @@ struct lfs_info {
     char name[LFS_NAME_MAX+1];
 };
 
+// Filesystem info structure
+struct lfs_fsinfo {
+    // On-disk version
+    uint32_t disk_version;
+
+    // TODO should we add rcompat/wcompat flags here?
+
+    // Size of a logical block in bytes.
+    lfs_size_t block_size;
+
+    // Number of logical blocks in the filesystem.
+    lfs_size_t block_count;
+
+    // Upper limit on the length of file names in bytes.
+    lfs_size_t name_limit;
+
+    // Upper limit on the size of files in bytes.
+    lfs_size_t file_limit;
+};
+
 //// Custom attribute structure, used to describe custom attributes
 //// committed atomically during file writes.
 //struct lfs_attr {
@@ -938,6 +958,12 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir);
 
 
 /// Filesystem-level filesystem operations
+
+// Find on-disk info about the filesystem
+//
+// Fills out the fsinfo structure based on the filesystem found on-disk.
+// Returns a negative error code on failure.
+int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo);
 
 // Finds the current size of the filesystem
 //
