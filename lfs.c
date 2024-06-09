@@ -910,6 +910,13 @@ static inline bool lfsr_tag_q(lfsr_tag_t tag) {
     return tag & LFSR_TAG_Q;
 }
 
+static inline bool lfsr_tag_isunknown(lfsr_tag_t tag) {
+    return tag != LFSR_TAG_REG
+            && tag != LFSR_TAG_DIR
+            && tag != LFSR_TAG_BOOKMARK
+            && tag != LFSR_TAG_ORPHAN;
+}
+
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
     return tag & LFSR_TAG_INTERNAL;
 }
@@ -7486,6 +7493,7 @@ enum {
 // - 0      => path is valid, file NOT found
 // - EXIST  => path is valid, file found
 // - INVAL  => path is valid, but points to root
+// - NOTSUP => path is valid, but points to unknown file type
 // - NOENT  => path is NOT valid, intermediate dir missing
 // - NOTDIR => path is NOT valid, intermediate dir is not a dir
 //
@@ -7559,8 +7567,11 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
             // the root dir doesn't have an mdir really, so it's always
             // a special case
             return (mdir.mid == -1)
-                    ? LFS_ERR_INVAL
-                    : LFS_ERR_EXIST;
+                        ? LFS_ERR_INVAL
+                    // unknown file type?
+                    : (lfsr_tag_isunknown(tag))
+                        ? LFS_ERR_NOTSUP
+                        : LFS_ERR_EXIST;
         }
 
         // found another name
@@ -8589,21 +8600,34 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
             // check for any orphaned files
             for (lfs_size_t rid = 0; rid < tinfo.u.mdir.rbyd.weight; rid++) {
-                err = lfsr_rbyd_lookup(lfs, &tinfo.u.mdir.rbyd,
-                        rid, LFSR_TAG_ORPHAN,
-                        NULL);
-                if (err && err != LFS_ERR_NOENT) {
+                lfsr_tag_t tag;
+                err = lfsr_rbyd_sublookup(lfs, &tinfo.u.mdir.rbyd,
+                        rid, LFSR_TAG_NAME,
+                        &tag, NULL);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
                 }
+                // name 0 should be reserved
+                LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
 
                 // found an orphaned file?
-                if (err != LFS_ERR_NOENT) {
+                if (tag == LFSR_TAG_ORPHAN) {
                     LFS_DEBUG("Found orphaned file "
                             "%"PRId32".%"PRId32,
                             lfsr_mid_bid(lfs, tinfo.u.mdir.mid)
                                 >> lfs->mdir_bits,
                             rid);
                     lfs->hasorphans = true;
+
+                // found an unknown file type?
+                } else if (lfsr_tag_isunknown(tag)) {
+                    LFS_WARN("Found unknown file type "
+                            "%"PRId32".%"PRId32" 0x%"PRIx16,
+                            lfsr_mid_bid(lfs, tinfo.u.mdir.mid)
+                                >> lfs->mdir_bits,
+                            rid,
+                            lfsr_tag_subtype(tag));
                 }
             }
 
@@ -9136,11 +9160,13 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST && err != LFS_ERR_INVAL) {
+    if (err && err != LFS_ERR_EXIST
+            && err != LFS_ERR_INVAL
+            && err != LFS_ERR_NOTSUP) {
         return err;
     }
     // already exists? note orphans don't really exist
-    bool exists = (err == LFS_ERR_EXIST || err == LFS_ERR_INVAL);
+    bool exists = (bool)err;
     if (exists && tag != LFSR_TAG_ORPHAN) {
         return LFS_ERR_EXIST;
     }
@@ -9581,7 +9607,11 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_tag_t tag, lfsr_data_t name,
         struct lfs_info *info) {
     // get file type from the tag
-    info->type = lfsr_tag_subtype(tag);
+    if (tag == LFSR_TAG_REG || tag == LFSR_TAG_DIR) {
+        info->type = lfsr_tag_subtype(tag);
+    } else {
+        info->type = LFS_TYPE_UNKNOWN;
+    }
 
     // read the file name
     LFS_ASSERT(lfsr_data_size(name) <= LFS_NAME_MAX);
@@ -9633,7 +9663,9 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             NULL, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST && err != LFS_ERR_INVAL) {
+    if (err && err != LFS_ERR_EXIST
+            && err != LFS_ERR_INVAL
+            && err != LFS_ERR_NOTSUP) {
         return err;
     }
     // doesn't exist? note orphans don't really exist
@@ -9666,7 +9698,8 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &mdir, &tag,
             NULL, NULL, NULL);
-    if (err && err != LFS_ERR_EXIST && err != LFS_ERR_INVAL) {
+    if (err && err != LFS_ERR_EXIST
+            && err != LFS_ERR_INVAL) {
         return err;
     }
     // doesn't exist? note orphans don't really exist
@@ -10025,7 +10058,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     int err = lfsr_mtree_pathlookup(lfs, &lfs->mtree, path,
             &file->o.mdir, &tag,
             &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST && err != LFS_ERR_INVAL) {
+    if (err && err != LFS_ERR_EXIST
+            && err != LFS_ERR_INVAL) {
         return err;
     }
 
