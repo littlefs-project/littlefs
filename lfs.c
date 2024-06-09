@@ -9607,11 +9607,7 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_tag_t tag, lfsr_data_t name,
         struct lfs_info *info) {
     // get file type from the tag
-    if (tag == LFSR_TAG_REG || tag == LFSR_TAG_DIR) {
-        info->type = lfsr_tag_subtype(tag);
-    } else {
-        info->type = LFS_TYPE_UNKNOWN;
-    }
+    info->type = lfsr_tag_subtype(tag);
 
     // read the file name
     LFS_ASSERT(lfsr_data_size(name) <= LFS_NAME_MAX);

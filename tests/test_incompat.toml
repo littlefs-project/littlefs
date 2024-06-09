@@ -359,11 +359,11 @@ code = '''
     // mount
     lfsr_mount(&lfs, CFG) => 0;
 
-    // our file should appear as unknown
+    // our file should appear as an unknown type
     struct lfs_info info;
     lfsr_stat(&lfs, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == 0x13);
     assert(info.size == 0);
 
     lfsr_dir_t dir;
@@ -382,7 +382,7 @@ code = '''
     assert(info.size == strlen("hi a!"));
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == 0x13);
     assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
