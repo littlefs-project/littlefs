@@ -1562,7 +1562,7 @@ static inline lfsr_attr_t lfsr_attr(
     LFSR_ATTR_CAT_( \
         _tag, \
         _weight, \
-        (const lfsr_data_t[]){__VA_ARGS__}, \
+        ((const lfsr_data_t[]){__VA_ARGS__}), \
         sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
 
 #define LFSR_ATTR_NOOP() \
