@@ -323,6 +323,7 @@ code = '''
                 lfs_ssize_t d = lfsr_file_write(&lfs, &file, wbuf, SIZE);
                 assert(d == SIZE || d == LFS_ERR_NOSPC);
                 if (d == LFS_ERR_NOSPC) {
+                    lfsr_file_close(&lfs, &file) => 0;
                     goto dead;
                 }
                 err = lfsr_file_close(&lfs, &file);

@@ -8786,6 +8786,9 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 }
 
 int lfsr_unmount(lfs_t *lfs) {
+    // all files/dirs should be closed before lfsr_unmount
+    LFS_ASSERT(lfs->opened == NULL);
+
     return lfs_deinit(lfs);
 }
 
@@ -9679,7 +9682,13 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
             info);
 }
 
+// needed in lfsr_dir_open
+static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir);
+
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
+    // already open?
+    LFS_ASSERT(!lfsr_opened_isopen(lfs, &dir->o));
+
     // setup dir state
     dir->o.type = LFS_TYPE_DIR;
     dir->o.flags = 0;
@@ -9723,7 +9732,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // let rewind initialize the pos state
-    err = lfsr_dir_rewind(lfs, dir);
+    err = lfsr_dir_rewind_(lfs, dir);
     if (err) {
         return err;
     }
@@ -9734,12 +9743,16 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+
     // remove from tracked mdirs
     lfsr_opened_remove(lfs, &dir->o);
     return 0;
 }
 
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+
     // was our dir removed?
     if (lfsr_f_iszombie(dir->o.flags)) {
         return LFS_ERR_NOENT;
@@ -9812,6 +9825,8 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 }
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+
     // do nothing if removed
     if (lfsr_f_iszombie(dir->o.flags)) {
         return 0;
@@ -9840,10 +9855,12 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
 
 lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
     (void)lfs;
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+
     return dir->pos;
 }
 
-int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
+static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir) {
     // do nothing if removed
     if (lfsr_f_iszombie(dir->o.flags)) {
         return 0;
@@ -9868,6 +9885,12 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     }
 
     return 0;
+}
+
+int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+
+    return lfsr_dir_rewind_(lfs, dir);
 }
 
 
@@ -10012,6 +10035,8 @@ static lfs_ssize_t lfsr_bshrub_read(lfs_t *lfs, const lfsr_file_t *file,
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg) {
+    // already open?
+    LFS_ASSERT(!lfsr_opened_isopen(lfs, &file->o));
     // don't allow the forbidden mode!
     LFS_ASSERT((flags & 3) != 3);
     // these flags require a writable file
@@ -10202,6 +10227,8 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     // don't call lfsr_file_sync if we're readonly or desynced
     int err = 0;
     if (!lfsr_o_isrdonly(file->o.flags)
@@ -11422,6 +11449,7 @@ fragment:;
 
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
     // can't read from writeonly files
     LFS_ASSERT(!lfsr_o_iswronly(file->o.flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
@@ -11513,6 +11541,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags));
 
@@ -11667,6 +11696,7 @@ failed:;
 }
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
     // readonly files should do nothing
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags)
             || !lfsr_f_isunflush(file->o.flags)
@@ -11712,6 +11742,7 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
     // removed? we can't sync
     if (lfsr_f_iszombie(file->o.flags)) {
         return LFS_ERR_NOENT;
@@ -11877,12 +11908,16 @@ failed:;
 
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     file->o.flags |= LFS_O_DESYNC;
     return 0;
 }
 
 lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
         lfs_soff_t off, uint8_t whence) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     // TODO check for out-of-range?
 
     // figure out our new file position
@@ -11909,21 +11944,29 @@ lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_soff_t lfsr_file_tell(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     return file->pos;
 }
 
 lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     file->pos = 0;
     return 0;
 }
 
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     return lfsr_file_size_(file);
 }
 
 int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
         return LFS_ERR_FBIG;
@@ -12027,6 +12070,8 @@ failed:;
 }
 
 int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
         return LFS_ERR_FBIG;

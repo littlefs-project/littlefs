@@ -581,6 +581,7 @@ code = '''
         assert(memcmp(wbuf, rbuf, CHUNK) == 0);
     }
 
+    lfsr_file_close(&lfs, &file__) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -781,6 +782,7 @@ code = '''
         assert(memcmp(wbuf, rbuf, CHUNK) == 0);
     }
 
+    lfsr_file_close(&lfs, &file) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
