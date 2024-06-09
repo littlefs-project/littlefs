@@ -2,12 +2,7 @@
 #
 # Unlike test_compat, this focuses on specific corner-cases
 #
-after = [
-    'test_dirs',
-    'test_files',
-    'test_fwrite',
-    'test_forphans',
-]
+after = ['test_mtree', 'test_dirs', 'test_files']
 
 
 ## incompatiblity tests ##
