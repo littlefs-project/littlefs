@@ -7493,7 +7493,6 @@ enum {
 // - 0      => path is valid, file NOT found
 // - EXIST  => path is valid, file found
 // - INVAL  => path is valid, but points to root
-// - NOTSUP => path is valid, but points to unknown file type
 // - NOENT  => path is NOT valid, intermediate dir missing
 // - NOTDIR => path is NOT valid, intermediate dir is not a dir
 //
@@ -7567,11 +7566,8 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
             // the root dir doesn't have an mdir really, so it's always
             // a special case
             return (mdir.mid == -1)
-                        ? LFS_ERR_INVAL
-                    // unknown file type?
-                    : (lfsr_tag_isunknown(tag))
-                        ? LFS_ERR_NOTSUP
-                        : LFS_ERR_EXIST;
+                    ? LFS_ERR_INVAL
+                    : LFS_ERR_EXIST;
         }
 
         // found another name
@@ -8622,12 +8618,14 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
                 // found an unknown file type?
                 } else if (lfsr_tag_isunknown(tag)) {
-                    LFS_WARN("Found unknown file type "
+                    // TODO switch to readonly?
+                    LFS_ERROR("Found unknown file type "
                             "%"PRId32".%"PRId32" 0x%"PRIx16,
                             lfsr_mid_bid(lfs, tinfo.u.mdir.mid)
                                 >> lfs->mdir_bits,
                             rid,
                             lfsr_tag_subtype(tag));
+                    return LFS_ERR_INVAL;
                 }
             }
 
@@ -9161,8 +9159,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             &mdir, &tag,
             &did, &name, &name_size);
     if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL
-            && err != LFS_ERR_NOTSUP) {
+            && err != LFS_ERR_INVAL) {
         return err;
     }
     // already exists? note orphans don't really exist
@@ -9660,8 +9657,7 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
             &mdir, &tag,
             NULL, &name, &name_size);
     if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL
-            && err != LFS_ERR_NOTSUP) {
+            && err != LFS_ERR_INVAL) {
         return err;
     }
     // doesn't exist? note orphans don't really exist
