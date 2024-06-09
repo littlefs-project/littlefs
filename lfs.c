@@ -5543,7 +5543,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
     // unknown mode? return an error, we may be able to mount read-only
     if (mode > 2) {
-        return LFS_ERR_INVAL;
+        return LFS_ERR_CORRUPT;
     }
 
     for (uint8_t i = 0; i < mode; i++) {
@@ -8338,7 +8338,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     if (err) {
         if (err == LFS_ERR_NOENT) {
             LFS_ERROR("No littlefs version found");
-            return LFS_ERR_INVAL;
+            return LFS_ERR_CORRUPT;
         }
         return err;
     }
@@ -8355,7 +8355,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
                 version[1],
                 LFS_DISK_VERSION_MAJOR,
                 LFS_DISK_VERSION_MINOR);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     // check for any rcompatflags, we must understand these to read
@@ -8378,7 +8378,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
                 " (!= 0x%0"PRIx16")",
                 rcompat,
                 LFSR_RCOMPAT_COMPAT);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     // check for any wcompatflags, we must understand these to write
@@ -8402,7 +8402,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
                 " (!= 0x%0"PRIx16")",
                 wcompat,
                 LFSR_WCOMPAT_COMPAT);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     // we don't bother to check for any ocompatflags, we would just
@@ -8428,14 +8428,14 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         LFS_ERROR("Incompatible block size %"PRId32" (!= %"PRId32")",
                 geometry.block_size,
                 lfs->cfg->block_size);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     if (geometry.block_count != lfs->cfg->block_count) {
         LFS_ERROR("Incompatible block count %"PRId32" (!= %"PRId32")",
                 geometry.block_count,
                 lfs->cfg->block_count);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     // read the name limit
@@ -8459,7 +8459,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         LFS_ERROR("Incompatible name limit (%"PRId32" > %"PRId32")",
                 name_limit,
                 lfs->name_limit);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     lfs->name_limit = name_limit;
@@ -8485,7 +8485,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         LFS_ERROR("Incompatible file limit (%"PRId32" > %"PRId32")",
                 file_limit,
                 lfs->file_limit);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     lfs->file_limit = file_limit;
@@ -8502,7 +8502,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
             && lfsr_tag_suptype(tag) == LFSR_TAG_CONFIG) {
         LFS_ERROR("Unknown config 0x%04"PRIx16,
                 tag);
-        return LFS_ERR_INVAL;
+        return LFS_ERR_NOTSUP;
     }
 
     return 0;
@@ -8543,7 +8543,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 if (err) {
                     if (err == LFS_ERR_NOENT) {
                         LFS_ERROR("No littlefs magic found");
-                        return LFS_ERR_INVAL;
+                        return LFS_ERR_CORRUPT;
                     }
                     return err;
                 }
@@ -8555,7 +8555,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 }
                 if (cmp != LFS_CMP_EQ) {
                     LFS_ERROR("No littlefs magic found");
-                    return LFS_ERR_INVAL;
+                    return LFS_ERR_CORRUPT;
                 }
 
                 // are we the last mroot?
@@ -8625,7 +8625,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                                 >> lfs->mdir_bits,
                             rid,
                             lfsr_tag_subtype(tag));
-                    return LFS_ERR_INVAL;
+                    return LFS_ERR_NOTSUP;
                 }
             }
 

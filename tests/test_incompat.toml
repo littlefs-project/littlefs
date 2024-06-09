@@ -7,6 +7,52 @@ after = ['test_mtree', 'test_dirs', 'test_files']
 
 ## incompatiblity tests ##
 
+# test that we fail if we find no magic
+[cases.test_incompat_no_magic]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+
+    // delete the magic string
+    //
+    // note we're messing around with internals to do this! this
+    // is not a user API
+    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_MAGIC, 0,
+                LFSR_DATA_NULL()))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount should now fail
+    lfsr_mount(&lfs, CFG) => LFS_ERR_CORRUPT;
+'''
+
+# test that we fail if we find bad magic
+[cases.test_incompat_bad_magic]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+
+    // tweak the magic string
+    //
+    // note we're messing around with internals to do this! this
+    // is not a user API
+    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_MAGIC, 0,
+                LFSR_DATA_BUF("lottlefs", 8)))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount should now fail
+    lfsr_mount(&lfs, CFG) => LFS_ERR_CORRUPT;
+'''
+
 # test that we fail to mount after a major version bump
 [cases.test_incompat_major]
 in = 'lfs.c'
@@ -29,7 +75,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after a minor version bump
@@ -54,7 +100,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible rcompat flags
@@ -80,7 +126,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible wcompat flags
@@ -106,7 +152,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that an incompatible ocompat flag is a noop
@@ -157,7 +203,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 [cases.test_incompat_wcompat_overflow]
@@ -180,7 +226,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 [cases.test_incompat_ocompat_overflow]
@@ -230,7 +276,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible block counts
@@ -256,7 +302,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible name limit
@@ -280,7 +326,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible file limit
@@ -308,11 +354,31 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+'''
+
+# test what happens if we find an unknown config
+[cases.test_incompat_unknown_config]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+
+    // create an unknown config
+    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_CONFIG + 0x13, 0,
+                LFSR_DATA_BUF("oh no!", strlen("oh no!"))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount should now fail
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown file type
-[cases.test_incompat_unknown]
+[cases.test_incompat_unknown_type]
 in = 'lfs.c'
 code = '''
     // create a superblock
@@ -324,15 +390,18 @@ code = '''
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "a",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file, "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
     lfsr_file_close(&lfs, &file) => 0;
     lfsr_file_open(&lfs, &file, "b",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file, "hi b!", strlen("hi b!")) => strlen("hi b!");
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
     lfsr_file_close(&lfs, &file) => 0;
     lfsr_file_open(&lfs, &file, "c",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file, "hi c!", strlen("hi c!")) => strlen("hi c!");
+    lfsr_file_write(&lfs, &file,
+            "hi c!", strlen("hi c!")) => strlen("hi c!");
     lfsr_file_close(&lfs, &file) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -352,5 +421,5 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_INVAL;
+    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
 '''
