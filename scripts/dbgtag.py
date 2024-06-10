@@ -6,46 +6,46 @@ import struct
 import sys
 
 
-TAG_NULL            = 0x0000
-TAG_CONFIG          = 0x0000
-TAG_MAGIC           = 0x0003
-TAG_VERSION         = 0x0004
-TAG_RCOMPAT         = 0x0005
-TAG_WCOMPAT         = 0x0006
-TAG_OCOMPAT         = 0x0007
-TAG_GEOMETRY        = 0x0009
-TAG_NAMELIMIT       = 0x000c
-TAG_FILELIMIT       = 0x000d
-TAG_GDELTA          = 0x0100
-TAG_GRMDELTA        = 0x0100
-TAG_NAME            = 0x0200
-TAG_REG             = 0x0201
-TAG_DIR             = 0x0202
-TAG_BOOKMARK        = 0x0204
-TAG_ORPHAN          = 0x0205
-TAG_STRUCT          = 0x0300
-TAG_DATA            = 0x0300
-TAG_BLOCK           = 0x0304
-TAG_BSHRUB          = 0x0308
-TAG_BTREE           = 0x030c
-TAG_MROOT           = 0x0311
-TAG_MDIR            = 0x0315
-TAG_MTREE           = 0x031c
-TAG_DID             = 0x0320
-TAG_BRANCH          = 0x032c
-TAG_UATTR           = 0x0400
-TAG_SATTR           = 0x0600
-TAG_SHRUB           = 0x1000
-TAG_ALT             = 0x4000
-TAG_B               = 0x0000
-TAG_R               = 0x2000
-TAG_LE              = 0x0000
-TAG_GT              = 0x1000
-TAG_CKSUM           = 0x3000
-TAG_P               = 0x0001
-TAG_Q               = 0x0002
-TAG_NOISE           = 0x3100
-TAG_ECKSUM          = 0x3200
+TAG_NULL        = 0x0000    ## 0x0000  v--- ---- ---- ----
+TAG_CONFIG      = 0x0000    ## 0x00tt  v--- ---- -ttt tttt
+TAG_MAGIC       = 0x0003    #  0x0003  v--- ---- ---- --11
+TAG_VERSION     = 0x0004    #  0x0004  v--- ---- ---- -1--
+TAG_RCOMPAT     = 0x0005    #  0x0005  v--- ---- ---- -1-1
+TAG_WCOMPAT     = 0x0006    #  0x0006  v--- ---- ---- -11-
+TAG_OCOMPAT     = 0x0007    #  0x0007  v--- ---- ---- -111
+TAG_GEOMETRY    = 0x0009    #  0x0008  v--- ---- ---- 1-rr
+TAG_NAMELIMIT   = 0x000c    #  0x000c  v--- ---- ---- 11--
+TAG_FILELIMIT   = 0x000d    #  0x000d  v--- ---- ---- 11-1
+TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt tttt
+TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
+TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
+TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
+TAG_DIR         = 0x0202    #  0x0202  v--- --1- ---- --1-
+TAG_BOOKMARK    = 0x0204    #  0x0204  v--- --1- ---- -1--
+TAG_ORPHAN      = 0x0205    #  0x0205  v--- --1- ---- -1-1
+TAG_STRUCT      = 0x0300    ## 0x03tt  v--- --11 -ttt tttt
+TAG_DATA        = 0x0300    #  0x0300  v--- --11 ---- ----
+TAG_BLOCK       = 0x0304    #  0x0304  v--- --11 ---- -1rr
+TAG_BSHRUB      = 0x0308    #  0x0308  v--- --11 ---- 1---
+TAG_BTREE       = 0x030c    #  0x030c  v--- --11 ---- 11rr
+TAG_MROOT       = 0x0311    #  0x0310  v--- --11 ---1 --rr
+TAG_MDIR        = 0x0315    #  0x0314  v--- --11 ---1 -1rr
+TAG_MTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
+TAG_DID         = 0x0320    #  0x0320  v--- --11 --1- ----
+TAG_BRANCH      = 0x032c    #  0x032c  v--- --11 --1- 11rr
+TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-a -aaa aaaa
+TAG_SATTR       = 0x0600    #  0x06aa  v--- -11a -aaa aaaa
+TAG_SHRUB       = 0x1000    ## 0x1kkk  v--1 kkkk -kkk kkkk
+TAG_ALT         = 0x4000    ## 0x4kkk  v1cd kkkk -kkk kkkk
+TAG_B           = 0x0000
+TAG_R           = 0x2000
+TAG_LE          = 0x0000
+TAG_GT          = 0x1000
+TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- --qp
+TAG_P           = 0x0001
+TAG_Q           = 0x0002
+TAG_NOISE       = 0x3100    #  0x3100  v-11 ---1 ---- ----
+TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
 
 
 # some ways of block geometry representations
@@ -219,6 +219,30 @@ def tagrepr(tag, w=None, size=None, off=None):
             ' %d' % size if size is not None else '')
 
 
+def list_tags():
+    # here be magic, parse our script's source to get to the tag comments
+    import inspect
+    import re
+    tags = []
+    tag_pattern = re.compile(
+        '^(?P<name>TAG_[^ ]*) *= *(?P<tag>[^ #]+) *#+ *(?P<comment>.*)$')
+    for line in inspect.getsourcelines(
+            inspect.getmodule(inspect.currentframe()))[0]:
+        m = tag_pattern.match(line)
+        if m:
+            tags.append(m.groups())
+
+    # find widths for alignment
+    w = [0]
+    for n, t, c in tags:
+        w[0] = max(w[0], len('LFSR_'+n))
+
+    # print
+    for n, t, c in tags:
+        print('%-*s  %s' % (
+            w[0], 'LFSR_'+n,
+            c))
+
 def dbg_tag(data):
     if isinstance(data, int):
         tag = data
@@ -233,61 +257,71 @@ def dbg_tag(data):
     print(tagrepr(tag, weight, size))
 
 def main(tags, *,
+        list=False,
         block_size=None,
         block_count=None,
         off=None,
         **args):
-    # interpret as a sequence of hex bytes
-    if args.get('hex'):
-        dbg_tag(bytes(int(tag, 16) for tag in tags))
+    list_, list = list, __builtins__.list
 
-    # interpret as strings
-    elif args.get('string'):
-        for tag in tags:
-            dbg_tag(tag.encode('utf8'))
+    # list all known tags
+    if list_:
+        list_tags()
 
-    # default to interpreting as ints
-    elif block_size is None and off is None:
-        for tag in tags:
-            dbg_tag(int(tag, 0))
-
-    # if either block_size or off provided interpret as a block device
+    # try to decode these tags
     else:
-        disk, *blocks = tags
-        blocks = [rbydaddr(block) for block in blocks]
+        # interpret as a sequence of hex bytes
+        if args.get('hex'):
+            dbg_tag(bytes(int(tag, 16) for tag in tags))
 
-        # is bd geometry specified?
-        if isinstance(block_size, tuple):
-            block_size, block_count_ = block_size
-            if block_count is None:
-                block_count = block_count_
+        # interpret as strings
+        elif args.get('string'):
+            for tag in tags:
+                dbg_tag(tag.encode('utf8'))
 
-        # flatten block, default to block 0
-        if not blocks:
-            blocks = [[0]]
-        blocks = [block for blocks_ in blocks for block in blocks_]
+        # default to interpreting as ints
+        elif block_size is None and off is None:
+            for tag in tags:
+                dbg_tag(int(tag, 0))
 
-        with open(disk, 'rb') as f:
-            # if block_size is omitted, assume the block device is one big block
-            if block_size is None:
-                f.seek(0, os.SEEK_END)
-                block_size = f.tell()
+        # if either block_size or off provided interpret as a block device
+        else:
+            disk, *blocks = tags
+            blocks = [rbydaddr(block) for block in blocks]
 
-            # blocks may also encode offsets
-            blocks, offs = (
-                [block[0] if isinstance(block, tuple) else block
-                    for block in blocks],
-                [off if off is not None
-                        else block[1] if isinstance(block, tuple)
-                        else None
-                    for block in blocks])
+            # is bd geometry specified?
+            if isinstance(block_size, tuple):
+                block_size, block_count_ = block_size
+                if block_count is None:
+                    block_count = block_count_
 
-            # read each tag
-            for block, off in zip(blocks, offs):
-                f.seek((block * block_size) + (off or 0))
-                # read maximum tag size
-                data = f.read(2+5+5)
-                dbg_tag(data)
+            # flatten block, default to block 0
+            if not blocks:
+                blocks = [[0]]
+            blocks = [block for blocks_ in blocks for block in blocks_]
+
+            with open(disk, 'rb') as f:
+                # if block_size is omitted, assume the block device is one
+                # big block
+                if block_size is None:
+                    f.seek(0, os.SEEK_END)
+                    block_size = f.tell()
+
+                # blocks may also encode offsets
+                blocks, offs = (
+                    [block[0] if isinstance(block, tuple) else block
+                        for block in blocks],
+                    [off if off is not None
+                            else block[1] if isinstance(block, tuple)
+                            else None
+                        for block in blocks])
+
+                # read each tag
+                for block, off in zip(blocks, offs):
+                    f.seek((block * block_size) + (off or 0))
+                    # read maximum tag size
+                    data = f.read(2+5+5)
+                    dbg_tag(data)
 
 if __name__ == "__main__":
     import argparse
@@ -299,6 +333,10 @@ if __name__ == "__main__":
         'tags',
         nargs='*',
         help="Tags to decode.")
+    parser.add_argument(
+        '-l', '--list',
+        action='store_true',
+        help="List all known tags.")
     parser.add_argument(
         '-x', '--hex',
         action='store_true',

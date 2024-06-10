@@ -36,7 +36,7 @@ def main(errs, *,
 
         # print
         for n, e, h in ERRS:
-            print('%-*s %-*s %s' % (
+            print('%-*s  %-*s  %s' % (
                 w[0], 'LFS_ERR_'+n,
                 w[1], e,
                 h))
