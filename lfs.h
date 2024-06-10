@@ -94,6 +94,7 @@ typedef int32_t  lfsr_sdid_t;
 // valid positive return values
 enum lfs_error {
     LFS_ERR_OK          = 0,    // No error
+    LFS_ERR_UNKNOWN     = -1,   // Unknown error
     LFS_ERR_INVAL       = -22,  // Invalid parameter
     LFS_ERR_NOTSUP      = -95,  // Operation not supported
     LFS_ERR_IO          = -5,   // Error during device operation
