@@ -2350,7 +2350,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 // a more aggressive fetch when checksum is known
 static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block, lfs_size_t trunk, lfsr_rid_t weight,
+        lfs_block_t block, lfs_size_t trunk,
         uint32_t cksum) {
     int err = lfsr_rbyd_fetch(lfs, rbyd, block, trunk);
     if (err) {
@@ -2377,7 +2377,6 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // if trunk/weight mismatch _after_ cksums match, that's not a storage
     // error, that's a programming error
     LFS_ASSERT(lfsr_rbyd_trunk(rbyd) == trunk);
-    LFS_ASSERT(rbyd->weight == weight);
     return 0;
 }
 
@@ -4347,7 +4346,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         // a funny benefit is we cache the root of our btree this way
         if (!lfsr_rbyd_isfetched(&rbyd)) {
             int err = lfsr_rbyd_fetchvalidate(lfs, &rbyd,
-                    rbyd.blocks[0], lfsr_rbyd_trunk(&rbyd), rbyd.weight,
+                    rbyd.blocks[0], lfsr_rbyd_trunk(&rbyd),
                     rbyd.cksum);
             if (err) {
                 return err;
@@ -7827,7 +7826,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                 // match
                 if (lfsr_traversal_isvalidate(t)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &mtree,
-                            mtree.blocks[0], mtree.trunk, mtree.weight,
+                            mtree.blocks[0], mtree.trunk,
                             mtree.cksum);
                     if (err) {
                         return err;
@@ -7891,7 +7890,6 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                 if (lfsr_traversal_isvalidate(t)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &tinfo.u.rbyd,
                             tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk,
-                            tinfo.u.rbyd.weight,
                             tinfo.u.rbyd.cksum);
                     if (err) {
                         return err;
@@ -8040,7 +8038,6 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                 if (lfsr_traversal_isvalidate(t)) {
                     err = lfsr_rbyd_fetchvalidate(lfs, &tinfo.u.rbyd,
                             tinfo.u.rbyd.blocks[0], tinfo.u.rbyd.trunk,
-                            tinfo.u.rbyd.weight,
                             tinfo.u.rbyd.cksum);
                     if (err) {
                         return err;
