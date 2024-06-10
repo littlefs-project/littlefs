@@ -1140,8 +1140,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     }
 
     int err = lfsr_bd_read(lfs, block, off, hint, tag_buf, tag_dsize);
-    if (err) {
-        LFS_ASSERT(err < 0);
+    LFS_ASSERT(err <= 0);
+    if (err < 0) {
         return err;
     }
 
@@ -1232,8 +1232,8 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
     int err = lfsr_bd_prog(lfs, block, off, tag_buf, d,
             cksum_, align);
-    if (err) {
-        LFS_ASSERT(err < 0);
+    LFS_ASSERT(err <= 0);
+    if (err < 0) {
         return err;
     }
 
@@ -1328,8 +1328,8 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
                 // note our hint includes the full data range
                 lfsr_data_size(*data),
                 buffer, d);
-        if (err) {
-            LFS_ASSERT(err < 0);
+        LFS_ASSERT(err <= 0);
+        if (err < 0) {
             return err;
         }
 
@@ -1443,8 +1443,8 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
     // first compare the did
     lfsr_did_t did_;
     int err = lfsr_data_readleb128(lfs, &data, &did_);
-    if (err) {
-        LFS_ASSERT(err < 0);
+    LFS_ASSERT(err <= 0);
+    if (err < 0) {
         return err;
     }
 
@@ -2352,6 +2352,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_size_t trunk, lfsr_rid_t weight,
         uint32_t cksum) {
+    (void)weight;
+
     int err = lfsr_rbyd_fetch(lfs, rbyd, block, trunk);
     if (err) {
         if (err == LFS_ERR_CORRUPT) {
@@ -3582,11 +3584,11 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             int err = lfsr_rbyd_lookupnext(lfs, rbyd,
                     a_rid, tag+1,
                     &rid_, &tag, &weight_, &data);
-            if (err) {
+            LFS_ASSERT(err <= 0);
+            if (err < 0) {
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
-                LFS_ASSERT(err < 0);
                 return err;
             }
             if (rid_ > a_rid+lfs_smax32(weight_-1, 0)) {
@@ -3884,9 +3886,9 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 // of a weighted rid with this
                 lower_rid + (upper_rid-1-lower_rid)/2, 0,
                 &rid__, &tag__, &weight__, &data__);
-        if (err) {
+        LFS_ASSERT(err <= 0);
+        if (err < 0) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
-            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -4889,9 +4891,9 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_data_t data__;
         int err = lfsr_rbyd_sublookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                 &tag__, &data__);
-        if (err) {
+        LFS_ASSERT(err <= 0);
+        if (err < 0) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
-            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -4902,8 +4904,8 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
 
             // fetch the next branch
             err = lfsr_data_readbranch(lfs, &data__, weight__, &branch);
-            if (err) {
-                LFS_ASSERT(err < 0);
+            LFS_ASSERT(err <= 0);
+            if (err < 0) {
                 return err;
             }
 
@@ -5581,6 +5583,7 @@ static void lfsr_fs_revertgdelta(lfs_t *lfs) {
             &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
             &lfs->grm);
     LFS_ASSERT(!err);
+    (void)err;
 }
 
 static void lfsr_fs_commitgdelta(lfs_t *lfs) {
@@ -6359,11 +6362,11 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
                     a_rid, tag+1,
                     &rid_, &tag, NULL, &data);
-            if (err) {
+            LFS_ASSERT(err <= 0);
+            if (err < 0) {
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
-                LFS_ASSERT(err < 0);
                 return err;
             }
             if (rid_ != a_rid) {
@@ -6390,8 +6393,8 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
                 lfsr_shrub_t shrub;
                 err = lfsr_data_readshrub(lfs, &data, mdir, &shrub);
-                if (err) {
-                    LFS_ASSERT(err < 0);
+                LFS_ASSERT(err <= 0);
+                if (err < 0) {
                     return err;
                 }
 
@@ -10279,8 +10282,8 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     lfsr_data_t data;
     int err = lfsr_mdir_lookupnext(lfs, &file->o.mdir, LFSR_TAG_DATA,
             &tag, &data);
-    if (err && err != LFS_ERR_NOENT) {
-        LFS_ASSERT(err < 0);
+    LFS_ASSERT(err <= 0);
+    if (err < 0 && err != LFS_ERR_NOENT) {
         return err;
     }
 
@@ -10295,8 +10298,8 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
         lfsr_shrub_t shrub;
         err = lfsr_data_readshrub(lfs, &data, &file->o.mdir,
                 &shrub);
-        if (err) {
-            LFS_ASSERT(err < 0);
+        LFS_ASSERT(err <= 0);
+        if (err < 0) {
             return err;
         }
 
