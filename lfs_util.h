@@ -91,6 +91,10 @@ extern "C"
 #endif
 
 // Runtime assertions
+#ifdef NDEBUG
+#define LFS_NO_ASSERT
+#endif
+
 #ifndef LFS_ASSERT
 #ifndef LFS_NO_ASSERT
 #define LFS_ASSERT(test) assert(test)
