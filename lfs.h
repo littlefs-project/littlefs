@@ -601,6 +601,7 @@ typedef struct lfsr_grm {
 // The littlefs filesystem type
 typedef struct lfs {
     const struct lfs_config *cfg;
+    lfs_size_t block_count;
     lfs_size_t name_limit;
     lfs_off_t file_limit;
 
@@ -995,6 +996,18 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs);
 //
 // Returns a negative error code on failure.
 int lfsr_fs_mkconsistent(lfs_t *lfs);
+#endif
+
+#ifndef LFS_READONLY
+// Change the number of blocks used by the filesystem
+//
+// This changes the number of blocks we are currently using and updates
+// the superblock with the new block count.
+//
+// Note: This is irreversible.
+//
+// Returns a negative error code on failure.
+int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count);
 #endif
 
 #ifndef LFS_READONLY

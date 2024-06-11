@@ -38,7 +38,7 @@ typedef int lfs_scmp_t;
 static int lfsr_bd_read__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         void *buffer, lfs_size_t size) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
     // must be aligned
     LFS_ASSERT(off % lfs->cfg->read_size == 0);
@@ -59,7 +59,7 @@ static int lfsr_bd_read__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 static int lfsr_bd_prog__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
     // must be aligned
     LFS_ASSERT(off % lfs->cfg->prog_size == 0);
@@ -79,7 +79,7 @@ static int lfsr_bd_prog__(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 
 static int lfsr_bd_erase__(lfs_t *lfs, lfs_block_t block) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
 
     // bd erase
     int err = lfs->cfg->erase(lfs->cfg, block);
@@ -126,7 +126,7 @@ static int lfsr_bd_readnext(lfs_t *lfs,
         lfs_size_t size,
         const uint8_t **buffer_, lfs_size_t *size_) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
@@ -196,7 +196,7 @@ static int lfsr_bd_read(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         void *buffer, lfs_size_t size) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
@@ -349,7 +349,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_, bool align) {
     if (lfs->pcache.size != 0) {
         // must be in-bounds
-        LFS_ASSERT(lfs->pcache.block < lfs->cfg->block_count);
+        LFS_ASSERT(lfs->pcache.block < lfs->block_count);
         // must be aligned
         LFS_ASSERT(lfs->pcache.off % lfs->cfg->prog_size == 0);
         lfs_size_t size = lfs_alignup(lfs->pcache.size, lfs->cfg->prog_size);
@@ -378,7 +378,7 @@ static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint8_t **buffer_, lfs_size_t *size_,
         uint32_t *cksum_, bool align) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     while (true) {
@@ -434,7 +434,7 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
         uint32_t *cksum_, bool align) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
@@ -519,7 +519,7 @@ static int lfsr_bd_sync(lfs_t *lfs) {
 
 static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
 
     // invalidate any relevant caches
     if (lfs->pcache.block == block) {
@@ -540,7 +540,7 @@ static int lfsr_bd_cksum(lfs_t *lfs,
         lfs_size_t size,
         uint32_t *cksum_) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
@@ -569,7 +569,7 @@ static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint, 
         const void *buffer, lfs_size_t size) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
@@ -607,9 +607,9 @@ static int lfsr_bd_cpy(lfs_t *lfs,
     // we don't really use hint here because we go through our pcache
     (void)hint;
     // must be in-bounds
-    LFS_ASSERT(dst_block < lfs->cfg->block_count);
+    LFS_ASSERT(dst_block < lfs->block_count);
     LFS_ASSERT(dst_off+size <= lfs->cfg->block_size);
-    LFS_ASSERT(src_block < lfs->cfg->block_count);
+    LFS_ASSERT(src_block < lfs->block_count);
     LFS_ASSERT(src_off+size <= lfs->cfg->block_size);
 
     lfs_size_t dst_off_ = dst_off;
@@ -651,7 +651,7 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint8_t c, lfs_size_t size,
         uint32_t *cksum_, bool align) {
     // must be in-bounds
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
 
     lfs_size_t off_ = off;
@@ -7095,8 +7095,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (int j = 0; j < 2; j++) {
         if (lfsr_mid_bid(lfs, lfs->grm.mids[j])
                 == lfsr_mid_bid(lfs, lfs_smax32(mdir->mid, 0))) {
-            if (lfsr_mid_rid(lfs, lfs->grm.mids[j])
-                    >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
+            if (mdelta > 0
+                    && lfsr_mid_rid(lfs, lfs->grm.mids[j])
+                        >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
                 lfs->grm.mids[j]
                         += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
             }
@@ -8425,6 +8426,8 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         return err;
     }
 
+    // either block_size matches or it doesn't, we don't support variable
+    // block_sizes
     if (geometry.block_size != lfs->cfg->block_size) {
         LFS_ERROR("Incompatible block size %"PRId32" (!= %"PRId32")",
                 geometry.block_size,
@@ -8432,12 +8435,15 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         return LFS_ERR_NOTSUP;
     }
 
-    if (geometry.block_count != lfs->cfg->block_count) {
-        LFS_ERROR("Incompatible block count %"PRId32" (!= %"PRId32")",
+    // on-disk block_count must be <= configured block_count
+    if (geometry.block_count > lfs->cfg->block_count) {
+        LFS_ERROR("Incompatible block count %"PRId32" (> %"PRId32")",
                 geometry.block_count,
                 lfs->cfg->block_count);
         return LFS_ERR_NOTSUP;
     }
+
+    lfs->block_count = geometry.block_count;
 
     // read the name limit
     lfs_size_t name_limit = 0xff;
@@ -8648,7 +8654,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // the purpose of this is to avoid bad wear patterns such as always 
     // allocating blocks near the beginning of disk after a power-loss
     //
-    lfs->lookahead.start = lfs->seed % lfs->cfg->block_count;
+    lfs->lookahead.start = lfs->seed % lfs->block_count;
 
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk
@@ -8776,7 +8782,7 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,
-            lfs->cfg->block_count,
+            lfs->block_count,
             lfs->mroot.rbyd.blocks[0],
             lfs->mroot.rbyd.blocks[1],
             lfsr_rbyd_trunk(&lfs->mroot.rbyd),
@@ -8804,7 +8810,7 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,
-            lfs->cfg->block_count);
+            lfs->block_count);
 
     err = lfsr_formatinited(lfs);
     if (err) {
@@ -8824,13 +8830,22 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
 // the filesystem, either in the mtree or in tracked mdirs. After a
 // checkpoint, the block allocator may realloc any untracked blocks.
 static void lfs_alloc_ckpoint(lfs_t *lfs) {
-    lfs->lookahead.ckpoint = lfs->cfg->block_count;
+    lfs->lookahead.ckpoint = lfs->block_count;
+}
+
+// Discard lookahead state, this is necessary if block_count changes
+static void lfs_alloc_discard(lfs_t *lfs) {
+    lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.next)
+            % lfs->block_count;
+    lfs->lookahead.next = 0;
+    lfs->lookahead.size = 0;
+    lfs->lookahead.ckpoint = 0;
 }
 
 static inline void lfs_alloc_setinuse(lfs_t *lfs, lfs_block_t block) {
     // translate to lookahead-relative
-    lfs_block_t rel = ((block + lfs->cfg->block_count) - lfs->lookahead.start)
-            % lfs->cfg->block_count;
+    lfs_block_t rel = (block + lfs->block_count - lfs->lookahead.start)
+            % lfs->block_count;
     if (rel < lfs->lookahead.size) {
         // mark as in-use
         lfs->lookahead.buffer[rel / 8] |= 1 << (rel % 8);
@@ -8845,7 +8860,10 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
                     & (1 << (lfs->lookahead.next % 8)))) {
                 // found a free block
                 *block = (lfs->lookahead.start + lfs->lookahead.next)
-                        % lfs->cfg->block_count;
+                        % lfs->block_count;
+
+                // we should never alloc blocks {0,1}
+                LFS_ASSERT(*block != 0 && *block != 1);
 
                 // erase requested?
                 if (erase) {
@@ -8890,7 +8908,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
         if (lfs->lookahead.ckpoint <= 0) {
             LFS_ERROR("No more free space 0x%"PRIx32,
                     (lfs->lookahead.start + lfs->lookahead.next)
-                        % lfs->cfg->block_count);
+                        % lfs->block_count);
             return LFS_ERR_NOSPC;
         }
 
@@ -8900,7 +8918,8 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
         // note we limit the lookahead window to at most the amount of blocks
         // checkpointed, this prevents the above math from underflowing
         //
-        lfs->lookahead.start += lfs->lookahead.size;
+        lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.size)
+                % lfs->block_count;
         lfs->lookahead.next = 0;
         lfs->lookahead.size = lfs_min32(
                 8*lfs->cfg->lookahead_size,
@@ -8941,12 +8960,13 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
 }
 
 
+
 /// Other filesystem things  ///
 
 int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     fsinfo->disk_version = LFS_DISK_VERSION;
     fsinfo->block_size = lfs->cfg->block_size;
-    fsinfo->block_count = lfs->cfg->block_count;
+    fsinfo->block_count = lfs->block_count;
     fsinfo->name_limit = lfs->name_limit;
     fsinfo->file_limit = lfs->file_limit;
     return 0;
@@ -8986,8 +9006,7 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
 }
 
 
-
-/// Prepare the filesystem for mutation ///
+// consistency stuff
 
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
     while (lfsr_grm_hasrm(&lfs->grm)) {
@@ -9080,6 +9099,7 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
     return 0;
 }
 
+// prepare the filesystem for mutation
 static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
@@ -9139,6 +9159,64 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
 int lfsr_fs_mkconsistent(lfs_t *lfs) {
     return lfsr_fs_preparemutation(lfs);
 }
+
+
+int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
+    // shrinking the filesystem is not supported
+    LFS_ASSERT(block_count_ >= lfs->block_count);
+
+    // do nothing if block_count doesn't change
+    if (block_count_ == lfs->block_count) {
+        return 0;
+    }
+
+    // Note we do _not_ call lfsr_fs_preparemutation here. This is a bit
+    // scary, but we should be ok as long as we patch grms in
+    // lfsr_mdir_commit and only commit to the mroot.
+    //
+    // Calling lfsr_fs_preparemutation risks locking our filesystem up trying
+    // to fix grms/orphans before we can commit the new filesystem size. If
+    // we don't, we should always be able to recover a stuck filesystem with
+    // lfsr_fs_grow.
+    //
+
+    LFS_DEBUG("Growing littlefs %"PRId32"x%"PRId32" -> %"PRId32"x%"PRId32,
+            lfs->cfg->block_size, lfs->block_count,
+            lfs->cfg->block_size, block_count_);
+
+    // keep track of our current block_count in case we fail
+    lfs_size_t block_count = lfs->block_count;
+
+    // we can use the new blocks immediately as long as the commit
+    // with the new block_count is atomic
+    lfs->block_count = block_count_;
+    // discard stale lookahead buffer
+    lfs_alloc_discard(lfs);
+    lfs_alloc_ckpoint(lfs);
+
+    // update our on-disk config
+    int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_GEOMETRY, 0,
+                LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
+                    lfs->cfg->block_size,
+                    block_count_})))));
+    if (err) {
+        goto failed;
+    }
+
+    return 0;
+
+failed:;
+    // restore block_count
+    lfs->block_count = block_count;
+    // discard clobbered lookahead buffer
+    lfs_alloc_discard(lfs);
+
+    return err;
+}
+
+
 
 
 /// Directory operations ///
@@ -15657,6 +15735,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->shrub_size <= lfs->cfg->block_size/4);
     // fragment_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
+
+    // setup block_count so we can mutate it
+    lfs->block_count = lfs->cfg->block_count;
 
     // setup read cache
     lfs->rcache.block = 0;

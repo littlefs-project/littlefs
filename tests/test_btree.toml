@@ -13,10 +13,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create an empty tree
@@ -44,10 +44,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -85,10 +85,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -134,10 +134,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -184,10 +184,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -242,10 +242,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -303,10 +303,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -353,10 +353,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -405,10 +405,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -487,10 +487,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -555,10 +555,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -690,10 +690,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -735,10 +735,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -793,10 +793,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -865,10 +865,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -922,10 +922,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -1008,10 +1008,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -1081,10 +1081,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -1224,10 +1224,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -1280,10 +1280,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -1352,10 +1352,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -1424,10 +1424,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -1515,10 +1515,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -1594,10 +1594,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -1676,10 +1676,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -1764,10 +1764,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -1870,10 +1870,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -2020,10 +2020,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -2079,10 +2079,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -2168,10 +2168,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -2228,10 +2228,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -2404,10 +2404,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
@@ -2471,10 +2471,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
@@ -2541,10 +2541,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
@@ -2604,10 +2604,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
@@ -2684,10 +2684,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -2790,10 +2790,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -2956,10 +2956,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a zero-entry tree
@@ -2989,10 +2989,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
@@ -3041,10 +3041,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -3107,10 +3107,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -3187,10 +3187,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
@@ -3268,10 +3268,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -3341,10 +3341,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -3455,10 +3455,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -3529,10 +3529,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -3685,10 +3685,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -3842,10 +3842,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
@@ -4047,10 +4047,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
@@ -4169,10 +4169,10 @@ code = '''
     lfs_init(&lfs, CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
-    lfs.lookahead.start = 0;
+    lfs.lookahead.start = 2;
     lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
-            CFG->block_count);
-    lfs.lookahead.next = 0;
+            CFG->block_count-2);
+    lfs.lookahead.next = 2;
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
