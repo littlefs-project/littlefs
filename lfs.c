@@ -1498,7 +1498,10 @@ static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
     LFS_ASSERT(word <= 0x7fffffff);
 
     lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
-    LFS_ASSERT(d >= 0);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
     return LFSR_DATA_BUF(buffer, d);
 }
 
@@ -1516,7 +1519,10 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
     LFS_ASSERT(word <= 0x0fffffff);
 
     lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
-    LFS_ASSERT(d >= 0);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
     return LFSR_DATA_BUF(buffer, d);
 }
 
@@ -1854,7 +1860,9 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
 
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(ecksum->cksize, &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     lfs_tole32_(ecksum->cksum, &buffer[d]);
@@ -1916,20 +1924,28 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
 
     // write the block, offset, size
     lfs_ssize_t d_ = lfs_toleb128(lfsr_data_size(bptr->data), &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     d_ = lfs_toleb128(bptr->data.u.disk.block, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     d_ = lfs_toleb128(bptr->data.u.disk.off, &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     // write the cksize, cksum
     d_ = lfs_toleb128(bptr->cksize, &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     lfs_tole32_(bptr->cksum, &buffer[d]);
@@ -4004,11 +4020,15 @@ static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
     lfs_ssize_t d = 0;
 
     lfs_ssize_t d_ = lfs_toleb128(branch->blocks[0], &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     d_ = lfs_toleb128(lfsr_rbyd_trunk(branch), &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     lfs_tole32_(branch->cksum, &buffer[d]);
@@ -4075,7 +4095,9 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
     lfs_ssize_t d = 0;
 
     lfs_ssize_t d_ = lfs_toleb128(btree->weight, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     lfsr_data_t data = lfsr_data_frombranch(btree, &buffer[d]);
@@ -5114,7 +5136,9 @@ static lfsr_data_t lfsr_data_frommptr(const lfsr_mptr_t *mptr,
     lfs_ssize_t d = 0;
     for (int i = 0; i < 2; i++) {
         lfs_ssize_t d_ = lfs_toleb128(mptr->blocks[i], &buffer[d], 5);
-        LFS_ASSERT(d_ >= 0);
+        if (d_ < 0) {
+            LFS_UNREACHABLE();
+        }
         d += d_;
     }
 
@@ -5315,12 +5339,16 @@ static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
 
     // just write the trunk and weight, the rest of the rbyd is contextual
     lfs_ssize_t d_ = lfs_toleb128(shrub->weight, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     d_ = lfs_toleb128(lfsr_shrub_trunk(shrub),
             &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     return LFSR_DATA_BUF(buffer, d);
@@ -5513,7 +5541,9 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
 
     for (uint8_t i = 0; i < mode; i++) {
         lfs_ssize_t d_ = lfs_toleb128(grm->mids[i], &buffer[d], 5);
-        LFS_ASSERT(d_ >= 0);
+        if (d_ < 0) {
+            LFS_UNREACHABLE();
+        }
         d += d_;
     }
 
@@ -5576,8 +5606,9 @@ static void lfsr_fs_revertgdelta(lfs_t *lfs) {
     int err = lfsr_data_readgrm(lfs,
             &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
             &lfs->grm);
-    LFS_ASSERT(!err);
-    (void)err;
+    if (err) {
+        LFS_UNREACHABLE();
+    }
 }
 
 static void lfsr_fs_commitgdelta(lfs_t *lfs) {
@@ -8315,11 +8346,15 @@ static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
         uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(geometry->block_size-1, &buffer[d], 4);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     d_ = lfs_toleb128(geometry->block_count-1, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
     d += d_;
 
     return LFSR_DATA_BUF(buffer, d);
