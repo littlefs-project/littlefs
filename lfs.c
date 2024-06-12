@@ -9536,7 +9536,14 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
     // if we were a directory, we need to clean up, fortunately we can leave
     // this up to lfsr_fs_fixgrm
-    return lfsr_fs_fixgrm(lfs);
+    err = lfsr_fs_fixgrm(lfs);
+    if (err) {
+        // we did complete the remove, so we shouldn't error here, best
+        // we can do is log this
+        LFS_WARN("Failed to clean up grm (%d)", err);
+    }
+
+    return 0;
 }
 
 int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
@@ -9705,7 +9712,14 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
     // we need to clean up any pending grms, fortunately we can leave
     // this up to lfsr_fs_fixgrm
-    return lfsr_fs_fixgrm(lfs);
+    err = lfsr_fs_fixgrm(lfs);
+    if (err) {
+        // we did complete the remove, so we shouldn't error here, best
+        // we can do is log this
+        LFS_WARN("Failed to clean up grm (%d)", err);
+    }
+
+    return 0;
 }
 
 // this just populates the info struct based on what we found

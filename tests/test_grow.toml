@@ -658,7 +658,7 @@ code = '''
             char name[256];
             sprintf(name, "dir%03x", x);
             int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -681,7 +681,7 @@ code = '''
             char new_name[256];
             sprintf(new_name, "dir%03x", y);
             int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -1070,7 +1070,7 @@ code = '''
             char name[256];
             sprintf(name, "amethyst%03x", x);
             int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -1097,7 +1097,7 @@ code = '''
             char new_name[256];
             sprintf(new_name, "amethyst%03x", y);
             int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -1469,7 +1469,7 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -1506,7 +1506,7 @@ code = '''
             char new_name[256];
             sprintf(new_name, "batman%03x", y);
             int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -1902,7 +1902,7 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -1955,7 +1955,7 @@ code = '''
             char new_name[256];
             sprintf(new_name, "batman%03x", y);
             int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -2363,7 +2363,7 @@ code = '''
             assert(strlen(info.name) == strlen("amethyst..."));
             sprintf(name, "test/%s", info.name);
             err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -2390,7 +2390,7 @@ code = '''
             char new_name[256];
             sprintf(new_name, "test/amethyst%03x", y);
             err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+            assert(!err || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
                 goto grow;
             }
@@ -2657,8 +2657,7 @@ code = '''
                 err = lfsr_remove(&lfs, name);
                 assert(!err
                         || err == LFS_ERR_NOTEMPTY
-                        || err == LFS_ERR_NOSPC
-                        || err == LFS_ERR_NOENT);
+                        || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
                     goto grow;
                 }
@@ -2687,8 +2686,7 @@ code = '''
                 err = lfsr_rename(&lfs, old_name, new_name);
                 assert(!err
                         || err == LFS_ERR_NOTEMPTY
-                        || err == LFS_ERR_NOSPC
-                        || err == LFS_ERR_NOENT);
+                        || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
                     goto grow;
                 }
@@ -2793,7 +2791,7 @@ code = '''
                 assert(strlen(info.name) == strlen("amethyst..."));
                 sprintf(name, "%s/%s", dir_path, info.name);
                 err = lfsr_remove(&lfs, name);
-                assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+                assert(!err || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
                     goto grow;
                 }
@@ -2833,7 +2831,7 @@ code = '''
                 char new_name[256];
                 sprintf(new_name, "test/%s/amethyst%03x", info_.name, y);
                 err = lfsr_rename(&lfs, old_name, new_name);
-                assert(!err || err == LFS_ERR_NOSPC || err == LFS_ERR_NOENT);
+                assert(!err || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
                     goto grow;
                 }
