@@ -1141,8 +1141,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     }
 
     int err = lfsr_bd_read(lfs, block, off, hint, tag_buf, tag_dsize);
-    if (err) {
-        LFS_ASSERT(err < 0);
+    if (err < 0) {
         return err;
     }
 
@@ -1233,8 +1232,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
     int err = lfsr_bd_prog(lfs, block, off, tag_buf, d,
             cksum_, align);
-    if (err) {
-        LFS_ASSERT(err < 0);
+    if (err < 0) {
         return err;
     }
 
@@ -1329,8 +1327,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
                 // note our hint includes the full data range
                 lfsr_data_size(*data),
                 buffer, d);
-        if (err) {
-            LFS_ASSERT(err < 0);
+        if (err < 0) {
             return err;
         }
 
@@ -1444,8 +1441,7 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
     // first compare the did
     lfsr_did_t did_;
     int err = lfsr_data_readleb128(lfs, &data, &did_);
-    if (err) {
-        LFS_ASSERT(err < 0);
+    if (err < 0) {
         return err;
     }
 
@@ -3586,11 +3582,10 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             int err = lfsr_rbyd_lookupnext(lfs, rbyd,
                     a_rid, tag+1,
                     &rid_, &tag, &weight_, &data);
-            if (err) {
+            if (err < 0) {
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
-                LFS_ASSERT(err < 0);
                 return err;
             }
             if (rid_ > a_rid+lfs_smax32(weight_-1, 0)) {
@@ -3888,9 +3883,8 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 // of a weighted rid with this
                 lower_rid + (upper_rid-1-lower_rid)/2, 0,
                 &rid__, &tag__, &weight__, &data__);
-        if (err) {
+        if (err < 0) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
-            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -4893,9 +4887,8 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_data_t data__;
         int err = lfsr_rbyd_sublookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                 &tag__, &data__);
-        if (err) {
+        if (err < 0) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
-            LFS_ASSERT(err < 0);
             return err;
         }
 
@@ -4906,8 +4899,7 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
 
             // fetch the next branch
             err = lfsr_data_readbranch(lfs, &data__, weight__, &branch);
-            if (err) {
-                LFS_ASSERT(err < 0);
+            if (err < 0) {
                 return err;
             }
 
@@ -5154,17 +5146,13 @@ static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_opened_t *o) {
 }
 
 static void lfsr_opened_add(lfs_t *lfs, lfsr_opened_t *o) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(!lfsr_opened_isopen(lfs, o));
-#endif
     o->next = lfs->opened;
     lfs->opened = o;
 }
 
 static void lfsr_opened_remove(lfs_t *lfs, lfsr_opened_t *o) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, o));
-#endif
     for (lfsr_opened_t **o_ = &lfs->opened; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
             *o_ = (*o_)->next;
@@ -5589,6 +5577,7 @@ static void lfsr_fs_revertgdelta(lfs_t *lfs) {
             &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
             &lfs->grm);
     LFS_ASSERT(!err);
+    (void)err;
 }
 
 static void lfsr_fs_commitgdelta(lfs_t *lfs) {
@@ -6382,11 +6371,10 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             int err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
                     a_rid, tag+1,
                     &rid_, &tag, NULL, &data);
-            if (err) {
+            if (err < 0) {
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
-                LFS_ASSERT(err < 0);
                 return err;
             }
             if (rid_ != a_rid) {
@@ -6413,8 +6401,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
                 lfsr_shrub_t shrub;
                 err = lfsr_data_readshrub(lfs, &data, mdir, &shrub);
-                if (err) {
-                    LFS_ASSERT(err < 0);
+                if (err < 0) {
                     return err;
                 }
 
@@ -9791,10 +9778,8 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir);
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
-#ifndef LFS_NO_ASSERT
     // already open?
     LFS_ASSERT(!lfsr_opened_isopen(lfs, &dir->o));
-#endif
 
     // setup dir state
     dir->o.type = LFS_TYPE_DIR;
@@ -9850,9 +9835,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
-#endif
 
     // remove from tracked mdirs
     lfsr_opened_remove(lfs, &dir->o);
@@ -9860,9 +9843,7 @@ int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
 }
 
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
-#endif
 
     // was our dir removed?
     if (lfsr_f_iszombie(dir->o.flags)) {
@@ -9936,9 +9917,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 }
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
-#endif
 
     // do nothing if removed
     if (lfsr_f_iszombie(dir->o.flags)) {
@@ -9968,9 +9947,7 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
 
 lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
     (void)lfs;
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
-#endif
 
     return dir->pos;
 }
@@ -10003,9 +9980,7 @@ static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir) {
 }
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
-#endif
 
     return lfsr_dir_rewind_(lfs, dir);
 }
@@ -10152,10 +10127,8 @@ static lfs_ssize_t lfsr_bshrub_read(lfs_t *lfs, const lfsr_file_t *file,
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg) {
-#ifndef LFS_NO_ASSERT
     // already open?
     LFS_ASSERT(!lfsr_opened_isopen(lfs, &file->o));
-#endif
     // don't allow the forbidden mode!
     LFS_ASSERT((flags & 3) != 3);
     // these flags require a writable file
@@ -10346,9 +10319,7 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     // don't call lfsr_file_sync if we're readonly or desynced
     int err = 0;
@@ -10400,8 +10371,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     lfsr_data_t data;
     int err = lfsr_mdir_lookupnext(lfs, &file->o.mdir, LFSR_TAG_DATA,
             &tag, &data);
-    if (err && err != LFS_ERR_NOENT) {
-        LFS_ASSERT(err < 0);
+    if (err < 0 && err != LFS_ERR_NOENT) {
         return err;
     }
 
@@ -10416,8 +10386,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
         lfsr_shrub_t shrub;
         err = lfsr_data_readshrub(lfs, &data, &file->o.mdir,
                 &shrub);
-        if (err) {
-            LFS_ASSERT(err < 0);
+        if (err < 0) {
             return err;
         }
 
@@ -11570,9 +11539,7 @@ fragment:;
 
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
     // can't read from writeonly files
     LFS_ASSERT(!lfsr_o_iswronly(file->o.flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
@@ -11664,9 +11631,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags));
 
@@ -11821,9 +11786,7 @@ failed:;
 }
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
     // readonly files should do nothing
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags)
             || !lfsr_f_isunflush(file->o.flags)
@@ -11869,9 +11832,7 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
     // removed? we can't sync
     if (lfsr_f_iszombie(file->o.flags)) {
         return LFS_ERR_NOENT;
@@ -12034,9 +11995,7 @@ failed:;
 
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     file->o.flags |= LFS_O_DESYNC;
     return 0;
@@ -12044,9 +12003,7 @@ int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
 
 lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
         lfs_soff_t off, uint8_t whence) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     // TODO check for out-of-range?
 
@@ -12074,18 +12031,14 @@ lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_soff_t lfsr_file_tell(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     return file->pos;
 }
 
 lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     file->pos = 0;
     return 0;
@@ -12093,17 +12046,13 @@ lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
 
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     return lfsr_file_size_(file);
 }
 
 int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
@@ -12208,9 +12157,7 @@ failed:;
 }
 
 int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
-#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
-#endif
 
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
