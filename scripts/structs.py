@@ -154,7 +154,7 @@ def collect(obj_paths, *,
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=sp.PIPE if not args.get('verbose') else None,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -200,7 +200,7 @@ def collect(obj_paths, *,
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=sp.PIPE if not args.get('verbose') else None,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)

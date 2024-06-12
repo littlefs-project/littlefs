@@ -268,7 +268,7 @@ def collect_syms_and_lines(obj_path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
         stdout=sp.PIPE,
-        stderr=sp.PIPE if not args.get('verbose') else None,
+        stderr=None if args.get('verbose') else sp.DEVNULL,
         universal_newlines=True,
         errors='replace',
         close_fds=False)
@@ -317,7 +317,7 @@ def collect_syms_and_lines(obj_path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
         stdout=sp.PIPE,
-        stderr=sp.PIPE if not args.get('verbose') else None,
+        stderr=None if args.get('verbose') else sp.DEVNULL,
         universal_newlines=True,
         errors='replace',
         close_fds=False)
@@ -415,7 +415,7 @@ def collect_decompressed(path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
         stdout=sp.PIPE,
-        stderr=sp.PIPE if not args.get('verbose') else None,
+        stderr=None if args.get('verbose') else sp.DEVNULL,
         universal_newlines=True,
         errors='replace',
         close_fds=False)
