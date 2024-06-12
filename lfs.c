@@ -6792,6 +6792,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // lfs->mroot must have mid=-1
     LFS_ASSERT(lfs->mroot.mid == -1);
 
+    // checkpoint the allocator
+    lfs_alloc_ckpoint(lfs);
+
     // play out any attrs that affect our grm _before_ committing to disk,
     // keep in mind we revert to on-disk gstate if we run into an error
     lfsr_smid_t mid_ = mdir->mid;
@@ -9127,12 +9130,9 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 }
 
 // prepare the filesystem for mutation
-static int lfsr_fs_preparemutation(lfs_t *lfs) {
-    // checkpoint the allocator
-    lfs_alloc_ckpoint(lfs);
-
+int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // fix pending grms
-    bool inconsistent = false;
+    bool wasinconsistent = false;
     if (lfsr_grm_hasrm(&lfs->grm)) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
             LFS_DEBUG("Fixing grm "
@@ -9146,16 +9146,12 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
                     lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]));
         }
-        inconsistent = true;
+        wasinconsistent = true;
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
             return err;
         }
-
-        // checkpoint the allocator again since fixgrm completed
-        // some work
-        lfs_alloc_ckpoint(lfs);
     }
 
     // fix orphaned files
@@ -9165,26 +9161,18 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     //
     if (lfs->hasorphans) {
         LFS_DEBUG("Fixing orphans...");
-        inconsistent = true;
+        wasinconsistent = true;
 
         int err = lfsr_fs_fixorphans(lfs);
         if (err) {
             return err;
         }
-
-        // checkpoint the allocator again since fixorphans completed
-        // some work
-        lfs_alloc_ckpoint(lfs);
     }
 
-    if (inconsistent) {
+    if (wasinconsistent) {
         LFS_DEBUG("littlefs is now consistent");
     }
     return 0;
-}
-
-int lfsr_fs_mkconsistent(lfs_t *lfs) {
-    return lfsr_fs_preparemutation(lfs);
 }
 
 
@@ -9197,15 +9185,14 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
         return 0;
     }
 
-    // Note we do _not_ call lfsr_fs_preparemutation here. This is a bit
-    // scary, but we should be ok as long as we patch grms in
-    // lfsr_mdir_commit and only commit to the mroot.
+    // Note we do _not_ call lfsr_fs_mkconsistent here. This is a bit scary,
+    // but we should be ok as long as we patch grms in lfsr_mdir_commit and
+    // only commit to the mroot.
     //
-    // Calling lfsr_fs_preparemutation risks locking our filesystem up trying
+    // Calling lfsr_fs_mkconsistent risks locking our filesystem up trying
     // to fix grms/orphans before we can commit the new filesystem size. If
     // we don't, we should always be able to recover a stuck filesystem with
     // lfsr_fs_grow.
-    //
 
     LFS_DEBUG("Growing littlefs %"PRId32"x%"PRId32" -> %"PRId32"x%"PRId32,
             lfs->cfg->block_size, lfs->block_count,
@@ -9219,7 +9206,6 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
     lfs->block_count = block_count_;
     // discard stale lookahead buffer
     lfs_alloc_discard(lfs);
-    lfs_alloc_ckpoint(lfs);
 
     // update our on-disk config
     int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_ATTRS(
@@ -9253,7 +9239,7 @@ static inline bool lfsr_f_iszombie(uint32_t flags);
 
 int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // prepare our filesystem for writing
-    int err = lfsr_fs_preparemutation(lfs);
+    int err = lfsr_fs_mkconsistent(lfs);
     if (err) {
         return err;
     }
@@ -9417,7 +9403,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
 int lfsr_remove(lfs_t *lfs, const char *path) {
     // prepare our filesystem for writing
-    int err = lfsr_fs_preparemutation(lfs);
+    int err = lfsr_fs_mkconsistent(lfs);
     if (err) {
         return err;
     }
@@ -9548,7 +9534,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
 int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // prepare our filesystem for writing
-    int err = lfsr_fs_preparemutation(lfs);
+    int err = lfsr_fs_mkconsistent(lfs);
     if (err) {
         return err;
     }
@@ -10185,7 +10171,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
-        int err = lfsr_fs_preparemutation(lfs);
+        int err = lfsr_fs_mkconsistent(lfs);
         if (err) {
             return err;
         }
@@ -11700,7 +11686,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
-    int err;
 
     // update pos if we are appending
     lfs_off_t pos = file->pos;
@@ -11721,6 +11706,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     const uint8_t *buffer_ = buffer;
     lfs_size_t written = 0;
+    int err;
     while (size > 0) {
         // bypass buffer?
         //
@@ -11860,9 +11846,9 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
 
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
-    int err;
 
     // flush our buffer if it contains any unwritten data
+    int err;
     if (lfsr_f_isunflush(file->o.flags)
             && file->buffer.size != 0) {
         // flush
@@ -11940,9 +11926,6 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             err = LFS_ERR_INVAL;
             goto failed;
         }
-
-        // checkpoint the allocator again
-        lfs_alloc_ckpoint(lfs);
 
         // commit any changes to our file's metadata
         lfsr_attr_t attrs[2];
@@ -12136,9 +12119,9 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
-    int err;
 
     // does our file become small?
+    int err;
     if (size_ <= lfsr_file_inlinesize(lfs, file)) {
         // if our data is not already in our buffer we unfortunately
         // need to flush so our buffer is available to hold everything
@@ -12243,9 +12226,9 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
-    int err;
 
     // does our file become small?
+    int err;
     if (size_ <= lfsr_file_inlinesize(lfs, file)) {
         // if our data is not already in our buffer we unfortunately
         // need to flush so our buffer is available to hold everything
