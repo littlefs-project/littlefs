@@ -218,7 +218,7 @@ def main(command, *,
                     if not line:
                         break
 
-                    if cat or not head or len(ring) < h:
+                    if cat or not head or (head and len(ring) < h):
                         ring.write(line)
                         if not cat and not buffer and not ignore_errors:
                             ring.draw()
@@ -226,7 +226,7 @@ def main(command, *,
                 mpty.close()
                 proc.wait()
 
-                if ((buffer or ignore_errors)
+                if ((buffer or ignore_errors or (not cat and len(ring) == 0))
                         and not (ignore_errors and proc.returncode != 0)):
                     ring.draw()
                 if exit_on_error and proc.returncode != 0:
