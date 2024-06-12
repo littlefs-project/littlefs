@@ -838,9 +838,9 @@ enum lfsr_tag {
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_ATTRS          = 0x0800,
-    LFSR_TAG_MOVE           = 0x0801,
-    LFSR_TAG_SHRUBCOMMIT    = 0x0802,
-    LFSR_TAG_SHRUBTRUNK     = 0x0803,
+    LFSR_TAG_SHRUBCOMMIT    = 0x0801,
+    LFSR_TAG_SHRUBTRUNK     = 0x0802,
+    LFSR_TAG_MOVE           = 0x0803,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -6126,6 +6126,47 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 i = -1;
                 continue;
 
+            // shrub tags append a set of attributes to an unrelated trunk
+            // in our rbyd
+            } else if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
+                const lfsr_shrubcommit_t *shrubcommit = attrs[i].cat;
+
+                // reset shrub if it doesn't live in our block, this happens
+                // when converting from a btree
+                if (shrubcommit->shrub->blocks[0] != rbyd_.blocks[0]) {
+                    shrubcommit->shrub->blocks[0] = rbyd_.blocks[0];
+                    shrubcommit->shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
+                    shrubcommit->shrub->weight = 0;
+                }
+
+                // commit to shrub
+                int err = lfsr_shrub_commit(lfs, &rbyd_,
+                        shrubcommit->shrub, shrubcommit->rid,
+                        shrubcommit->attrs, shrubcommit->attr_count);
+                if (err) {
+                    return err;
+                }
+
+            // lazily encode inlined trunks in case they change underneath
+            // us due to mdir compactions
+            //
+            // TODO should we preserve mode for all of these?
+            // TODO should we do the same for sprouts?
+            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
+                const lfsr_shrub_t *shrub = attrs[i].cat;
+
+                uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
+                int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                        rid - lfs_smax32(start_rid, 0),
+                        LFSR_ATTR(
+                            lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_BSHRUB,
+                            attrs[i].weight,
+                            // note we use the staged trunk here
+                            LFSR_DATA_SHRUB_(shrub, shrub_buf)));
+                if (err) {
+                    return err;
+                }
+
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfsr_mdir_compact__ more?
             // it _really_ wants to be deduplicated
@@ -6247,47 +6288,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             return err;
                         }
                     }
-                }
-
-            // shrub tags append a set of attributes to an unrelated trunk
-            // in our rbyd
-            } else if (attrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
-                const lfsr_shrubcommit_t *shrubcommit = attrs[i].cat;
-
-                // reset shrub if it doesn't live in our block, this happens
-                // when converting from a btree
-                if (shrubcommit->shrub->blocks[0] != rbyd_.blocks[0]) {
-                    shrubcommit->shrub->blocks[0] = rbyd_.blocks[0];
-                    shrubcommit->shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
-                    shrubcommit->shrub->weight = 0;
-                }
-
-                // commit to shrub
-                int err = lfsr_shrub_commit(lfs, &rbyd_,
-                        shrubcommit->shrub, shrubcommit->rid,
-                        shrubcommit->attrs, shrubcommit->attr_count);
-                if (err) {
-                    return err;
-                }
-
-            // lazily encode inlined trunks in case they change underneath
-            // us due to mdir compactions
-            //
-            // TODO should we preserve mode for all of these?
-            // TODO should we do the same for sprouts?
-            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                const lfsr_shrub_t *shrub = attrs[i].cat;
-
-                uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-                int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                        rid - lfs_smax32(start_rid, 0),
-                        LFSR_ATTR(
-                            lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_BSHRUB,
-                            attrs[i].weight,
-                            // note we use the staged trunk here
-                            LFSR_DATA_SHRUB_(shrub, shrub_buf)));
-                if (err) {
-                    return err;
                 }
 
             // write out normal tags normally
