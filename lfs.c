@@ -2631,7 +2631,7 @@ static int lfsr_rbyd_appendattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 // checks before we append
-static int lfsr_rbyd_prepareappend(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+static int lfsr_rbyd_appendinit(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
 
@@ -2768,7 +2768,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // begin appending
-    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    int err = lfsr_rbyd_appendinit(lfs, rbyd);
     if (err) {
         return err;
     }
@@ -3344,7 +3344,7 @@ leaf:;
 
 static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // begin appending
-    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    int err = lfsr_rbyd_appendinit(lfs, rbyd);
     if (err) {
         return err;
     }
@@ -3632,7 +3632,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_attr_t attr) {
     // begin appending
-    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    int err = lfsr_rbyd_appendinit(lfs, rbyd);
     if (err) {
         return err;
     }
@@ -3687,7 +3687,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_size_t off) {
     // begin appending
-    int err = lfsr_rbyd_prepareappend(lfs, rbyd);
+    int err = lfsr_rbyd_appendinit(lfs, rbyd);
     if (err) {
         return err;
     }
