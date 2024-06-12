@@ -8994,7 +8994,6 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
 /// Other filesystem things  ///
 
 int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
-    fsinfo->disk_version = LFS_DISK_VERSION;
     fsinfo->block_size = lfs->cfg->block_size;
     fsinfo->block_count = lfs->block_count;
     fsinfo->name_limit = lfs->name_limit;

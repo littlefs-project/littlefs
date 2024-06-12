@@ -325,9 +325,6 @@ struct lfs_info {
 
 // Filesystem info structure
 struct lfs_fsinfo {
-    // On-disk version
-    uint32_t disk_version;
-
     // TODO should we add rcompat/wcompat flags here?
 
     // Size of a logical block in bytes.

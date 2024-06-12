@@ -34,7 +34,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -71,7 +70,6 @@ code = '''
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -111,7 +109,6 @@ code = '''
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -156,7 +153,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BIGGER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -218,7 +214,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -257,7 +252,6 @@ code = '''
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BIGGER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -297,7 +291,6 @@ code = '''
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BIGGER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -336,7 +329,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -375,7 +367,6 @@ code = '''
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -415,7 +406,6 @@ code = '''
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -457,7 +447,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -511,7 +500,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -602,7 +590,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -749,7 +736,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -835,7 +821,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -911,7 +896,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -986,7 +970,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -1179,7 +1162,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -1282,7 +1264,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -1594,7 +1575,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -1708,7 +1688,6 @@ code = '''
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -2099,7 +2078,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -2242,7 +2220,6 @@ code = '''
         // fsstat up to date?
         struct lfs_fsinfo fsinfo;
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == INIT_BLOCK_COUNT);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -2450,7 +2427,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -2557,7 +2533,6 @@ code = '''
         // fsstat up to date?
         struct lfs_fsinfo fsinfo;
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == INIT_BLOCK_COUNT);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
@@ -2892,7 +2867,6 @@ code = '''
 
         // fsstat up to date?
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        assert(fsinfo.disk_version == LFS_DISK_VERSION);
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
         assert(fsinfo.name_limit == LFS_NAME_MAX);

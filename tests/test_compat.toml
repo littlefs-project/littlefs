@@ -92,12 +92,6 @@ code = '''
     // now mount with new version
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
-
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
-
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -130,11 +124,6 @@ code = '''
     // now mount with new version
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
-
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
 
     // can we list the directories?
     lfsr_dir_t dir;
@@ -207,11 +196,6 @@ code = '''
     // now mount with new version
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
-
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
 
     // can we list the files?
     lfsr_dir_t dir;
@@ -305,11 +289,6 @@ code = '''
     // now mount with new version
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
-
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
 
     // can we list the directories?
     lfsr_dir_t dir;
@@ -413,11 +392,6 @@ code = '''
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
 
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
-
     // write another COUNT/2 dirs
     for (lfs_size_t i = COUNT/2; i < COUNT; i++) {
         char name[8];
@@ -502,11 +476,6 @@ code = '''
     // now mount with new version
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
-
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
 
     // write half COUNT files
     prng = 42;
@@ -633,11 +602,6 @@ code = '''
     // mount the new version
     lfs_t lfs;
     lfsr_mount(&lfs, CFG) => 0;
-
-    // we should be able to read the version using lfsr_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.disk_version == LFSP_DISK_VERSION);
 
     // write half COUNT files
     prng = 42;
