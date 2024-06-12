@@ -837,9 +837,10 @@ enum lfsr_tag {
 
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
-    LFSR_TAG_MOVE           = 0x0800,
-    LFSR_TAG_SHRUBCOMMIT    = 0x0801,
-    LFSR_TAG_SHRUBTRUNK     = 0x0802,
+    LFSR_TAG_ATTRS          = 0x0800,
+    LFSR_TAG_MOVE           = 0x0801,
+    LFSR_TAG_SHRUBCOMMIT    = 0x0802,
+    LFSR_TAG_SHRUBTRUNK     = 0x0803,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -1670,6 +1671,10 @@ typedef struct lfsr_data_name {
 
 // hacky attrs - these end up handled as special cases in high-level
 // commit layers
+
+// chain another attr-list, only allowed as last attr
+#define LFSR_ATTR_ATTRS(_tag, _weight, _attrs, _attr_count) \
+    LFSR_ATTR_(_tag, _weight, (const lfsr_attr_t*){_attrs}, _attr_count)
 
 // a move of all attrs from an mdir entry
 #define LFSR_ATTR_MOVE(_tag, _weight, _mdir) \
@@ -6106,10 +6111,25 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // we just happen to never split in an mdir commit
             LFS_ASSERT(!(i > 0 && lfsr_attr_isinsert(attrs[i])));
 
+            // attr lists can be chained, but only tail-recursively
+            if (attrs[i].tag == LFSR_TAG_ATTRS) {
+                // must be the last tag
+                LFS_ASSERT(i == attr_count-1);
+                // how would weight make sense here?
+                LFS_ASSERT(attrs[i].weight == 0);
+                const lfsr_attr_t *attrs_ = attrs[i].cat;
+                lfs_size_t attr_count_ = attrs[i].count;
+
+                // switch to chained attr-list
+                attrs = attrs_;
+                attr_count = attr_count_;
+                i = -1;
+                continue;
+
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfsr_mdir_compact__ more?
             // it _really_ wants to be deduplicated
-            if (attrs[i].tag == LFSR_TAG_MOVE) {
+            } else if (attrs[i].tag == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
                 LFS_ASSERT(attrs[i].weight == 0);
                 const lfsr_mdir_t *mdir__ = attrs[i].cat;
@@ -7135,14 +7155,21 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // note end_rid=0 here will delete any files leftover from a split
         // in our mroot
         uint8_t mtree_buf[LFS_MAX(LFSR_MPTR_DSIZE, LFSR_BTREE_DSIZE)];
-        err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL, -1, LFSR_ATTRS(
-                (lfsr_mtree_ismptr(&mtree_))
-                    ? LFSR_ATTR(
-                        LFSR_TAG_SUB | LFSR_TAG_MDIR, 0,
-                        LFSR_DATA_MPTR_(&mtree_.u.mptr.mptr, mtree_buf))
-                    : LFSR_ATTR(
-                        LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
-                        LFSR_DATA_BTREE_(&mtree_.u.btree, mtree_buf))));
+        err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL,
+                -1, LFSR_ATTRS(
+                    (lfsr_mtree_ismptr(&mtree_))
+                        ? LFSR_ATTR(
+                            LFSR_TAG_SUB | LFSR_TAG_MDIR, 0,
+                            LFSR_DATA_MPTR_(&mtree_.u.mptr.mptr, mtree_buf))
+                        : LFSR_ATTR(
+                            LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
+                            LFSR_DATA_BTREE_(&mtree_.u.btree, mtree_buf)),
+                    // were we committing to the mroot? include any -1 attrs
+                    (mdir->mid == -1)
+                        ? LFSR_ATTR_ATTRS(
+                            LFSR_TAG_ATTRS, 0,
+                            attrs, attr_count)
+                        : LFSR_ATTR_NOOP()));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             goto failed;

@@ -442,7 +442,7 @@ code = '''
 #
 
 [cases.test_grow_incr_dir_many]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
@@ -584,7 +584,7 @@ code = '''
 '''
 
 [cases.test_grow_incr_dir_fuzz]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
@@ -607,18 +607,6 @@ code = '''
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
     assert(fsinfo.file_limit == LFS_FILE_MAX);
-
-    // make mroot split, TODO fix this
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_mkdir(&lfs, name) => 0;
-    }
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_remove(&lfs, name) => 0;
-    }
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -822,7 +810,7 @@ code = '''
 '''
 
 [cases.test_grow_incr_file_many]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -852,18 +840,6 @@ code = '''
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
     assert(fsinfo.file_limit == LFS_FILE_MAX);
-
-    // make mroot split, TODO fix this
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_mkdir(&lfs, name) => 0;
-    }
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_remove(&lfs, name) => 0;
-    }
 
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -982,7 +958,7 @@ code = '''
 '''
 
 [cases.test_grow_incr_file_fuzz]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -1015,18 +991,6 @@ code = '''
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
     assert(fsinfo.file_limit == LFS_FILE_MAX);
-
-    // make mroot split, TODO fix this
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_mkdir(&lfs, name) => 0;
-    }
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_remove(&lfs, name) => 0;
-    }
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -1291,7 +1255,7 @@ code = '''
 '''
 
 [cases.test_grow_incr_orphanzombie_fuzz]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -1323,18 +1287,6 @@ code = '''
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
     assert(fsinfo.file_limit == LFS_FILE_MAX);
-
-    // make mroot split, TODO fix this
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_mkdir(&lfs, name) => 0;
-    }
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_remove(&lfs, name) => 0;
-    }
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -1729,7 +1681,7 @@ code = '''
 '''
 
 [cases.test_grow_incr_orphanzombiedir_fuzz]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -1761,18 +1713,6 @@ code = '''
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS_NAME_MAX);
     assert(fsinfo.file_limit == LFS_FILE_MAX);
-
-    // make mroot split, TODO fix this
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_mkdir(&lfs, name) => 0;
-    }
-    for (lfs_size_t i = 0; i < 24; i++) {
-        char name[256];
-        sprintf(name, "splitme%03x", i);
-        lfsr_remove(&lfs, name) => 0;
-    }
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -2271,7 +2211,7 @@ code = '''
 # wrong.
 #
 [cases.test_grow_incr_file_pl_fuzz]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
 defines.SIZE = [
@@ -2307,31 +2247,6 @@ code = '''
         assert(fsinfo.block_count == INIT_BLOCK_COUNT);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
         assert(fsinfo.file_limit == LFS_FILE_MAX);
-    }
-
-    // make mroot split, TODO fix this
-    struct lfs_info info;
-    err = lfsr_stat(&lfs, "split", &info);
-    assert(!err || err == LFS_ERR_NOENT);
-    if (err == LFS_ERR_NOENT) {
-        if (lfs.mtree.u.weight == 0x80000000) {
-            for (lfs_size_t i = 0; i < 24; i++) {
-                char name[256];
-                sprintf(name, "splitme%03x", i);
-                err = lfsr_mkdir(&lfs, name);
-                assert(!err || err == LFS_ERR_EXIST);
-            }
-        }
-        for (lfs_size_t i = 0; i < 24; i++) {
-            char name[256];
-            sprintf(name, "splitme%03x", i);
-            err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOENT);
-        }
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "split",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_close(&lfs, &file) => 0;
     }
 
     // keep some test state on disk to survive powerloss
@@ -2609,7 +2524,7 @@ code = '''
 # wrong.
 #
 [cases.test_grow_incr_filedir_pl_fuzz]
-defines.INIT_BLOCK_COUNT = 7 # TODO need to fix mroot split issue
+defines.INIT_BLOCK_COUNT = 2
 # note dirs x files grows O(n^2)
 defines.N = [1, 2, 4, 8]
 defines.M = 'N'
@@ -2647,31 +2562,6 @@ code = '''
         assert(fsinfo.block_count == INIT_BLOCK_COUNT);
         assert(fsinfo.name_limit == LFS_NAME_MAX);
         assert(fsinfo.file_limit == LFS_FILE_MAX);
-    }
-
-    // make mroot split, TODO fix this
-    struct lfs_info info;
-    err = lfsr_stat(&lfs, "split", &info);
-    assert(!err || err == LFS_ERR_NOENT);
-    if (err == LFS_ERR_NOENT) {
-        if (lfs.mtree.u.weight == 0x80000000) {
-            for (lfs_size_t i = 0; i < 24; i++) {
-                char name[256];
-                sprintf(name, "splitme%03x", i);
-                err = lfsr_mkdir(&lfs, name);
-                assert(!err || err == LFS_ERR_EXIST);
-            }
-        }
-        for (lfs_size_t i = 0; i < 24; i++) {
-            char name[256];
-            sprintf(name, "splitme%03x", i);
-            err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOENT);
-        }
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "split",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_close(&lfs, &file) => 0;
     }
 
     // keep some test state on disk to survive powerloss
