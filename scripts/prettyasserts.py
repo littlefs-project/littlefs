@@ -535,7 +535,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Disable default symbols.")
     parser.add_argument(
-        '-A', '--no-arrows',
+        '--no-arrows',
         action='store_true',
         help="Disable arrow (=>) expressions.")
     parser.add_argument(
