@@ -5159,8 +5159,8 @@ static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
 
 
 // track opened mdirs to keep state in-sync
-static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_opened_t *o) {
-    for (lfsr_opened_t *o_ = lfs->opened; o_; o_ = o_->next) {
+static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_omdir_t *o) {
+    for (lfsr_omdir_t *o_ = lfs->opened; o_; o_ = o_->next) {
         if (o_ == o) {
             return true;
         }
@@ -5169,15 +5169,15 @@ static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_opened_t *o) {
     return false;
 }
 
-static void lfsr_opened_add(lfs_t *lfs, lfsr_opened_t *o) {
+static void lfsr_opened_add(lfs_t *lfs, lfsr_omdir_t *o) {
     LFS_ASSERT(!lfsr_opened_isopen(lfs, o));
     o->next = lfs->opened;
     lfs->opened = o;
 }
 
-static void lfsr_opened_remove(lfs_t *lfs, lfsr_opened_t *o) {
+static void lfsr_opened_remove(lfs_t *lfs, lfsr_omdir_t *o) {
     LFS_ASSERT(lfsr_opened_isopen(lfs, o));
-    for (lfsr_opened_t **o_ = &lfs->opened; *o_; o_ = &(*o_)->next) {
+    for (lfsr_omdir_t **o_ = &lfs->opened; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
             *o_ = (*o_)->next;
             break;
@@ -5186,7 +5186,7 @@ static void lfsr_opened_remove(lfs_t *lfs, lfsr_opened_t *o) {
 }
 
 static bool lfsr_mid_isopen(lfs_t *lfs, lfsr_smid_t mid) {
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         // we really only care about regular open files here, all
         // others are either transient (dirs) or fake (orphans)
         if (o->type == LFS_TYPE_REG && o->mdir.mid == mid) {
@@ -5238,7 +5238,7 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
         const lfsr_sprout_t *sprout) {
     // only include the last reference
     const lfsr_sprout_t *last = NULL;
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
@@ -5267,7 +5267,7 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
     // stage any opened inlined files with their new location so we
     // can update these later if our commit is a success
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
@@ -5384,7 +5384,7 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
         const lfsr_shrub_t *shrub) {
     // only include the last reference
     const lfsr_shrub_t *last = NULL;
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
@@ -5416,7 +5416,7 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // update these later if our commit is a success
     //
     // this should include our current bshrub
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
@@ -6265,7 +6265,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 // we're not quite done! we also need to bring over any
                 // unsynced files
-                for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+                for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
                     lfsr_file_t *file = (lfsr_file_t*)o;
                     // belongs to our mid?
                     if (file->o.type != LFS_TYPE_REG
@@ -6453,7 +6453,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
         // this is O(n^2), but littlefs is unlikely to have many open
         // files, I suppose if this becomes a problem we could sort
         // opened files by mid
-        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             // belongs to our mdir + rid?
             if (file->o.type != LFS_TYPE_REG
@@ -6599,7 +6599,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     // we're not quite done! we also need to bring over any unsynced files
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file = (lfsr_file_t*)o;
         // belongs to our mdir?
         if (file->o.type != LFS_TYPE_REG
@@ -6852,7 +6852,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
         lfs->mroot.rbyd.eoff = -1;
     }
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
             o->mdir.rbyd.eoff = -1;
         }
@@ -7158,7 +7158,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // mark any copies of our mroot as unerased
         lfs->mroot.rbyd.eoff = -1;
-        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
             if (lfsr_mdir_cmp(&o->mdir, &lfs->mroot) == 0) {
                 o->mdir.rbyd.eoff = -1;
             }
@@ -7329,7 +7329,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     mid_ = mdir->mid;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // adjust any opened mdirs
-        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
             // adjust opened mdirs?
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
                     && o->mdir.mid >= mid_) {
@@ -7353,7 +7353,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update any staged bsprouts/bshrubs
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         if (o->type == LFS_TYPE_REG) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             file->bshrub = file->bshrub_;
@@ -7361,7 +7361,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update internal mdir state
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         // avoid double updating the current mdir
         if (&o->mdir == mdir) {
             continue;
@@ -7700,12 +7700,12 @@ typedef struct lfsr_traversal {
         // btree traversal state, only valid when traversing the mtree
         lfsr_btraversal_t mt;
         // opened file state, only valid when traversing opened files
-        const lfsr_opened_t *o;
+        const lfsr_omdir_t *o;
     } u;
     // we really don't want to pay the RAM cost for a full file,
     // so only store the relevant bits, is this a hack? yes
     struct {
-        lfsr_opened_t o;
+        lfsr_omdir_t o;
         const struct lfs_file_config *cfg;
         lfsr_bshrub_t bshrub;
     } file;
@@ -9400,7 +9400,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // update in-device state
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         // mark any clobbered orphans as zombied
         if (exists
                 && o->type == LFS_TYPE_REG
@@ -9517,7 +9517,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // update in-device state
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         // mark any clobbered orphans as zombied orphans
         if (zombie
                 && o->type == LFS_TYPE_REG
@@ -9681,7 +9681,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     }
 
     // update in-device state
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         // mark any clobbered orphans as zombied
         if (exists
                 && o->type == LFS_TYPE_REG
@@ -10231,7 +10231,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // update dir positions
-            for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+            for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
                 if (o->type == LFS_TYPE_DIR
                         && ((lfsr_dir_t*)o)->did == did
                         && o->mdir.mid >= file->o.mdir.mid) {
@@ -10433,7 +10433,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     }
 
     // this includes our current shrub
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && file_->o.mdir.mid == file->o.mdir.mid) {
@@ -10670,7 +10670,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
     // before we touch anything, we need to mark all other btree references
     // as unerased
     if (lfsr_bshrub_isbtree(&file->o.mdir, &file->bshrub)) {
-        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
             if (file_->o.type == LFS_TYPE_REG
                     && file_ != file
@@ -10761,7 +10761,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
                 == file->o.mdir.rbyd.blocks[0]);
 
         // update _all_ shrubs with the new estimate
-        for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
             if (file_->o.type == LFS_TYPE_REG
                     && file_->o.mdir.mid == file->o.mdir.mid
@@ -11986,7 +11986,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // but do update other file handles
-    for (lfsr_opened_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && file_->o.mdir.mid == file->o.mdir.mid

@@ -2596,7 +2596,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2604,7 +2604,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "c", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -2655,7 +2655,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2663,7 +2663,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -2705,7 +2705,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2713,7 +2713,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -2757,7 +2757,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2765,7 +2765,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -2830,7 +2830,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2838,7 +2838,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "e", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -2915,7 +2915,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2923,7 +2923,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -2973,7 +2973,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -2981,7 +2981,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -3062,7 +3062,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -3070,7 +3070,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -3149,7 +3149,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -3157,7 +3157,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "f", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
@@ -3251,7 +3251,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
-    lfsr_opened_t left = {.type=0};
+    lfsr_omdir_t left = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
@@ -3259,7 +3259,7 @@ code = '''
     assert(left.mdir.rbyd.weight == 2);
     lfsr_opened_add(&lfs, &left);
 
-    lfsr_opened_t right = {.type=0};
+    lfsr_omdir_t right = {.type=0};
     lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "e", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(

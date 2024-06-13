@@ -431,12 +431,12 @@ typedef struct lfsr_mdir {
     lfsr_rbyd_t rbyd;
 } lfsr_mdir_t;
 
-typedef struct lfsr_opened {
-    struct lfsr_opened *next;
+typedef struct lfsr_omdir {
+    struct lfsr_omdir *next;
     uint8_t type;
     uint16_t flags;
     lfsr_mdir_t mdir;
-} lfsr_opened_t;
+} lfsr_omdir_t;
 
 
 //typedef struct lfs_mdir {
@@ -477,7 +477,7 @@ typedef struct lfsr_data {
 //} lfs_dir_t;
 
 typedef struct lfsr_dir {
-    lfsr_opened_t o;
+    lfsr_omdir_t o;
     lfsr_did_t did;
     lfs_off_t pos;
 } lfsr_dir_t;
@@ -533,7 +533,7 @@ typedef struct lfsr_bshrub {
 } lfsr_bshrub_t;
 
 typedef struct lfsr_file {
-    lfsr_opened_t o;
+    lfsr_omdir_t o;
     const struct lfs_file_config *cfg;
 
     // files contain both an active bshrub and staging bshrub, to allow
@@ -611,7 +611,7 @@ typedef struct lfs {
     uint8_t mdir_bits;
 
     // linked-list of opened mdirs
-    lfsr_opened_t *opened;
+    lfsr_omdir_t *opened;
 
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
