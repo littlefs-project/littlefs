@@ -2921,7 +2921,7 @@ trunk:;
                         &alt, &weight,
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid);
-                lfs_swap32(&jump, &branch_);
+                LFS_SWAP(lfs_size_t, &jump, &branch_);
             }
 
             // should've taken red alt? needs a flip
@@ -2935,9 +2935,9 @@ trunk:;
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag)) {
-                lfs_swap16(&p[0].alt, &alt);
-                lfs_swap32(&p[0].weight, &weight);
-                lfs_swap32(&p[0].jump, &jump);
+                LFS_SWAP(lfsr_tag_t, &p[0].alt, &alt);
+                LFS_SWAP(lfsr_rid_t, &p[0].weight, &weight);
+                LFS_SWAP(lfs_size_t, &p[0].jump, &jump);
                 alt = (alt & ~LFSR_TAG_R) | (p[0].alt & LFSR_TAG_R);
                 p[0].alt |= LFSR_TAG_R;
 
@@ -2945,7 +2945,7 @@ trunk:;
                         &alt, &weight,
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid);
-                lfs_swap32(&jump, &branch_);
+                LFS_SWAP(lfs_size_t, &jump, &branch_);
             }
 
             // do bounds want to take different paths? begin diverging
@@ -3125,9 +3125,9 @@ trunk:;
                 // 1  2  3  4      1  2  3  4  1
                 if (branch_ < branch) {
                     if (jump > branch) {
-                        lfs_swap16(&p[0].alt, &alt);
-                        lfs_swap32(&p[0].weight, &weight);
-                        lfs_swap32(&p[0].jump, &jump);
+                        LFS_SWAP(lfsr_tag_t, &p[0].alt, &alt);
+                        LFS_SWAP(lfsr_rid_t, &p[0].weight, &weight);
+                        LFS_SWAP(lfs_size_t, &p[0].jump, &jump);
                     }
                     alt &= ~LFSR_TAG_R;
 
@@ -3173,7 +3173,7 @@ trunk:;
                             &alt, &weight,
                             p[0].alt, p[0].weight,
                             lower_rid, upper_rid);
-                    lfs_swap32(&jump, &branch_);
+                    LFS_SWAP(lfs_size_t, &jump, &branch_);
                 }
 
             // black alt? terminate 2-3-4 nodes
@@ -3232,8 +3232,8 @@ trunk:;
                     // swap tag/rid and move on to upper trunk
                     diverged = false;
                     branch = trunk_;
-                    lfs_swap16(&a_tag, &b_tag);
-                    lfs_sswap32(&a_rid, &b_rid);
+                    LFS_SWAP(lfsr_tag_t, &a_tag, &b_tag);
+                    LFS_SWAP(lfsr_srid_t, &a_rid, &b_rid);
                     goto trunk;
 
                 } else {
@@ -3580,8 +3580,8 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         if (a_dsize > b_dsize
                 // bias so lower dsize >= upper dsize
                 || (a_dsize == b_dsize && a_rid > b_rid)) {
-            lfs_sswap32(&a_rid, &b_rid);
-            lfs_swap32(&a_dsize, &b_dsize);
+            LFS_SWAP(lfsr_srid_t, &a_rid, &b_rid);
+            LFS_SWAP(lfs_size_t, &a_dsize, &b_dsize);
         }
 
         if (a_rid > b_rid) {
@@ -5754,8 +5754,8 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (i == 0
                 || err == LFS_ERR_CORRUPT
                 || lfs_scmp(revs[1], revs[0]) > 0) {
-            lfs_swap32(&blocks_[0], &blocks_[1]);
-            lfs_swap32(&revs[0], &revs[1]);
+            LFS_SWAP(lfs_block_t, &blocks_[0], &blocks_[1]);
+            LFS_SWAP(uint32_t, &revs[0], &revs[1]);
         }
     }
 
@@ -5773,8 +5773,8 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
             return 0;
         }
 
-        lfs_swap32(&blocks_[0], &blocks_[1]);
-        lfs_swap32(&revs[0], &revs[1]);
+        LFS_SWAP(lfs_block_t, &blocks_[0], &blocks_[1]);
+        LFS_SWAP(uint32_t, &revs[0], &revs[1]);
     }
 
     // could not find a non-corrupt rbyd
@@ -6386,8 +6386,8 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
         if (a_dsize > b_dsize
                 // bias so lower dsize >= upper dsize
                 || (a_dsize == b_dsize && a_rid > b_rid)) {
-            lfs_sswap32(&a_rid, &b_rid);
-            lfs_swap32(&a_dsize, &b_dsize);
+            LFS_SWAP(lfsr_srid_t, &a_rid, &b_rid);
+            LFS_SWAP(lfs_size_t, &a_dsize, &b_dsize);
         }
 
         if (a_rid > b_rid) {

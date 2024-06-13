@@ -193,32 +193,15 @@ static inline int32_t lfs_abs32(int32_t a) {
     return (a < 0) ? -a : a;
 }
 
-// TODO how many of these do we actually need
-// Swap two 16-bit numbers
-static inline void lfs_swap16(uint16_t *a, uint16_t *b) {
-    uint16_t t = *a;
-    *a = *b;
-    *b = t;
-}
-
-static inline void lfs_sswap16(int16_t *a, int16_t *b) {
-    int16_t t = *a;
-    *a = *b;
-    *b = t;
-}
-
-// Swap two 32-bit numbers
-static inline void lfs_swap32(uint32_t *a, uint32_t *b) {
-    uint32_t t = *a;
-    *a = *b;
-    *b = t;
-}
-
-static inline void lfs_sswap32(int32_t *a, int32_t *b) {
-    int32_t t = *a;
-    *a = *b;
-    *b = t;
-}
+// Swap two variables
+#define LFS_SWAP(_t, _a, _b) \
+    do { \
+        _t *a = _a; \
+        _t *b = _b; \
+        _t t = *a; \
+        *a = *b; \
+        *b = t; \
+    } while (0)
 
 // Align to nearest multiple of a size
 static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
