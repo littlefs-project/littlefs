@@ -832,7 +832,7 @@ enum lfsr_tag {
     LFSR_TAG_CKSUM          = 0x3000,
     LFSR_TAG_P              = 0x0001,
     LFSR_TAG_Q              = 0x0002,
-    LFSR_TAG_NOISE          = 0x3100,
+    LFSR_TAG_NOTE           = 0x3100,
     LFSR_TAG_ECKSUM         = 0x3200,
 
     // in-device only tags, these should never get written to disk

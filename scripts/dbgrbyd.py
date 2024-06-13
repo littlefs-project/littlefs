@@ -55,7 +55,7 @@ TAG_GT          = 0x1000
 TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- --qp
 TAG_P           = 0x0001
 TAG_Q           = 0x0002
-TAG_NOISE       = 0x3100    #  0x3100  v-11 ---1 ---- ----
+TAG_NOTE        = 0x3100    #  0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
 
 
@@ -247,8 +247,8 @@ def tagrepr(tag, w=None, size=None, off=None):
             ' 0x%02x' % (tag & 0xff) if tag & 0xfc else '',
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
-    elif (tag & 0x7f00) == TAG_NOISE:
-        return 'noise%s%s%s' % (
+    elif (tag & 0x7f00) == TAG_NOTE:
+        return 'note%s%s%s' % (
             ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
