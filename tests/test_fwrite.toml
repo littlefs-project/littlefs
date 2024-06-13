@@ -515,8 +515,8 @@ code = '''
     lfsr_file_open(&lfs, &file, "hello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     // simulate our file in ram
-    uint8_t sim[lfs_max32(FROM,TO)];
-    memset(sim, 0, lfs_max32(FROM,TO));
+    uint8_t sim[lfs_max(FROM,TO)];
+    memset(sim, 0, lfs_max(FROM,TO));
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < FROM; i++) {
         sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -640,8 +640,8 @@ code = '''
     lfsr_file_open(&lfs, &file, "hello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     // simulate our file in ram
-    uint8_t sim[lfs_max32(FROM,lfs_max32(AND,TO))];
-    memset(sim, 0, lfs_max32(FROM,lfs_max32(AND,TO)));
+    uint8_t sim[lfs_max(FROM,lfs_max(AND,TO))];
+    memset(sim, 0, lfs_max(FROM,lfs_max(AND,TO)));
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < FROM; i++) {
         sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -773,8 +773,8 @@ code = '''
     lfsr_file_open(&lfs, &file, "hello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     // simulate our file in ram
-    uint8_t sim[lfs_max32(FROM,TO)];
-    memset(sim, 0, lfs_max32(FROM,TO));
+    uint8_t sim[lfs_max(FROM,TO)];
+    memset(sim, 0, lfs_max(FROM,TO));
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < FROM; i++) {
         sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -902,8 +902,8 @@ code = '''
     lfsr_file_open(&lfs, &file, "hello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     // simulate our file in ram
-    uint8_t sim[lfs_max32(FROM,lfs_max32(AND,TO))];
-    memset(sim, 0, lfs_max32(FROM,lfs_max32(AND,TO)));
+    uint8_t sim[lfs_max(FROM,lfs_max(AND,TO))];
+    memset(sim, 0, lfs_max(FROM,lfs_max(AND,TO)));
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < FROM; i++) {
         sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1595,7 +1595,7 @@ code = '''
         for (lfs_size_t j = 0; j < CHUNK; j++) {
             sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        size = lfs_max32(size, off+CHUNK);
+        size = lfs_max(size, off+CHUNK);
 
         // update file
         lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
@@ -1735,7 +1735,7 @@ code = '''
         // choose a random location
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min32(
+        lfs_size_t chunk = lfs_min(
                 (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
@@ -1743,7 +1743,7 @@ code = '''
         for (lfs_size_t j = 0; j < chunk; j++) {
             sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        size = lfs_max32(size, off+chunk);
+        size = lfs_max(size, off+chunk);
 
         // update file
         lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
@@ -1858,7 +1858,7 @@ code = '''
         // choose a random location
         lfs_soff_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min32(
+        lfs_size_t chunk = lfs_min(
                 (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
@@ -1953,7 +1953,7 @@ code = '''
         // choose a random location
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min32(
+        lfs_size_t chunk = lfs_min(
                 (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
@@ -1973,7 +1973,7 @@ code = '''
         for (lfs_size_t j = 0; j < chunk; j++) {
             sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        size = lfs_max32(size, off+chunk);
+        size = lfs_max(size, off+chunk);
 
         // update the file
         lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
@@ -2100,7 +2100,7 @@ code = '''
         // choose a random location
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min32(
+        lfs_size_t chunk = lfs_min(
                 (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
         // and if we are reading or writing
@@ -2124,7 +2124,7 @@ code = '''
             for (lfs_size_t j = 0; j < chunk; j++) {
                 sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
-            size = lfs_max32(size, off+chunk);
+            size = lfs_max(size, off+chunk);
 
             // update the file
             lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
@@ -2143,9 +2143,9 @@ code = '''
         // reading?
         } else if (op == 1) {
             // we may read less than chunk if we're past eof
-            lfs_off_t expected = lfs_min32(
+            lfs_off_t expected = lfs_min(
                     chunk,
-                    size - lfs_min32(off, size));
+                    size - lfs_min(off, size));
 
             // read the file and assert we got the correct data
             uint8_t rbuf[2*SIZE];
@@ -2394,7 +2394,7 @@ code = '''
             // choose a random location
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
             // and a random size, up to the chunk size
-            lfs_size_t chunk = lfs_min32(
+            lfs_size_t chunk = lfs_min(
                     (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                     SIZE - off);
 
@@ -2405,7 +2405,7 @@ code = '''
             for (lfs_size_t j = 0; j < chunk; j++) {
                 sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
-            size = lfs_max32(size, off+chunk);
+            size = lfs_max(size, off+chunk);
 
             // update the file
             lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
@@ -2428,7 +2428,7 @@ code = '''
             // choose a random location
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
             // and a random size, up to the chunk size
-            lfs_size_t chunk = lfs_min32(
+            lfs_size_t chunk = lfs_min(
                     (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                     SIZE - off);
 
@@ -2436,9 +2436,9 @@ code = '''
             lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
 
             // we may read less than chunk if we're past eof
-            lfs_off_t expected = lfs_min32(
+            lfs_off_t expected = lfs_min(
                     chunk,
-                    size - lfs_min32(off, size));
+                    size - lfs_min(off, size));
 
             // read the file and assert we got the correct data
             uint8_t rbuf[2*SIZE];

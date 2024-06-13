@@ -580,7 +580,7 @@ code = '''
             // choose a random location
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
             // and a random size, up to the chunk size
-            lfs_size_t chunk = lfs_min32(
+            lfs_size_t chunk = lfs_min(
                     (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                     SIZE - off);
 
@@ -588,7 +588,7 @@ code = '''
             for (lfs_size_t j = 0; j < chunk; j++) {
                 sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
-            size = lfs_max32(size, off+chunk);
+            size = lfs_max(size, off+chunk);
 
             // update file
             lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;

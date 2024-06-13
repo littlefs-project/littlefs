@@ -1135,7 +1135,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         uint32_t *cksum_) {
     // read the largest possible tag size
     uint8_t tag_buf[LFSR_TAG_DSIZE];
-    lfs_size_t tag_dsize = lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
+    lfs_size_t tag_dsize = lfs_min(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
     if (tag_dsize < 4) {
         return LFS_ERR_CORRUPT;
     }
@@ -1277,10 +1277,10 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
         lfs_ssize_t off, lfs_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
     // here to treat -1 as unbounded
-    lfs_size_t off_ = lfs_min32(
-            lfs_smax32(off, 0),
+    lfs_size_t off_ = lfs_min(
+            lfs_smax(off, 0),
             lfsr_data_size(data));
-    lfs_size_t size_ = lfs_min32(
+    lfs_size_t size_ = lfs_min(
             (lfs_size_t)size,
             lfsr_data_size(data) - off_);
 
@@ -1304,7 +1304,7 @@ static lfsr_data_t lfsr_data_truncate(lfsr_data_t data, lfs_size_t size) {
 
 static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
     return lfsr_data_slice(data,
-            lfsr_data_size(data) - lfs_min32(
+            lfsr_data_size(data) - lfs_min(
                 size,
                 lfsr_data_size(data)),
             -1);
@@ -1319,7 +1319,7 @@ static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
 static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
         void *buffer, lfs_size_t size) {
     // limit our size to data range
-    lfs_size_t d = lfs_min32(size, lfsr_data_size(*data));
+    lfs_size_t d = lfs_min(size, lfsr_data_size(*data));
 
     // on-disk?
     if (lfsr_data_ondisk(*data)) {
@@ -1406,7 +1406,7 @@ static inline int lfsr_data_readlleb128(lfs_t *lfs, lfsr_data_t *data,
 static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
         const void *buffer, lfs_size_t size) {
     // compare common prefix
-    lfs_size_t d = lfs_min32(size, lfsr_data_size(data));
+    lfs_size_t d = lfs_min(size, lfsr_data_size(data));
 
     // on-disk?
     if (lfsr_data_ondisk(data)) {
@@ -2407,7 +2407,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
     // make sure we never look up zero tags, the way we create
     // unreachable tags has a hole here
-    tag = lfs_max16(tag, 0x1);
+    tag = lfs_max(tag, 0x1);
 
     // out of bounds? no trunk yet?
     if (rid >= (lfsr_srid_t)rbyd->weight || !lfsr_rbyd_trunk(rbyd)) {
@@ -2805,7 +2805,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
             rid += 1;
-            a_rid = rid - lfs_smax32(-attr.weight, 0);
+            a_rid = rid - lfs_smax(-attr.weight, 0);
             b_rid = rid;
         }
 
@@ -2815,7 +2815,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     } else {
         LFS_ASSERT(rid < (lfsr_srid_t)rbyd->weight);
 
-        a_rid = rid - lfs_smax32(-attr.weight, 0);
+        a_rid = rid - lfs_smax(-attr.weight, 0);
         b_rid = rid;
 
         // note both normal and rm wide-tags have the same bounds, really it's
@@ -2834,8 +2834,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             b_tag = lfsr_tag_key(attr.tag);
         }
     }
-    a_tag = lfs_max16(a_tag, 0x1);
-    b_tag = lfs_max16(b_tag, 0x1);
+    a_tag = lfs_max(a_tag, 0x1);
+    b_tag = lfs_max(b_tag, 0x1);
 
     // keep track of diverged state
     //
@@ -3267,8 +3267,8 @@ stem:;
     lfsr_tag_t alt = 0;
     lfsr_rid_t weight = 0;
     if (tag_
-            && (upper_rid-1 < rid-lfs_smax32(-attr.weight, 0)
-                || (upper_rid-1 == rid-lfs_smax32(-attr.weight, 0)
+            && (upper_rid-1 < rid-lfs_smax(-attr.weight, 0)
+                || (upper_rid-1 == rid-lfs_smax(-attr.weight, 0)
                     && ((!lfsr_tag_isgrow(attr.tag) && attr.weight > 0)
                         || (!lfsr_tag_issup(attr.tag)
                             && lfsr_tag_supkey(tag_)
@@ -3514,7 +3514,7 @@ static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // is still included
                 && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
             int err = lfsr_rbyd_appendattr(lfs, rbyd,
-                    rid - lfs_smax32(start_rid, 0),
+                    rid - lfs_smax(start_rid, 0),
                     attrs[i]);
             if (err) {
                 return err;
@@ -3571,7 +3571,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     //
     // TODO adopt this a/b naming scheme in lfsr_rbyd_appendattr?
     lfsr_srid_t a_rid = start_rid;
-    lfsr_srid_t b_rid = lfs_min32(rbyd->weight, end_rid);
+    lfsr_srid_t b_rid = lfs_min(rbyd->weight, end_rid);
     lfs_size_t a_dsize = 0;
     lfs_size_t b_dsize = 0;
     lfs_size_t rbyd_dsize = 0;
@@ -3604,7 +3604,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 }
                 return err;
             }
-            if (rid_ > a_rid+lfs_smax32(weight_-1, 0)) {
+            if (rid_ > a_rid+lfs_smax(weight_-1, 0)) {
                 break;
             }
 
@@ -3625,7 +3625,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         if (a_rid < b_rid) {
             a_rid += 1;
         } else {
-            a_rid -= lfs_smax32(weight-1, 0);
+            a_rid -= lfs_smax(weight-1, 0);
         }
     }
 
@@ -3704,7 +3704,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // clamp offset to be after the revision count
-    off = lfs_max32(off, sizeof(uint32_t));
+    off = lfs_max(off, sizeof(uint32_t));
 
     // empty rbyd? write a null tag so our trunk can still point to something
     if (lfsr_rbyd_eoff(rbyd) == off) {
@@ -4314,7 +4314,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     if (btree->weight > 0) {
         lfsr_srid_t rid_;
         int err = lfsr_btree_lookupnext_(lfs, btree,
-                lfs_min32(bid, btree->weight-1),
+                lfs_min(bid, btree->weight-1),
                 &bid, &rbyd, &rid_, NULL, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5096,13 +5096,13 @@ static inline int lfsr_mptr_cmp(
         const lfsr_mptr_t *a,
         const lfsr_mptr_t *b) {
     // note these can be in either order
-    if (lfs_max32(a->blocks[0], a->blocks[1])
-            != lfs_max32(b->blocks[0], b->blocks[1])) {
-        return lfs_max32(a->blocks[0], a->blocks[1])
-                - lfs_max32(b->blocks[0], b->blocks[1]);
+    if (lfs_max(a->blocks[0], a->blocks[1])
+            != lfs_max(b->blocks[0], b->blocks[1])) {
+        return lfs_max(a->blocks[0], a->blocks[1])
+                - lfs_max(b->blocks[0], b->blocks[1]);
     } else {
-        return lfs_min32(a->blocks[0], a->blocks[1])
-                - lfs_min32(b->blocks[0], b->blocks[1]);
+        return lfs_min(a->blocks[0], a->blocks[1])
+                - lfs_min(b->blocks[0], b->blocks[1]);
     }
 }
 
@@ -5577,7 +5577,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
         if (err) {
             return err;
         }
-        LFS_ASSERT((lfsr_mid_t)grm->mids[i] < lfs_max32(
+        LFS_ASSERT((lfsr_mid_t)grm->mids[i] < lfs_max(
                 lfsr_mtree_weight(&lfs->mtree),
                 1 << lfs->mdir_bits));
     }
@@ -5694,7 +5694,7 @@ static inline uint32_t lfsr_rev_init(lfs_t *lfs, uint32_t rev) {
     // increment revision
     rev += 1 << 28;
     // xor in a pseudorandom nonce
-    rev ^= ((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1) & lfs->seed;
+    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->seed;
     return rev;
 }
 
@@ -5704,15 +5704,15 @@ static inline bool lfsr_rev_needsrelocation(lfs_t *lfs, uint32_t rev) {
     }
 
     // does out recycle counter overflow?
-    uint32_t rev_ = rev + (1 << (28-lfs_smax32(lfs->recycle_bits, 0)));
+    uint32_t rev_ = rev + (1 << (28-lfs_smax(lfs->recycle_bits, 0)));
     return (rev_ >> 28) != (rev >> 28);
 }
 
 static inline uint32_t lfsr_rev_inc(lfs_t *lfs, uint32_t rev) {
     // increment recycle counter/revision
-    rev += 1 << (28-lfs_smax32(lfs->recycle_bits, 0));
+    rev += 1 << (28-lfs_smax(lfs->recycle_bits, 0));
     // xor in a pseudorandom nonce
-    rev ^= ((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1) & lfs->seed;
+    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->seed;
     return rev;
 }
 
@@ -6177,7 +6177,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
                 int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                        rid - lfs_smax32(start_rid, 0),
+                        rid - lfs_smax(start_rid, 0),
                         LFSR_ATTR(
                             lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_BSHRUB,
                             attrs[i].weight,
@@ -6212,7 +6212,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     // normal but we need to update any opened inlined files
                     if (tag == LFSR_TAG_DATA) {
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                                rid - lfs_smax32(start_rid, 0),
+                                rid - lfs_smax(start_rid, 0),
                                 LFSR_ATTR_CAT_(tag, 0, &data, 1));
                         if (err) {
                             return err;
@@ -6244,7 +6244,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         // write our new shrub tag
                         uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                                rid - lfs_smax32(start_rid, 0),
+                                rid - lfs_smax(start_rid, 0),
                                 LFSR_ATTR(
                                     LFSR_TAG_BSHRUB, 0,
                                     LFSR_DATA_SHRUB_(&shrub, shrub_buf)));
@@ -6255,7 +6255,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     // append the attr
                     } else {
                         err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                                rid - lfs_smax32(start_rid, 0),
+                                rid - lfs_smax(start_rid, 0),
                                 LFSR_ATTR_CAT_(tag, 0, &data, 1));
                         if (err) {
                             return err;
@@ -6315,7 +6315,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
 
                 int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
-                        rid - lfs_smax32(start_rid, 0),
+                        rid - lfs_smax(start_rid, 0),
                         attrs[i]);
                 if (err) {
                     return err;
@@ -6377,7 +6377,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
     // calculate dsize by starting from the outside ids and working inwards,
     // this naturally gives us a split rid
     lfsr_srid_t a_rid = start_rid;
-    lfsr_srid_t b_rid = lfs_min32(mdir->rbyd.weight, end_rid);
+    lfsr_srid_t b_rid = lfs_min(mdir->rbyd.weight, end_rid);
     lfs_size_t a_dsize = 0;
     lfs_size_t b_dsize = 0;
     lfs_size_t mdir_dsize = 0;
@@ -6908,7 +6908,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         split_relocate:;
             // alloc and compact into new mdirs
             err = lfsr_mdir_alloc__(lfs, &mdir_[i^left],
-                    lfs_smax32(mdir->mid, 0), all);
+                    lfs_smax(mdir->mid, 0), all);
             if (err) {
                 goto failed;
             }
@@ -7135,7 +7135,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // patch our grm
     for (int j = 0; j < 2; j++) {
         if (lfsr_mid_bid(lfs, lfs->grm.mids[j])
-                == lfsr_mid_bid(lfs, lfs_smax32(mdir->mid, 0))) {
+                == lfsr_mid_bid(lfs, lfs_smax(mdir->mid, 0))) {
             if (mdelta > 0
                     && lfsr_mid_rid(lfs, lfs->grm.mids[j])
                         >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
@@ -8756,7 +8756,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // (rev=0), it's also useful for start with -1 and 0 in the upper
         // bits to help test overflow/sequence comparison
         uint32_t rev = (((uint32_t)i-1) << 28)
-                | (((1 << (28-lfs_smax32(lfs->recycle_bits, 0)))-1)
+                | (((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1)
                     & 0x00216968);
         err = lfsr_rbyd_appendrev(lfs, &rbyd, rev);
         if (err) {
@@ -8973,7 +8973,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
         lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.size)
                 % lfs->block_count;
         lfs->lookahead.next = 0;
-        lfs->lookahead.size = lfs_min32(
+        lfs->lookahead.size = lfs_min(
                 8*lfs->cfg->lookahead_size,
                 lfs->lookahead.ckpoint);
         lfs_memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
@@ -9063,7 +9063,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
     while (lfsr_grm_hasrm(&lfs->grm)) {
         // find our mdir
         lfsr_mdir_t mdir;
-        LFS_ASSERT(lfs->grm.mids[0] < lfs_smax32(
+        LFS_ASSERT(lfs->grm.mids[0] < lfs_smax(
                 lfsr_mtree_weight(&lfs->mtree),
                 1 << lfs->mdir_bits));
         int err = lfsr_mtree_lookup(lfs, &lfs->mtree, lfs->grm.mids[0],
@@ -9333,7 +9333,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     //
     // Note we also need to be careful to catch integer overflow.
     //
-    lfsr_did_t dmask = (1 << lfs_min32(
+    lfsr_did_t dmask = (1 << lfs_min(
             lfs_nlog2(lfsr_mtree_weight(&lfs->mtree))
                 + lfs_nlog2(lfs->cfg->block_size/32),
             31)) - 1;
@@ -10140,15 +10140,15 @@ static inline lfs_size_t lfsr_file_buffersize(lfs_t *lfs,
 
 static inline lfs_size_t lfsr_file_inlinesize(lfs_t *lfs,
         const lfsr_file_t *file) {
-    return lfs_min32(
+    return lfs_min(
             lfsr_file_buffersize(lfs, file),
-            lfs_min32(
+            lfs_min(
                 lfs->cfg->inline_size,
                 lfs->cfg->fragment_size));
 }
 
 static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
-    return lfs_max32(
+    return lfs_max(
             file->buffer.pos + file->buffer.size,
             lfsr_bshrub_size(&file->bshrub));
 }
@@ -10613,7 +10613,7 @@ static lfs_ssize_t lfsr_bshrub_readnext(lfs_t *lfs, const lfsr_file_t *file,
     if (pos_ < bid-(weight-1) + lfsr_data_size(bptr.data)) {
         // note one important side-effect here is a strict
         // data hint
-        lfs_ssize_t d = lfs_min32(
+        lfs_ssize_t d = lfs_min(
                 size,
                 lfsr_data_size(bptr.data)
                     - (pos_ - (bid-(weight-1))));
@@ -10632,7 +10632,7 @@ static lfs_ssize_t lfsr_bshrub_readnext(lfs_t *lfs, const lfsr_file_t *file,
     }
 
     // found a hole? fill with zeros
-    lfs_ssize_t d = lfs_min32(size, bid+1 - pos_);
+    lfs_ssize_t d = lfs_min(size, bid+1 - pos_);
     lfs_memset(buffer, 0, d);
 
     pos_ += d;
@@ -10877,14 +10877,14 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     if (pos > lfsr_bshrub_size(&file->bshrub)) {
         // can we coalesce?
         if (lfsr_bshrub_size(&file->bshrub) > 0) {
-            bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub)-1);
+            bid = lfs_min(bid, lfsr_bshrub_size(&file->bshrub)-1);
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_GROW, +(pos - lfsr_bshrub_size(&file->bshrub)),
                     LFSR_DATA_NULL());
 
         // new hole
         } else {
-            bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
+            bid = lfs_min(bid, lfsr_bshrub_size(&file->bshrub));
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_DATA, +(pos - lfsr_bshrub_size(&file->bshrub)),
                     LFSR_DATA_NULL());
@@ -11019,8 +11019,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 return err;
             }
 
-            attr.weight += lfs_min32(weight, bid+1 - pos);
-            weight -= lfs_min32(weight, bid+1 - pos);
+            attr.weight += lfs_min(weight, bid+1 - pos);
+            weight -= lfs_min(weight, bid+1 - pos);
             attr_count = 0;
             continue;
         }
@@ -11056,8 +11056,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             }
         }
 
-        attr.weight += lfs_min32(weight, bid+1 - pos);
-        weight -= lfs_min32(weight, bid+1 - pos);
+        attr.weight += lfs_min(weight, bid+1 - pos);
+        weight -= lfs_min(weight, bid+1 - pos);
         break;
     }
 
@@ -11065,21 +11065,21 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     if (weight + attr.weight > 0) {
         // can we coalesce a hole?
         if (lfsr_attr_size(attr) == 0 && pos > 0) {
-            bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub)-1);
+            bid = lfs_min(bid, lfsr_bshrub_size(&file->bshrub)-1);
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_GROW, +(weight + attr.weight),
                     LFSR_DATA_NULL());
 
         // need a new hole?
         } else if (lfsr_attr_size(attr) == 0) {
-            bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
+            bid = lfs_min(bid, lfsr_bshrub_size(&file->bshrub));
             attrs[attr_count++] = LFSR_ATTR(
                     LFSR_TAG_DATA, +(weight + attr.weight),
                     LFSR_DATA_NULL());
 
         // append new fragment/bptr?
         } else {
-            bid = lfs_min32(bid, lfsr_bshrub_size(&file->bshrub));
+            bid = lfs_min(bid, lfsr_bshrub_size(&file->bshrub));
             attrs[attr_count++] = LFSR_ATTR_(
                     attr.tag, +(weight + attr.weight),
                     attr.cat, attr.count);
@@ -11137,7 +11137,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_bshrub_lookupnext(lfs, file,
-                    lfs_smax32(pos - (lfs->cfg->crystal_thresh-1), 0),
+                    lfs_smax(pos - (lfs->cfg->crystal_thresh-1), 0),
                     &bid, &tag, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -11154,7 +11154,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
             // otherwise our neighbor determines our crystal boundary
             } else {
-                crystal_start = lfs_min32(bid+1, pos);
+                crystal_start = lfs_min(bid+1, pos);
 
                 // wait, found erased-state?
                 if (tag == LFSR_TAG_BLOCK
@@ -11186,7 +11186,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_bshrub_lookupnext(lfs, file,
-                    lfs_min32(
+                    lfs_min(
                         crystal_start + (lfs->cfg->crystal_thresh-1),
                         lfsr_bshrub_size(&file->bshrub)-1),
                     &bid, &tag, &weight, &bptr);
@@ -11198,13 +11198,13 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // if right crystal neighbor is a fragment, include as a part
             // of our crystal
             if (tag == LFSR_TAG_DATA) {
-                crystal_end = lfs_max32(
+                crystal_end = lfs_max(
                         bid-(weight-1)+lfsr_data_size(bptr.data),
                         pos + size);
 
             // otherwise treat as crystal boundary
             } else {
-                crystal_end = lfs_max32(
+                crystal_end = lfs_max(
                         bid-(weight-1),
                         pos + size);
             }
@@ -11231,7 +11231,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_bshrub_lookupnext(lfs, file,
-                    lfs_min32(
+                    lfs_min(
                         crystal_start-1,
                         lfsr_bshrub_size(&file->bshrub)-1),
                     &bid, &tag, &weight, &bptr);
@@ -11291,24 +11291,24 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         // eagerly merge any right neighbors we see unless that would
         // put us over our block size
         lfs_off_t pos_ = block_start + lfsr_data_size(bptr.data);
-        while (pos_ < lfs_min32(
+        while (pos_ < lfs_min(
                 block_start
                     + (lfs->cfg->block_size - bptr.data.u.disk.off),
-                lfs_max32(
+                lfs_max(
                     pos + size,
                     lfsr_bshrub_size(&file->bshrub)))) {
             // keep track of the next highest priority data offset
-            lfs_ssize_t d = lfs_min32(
+            lfs_ssize_t d = lfs_min(
                     block_start
                         + (lfs->cfg->block_size - bptr.data.u.disk.off),
-                    lfs_max32(
+                    lfs_max(
                         pos + size,
                         lfsr_bshrub_size(&file->bshrub))) - pos_;
 
             // any data in our buffer?
             if (pos_ < pos + size && size > 0) {
                 if (pos_ >= pos) {
-                    lfs_ssize_t d_ = lfs_min32(
+                    lfs_ssize_t d_ = lfs_min(
                             d,
                             size - (pos_ - pos));
                     err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
@@ -11330,7 +11330,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 }
 
                 // buffered data takes priority
-                d = lfs_min32(d, pos - pos_);
+                d = lfs_min(d, pos - pos_);
             }
 
             // any data on disk?
@@ -11365,7 +11365,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 if (pos_ < bid_-(weight_-1) + lfsr_data_size(bptr_.data)) {
                     // note one important side-effect here is a strict
                     // data hint
-                    lfs_ssize_t d_ = lfs_min32(
+                    lfs_ssize_t d_ = lfs_min(
                             d,
                             lfsr_data_size(bptr_.data)
                                 - (pos_ - (bid_-(weight_-1))));
@@ -11390,7 +11390,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 }
 
                 // found a hole? just make sure next leaf takes priority
-                d = lfs_min32(d, bid_+1 - pos_);
+                d = lfs_min(d, bid_+1 - pos_);
             }
 
             // found a hole? fill with zeros
@@ -11456,10 +11456,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
         // note compacting fragments -> blocks may not actually make any
         // progress on flushing the buffer on the first pass
-        d = lfs_max32(pos, block_end) - pos;
+        d = lfs_max(pos, block_end) - pos;
         pos += d;
-        buffer += lfs_min32(d, size);
-        size -= lfs_min32(d, size);
+        buffer += lfs_min(d, size);
+        size -= lfs_min(d, size);
         aligned = true;
     }
 
@@ -11468,7 +11468,7 @@ fragment:;
     while (size > 0) {
         // truncate to our fragment size
         lfs_off_t fragment_start = pos;
-        lfs_off_t fragment_end = fragment_start + lfs_min32(
+        lfs_off_t fragment_end = fragment_start + lfs_min(
                 size,
                 lfs->cfg->fragment_size);
 
@@ -11500,7 +11500,7 @@ fragment:;
                         fragment_start - (bid-(weight-1)));
 
                 fragment_start = bid-(weight-1);
-                fragment_end = fragment_start + lfs_min32(
+                fragment_end = fragment_start + lfs_min(
                         fragment_end - (bid-(weight-1)),
                         lfs->cfg->fragment_size);
             }
@@ -11538,7 +11538,7 @@ fragment:;
                         bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_end);
 
-                fragment_end = fragment_start + lfs_min32(
+                fragment_end = fragment_start + lfs_min(
                         bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_start,
                         lfs->cfg->fragment_size);
@@ -11562,8 +11562,8 @@ fragment:;
         // to next fragment
         lfs_ssize_t d = fragment_end - pos;
         pos += d;
-        buffer += lfs_min32(d, size);
-        size -= lfs_min32(d, size);
+        buffer += lfs_min(d, size);
+        size -= lfs_min(d, size);
         aligned = true;
     }
 
@@ -11583,13 +11583,13 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
     uint8_t *buffer_ = buffer;
     while (size > 0 && pos_ < lfsr_file_size_(file)) {
         // keep track of the next highest priority data offset
-        lfs_ssize_t d = lfs_min32(size, lfsr_file_size_(file) - pos_);
+        lfs_ssize_t d = lfs_min(size, lfsr_file_size_(file) - pos_);
 
         // any data in our buffer?
         if (pos_ < file->buffer.pos + file->buffer.size
                 && file->buffer.size != 0) {
             if (pos_ >= file->buffer.pos) {
-                lfs_ssize_t d_ = lfs_min32(
+                lfs_ssize_t d_ = lfs_min(
                         d,
                         file->buffer.size - (pos_ - file->buffer.pos));
                 lfs_memcpy(buffer_,
@@ -11604,7 +11604,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // buffered data takes priority
-            d = lfs_min32(d, file->buffer.pos - pos_);
+            d = lfs_min(d, file->buffer.pos - pos_);
         }
 
         // any data in our btree?
@@ -11760,14 +11760,14 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                 file->buffer.size = 0;
             }
 
-            lfs_size_t d = lfs_min32(
+            lfs_size_t d = lfs_min(
                     size,
                     lfsr_file_buffersize(lfs, file)
                         - (pos - file->buffer.pos));
             lfs_memcpy(&file->buffer.buffer[pos - file->buffer.pos],
                     buffer_,
                     d);
-            file->buffer.size = lfs_max32(
+            file->buffer.size = lfs_max(
                     file->buffer.size,
                     pos+d - file->buffer.pos);
 
@@ -12109,7 +12109,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         // if our data is not already in our buffer we unfortunately
         // need to flush so our buffer is available to hold everything
         if (file->buffer.pos > 0
-                || file->buffer.size < lfs_min32(
+                || file->buffer.size < lfs_min(
                     size_,
                     lfsr_bshrub_size(&file->bshrub))) {
             err = lfsr_file_flush(lfs, file);
@@ -12146,7 +12146,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     } else {
         // truncate our btree 
         err = lfsr_file_carve(lfs, file,
-                lfs_min32(size, size_), size - lfs_min32(size, size_),
+                lfs_min(size, size_), size - lfs_min(size, size_),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +size_ - size,
                     LFSR_DATA_NULL()));
@@ -12155,10 +12155,10 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // truncate our buffer
-        file->buffer.pos = lfs_min32(file->buffer.pos, size_);
-        file->buffer.size = lfs_min32(
+        file->buffer.pos = lfs_min(file->buffer.pos, size_);
+        file->buffer.size = lfs_min(
                 file->buffer.size,
-                size_ - lfs_min32(file->buffer.pos, size_));
+                size_ - lfs_min(file->buffer.pos, size_));
     }
 
     // mark as unsynced
@@ -12215,7 +12215,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         // need to flush so our buffer is available to hold everything
         if (file->buffer.pos + file->buffer.size
                     < lfsr_bshrub_size(&file->bshrub)
-                || file->buffer.size < lfs_min32(
+                || file->buffer.size < lfs_min(
                     size_,
                     lfsr_bshrub_size(&file->bshrub))) {
             err = lfsr_file_flush(lfs, file);
@@ -12226,7 +12226,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
             file->buffer.size = 0;
 
             lfs_ssize_t d = lfsr_bshrub_read(lfs, file,
-                    lfsr_bshrub_size(&file->bshrub) - lfs_min32(
+                    lfsr_bshrub_size(&file->bshrub) - lfs_min(
                         size_,
                         lfsr_bshrub_size(&file->bshrub)),
                     file->buffer.buffer, size_);
@@ -12264,7 +12264,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     } else {
         // fruncate our btree
         err = lfsr_file_carve(lfs, file,
-                0, lfs_smax32(size - size_, 0),
+                0, lfs_smax(size - size_, 0),
                 LFSR_ATTR(
                     LFSR_TAG_DATA, +size_ - size,
                     LFSR_DATA_NULL()));
@@ -12274,22 +12274,22 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // fruncate our buffer
         lfs_memmove(file->buffer.buffer,
-                &file->buffer.buffer[lfs_min32(
-                    lfs_smax32(
+                &file->buffer.buffer[lfs_min(
+                    lfs_smax(
                         size - size_ - file->buffer.pos,
                         0),
                     file->buffer.size)],
-                file->buffer.size - lfs_min32(
-                    lfs_smax32(
+                file->buffer.size - lfs_min(
+                    lfs_smax(
                         size - size_ - file->buffer.pos,
                         0),
                     file->buffer.size));
-        file->buffer.size -= lfs_min32(
-                lfs_smax32(
+        file->buffer.size -= lfs_min(
+                lfs_smax(
                     size - size_ - file->buffer.pos,
                     0),
                 file->buffer.size);
-        file->buffer.pos -= lfs_smin32(
+        file->buffer.pos -= lfs_smin(
                 size - size_,
                 file->buffer.pos);
     }

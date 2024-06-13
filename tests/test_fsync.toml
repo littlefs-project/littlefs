@@ -573,7 +573,7 @@ code = '''
         for (lfs_size_t r = 0; r < R; r++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &readers[r], off, LFS_SEEK_SET) => off;
 
             // read
@@ -733,7 +733,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a random offset
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-        lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+        lfs_size_t size = lfs_min(CHUNK, SIZE - off);
         lfsr_file_seek(&lfs, &writer, off, LFS_SEEK_SET) => off;
 
         // write
@@ -753,7 +753,7 @@ code = '''
         for (lfs_size_t r = 0; r < R; r++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &readers[r], off, LFS_SEEK_SET) => off;
 
             // read
@@ -919,7 +919,7 @@ code = '''
         for (lfs_size_t w = 0; w < W; w++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &writers[w], off, LFS_SEEK_SET) => off;
 
             // write
@@ -1117,7 +1117,7 @@ code = '''
         for (lfs_size_t w = 0; w < W; w++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &writers[w], off, LFS_SEEK_SET) => off;
 
             // write
@@ -1143,7 +1143,7 @@ code = '''
         for (lfs_size_t r = 0; r < R; r++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &readers[r], off, LFS_SEEK_SET) => off;
 
             // read
@@ -1331,7 +1331,7 @@ code = '''
         for (lfs_size_t rw = 0; rw < RW; rw++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
 
             // write
@@ -1358,7 +1358,7 @@ code = '''
         for (lfs_size_t rw = 0; rw < RW; rw++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
 
             // read
@@ -1443,7 +1443,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                lfs_size_t size = lfs_min(CHUNK, SIZE - off);
                 uint8_t wbuf[CHUNK];
                 for (lfs_size_t j = 0; j < size; j++) {
                     wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1466,7 +1466,7 @@ code = '''
                             off - between_size[rw]);
                 }
                 memcpy(&between[rw][off], wbuf, size);
-                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+                between_size[rw] = lfs_max(off + size, between_size[rw]);
 
             // reading?
             } else if (op == 1) {
@@ -1474,7 +1474,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+                lfs_size_t size = lfs_min(CHUNK, between_size[rw] - off);
 
                 // read
                 lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
@@ -1578,7 +1578,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                lfs_size_t size = lfs_min(CHUNK, SIZE - off);
                 uint8_t wbuf[CHUNK];
                 for (lfs_size_t j = 0; j < size; j++) {
                     wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1601,7 +1601,7 @@ code = '''
                             off - between_size[rw]);
                 }
                 memcpy(&between[rw][off], wbuf, size);
-                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+                between_size[rw] = lfs_max(off + size, between_size[rw]);
 
             // reading?
             } else if (op == 1) {
@@ -1609,7 +1609,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+                lfs_size_t size = lfs_min(CHUNK, between_size[rw] - off);
 
                 // read
                 lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
@@ -2479,7 +2479,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a random offset
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-        lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+        lfs_size_t size = lfs_min(CHUNK, SIZE - off);
         lfsr_file_seek(&lfs, &writer, off, LFS_SEEK_SET) => off;
 
         // write
@@ -2499,7 +2499,7 @@ code = '''
         for (lfs_size_t r = 0; r < R; r++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &readers[r], off, LFS_SEEK_SET) => off;
 
             // read
@@ -2673,7 +2673,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a random offset
         lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-        lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+        lfs_size_t size = lfs_min(CHUNK, SIZE - off);
         lfsr_file_seek(&lfs, &writer, off, LFS_SEEK_SET) => off;
 
         // write
@@ -2693,7 +2693,7 @@ code = '''
         for (lfs_size_t r = 0; r < R; r++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &readers[r], off, LFS_SEEK_SET) => off;
 
             // read
@@ -2885,7 +2885,7 @@ code = '''
         for (lfs_size_t rw = 0; rw < RW; rw++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
 
             // write
@@ -2916,7 +2916,7 @@ code = '''
         for (lfs_size_t rw = 0; rw < RW; rw++) {
             // choose a random offset
             lfs_off_t off = TEST_PRNG(&prng) % SIZE;
-            lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+            lfs_size_t size = lfs_min(CHUNK, SIZE - off);
             lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
 
             // read
@@ -3004,7 +3004,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                lfs_size_t size = lfs_min(CHUNK, SIZE - off);
                 uint8_t wbuf[CHUNK];
                 for (lfs_size_t j = 0; j < size; j++) {
                     wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -3024,7 +3024,7 @@ code = '''
                             off - between_size[rw]);
                 }
                 memcpy(&between[rw][off], wbuf, size);
-                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+                between_size[rw] = lfs_max(off + size, between_size[rw]);
 
             // reading?
             } else if (op == 1) {
@@ -3032,7 +3032,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+                lfs_size_t size = lfs_min(CHUNK, between_size[rw] - off);
 
                 // read
                 lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;
@@ -3154,7 +3154,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, SIZE - off);
+                lfs_size_t size = lfs_min(CHUNK, SIZE - off);
                 uint8_t wbuf[CHUNK];
                 for (lfs_size_t j = 0; j < size; j++) {
                     wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -3174,7 +3174,7 @@ code = '''
                             off - between_size[rw]);
                 }
                 memcpy(&between[rw][off], wbuf, size);
-                between_size[rw] = lfs_max32(off + size, between_size[rw]);
+                between_size[rw] = lfs_max(off + size, between_size[rw]);
 
             // reading?
             } else if (op == 1) {
@@ -3182,7 +3182,7 @@ code = '''
                 lfs_off_t off = (between_size[rw] > 0)
                         ? TEST_PRNG(&prng) % between_size[rw]
                         : 0;
-                lfs_size_t size = lfs_min32(CHUNK, between_size[rw] - off);
+                lfs_size_t size = lfs_min(CHUNK, between_size[rw] - off);
 
                 // read
                 lfsr_file_seek(&lfs, &rdwrs[rw], off, LFS_SEEK_SET) => off;

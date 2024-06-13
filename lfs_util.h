@@ -154,42 +154,16 @@ static inline uint32_t lfs_max(uint32_t a, uint32_t b) {
     return (a > b) ? a : b;
 }
 
-static inline uint32_t lfs_min32(uint32_t a, uint32_t b) {
+static inline int32_t lfs_smin(int32_t a, int32_t b) {
     return (a < b) ? a : b;
 }
 
-static inline uint32_t lfs_max32(uint32_t a, uint32_t b) {
+static inline int32_t lfs_smax(int32_t a, int32_t b) {
     return (a > b) ? a : b;
-}
-
-static inline int32_t lfs_smin32(int32_t a, int32_t b) {
-    return (a < b) ? a : b;
-}
-
-static inline int32_t lfs_smax32(int32_t a, int32_t b) {
-    return (a > b) ? a : b;
-}
-
-// TODO other 16-bit ops?
-static inline uint16_t lfs_min16(uint16_t a, uint16_t b) {
-    return (a < b) ? a : b;
-}
-
-static inline uint16_t lfs_max16(uint16_t a, uint16_t b) {
-    return (a > b) ? a : b;
-}
-
-// Clamp is useful as the logic for min/max when clamping can become confusing
-static inline uint32_t lfs_clamp32(uint32_t a, uint32_t min, uint32_t max) {
-    return lfs_min32(lfs_max32(a, min), max);
-}
-
-static inline int32_t lfs_sclamp32(int32_t a, int32_t min, int32_t max) {
-    return lfs_smin32(lfs_smax32(a, min), max);
 }
 
 // Absolute value of signed numbers
-static inline int32_t lfs_abs32(int32_t a) {
+static inline int32_t lfs_abs(int32_t a) {
     return (a < 0) ? -a : a;
 }
 
