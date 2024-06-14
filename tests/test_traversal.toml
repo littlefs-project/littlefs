@@ -1,0 +1,1705 @@
+# Test incremental traversal things
+after = [
+    'test_dirs',
+    'test_files',
+    'test_fwrite',
+    'test_forphans',
+    'test_alloc'
+]
+
+# a simple traversal test
+[cases.test_traversal_simple]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# can we rewind?
+[cases.test_traversal_rewind]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we don't get extra anything after end of traversal
+[cases.test_traversal_idempotent]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
+# some simple traversal tests with clobbering
+[cases.test_traversal_clobber_dirs]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%03x", i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // traverse to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("traversal: btype %d block 0x%x\n",
+                tinfo.btype,
+                tinfo.block);
+        assert(tinfo.flags == 0);
+        assert(tinfo.btype == LFS_BTYPE_MDIR
+                || tinfo.btype == LFS_BTYPE_BTREE);
+        // keep track of seen blocks
+        seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that we can read our directories after clobbering
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_clobber_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "file%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // traverse to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("traversal: btype %d block 0x%x\n",
+                tinfo.btype,
+                tinfo.block);
+        assert(tinfo.flags == 0);
+        assert(tinfo.btype == LFS_BTYPE_MDIR
+                || tinfo.btype == LFS_BTYPE_BTREE
+                || tinfo.btype == LFS_BTYPE_DATA);
+        // keep track of seen blocks
+        seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that reading our files still works after clobbering
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_clobber_open_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    lfsr_file_t files[N];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "file%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_open(&lfs, &files[i], name,
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+    }
+
+    // traverse to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("traversal: btype %d block 0x%x\n",
+                tinfo.btype,
+                tinfo.block);
+        assert(tinfo.flags == 0);
+        assert(tinfo.btype == LFS_BTYPE_MDIR
+                || tinfo.btype == LFS_BTYPE_BTREE
+                || tinfo.btype == LFS_BTYPE_DATA);
+        // keep track of seen blocks
+        seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that reading our files still works after clobbering
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // and everything is fine after saving the files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_close(&lfs, &files[i]) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
+# a bit more aggressive rewind tests
+[cases.test_traversal_rewind_clobber_dirs]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%03x", i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // traverse to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    lfs_block_t r = 0;
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        if (i == r) {
+            lfsr_traversal_rewind(&lfs, &t) => 0;
+            memset(seen, 0, (BLOCK_COUNT+7)/8);
+            r += 1;
+            i = -1;
+            continue;
+        }
+
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("traversal: btype %d block 0x%x\n",
+                tinfo.btype,
+                tinfo.block);
+        assert(tinfo.flags == 0);
+        assert(tinfo.btype == LFS_BTYPE_MDIR
+                || tinfo.btype == LFS_BTYPE_BTREE);
+        // keep track of seen blocks
+        seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that we can read our directories after clobbering
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_rewind_clobber_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "file%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // traverse to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    lfs_block_t r = 0;
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        if (i == r) {
+            lfsr_traversal_rewind(&lfs, &t) => 0;
+            memset(seen, 0, (BLOCK_COUNT+7)/8);
+            r += 1;
+            i = -1;
+            continue;
+        }
+
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("traversal: btype %d block 0x%x\n",
+                tinfo.btype,
+                tinfo.block);
+        assert(tinfo.flags == 0);
+        assert(tinfo.btype == LFS_BTYPE_MDIR
+                || tinfo.btype == LFS_BTYPE_BTREE
+                || tinfo.btype == LFS_BTYPE_DATA);
+        // keep track of seen blocks
+        seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that reading our files still works after clobbering
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_rewind_clobber_open_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    lfsr_file_t files[N];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "file%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_open(&lfs, &files[i], name,
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+    }
+
+    // traverse to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    lfs_block_t r = 0;
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        if (i == r) {
+            lfsr_traversal_rewind(&lfs, &t) => 0;
+            memset(seen, 0, (BLOCK_COUNT+7)/8);
+            r += 1;
+            i = -1;
+            continue;
+        }
+
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("traversal: btype %d block 0x%x\n",
+                tinfo.btype,
+                tinfo.block);
+        assert(tinfo.flags == 0);
+        assert(tinfo.btype == LFS_BTYPE_MDIR
+                || tinfo.btype == LFS_BTYPE_BTREE
+                || tinfo.btype == LFS_BTYPE_DATA);
+        // keep track of seen blocks
+        seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that reading our files still works after clobbering
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // and everything is fine after saving the files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_close(&lfs, &files[i]) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
+# check that we can detect every clobbered mdir
+[cases.test_traversal_ckmdir_dirs]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many directories
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_mkdir(&lfs, name) => 0;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        lfs_block_t c = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_MDIR) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    if (c == 2-1) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto clobbered;
+                    } else {
+                        c += 1;
+                    }
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETADATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_traversal_ckmdir_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "file%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        lfs_block_t c = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_MDIR) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    if (c == 2-1) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto clobbered;
+                    } else {
+                        c += 1;
+                    }
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETADATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_traversal_ckmdir_open_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        lfsr_file_t files[N];
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "file%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_open(&lfs, &files[i], name,
+                    LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        lfs_block_t c = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                for (lfs_size_t i = 0; i < N; i++) {
+                    lfsr_file_close(&lfs, &files[i]) => 0;
+                }
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_MDIR) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    if (c == 2-1) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto clobbered;
+                    } else {
+                        c += 1;
+                    }
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETADATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_desync(&lfs, &files[i]) => 0;
+            lfsr_file_close(&lfs, &files[i]) => 0;
+        }
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+
+
+# check that we can detect every clobbered btree
+[cases.test_traversal_ckbtree_dirs]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many directories
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_mkdir(&lfs, name) => 0;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_BTREE) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    lfsr_traversal_close(&lfs, &t) => 0;
+                    goto clobbered;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETADATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_traversal_ckbtree_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "file%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_BTREE) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    lfsr_traversal_close(&lfs, &t) => 0;
+                    goto clobbered;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETADATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_traversal_ckbtree_open_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        lfsr_file_t files[N];
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "file%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_open(&lfs, &files[i], name,
+                    LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                for (lfs_size_t i = 0; i < N; i++) {
+                    lfsr_file_close(&lfs, &files[i]) => 0;
+                }
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_BTREE) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    lfsr_traversal_close(&lfs, &t) => 0;
+                    goto clobbered;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETADATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_desync(&lfs, &files[i]) => 0;
+            lfsr_file_close(&lfs, &files[i]) => 0;
+        }
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+
+
+# check that we can detect every clobbered data block
+# TODO mdirs?
+[cases.test_traversal_ckdata_dirs]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many directories
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_mkdir(&lfs, name) => 0;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_DATA) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    lfsr_traversal_close(&lfs, &t) => 0;
+                    goto clobbered;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_traversal_ckdata_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "file%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_DATA) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    lfsr_traversal_close(&lfs, &t) => 0;
+                    goto clobbered;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_traversal_ckdata_open_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+
+        // create this many files
+        lfsr_file_t files[N];
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "file%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_open(&lfs, &files[i], name,
+                    LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                for (lfs_size_t i = 0; i < N; i++) {
+                    lfsr_file_close(&lfs, &files[i]) => 0;
+                }
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            assert(tinfo.flags == 0);
+            if (tinfo.btype == LFS_BTYPE_DATA) {
+                if (k == i) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    lfsr_traversal_close(&lfs, &t) => 0;
+                    goto clobbered;
+                } else {
+                    k += 1;
+                }
+            }
+        }
+
+    clobbered:;
+        // traverse again, we should detect the clobbered metadata
+        lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found the clobbered metadata?
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+
+            assert(tinfo.flags == 0);
+        }
+        lfsr_traversal_close(&lfs, &t) => 0;
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_desync(&lfs, &files[i]) => 0;
+            lfsr_file_close(&lfs, &files[i]) => 0;
+        }
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''

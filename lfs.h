@@ -120,6 +120,7 @@ enum lfs_type {
 
     // internally used types
     LFS_TYPE_BOOKMARK   = 4,
+    LFS_TYPE_TRAVERSAL  = 5,
 };
 
 // File open flags
@@ -150,6 +151,35 @@ enum lfs_whence_flags {
     LFS_SEEK_SET = 0,   // Seek relative to an absolute position
     LFS_SEEK_CUR = 1,   // Seek relative to the current file position
     LFS_SEEK_END = 2,   // Seek relative to the end of the file
+};
+
+// Block types
+enum lfs_btype {
+    LFS_BTYPE_MDIR      = 1,
+    LFS_BTYPE_BTREE     = 2,
+    LFS_BTYPE_DATA      = 3,
+// TODO
+//    LFS_BTYPE_PARITY    = 4,
+//    LFS_BTYPE_BAD       = 5,
+};
+
+// Traversal flags
+enum lfs_traversal_flags {
+    // traversal open flags
+    LFS_T_MTREEONLY         = 0x0010, // Only traverse the mtree
+    LFS_T_LOOKAHEAD         = 0x0020, // Populate lookahead buffer
+    LFS_T_COMPACT           = 0x0040, // Compact metadata logs
+    LFS_T_CKMETADATA        = 0x0080, // Check metadata checksums
+    LFS_T_CKDATA            = 0x0100, // Check data checksums
+// TODO
+//    LFS_T_REPAIRMETADATA    = 0x0100, // Repair metadata blocks
+//    LFS_T_REPAIRDATA        = 0x0200, // Repair data blocks
+
+    // flags set in tinfo by lfsr_traversal_read
+    LFS_T_DIRTY             = 0x0001, // Filesystem mutated
+// TODO should we have CORRUPTMETADATA vs just error?
+    LFS_T_CORRUPTMETADATA   = 0x0002, // Found corrupted metadata
+    LFS_T_CORRUPTDATA       = 0x0004, // Found corrupted data
 };
 
 
@@ -340,6 +370,18 @@ struct lfs_fsinfo {
     lfs_size_t file_limit;
 };
 
+// Traversal info structure
+struct lfs_tinfo {
+    // Traversal flags
+    uint8_t flags;
+
+    // Type of the block
+    uint8_t btype;
+
+    // Block address
+    lfs_block_t block;
+};
+
 //// Custom attribute structure, used to describe custom attributes
 //// committed atomically during file writes.
 //struct lfs_attr {
@@ -434,6 +476,7 @@ typedef struct lfsr_mdir {
 typedef struct lfsr_omdir {
     struct lfsr_omdir *next;
     uint8_t type;
+    uint8_t state;
     uint16_t flags;
     lfsr_mdir_t mdir;
 } lfsr_omdir_t;
@@ -463,24 +506,6 @@ typedef struct lfsr_data {
         const uint8_t *buffer;
     } u;
 } lfsr_data_t;
-
-// littlefs directory type
-
-//typedef struct lfs_dir {
-//    struct lfs_dir *next;
-//    uint16_t id;
-//    uint8_t type;
-//    lfs_mdir_t m;
-//
-//    lfs_off_t pos;
-//    lfs_block_t head[2];
-//} lfs_dir_t;
-
-typedef struct lfsr_dir {
-    lfsr_omdir_t o;
-    lfsr_did_t did;
-    lfs_off_t pos;
-} lfsr_dir_t;
 
 // littlefs file type
 
@@ -552,6 +577,64 @@ typedef struct lfsr_file {
     lfs_block_t eblock;
     lfs_size_t eoff;
 } lfsr_file_t;
+
+// littlefs directory type
+
+//typedef struct lfs_dir {
+//    struct lfs_dir *next;
+//    uint16_t id;
+//    uint8_t type;
+//    lfs_mdir_t m;
+//
+//    lfs_off_t pos;
+//    lfs_block_t head[2];
+//} lfs_dir_t;
+
+typedef struct lfsr_dir {
+    lfsr_omdir_t o;
+    lfsr_did_t did;
+    lfs_off_t pos;
+} lfsr_dir_t;
+
+// littlefs traversal type
+
+typedef struct lfsr_btraversal {
+    lfsr_bid_t bid;
+    lfsr_srid_t rid;
+    lfsr_rbyd_t branch;
+} lfsr_btraversal_t;
+
+typedef struct lfsr_mtraversal {
+    // core state machine in o.state
+    lfsr_omdir_t o;
+    // we really don't want to pay the RAM cost for a full file,
+    // so only store the relevant bits, is this a hack? yes
+    const struct lfs_file_config *cfg;
+    lfsr_bshrub_t bshrub;
+
+    union {
+        // cycle detection state, only valid when traversing the mroot chain
+        struct {
+            lfsr_mptr_t mptr;
+            lfs_block_t step;
+            uint8_t power;
+        } mtortoise;
+        // mtree traversal state, only valid when traversing the mtree
+        lfsr_btraversal_t mt;
+        // opened file state, only valid when traversing opened files
+        const lfsr_omdir_t *o;
+    } u;
+    // btree traversal state
+    lfsr_btraversal_t bt;
+} lfsr_mtraversal_t;
+
+typedef struct lfsr_traversal {
+    // lfsr_mtraversal_t contains most of what we need
+    lfsr_mtraversal_t mt;
+    uint8_t btype;
+    uint8_t count;
+    lfs_block_t blocks[2];
+} lfsr_traversal_t;
 
 //typedef struct lfs_superblock {
 //    uint32_t version;
@@ -927,8 +1010,8 @@ int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir);
 // Read an entry in the directory
 //
 // Fills out the info structure, based on the specified file or directory.
-// Returns a positive value on success, 0 at the end of directory,
-// or a negative error code on failure.
+// Returns 0 on success, LFS_ERR_NOENT at the end of directory, or a
+// negative error code on failure.
 //int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info);
 
@@ -955,6 +1038,38 @@ lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir);
 // Returns a negative error code on failure.
 //int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir);
+
+
+/// Traversal operations ///
+
+// Open a traversal
+//
+// Once open, a traversal can be read from to iterate over all blocks in
+// the filesystem.
+//
+// Returns a negative error code on failure.
+int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *traversal,
+        uint32_t flags);
+
+// Close a traversal
+//
+// Releases any allocated resources.
+// Returns a negative error code on failure.
+int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *traversal);
+
+// Progress the traversal and read an entry
+//
+// Fills out the tinfo structure.
+//
+// Returns 0 on success, LFS_ERR_NOENT at the end of traversal, or a
+// negative error code on failure.
+int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
+        struct lfs_tinfo *tinfo);
+
+// Reset the traversal
+//
+// Returns a negative error code on failure.
+int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *traversal);
 
 
 /// Filesystem-level filesystem operations
