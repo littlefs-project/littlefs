@@ -43,6 +43,7 @@ typedef uint32_t lfs_off_t;
 typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
+typedef int32_t lfs_sblock_t;
 
 typedef uint32_t lfsr_rid_t;
 typedef int32_t  lfsr_srid_t;
@@ -97,6 +98,7 @@ enum lfs_error {
     LFS_ERR_UNKNOWN     = -1,   // Unknown error
     LFS_ERR_INVAL       = -22,  // Invalid parameter
     LFS_ERR_NOTSUP      = -95,  // Operation not supported
+    LFS_ERR_BUSY        = -16,  // Device or resource busy
     LFS_ERR_IO          = -5,   // Error during device operation
     LFS_ERR_CORRUPT     = -84,  // Corrupted
     LFS_ERR_NOENT       = -2,   // No directory entry
@@ -166,20 +168,19 @@ enum lfs_btype {
 // Traversal flags
 enum lfs_traversal_flags {
     // traversal open flags
-    LFS_T_MTREEONLY         = 0x0010, // Only traverse the mtree
-    LFS_T_LOOKAHEAD         = 0x0020, // Populate lookahead buffer
-    LFS_T_COMPACT           = 0x0040, // Compact metadata logs
-    LFS_T_CKMETADATA        = 0x0080, // Check metadata checksums
-    LFS_T_CKDATA            = 0x0100, // Check data checksums
+    LFS_T_MTREEONLY         = 0x0008, // Only traverse the mtree
+    LFS_T_EXCL              = 0x0010, // Terminate if filesystem modified
+    LFS_T_MKCONSISTENT      = 0x0020, // Make the filesystem consistent
+    LFS_T_LOOKAHEAD         = 0x0040, // Populate lookahead buffer
+    LFS_T_COMPACT           = 0x0080, // Compact metadata logs
+    LFS_T_CKMETADATA        = 0x0100, // Check metadata checksums
+    LFS_T_CKDATA            = 0x0200, // Check data checksums
 // TODO
-//    LFS_T_REPAIRMETADATA    = 0x0100, // Repair metadata blocks
-//    LFS_T_REPAIRDATA        = 0x0200, // Repair data blocks
+//    LFS_T_REPAIRMETADATA    = 0x0400, // Repair metadata blocks
+//    LFS_T_REPAIRDATA        = 0x0800, // Repair data blocks
 
-    // flags set in tinfo by lfsr_traversal_read
-    LFS_T_DIRTY             = 0x0001, // Filesystem mutated
-// TODO should we have CORRUPTMETADATA vs just error?
-    LFS_T_CORRUPTMETADATA   = 0x0002, // Found corrupted metadata
-    LFS_T_CORRUPTDATA       = 0x0004, // Found corrupted data
+    // internally used flags
+    LFS_F_DIRTY             = 0x1000, // Filesystem has been modified
 };
 
 
@@ -372,9 +373,6 @@ struct lfs_fsinfo {
 
 // Traversal info structure
 struct lfs_tinfo {
-    // Traversal flags
-    uint8_t flags;
-
     // Type of the block
     uint8_t btype;
 
@@ -632,8 +630,7 @@ typedef struct lfsr_traversal {
     // lfsr_mtraversal_t contains most of what we need
     lfsr_mtraversal_t mt;
     uint8_t btype;
-    uint8_t count;
-    lfs_block_t blocks[2];
+    lfs_sblock_t blocks[2];
 } lfsr_traversal_t;
 
 //typedef struct lfs_superblock {
@@ -1061,8 +1058,8 @@ int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *traversal);
 //
 // Fills out the tinfo structure.
 //
-// Returns 0 on success, LFS_ERR_NOENT at the end of traversal, or a
-// negative error code on failure.
+// Returns 0 on success, LFS_ERR_NOENT at the end of traversal, LFS_ERR_BUSY
+// if filesystem has been modified, or a negative error code on failure.
 int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
         struct lfs_tinfo *tinfo);
 

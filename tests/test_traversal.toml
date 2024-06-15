@@ -11,6 +11,7 @@ after = [
 [cases.test_traversal_simple]
 defines.CKMETADATA = [false, true]
 defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -20,14 +21,13 @@ code = '''
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
             ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
-                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -40,6 +40,7 @@ code = '''
 [cases.test_traversal_rewind]
 defines.CKMETADATA = [false, true]
 defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -49,25 +50,22 @@ code = '''
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
             ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
-                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     lfsr_traversal_rewind(&lfs, &t) => 0;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -80,6 +78,7 @@ code = '''
 [cases.test_traversal_idempotent]
 defines.CKMETADATA = [false, true]
 defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -89,14 +88,13 @@ code = '''
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
             ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
-                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -154,7 +152,6 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
-        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE);
         // keep track of seen blocks
@@ -276,7 +273,6 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
-        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -391,7 +387,6 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
-        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -517,7 +512,6 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
-        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE);
         // keep track of seen blocks
@@ -648,7 +642,6 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
-        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -772,7 +765,6 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
-        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -886,7 +878,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_MDIR) {
                 if (k == i) {
                     // clobber this block
@@ -921,8 +912,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -989,7 +978,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_MDIR) {
                 if (k == i) {
                     // clobber this block
@@ -1024,8 +1012,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1094,7 +1080,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_MDIR) {
                 if (k == i) {
                     // clobber this block
@@ -1129,8 +1114,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1180,7 +1163,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_BTREE) {
                 if (k == i) {
                     // clobber this block
@@ -1211,8 +1193,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1278,7 +1258,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_BTREE) {
                 if (k == i) {
                     // clobber this block
@@ -1309,8 +1288,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1378,7 +1355,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_BTREE) {
                 if (k == i) {
                     // clobber this block
@@ -1409,8 +1385,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1426,7 +1400,6 @@ done:;
 
 
 # check that we can detect every clobbered data block
-# TODO mdirs?
 [cases.test_traversal_ckdata_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
@@ -1461,7 +1434,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_DATA) {
                 if (k == i) {
                     // clobber this block
@@ -1492,8 +1464,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1559,7 +1529,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_DATA) {
                 if (k == i) {
                     // clobber this block
@@ -1590,8 +1559,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1659,7 +1626,6 @@ code = '''
                 goto done;
             }
 
-            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_DATA) {
                 if (k == i) {
                     // clobber this block
@@ -1690,8 +1656,6 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1703,3 +1667,2095 @@ code = '''
     }
 done:;
 '''
+
+
+
+# test that we detect filesystem mutation during traversal
+[cases.test_traversal_mutation]
+defines.WHEN = [0, 1, 2]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    if (WHEN == 0) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 1) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 2) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // final read should return BUSY
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_excl]
+defines.WHEN = [0, 1, 2]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            LFS_T_EXCL
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    if (WHEN == 0) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // read should immediately error
+        struct lfs_tinfo tinfo;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_close(&lfs, &t) => 0;
+        goto done;
+    }
+
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 1) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // read should immediately error
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_close(&lfs, &t) => 0;
+        goto done;
+    }
+
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 2) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // read should immediately error
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_close(&lfs, &t) => 0;
+        goto done;
+    }
+
+done:;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_mkdir]
+defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    if (WHEN == 0) {
+        lfsr_mkdir(&lfs, "spider") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 1) {
+        lfsr_mkdir(&lfs, "spider") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 2) {
+        lfsr_mkdir(&lfs, "spider") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    // final read should return BUSY
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+done:;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_remove]
+defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // make a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    if (WHEN == 0) {
+        lfsr_remove(&lfs, "spider") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 1) {
+        lfsr_remove(&lfs, "spider") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 2) {
+        lfsr_remove(&lfs, "spider") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    // final read should return BUSY
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+done:;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_rename]
+defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // make a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    if (WHEN == 0) {
+        lfsr_rename(&lfs, "spider", "scorpion") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 1) {
+        lfsr_rename(&lfs, "spider", "scorpion") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    if (WHEN == 2) {
+        lfsr_rename(&lfs, "spider", "scorpion") => 0;
+
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+    }
+
+    // final read should return BUSY
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+done:;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# some more complex mutation tests
+[cases.test_traversal_mutation_fwrite]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    while (true) {
+        // rewrite the file every step of the traversal
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // step traversal
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_BUSY);
+        if (err == LFS_ERR_BUSY) {
+            break;
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_fwrite_open]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    while (true) {
+        // rewrite the file every step of the traversal
+        lfsr_file_rewind(&lfs, &file) => 0;
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // step traversal
+        struct lfs_tinfo tinfo;
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_BUSY);
+        if (err == LFS_ERR_BUSY) {
+            break;
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_rewind(&lfs, &file) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // and after close?
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
+# many/fuzz tests mixed with traversals
+#
+# these should hopefully test a bunch of messy traversal state
+
+# TODO actually implement this
+[cases.test_traversal_mutation_dir_many]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+code = '''
+    // test creating directories
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%03x", i);
+        int err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs.grm_p[0] == 0);
+
+        // check that our mkdir worked
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfsr_dir_open(&lfs, &dir, name) => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_dir_fuzz]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+defines.OPS = '2*N'
+defines.SEED = 42
+fuzz = 'SEED'
+code = '''
+    // test fuzz with dirs
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs_size_t sim_size = 0;
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose a pseudo-random op, either mkdir, remove, or rename
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        if (op == 0 || sim_size == 0) {
+            // choose a pseudo-random number, truncate to 3 hexadecimals
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen?
+                    if (j < sim_size && sim[j] == x) {
+                        // do nothing
+                    } else {
+                        // insert
+                        memmove(&sim[j+1], &sim[j],
+                                (sim_size-j)*sizeof(lfs_size_t));
+                        sim_size += 1;
+                        sim[j] = x;
+                    }
+                    break;
+                }
+            }
+
+            // create a directory here
+            char name[256];
+            sprintf(name, "dir%03x", x);
+            int err = lfsr_mkdir(&lfs, name);
+            assert(!err || err == LFS_ERR_EXIST);
+
+        } else if (op == 1) {
+            // choose a pseudo-random entry to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            sim_size -= 1;
+
+            // remove this directory
+            char name[256];
+            sprintf(name, "dir%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        } else {
+            // choose a pseudo-random entry to rename, and a pseudo-random
+            // number to rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // already seen and not a noop?
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // just delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        sim_size -= 1;
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        sim[k] = y;
+                    }
+                    break;
+                }
+            }
+
+            // rename this directory
+            char old_name[256];
+            sprintf(old_name, "dir%03x", x);
+            char new_name[256];
+            sprintf(new_name, "dir%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs.grm_p[0] == 0);
+
+        // test that our directories match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            char name2[256];
+            sprintf(name2, "dir%03x", sim[j]);
+            assert(strcmp(info.name, name2) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_file_many]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    // test creating files
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // create this many files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "amethyst%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check that our writes worked
+        prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "amethyst%03x", i);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            uint8_t rbuf[SIZE];
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_file_fuzz]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test fuzz with files
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    lfs_size_t sim_size = 0;
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        // creating a new file?
+        if (op == 0 || sim_size == 0) {
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // associate each file with a prng that generates its contents
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen?
+                    if (j < sim_size && sim[j] == x) {
+                        // new prng
+                        sim_prngs[j] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[j+1], &sim[j],
+                                (sim_size-j)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j+1], &sim_prngs[j],
+                                (sim_size-j)*sizeof(uint32_t));
+                        sim_size += 1;
+                        sim[j] = x;
+                        sim_prngs[j] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // create a file here
+            char name[256];
+            sprintf(name, "amethyst%03x", x);
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // deleting a file?
+        } else if (op == 1) {
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            sim_size -= 1;
+
+            // delete this file
+            char name[256];
+            sprintf(name, "amethyst%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // renaming a file?
+        } else {
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "amethyst%03x", x);
+            char new_name[256];
+            sprintf(new_name, "amethyst%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check that our files match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // check the file contents
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "amethyst%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_fwrite_fuzz]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.OPS = 20
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# chunk is more an upper limit here
+defines.CHUNK = [32, 8, 1]
+# INIT=0 => no init
+# INIT=1 => fill with data
+# INIT=2 => truncate to size
+defines.INIT = [0, 1, 2]
+defines.SYNC = [false, true]
+defines.SEED = 42
+fuzz = 'SEED'
+if = [
+    'CHUNK <= SIZE',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
+]
+code = '''
+    // test with complex file writes
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    lfs_off_t size;
+    uint32_t prng = SEED;
+    if (INIT == 0) {
+        memset(sim, 0, SIZE);
+        size = 0;
+    } else if (INIT == 1) {
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        size = SIZE;
+    } else {
+        memset(sim, 0, SIZE);
+        lfsr_file_truncate(&lfs, &file, SIZE) => 0;
+        size = SIZE;
+    }
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose a random location
+        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+        // and a random size, up to the chunk size
+        lfs_size_t chunk = lfs_min(
+                (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
+                SIZE - off);
+
+        // update sim
+        for (lfs_size_t j = 0; j < chunk; j++) {
+            sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        size = lfs_max(size, off+chunk);
+
+        // update file
+        lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == size);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => size;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        // does our file match our simulation?
+        assert(memcmp(rbuf, sim, size) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_orphanzombie_fuzz]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test with orphans, zombies, etc
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    lfs_size_t sim_size = 0;
+
+    typedef struct sim_file {
+        lfs_size_t x;
+        bool orphan;
+        bool zombie;
+        uint32_t prng;
+        lfsr_file_t file;
+    } sim_file_t;
+    sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
+    lfs_size_t sim_file_count = 0;
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+    nonsense:;
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 5;
+
+        // open a new file?
+        if (op == 0) {
+            if (sim_file_count >= N) {
+                goto nonsense;
+            }
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+
+            // already exists?
+            bool orphan = true;
+            uint32_t wprng = 0;
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                if (sim[j] == x) {
+                    orphan = false;
+                    wprng = sim_prngs[j];
+                    break;
+                }
+            }
+            // choose a random seed if we don't exist
+            if (orphan) {
+                wprng = TEST_PRNG(&prng);
+            }
+
+            // open in our sim
+            lfs_size_t j = sim_file_count;
+            sim_files[j] = malloc(sizeof(sim_file_t));
+            sim_files[j]->x = x;
+            sim_files[j]->orphan = orphan;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // open the actual file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_file_open(&lfs, &sim_files[j]->file, name,
+                    LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+            // write some initial data if we don't exist
+            if (orphan) {
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            }
+
+        // write/rewrite a file?
+        } else if (op == 1) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            // choose a random seed
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update sim
+            sim_files[j]->prng = wprng;
+            if (!sim_files[j]->zombie) {
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // already seen?
+                        if (k < sim_size && sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            sim_size += 1;
+                            sim[k] = x;
+                            sim_prngs[k] = wprng;
+                        }
+                        break;
+                    }
+                }
+
+                // update related sim files
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        sim_files[k]->orphan = false;
+                        sim_files[k]->prng = wprng;
+                    }
+                }
+            }
+
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
+        // close a file?
+        } else if (op == 2) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+
+            // this doesn't really test anything, but if we don't close
+            // files eventually everything will end up zombies
+
+            // close the file without affected disk
+            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
+            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+
+            // remove from list
+            free(sim_files[j]);
+            sim_files[j] = sim_files[sim_file_count-1];
+            sim_file_count -= 1;
+
+        // remove a file?
+        } else if (op == 3) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            sim_size -= 1;
+
+            // mark any related sim files as zombied
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // rename a file?
+        } else if (op == 4) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                    }
+                    break;
+                }
+            }
+
+            // update any related sim files
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                // move source files
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->x = y;
+
+                // mark target files as zombied
+                } else if (sim_files[k]->x == y) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+        }
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check that disk matches our simulation
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+        uint32_t wprng = sim_prngs[j];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that our file handles match our simulation
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        uint32_t wprng = sim_files[j]->prng;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+        free(sim_files[j]);
+    }
+    free(sim_files);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_orphanzombiedir_fuzz]
+# traverse steps between each op
+defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
+defines.EXCL = [false, true]
+defines.CKMETADATA = [true]
+defines.CKDATA = [true]
+defines.LOOKAHEAD = [false, true]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.OPS = '2*N'
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.SEED = 42
+fuzz = 'SEED'
+if = '(SIZE*N)/BLOCK_SIZE <= 16'
+code = '''
+    // test with orphans, zombies, dirs, etc
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isdirs = malloc(N*sizeof(bool));
+    lfs_size_t sim_size = 0;
+
+    typedef struct sim_file {
+        lfs_size_t x;
+        bool orphan;
+        bool zombie;
+        uint32_t prng;
+        lfsr_file_t file;
+    } sim_file_t;
+    sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
+    lfs_size_t sim_file_count = 0;
+
+    // open a traversal
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((EXCL) ? LFS_T_EXCL : 0)
+                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+    nonsense:;
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 8;
+
+        // open a new file?
+        if (op == 0) {
+            if (sim_file_count >= N) {
+                goto nonsense;
+            }
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+
+            // already exists?
+            bool orphan = true;
+            uint32_t wprng = 0;
+            for (lfs_size_t j = 0; j < sim_size; j++) {
+                if (sim[j] == x) {
+                    if (sim_isdirs[j]) {
+                        goto nonsense;
+                    }
+                    orphan = false;
+                    wprng = sim_prngs[j];
+                    break;
+                }
+            }
+            // choose a random seed if we don't exist
+            if (orphan) {
+                wprng = TEST_PRNG(&prng);
+            }
+
+            // open in our sim
+            lfs_size_t j = sim_file_count;
+            sim_files[j] = malloc(sizeof(sim_file_t));
+            sim_files[j]->x = x;
+            sim_files[j]->orphan = orphan;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // open the actual file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_file_open(&lfs, &sim_files[j]->file, name,
+                    LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+            // write some initial data if we don't exist
+            if (orphan) {
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            }
+
+        // write/rewrite a file?
+        } else if (op == 1) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            // choose a random seed
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update sim
+            sim_files[j]->prng = wprng;
+            if (!sim_files[j]->zombie) {
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // already seen?
+                        if (k < sim_size && sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                    (sim_size-k)*sizeof(bool));
+                            sim_size += 1;
+                            sim[k] = x;
+                            sim_prngs[k] = wprng;
+                            sim_isdirs[k] = false;
+                        }
+                        break;
+                    }
+                }
+
+                // update related sim files
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        sim_files[k]->orphan = false;
+                        sim_files[k]->prng = wprng;
+                    }
+                }
+            }
+
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
+        // close a file?
+        } else if (op == 2) {
+            if (sim_file_count == 0) {
+                goto nonsense;
+            }
+            // choose a random file handle
+            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+
+            // this doesn't really test anything, but if we don't close
+            // files eventually everything will end up zombies
+
+            // close the file without affected disk
+            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
+            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+
+            // remove from list
+            free(sim_files[j]);
+            sim_files[j] = sim_files[sim_file_count-1];
+            sim_file_count -= 1;
+
+        // remove a file?
+        } else if (op == 3) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to delete
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+
+            // delete from our sim
+            memmove(&sim[j], &sim[j+1],
+                    (sim_size-(j+1))*sizeof(lfs_size_t));
+            memmove(&sim_prngs[j], &sim_prngs[j+1],
+                    (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isdirs[j], &sim_isdirs[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
+            sim_size -= 1;
+
+            // mark any related sim files as zombied
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
+        // rename a file?
+        } else if (op == 4) {
+            if (sim_size == 0) {
+                goto nonsense;
+            }
+            // choose a random file to rename, and a random number to
+            // rename to
+            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs_size_t x = sim[j];
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            uint32_t wprng = sim_prngs[j];
+            bool isdir = sim_isdirs[j];
+
+            // update our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // type mismatch?
+                        if (sim_isdirs[k] != isdir) {
+                            goto nonsense;
+                        }
+
+                        // delete the original entry
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isdirs[j], &sim_isdirs[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
+                        sim_size -= 1;
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // update the prng
+                        sim_prngs[k] = wprng;
+                    // just renaming
+                    } else {
+                        // first delete
+                        memmove(&sim[j], &sim[j+1],
+                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[j], &sim_prngs[j+1],
+                                (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isdirs[j], &sim_isdirs[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
+                        if (k > j) {
+                            k -= 1;
+                        }
+                        // then insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim[k] = y;
+                        sim_prngs[k] = wprng;
+                        sim_isdirs[k] = isdir;
+                    }
+                    break;
+                }
+            }
+
+            // update any related sim files
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                // move source files
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->x = y;
+
+                // mark target files as zombied
+                } else if (sim_files[k]->x == y) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
+
+        // toss a directory into the mix
+        } else if (op == 5) {
+            // choose a pseudo-random number
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+
+            // insert into our sim, use negative numbers for dirs
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        goto nonsense;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = 0;
+                        sim_isdirs[k] = true;
+                    }
+                    break;
+                }
+            }
+
+            // mark any related sim files as zombied
+            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                if (sim_files[k]->x == x) {
+                    sim_files[k]->zombie = true;
+                }
+            }
+
+            // make the directory
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_mkdir(&lfs, name) => 0;
+        }
+
+        // step the traversal
+        for (lfs_size_t s = 0; s < STEPS; s++) {
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            // restart traversal
+            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+                lfsr_traversal_rewind(&lfs, &t) => 0;
+            }
+        }
+    }
+
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check that disk matches our simulation
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        if (sim_isdirs[j]) {
+            assert(info.type == LFS_TYPE_DIR);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", sim[j]);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        if (sim_isdirs[j]) {
+            assert(info.type == LFS_TYPE_DIR);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        if (sim_isdirs[j]) {
+            char name[256];
+            sprintf(name, "batman%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => LFS_ERR_ISDIR;
+
+        } else {
+            char name[256];
+            sprintf(name, "batman%03x", sim[j]);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+
+            uint32_t wprng = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+            }
+
+            uint8_t rbuf[SIZE];
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    // check that our file handles match our simulation
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        uint32_t wprng = sim_files[j]->prng;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+
+        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // clean up sim/lfs
+    free(sim);
+    free(sim_prngs);
+    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+        free(sim_files[j]);
+    }
+    free(sim_files);
+    lfsr_unmount(&lfs) => 0;
+'''
+

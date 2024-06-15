@@ -2109,7 +2109,7 @@ static int lfsr_bptr_ck(lfs_t *lfs, const lfsr_bptr_t *bptr) {
 
 
 // predeclare block allocator functions
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase);
+static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase);
 static void lfs_alloc_ckpoint(lfs_t *lfs);
 
 
@@ -2152,12 +2152,16 @@ static inline int lfsr_rbyd_cmp(
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .eoff=0, .cksum=0};
-    int err = lfs_alloc(lfs, &rbyd->blocks[0], true);
-    if (err) {
-        return err;
+    lfs_sblock_t block = lfs_alloc(lfs, true);
+    if (block < 0) {
+        return block;
     }
 
+    rbyd->blocks[0] = block;
+    rbyd->trunk = 0;
+    rbyd->weight = 0;
+    rbyd->eoff = 0;
+    rbyd->cksum = 0;
     return 0;
 }
 
@@ -6016,10 +6020,11 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     if (all) {
         // allocate one block without an erase
-        int err = lfs_alloc(lfs, &mdir->rbyd.blocks[1], false);
-        if (err) {
-            return err;
+        lfs_sblock_t block = lfs_alloc(lfs, false);
+        if (block < 0) {
+            return block;
         }
+        mdir->rbyd.blocks[1] = block;
     }
 
     // read the new revision count
@@ -6039,10 +6044,11 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
 relocate:;
     // allocate another block with an erase
-    err = lfs_alloc(lfs, &mdir->rbyd.blocks[0], true);
-    if (err) {
-        return err;
+    lfs_sblock_t block = lfs_alloc(lfs, true);
+    if (block < 0) {
+        return block;
     }
+    mdir->rbyd.blocks[0] = block;
     mdir->rbyd.weight = 0;
     mdir->rbyd.trunk = 0;
     mdir->rbyd.eoff = 0;
@@ -7718,18 +7724,15 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
 
 // traversing littlefs is a bit complex, so we use a state machine to keep
 // track of where we are
-//
-// note the lower two bits are reserved so upper layers can iterate over
-// redund blocks easily
 enum {
-    LFSR_TSTATE_MROOTANCHOR = 0 << 2,
-    LFSR_TSTATE_MROOTCHAIN  = 1 << 2,
-    LFSR_TSTATE_MTREE       = 2 << 2,
-    LFSR_TSTATE_MDIR        = 3 << 2,
-    LFSR_TSTATE_MDIRBTREE   = 4 << 2,
-    LFSR_TSTATE_OMDIR       = 5 << 2,
-    LFSR_TSTATE_OMDIRBTREE  = 6 << 2,
-    LFSR_TSTATE_DONE        = 7 << 2,
+    LFSR_TSTATE_MROOTANCHOR = 0,
+    LFSR_TSTATE_MROOTCHAIN  = 1,
+    LFSR_TSTATE_MTREE       = 2,
+    LFSR_TSTATE_MDIR        = 3,
+    LFSR_TSTATE_MDIRBTREE   = 4,
+    LFSR_TSTATE_OMDIR       = 5,
+    LFSR_TSTATE_OMDIRBTREE  = 6,
+    LFSR_TSTATE_DONE        = 7,
 };
 
 #define LFSR_MTRAVERSAL(_flags) \
@@ -7742,8 +7745,27 @@ enum {
         .u.mtortoise.step=0, \
         .u.mtortoise.power=0})
 
+static void lfsr_fs_traverserewind(lfs_t *lfs, lfsr_mtraversal_t *mt) {
+    (void)lfs;
+    mt->o.flags &= ~LFS_F_DIRTY;
+    mt->o.state = LFSR_TSTATE_MROOTANCHOR;
+    mt->o.mdir.mid = -1;
+    mt->u.mtortoise.mptr.blocks[0] = 0;
+    mt->u.mtortoise.mptr.blocks[1] = 0;
+    mt->u.mtortoise.step = 0;
+    mt->u.mtortoise.power = 0;
+}
+
 static inline bool lfsr_t_ismtreeonly(uint32_t flags) {
     return flags & LFS_T_MTREEONLY;
+}
+
+static inline bool lfsr_t_isexcl(uint32_t flags) {
+    return flags & LFS_T_EXCL;
+}
+
+static inline bool lfsr_t_ismkconsistent(uint32_t flags) {
+    return flags & LFS_T_MKCONSISTENT;
 }
 
 static inline bool lfsr_t_islookahead(uint32_t flags) {
@@ -7762,16 +7784,8 @@ static inline bool lfsr_t_isckdata(uint32_t flags) {
     return flags & LFS_T_CKDATA;
 }
 
-static inline bool lfsr_t_isdirty(uint32_t flags) {
-    return flags & LFS_T_DIRTY;
-}
-
-static inline bool lfsr_t_iscorruptmetadata(uint32_t flags) {
-    return flags & LFS_T_CORRUPTMETADATA;
-}
-
-static inline bool lfsr_t_iscorruptdata(uint32_t flags) {
-    return flags & LFS_T_CORRUPTDATA;
+static inline bool lfsr_f_isdirty(uint32_t flags) {
+    return flags & LFS_F_DIRTY;
 }
 
 
@@ -7793,12 +7807,12 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_file_t *file,
 static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
         lfsr_mtinfo_t *mtinfo) {
     while (true) {
-        switch (mt->o.state >> 2) {
+        switch (mt->o.state) {
         // start with the mrootanchor 0x{0,1}
         //
         // note we make sure to include all mroots in our mroot chain!
         //
-        case LFSR_TSTATE_MROOTANCHOR >> 2:;
+        case LFSR_TSTATE_MROOTANCHOR:;
             // fetch the first mroot 0x{0,1}
             int err = lfsr_mdir_fetch(lfs, &mt->o.mdir,
                     -1, &LFSR_MPTR_MROOTANCHOR());
@@ -7814,7 +7828,7 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             return 0;
 
         // traverse the mroot chain, checking for mroot/mtree/mdir
-        case LFSR_TSTATE_MROOTCHAIN >> 2:;
+        case LFSR_TSTATE_MROOTCHAIN:;
             // lookup mroot, if we find one this just an mroot chain link
             lfsr_tag_t tag;
             lfsr_data_t data;
@@ -7915,7 +7929,7 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             }
 
         // traverse the mtree, including both inner btree nodes and mdirs
-        case LFSR_TSTATE_MTREE >> 2:;
+        case LFSR_TSTATE_MTREE:;
             // no mtree? transition to traversing any opened mdirs
             if (lfsr_mtree_ismptr(&lfs->mtree)) {
                 mt->u.o = lfs->opened;
@@ -7981,7 +7995,7 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             }
 
         // scan for blocks/btrees in the current mdir
-        case LFSR_TSTATE_MDIR >> 2:;
+        case LFSR_TSTATE_MDIR:;
             // not traversing all blocks? have we exceeded our mdir's weight?
             // return to mtree traversal
             if (lfsr_t_ismtreeonly(mt->o.flags)
@@ -8033,7 +8047,7 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             continue;
 
         // scan for blocks/btrees in our opened file list
-        case LFSR_TSTATE_OMDIR >> 2:;
+        case LFSR_TSTATE_OMDIR:;
             // not traversing all blocks? reached end of opened file list?
             if (lfsr_t_ismtreeonly(mt->o.flags) || !mt->u.o) {
                 mt->o.state = LFSR_TSTATE_DONE;
@@ -8056,21 +8070,19 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
 
         // traverse any file btrees, including both inner btree nodes and
         // block pointers
-        case LFSR_TSTATE_MDIRBTREE >> 2:;
-        case LFSR_TSTATE_OMDIRBTREE >> 2:;
+        case LFSR_TSTATE_MDIRBTREE:;
+        case LFSR_TSTATE_OMDIRBTREE:;
             // traverse through our file
             err = lfsr_bshrub_traverse(lfs, (const lfsr_file_t*)mt, &mt->bt,
                     &btinfo);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
                     // end of btree? go to next file
-                    if ((mt->o.state >> 2)
-                            == (LFSR_TSTATE_MDIRBTREE >> 2)) {
+                    if (mt->o.state == LFSR_TSTATE_MDIRBTREE) {
                         mt->o.mdir.mid += 1;
                         mt->o.state = LFSR_TSTATE_MDIR;
                         continue;
-                    } else if ((mt->o.state >> 2)
-                            == (LFSR_TSTATE_OMDIRBTREE >> 2)) {
+                    } else if (mt->o.state == LFSR_TSTATE_OMDIRBTREE) {
                         mt->u.o = mt->u.o->next;
                         mt->o.state = LFSR_TSTATE_OMDIR;
                         continue;
@@ -8101,7 +8113,7 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
                 LFS_UNREACHABLE();
             }
 
-        case LFSR_TSTATE_DONE >> 2:;
+        case LFSR_TSTATE_DONE:;
             return LFS_ERR_NOENT;
 
         default:;
@@ -8110,7 +8122,11 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
     }
 }
 
-// high-level traversal, handle extra features here
+// needed in lfsr_fs_traverse
+static void lfs_alloc_markinuse(lfs_t *lfs, lfs_block_t block);
+
+// high-level immutable traversal, handle extra features here,
+// but no mutation!
 static int lfsr_fs_traverse(lfs_t *lfs, lfsr_mtraversal_t *mt,
         lfsr_mtinfo_t *mtinfo) {
     int err = lfsr_fs_traverse_(lfs, mt, mtinfo);
@@ -8139,7 +8155,32 @@ static int lfsr_fs_traverse(lfs_t *lfs, lfsr_mtraversal_t *mt,
         }
     }
 
+    // track in-use blocks
+    if (lfsr_t_islookahead(mt->o.flags)) {
+        if (mtinfo->tag == LFSR_TAG_MDIR) {
+            lfs_alloc_markinuse(lfs, mtinfo->u.mdir.rbyd.blocks[0]);
+            lfs_alloc_markinuse(lfs, mtinfo->u.mdir.rbyd.blocks[1]);
+
+        } else if (mtinfo->tag == LFSR_TAG_BRANCH) {
+            lfs_alloc_markinuse(lfs, mtinfo->u.rbyd.blocks[0]);
+
+        } else if (mtinfo->tag == LFSR_TAG_BLOCK) {
+            lfs_alloc_markinuse(lfs, mtinfo->u.bptr.data.u.disk.block);
+
+        } else {
+            LFS_UNREACHABLE();
+        }
+    }
+
     return 0;
+}
+
+// high-level mutating traversal, handle extra features that require
+// mutation here, upper layers should call lfs_alloc_ckpoint as needed
+static int lfsr_fs_traversemut(lfs_t *lfs, lfsr_mtraversal_t *mt,
+        lfsr_mtinfo_t *mtinfo) {
+    // TODO
+    return lfsr_fs_traverse(lfs, mt, mtinfo);
 }
 
 
@@ -8898,81 +8939,128 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
 /// Block allocator ///
 
-// Allocations should call this when all allocated blocks are committed to
-// the filesystem, either in the mtree or in tracked mdirs. After a
-// checkpoint, the block allocator may realloc any untracked blocks.
+// checkpoint the allocator
+//
+// operations that need to alloc should call this to indicate all in-use
+// blocks are either committed into the filesystem or tracked by an opened
+// mdir
 static void lfs_alloc_ckpoint(lfs_t *lfs) {
     lfs->lookahead.ckpoint = lfs->block_count;
+
+    // mark all opened traversals as dirty
+    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+        if (o->type == LFS_TYPE_TRAVERSAL) {
+            o->flags |= LFS_F_DIRTY;
+        }
+    }
 }
 
-// Discard lookahead state, this is necessary if block_count changes
+// discard any lookahead state, this is necessary if block_count changes
 static void lfs_alloc_discard(lfs_t *lfs) {
+    // go ahead shift to next available block, we probably want the next
+    // scan to start here
     lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.next)
             % lfs->block_count;
     lfs->lookahead.next = 0;
     lfs->lookahead.size = 0;
-    lfs->lookahead.ckpoint = 0;
 }
 
-static inline void lfs_alloc_setinuse(lfs_t *lfs, lfs_block_t block) {
+// shift the lookahead buffer to try to allocate more blocks, may do nothing
+static void lfs_alloc_shift(lfs_t *lfs) {
+    // do nothing if shifting would make no progress
+    if (lfs->lookahead.next > 0) {
+        // discard already shifts to the next block
+        lfs_alloc_discard(lfs);
+    }
+
+    // zero lookahead buffer
+    if (lfs->lookahead.size == 0) {
+        lfs_memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
+    }
+
+    // don't update size until a successful lookahead scan
+}
+
+// mark a block as in-use
+static void lfs_alloc_markinuse(lfs_t *lfs, lfs_block_t block) {
     // translate to lookahead-relative
-    lfs_block_t rel = (block + lfs->block_count - lfs->lookahead.start)
+    lfs_block_t mark = (block + lfs->block_count - lfs->lookahead.start)
             % lfs->block_count;
-    if (rel < lfs->lookahead.size) {
+    if (mark < 8*lfs->cfg->lookahead_size) {
         // mark as in-use
-        lfs->lookahead.buffer[rel / 8] |= 1 << (rel % 8);
+        lfs->lookahead.buffer[mark / 8] |= 1 << (mark % 8);
     }
 }
 
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
+// needed in lfs_alloc_markfree
+static lfs_sblock_t lfs_alloc_findnext(lfs_t *lfs);
+
+// mark any not-in-use blocks as free
+static void lfs_alloc_markfree(lfs_t *lfs) {
+    // make lookahead buffer usable
+    lfs->lookahead.size = lfs_min(
+            8*lfs->cfg->lookahead_size,
+            lfs->lookahead.ckpoint);
+
+    // eagerly find the next free block so shift can make progress
+    lfs_alloc_findnext(lfs);
+}
+
+// find next free block in lookahead buffer, if there is one
+static lfs_sblock_t lfs_alloc_findnext(lfs_t *lfs) {
+    while (lfs->lookahead.next < lfs->lookahead.size) {
+        if (!(lfs->lookahead.buffer[lfs->lookahead.next / 8]
+                & (1 << (lfs->lookahead.next % 8)))) {
+            // found a free block
+            return (lfs->lookahead.start + lfs->lookahead.next)
+                    % lfs->block_count;
+        }
+
+        lfs->lookahead.next += 1;
+        lfs->lookahead.ckpoint -= 1;
+    }
+
+    return LFS_ERR_NOSPC;
+}
+
+static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
     while (true) {
         // scan our lookahead buffer for free blocks
-        while (lfs->lookahead.next < lfs->lookahead.size) {
-            if (!(lfs->lookahead.buffer[lfs->lookahead.next / 8]
-                    & (1 << (lfs->lookahead.next % 8)))) {
-                // found a free block
-                *block = (lfs->lookahead.start + lfs->lookahead.next)
-                        % lfs->block_count;
+        lfs_sblock_t block = lfs_alloc_findnext(lfs);
+        if (block < 0 && block != LFS_ERR_NOSPC) {
+            return block;
+        }
 
-                // we should never alloc blocks {0,1}
-                LFS_ASSERT(*block != 0 && *block != 1);
+        if (block != LFS_ERR_NOSPC) {
+            // we should never alloc blocks {0,1}
+            LFS_ASSERT(block != 0 && block != 1);
 
-                // erase requested?
-                if (erase) {
-                    int err = lfsr_bd_erase(lfs, *block);
-                    if (err) {
-                        // bad erase? try another block
-                        if (err == LFS_ERR_CORRUPT) {
-                            goto next;
-                        }
-                        return err;
+            // erase requested?
+            if (erase) {
+                int err = lfsr_bd_erase(lfs, block);
+                if (err) {
+                    // bad erase? try another block
+                    if (err == LFS_ERR_CORRUPT) {
+                        lfs->lookahead.next += 1;
+                        lfs->lookahead.ckpoint -= 1;
+                        continue;
                     }
+                    return err;
                 }
-
-                // eagerly find next free block to maximize how many blocks
-                // lfs_alloc_ckpoint makes available for scanning
-                while (true) {
-                    lfs->lookahead.next += 1;
-                    lfs->lookahead.ckpoint -= 1;
-
-                    if (lfs->lookahead.next >= lfs->lookahead.size
-                            || !(lfs->lookahead.buffer[lfs->lookahead.next / 8]
-                                & (1 << (lfs->lookahead.next % 8)))) {
-                        break;
-                    }
-                }
-
-                return 0;
             }
 
-        next:;
+            // eagerly find the next free block to maximize how many blocks
+            // lfs_alloc_ckpoint makes available for scanning
             lfs->lookahead.next += 1;
             lfs->lookahead.ckpoint -= 1;
+            lfs_alloc_findnext(lfs);
+
+            return block;
         }
 
         // In order to keep our block allocator from spinning forever when our
         // filesystem is full, we mark points where there are no in-flight
-        // allocations with a checkpoint before starting a set of allocaitons.
+        // allocations with a checkpoint before starting a set of allocations.
         //
         // If we've looked at all blocks since the last checkpoint, we report
         // the filesystem as out of storage.
@@ -8984,48 +9072,27 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block, bool erase) {
             return LFS_ERR_NOSPC;
         }
 
-        // No blocks in our lookahead buffer, we need to scan the filesystem for
-        // unused blocks in the next lookahead window.
-        //
-        // note we limit the lookahead window to at most the amount of blocks
-        // checkpointed, this prevents the above math from underflowing
-        //
-        lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.size)
-                % lfs->block_count;
-        lfs->lookahead.next = 0;
-        lfs->lookahead.size = lfs_min(
-                8*lfs->cfg->lookahead_size,
-                lfs->lookahead.ckpoint);
-        lfs_memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
+        // no blocks in our lookahead buffer, we need to scan the filesystem
+        // for unused blocks in the next lookahead window
+        lfs_alloc_shift(lfs);
 
         // traverse the filesystem, building up knowledge of what blocks are
         // in use in our lookahead window
-        lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(0);
+        lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_LOOKAHEAD);
         while (true) {
             lfsr_mtinfo_t mtinfo;
             int err = lfsr_fs_traverse(lfs, &mt, &mtinfo);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_BUSY);
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
                 return err;
             }
-
-            // mark any blocks we see at in-use, including any btree/mdir blocks
-            if (mtinfo.tag == LFSR_TAG_MDIR) {
-                lfs_alloc_setinuse(lfs, mtinfo.u.mdir.rbyd.blocks[1]);
-                lfs_alloc_setinuse(lfs, mtinfo.u.mdir.rbyd.blocks[0]);
-
-            } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
-                lfs_alloc_setinuse(lfs, mtinfo.u.rbyd.blocks[0]);
-
-            } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
-                lfs_alloc_setinuse(lfs, mtinfo.u.bptr.data.u.disk.block);
-
-            } else {
-                LFS_UNREACHABLE();
-            }
         }
+
+        // mark anything not seen as free
+        lfs_alloc_markfree(lfs);
     }
 }
 
@@ -9270,20 +9337,21 @@ failed:;
 
 /// High-level filesystem traversal ///
 
-int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *traversal,
-        uint32_t flags) {
+// needed in lfsr_traversal_open
+static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t);
+
+int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     // already open?
-    LFS_ASSERT(!lfsr_opened_isopen(lfs, &traversal->mt.o));
+    LFS_ASSERT(!lfsr_opened_isopen(lfs, &t->mt.o));
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
-    // these flags are returned by tinfo, not provided here
-    LFS_ASSERT(!lfsr_t_isdirty(flags));
-    LFS_ASSERT(!lfsr_t_iscorruptmetadata(flags));
-    LFS_ASSERT(!lfsr_t_iscorruptdata(flags));
+    // these flags are internal and shouldn't be provided by the user
+    LFS_ASSERT(!lfsr_f_isdirty(flags));
 
     // some flags mutate the filesystem
-    if (lfsr_t_iscompact(flags)) {
+    if (lfsr_t_ismkconsistent(flags)
+            || lfsr_t_iscompact(flags)) {
         // prepare our filesystem for writing
         int err = lfsr_fs_mkconsistent(lfs);
         if (err) {
@@ -9292,88 +9360,113 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *traversal,
     }
 
     // setup traversal state
-    traversal->mt = LFSR_MTRAVERSAL(flags);
-    traversal->count = 0;
+    t->mt.o.type = LFS_TYPE_TRAVERSAL;
+    t->mt.o.flags = flags;
+
+    // let rewind initialize/reset things
+    int err = lfsr_traversal_rewind_(lfs, t);
+    if (err) {
+        return err;
+    }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &traversal->mt.o);
+    lfsr_opened_add(lfs, &t->mt.o);
     return 0;
 }
 
-int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *traversal) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &traversal->mt.o));
+int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *t) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &t->mt.o));
 
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &traversal->mt.o);
+    lfsr_opened_remove(lfs, &t->mt.o);
     return 0;
 }
 
-int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
+int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         struct lfs_tinfo *tinfo) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &traversal->mt.o));
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &t->mt.o));
+
+    // traversal dirty and excl? terminate early
+    if (lfsr_t_isexcl(t->mt.o.flags)
+            && lfsr_f_isdirty(t->mt.o.flags)) {
+        return LFS_ERR_BUSY;
+    }
 
     while (true) {
         // some redund blocks left over?
-        if (traversal->count > 0) {
+        if (t->blocks[0] != -1) {
             // write our traversal info
-            tinfo->flags = traversal->mt.o.flags
-                    & LFS_T_DIRTY
-                    & LFS_T_CORRUPTMETADATA
-                    & LFS_T_CORRUPTDATA;
-            tinfo->btype = traversal->btype;
-            tinfo->block = traversal->blocks[0];
+            tinfo->btype = t->btype;
+            tinfo->block = t->blocks[0];
 
-            traversal->blocks[0] = traversal->blocks[1];
-            traversal->count -= 1;
+            t->blocks[0] = t->blocks[1];
+            t->blocks[1] = -1;
             return 0;
         }
 
         // find next block
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(lfs, &traversal->mt, &mtinfo);
+        int err = lfsr_fs_traversemut(lfs, &t->mt, &mtinfo);
         if (err) {
+            // end of traversal?
+            if (err == LFS_ERR_NOENT) {
+                goto done;
+            }
             return err;
         }
 
         // figure out type/blocks
         if (mtinfo.tag == LFSR_TAG_MDIR) {
-            traversal->btype = LFS_BTYPE_MDIR;
-            traversal->blocks[0] = mtinfo.u.mdir.rbyd.blocks[0];
-            traversal->blocks[1] = mtinfo.u.mdir.rbyd.blocks[1];
-            traversal->count = 2;
+            t->btype = LFS_BTYPE_MDIR;
+            t->blocks[0] = mtinfo.u.mdir.rbyd.blocks[0];
+            t->blocks[1] = mtinfo.u.mdir.rbyd.blocks[1];
 
         } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
-            traversal->btype = LFS_BTYPE_BTREE;
-            traversal->blocks[0] = mtinfo.u.rbyd.blocks[0];
-            traversal->count = 1;
+            t->btype = LFS_BTYPE_BTREE;
+            t->blocks[0] = mtinfo.u.rbyd.blocks[0];
+            t->blocks[1] = -1;
 
         } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
-            traversal->btype = LFS_BTYPE_DATA;
-            traversal->blocks[0] = mtinfo.u.bptr.data.u.disk.block;
-            traversal->count = 1;
+            t->btype = LFS_BTYPE_DATA;
+            t->blocks[0] = mtinfo.u.bptr.data.u.disk.block;
+            t->blocks[1] = -1;
 
         } else {
             LFS_UNREACHABLE();
         }
     }
+
+done:;
+    // was a lookahead scan successful?
+    if (lfsr_t_islookahead(t->mt.o.flags)
+            && !lfsr_f_isdirty(t->mt.o.flags)) {
+        lfs_alloc_markfree(lfs);
+    }
+
+    // return BUSY if we're dirty, NOENT if we're clean
+    return (lfsr_f_isdirty(t->mt.o.flags))
+            ? LFS_ERR_BUSY
+            : LFS_ERR_NOENT;
 }
 
-int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *traversal) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &traversal->mt.o));
-
+static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     // reset traversal state
-    traversal->mt.o.flags &= ~LFS_T_DIRTY
-            & ~LFS_T_CORRUPTMETADATA
-            & ~LFS_T_CORRUPTDATA;
-    traversal->mt.o.state = LFSR_TSTATE_MROOTANCHOR;
-    traversal->mt.o.mdir.mid = -1;
-    traversal->mt.u.mtortoise.mptr.blocks[0] = 0;
-    traversal->mt.u.mtortoise.mptr.blocks[1] = 0;
-    traversal->mt.u.mtortoise.step = 0;
-    traversal->mt.u.mtortoise.power = 0;
-    traversal->count = 0;
+    lfsr_fs_traverserewind(lfs, &t->mt);
+    t->blocks[0] = -1;
+    t->blocks[1] = -1;
+
+    // shift the lookahead buffer if requested
+    if (lfsr_t_islookahead(t->mt.o.flags)) {
+        lfs_alloc_shift(lfs);
+    }
 
     return 0;
+}
+
+int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
+    LFS_ASSERT(lfsr_opened_isopen(lfs, &t->mt.o));
+
+    return lfsr_traversal_rewind_(lfs, t);
 }
 
 
@@ -11400,12 +11493,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         //
         // note if we relocate, we rewrite the entire block from block_start
         // using what we can find in our tree
-        int err = lfs_alloc(lfs, &bptr.data.u.disk.block, true);
-        if (err) {
-            return err;
+        lfs_sblock_t block = lfs_alloc(lfs, true);
+        if (block < 0) {
+            return block;
         }
 
-        bptr.data = LFSR_DATA_DISK(bptr.data.u.disk.block, 0, 0);
+        bptr.data = LFSR_DATA_DISK(block, 0, 0);
         bptr.cksize = 0;
         bptr.cksum = 0;
 
@@ -11435,7 +11528,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     lfs_ssize_t d_ = lfs_min(
                             d,
                             size - (pos_ - pos));
-                    err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
+                    int err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
                             bptr.cksize,
                             &buffer[pos_ - pos], d_,
                             &bptr.cksum, true);
@@ -11463,7 +11556,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 lfsr_tag_t tag_;
                 lfsr_bid_t weight_;
                 lfsr_bptr_t bptr_;
-                err = lfsr_bshrub_lookupnext(lfs, file, pos_,
+                int err = lfsr_bshrub_lookupnext(lfs, file, pos_,
                         &bid_, &tag_, &weight_, &bptr_);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -11518,7 +11611,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // found a hole? fill with zeros
-            err = lfsr_bd_set(lfs, bptr.data.u.disk.block, bptr.cksize,
+            int err = lfsr_bd_set(lfs, bptr.data.u.disk.block, bptr.cksize,
                     0, d,
                     &bptr.cksum, true);
             if (err) {
@@ -11543,7 +11636,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         bptr.cksize -= d;
 
         // finalize our write
-        err = lfsr_bd_flush(lfs, &bptr.cksum, true);
+        int err = lfsr_bd_flush(lfs, &bptr.cksum, true);
         if (err) {
             // bad prog? try another block
             if (err == LFS_ERR_CORRUPT) {

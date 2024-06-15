@@ -27,11 +27,10 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
     lfs_size_t alloced = 0;
     while (true) {
-        lfs_block_t block;
-        int err = lfs_alloc(&lfs, &block, ERASE);
-        assert(!err || err == LFS_ERR_NOSPC);
+        lfs_sblock_t block = lfs_alloc(&lfs, ERASE);
+        assert(block >= 0 || block == LFS_ERR_NOSPC);
 
-        if (err == LFS_ERR_NOSPC) {
+        if (block == LFS_ERR_NOSPC) {
             break;
         }
         alloced += 1;
@@ -61,11 +60,10 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
     lfs_size_t alloced = 0;
     while (true) {
-        lfs_block_t block;
-        int err = lfs_alloc(&lfs, &block, ERASE);
-        assert(!err || err == LFS_ERR_NOSPC);
+        lfs_sblock_t block = lfs_alloc(&lfs, ERASE);
+        assert(block >= 0 || block == LFS_ERR_NOSPC);
 
-        if (err == LFS_ERR_NOSPC) {
+        if (block == LFS_ERR_NOSPC) {
             break;
         }
         alloced += 1;
@@ -83,11 +81,10 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
     alloced = 0;
     while (true) {
-        lfs_block_t block;
-        int err = lfs_alloc(&lfs, &block, ERASE);
-        assert(!err || err == LFS_ERR_NOSPC);
+        lfs_sblock_t block = lfs_alloc(&lfs, ERASE);
+        assert(block >= 0 || block == LFS_ERR_NOSPC);
 
-        if (err == LFS_ERR_NOSPC) {
+        if (block == LFS_ERR_NOSPC) {
             break;
         }
         alloced += 1;
