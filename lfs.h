@@ -181,6 +181,7 @@ enum lfs_traversal_flags {
 
     // internally used flags
     LFS_F_DIRTY             = 0x1000, // Filesystem has been modified
+    //LFS_F_ZOMBIE          = 0x8000, // File has been removed
 };
 
 
@@ -610,6 +611,9 @@ typedef struct lfsr_mtraversal {
     const struct lfs_file_config *cfg;
     lfsr_bshrub_t bshrub;
 
+    // opened file state, we use an indirect pointer here so we
+    // always point to data associated with the current mid
+    lfsr_omdir_t **ot;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
@@ -617,13 +621,9 @@ typedef struct lfsr_mtraversal {
             lfs_block_t step;
             uint8_t power;
         } mtortoise;
-        // mtree traversal state, only valid when traversing the mtree
-        lfsr_btraversal_t mt;
-        // opened file state, only valid when traversing opened files
-        const lfsr_omdir_t *o;
+        // btree traversal state
+        lfsr_btraversal_t bt;
     } u;
-    // btree traversal state
-    lfsr_btraversal_t bt;
 } lfsr_mtraversal_t;
 
 typedef struct lfsr_traversal {

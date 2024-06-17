@@ -2164,13 +2164,1129 @@ code = '''
 '''
 
 
+# test specific cases where we need to clobber traversals
+#
+# these assume quite a bit more and may be a bit fragile...
+#
+[cases.test_traversal_mutation_file_bsprout]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.TRUNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    // rewrite the file
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY
+                | ((TRUNC) ? LFS_O_TRUNC : 0)) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_file_btree]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+defines.INLINE_SIZE = 0
+defines.TRUNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse one data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // rewrite the file
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY
+                | ((TRUNC) ? LFS_O_TRUNC : 0)) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_file_bshrub]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+defines.TRUNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse one data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // rewrite the file
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY
+                | ((TRUNC) ? LFS_O_TRUNC : 0)) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_orphan_bsprout]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    // rewrite the file
+    lfsr_file_rewind(&lfs, &file1) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+
+    // check the file contents
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_orphan_btree]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+defines.INLINE_SIZE = 0
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse one data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // rewrite the file
+    lfsr_file_rewind(&lfs, &file1) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+
+    // check the file contents
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_orphan_bshrub]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse one data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // rewrite the file
+    lfsr_file_rewind(&lfs, &file1) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+
+    // check the file contents
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_close_bsprout]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.DESYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    // close the file
+    if (DESYNC) {
+        lfsr_file_desync(&lfs, &file1) => 0;
+    }
+    lfsr_file_close(&lfs, &file1) => 0;
+
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo)
+            => (DESYNC) ? LFS_ERR_NOENT : LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file2) => 0;
+
+    // check the file contents
+    lfsr_file_t file;
+    if (DESYNC) {
+        lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    } else {
+        lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_close_btree]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+defines.INLINE_SIZE = 0
+defines.DESYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse one data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // close the file
+    if (DESYNC) {
+        lfsr_file_desync(&lfs, &file1) => 0;
+    }
+    lfsr_file_close(&lfs, &file1) => 0;
+
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo)
+            => (DESYNC) ? LFS_ERR_NOENT : LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file2) => 0;
+
+    // check the file contents
+    lfsr_file_t file;
+    if (DESYNC) {
+        lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    } else {
+        lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_close_bshrub]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+defines.DESYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse one data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // close the file
+    if (DESYNC) {
+        lfsr_file_desync(&lfs, &file1) => 0;
+    }
+    lfsr_file_close(&lfs, &file1) => 0;
+
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo)
+            => (DESYNC) ? LFS_ERR_NOENT : LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_file_close(&lfs, &file2) => 0;
+
+    // check the file contents
+    lfsr_file_t file;
+    if (DESYNC) {
+        lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    } else {
+        lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_mroot_split]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+
+    // create enough files for mroot to split
+    lfs_size_t i = 0;
+    while (lfs.mtree.u.weight == 0x80000000) {
+        char name[256];
+        sprintf(name, "uloborus%03x", i);
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+        i += 1;
+    }
+
+    // traverse the mtree root
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse one mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // and two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // and another mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // and another two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_mroot_split_l]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create three files
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf3[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf3, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse a data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // create enough files for mroot to split
+    lfs_size_t i = 0;
+    while (lfs.mtree.u.weight == 0x80000000) {
+        char name[256];
+        sprintf(name, "uloborus%03x", i);
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+        i += 1;
+    }
+
+    // traverse one mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // and another mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // and another two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf3, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_traversal_mutation_mroot_split_r]
+defines.CKMETADATA = [false, true]
+defines.CKDATA = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.SIZE = '2*BLOCK_SIZE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create three files
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "zodarion",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf3[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf3, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((CKMETADATA) ? LFS_T_CKMETADATA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
+
+    // traverse mroot
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // and another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+
+    // create enough files for mroot to split
+    lfs_size_t i = 0;
+    while (lfs.mtree.u.weight == 0x80000000) {
+        char name[256];
+        sprintf(name, "uloborus%03x", i);
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+        i += 1;
+    }
+
+    // and another mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // and another two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "zoldarion", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf3, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+#[cases.test_traversal_mutation_mroot_chain_split]
+#[cases.test_traversal_mutation_mroot_chain_split_l]
+#[cases.test_traversal_mutation_mroot_chain_split_r]
+#[cases.test_traversal_mutation_mtree_split]
+#[cases.test_traversal_mutation_mtree_split_l]
+#[cases.test_traversal_mutation_mtree_split_r]
+
+
 
 # many/fuzz tests mixed with traversals
 #
 # these should hopefully test a bunch of messy traversal state
+#
 
-# TODO actually implement this
-[cases.test_traversal_mutation_dir_many]
+[cases.test_traversal_spam_dir_many]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -2276,7 +3392,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_dir_fuzz]
+[cases.test_traversal_spam_dir_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -2453,7 +3569,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_file_many]
+[cases.test_traversal_spam_file_many]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -2553,7 +3669,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_file_fuzz]
+[cases.test_traversal_spam_file_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -2792,7 +3908,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_fwrite_fuzz]
+[cases.test_traversal_spam_fwrite_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -2951,7 +4067,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_orphanzombie_fuzz]
+[cases.test_traversal_spam_orphanzombie_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -3122,6 +4238,8 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
@@ -3316,7 +4434,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_orphanzombiedir_fuzz]
+[cases.test_traversal_spam_orphanzombiedir_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.EXCL = [false, true]
@@ -3494,6 +4612,8 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
