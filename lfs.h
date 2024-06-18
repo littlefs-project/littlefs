@@ -610,6 +610,7 @@ typedef struct lfsr_mtraversal {
     // so only store the relevant bits, is this a hack? yes
     const struct lfs_file_config *cfg;
     lfsr_bshrub_t bshrub;
+    lfsr_bshrub_t bshrub_;
 
     // opened file state, we use an indirect pointer here so we
     // always point to data associated with the current mid

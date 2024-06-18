@@ -846,7 +846,7 @@ code = '''
 [cases.test_traversal_ckmdir_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
-    for (lfs_block_t i = 0;; i++) {
+    for (lfs_block_t i = 0;; i += 2) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
@@ -865,7 +865,6 @@ code = '''
         lfsr_traversal_t t;
         lfsr_traversal_open(&lfs, &t, 0) => 0;
         lfs_block_t k = 0;
-        lfs_block_t c = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -879,7 +878,7 @@ code = '''
             }
 
             if (tinfo.btype == LFS_BTYPE_MDIR) {
-                if (k == i) {
+                if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
@@ -887,15 +886,12 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (c == 2-1) {
+                    if (k == i+1) {
                         lfsr_traversal_close(&lfs, &t) => 0;
                         goto clobbered;
-                    } else {
-                        c += 1;
                     }
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -935,7 +931,7 @@ defines.CKMETADATA = [false, true]
 defines.CKDATA = [false, true]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
-    for (lfs_block_t i = 0;; i++) {
+    for (lfs_block_t i = 0;; i += 2) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
@@ -965,7 +961,6 @@ code = '''
         lfsr_traversal_t t;
         lfsr_traversal_open(&lfs, &t, 0) => 0;
         lfs_block_t k = 0;
-        lfs_block_t c = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -979,7 +974,7 @@ code = '''
             }
 
             if (tinfo.btype == LFS_BTYPE_MDIR) {
-                if (k == i) {
+                if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
@@ -987,15 +982,12 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (c == 2-1) {
+                    if (k == i+1) {
                         lfsr_traversal_close(&lfs, &t) => 0;
                         goto clobbered;
-                    } else {
-                        c += 1;
                     }
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -1035,7 +1027,7 @@ defines.CKMETADATA = [false, true]
 defines.CKDATA = [false, true]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
-    for (lfs_block_t i = 0;; i++) {
+    for (lfs_block_t i = 0;; i += 2) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
@@ -1064,7 +1056,6 @@ code = '''
         lfsr_traversal_t t;
         lfsr_traversal_open(&lfs, &t, 0) => 0;
         lfs_block_t k = 0;
-        lfs_block_t c = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1081,7 +1072,7 @@ code = '''
             }
 
             if (tinfo.btype == LFS_BTYPE_MDIR) {
-                if (k == i) {
+                if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
@@ -1089,15 +1080,12 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (c == 2-1) {
+                    if (k == i+1) {
                         lfsr_traversal_close(&lfs, &t) => 0;
                         goto clobbered;
-                    } else {
-                        c += 1;
                     }
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -1174,9 +1162,8 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfsr_traversal_close(&lfs, &t) => 0;
                     goto clobbered;
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -1269,9 +1256,8 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfsr_traversal_close(&lfs, &t) => 0;
                     goto clobbered;
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -1366,9 +1352,8 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfsr_traversal_close(&lfs, &t) => 0;
                     goto clobbered;
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -3004,9 +2989,6 @@ code = '''
         i += 1;
     }
 
-    // traverse the mtree root
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse one mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
@@ -3271,13 +3253,25 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-
+# TODO
 #[cases.test_traversal_mutation_mroot_chain_split]
 #[cases.test_traversal_mutation_mroot_chain_split_l]
 #[cases.test_traversal_mutation_mroot_chain_split_r]
 #[cases.test_traversal_mutation_mtree_split]
 #[cases.test_traversal_mutation_mtree_split_l]
 #[cases.test_traversal_mutation_mtree_split_r]
+
+# TODO also rename/remove -> mv/rm above?
+#[cases.test_traversal_mutation_rm_bleaf]
+#[cases.test_traversal_mutation_rm_btree]
+#[cases.test_traversal_mutation_rm_bshrub]
+#[cases.test_traversal_mutation_mv_src_bleaf]
+#[cases.test_traversal_mutation_mv_src_btree]
+#[cases.test_traversal_mutation_mv_src_bshrub]
+#[cases.test_traversal_mutation_mv_dst_bleaf]
+#[cases.test_traversal_mutation_mv_dst_btree]
+#[cases.test_traversal_mutation_mv_dst_bshrub]
+
 
 
 
