@@ -4092,7 +4092,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btraversal_t bt = LFSR_BTRAVERSAL(0);
+    lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i <= 2*N);
@@ -4241,7 +4241,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btraversal_t bt = LFSR_BTRAVERSAL(0);
+    lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i <= 2*N);

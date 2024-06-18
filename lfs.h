@@ -613,7 +613,7 @@ typedef struct lfsr_mtraversal {
 
     // opened file state, we use an indirect pointer here so we
     // always point to data associated with the current mid
-    lfsr_omdir_t **ot;
+    lfsr_omdir_t *ot;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
