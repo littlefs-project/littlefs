@@ -1690,6 +1690,11 @@ code = '''
         lfsr_file_open(&lfs, &file, "spider",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_close(&lfs, &file) => 0;
+
+        // read should immediately error
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_close(&lfs, &t) => 0;
+        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -1707,6 +1712,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+done:;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -1816,12 +1822,10 @@ code = '''
     if (WHEN == 1) {
         lfsr_mkdir(&lfs, "spider") => 0;
 
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
+        // read should immediately error
+        struct lfs_tinfo tinfo;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -1891,12 +1895,10 @@ code = '''
     if (WHEN == 1) {
         lfsr_remove(&lfs, "spider") => 0;
 
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
+        // read should immediately error
+        struct lfs_tinfo tinfo;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -1966,12 +1968,10 @@ code = '''
     if (WHEN == 1) {
         lfsr_rename(&lfs, "spider", "scorpion") => 0;
 
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
+        // read should immediately error
+        struct lfs_tinfo tinfo;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -2297,14 +2297,6 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
-    // traverse btree
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_BTREE);
-    // traverse two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2386,11 +2378,6 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
-    // traverse two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2636,11 +2623,6 @@ code = '''
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
 
-    // traverse two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2807,17 +2789,21 @@ code = '''
     }
     lfsr_file_close(&lfs, &file1) => 0;
 
-    // traverse btree
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_BTREE);
-    // traverse two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo)
-            => (DESYNC) ? LFS_ERR_NOENT : LFS_ERR_BUSY;
+    if (DESYNC) {
+        // traverse btree
+        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.btype == LFS_BTYPE_BTREE);
+        // traverse two data blocks
+        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.btype == LFS_BTYPE_DATA);
+        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.btype == LFS_BTYPE_DATA);
+        // we should be at end of traversal now
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    } else {
+        // we should be at end of traversal now
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2900,14 +2886,18 @@ code = '''
     }
     lfsr_file_close(&lfs, &file1) => 0;
 
-    // traverse two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo)
-            => (DESYNC) ? LFS_ERR_NOENT : LFS_ERR_BUSY;
+    if (DESYNC) {
+        // traverse two data blocks
+        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.btype == LFS_BTYPE_DATA);
+        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.btype == LFS_BTYPE_DATA);
+        // we should be at end of traversal now
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    } else {
+        // we should be at end of traversal now
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2989,26 +2979,6 @@ code = '''
         i += 1;
     }
 
-    // traverse one mdir
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    // and two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    // and another mdir
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    // and another two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3099,26 +3069,6 @@ code = '''
         i += 1;
     }
 
-    // traverse one mdir
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    // traverse two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    // and another mdir
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    // and another two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3219,16 +3169,6 @@ code = '''
         i += 1;
     }
 
-    // and another mdir
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    // and another two data blocks
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3245,7 +3185,7 @@ code = '''
     assert(memcmp(rbuf, wbuf2, SIZE) == 0);
     lfsr_file_close(&lfs, &file) => 0;
 
-    lfsr_file_open(&lfs, &file, "zoldarion", LFS_O_RDONLY) => 0;
+    lfsr_file_open(&lfs, &file, "zodarion", LFS_O_RDONLY) => 0;
     lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf3, SIZE) == 0);
     lfsr_file_close(&lfs, &file) => 0;
