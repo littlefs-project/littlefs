@@ -5216,7 +5216,8 @@ static bool lfsr_mid_isopen(lfs_t *lfs, lfsr_smid_t mid) {
 }
 
 // needed in lfsr_opened_clobber
-static void lfsr_traversal_clobberopen(lfs_t *lfs, lfsr_traversal_t *t);
+static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
+        lfsr_smid_t mid);
 
 // traversal invalidation things
 static void lfsr_opened_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty) {
@@ -5229,7 +5230,7 @@ static void lfsr_opened_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty) {
             // clobber any traversals referencing our mdir
             lfsr_traversal_t *t = (lfsr_traversal_t*)o_;
             if (t->mt.ot == o) {
-                lfsr_traversal_clobberopen(lfs, t);
+                lfsr_traversal_clobber(lfs, t, -1);
             }
         }
     }
@@ -6866,9 +6867,6 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfsr_mptr_t *mptr,
     }
 }
 
-// needed in lfsr_mdir_commit
-static void lfsr_traversal_clobbermdir(lfs_t *lfs, lfsr_traversal_t *t);
-
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs_t, etc
@@ -7436,25 +7434,24 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
+    // clobber any related traversals
     for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
         if (o->type == LFS_TYPE_TRAVERSAL) {
             // mark all traversals as dirty
             o->flags |= LFS_F_DIRTY;
 
-            // clobber any related traversals
+            // clobber any mdir related traversals
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
-                lfsr_traversal_clobbermdir(lfs, (lfsr_traversal_t*)o);
+                lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o,
+                        lfsr_mid_bid(lfs, mdir->mid) + 1);
             }
-        }
-    }
 
-    // if mroot/mtree changed, clobber any related traversals
-    if (lfsr_mdir_cmp(&mroot_, &lfs->mroot) != 0
-            || lfsr_mtree_cmp(&mtree_, &lfs->mtree) != 0) {
-        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
-            if (o->type == LFS_TYPE_TRAVERSAL
+            // if mroot/mtree changed, clobber any mroot/mtree traversals
+            if ((lfsr_mdir_cmp(&mroot_, &lfs->mroot) != 0
+                        || lfsr_mtree_cmp(&mtree_, &lfs->mtree) != 0)
                     && o->mdir.mid == -1) {
-                lfsr_traversal_clobbermdir(lfs, (lfsr_traversal_t*)o);
+                lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o,
+                        0);
             }
         }
     }
@@ -7837,6 +7834,7 @@ enum {
         .o.state=LFSR_TSTATE_MROOTANCHOR, \
         .o.flags=_flags, \
         .o.mdir.mid=-1, \
+        .o.mdir.rbyd.blocks={0,0}, \
         .ot=NULL, \
         .u.mtortoise.mptr={{0, 0}}, \
         .u.mtortoise.step=0, \
@@ -7885,6 +7883,8 @@ static void lfsr_fs_traverserewind(lfs_t *lfs, lfsr_mtraversal_t *mt) {
     mt->o.flags &= ~LFS_F_DIRTY;
     mt->o.state = LFSR_TSTATE_MROOTANCHOR;
     mt->o.mdir.mid = -1;
+    mt->o.mdir.rbyd.blocks[0] = 0;
+    mt->o.mdir.rbyd.blocks[1] = 0;
     mt->ot = NULL;
     mt->u.mtortoise.mptr.blocks[0] = 0;
     mt->u.mtortoise.mptr.blocks[1] = 0;
@@ -7892,22 +7892,23 @@ static void lfsr_fs_traverserewind(lfs_t *lfs, lfsr_mtraversal_t *mt) {
     mt->u.mtortoise.power = 0;
 }
 
-static void lfsr_fs_traverseclobbermdir(lfs_t *lfs, lfsr_mtraversal_t *mt) {
+static void lfsr_fs_traverseclobber(lfs_t *lfs, lfsr_mtraversal_t *mt,
+        lfsr_smid_t mid) {
     (void)lfs;
-    // increment the mid (to make progress) and reset to mdir iteration
-    mt->o.state = LFSR_TSTATE_MDIRS;
-    mt->o.mdir.mid = lfsr_mid_bid(lfs, mt->o.mdir.mid)
-            + (1 << lfs->mdir_bits);
-    mt->ot = NULL;
-}
-
-static void lfsr_fs_traverseclobberopen(lfs_t *lfs, lfsr_mtraversal_t *mt) {
-    (void)lfs;
-    // move to next omdir
-    LFS_ASSERT(mt->o.state == LFSR_TSTATE_OMDIRS
-            || mt->o.state == LFSR_TSTATE_OBTREE);
-    mt->o.state = LFSR_TSTATE_OMDIRS;
-    mt->ot = mt->ot->next;
+    if (mid != -1) {
+        // increment the mid (to make progress) and reset to mdir iteration
+        mt->o.state = LFSR_TSTATE_MDIRS;
+        mt->o.mdir.mid = mid;
+        mt->o.mdir.rbyd.blocks[0] = 0;
+        mt->o.mdir.rbyd.blocks[1] = 0;
+        mt->ot = NULL;
+    } else {
+        // move to next omdir
+        LFS_ASSERT(mt->o.state == LFSR_TSTATE_OMDIRS
+                || mt->o.state == LFSR_TSTATE_OBTREE);
+        mt->o.state = LFSR_TSTATE_OMDIRS;
+        mt->ot = mt->ot->next;
+    }
 }
 
 
@@ -9420,18 +9421,10 @@ failed:;
 
 /// High-level filesystem traversal ///
 
-static void lfsr_traversal_clobbermdir(lfs_t *lfs, lfsr_traversal_t *t) {
+static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
+        lfsr_smid_t mid) {
     // clobber low-level traversal
-    lfsr_fs_traverseclobbermdir(lfs, &t->mt);
-
-    // and clear any pending blocks
-    t->blocks[0] = -1;
-    t->blocks[1] = -1;
-}
-
-static void lfsr_traversal_clobberopen(lfs_t *lfs, lfsr_traversal_t *t) {
-    // clobber low-level traversal
-    lfsr_fs_traverseclobberopen(lfs, &t->mt);
+    lfsr_fs_traverseclobber(lfs, &t->mt, mid);
 
     // and clear any pending blocks
     t->blocks[0] = -1;
