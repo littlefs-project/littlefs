@@ -166,7 +166,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
@@ -176,7 +176,7 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -185,7 +185,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -200,7 +200,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -209,7 +209,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -238,14 +238,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -257,18 +257,18 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -283,18 +283,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -323,14 +323,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -342,13 +342,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -360,18 +360,18 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("e", 1)))) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -381,7 +381,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -396,18 +396,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -417,7 +417,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -448,7 +448,7 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         lfsr_mdir_t mdir;
-        lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+        lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                 &mdir, NULL, NULL) => LFS_ERR_NOENT;
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -467,7 +467,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -476,7 +476,7 @@ code = '''
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &lfs.mtree, &mdir, +1) => 0;
+        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -487,14 +487,14 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &lfs.mtree, &mdir, +1) => 0;
+        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -534,8 +534,7 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", x);
         lfsr_mdir_t mdir;
-        int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                0, (const char*)name+1, 3,
+        int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                 &mdir, NULL, NULL);
         assert(!err || err == LFS_ERR_NOENT);
         if (!err) {
@@ -559,7 +558,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -569,13 +568,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -585,7 +584,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -593,13 +592,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -627,14 +626,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -646,25 +645,25 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     assert(mdir.rbyd.weight == 0);
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -679,12 +678,12 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -713,14 +712,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -732,13 +731,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     // force mdir to compact while we're removing
     mdir.rbyd.eoff = -1;
@@ -747,12 +746,12 @@ code = '''
     assert(mdir.rbyd.weight == 0);
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -767,12 +766,12 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -801,14 +800,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -816,7 +815,7 @@ code = '''
 
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     // force mdir to compact while we're removing
     lfs.mroot.rbyd.eoff = -1;
@@ -826,12 +825,12 @@ code = '''
     assert(mdir.rbyd.weight == 2);
 
     // assert split/drop worked out
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -842,12 +841,12 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -872,14 +871,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -891,13 +890,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -905,7 +904,7 @@ code = '''
 
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     // force mdir to compact while we're removing
     mdir.rbyd.eoff = -1;
@@ -914,12 +913,12 @@ code = '''
     assert(mdir.rbyd.weight == 1);
 
     // assert split/drop worked out
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -929,7 +928,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -940,12 +939,12 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert split/drop worked out
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -955,7 +954,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -980,14 +979,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -999,13 +998,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1013,7 +1012,7 @@ code = '''
 
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     // force mdir to compact while we're removing
     mdir.rbyd.eoff = -1;
@@ -1022,18 +1021,18 @@ code = '''
     assert(mdir.rbyd.weight == 1);
 
     // assert split/drop worked out
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1048,18 +1047,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert split/drop worked out
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1106,8 +1105,7 @@ code = '''
 
             // update mtree
             lfsr_mdir_t mdir;
-            int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                    0, (const char*)name+1, 3,
+            int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL);
             assert(!err || err == LFS_ERR_NOENT);
             if (!err) {
@@ -1135,8 +1133,7 @@ code = '''
 
             // update mtree
             lfsr_mdir_t mdir;
-            int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                    0, (const char*)name+1, 3,
+            int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
@@ -1154,7 +1151,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -1164,13 +1161,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -1180,7 +1177,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -1188,13 +1185,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -1227,7 +1224,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
@@ -1237,12 +1234,12 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // force mdir to compact twice, this should relocate
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -1254,7 +1251,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1263,7 +1260,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1273,7 +1270,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1288,7 +1285,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1297,7 +1294,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1307,7 +1304,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1338,14 +1335,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1357,13 +1354,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'a', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
@@ -1376,18 +1373,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1397,7 +1394,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1412,18 +1409,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1433,7 +1430,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1464,14 +1461,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1483,13 +1480,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
@@ -1502,18 +1499,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1523,7 +1520,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1538,18 +1535,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1559,7 +1556,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1590,7 +1587,7 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1608,7 +1605,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1627,7 +1624,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert that our attr is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1665,7 +1662,7 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1701,7 +1698,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our attr is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1736,7 +1733,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert that our attr is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1787,7 +1784,7 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1816,7 +1813,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1843,7 +1840,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert that our attr is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1886,14 +1883,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -1905,7 +1902,7 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1914,7 +1911,7 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
@@ -1929,18 +1926,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1950,7 +1947,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1965,18 +1962,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1986,7 +1983,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -2017,14 +2014,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2036,13 +2033,13 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2065,18 +2062,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2086,7 +2083,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2105,18 +2102,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2126,7 +2123,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2161,14 +2158,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2180,7 +2177,7 @@ code = '''
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2189,7 +2186,7 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     // force mdir to compact twice, this should relocate
     mdir.rbyd.eoff = -1;
@@ -2204,12 +2201,12 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2224,12 +2221,12 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2268,7 +2265,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
@@ -2281,7 +2278,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2290,7 +2287,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2305,7 +2302,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2314,7 +2311,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2350,14 +2347,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2372,18 +2369,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2398,18 +2395,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2458,8 +2455,7 @@ code = '''
 
             // update mtree
             lfsr_mdir_t mdir;
-            int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                    0, (const char*)name+1, 3,
+            int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL);
             assert(!err || err == LFS_ERR_NOENT);
             if (!err) {
@@ -2486,8 +2482,7 @@ code = '''
 
             // update mtree
             lfsr_mdir_t mdir;
-            int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                    0, (const char*)name+1, 3,
+            int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
@@ -2517,8 +2512,7 @@ code = '''
 
             // update mtree
             lfsr_mdir_t mdir;
-            int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                    0, (const char*)name+1, 3,
+            int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
@@ -2536,7 +2530,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -2546,13 +2540,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -2562,7 +2556,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -2570,13 +2564,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -2597,7 +2591,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2605,7 +2599,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "c", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "c", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0c", 2)))) => 0;
@@ -2614,7 +2608,7 @@ code = '''
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0b", 2)))) => 0;
@@ -2628,13 +2622,13 @@ code = '''
     assert(buffer[1] == 'b');
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "c", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "c", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -2656,7 +2650,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2664,7 +2658,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0b", 2)))) => 0;
@@ -2673,18 +2667,18 @@ code = '''
 
     // try removing left neighbor
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     // assert neighbor was removed
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -2706,7 +2700,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2714,7 +2708,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0b", 2)))) => 0;
@@ -2723,18 +2717,18 @@ code = '''
 
     // try removing right neighbor
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     // assert neighbor was removed
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
@@ -2758,7 +2752,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2766,7 +2760,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0d", 2)))) => 0;
@@ -2778,14 +2772,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'b', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 4);
 
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2796,18 +2790,18 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -2831,7 +2825,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2839,7 +2833,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "e", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "e", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0e", 2)))) => 0;
@@ -2851,14 +2845,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'b', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 4);
 
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2870,7 +2864,7 @@ code = '''
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -2881,18 +2875,18 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "e", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "e", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -2916,7 +2910,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2924,7 +2918,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0b", 2)))) => 0;
@@ -2942,13 +2936,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "b", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "b", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -2974,7 +2968,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -2982,7 +2976,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0d", 2)))) => 0;
@@ -2994,14 +2988,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'b', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 4);
 
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3012,13 +3006,13 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
@@ -3031,13 +3025,13 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -3063,7 +3057,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -3071,7 +3065,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0d", 2)))) => 0;
@@ -3083,14 +3077,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'b', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 4);
 
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3101,13 +3095,13 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
@@ -3120,13 +3114,13 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "d", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "d", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -3150,7 +3144,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -3158,7 +3152,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "f", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "f", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0f", 2)))) => 0;
@@ -3170,14 +3164,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'b', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 4);
 
     memset(buffer+1, 'e', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3189,7 +3183,7 @@ code = '''
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3200,13 +3194,13 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add _another_ large entry to the middle mdir, forcing another split
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3217,18 +3211,18 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (4 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (4 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "f", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "f", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -3252,7 +3246,7 @@ code = '''
 
     // setup our neighbors
     lfsr_omdir_t left = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &left.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &left.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -3260,7 +3254,7 @@ code = '''
     lfsr_opened_add(&lfs, &left);
 
     lfsr_omdir_t right = {.type=0};
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "e", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "e", 1,
             &right.mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &right.mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0e", 2)))) => 0;
@@ -3272,14 +3266,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'b', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 4);
 
     memset(buffer+1, 'd', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3291,7 +3285,7 @@ code = '''
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3302,7 +3296,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3312,18 +3306,18 @@ code = '''
     assert(mdir.rbyd.weight == 0);
 
     // assert mdir was dropped correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our neighbors were updated correctly
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     assert(left.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.rbyd.trunk == mdir.rbyd.trunk);
     assert(left.mdir.rbyd.cksum == mdir.rbyd.cksum);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "e", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "e", 1,
             &mdir, NULL, NULL) => 0;
     assert(right.mdir.mid == mdir.mid);
     assert(lfsr_mdir_cmp(&right.mdir, &mdir) == 0);
@@ -3350,7 +3344,7 @@ code = '''
 
     // insert at least one entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -3368,7 +3362,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -3418,7 +3412,7 @@ code = '''
 
     // assert that our entry is still in the mtree
     uint8_t buffer[256];
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 2;
@@ -3429,7 +3423,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert that our entry is still in the mtree
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 2;
@@ -3458,7 +3452,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
@@ -3467,7 +3461,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3483,7 +3477,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -3531,7 +3525,7 @@ code = '''
     // and the tree should still work
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3540,7 +3534,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3551,7 +3545,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfsr_mtree_weight(&lfs.mtree) == (1 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3560,7 +3554,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3586,14 +3580,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3604,7 +3598,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3620,7 +3614,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -3668,18 +3662,18 @@ code = '''
     // and the tree should still work
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3690,18 +3684,18 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3727,14 +3721,14 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
     assert(mdir.rbyd.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3745,13 +3739,13 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfsr_mtree_weight(&lfs.mtree) == (2 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -3762,7 +3756,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3778,7 +3772,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -3826,24 +3820,24 @@ code = '''
     // and the tree should still work
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3854,24 +3848,24 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfsr_mtree_weight(&lfs.mtree) == (3 << lfs.mdir_bits));
+    assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3893,7 +3887,7 @@ code = '''
 
     // insert at least one entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF("\0a", 2)))) => 0;
@@ -3920,7 +3914,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -3970,7 +3964,7 @@ code = '''
 
     // assert that our entry is still in the mtree
     uint8_t buffer[256];
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 2;
@@ -3981,7 +3975,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // assert that our entry is still in the mtree
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, "a", 1,
+    lfsr_mtree_namelookup(&lfs, 0, "a", 1,
             &mdir, NULL, NULL) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 2;
@@ -4008,7 +4002,7 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         lfsr_mdir_t mdir;
-        lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+        lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                 &mdir, NULL, NULL) => LFS_ERR_NOENT;
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -4037,7 +4031,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -4086,7 +4080,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -4095,7 +4089,7 @@ code = '''
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &lfs.mtree, &mdir, +1) => 0;
+        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -4106,14 +4100,14 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &lfs.mtree, &mdir, +1) => 0;
+        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -4153,8 +4147,7 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", x);
         lfsr_mdir_t mdir;
-        int err = lfsr_mtree_namelookup(&lfs, &lfs.mtree,
-                0, (const char*)name+1, 3,
+        int err = lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                 &mdir, NULL, NULL);
         assert(!err || err == LFS_ERR_NOENT);
         if (!err) {
@@ -4189,7 +4182,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -4238,7 +4231,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -4248,13 +4241,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -4264,7 +4257,7 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -4272,13 +4265,13 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => 0;
             lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
             lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
-            lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)name+1, 3,
+            lfsr_mtree_namelookup(&lfs, 0, (const char*)name+1, 3,
                     &mdir, NULL, NULL) => LFS_ERR_NOENT;
         }
     }
@@ -4311,7 +4304,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_fs_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_CORRUPT);
         if (err == LFS_ERR_CORRUPT) {
             break;
@@ -4377,7 +4370,7 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -4393,7 +4386,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -4434,7 +4427,7 @@ code = '''
     buffer[0] = '\0';
     memset(buffer+1, 'a', SIZE-1);
     lfsr_mdir_t mdir;
-    lfsr_mtree_namelookup(&lfs, &lfs.mtree, 0, (const char*)buffer+1, SIZE-1,
+    lfsr_mtree_namelookup(&lfs, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL, NULL) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_REG, +1, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
@@ -4464,7 +4457,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our attr is still in the mroot
-    lfsr_mtree_lookup(&lfs, &lfs.mtree, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;

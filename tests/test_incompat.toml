@@ -411,7 +411,7 @@ code = '''
     lfsr_did_t did;
     const char *name;
     lfs_size_t name_size;
-    lfsr_mtree_pathlookup(&lfs, &lfs.mtree, "b",
+    lfsr_mtree_pathlookup(&lfs, "b",
             &mdir, NULL,
             &did, &name, &name_size) => LFS_ERR_EXIST;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
