@@ -1058,8 +1058,8 @@ int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *traversal);
 //
 // Fills out the tinfo structure.
 //
-// Returns 0 on success, LFS_ERR_NOENT at the end of traversal, LFS_ERR_BUSY
-// if filesystem has been modified, or a negative error code on failure.
+// Returns 0 on success, LFS_ERR_NOENT at the end of traversal, or a
+// negative error code on failure.
 int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
         struct lfs_tinfo *tinfo);
 

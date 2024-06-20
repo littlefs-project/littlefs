@@ -1691,8 +1691,7 @@ code = '''
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_close(&lfs, &file) => 0;
 
-        // read should immediately error
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
         lfsr_traversal_close(&lfs, &t) => 0;
         goto done;
     }
@@ -1708,8 +1707,7 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
     }
 
-    // final read should return BUSY
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
 done:;
@@ -1822,9 +1820,15 @@ code = '''
     if (WHEN == 1) {
         lfsr_mkdir(&lfs, "spider") => 0;
 
-        // read should immediately error
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+
         struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
         goto done;
     }
 
@@ -1843,8 +1847,7 @@ code = '''
         }
     }
 
-    // final read should return BUSY
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 done:;
     lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1895,9 +1898,15 @@ code = '''
     if (WHEN == 1) {
         lfsr_remove(&lfs, "spider") => 0;
 
-        // read should immediately error
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+
         struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
         goto done;
     }
 
@@ -1916,8 +1925,7 @@ code = '''
         }
     }
 
-    // final read should return BUSY
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 done:;
     lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1968,9 +1976,15 @@ code = '''
     if (WHEN == 1) {
         lfsr_rename(&lfs, "spider", "scorpion") => 0;
 
-        // read should immediately error
+        if (EXCL) {
+            // read should immediately error
+            struct lfs_tinfo tinfo;
+            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+            goto done;
+        }
+
         struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
         goto done;
     }
 
@@ -1989,8 +2003,7 @@ code = '''
         }
     }
 
-    // final read should return BUSY
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 done:;
     lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -2050,8 +2063,11 @@ code = '''
         // step traversal
         struct lfs_tinfo tinfo;
         int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-        assert(!err || err == LFS_ERR_BUSY);
-        if (err == LFS_ERR_BUSY) {
+        assert(!err
+                || (!EXCL && err == LFS_ERR_NOENT)
+                || (EXCL && err == LFS_ERR_BUSY));
+        if (err == LFS_ERR_NOENT
+                || err == LFS_ERR_BUSY) {
             break;
         }
     }
@@ -2124,8 +2140,11 @@ code = '''
         // step traversal
         struct lfs_tinfo tinfo;
         int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-        assert(!err || err == LFS_ERR_BUSY);
-        if (err == LFS_ERR_BUSY) {
+        assert(!err
+                || (!EXCL && err == LFS_ERR_NOENT)
+                || (EXCL && err == LFS_ERR_BUSY));
+        if (err == LFS_ERR_NOENT
+                || err == LFS_ERR_BUSY) {
             break;
         }
     }
@@ -2213,7 +2232,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -2298,7 +2317,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -2379,7 +2398,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -2452,7 +2471,7 @@ code = '''
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file1) => 0;
@@ -2544,7 +2563,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file1) => 0;
@@ -2624,7 +2643,7 @@ code = '''
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file1) => 0;
@@ -2701,8 +2720,7 @@ code = '''
     lfsr_file_close(&lfs, &file1) => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo)
-            => (DESYNC) ? LFS_ERR_NOENT : LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2798,12 +2816,9 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_DATA);
         lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
         assert(tinfo.btype == LFS_BTYPE_DATA);
-        // we should be at end of traversal now
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    } else {
-        // we should be at end of traversal now
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     }
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2892,12 +2907,9 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_DATA);
         lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
         assert(tinfo.btype == LFS_BTYPE_DATA);
-        // we should be at end of traversal now
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    } else {
-        // we should be at end of traversal now
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     }
+    // we should be at end of traversal now
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2978,7 +2990,7 @@ code = '''
     lfsr_remove(&lfs, "spider") => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3048,7 +3060,7 @@ code = '''
     lfsr_rename(&lfs, "spider", "tarantula") => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3118,7 +3130,7 @@ code = '''
     lfsr_rename(&lfs, "tarantula", "spider") => 0;
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3190,7 +3202,7 @@ code = '''
     }
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3280,7 +3292,7 @@ code = '''
     }
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3380,7 +3392,7 @@ code = '''
     }
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3460,7 +3472,7 @@ code = '''
     }
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3541,7 +3553,7 @@ code = '''
     }
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3645,7 +3657,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3740,7 +3752,7 @@ code = '''
     }
 
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -3896,7 +3908,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4056,7 +4068,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4221,7 +4233,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4385,7 +4397,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4548,7 +4560,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4718,7 +4730,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4891,7 +4903,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents

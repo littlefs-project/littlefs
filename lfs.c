@@ -9532,10 +9532,7 @@ done:;
         lfs_alloc_markfree(lfs);
     }
 
-    // return BUSY if we're dirty, NOENT if we're clean
-    return (lfsr_f_isdirty(t->mt.o.flags))
-            ? LFS_ERR_BUSY
-            : LFS_ERR_NOENT;
+    return LFS_ERR_NOENT;
 }
 
 static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
