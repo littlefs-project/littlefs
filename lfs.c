@@ -7834,7 +7834,7 @@ enum {
         .o.state=LFSR_TSTATE_MROOTANCHOR, \
         .o.flags=_flags, \
         .o.mdir.mid=-1, \
-        .o.mdir.rbyd.blocks={0,0}, \
+        .o.mdir.rbyd.blocks={-1,-1}, \
         .ot=NULL, \
         .u.mtortoise.mptr={{0, 0}}, \
         .u.mtortoise.step=0, \
@@ -7883,8 +7883,8 @@ static void lfsr_fs_traverserewind(lfs_t *lfs, lfsr_mtraversal_t *mt) {
     mt->o.flags &= ~LFS_F_DIRTY;
     mt->o.state = LFSR_TSTATE_MROOTANCHOR;
     mt->o.mdir.mid = -1;
-    mt->o.mdir.rbyd.blocks[0] = 0;
-    mt->o.mdir.rbyd.blocks[1] = 0;
+    mt->o.mdir.rbyd.blocks[0] = -1;
+    mt->o.mdir.rbyd.blocks[1] = -1;
     mt->ot = NULL;
     mt->u.mtortoise.mptr.blocks[0] = 0;
     mt->u.mtortoise.mptr.blocks[1] = 0;
@@ -7899,8 +7899,8 @@ static void lfsr_fs_traverseclobber(lfs_t *lfs, lfsr_mtraversal_t *mt,
         // increment the mid (to make progress) and reset to mdir iteration
         mt->o.state = LFSR_TSTATE_MDIRS;
         mt->o.mdir.mid = mid;
-        mt->o.mdir.rbyd.blocks[0] = 0;
-        mt->o.mdir.rbyd.blocks[1] = 0;
+        mt->o.mdir.rbyd.blocks[0] = -1;
+        mt->o.mdir.rbyd.blocks[1] = -1;
         mt->ot = NULL;
     } else {
         // move to next omdir
