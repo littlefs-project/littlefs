@@ -8062,14 +8062,9 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             // transition to traversing the mdir
             mt->o.state = LFSR_TSTATE_MDIR;
 
-            // first time we've seen this mdir?
-            if (lfsr_mid_rid(lfs, mt->o.mdir.mid) == 0) {
-                mtinfo->tag = LFSR_TAG_MDIR;
-                mtinfo->u.mdir = mt->o.mdir;
-                return 0;
-            }
-
-            continue;
+            mtinfo->tag = LFSR_TAG_MDIR;
+            mtinfo->u.mdir = mt->o.mdir;
+            return 0;
 
         // scan for blocks/btrees in the current mdir
         case LFSR_TSTATE_MDIR:;
