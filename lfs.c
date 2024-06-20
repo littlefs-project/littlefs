@@ -5995,26 +5995,29 @@ static inline int lfsr_mtree_cmp(
 static int lfsr_mtree_lookup(lfs_t *lfs, const lfsr_mtree_t *mtree,
         lfsr_smid_t mid,
         lfsr_mdir_t *mdir_) {
+    // looking up mid=-1 is probably a mistake
+    LFS_ASSERT(mid >= 0);
+
+    // out of bounds?
+    if ((lfsr_mid_t)mid >= lfs_max(
+            lfsr_mtree_weight(mtree),
+            1 << lfs->mdir_bits)) {
+        return LFS_ERR_NOENT;
+    }
+
     // looking up mroot?
     if (lfsr_mtree_isnull(mtree)) {
-        LFS_ASSERT(mid >= 0);
-        LFS_ASSERT(mid < (1 << lfs->mdir_bits));
         mdir_->mid = mid;
         mdir_->rbyd = lfs->mroot.rbyd;
         return 0;
 
     // looking up direct mdir?
     } else if (lfsr_mtree_ismptr(mtree)) {
-        LFS_ASSERT(mid >= 0);
-        LFS_ASSERT(mid < (1 << lfs->mdir_bits));
-
         // fetch mdir
         return lfsr_mdir_fetch(lfs, mdir_, mid, &mtree->u.mptr.mptr);
 
     // look up mdir in actual mtree
     } else {
-        LFS_ASSERT(mid >= 0);
-        LFS_ASSERT(mid < (lfsr_smid_t)lfsr_mtree_weight(mtree));
         lfsr_bid_t bid;
         lfsr_tag_t tag;
         lfsr_data_t data;
@@ -8044,18 +8047,15 @@ static int lfsr_fs_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
 
         // iterate over mdirs in the mtree
         case LFSR_TSTATE_MDIRS:;
-            // TODO should we move this into lfsr_mtree_lookup?
-            // end of mtree? guess we're done
-            if (mt->o.mdir.mid >= (lfsr_smid_t)lfsr_fs_weight(lfs)) {
-                mt->o.state = LFSR_TSTATE_DONE;
-                continue;
-            }
-
             // find the next mdir
             err = lfsr_mtree_lookup(lfs, &lfs->mtree, mt->o.mdir.mid,
                     &mt->o.mdir);
             if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
+                // end of mtree? guess we're done
+                if (err == LFS_ERR_NOENT) {
+                    mt->o.state = LFSR_TSTATE_DONE;
+                    continue;
+                }
                 return err;
             }
 
@@ -9227,10 +9227,10 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
     while (lfsr_grm_hasrm(&lfs->grm)) {
         // find our mdir
         lfsr_mdir_t mdir;
-        LFS_ASSERT((lfsr_mid_t)lfs->grm.mids[0] < lfsr_fs_weight(lfs));
         int err = lfsr_mtree_lookup(lfs, &lfs->mtree, lfs->grm.mids[0],
                 &mdir);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
