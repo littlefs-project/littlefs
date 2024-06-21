@@ -9678,6 +9678,56 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     return 0;
 }
 
+// push a did to grm, but only if the directory is empty
+static int lfsr_grm_pushdid(lfs_t *lfs, lfsr_grm_t *grm, lfsr_did_t did) {
+    // first lookup the bookmark entry
+    lfsr_mdir_t bookmark_mdir;
+    int err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
+            &bookmark_mdir, NULL, NULL);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
+    }
+    lfsr_mid_t bookmark_mid = bookmark_mdir.mid;
+
+    // check that the directory is empty
+    bookmark_mdir.mid += 1;
+    if (lfsr_mid_rid(lfs, bookmark_mdir.mid)
+            >= (lfsr_srid_t)bookmark_mdir.rbyd.weight) {
+        err = lfsr_mtree_lookup(lfs,
+                lfsr_mid_bid(lfs, bookmark_mdir.mid-1) + 1,
+                &bookmark_mdir);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                goto empty;
+            }
+            return err;
+        }
+    }
+
+    lfsr_data_t data;
+    err = lfsr_mdir_sublookup(lfs, &bookmark_mdir, LFSR_TAG_NAME,
+            NULL, &data);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
+    }
+
+    lfsr_did_t did_;
+    err = lfsr_data_readleb128(lfs, &data, &did_);
+    if (err) {
+        return err;
+    }
+
+    if (did_ == did) {
+        return LFS_ERR_NOTEMPTY;
+    }
+
+empty:;
+    lfsr_grm_push(grm, bookmark_mid);
+    return 0;
+}
+
 // needed in lfsr_remove
 static inline bool lfsr_f_iszombie(uint32_t flags);
 
@@ -9722,45 +9772,11 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             return err;
         }
 
-        // then lookup the bookmark entry
-        lfsr_mdir_t bookmark_mdir;
-        err = lfsr_mtree_namelookup(lfs, did_, NULL, 0,
-                &bookmark_mdir, NULL, NULL);
+        // mark bookmark for removal with grm
+        err = lfsr_grm_pushdid(lfs, &lfs->grm, did_);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        lfsr_mid_t bookmark_mid = bookmark_mdir.mid;
-
-        // check that the directory is empty
-        bookmark_mdir.mid += 1;
-        if (lfsr_mid_rid(lfs, bookmark_mdir.mid)
-                >= (lfsr_srid_t)bookmark_mdir.rbyd.weight) {
-            err = lfsr_mtree_lookup(lfs,
-                    lfsr_mid_bid(lfs, bookmark_mdir.mid-1) + 1,
-                    &bookmark_mdir);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    goto empty;
-                }
-                return err;
-            }
-        }
-
-        // the next mid should be another bookmark
-        err = lfsr_mdir_lookup(lfs,
-                &bookmark_mdir, LFSR_TAG_BOOKMARK,
-                NULL);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                return LFS_ERR_NOTEMPTY;
-            }
-            return err;
-        }
-
-    empty:;
-        // create a grm to remove the bookmark entry
-        lfs->grm.mids[0] = bookmark_mid;
     }
 
     // are we removing an opened file?
@@ -9901,50 +9917,16 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                 return err;
             }
 
-            // then lookup the bookmark entry
-            lfsr_mdir_t bookmark_mdir;
-            err = lfsr_mtree_namelookup(lfs, new_did_, NULL, 0,
-                    &bookmark_mdir, NULL, NULL);
+            // mark bookmark for removal with grm
+            err = lfsr_grm_pushdid(lfs, &lfs->grm, new_did_);
             if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
-            lfsr_mid_t bookmark_mid = bookmark_mdir.mid;
-
-            // check that the directory is empty
-            bookmark_mdir.mid += 1;
-            if (lfsr_mid_rid(lfs, bookmark_mdir.mid)
-                    >= (lfsr_srid_t)bookmark_mdir.rbyd.weight) {
-                err = lfsr_mtree_lookup(lfs,
-                        lfsr_mid_bid(lfs, bookmark_mdir.mid-1) + 1,
-                        &bookmark_mdir);
-                if (err) {
-                    if (err == LFS_ERR_NOENT) {
-                        goto empty;
-                    }
-                    return err;
-                }
-            }
-
-            // the next mid should be another bookmark
-            err = lfsr_mdir_lookup(lfs,
-                    &bookmark_mdir, LFSR_TAG_BOOKMARK,
-                    NULL);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    return LFS_ERR_NOTEMPTY;
-                }
-                return err;
-            }
-
-        empty:;
-            // mark bookmark entry for removal with a grm
-            lfs->grm.mids[1] = bookmark_mid;
         }
     }
 
     // mark old entry for removal with a grm
-    lfs->grm.mids[0] = old_mdir.mid;
+    lfsr_grm_push(&lfs->grm, old_mdir.mid);
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
