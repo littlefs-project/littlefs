@@ -5170,8 +5170,8 @@ static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
 
 
 // track opened mdirs to keep state in-sync
-static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_omdir_t *o) {
-    for (lfsr_omdir_t *o_ = lfs->opened; o_; o_ = o_->next) {
+static bool lfsr_omdir_isopen(lfs_t *lfs, const lfsr_omdir_t *o) {
+    for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
         if (o_ == o) {
             return true;
         }
@@ -5180,22 +5180,22 @@ static bool lfsr_opened_isopen(lfs_t *lfs, const lfsr_omdir_t *o) {
     return false;
 }
 
-static void lfsr_opened_add(lfs_t *lfs, lfsr_omdir_t *o) {
-    LFS_ASSERT(!lfsr_opened_isopen(lfs, o));
+static void lfsr_omdir_open(lfs_t *lfs, lfsr_omdir_t *o) {
+    LFS_ASSERT(!lfsr_omdir_isopen(lfs, o));
     // add to opened list
-    o->next = lfs->opened;
-    lfs->opened = o;
+    o->next = lfs->omdirs;
+    lfs->omdirs = o;
 }
 
-// needed in lfsr_opened_remove
-static void lfsr_opened_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty);
+// needed in lfsr_omdir_close
+static void lfsr_omdir_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty);
 
-static void lfsr_opened_remove(lfs_t *lfs, lfsr_omdir_t *o) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, o));
+static void lfsr_omdir_close(lfs_t *lfs, lfsr_omdir_t *o) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, o));
     // make sure we're not entangled in any traversals
-    lfsr_opened_clobber(lfs, o, false);
+    lfsr_omdir_clobber(lfs, o, false);
     // remove from opened list
-    for (lfsr_omdir_t **o_ = &lfs->opened; *o_; o_ = &(*o_)->next) {
+    for (lfsr_omdir_t **o_ = &lfs->omdirs; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
             *o_ = (*o_)->next;
             break;
@@ -5203,8 +5203,9 @@ static void lfsr_opened_remove(lfs_t *lfs, lfsr_omdir_t *o) {
     }
 }
 
-static bool lfsr_mid_isopen(lfs_t *lfs, lfsr_smid_t mid) {
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+// check if a given mid is open
+static bool lfsr_omdir_ismidopen(lfs_t *lfs, lfsr_smid_t mid) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // we really only care about regular open files here, all
         // others are either transient (dirs) or fake (orphans)
         if (o->type == LFS_TYPE_REG && o->mdir.mid == mid) {
@@ -5215,13 +5216,13 @@ static bool lfsr_mid_isopen(lfs_t *lfs, lfsr_smid_t mid) {
     return false;
 }
 
-// needed in lfsr_opened_clobber
+// needed in lfsr_omdir_clobber
 static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
         lfsr_smid_t mid);
 
 // traversal invalidation things
-static void lfsr_opened_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty) {
-    for (lfsr_omdir_t *o_ = lfs->opened; o_; o_ = o_->next) {
+static void lfsr_omdir_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty) {
+    for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
         if (o_->type == LFS_TYPE_TRAVERSAL) {
             // mark _all_ traversals as dirty if we're mutating the
             // filesystem at all
@@ -5312,7 +5313,7 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
         const lfsr_sprout_t *sprout) {
     // only include the last reference
     const lfsr_sprout_t *last = NULL;
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
@@ -5341,7 +5342,7 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
     // stage any opened inlined files with their new location so we
     // can update these later if our commit is a success
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
@@ -5458,7 +5459,7 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
         const lfsr_shrub_t *shrub) {
     // only include the last reference
     const lfsr_shrub_t *last = NULL;
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
@@ -5490,7 +5491,7 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // update these later if our commit is a success
     //
     // this should include our current bshrub
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
@@ -6313,7 +6314,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 // we're not quite done! we also need to bring over any
                 // unsynced files
-                for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+                for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
                     lfsr_file_t *file = (lfsr_file_t*)o;
                     // belongs to our mid?
                     if (file->o.type != LFS_TYPE_REG
@@ -6501,7 +6502,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
         // this is O(n^2), but littlefs is unlikely to have many open
         // files, I suppose if this becomes a problem we could sort
         // opened files by mid
-        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             // belongs to our mdir + rid?
             if (file->o.type != LFS_TYPE_REG
@@ -6647,7 +6648,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     // we're not quite done! we also need to bring over any unsynced files
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file = (lfsr_file_t*)o;
         // belongs to our mdir?
         if (file->o.type != LFS_TYPE_REG
@@ -6900,7 +6901,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
         lfs->mroot.rbyd.eoff = -1;
     }
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
             o->mdir.rbyd.eoff = -1;
         }
@@ -7206,7 +7207,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // mark any copies of our mroot as unerased
         lfs->mroot.rbyd.eoff = -1;
-        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             if (lfsr_mdir_cmp(&o->mdir, &lfs->mroot) == 0) {
                 o->mdir.rbyd.eoff = -1;
             }
@@ -7379,7 +7380,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     mid_ = mdir->mid;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // adjust any opened mdirs
-        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             // adjust opened mdirs?
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
                     && o->mdir.mid >= mid_) {
@@ -7400,7 +7401,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update any staged bsprouts/bshrubs
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (o->type == LFS_TYPE_REG) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             file->bshrub = file->bshrub_;
@@ -7408,7 +7409,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // clobber any related traversals
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (o->type == LFS_TYPE_TRAVERSAL) {
             // mark all traversals as dirty
             o->flags |= LFS_F_DIRTY;
@@ -7430,7 +7431,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update internal mdir state
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // avoid double updating the current mdir
         if (&o->mdir == mdir) {
             continue;
@@ -8072,7 +8073,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
 
             // no? next we need to check any opened files
             } else {
-                mt->ot = lfs->opened;
+                mt->ot = lfs->omdirs;
                 mt->o.state = LFSR_MTRAVERSAL_OMDIRS;
                 continue;
             }
@@ -8130,7 +8131,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
                         continue;
                     // end of mdir btree? start iterating over opened files
                     } else if (mt->o.state == LFSR_MTRAVERSAL_BTREE) {
-                        mt->ot = lfs->opened;
+                        mt->ot = lfs->omdirs;
                         mt->o.state = LFSR_MTRAVERSAL_OMDIRS;
                         continue;
                     // end of opened btree? go to next opened file
@@ -8947,7 +8948,7 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
 int lfsr_unmount(lfs_t *lfs) {
     // all files/dirs should be closed before lfsr_unmount
-    LFS_ASSERT(lfs->opened == NULL);
+    LFS_ASSERT(lfs->omdirs == NULL);
 
     return lfs_deinit(lfs);
 }
@@ -8988,7 +8989,7 @@ static void lfs_alloc_ckpoint(lfs_t *lfs) {
     lfs->lookahead.ckpoint = lfs->block_count;
 
     // mark all opened traversals as dirty
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (o->type == LFS_TYPE_TRAVERSAL) {
             o->flags |= LFS_F_DIRTY;
         }
@@ -9236,7 +9237,7 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
         }
 
         // is this mid open? well we're not an orphan then, skip
-        if (!lfsr_mid_isopen(lfs, mdir.mid)) {
+        if (!lfsr_omdir_ismidopen(lfs, mdir.mid)) {
             // are we an orphan file?
             int err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
                     NULL);
@@ -9381,7 +9382,7 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t);
 
 int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     // already open?
-    LFS_ASSERT(!lfsr_opened_isopen(lfs, &t->mt.o));
+    LFS_ASSERT(!lfsr_omdir_isopen(lfs, &t->mt.o));
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
@@ -9409,21 +9410,21 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &t->mt.o);
+    lfsr_omdir_open(lfs, &t->mt.o);
     return 0;
 }
 
 int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *t) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &t->mt.o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
 
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &t->mt.o);
+    lfsr_omdir_close(lfs, &t->mt.o);
     return 0;
 }
 
 int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         struct lfs_tinfo *tinfo) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &t->mt.o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
 
     // traversal dirty and excl? terminate early
     if (lfsr_t_isexcl(t->mt.o.flags)
@@ -9500,7 +9501,7 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
 }
 
 int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &t->mt.o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
 
     return lfsr_traversal_rewind_(lfs, t);
 }
@@ -9655,7 +9656,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // update in-device state
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // mark any clobbered orphans as zombied
         if (exists
                 && o->type == LFS_TYPE_REG
@@ -9779,7 +9780,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // are we removing an opened file?
-    bool zombie = lfsr_mid_isopen(lfs, mdir.mid);
+    bool zombie = lfsr_omdir_ismidopen(lfs, mdir.mid);
 
     // remove the metadata entry
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
@@ -9798,7 +9799,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // update in-device state
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // mark any clobbered orphans as zombied orphans
         if (zombie
                 && o->type == LFS_TYPE_REG
@@ -9939,7 +9940,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     }
 
     // update in-device state
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // mark any clobbered orphans as zombied
         if (exists
                 && o->type == LFS_TYPE_REG
@@ -10076,7 +10077,7 @@ static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir);
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     // already open?
-    LFS_ASSERT(!lfsr_opened_isopen(lfs, &dir->o));
+    LFS_ASSERT(!lfsr_omdir_isopen(lfs, &dir->o));
 
     // setup dir state
     dir->o.type = LFS_TYPE_DIR;
@@ -10127,20 +10128,20 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &dir->o);
+    lfsr_omdir_open(lfs, &dir->o);
     return 0;
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &dir->o));
 
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &dir->o);
+    lfsr_omdir_close(lfs, &dir->o);
     return 0;
 }
 
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &dir->o));
 
     // was our dir removed?
     if (lfsr_f_iszombie(dir->o.flags)) {
@@ -10217,7 +10218,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 }
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &dir->o));
 
     // do nothing if removed
     if (lfsr_f_iszombie(dir->o.flags)) {
@@ -10263,7 +10264,7 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
 
 lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
     (void)lfs;
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &dir->o));
 
     return dir->pos;
 }
@@ -10290,7 +10291,7 @@ static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir) {
 }
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &dir->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &dir->o));
 
     return lfsr_dir_rewind_(lfs, dir);
 }
@@ -10438,7 +10439,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg) {
     // already open?
-    LFS_ASSERT(!lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(!lfsr_omdir_isopen(lfs, &file->o));
     // don't allow the forbidden mode!
     LFS_ASSERT((flags & 3) != 3);
     // these flags require a writable file
@@ -10506,7 +10507,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // update dir positions
-            for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+            for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
                 if (o->type == LFS_TYPE_DIR
                         && ((lfsr_dir_t*)o)->did == did
                         && o->mdir.mid >= file->o.mdir.mid) {
@@ -10605,7 +10606,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // add to tracked mdirs
-    lfsr_opened_add(lfs, &file->o);
+    lfsr_omdir_open(lfs, &file->o);
     return 0;
 
 failed:;
@@ -10629,7 +10630,7 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     // don't call lfsr_file_sync if we're readonly or desynced
     int err = 0;
@@ -10639,7 +10640,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // remove from tracked mdirs
-    lfsr_opened_remove(lfs, &file->o);
+    lfsr_omdir_close(lfs, &file->o);
 
     // clean up memory
     if (!file->cfg->buffer) {
@@ -10650,7 +10651,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     //
     // make sure we check _after_ removing ourselves
     if (lfsr_f_isorphan(file->o.flags)
-            && !lfsr_mid_isopen(lfs, file->o.mdir.mid)) {
+            && !lfsr_omdir_ismidopen(lfs, file->o.mdir.mid)) {
         // this gets a bit messy, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
         // a few tricks
@@ -10708,7 +10709,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs, const lfsr_file_t *file) {
     }
 
     // this includes our current shrub
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
         if (file_->o.type == LFS_TYPE_REG
                 && file_->o.mdir.mid == file->o.mdir.mid) {
@@ -10943,7 +10944,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
     // before we touch anything, we need to mark all other btree references
     // as unerased
     if (lfsr_bshrub_isbtree(&file->o.mdir, &file->bshrub)) {
-        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
             if (file_->o.type == LFS_TYPE_REG
                     && file_ != file
@@ -11034,7 +11035,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_file_t *file,
                 == file->o.mdir.rbyd.blocks[0]);
 
         // update _all_ shrubs with the new estimate
-        for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
             if (file_->o.type == LFS_TYPE_REG
                     && file_->o.mdir.mid == file->o.mdir.mid
@@ -11847,7 +11848,7 @@ fragment:;
 
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
     // can't read from writeonly files
     LFS_ASSERT(!lfsr_o_iswronly(file->o.flags));
     LFS_ASSERT(file->pos + size <= 0x7fffffff);
@@ -11939,7 +11940,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags));
 
@@ -11959,7 +11960,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // clobber any entangled traversals
-    lfsr_opened_clobber(lfs, &file->o, true);
+    lfsr_omdir_clobber(lfs, &file->o, true);
     // mark as unsynced in case we fail
     file->o.flags |= LFS_F_UNSYNC;
 
@@ -12096,7 +12097,7 @@ failed:;
 }
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
     // readonly files should do nothing
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.flags)
             || !lfsr_f_isunflush(file->o.flags)
@@ -12119,7 +12120,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // clobber any entangled traversals
-    lfsr_opened_clobber(lfs, &file->o, true);
+    lfsr_omdir_clobber(lfs, &file->o, true);
 
     // flush our buffer if it contains any unwritten data
     int err;
@@ -12144,7 +12145,7 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
     // removed? we can't sync
     if (lfsr_f_iszombie(file->o.flags)) {
         return LFS_ERR_NOENT;
@@ -12263,7 +12264,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // update in-device state
-    for (lfsr_omdir_t *o = lfs->opened; o; o = o->next) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (o->type == LFS_TYPE_REG
                 && o->mdir.mid == file->o.mdir.mid
                 // don't double update
@@ -12307,7 +12308,7 @@ failed:;
 
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     file->o.flags |= LFS_O_DESYNC;
     return 0;
@@ -12315,7 +12316,7 @@ int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
 
 lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
         lfs_soff_t off, uint8_t whence) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     // TODO check for out-of-range?
 
@@ -12343,14 +12344,14 @@ lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
 
 lfs_soff_t lfsr_file_tell(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     return file->pos;
 }
 
 lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     file->pos = 0;
     return 0;
@@ -12358,13 +12359,13 @@ lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
 
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     return lfsr_file_size_(file);
 }
 
 int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
@@ -12380,7 +12381,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // clobber any entangled traversals
-    lfsr_opened_clobber(lfs, &file->o, true);
+    lfsr_omdir_clobber(lfs, &file->o, true);
     // mark as unsynced in case we fail
     file->o.flags |= LFS_F_UNSYNC;
 
@@ -12470,7 +12471,7 @@ failed:;
 }
 
 int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
-    LFS_ASSERT(lfsr_opened_isopen(lfs, &file->o));
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o));
 
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
@@ -12486,7 +12487,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // clobber any entangled traversals
-    lfsr_opened_clobber(lfs, &file->o, true);
+    lfsr_omdir_clobber(lfs, &file->o, true);
     // mark as unsynced in case we fail
     file->o.flags |= LFS_F_UNSYNC;
 
@@ -16184,7 +16185,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->mdir_bits = lfs_nlog2(lfs->cfg->block_size/8);
 
     // zero linked-list of opened mdirs
-    lfs->opened = NULL;
+    lfs->omdirs = NULL;
 
     // zero gstate
     lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);

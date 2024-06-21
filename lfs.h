@@ -691,7 +691,7 @@ typedef struct lfs {
     uint8_t mdir_bits;
 
     // linked-list of opened mdirs
-    lfsr_omdir_t *opened;
+    lfsr_omdir_t *omdirs;
 
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
