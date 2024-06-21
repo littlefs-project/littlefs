@@ -3342,7 +3342,7 @@ code = '''
 
 # test specific corner cases
 [cases.test_mtree_traversal]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3364,7 +3364,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3441,7 +3441,7 @@ code = '''
 '''
 
 [cases.test_mtree_traversal_uninline]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -3479,7 +3479,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3572,7 +3572,7 @@ code = '''
 '''
 
 [cases.test_mtree_traversal_uninline_split]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -3616,7 +3616,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3713,7 +3713,7 @@ code = '''
 '''
 
 [cases.test_mtree_traversal_split]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -3774,7 +3774,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3883,7 +3883,7 @@ code = '''
 '''
 
 [cases.test_mtree_traversal_extend]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 # make it so blocks relocate every two compacts
 defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
@@ -3916,7 +3916,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -3995,7 +3995,7 @@ code = '''
 # larger traversal tests
 [cases.test_mtree_traversal_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
 code = '''
@@ -4033,7 +4033,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -4134,7 +4134,7 @@ code = '''
 
 [cases.test_mtree_traversal_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
-defines.CKMETADATA = [false, true]
+defines.CKMETA = [false, true]
 defines.FORCE_COMPACTION = [false, true]
 defines.SEED = 'range(100)'
 fuzz = 'SEED'
@@ -4192,7 +4192,7 @@ code = '''
 
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
             LFS_T_MTREEONLY
-                | ((CKMETADATA) ? LFS_T_CKMETADATA : 0));
+                | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -4314,7 +4314,7 @@ code = '''
 
     // technically, cycle detection only needs to work when we're validating
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
-            LFS_T_MTREEONLY | LFS_T_CKMETADATA);
+            LFS_T_MTREEONLY | LFS_T_CKMETA);
     for (lfs_block_t i = 0;; i++) {
         // assert that we detect the cycle in a reasonable number of iterations
         assert(i < 2*BLOCK_COUNT);

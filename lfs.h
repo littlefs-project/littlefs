@@ -168,20 +168,19 @@ enum lfs_btype {
 // Traversal flags
 enum lfs_traversal_flags {
     // traversal open flags
-    LFS_T_MTREEONLY         = 0x0008, // Only traverse the mtree
-    LFS_T_EXCL              = 0x0010, // Terminate if filesystem modified
-    LFS_T_MKCONSISTENT      = 0x0020, // Make the filesystem consistent
-    LFS_T_LOOKAHEAD         = 0x0040, // Populate lookahead buffer
-    LFS_T_COMPACT           = 0x0080, // Compact metadata logs
-    LFS_T_CKMETADATA        = 0x0100, // Check metadata checksums
-    LFS_T_CKDATA            = 0x0200, // Check data checksums
+    LFS_T_MTREEONLY     = 0x0008, // Only traverse the mtree
+    LFS_T_EXCL          = 0x0010, // Terminate if filesystem modified
+    LFS_T_MKCONSISTENT  = 0x0020, // Make the filesystem consistent
+    LFS_T_LOOKAHEAD     = 0x0040, // Populate lookahead buffer
+    LFS_T_COMPACT       = 0x0080, // Compact metadata logs
+    LFS_T_CKMETA        = 0x0100, // Check metadata checksums
+    LFS_T_CKDATA        = 0x0200, // Check data checksums
 // TODO
-//    LFS_T_REPAIRMETADATA    = 0x0400, // Repair metadata blocks
-//    LFS_T_REPAIRDATA        = 0x0800, // Repair data blocks
+//    LFS_T_REPAIRMETA    = 0x0400, // Repair metadata blocks
+//    LFS_T_REPAIRDATA    = 0x0800, // Repair data blocks
 
     // internally used flags
-    LFS_F_DIRTY             = 0x1000, // Filesystem has been modified
-    //LFS_F_ZOMBIE          = 0x8000, // File has been removed
+    LFS_F_DIRTY         = 0x1000, // Filesystem has been modified
 };
 
 

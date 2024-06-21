@@ -7832,8 +7832,8 @@ static inline bool lfsr_t_iscompact(uint32_t flags) {
     return flags & LFS_T_COMPACT;
 }
 
-static inline bool lfsr_t_isckmetadata(uint32_t flags) {
-    return flags & LFS_T_CKMETADATA;
+static inline bool lfsr_t_isckmeta(uint32_t flags) {
+    return flags & LFS_T_CKMETA;
 }
 
 static inline bool lfsr_t_isckdata(uint32_t flags) {
@@ -8180,7 +8180,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_mtraversal_t *mt,
     }
 
     // validate btree nodes? note mdirs are already validated
-    if (lfsr_t_isckmetadata(mt->o.flags)
+    if (lfsr_t_isckmeta(mt->o.flags)
             && mtinfo->tag == LFSR_TAG_BRANCH) {
         err = lfsr_rbyd_fetchck(lfs, &mtinfo->u.rbyd,
                 mtinfo->u.rbyd.blocks[0], mtinfo->u.rbyd.trunk,
@@ -8684,7 +8684,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
-            LFS_T_MTREEONLY | LFS_T_CKMETADATA);
+            LFS_T_MTREEONLY | LFS_T_CKMETA);
     while (true) {
         lfsr_mtinfo_t mtinfo;
         int err = lfsr_mtree_traverse(lfs, &mt, &mtinfo);
