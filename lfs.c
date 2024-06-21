@@ -5571,26 +5571,29 @@ static inline void lfsr_gdelta_xor(
 
 
 // grm (global remove) things
-static inline uint8_t lfsr_grm_count(const lfsr_grm_t *grm) {
+static inline uint8_t lfsr_grm_count_(const lfsr_grm_t *grm) {
     return (grm->mids[0] >= 0) + (grm->mids[1] >= 0);
 }
 
-static inline void lfsr_grm_push(lfsr_grm_t *grm, lfsr_smid_t mid) {
-    LFS_ASSERT(grm->mids[1] == -1);
-    grm->mids[1] = grm->mids[0];
-    grm->mids[0] = mid;
+static inline uint8_t lfsr_grm_count(lfs_t *lfs) {
+    return lfsr_grm_count_(&lfs->grm);
 }
 
-static inline lfsr_smid_t lfsr_grm_pop(lfsr_grm_t *grm) {
-    lfsr_smid_t mid = grm->mids[0];
-    grm->mids[0] = grm->mids[1];
-    grm->mids[1] = -1;
+static inline void lfsr_grm_push(lfs_t *lfs, lfsr_smid_t mid) {
+    LFS_ASSERT(lfs->grm.mids[1] == -1);
+    lfs->grm.mids[1] = lfs->grm.mids[0];
+    lfs->grm.mids[0] = mid;
+}
+
+static inline lfsr_smid_t lfsr_grm_pop(lfs_t *lfs) {
+    lfsr_smid_t mid = lfs->grm.mids[0];
+    lfs->grm.mids[0] = lfs->grm.mids[1];
+    lfs->grm.mids[1] = -1;
     return mid;
 }
 
-static inline bool lfsr_grm_ismidrm(const lfsr_grm_t *grm,
-        lfsr_smid_t mid) {
-    return grm->mids[0] == mid || grm->mids[1] == mid;
+static inline bool lfsr_grm_ismidrm(lfs_t *lfs, lfsr_smid_t mid) {
+    return lfs->grm.mids[0] == mid || lfs->grm.mids[1] == mid;
 }
 
 #define LFSR_DATA_GRM_(_grm, _buffer) \
@@ -5606,7 +5609,7 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
 
     // first encode the number of grms, this can be 0, 1, or 2 and may
     // be extended to a general purpose leb128 type field in the future
-    uint8_t mode = lfsr_grm_count(grm);
+    uint8_t mode = lfsr_grm_count_(grm);
     lfs_ssize_t d = 0;
     buffer[d] = mode;
     d += 1;
@@ -5875,7 +5878,7 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
     // semantics, and it's easier to manage the implied mid gap in
     // higher-levels
     if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME
-            && lfsr_grm_ismidrm(&lfs->grm, mdir->mid)) {
+            && lfsr_grm_ismidrm(lfs, mdir->mid)) {
         tag__ = LFSR_TAG_ORPHAN;
     }
 
@@ -6864,7 +6867,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // automatically create grms for new bookmarks
         if (attrs[i].tag == LFSR_TAG_BOOKMARK) {
-            lfsr_grm_push(&lfs->grm, mid_);
+            lfsr_grm_push(lfs, mid_);
 
         // adjust pending grms?
         } else {
@@ -7514,7 +7517,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     // fortunately pending grms/orphaned files have roughly the same
     // semantics, and it's easier to manage the implied mid gap in
     // higher-levels
-    if (lfsr_grm_ismidrm(&lfs->grm, mid)) {
+    if (lfsr_grm_ismidrm(lfs, mid)) {
         tag = LFSR_TAG_ORPHAN;
     }
 
@@ -8823,13 +8826,13 @@ static int lfsr_mountinited(lfs_t *lfs) {
     }
 
     // found pending grms? this should only happen if we lost power
-    if (lfsr_grm_count(&lfs->grm) == 2) {
+    if (lfsr_grm_count(lfs) == 2) {
         LFS_DEBUG("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                 lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                 lfsr_mid_rid(lfs, lfs->grm.mids[0]),
                 lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
                 lfsr_mid_rid(lfs, lfs->grm.mids[1]));
-    } else if (lfsr_grm_count(&lfs->grm) == 1) {
+    } else if (lfsr_grm_count(lfs) == 1) {
         LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
                 lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                 lfsr_mid_rid(lfs, lfs->grm.mids[0]));
@@ -9180,7 +9183,7 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
 // consistency stuff
 
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
-    while (lfsr_grm_count(&lfs->grm) > 0) {
+    while (lfsr_grm_count(lfs) > 0) {
         LFS_ASSERT(lfs->grm.mids[0] != -1);
 
         // find our mdir
@@ -9198,7 +9201,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         lfsr_grm_t grm_p = lfs->grm;
 
         // mark grm as taken care of
-        lfsr_grm_pop(&lfs->grm);
+        lfsr_grm_pop(lfs);
 
         // remove the rid while also updating our grm
         err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
@@ -9264,8 +9267,8 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // fix pending grms
     bool wasinconsistent = false;
-    if (lfsr_grm_count(&lfs->grm) > 0) {
-        if (lfsr_grm_count(&lfs->grm) == 2) {
+    if (lfsr_grm_count(lfs) > 0) {
+        if (lfsr_grm_count(lfs) == 2) {
             LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                     lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]),
@@ -9641,7 +9644,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
-    lfsr_grm_pop(&lfs->grm);
+    lfsr_grm_pop(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR_NAME(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
@@ -9675,7 +9678,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 }
 
 // push a did to grm, but only if the directory is empty
-static int lfsr_grm_pushdid(lfs_t *lfs, lfsr_grm_t *grm, lfsr_did_t did) {
+static int lfsr_grm_pushdid(lfs_t *lfs, lfsr_did_t did) {
     // first lookup the bookmark entry
     lfsr_mdir_t bookmark_mdir;
     int err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
@@ -9720,7 +9723,7 @@ static int lfsr_grm_pushdid(lfs_t *lfs, lfsr_grm_t *grm, lfsr_did_t did) {
     }
 
 empty:;
-    lfsr_grm_push(grm, bookmark_mid);
+    lfsr_grm_push(lfs, bookmark_mid);
     return 0;
 }
 
@@ -9769,7 +9772,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         }
 
         // mark bookmark for removal with grm
-        err = lfsr_grm_pushdid(lfs, &lfs->grm, did_);
+        err = lfsr_grm_pushdid(lfs, did_);
         if (err) {
             return err;
         }
@@ -9914,7 +9917,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             }
 
             // mark bookmark for removal with grm
-            err = lfsr_grm_pushdid(lfs, &lfs->grm, new_did_);
+            err = lfsr_grm_pushdid(lfs, new_did_);
             if (err) {
                 return err;
             }
@@ -9922,7 +9925,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     }
 
     // mark old entry for removal with a grm
-    lfsr_grm_push(&lfs->grm, old_mdir.mid);
+    lfsr_grm_push(lfs, old_mdir.mid);
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
@@ -10653,8 +10656,8 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
         // a few tricks
 
         // first try to push onto our grm queue
-        if (lfsr_grm_count(&lfs->grm) < 2) {
-            lfsr_grm_push(&lfs->grm, file->o.mdir.mid);
+        if (lfsr_grm_count(lfs) < 2) {
+            lfsr_grm_push(lfs, file->o.mdir.mid);
 
         // fallback to just marking the filesystem as orphaned
         } else {
