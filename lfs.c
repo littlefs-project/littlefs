@@ -5571,12 +5571,8 @@ static inline void lfsr_gdelta_xor(
 
 
 // grm (global remove) things
-static inline bool lfsr_grm_hasrm(const lfsr_grm_t *grm) {
-    return grm->mids[0] != -1;
-}
-
 static inline uint8_t lfsr_grm_count(const lfsr_grm_t *grm) {
-    return (grm->mids[0] != -1) + (grm->mids[1] != -1);
+    return (grm->mids[0] >= 0) + (grm->mids[1] >= 0);
 }
 
 static inline void lfsr_grm_push(lfsr_grm_t *grm, lfsr_smid_t mid) {
@@ -5585,12 +5581,14 @@ static inline void lfsr_grm_push(lfsr_grm_t *grm, lfsr_smid_t mid) {
     grm->mids[0] = mid;
 }
 
-static inline void lfsr_grm_pop(lfsr_grm_t *grm) {
+static inline lfsr_smid_t lfsr_grm_pop(lfsr_grm_t *grm) {
+    lfsr_smid_t mid = grm->mids[0];
     grm->mids[0] = grm->mids[1];
     grm->mids[1] = -1;
+    return mid;
 }
 
-static inline bool lfsr_grm_ispending(const lfsr_grm_t *grm,
+static inline bool lfsr_grm_ismidrm(const lfsr_grm_t *grm,
         lfsr_smid_t mid) {
     return grm->mids[0] == mid || grm->mids[1] == mid;
 }
@@ -5877,7 +5875,7 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
     // semantics, and it's easier to manage the implied mid gap in
     // higher-levels
     if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME
-            && lfsr_grm_ispending(&lfs->grm, mdir->mid)) {
+            && lfsr_grm_ismidrm(&lfs->grm, mdir->mid)) {
         tag__ = LFSR_TAG_ORPHAN;
     }
 
@@ -7516,7 +7514,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     // fortunately pending grms/orphaned files have roughly the same
     // semantics, and it's easier to manage the implied mid gap in
     // higher-levels
-    if (lfsr_grm_ispending(&lfs->grm, mid)) {
+    if (lfsr_grm_ismidrm(&lfs->grm, mid)) {
         tag = LFSR_TAG_ORPHAN;
     }
 
@@ -8824,20 +8822,17 @@ static int lfsr_mountinited(lfs_t *lfs) {
         return err;
     }
 
-    if (lfsr_grm_hasrm(&lfs->grm)) {
-        // found pending grms? this should only happen if we lost power
-        if (lfsr_grm_count(&lfs->grm) == 2) {
-            LFS_DEBUG("Found pending grm "
-                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
-                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
-        } else if (lfsr_grm_count(&lfs->grm) == 1) {
-            LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
-        }
+    // found pending grms? this should only happen if we lost power
+    if (lfsr_grm_count(&lfs->grm) == 2) {
+        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, lfs->grm.mids[0]),
+                lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, lfs->grm.mids[1]));
+    } else if (lfsr_grm_count(&lfs->grm) == 1) {
+        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
+                lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, lfs->grm.mids[0]));
     }
 
     return 0;
@@ -9185,7 +9180,9 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
 // consistency stuff
 
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
-    while (lfsr_grm_hasrm(&lfs->grm)) {
+    while (lfsr_grm_count(&lfs->grm) > 0) {
+        LFS_ASSERT(lfs->grm.mids[0] != -1);
+
         // find our mdir
         lfsr_mdir_t mdir;
         int err = lfsr_mtree_lookup(lfs, lfs->grm.mids[0],
@@ -9267,10 +9264,9 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // fix pending grms
     bool wasinconsistent = false;
-    if (lfsr_grm_hasrm(&lfs->grm)) {
+    if (lfsr_grm_count(&lfs->grm) > 0) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
-            LFS_DEBUG("Fixing grm "
-                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32"...",
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                     lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]),
                     lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
