@@ -6045,38 +6045,6 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
     }
 }
 
-static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
-    // upper layers should handle removed mdirs
-    LFS_ASSERT(mdir->mid >= 0);
-
-    while (true) {
-        // calculate new mid, be careful to avoid rid overflow
-        lfsr_bid_t bid = lfsr_mid_bid(lfs, mdir->mid);
-        lfsr_srid_t rid = lfsr_mid_rid(lfs, mdir->mid) + off;
-        // lookup mdirs until we find our rid, we need to do this because
-        // we don't know how many rids are in each mdir until we fetch
-        while (rid >= (lfsr_srid_t)mdir->rbyd.weight) {
-            // end of mtree?
-            if (bid+(1 << lfs->mdir_bits) >= lfsr_mtree_weight(lfs)) {
-                // if we hit the end of the mtree, park the mdir so all future
-                // seeks return noent
-                mdir->mid = bid + (1 << lfs->mdir_bits);
-                return LFS_ERR_NOENT;
-            }
-
-            bid += (1 << lfs->mdir_bits);
-            rid -= mdir->rbyd.weight;
-            int err = lfsr_mtree_lookup(lfs, bid, mdir);
-            if (err) {
-                return err;
-            }
-        }
-
-        mdir->mid = LFSR_MID(lfs, bid, rid);
-        return 0;
-    }
-}
-
 
 /// Mdir commit logic ///
 
@@ -9253,19 +9221,24 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
     //
     // note this never takes longer than lfsr_mount
     //
-    lfsr_mdir_t mdir;
-    int err = lfsr_mtree_lookup(lfs, 0,
-            &mdir);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_NOENT);
-        return err;
-    }
-
+    lfsr_mdir_t mdir = {.mid=0, .rbyd.weight=0};
     while (true) {
-        // is this mid opened? skip
+        // next mdir?
+        if (lfsr_mid_rid(lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            int err = lfsr_mtree_lookup(lfs, lfsr_mid_bid(lfs, mdir.mid) + 1,
+                    &mdir);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
+        }
+
+        // is this mid open? well we're not an orphan then, skip
         if (!lfsr_mid_isopen(lfs, mdir.mid)) {
-            // are we an orphaned file?
-            err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
+            // are we an orphan file?
+            int err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
                     NULL);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -9279,27 +9252,11 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
                     return err;
                 }
 
-                // seek in case our mdir was dropped
-                err = lfsr_mtree_seek(lfs, &mdir, 0);
-                if (err) {
-                    if (err == LFS_ERR_NOENT) {
-                        break;
-                    }
-                    return err;
-                }
-
                 continue;
             }
         }
 
-        // lookup next entry
-        err = lfsr_mtree_seek(lfs, &mdir, 1);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
+        mdir.mid += 1;
     }
 
     lfs->hasorphans = false;
@@ -9776,24 +9733,32 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         lfsr_mid_t bookmark_mid = bookmark_mdir.mid;
 
         // check that the directory is empty
-        err = lfsr_mtree_seek(lfs, &bookmark_mdir, 1);
-        if (err && err != LFS_ERR_NOENT) {
+        bookmark_mdir.mid += 1;
+        if (lfsr_mid_rid(lfs, bookmark_mdir.mid)
+                >= (lfsr_srid_t)bookmark_mdir.rbyd.weight) {
+            err = lfsr_mtree_lookup(lfs,
+                    lfsr_mid_bid(lfs, bookmark_mdir.mid-1) + 1,
+                    &bookmark_mdir);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    goto empty;
+                }
+                return err;
+            }
+        }
+
+        // the next mid should be another bookmark
+        err = lfsr_mdir_lookup(lfs,
+                &bookmark_mdir, LFSR_TAG_BOOKMARK,
+                NULL);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                return LFS_ERR_NOTEMPTY;
+            }
             return err;
         }
 
-        if (err != LFS_ERR_NOENT) {
-            lfsr_tag_t bookmark_tag;
-            err = lfsr_mdir_sublookup(lfs, &bookmark_mdir, LFSR_TAG_NAME,
-                    &bookmark_tag, NULL);
-            if (err) {
-                return err;
-            }
-
-            if (bookmark_tag != LFSR_TAG_BOOKMARK) {
-                return LFS_ERR_NOTEMPTY;
-            }
-        }
-
+    empty:;
         // create a grm to remove the bookmark entry
         lfs->grm.mids[0] = bookmark_mid;
     }
@@ -9947,24 +9912,32 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             lfsr_mid_t bookmark_mid = bookmark_mdir.mid;
 
             // check that the directory is empty
-            err = lfsr_mtree_seek(lfs, &bookmark_mdir, 1);
-            if (err && err != LFS_ERR_NOENT) {
+            bookmark_mdir.mid += 1;
+            if (lfsr_mid_rid(lfs, bookmark_mdir.mid)
+                    >= (lfsr_srid_t)bookmark_mdir.rbyd.weight) {
+                err = lfsr_mtree_lookup(lfs,
+                        lfsr_mid_bid(lfs, bookmark_mdir.mid-1) + 1,
+                        &bookmark_mdir);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        goto empty;
+                    }
+                    return err;
+                }
+            }
+
+            // the next mid should be another bookmark
+            err = lfsr_mdir_lookup(lfs,
+                    &bookmark_mdir, LFSR_TAG_BOOKMARK,
+                    NULL);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    return LFS_ERR_NOTEMPTY;
+                }
                 return err;
             }
 
-            if (err != LFS_ERR_NOENT) {
-                lfsr_tag_t bookmark_tag;
-                err = lfsr_mdir_sublookup(lfs, &bookmark_mdir, LFSR_TAG_NAME,
-                        &bookmark_tag, NULL);
-                if (err) {
-                    return err;
-                }
-
-                if (bookmark_tag != LFSR_TAG_BOOKMARK) {
-                    return LFS_ERR_NOTEMPTY;
-                }
-            }
-
+        empty:;
             // mark bookmark entry for removal with a grm
             lfs->grm.mids[1] = bookmark_mid;
         }
@@ -10208,17 +10181,22 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return 0;
     }
 
-    // seek in case our mdir was dropped
-    int err = lfsr_mtree_seek(lfs, &dir->o.mdir, 0);
-    if (err) {
-        return err;
-    }
-
     while (true) {
+        // next mdir?
+        if (lfsr_mid_rid(lfs, dir->o.mdir.mid)
+                >= (lfsr_srid_t)dir->o.mdir.rbyd.weight) {
+            int err = lfsr_mtree_lookup(lfs,
+                    lfsr_mid_bid(lfs, dir->o.mdir.mid-1) + 1,
+                    &dir->o.mdir);
+            if (err) {
+                return err;
+            }
+        }
+
         // lookup the next name tag
         lfsr_tag_t tag;
         lfsr_data_t data;
-        err = lfsr_mdir_sublookup(lfs, &dir->o.mdir, LFSR_TAG_NAME,
+        int err = lfsr_mdir_sublookup(lfs, &dir->o.mdir, LFSR_TAG_NAME,
                 &tag, &data);
         if (err) {
             return err;
@@ -10237,25 +10215,23 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         }
 
         // skip orphans, we pretend these don't exist
-        if (tag != LFSR_TAG_ORPHAN) {
-            // fill out our info struct
-            err = lfsr_stat_(lfs, &dir->o.mdir, tag, data,
-                    info);
-            if (err) {
-                return err;
-            }
+        if (tag == LFSR_TAG_ORPHAN) {
+            dir->o.mdir.mid += 1;
+            dir->pos += 1;
+            continue;
         }
 
-        // eagerly look up the next entry
-        err = lfsr_mtree_seek(lfs, &dir->o.mdir, 1);
-        if (err && err != LFS_ERR_NOENT) {
+        // fill out our info struct
+        err = lfsr_stat_(lfs, &dir->o.mdir, tag, data,
+                info);
+        if (err) {
             return err;
         }
-        dir->pos += 1;
 
-        if (tag != LFSR_TAG_ORPHAN) {
-            return 0;
-        }
+        // eagerly set to next entry
+        dir->o.mdir.mid += 1;
+        dir->pos += 1;
+        return 0;
     }
 }
 
@@ -10268,23 +10244,39 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
     }
 
     // first rewind
-    int err = lfsr_dir_rewind(lfs, dir);
+    int err = lfsr_dir_rewind_(lfs, dir);
     if (err) {
         return err;
     }
 
-    // then seek to the requested offset, we leave it up to lfsr_mtree_seek
-    // to make this efficient
+    // then seek to the requested offset
     //
     // note the -2 to adjust for dot entries
-    if (off > 2) {
-        err = lfsr_mtree_seek(lfs, &dir->o.mdir, off - 2);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
+    lfs_off_t off_ = off - 2;
+    while (off_ > 0) {
+        // next mdir?
+        if (lfsr_mid_rid(lfs, dir->o.mdir.mid)
+                >= (lfsr_srid_t)dir->o.mdir.rbyd.weight) {
+            int err = lfsr_mtree_lookup(lfs,
+                    lfsr_mid_bid(lfs, dir->o.mdir.mid-1) + 1,
+                    &dir->o.mdir);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
         }
-    }
-    dir->pos = off;
 
+        lfs_off_t d = lfs_min(
+                off_,
+                dir->o.mdir.rbyd.weight
+                    - lfsr_mid_rid(lfs, dir->o.mdir.mid));
+        dir->o.mdir.mid += d;
+        off_ -= d;
+    }
+
+    dir->pos = off;
     return 0;
 }
 
@@ -10301,9 +10293,6 @@ static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir) {
         return 0;
     }
 
-    // reset pos
-    dir->pos = 0;
-
     // lookup our bookmark in the mtree
     int err = lfsr_mtree_namelookup(lfs, dir->did, NULL, 0,
             &dir->o.mdir, NULL, NULL);
@@ -10312,12 +10301,10 @@ static int lfsr_dir_rewind_(lfs_t *lfs, lfsr_dir_t *dir) {
         return err;
     }
 
-    // eagerly lookup the next entry
-    err = lfsr_mtree_seek(lfs, &dir->o.mdir, 1);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
+    // eagerly set to next entry
+    dir->o.mdir.mid += 1;
+    // reset pos
+    dir->pos = 0;
     return 0;
 }
 

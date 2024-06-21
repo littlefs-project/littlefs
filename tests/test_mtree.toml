@@ -476,7 +476,11 @@ code = '''
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
+        mdir.mid += 1;
+        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+                    &mdir) => 0;
+        }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -494,7 +498,11 @@ code = '''
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
+        mdir.mid += 1;
+        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+                    &mdir) => 0;
+        }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -4089,7 +4097,11 @@ code = '''
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
+        mdir.mid += 1;
+        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+                    &mdir) => 0;
+        }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
@@ -4107,7 +4119,11 @@ code = '''
         char name[256];
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
-        lfsr_mtree_seek(&lfs, &mdir, +1) => 0;
+        mdir.mid += 1;
+        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+                    &mdir) => 0;
+        }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 4;
         assert(memcmp(buffer, name, 4) == 0);
