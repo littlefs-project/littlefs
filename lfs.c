@@ -2108,11 +2108,6 @@ static int lfsr_bptr_ck(lfs_t *lfs, const lfsr_bptr_t *bptr) {
 //static int lfs_rawunmount(lfs_t *lfs);
 
 
-// predeclare block allocator functions
-static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase);
-static void lfs_alloc_ckpoint(lfs_t *lfs);
-
-
 /// Red-black-yellow Dhara tree operations ///
 
 #define LFSR_RBYD_ISSHRUB 0x80000000
@@ -2149,6 +2144,9 @@ static inline int lfsr_rbyd_cmp(
     }
 }
 
+
+// needed in lfsr_rbyd_alloc
+static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase);
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
@@ -7218,6 +7216,9 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfsr_mptr_t *mptr,
     }
 }
 
+// needed in lfsr_mdir_commit
+static void lfs_alloc_ckpoint(lfs_t *lfs);
+
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs_t, etc
@@ -7854,7 +7855,7 @@ failed:;
 
 
 
-/// Path/name lookup stuff ///
+/// Mtree path/name lookup ///
 
 // lookup names in an mdir
 //
@@ -8127,41 +8128,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
 
 
 
-/// Traversal stuff ///
-
-//// incremental filesystem traversal
-//typedef struct lfsr_traversal {
-//    // core traversal state
-//    uint8_t flags;
-//    uint8_t state;
-//    union {
-//        // cycle detection state, only valid when traversing the mroot chain
-//        struct {
-//            lfsr_mptr_t mptr;
-//            lfs_block_t step;
-//            uint8_t power;
-//        } mtortoise;
-//        // btree traversal state, only valid when traversing the mtree
-//        lfsr_btraversal_t mt;
-//        // opened file state, only valid when traversing opened files
-//        const lfsr_omdir_t *o;
-//    } u;
-//    // we really don't want to pay the RAM cost for a full file,
-//    // so only store the relevant bits, is this a hack? yes
-//    struct {
-//        lfsr_omdir_t o;
-//        const struct lfs_file_config *cfg;
-//        lfsr_bshrub_t bshrub;
-//    } file;
-//    lfsr_btraversal_t bt;
-//} lfsr_traversal_t;
-//
-//enum {
-//    // traverse all blocks in the filesystem
-//    LFSR_TRAVERSAL_ALL = 0x1,
-//    // validate checksums while traversing
-//    LFSR_TRAVERSAL_VALIDATE = 0x2,
-//};
+/// Mtree traversal ///
 
 // traversing littlefs is a bit complex, so we use a state machine to keep
 // track of where we are
@@ -8603,755 +8570,6 @@ static int lfsr_mtree_traversemut(lfs_t *lfs, lfsr_mtraversal_t *mt,
 }
 
 
-/// Superblock things ///
-
-//// TODO rm?
-//// These are all leb128s, but we can expect smaller encodings
-//// if we assume the version.
-////
-//// - 7-bit major_version => 1 byte leb128 (worst case)
-//// - 7-bit minor_version => 1 byte leb128 (worst case)
-//// - 7-bit cksum_type    => 1 byte leb128 (worst case)
-//// - 7-bit flags         => 1 byte leb128 (worst case)
-//// - 32-bit block_size   => 5 byte leb128 (worst case)
-//// - 32-bit block_count  => 5 byte leb128 (worst case)
-//// - 7-bit utag_limit    => 1 byte leb128 (worst case)
-//// - 32-bit mtree_limit  => 5 byte leb128 (worst case)
-//// - 32-bit attr_limit   => 5 byte leb128 (worst case)
-//// - 32-bit name_limit   => 5 byte leb128 (worst case)
-//// - 32-bit file_limit   => 5 byte leb128 (worst case)
-////                       => 33 bytes total
-//// 
-//#define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5+5)
-//
-//#define LFSR_DATA_FROMSUPERCONFIG(_lfs, _buffer) 
-//    lfsr_data_fromsuperconfig(_lfs, _buffer)
-//
-//static lfsr_data_t lfsr_data_fromsuperconfig(lfs_t *lfs,
-//        uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
-//    // TODO most of these should also be in the lfs_config/lfs_t structs
-//
-//    // note we take a shortcut for for single-byte leb128s, but these
-//    // are still leb128s! the top bit must be zero!
-//
-//    // on-disk major version
-//    buffer[0] = LFS_DISK_VERSION_MAJOR;
-//    // on-disk minor version
-//    buffer[1] = LFS_DISK_VERSION_MINOR;
-//    // on-disk cksum type
-//    buffer[2] = 2;
-//    // on-disk flags
-//    buffer[3] = 0;
-//
-//    // on-disk block size
-//    lfs_ssize_t d = 4;
-//    lfs_ssize_t d_ = lfs_toleb128(lfs->cfg->block_size, &buffer[d], 5);
-//    LFS_ASSERT(d_ >= 0);
-//    d += d_;
-//
-//    // on-disk block count
-//    d_ = lfs_toleb128(lfs->cfg->block_count, &buffer[d], 5);
-//    LFS_ASSERT(d_ >= 0);
-//    d += d_;
-//
-//    // on-disk mleaf limit
-//    d_ = lfs_toleb128(lfsr_mleafweight(lfs)-1, &buffer[d], 5);
-//    LFS_ASSERT(d_ >= 0);
-//    d += d_;
-//
-//    // on-disk utag limit
-//    buffer[d] = 0x7f;
-//    d += 1;
-//
-//    // on-disk attr limit
-//    d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
-//    LFS_ASSERT(d_ >= 0);
-//    d += d_;
-//
-//    // on-disk name limit
-//    d_ = lfs_toleb128(0xff, &buffer[d], 5);
-//    LFS_ASSERT(d_ >= 0);
-//    d += d_;
-//
-//    // on-disk file limit
-//    d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
-//    LFS_ASSERT(d_ >= 0);
-//    d += d_;
-//
-//    return LFSR_DATA_BUF(buffer, d);
-//}
-
-// compatibility flags
-//
-// - RCOMPAT => Must understand to read the filesystem
-// - WCOMPAT => Must understand to write to the filesystem
-// - OCOMPAT => Don't need to understand, we don't really use these
-//
-// note, "understanding" does not necessarily mean support
-//
-enum lfsr_rcompat {
-    LFSR_RCOMPAT_NONSTANDARD    = 0x0001,
-    LFSR_RCOMPAT_MLEAF          = 0x0002,
-    LFSR_RCOMPAT_MTREE          = 0x0008,
-    LFSR_RCOMPAT_BSPROUT        = 0x0010,
-    LFSR_RCOMPAT_BLEAF          = 0x0020,
-    LFSR_RCOMPAT_BSHRUB         = 0x0040,
-    LFSR_RCOMPAT_BTREE          = 0x0080,
-    LFSR_RCOMPAT_GRM            = 0x0100,
-    // internal
-    LFSR_RCOMPAT_OVERFLOW       = 0x8000,
-};
-
-#define LFSR_RCOMPAT_COMPAT \
-    (LFSR_RCOMPAT_MLEAF \
-        | LFSR_RCOMPAT_MTREE \
-        | LFSR_RCOMPAT_BSPROUT \
-        | LFSR_RCOMPAT_BLEAF \
-        | LFSR_RCOMPAT_BSHRUB \
-        | LFSR_RCOMPAT_BTREE \
-        | LFSR_RCOMPAT_GRM)
-
-enum lfsr_wcompat {
-    LFSR_WCOMPAT_NONSTANDARD    = 0x0001,
-    // internal
-    LFSR_WCOMPAT_OVERFLOW       = 0x8000,
-};
-
-#define LFSR_WCOMPAT_COMPAT 0
-
-enum lfsr_ocompat {
-    LFSR_OCOMPAT_NONSTANDARD    = 0x0001,
-    // internal
-    LFSR_OCOMPAT_OVERFLOW       = 0x8000,
-};
-
-#define LFSR_OCOMPAT_COMPAT 0
-
-typedef uint16_t lfsr_rcompat_t;
-typedef uint16_t lfsr_wcompat_t;
-typedef uint16_t lfsr_ocompat_t;
-
-static inline bool lfsr_rcompat_isincompat(lfsr_rcompat_t rcompat) {
-    return rcompat != LFSR_RCOMPAT_COMPAT;
-}
-
-static inline bool lfsr_wcompat_isincompat(lfsr_wcompat_t wcompat) {
-    return wcompat != LFSR_WCOMPAT_COMPAT;
-}
-
-static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
-    return ocompat != LFSR_OCOMPAT_COMPAT;
-}
-
-// compat flags on-disk encoding
-//
-// little-endian, truncated bits must be assumed zero
-
-#define LFSR_DATA_RCOMPAT(_rcompat) \
-    LFSR_DATA_BUF(((uint8_t[]){ \
-        (((_rcompat) >> 0) & 0xff), \
-        (((_rcompat) >> 8) & 0xff)}), 2)
-
-static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_rcompat_t *rcompat) {
-    // allow truncated rcompat flags
-    uint8_t buf[2] = {0};
-    lfs_ssize_t d = lfsr_data_read(lfs, data, buf, 2);
-    if (d < 0) {
-        return d;
-    }
-    *rcompat = lfs_fromle16_(buf);
-
-    // if any out-of-range flags are set, set the internal overflow bit,
-    // this is a compromise in correctness and and compat-flag complexity
-    //
-    // we don't really care about performance here
-    while (lfsr_data_size(*data) > 0) {
-        lfs_scmp_t cmp = lfsr_data_cmp(lfs, *data, (uint8_t[]){0}, 1);
-        if (cmp < 0) {
-            return cmp;
-        }
-
-        if (cmp != LFS_CMP_EQ) {
-            *rcompat |= LFSR_RCOMPAT_OVERFLOW;
-        }
-
-        *data = lfsr_data_slice(*data, d, -1);
-    }
-
-    return 0;
-}
-
-// all the compat parsing is basically the same, so try to reuse code
-#define LFSR_DATA_WCOMPAT(_wcompat) LFSR_DATA_RCOMPAT(_wcompat)
-
-static int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_wcompat_t *wcompat) {
-    return lfsr_data_readrcompat(lfs, data, wcompat);
-}
-
-#define LFSR_DATA_OCOMPAT(_ocompat) LFSR_DATA_RCOMPAT(_ocompat)
-
-static int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_ocompat_t *ocompat) {
-    return lfsr_data_readrcompat(lfs, data, ocompat);
-}
-
-
-// disk geometry
-//
-// note these are stored minus 1 to avoid overflow issues
-typedef struct lfsr_geometry {
-    lfs_off_t block_size;
-    lfs_off_t block_count;
-} lfsr_geometry_t;
-
-// geometry encoding
-// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
-// | block_size    |      block_count: 1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  total:                 <=9 bytes
-// | block_count       |
-// '---+- -+- -+- -+- -'
-#define LFSR_GEOMETRY_DSIZE (4+5)
-
-#define LFSR_DATA_GEOMETRY_(_geometry, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromgeometry(_geometry, _buffer)}.d)
-
-#define LFSR_DATA_GEOMETRY(_geometry) \
-    LFSR_DATA_GEOMETRY_(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
-
-static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
-        uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
-    lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfs_toleb128(geometry->block_size-1, &buffer[d], 4);
-    if (d_ < 0) {
-        LFS_UNREACHABLE();
-    }
-    d += d_;
-
-    d_ = lfs_toleb128(geometry->block_count-1, &buffer[d], 5);
-    if (d_ < 0) {
-        LFS_UNREACHABLE();
-    }
-    d += d_;
-
-    return LFSR_DATA_BUF(buffer, d);
-}
-
-static int lfsr_data_readgeometry(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_geometry_t *geometry) {
-    int err = lfsr_data_readlleb128(lfs, data, &geometry->block_size);
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_data_readleb128(lfs, data, &geometry->block_count);
-    if (err) {
-        return err;
-    }
-
-    geometry->block_size += 1;
-    geometry->block_count += 1;
-    return 0;
-}
-
-
-/// Filesystem init functions ///
-
-static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg);
-static int lfs_deinit(lfs_t *lfs);
-
-static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
-    // check the disk version
-    uint8_t version[2] = {0, 0};
-    lfsr_data_t data;
-    int err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_VERSION,
-            &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No littlefs version found");
-            return LFS_ERR_CORRUPT;
-        }
-        return err;
-    }
-    lfs_ssize_t d = lfsr_data_read(lfs, &data, version, 2);
-    if (d < 0) {
-        return err;
-    }
-
-    if (version[0] != LFS_DISK_VERSION_MAJOR
-            || version[1] > LFS_DISK_VERSION_MINOR) {
-        LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
-                " (!= v%"PRId32".%"PRId32")",
-                version[0],
-                version[1],
-                LFS_DISK_VERSION_MAJOR,
-                LFS_DISK_VERSION_MINOR);
-        return LFS_ERR_NOTSUP;
-    }
-
-    // check for any rcompatflags, we must understand these to read
-    // the filesystem
-    lfsr_rcompat_t rcompat = 0;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_RCOMPAT,
-            &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readrcompat(lfs, &data, &rcompat);
-        if (err) {
-            return err;
-        }
-    }
-
-    if (lfsr_rcompat_isincompat(rcompat)) {
-        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx16
-                " (!= 0x%0"PRIx16")",
-                rcompat,
-                LFSR_RCOMPAT_COMPAT);
-        return LFS_ERR_NOTSUP;
-    }
-
-    // check for any wcompatflags, we must understand these to write
-    // the filesystem
-    lfsr_wcompat_t wcompat = 0;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_WCOMPAT,
-            &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readwcompat(lfs, &data, &wcompat);
-        if (err) {
-            return err;
-        }
-    }
-
-    // TODO switch to readonly?
-    if (lfsr_wcompat_isincompat(wcompat)) {
-        LFS_ERROR("Incompatible wcompat flags 0x%0"PRIx16
-                " (!= 0x%0"PRIx16")",
-                wcompat,
-                LFSR_WCOMPAT_COMPAT);
-        return LFS_ERR_NOTSUP;
-    }
-
-    // we don't bother to check for any ocompatflags, we would just
-    // ignore these anyways
-
-    // check the on-disk geometry
-    lfsr_geometry_t geometry;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_GEOMETRY,
-            &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No geometry found");
-            return LFS_ERR_INVAL;
-        }
-        return err;
-    }
-    err = lfsr_data_readgeometry(lfs, &data, &geometry);
-    if (err) {
-        return err;
-    }
-
-    // either block_size matches or it doesn't, we don't support variable
-    // block_sizes
-    if (geometry.block_size != lfs->cfg->block_size) {
-        LFS_ERROR("Incompatible block size %"PRId32" (!= %"PRId32")",
-                geometry.block_size,
-                lfs->cfg->block_size);
-        return LFS_ERR_NOTSUP;
-    }
-
-    // on-disk block_count must be <= configured block_count
-    if (geometry.block_count > lfs->cfg->block_count) {
-        LFS_ERROR("Incompatible block count %"PRId32" (> %"PRId32")",
-                geometry.block_count,
-                lfs->cfg->block_count);
-        return LFS_ERR_NOTSUP;
-    }
-
-    lfs->block_count = geometry.block_count;
-
-    // read the name limit
-    lfs_size_t name_limit = 0xff;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
-            &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &name_limit);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            name_limit = -1;
-        }
-    }
-
-    if (name_limit > lfs->name_limit) {
-        LFS_ERROR("Incompatible name limit (%"PRId32" > %"PRId32")",
-                name_limit,
-                lfs->name_limit);
-        return LFS_ERR_NOTSUP;
-    }
-
-    lfs->name_limit = name_limit;
-
-    // read the file limit
-    lfs_off_t file_limit = 0x7fffffff;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_FILELIMIT,
-            &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &file_limit);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            file_limit = -1;
-        }
-    }
-
-    if (file_limit > lfs->file_limit) {
-        LFS_ERROR("Incompatible file limit (%"PRId32" > %"PRId32")",
-                file_limit,
-                lfs->file_limit);
-        return LFS_ERR_NOTSUP;
-    }
-
-    lfs->file_limit = file_limit;
-
-    // check for unknown configs
-    lfsr_tag_t tag;
-    err = lfsr_mdir_lookupnext(lfs, mroot, LFSR_TAG_FILELIMIT+1,
-            &tag, NULL);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    if (err != LFS_ERR_NOENT
-            && lfsr_tag_suptype(tag) == LFSR_TAG_CONFIG) {
-        LFS_ERROR("Unknown config 0x%04"PRIx16,
-                tag);
-        return LFS_ERR_NOTSUP;
-    }
-
-    return 0;
-}
-
-static int lfsr_mountinited(lfs_t *lfs) {
-    // zero gdeltas, we'll read these from our mdirs
-    lfsr_fs_flushgdelta(lfs);
-
-    // default to no mtree, this is allowed and implies all files are inlined
-    // in the mroot
-    lfs->mtree = LFSR_MTREE_NULL();
-
-    // traverse the mtree rooted at mroot 0x{1,0}
-    //
-    // we do validate btree inner nodes here, how can we trust our
-    // mdirs are valid if we haven't checked the btree inner nodes at
-    // least once?
-    lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
-            LFS_T_MTREEONLY | LFS_T_CKMETA);
-    while (true) {
-        lfsr_mtinfo_t mtinfo;
-        int err = lfsr_mtree_traverse(lfs, &mt, &mtinfo);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-
-        // found an mdir?
-        if (mtinfo.tag == LFSR_TAG_MDIR) {
-            // found an mroot?
-            if (mtinfo.u.mdir.mid == -1) {
-                // check for the magic string, all mroot should have this
-                lfsr_data_t data;
-                int err = lfsr_mdir_lookup(lfs,
-                        &mtinfo.u.mdir, LFSR_TAG_MAGIC,
-                        &data);
-                if (err) {
-                    if (err == LFS_ERR_NOENT) {
-                        LFS_ERROR("No littlefs magic found");
-                        return LFS_ERR_CORRUPT;
-                    }
-                    return err;
-                }
-
-                // treat corrupted magic as no magic
-                lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, "littlefs", 8);
-                if (cmp < 0) {
-                    return cmp;
-                }
-                if (cmp != LFS_CMP_EQ) {
-                    LFS_ERROR("No littlefs magic found");
-                    return LFS_ERR_CORRUPT;
-                }
-
-                // are we the last mroot?
-                err = lfsr_mdir_lookup(lfs, &mtinfo.u.mdir, LFSR_TAG_MROOT,
-                        NULL);
-                if (err && err != LFS_ERR_NOENT) {
-                    return err;
-                }
-                if (err == LFS_ERR_NOENT) {
-                    // track active mroot
-                    lfs->mroot = mtinfo.u.mdir;
-
-                    // mount/validate config in active mroot
-                    err = lfsr_mountmroot(lfs, &lfs->mroot);
-                    if (err) {
-                        return err;
-                    }
-                }
-
-            } else {
-                // found a direct mdir? keep track of this
-                if (lfsr_mtree_isnull(&lfs->mtree)) {
-                    lfs->mtree = LFSR_MTREE_MPTR(
-                            *lfsr_mdir_mptr(&mtinfo.u.mdir),
-                            (1 << lfs->mdir_bits));
-                }
-            }
-
-            // toss our cksum into the filesystem seed for pseudorandom
-            // numbers
-            lfs->seed ^= mtinfo.u.mdir.rbyd.cksum;
-
-            // collect any gdeltas from this mdir
-            err = lfsr_fs_consumegdelta(lfs, &mtinfo.u.mdir);
-            if (err) {
-                return err;
-            }
-
-            // check for any orphaned files
-            for (lfs_size_t rid = 0; rid < mtinfo.u.mdir.rbyd.weight; rid++) {
-                lfsr_tag_t tag;
-                err = lfsr_rbyd_sublookup(lfs, &mtinfo.u.mdir.rbyd,
-                        rid, LFSR_TAG_NAME,
-                        &tag, NULL);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                // name 0 should be reserved
-                LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
-
-                // found an orphaned file?
-                if (tag == LFSR_TAG_ORPHAN) {
-                    LFS_DEBUG("Found orphaned file "
-                            "%"PRId32".%"PRId32,
-                            lfsr_mid_bid(lfs, mtinfo.u.mdir.mid)
-                                >> lfs->mdir_bits,
-                            rid);
-                    lfs->hasorphans = true;
-
-                // found an unknown file type?
-                } else if (lfsr_tag_isunknown(tag)) {
-                    // TODO switch to readonly?
-                    LFS_ERROR("Found unknown file type "
-                            "%"PRId32".%"PRId32" 0x%"PRIx16,
-                            lfsr_mid_bid(lfs, mtinfo.u.mdir.mid)
-                                >> lfs->mdir_bits,
-                            rid,
-                            lfsr_tag_subtype(tag));
-                    return LFS_ERR_NOTSUP;
-                }
-            }
-
-        // found an mtree inner-node?
-        } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
-            // found the root of the mtree? keep track of this
-            if (lfsr_mtree_isnull(&lfs->mtree)) {
-                lfs->mtree.u.btree = mtinfo.u.rbyd;
-            }
-
-        } else {
-            LFS_UNREACHABLE();
-        }
-    }
-
-    // once we've mounted and derived a pseudo-random seed, initialize our
-    // block allocator
-    //
-    // the purpose of this is to avoid bad wear patterns such as always 
-    // allocating blocks near the beginning of disk after a power-loss
-    //
-    lfs->lookahead.start = lfs->seed % lfs->block_count;
-
-    // TODO should the consumegdelta above take gstate/gdelta as a parameter?
-    // keep track of the current gstate on disk
-    lfs_memcpy(lfs->grm_p, lfs->grm_d, LFSR_GRM_DSIZE);
-
-    // decode grm so we can report any removed files as missing
-    int err = lfsr_data_readgrm(lfs,
-            &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
-            &lfs->grm);
-    if (err) {
-        // TODO switch to read-only?
-        return err;
-    }
-
-    // found pending grms? this should only happen if we lost power
-    if (lfsr_grm_count(lfs) == 2) {
-        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                lfsr_mid_rid(lfs, lfs->grm.mids[0]),
-                lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
-                lfsr_mid_rid(lfs, lfs->grm.mids[1]));
-    } else if (lfsr_grm_count(lfs) == 1) {
-        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
-                lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                lfsr_mid_rid(lfs, lfs->grm.mids[0]));
-    }
-
-    return 0;
-}
-
-static int lfsr_formatinited(lfs_t *lfs) {
-    for (int i = 0; i < 2; i++) {
-        // write superblock to both rbyds in the root mroot to hopefully
-        // avoid mounting an older filesystem on disk
-        lfsr_rbyd_t rbyd = {.blocks[0]=i, .eoff=0, .trunk=0};
-
-        int err = lfsr_bd_erase(lfs, rbyd.blocks[0]);
-        if (err) {
-            return err;
-        }
-
-        // the initial revision count is arbitrary, but it's nice to have
-        // something here to tell the initial mroot apart from btree nodes
-        // (rev=0), it's also useful for start with -1 and 0 in the upper
-        // bits to help test overflow/sequence comparison
-        uint32_t rev = (((uint32_t)i-1) << 28)
-                | (((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1)
-                    & 0x00216968);
-        err = lfsr_rbyd_appendrev(lfs, &rbyd, rev);
-        if (err) {
-            return err;
-        }
-
-        // our initial superblock contains a couple things:
-        // - our magic string, "littlefs"
-        // - any format-time configuration
-        // - the root's bookmark tag, which reserves did = 0 for the root
-        err = lfsr_rbyd_commit(lfs, &rbyd, -1, LFSR_ATTRS(
-                LFSR_ATTR(
-                    LFSR_TAG_MAGIC, 0,
-                    LFSR_DATA_BUF("littlefs", 8)),
-                LFSR_ATTR(
-                    LFSR_TAG_VERSION, 0,
-                    LFSR_DATA_BUF(((const uint8_t[2]){
-                        LFS_DISK_VERSION_MAJOR,
-                        LFS_DISK_VERSION_MINOR}), 2)),
-                LFSR_ATTR(
-                    LFSR_TAG_RCOMPAT, 0,
-                    LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT)),
-                LFSR_ATTR(
-                    LFSR_TAG_GEOMETRY, 0,
-                    LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
-                        lfs->cfg->block_size,
-                        lfs->cfg->block_count}))),
-                LFSR_ATTR(
-                    LFSR_TAG_NAMELIMIT, 0,
-                    LFSR_DATA_LLEB128(lfs->name_limit)),
-                LFSR_ATTR(
-                    LFSR_TAG_FILELIMIT, 0,
-                    LFSR_DATA_LEB128(lfs->file_limit)),
-                LFSR_ATTR(
-                    LFSR_TAG_BOOKMARK, +1,
-                    LFSR_DATA_LEB128(0))));
-        if (err) {
-            return err;
-        }
-    }
-
-    // sync on-disk state
-    int err = lfsr_bd_sync(lfs);
-    if (err) {
-        return err;
-    }
-
-    // test that mount works with our formatted disk
-    err = lfsr_mountinited(lfs);
-    if (err) {
-        return err;
-    }
-
-    return 0;
-}
-
-int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, cfg);
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_mountinited(lfs);
-    if (err) {
-        // make sure we clean up on error
-        lfs_deinit(lfs);
-        return err;
-    }
-
-    // TODO this should use any configured values
-    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
-            "%"PRId32"x%"PRId32" "
-            "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
-            "w%"PRId32".%"PRId32,
-            LFS_DISK_VERSION_MAJOR,
-            LFS_DISK_VERSION_MINOR,
-            lfs->cfg->block_size,
-            lfs->block_count,
-            lfs->mroot.rbyd.blocks[0],
-            lfs->mroot.rbyd.blocks[1],
-            lfsr_rbyd_trunk(&lfs->mroot.rbyd),
-            lfsr_mtree_weight_(&lfs->mtree) >> lfs->mdir_bits,
-            1 << lfs->mdir_bits);
-
-    return 0;
-}
-
-int lfsr_unmount(lfs_t *lfs) {
-    // all files/dirs should be closed before lfsr_unmount
-    LFS_ASSERT(lfs->omdirs == NULL);
-
-    return lfs_deinit(lfs);
-}
-
-int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, cfg);
-    if (err) {
-        return err;
-    }
-
-    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
-            "%"PRId32"x%"PRId32,
-            LFS_DISK_VERSION_MAJOR,
-            LFS_DISK_VERSION_MINOR,
-            lfs->cfg->block_size,
-            lfs->block_count);
-
-    err = lfsr_formatinited(lfs);
-    if (err) {
-        // make sure we clean up on error
-        lfs_deinit(lfs);
-        return err;
-    }
-
-    return lfs_deinit(lfs);
-}
-
-
 
 /// Block allocator ///
 
@@ -9511,378 +8729,6 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
         lfs_alloc_markfree(lfs);
     }
 }
-
-
-
-/// Other filesystem things  ///
-
-int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
-    fsinfo->block_size = lfs->cfg->block_size;
-    fsinfo->block_count = lfs->block_count;
-    fsinfo->name_limit = lfs->name_limit;
-    fsinfo->file_limit = lfs->file_limit;
-    return 0;
-}
-
-lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
-    lfs_size_t count = 0;
-    lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(0);
-    while (true) {
-        lfsr_mtinfo_t mtinfo;
-        int err = lfsr_mtree_traverse(lfs, &mt, &mtinfo);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-
-        // count the number of blocks we see, yes this may result in duplicates
-        if (mtinfo.tag == LFSR_TAG_MDIR) {
-            count += 2;
-
-        } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
-            count += 1;
-
-        } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
-            count += 1;
-
-        } else {
-            LFS_UNREACHABLE();
-        }
-    }
-
-    return count;
-}
-
-
-// consistency stuff
-
-static int lfsr_fs_fixgrm(lfs_t *lfs) {
-    while (lfsr_grm_count(lfs) > 0) {
-        LFS_ASSERT(lfs->grm.mids[0] != -1);
-
-        // find our mdir
-        lfsr_mdir_t mdir;
-        int err = lfsr_mtree_lookup(lfs, lfs->grm.mids[0],
-                &mdir);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        // we also use grm to track orphans that need to be cleaned up,
-        // which means it may not match the on-disk state, which means
-        // we need to revert manually on error
-        lfsr_grm_t grm_p = lfs->grm;
-
-        // mark grm as taken care of
-        lfsr_grm_pop(lfs);
-
-        // remove the rid while also updating our grm
-        err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-        if (err) {
-            // revert grm manually
-            lfs->grm = grm_p;
-            return err;
-        }
-    }
-
-    return 0;
-}
-
-static int lfsr_fs_fixorphans(lfs_t *lfs) {
-    // traverse the filesystem and remove any orphaned files
-    //
-    // note this never takes longer than lfsr_mount
-    //
-    lfsr_mdir_t mdir = {.mid=0, .rbyd.weight=0};
-    while (true) {
-        // next mdir?
-        if (lfsr_mid_rid(lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            int err = lfsr_mtree_lookup(lfs, lfsr_mid_bid(lfs, mdir.mid) + 1,
-                    &mdir);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    break;
-                }
-                return err;
-            }
-        }
-
-        // is this mid open? well we're not an orphan then, skip
-        if (!lfsr_omdir_ismidopen(lfs, mdir.mid)) {
-            // are we an orphan file?
-            int err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
-                    NULL);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err != LFS_ERR_NOENT) {
-                // remove orphaned file
-                err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-                        LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-                if (err) {
-                    return err;
-                }
-
-                continue;
-            }
-        }
-
-        mdir.mid += 1;
-    }
-
-    lfs->hasorphans = false;
-    return 0;
-}
-
-// prepare the filesystem for mutation
-int lfsr_fs_mkconsistent(lfs_t *lfs) {
-    // fix pending grms
-    bool wasinconsistent = false;
-    if (lfsr_grm_count(lfs) > 0) {
-        if (lfsr_grm_count(lfs) == 2) {
-            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
-                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
-        } else {
-            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
-        }
-        wasinconsistent = true;
-
-        int err = lfsr_fs_fixgrm(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
-    // fix orphaned files
-    //
-    // this must happen after fixgrm, since removing orphaned files risks
-    // outdating the grm
-    //
-    if (lfs->hasorphans) {
-        LFS_DEBUG("Fixing orphans...");
-        wasinconsistent = true;
-
-        int err = lfsr_fs_fixorphans(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
-    if (wasinconsistent) {
-        LFS_DEBUG("littlefs is now consistent");
-    }
-    return 0;
-}
-
-
-int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
-    // shrinking the filesystem is not supported
-    LFS_ASSERT(block_count_ >= lfs->block_count);
-
-    // do nothing if block_count doesn't change
-    if (block_count_ == lfs->block_count) {
-        return 0;
-    }
-
-    // Note we do _not_ call lfsr_fs_mkconsistent here. This is a bit scary,
-    // but we should be ok as long as we patch grms in lfsr_mdir_commit and
-    // only commit to the mroot.
-    //
-    // Calling lfsr_fs_mkconsistent risks locking our filesystem up trying
-    // to fix grms/orphans before we can commit the new filesystem size. If
-    // we don't, we should always be able to recover a stuck filesystem with
-    // lfsr_fs_grow.
-
-    LFS_DEBUG("Growing littlefs %"PRId32"x%"PRId32" -> %"PRId32"x%"PRId32,
-            lfs->cfg->block_size, lfs->block_count,
-            lfs->cfg->block_size, block_count_);
-
-    // keep track of our current block_count in case we fail
-    lfs_size_t block_count = lfs->block_count;
-
-    // we can use the new blocks immediately as long as the commit
-    // with the new block_count is atomic
-    lfs->block_count = block_count_;
-    // discard stale lookahead buffer
-    lfs_alloc_discard(lfs);
-
-    // update our on-disk config
-    int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_ATTRS(
-            LFSR_ATTR(
-                LFSR_TAG_GEOMETRY, 0,
-                LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
-                    lfs->cfg->block_size,
-                    block_count_})))));
-    if (err) {
-        goto failed;
-    }
-
-    return 0;
-
-failed:;
-    // restore block_count
-    lfs->block_count = block_count;
-    // discard clobbered lookahead buffer
-    lfs_alloc_discard(lfs);
-
-    return err;
-}
-
-
-
-/// High-level filesystem traversal ///
-
-static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
-        lfsr_smid_t mid) {
-    // clobber low-level traversal
-    lfsr_mtree_traverseclobber(lfs, &t->mt, mid);
-
-    // and clear any pending blocks
-    t->blocks[0] = -1;
-    t->blocks[1] = -1;
-}
-
-// needed in lfsr_traversal_open
-static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t);
-
-int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
-    // already open?
-    LFS_ASSERT(!lfsr_omdir_isopen(lfs, &t->mt.o));
-    // some flags don't make sense when only traversing the mtree
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
-    // these flags are internal and shouldn't be provided by the user
-    LFS_ASSERT(!lfsr_f_isdirty(flags));
-
-    // some flags mutate the filesystem
-    if (lfsr_t_ismkconsistent(flags)
-            || lfsr_t_iscompact(flags)) {
-        // prepare our filesystem for writing
-        int err = lfsr_fs_mkconsistent(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
-    // setup traversal state
-    t->mt.o.type = LFS_TYPE_TRAVERSAL;
-    t->mt.o.flags = flags;
-
-    // let rewind initialize/reset things
-    int err = lfsr_traversal_rewind_(lfs, t);
-    if (err) {
-        return err;
-    }
-
-    // add to tracked mdirs
-    lfsr_omdir_open(lfs, &t->mt.o);
-    return 0;
-}
-
-int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *t) {
-    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
-
-    // remove from tracked mdirs
-    lfsr_omdir_close(lfs, &t->mt.o);
-    return 0;
-}
-
-int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
-        struct lfs_tinfo *tinfo) {
-    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
-
-    // traversal dirty and excl? terminate early
-    if (lfsr_t_isexcl(t->mt.o.flags)
-            && lfsr_f_isdirty(t->mt.o.flags)) {
-        return LFS_ERR_BUSY;
-    }
-
-    while (true) {
-        // some redund blocks left over?
-        if (t->blocks[0] != -1) {
-            // write our traversal info
-            tinfo->btype = t->btype;
-            tinfo->block = t->blocks[0];
-
-            t->blocks[0] = t->blocks[1];
-            t->blocks[1] = -1;
-            return 0;
-        }
-
-        // find next block
-        lfsr_mtinfo_t mtinfo;
-        int err = lfsr_mtree_traversemut(lfs, &t->mt, &mtinfo);
-        if (err) {
-            // end of traversal?
-            if (err == LFS_ERR_NOENT) {
-                goto done;
-            }
-            return err;
-        }
-
-        // figure out type/blocks
-        if (mtinfo.tag == LFSR_TAG_MDIR) {
-            t->btype = LFS_BTYPE_MDIR;
-            t->blocks[0] = mtinfo.u.mdir.rbyd.blocks[0];
-            t->blocks[1] = mtinfo.u.mdir.rbyd.blocks[1];
-
-        } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
-            t->btype = LFS_BTYPE_BTREE;
-            t->blocks[0] = mtinfo.u.rbyd.blocks[0];
-            t->blocks[1] = -1;
-
-        } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
-            t->btype = LFS_BTYPE_DATA;
-            t->blocks[0] = mtinfo.u.bptr.data.u.disk.block;
-            t->blocks[1] = -1;
-
-        } else {
-            LFS_UNREACHABLE();
-        }
-    }
-
-done:;
-    // was a lookahead scan successful?
-    if (lfsr_t_islookahead(t->mt.o.flags)
-            && !lfsr_f_isdirty(t->mt.o.flags)) {
-        lfs_alloc_markfree(lfs);
-    }
-
-    return LFS_ERR_NOENT;
-}
-
-static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
-    // reset traversal state
-    lfsr_mtree_traverserewind(lfs, &t->mt);
-    t->blocks[0] = -1;
-    t->blocks[1] = -1;
-
-    // shift the lookahead buffer if requested
-    if (lfsr_t_islookahead(t->mt.o.flags)) {
-        lfs_alloc_shift(lfs);
-    }
-
-    return 0;
-}
-
-int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
-    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
-
-    return lfsr_traversal_rewind_(lfs, t);
-}
-
-
-
 
 
 
@@ -10105,6 +8951,7 @@ empty:;
 
 // needed in lfsr_remove
 static inline bool lfsr_f_iszombie(uint32_t flags);
+static int lfsr_fs_fixgrm(lfs_t *lfs);
 
 int lfsr_remove(lfs_t *lfs, const char *path) {
     // prepare our filesystem for writing
@@ -12596,6 +11443,1306 @@ failed:;
     file->o.flags |= LFS_O_DESYNC;
     return err;
 }
+
+
+
+
+/// High-level filesystem operations ///
+
+// needed in lfs_init
+static int lfs_deinit(lfs_t *lfs);
+
+// initialize littlefs state, assert on bad configuration
+static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
+    // TODO this all needs to be cleaned up
+    lfs->cfg = cfg;
+    int err = 0;
+
+    // validate that the lfs-cfg sizes were initiated properly before
+    // performing any arithmetic logics with them
+    LFS_ASSERT(lfs->cfg->read_size != 0);
+    LFS_ASSERT(lfs->cfg->prog_size != 0);
+    LFS_ASSERT(lfs->cfg->rcache_size != 0);
+    LFS_ASSERT(lfs->cfg->pcache_size != 0);
+
+    // cache sizes must be a multiple of their operation sizes
+    LFS_ASSERT(lfs->cfg->rcache_size % lfs->cfg->read_size == 0);
+    LFS_ASSERT(lfs->cfg->pcache_size % lfs->cfg->prog_size == 0);
+
+    // block_size must be a multiple of both prog/read size
+    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->read_size == 0);
+    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->prog_size == 0);
+
+    // block_size is currently limited to 28-bits
+    LFS_ASSERT(lfs->cfg->block_size <= 0x0fffffff);
+
+//    // check that the block size is large enough to fit ctz pointers
+//    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
+//            <= lfs->cfg->block_size);
+//
+//    // block_cycles = 0 is no longer supported.
+//    //
+//    // block_cycles is the number of erase cycles before littlefs evicts
+//    // metadata logs as a part of wear leveling. Suggested values are in the
+//    // range of 100-1000, or set block_cycles to -1 to disable block-level
+//    // wear-leveling.
+//    LFS_ASSERT(lfs->cfg->block_cycles != 0);
+
+    // inline_size must be <= block_size/4
+    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
+    // shrub_size must be <= block_size/4
+    LFS_ASSERT(lfs->cfg->shrub_size <= lfs->cfg->block_size/4);
+    // fragment_size must be <= block_size/4
+    LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
+
+    // setup block_count so we can mutate it
+    lfs->block_count = lfs->cfg->block_count;
+
+    // setup read cache
+    lfs->rcache.block = 0;
+    lfs->rcache.off = 0;
+    lfs->rcache.size = 0;
+    if (lfs->cfg->rcache_buffer) {
+        lfs->rcache.buffer = lfs->cfg->rcache_buffer;
+    } else {
+        lfs->rcache.buffer = lfs_malloc(lfs->cfg->rcache_size);
+        if (!lfs->rcache.buffer) {
+            err = LFS_ERR_NOMEM;
+            goto failed;
+        }
+    }
+
+    // setup program cache
+    lfs->pcache.block = 0;
+    lfs->pcache.off = 0;
+    lfs->pcache.size = 0;
+    if (lfs->cfg->pcache_buffer) {
+        lfs->pcache.buffer = lfs->cfg->pcache_buffer;
+    } else {
+        lfs->pcache.buffer = lfs_malloc(lfs->cfg->pcache_size);
+        if (!lfs->pcache.buffer) {
+            err = LFS_ERR_NOMEM;
+            goto failed;
+        }
+    }
+
+    // setup lookahead buffer, note mount finishes initializing this after
+    // we establish a decent pseudo-random seed
+    LFS_ASSERT(lfs->cfg->lookahead_size > 0);
+    if (lfs->cfg->lookahead_buffer) {
+        lfs->lookahead.buffer = lfs->cfg->lookahead_buffer;
+    } else {
+        lfs->lookahead.buffer = lfs_malloc(lfs->cfg->lookahead_size);
+        if (!lfs->lookahead.buffer) {
+            err = LFS_ERR_NOMEM;
+            goto failed;
+        }
+    }
+    lfs->lookahead.start = 0;
+    lfs->lookahead.size = 0;
+    lfs->lookahead.next = 0;
+    lfs->lookahead.ckpoint = 0;
+
+    // check that the size limits are sane
+    LFS_ASSERT(lfs->cfg->name_limit <= LFS_NAME_MAX);
+    lfs->name_limit = lfs->cfg->name_limit;
+    if (!lfs->name_limit) {
+        lfs->name_limit = LFS_NAME_MAX;
+    }
+
+    LFS_ASSERT(lfs->cfg->file_limit <= LFS_FILE_MAX);
+    lfs->file_limit = lfs->cfg->file_limit;
+    if (!lfs->file_limit) {
+        lfs->file_limit = LFS_FILE_MAX;
+    }
+
+    // setup default state
+    lfs->seed = 0;
+
+//    lfs->root[0] = LFS_BLOCK_NULL;
+//    lfs->root[1] = LFS_BLOCK_NULL;
+//    lfs->mlist = NULL;
+//    lfs->gdisk = (lfs_gstate_t){0};
+//    lfs->gstate = (lfs_gstate_t){0};
+//    lfs->gdelta = (lfs_gstate_t){0};
+//#ifdef LFS_MIGRATE
+//    lfs->lfs1 = NULL;
+//#endif
+
+    // TODO maybe reorganize this function?
+
+    lfs->hasorphans = false;
+
+    // TODO do we need to recalculate these after mount?
+
+    // find the number of bits to use for recycle counters
+    //
+    // Add 1, to include the initial erase, multiply by 2, since we
+    // alternate which metadata block we erase each compaction, and limit
+    // to 28-bits so we always have some bits to determine the most recent
+    // revision.
+    if (lfs->cfg->block_recycles != -1) {
+        lfs->recycle_bits = lfs_min(
+                lfs_nlog2(2*(lfs->cfg->block_recycles+1)+1)-1,
+                28);
+    } else {
+        lfs->recycle_bits = -1;
+    }
+
+    // calculate the upper-bound cost of a single rbyd attr after compaction
+    //
+    // Note that with rebalancing during compaction, we know the number
+    // of inner nodes is roughly the same as the number of tags. Unfortunately,
+    // our inner node encoding is rather poor, requiring 2 alts and terminating
+    // with a 4-byte null tag:
+    //
+    //   a_0 = 3t + 4
+    //
+    // If we could build each trunk perfectly, we could get this down to only
+    // 1 alt per tag. But this would require unbounded RAM:
+    //
+    //   a_inf = 2t
+    //
+    // Or, if you build a bounded number of layers perfectly:
+    //
+    //         2t   3t + 4
+    //   a_1 = -- + ------
+    //          2      2
+    //
+    //   a_n = 2t*(1-2^-n) + (3t + 4)*2^-n
+    //
+    // But this would be a tradeoff in code complexity.
+    //
+    // The worst-case tag encoding, t, depends on our size-limit and
+    // block-size. The weight can never exceed size-limit, and the size/jump
+    // field can never exceed a single block:
+    //
+    //   t = 2 + log128(file_limit+1) + log128(block_size)
+    //
+    // Note this is different from LFSR_TAG_DSIZE, which is the worst case
+    // tag encoding at compile-time.
+    //
+    uint8_t tag_estimate
+            = 2
+            + (lfs_nlog2(lfs->file_limit+1)+7-1)/7
+            + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
+    LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
+    lfs->attr_estimate = 3*tag_estimate + 4;
+
+    // calculate the number of bits we need to reserve for mdir rids
+    //
+    // Worst case (or best case?) each metadata entry is a single tag. In
+    // theory each entry also needs a name, but with power-of-two rounding,
+    // this is negligible
+    //
+    // Assuming a _perfect_ compaction algorithm (requires unbounded RAM),
+    // each tag also needs ~1 alt, this gives us:
+    //
+    //       block_size   block_size
+    //   m = ---------- = ----------
+    //          a_inf         2t
+    //
+    // Assuming t=4 bytes, the minimum tag encoding:
+    //
+    //       block_size   block_size
+    //   m = ---------- = ----------
+    //           2*4           8
+    //
+    // Note we can't assume ~1/2 block utilization here, as an mdir may
+    // temporarily fill with more mids before compaction occurs.
+    //
+    // Note note our actual compaction algorithm is not perfect, and
+    // requires 3t+4 bytes per tag, or with t=4 bytes => ~block_size/12
+    // metadata entries per block. But we intentionally don't leverage this
+    // to maintain compatibility with a theoretical perfect implementation.
+    //
+    lfs->mdir_bits = lfs_nlog2(lfs->cfg->block_size/8);
+
+    // zero linked-list of opened mdirs
+    lfs->omdirs = NULL;
+
+    // zero gstate
+    lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
+    lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
+
+    return 0;
+
+failed:;
+    lfs_deinit(lfs);
+    return err;
+}
+
+static int lfs_deinit(lfs_t *lfs) {
+    // free allocated memory
+    if (!lfs->cfg->rcache_buffer) {
+        lfs_free(lfs->rcache.buffer);
+    }
+
+    if (!lfs->cfg->pcache_buffer) {
+        lfs_free(lfs->pcache.buffer);
+    }
+
+    if (!lfs->cfg->lookahead_buffer) {
+        lfs_free(lfs->lookahead.buffer);
+    }
+
+    return 0;
+}
+
+
+/// Mount/unmount ///
+
+// compatibility flags
+//
+// - RCOMPAT => Must understand to read the filesystem
+// - WCOMPAT => Must understand to write to the filesystem
+// - OCOMPAT => Don't need to understand, we don't really use these
+//
+// note, "understanding" does not necessarily mean support
+//
+enum lfsr_rcompat {
+    LFSR_RCOMPAT_NONSTANDARD    = 0x0001,
+    LFSR_RCOMPAT_MLEAF          = 0x0002,
+    LFSR_RCOMPAT_MTREE          = 0x0008,
+    LFSR_RCOMPAT_BSPROUT        = 0x0010,
+    LFSR_RCOMPAT_BLEAF          = 0x0020,
+    LFSR_RCOMPAT_BSHRUB         = 0x0040,
+    LFSR_RCOMPAT_BTREE          = 0x0080,
+    LFSR_RCOMPAT_GRM            = 0x0100,
+    // internal
+    LFSR_RCOMPAT_OVERFLOW       = 0x8000,
+};
+
+#define LFSR_RCOMPAT_COMPAT \
+    (LFSR_RCOMPAT_MLEAF \
+        | LFSR_RCOMPAT_MTREE \
+        | LFSR_RCOMPAT_BSPROUT \
+        | LFSR_RCOMPAT_BLEAF \
+        | LFSR_RCOMPAT_BSHRUB \
+        | LFSR_RCOMPAT_BTREE \
+        | LFSR_RCOMPAT_GRM)
+
+enum lfsr_wcompat {
+    LFSR_WCOMPAT_NONSTANDARD    = 0x0001,
+    // internal
+    LFSR_WCOMPAT_OVERFLOW       = 0x8000,
+};
+
+#define LFSR_WCOMPAT_COMPAT 0
+
+enum lfsr_ocompat {
+    LFSR_OCOMPAT_NONSTANDARD    = 0x0001,
+    // internal
+    LFSR_OCOMPAT_OVERFLOW       = 0x8000,
+};
+
+#define LFSR_OCOMPAT_COMPAT 0
+
+typedef uint16_t lfsr_rcompat_t;
+typedef uint16_t lfsr_wcompat_t;
+typedef uint16_t lfsr_ocompat_t;
+
+static inline bool lfsr_rcompat_isincompat(lfsr_rcompat_t rcompat) {
+    return rcompat != LFSR_RCOMPAT_COMPAT;
+}
+
+static inline bool lfsr_wcompat_isincompat(lfsr_wcompat_t wcompat) {
+    return wcompat != LFSR_WCOMPAT_COMPAT;
+}
+
+static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
+    return ocompat != LFSR_OCOMPAT_COMPAT;
+}
+
+// compat flags on-disk encoding
+//
+// little-endian, truncated bits must be assumed zero
+
+#define LFSR_DATA_RCOMPAT(_rcompat) \
+    LFSR_DATA_BUF(((uint8_t[]){ \
+        (((_rcompat) >> 0) & 0xff), \
+        (((_rcompat) >> 8) & 0xff)}), 2)
+
+static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_rcompat_t *rcompat) {
+    // allow truncated rcompat flags
+    uint8_t buf[2] = {0};
+    lfs_ssize_t d = lfsr_data_read(lfs, data, buf, 2);
+    if (d < 0) {
+        return d;
+    }
+    *rcompat = lfs_fromle16_(buf);
+
+    // if any out-of-range flags are set, set the internal overflow bit,
+    // this is a compromise in correctness and and compat-flag complexity
+    //
+    // we don't really care about performance here
+    while (lfsr_data_size(*data) > 0) {
+        lfs_scmp_t cmp = lfsr_data_cmp(lfs, *data, (uint8_t[]){0}, 1);
+        if (cmp < 0) {
+            return cmp;
+        }
+
+        if (cmp != LFS_CMP_EQ) {
+            *rcompat |= LFSR_RCOMPAT_OVERFLOW;
+        }
+
+        *data = lfsr_data_slice(*data, d, -1);
+    }
+
+    return 0;
+}
+
+// all the compat parsing is basically the same, so try to reuse code
+#define LFSR_DATA_WCOMPAT(_wcompat) LFSR_DATA_RCOMPAT(_wcompat)
+
+static int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_wcompat_t *wcompat) {
+    return lfsr_data_readrcompat(lfs, data, wcompat);
+}
+
+#define LFSR_DATA_OCOMPAT(_ocompat) LFSR_DATA_RCOMPAT(_ocompat)
+
+static int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_ocompat_t *ocompat) {
+    return lfsr_data_readrcompat(lfs, data, ocompat);
+}
+
+
+// disk geometry
+//
+// note these are stored minus 1 to avoid overflow issues
+typedef struct lfsr_geometry {
+    lfs_off_t block_size;
+    lfs_off_t block_count;
+} lfsr_geometry_t;
+
+// geometry encoding
+// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
+// | block_size    |      block_count: 1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  total:                 <=9 bytes
+// | block_count       |
+// '---+- -+- -+- -+- -'
+#define LFSR_GEOMETRY_DSIZE (4+5)
+
+#define LFSR_DATA_GEOMETRY_(_geometry, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromgeometry(_geometry, _buffer)}.d)
+
+#define LFSR_DATA_GEOMETRY(_geometry) \
+    LFSR_DATA_GEOMETRY_(_geometry, (uint8_t[LFSR_GEOMETRY_DSIZE]){0})
+
+static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
+        uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
+    lfs_ssize_t d = 0;
+    lfs_ssize_t d_ = lfs_toleb128(geometry->block_size-1, &buffer[d], 4);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
+    d += d_;
+
+    d_ = lfs_toleb128(geometry->block_count-1, &buffer[d], 5);
+    if (d_ < 0) {
+        LFS_UNREACHABLE();
+    }
+    d += d_;
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+static int lfsr_data_readgeometry(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_geometry_t *geometry) {
+    int err = lfsr_data_readlleb128(lfs, data, &geometry->block_size);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_data_readleb128(lfs, data, &geometry->block_count);
+    if (err) {
+        return err;
+    }
+
+    geometry->block_size += 1;
+    geometry->block_count += 1;
+    return 0;
+}
+
+static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
+    // check the disk version
+    uint8_t version[2] = {0, 0};
+    lfsr_data_t data;
+    int err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_VERSION,
+            &data);
+    if (err) {
+        if (err == LFS_ERR_NOENT) {
+            LFS_ERROR("No littlefs version found");
+            return LFS_ERR_CORRUPT;
+        }
+        return err;
+    }
+    lfs_ssize_t d = lfsr_data_read(lfs, &data, version, 2);
+    if (d < 0) {
+        return err;
+    }
+
+    if (version[0] != LFS_DISK_VERSION_MAJOR
+            || version[1] > LFS_DISK_VERSION_MINOR) {
+        LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
+                " (!= v%"PRId32".%"PRId32")",
+                version[0],
+                version[1],
+                LFS_DISK_VERSION_MAJOR,
+                LFS_DISK_VERSION_MINOR);
+        return LFS_ERR_NOTSUP;
+    }
+
+    // check for any rcompatflags, we must understand these to read
+    // the filesystem
+    lfsr_rcompat_t rcompat = 0;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_RCOMPAT,
+            &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readrcompat(lfs, &data, &rcompat);
+        if (err) {
+            return err;
+        }
+    }
+
+    if (lfsr_rcompat_isincompat(rcompat)) {
+        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx16
+                " (!= 0x%0"PRIx16")",
+                rcompat,
+                LFSR_RCOMPAT_COMPAT);
+        return LFS_ERR_NOTSUP;
+    }
+
+    // check for any wcompatflags, we must understand these to write
+    // the filesystem
+    lfsr_wcompat_t wcompat = 0;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_WCOMPAT,
+            &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readwcompat(lfs, &data, &wcompat);
+        if (err) {
+            return err;
+        }
+    }
+
+    // TODO switch to readonly?
+    if (lfsr_wcompat_isincompat(wcompat)) {
+        LFS_ERROR("Incompatible wcompat flags 0x%0"PRIx16
+                " (!= 0x%0"PRIx16")",
+                wcompat,
+                LFSR_WCOMPAT_COMPAT);
+        return LFS_ERR_NOTSUP;
+    }
+
+    // we don't bother to check for any ocompatflags, we would just
+    // ignore these anyways
+
+    // check the on-disk geometry
+    lfsr_geometry_t geometry;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_GEOMETRY,
+            &data);
+    if (err) {
+        if (err == LFS_ERR_NOENT) {
+            LFS_ERROR("No geometry found");
+            return LFS_ERR_INVAL;
+        }
+        return err;
+    }
+    err = lfsr_data_readgeometry(lfs, &data, &geometry);
+    if (err) {
+        return err;
+    }
+
+    // either block_size matches or it doesn't, we don't support variable
+    // block_sizes
+    if (geometry.block_size != lfs->cfg->block_size) {
+        LFS_ERROR("Incompatible block size %"PRId32" (!= %"PRId32")",
+                geometry.block_size,
+                lfs->cfg->block_size);
+        return LFS_ERR_NOTSUP;
+    }
+
+    // on-disk block_count must be <= configured block_count
+    if (geometry.block_count > lfs->cfg->block_count) {
+        LFS_ERROR("Incompatible block count %"PRId32" (> %"PRId32")",
+                geometry.block_count,
+                lfs->cfg->block_count);
+        return LFS_ERR_NOTSUP;
+    }
+
+    lfs->block_count = geometry.block_count;
+
+    // read the name limit
+    lfs_size_t name_limit = 0xff;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
+            &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readleb128(lfs, &data, &name_limit);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+        if (err == LFS_ERR_CORRUPT) {
+            name_limit = -1;
+        }
+    }
+
+    if (name_limit > lfs->name_limit) {
+        LFS_ERROR("Incompatible name limit (%"PRId32" > %"PRId32")",
+                name_limit,
+                lfs->name_limit);
+        return LFS_ERR_NOTSUP;
+    }
+
+    lfs->name_limit = name_limit;
+
+    // read the file limit
+    lfs_off_t file_limit = 0x7fffffff;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_FILELIMIT,
+            &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readleb128(lfs, &data, &file_limit);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+        if (err == LFS_ERR_CORRUPT) {
+            file_limit = -1;
+        }
+    }
+
+    if (file_limit > lfs->file_limit) {
+        LFS_ERROR("Incompatible file limit (%"PRId32" > %"PRId32")",
+                file_limit,
+                lfs->file_limit);
+        return LFS_ERR_NOTSUP;
+    }
+
+    lfs->file_limit = file_limit;
+
+    // check for unknown configs
+    lfsr_tag_t tag;
+    err = lfsr_mdir_lookupnext(lfs, mroot, LFSR_TAG_FILELIMIT+1,
+            &tag, NULL);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+
+    if (err != LFS_ERR_NOENT
+            && lfsr_tag_suptype(tag) == LFSR_TAG_CONFIG) {
+        LFS_ERROR("Unknown config 0x%04"PRIx16,
+                tag);
+        return LFS_ERR_NOTSUP;
+    }
+
+    return 0;
+}
+
+static int lfsr_mountinited(lfs_t *lfs) {
+    // zero gdeltas, we'll read these from our mdirs
+    lfsr_fs_flushgdelta(lfs);
+
+    // default to no mtree, this is allowed and implies all files are inlined
+    // in the mroot
+    lfs->mtree = LFSR_MTREE_NULL();
+
+    // traverse the mtree rooted at mroot 0x{1,0}
+    //
+    // we do validate btree inner nodes here, how can we trust our
+    // mdirs are valid if we haven't checked the btree inner nodes at
+    // least once?
+    lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(
+            LFS_T_MTREEONLY | LFS_T_CKMETA);
+    while (true) {
+        lfsr_mtinfo_t mtinfo;
+        int err = lfsr_mtree_traverse(lfs, &mt, &mtinfo);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+
+        // found an mdir?
+        if (mtinfo.tag == LFSR_TAG_MDIR) {
+            // found an mroot?
+            if (mtinfo.u.mdir.mid == -1) {
+                // check for the magic string, all mroot should have this
+                lfsr_data_t data;
+                int err = lfsr_mdir_lookup(lfs,
+                        &mtinfo.u.mdir, LFSR_TAG_MAGIC,
+                        &data);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No littlefs magic found");
+                        return LFS_ERR_CORRUPT;
+                    }
+                    return err;
+                }
+
+                // treat corrupted magic as no magic
+                lfs_scmp_t cmp = lfsr_data_cmp(lfs, data, "littlefs", 8);
+                if (cmp < 0) {
+                    return cmp;
+                }
+                if (cmp != LFS_CMP_EQ) {
+                    LFS_ERROR("No littlefs magic found");
+                    return LFS_ERR_CORRUPT;
+                }
+
+                // are we the last mroot?
+                err = lfsr_mdir_lookup(lfs, &mtinfo.u.mdir, LFSR_TAG_MROOT,
+                        NULL);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+                if (err == LFS_ERR_NOENT) {
+                    // track active mroot
+                    lfs->mroot = mtinfo.u.mdir;
+
+                    // mount/validate config in active mroot
+                    err = lfsr_mountmroot(lfs, &lfs->mroot);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+            } else {
+                // found a direct mdir? keep track of this
+                if (lfsr_mtree_isnull(&lfs->mtree)) {
+                    lfs->mtree = LFSR_MTREE_MPTR(
+                            *lfsr_mdir_mptr(&mtinfo.u.mdir),
+                            (1 << lfs->mdir_bits));
+                }
+            }
+
+            // toss our cksum into the filesystem seed for pseudorandom
+            // numbers
+            lfs->seed ^= mtinfo.u.mdir.rbyd.cksum;
+
+            // collect any gdeltas from this mdir
+            err = lfsr_fs_consumegdelta(lfs, &mtinfo.u.mdir);
+            if (err) {
+                return err;
+            }
+
+            // check for any orphaned files
+            for (lfs_size_t rid = 0; rid < mtinfo.u.mdir.rbyd.weight; rid++) {
+                lfsr_tag_t tag;
+                err = lfsr_rbyd_sublookup(lfs, &mtinfo.u.mdir.rbyd,
+                        rid, LFSR_TAG_NAME,
+                        &tag, NULL);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    return err;
+                }
+                // name 0 should be reserved
+                LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
+
+                // found an orphaned file?
+                if (tag == LFSR_TAG_ORPHAN) {
+                    LFS_DEBUG("Found orphaned file "
+                            "%"PRId32".%"PRId32,
+                            lfsr_mid_bid(lfs, mtinfo.u.mdir.mid)
+                                >> lfs->mdir_bits,
+                            rid);
+                    lfs->hasorphans = true;
+
+                // found an unknown file type?
+                } else if (lfsr_tag_isunknown(tag)) {
+                    // TODO switch to readonly?
+                    LFS_ERROR("Found unknown file type "
+                            "%"PRId32".%"PRId32" 0x%"PRIx16,
+                            lfsr_mid_bid(lfs, mtinfo.u.mdir.mid)
+                                >> lfs->mdir_bits,
+                            rid,
+                            lfsr_tag_subtype(tag));
+                    return LFS_ERR_NOTSUP;
+                }
+            }
+
+        // found an mtree inner-node?
+        } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
+            // found the root of the mtree? keep track of this
+            if (lfsr_mtree_isnull(&lfs->mtree)) {
+                lfs->mtree.u.btree = mtinfo.u.rbyd;
+            }
+
+        } else {
+            LFS_UNREACHABLE();
+        }
+    }
+
+    // once we've mounted and derived a pseudo-random seed, initialize our
+    // block allocator
+    //
+    // the purpose of this is to avoid bad wear patterns such as always 
+    // allocating blocks near the beginning of disk after a power-loss
+    //
+    lfs->lookahead.start = lfs->seed % lfs->block_count;
+
+    // TODO should the consumegdelta above take gstate/gdelta as a parameter?
+    // keep track of the current gstate on disk
+    lfs_memcpy(lfs->grm_p, lfs->grm_d, LFSR_GRM_DSIZE);
+
+    // decode grm so we can report any removed files as missing
+    int err = lfsr_data_readgrm(lfs,
+            &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
+            &lfs->grm);
+    if (err) {
+        // TODO switch to read-only?
+        return err;
+    }
+
+    // found pending grms? this should only happen if we lost power
+    if (lfsr_grm_count(lfs) == 2) {
+        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, lfs->grm.mids[0]),
+                lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, lfs->grm.mids[1]));
+    } else if (lfsr_grm_count(lfs) == 1) {
+        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
+                lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, lfs->grm.mids[0]));
+    }
+
+    return 0;
+}
+
+int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, cfg);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_mountinited(lfs);
+    if (err) {
+        // make sure we clean up on error
+        lfs_deinit(lfs);
+        return err;
+    }
+
+    // TODO this should use any configured values
+    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
+            "%"PRId32"x%"PRId32" "
+            "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
+            "w%"PRId32".%"PRId32,
+            LFS_DISK_VERSION_MAJOR,
+            LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->block_count,
+            lfs->mroot.rbyd.blocks[0],
+            lfs->mroot.rbyd.blocks[1],
+            lfsr_rbyd_trunk(&lfs->mroot.rbyd),
+            lfsr_mtree_weight_(&lfs->mtree) >> lfs->mdir_bits,
+            1 << lfs->mdir_bits);
+
+    return 0;
+}
+
+int lfsr_unmount(lfs_t *lfs) {
+    // all files/dirs should be closed before lfsr_unmount
+    LFS_ASSERT(lfs->omdirs == NULL);
+
+    return lfs_deinit(lfs);
+}
+
+
+/// Format ///
+
+static int lfsr_formatinited(lfs_t *lfs) {
+    for (int i = 0; i < 2; i++) {
+        // write superblock to both rbyds in the root mroot to hopefully
+        // avoid mounting an older filesystem on disk
+        lfsr_rbyd_t rbyd = {.blocks[0]=i, .eoff=0, .trunk=0};
+
+        int err = lfsr_bd_erase(lfs, rbyd.blocks[0]);
+        if (err) {
+            return err;
+        }
+
+        // the initial revision count is arbitrary, but it's nice to have
+        // something here to tell the initial mroot apart from btree nodes
+        // (rev=0), it's also useful for start with -1 and 0 in the upper
+        // bits to help test overflow/sequence comparison
+        uint32_t rev = (((uint32_t)i-1) << 28)
+                | (((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1)
+                    & 0x00216968);
+        err = lfsr_rbyd_appendrev(lfs, &rbyd, rev);
+        if (err) {
+            return err;
+        }
+
+        // our initial superblock contains a couple things:
+        // - our magic string, "littlefs"
+        // - any format-time configuration
+        // - the root's bookmark tag, which reserves did = 0 for the root
+        err = lfsr_rbyd_commit(lfs, &rbyd, -1, LFSR_ATTRS(
+                LFSR_ATTR(
+                    LFSR_TAG_MAGIC, 0,
+                    LFSR_DATA_BUF("littlefs", 8)),
+                LFSR_ATTR(
+                    LFSR_TAG_VERSION, 0,
+                    LFSR_DATA_BUF(((const uint8_t[2]){
+                        LFS_DISK_VERSION_MAJOR,
+                        LFS_DISK_VERSION_MINOR}), 2)),
+                LFSR_ATTR(
+                    LFSR_TAG_RCOMPAT, 0,
+                    LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT)),
+                LFSR_ATTR(
+                    LFSR_TAG_GEOMETRY, 0,
+                    LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
+                        lfs->cfg->block_size,
+                        lfs->cfg->block_count}))),
+                LFSR_ATTR(
+                    LFSR_TAG_NAMELIMIT, 0,
+                    LFSR_DATA_LLEB128(lfs->name_limit)),
+                LFSR_ATTR(
+                    LFSR_TAG_FILELIMIT, 0,
+                    LFSR_DATA_LEB128(lfs->file_limit)),
+                LFSR_ATTR(
+                    LFSR_TAG_BOOKMARK, +1,
+                    LFSR_DATA_LEB128(0))));
+        if (err) {
+            return err;
+        }
+    }
+
+    // sync on-disk state
+    int err = lfsr_bd_sync(lfs);
+    if (err) {
+        return err;
+    }
+
+    // test that mount works with our formatted disk
+    err = lfsr_mountinited(lfs);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
+int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
+            "%"PRId32"x%"PRId32,
+            LFS_DISK_VERSION_MAJOR,
+            LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->block_count);
+
+    err = lfsr_formatinited(lfs);
+    if (err) {
+        // make sure we clean up on error
+        lfs_deinit(lfs);
+        return err;
+    }
+
+    return lfs_deinit(lfs);
+}
+
+
+
+/// Other filesystem things  ///
+
+int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    fsinfo->block_size = lfs->cfg->block_size;
+    fsinfo->block_count = lfs->block_count;
+    fsinfo->name_limit = lfs->name_limit;
+    fsinfo->file_limit = lfs->file_limit;
+    return 0;
+}
+
+lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
+    lfs_size_t count = 0;
+    lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(0);
+    while (true) {
+        lfsr_mtinfo_t mtinfo;
+        int err = lfsr_mtree_traverse(lfs, &mt, &mtinfo);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+
+        // count the number of blocks we see, yes this may result in duplicates
+        if (mtinfo.tag == LFSR_TAG_MDIR) {
+            count += 2;
+
+        } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
+            count += 1;
+
+        } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
+            count += 1;
+
+        } else {
+            LFS_UNREACHABLE();
+        }
+    }
+
+    return count;
+}
+
+
+// consistency stuff
+
+static int lfsr_fs_fixgrm(lfs_t *lfs) {
+    while (lfsr_grm_count(lfs) > 0) {
+        LFS_ASSERT(lfs->grm.mids[0] != -1);
+
+        // find our mdir
+        lfsr_mdir_t mdir;
+        int err = lfsr_mtree_lookup(lfs, lfs->grm.mids[0],
+                &mdir);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+
+        // we also use grm to track orphans that need to be cleaned up,
+        // which means it may not match the on-disk state, which means
+        // we need to revert manually on error
+        lfsr_grm_t grm_p = lfs->grm;
+
+        // mark grm as taken care of
+        lfsr_grm_pop(lfs);
+
+        // remove the rid while also updating our grm
+        err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
+        if (err) {
+            // revert grm manually
+            lfs->grm = grm_p;
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+static int lfsr_fs_fixorphans(lfs_t *lfs) {
+    // traverse the filesystem and remove any orphaned files
+    //
+    // note this never takes longer than lfsr_mount
+    //
+    lfsr_mdir_t mdir = {.mid=0, .rbyd.weight=0};
+    while (true) {
+        // next mdir?
+        if (lfsr_mid_rid(lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            int err = lfsr_mtree_lookup(lfs, lfsr_mid_bid(lfs, mdir.mid) + 1,
+                    &mdir);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                return err;
+            }
+        }
+
+        // is this mid open? well we're not an orphan then, skip
+        if (!lfsr_omdir_ismidopen(lfs, mdir.mid)) {
+            // are we an orphan file?
+            int err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
+                    NULL);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+
+            if (err != LFS_ERR_NOENT) {
+                // remove orphaned file
+                err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+                        LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
+                if (err) {
+                    return err;
+                }
+
+                continue;
+            }
+        }
+
+        mdir.mid += 1;
+    }
+
+    lfs->hasorphans = false;
+    return 0;
+}
+
+// prepare the filesystem for mutation
+int lfsr_fs_mkconsistent(lfs_t *lfs) {
+    // fix pending grms
+    bool wasinconsistent = false;
+    if (lfsr_grm_count(lfs) > 0) {
+        if (lfsr_grm_count(lfs) == 2) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
+                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
+        } else {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
+        }
+        wasinconsistent = true;
+
+        int err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    // fix orphaned files
+    //
+    // this must happen after fixgrm, since removing orphaned files risks
+    // outdating the grm
+    //
+    if (lfs->hasorphans) {
+        LFS_DEBUG("Fixing orphans...");
+        wasinconsistent = true;
+
+        int err = lfsr_fs_fixorphans(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    if (wasinconsistent) {
+        LFS_DEBUG("littlefs is now consistent");
+    }
+    return 0;
+}
+
+
+int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
+    // shrinking the filesystem is not supported
+    LFS_ASSERT(block_count_ >= lfs->block_count);
+
+    // do nothing if block_count doesn't change
+    if (block_count_ == lfs->block_count) {
+        return 0;
+    }
+
+    // Note we do _not_ call lfsr_fs_mkconsistent here. This is a bit scary,
+    // but we should be ok as long as we patch grms in lfsr_mdir_commit and
+    // only commit to the mroot.
+    //
+    // Calling lfsr_fs_mkconsistent risks locking our filesystem up trying
+    // to fix grms/orphans before we can commit the new filesystem size. If
+    // we don't, we should always be able to recover a stuck filesystem with
+    // lfsr_fs_grow.
+
+    LFS_DEBUG("Growing littlefs %"PRId32"x%"PRId32" -> %"PRId32"x%"PRId32,
+            lfs->cfg->block_size, lfs->block_count,
+            lfs->cfg->block_size, block_count_);
+
+    // keep track of our current block_count in case we fail
+    lfs_size_t block_count = lfs->block_count;
+
+    // we can use the new blocks immediately as long as the commit
+    // with the new block_count is atomic
+    lfs->block_count = block_count_;
+    // discard stale lookahead buffer
+    lfs_alloc_discard(lfs);
+
+    // update our on-disk config
+    int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_GEOMETRY, 0,
+                LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
+                    lfs->cfg->block_size,
+                    block_count_})))));
+    if (err) {
+        goto failed;
+    }
+
+    return 0;
+
+failed:;
+    // restore block_count
+    lfs->block_count = block_count;
+    // discard clobbered lookahead buffer
+    lfs_alloc_discard(lfs);
+
+    return err;
+}
+
+
+
+/// High-level filesystem traversal ///
+
+static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
+        lfsr_smid_t mid) {
+    // clobber low-level traversal
+    lfsr_mtree_traverseclobber(lfs, &t->mt, mid);
+
+    // and clear any pending blocks
+    t->blocks[0] = -1;
+    t->blocks[1] = -1;
+}
+
+// needed in lfsr_traversal_open
+static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t);
+
+int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
+    // already open?
+    LFS_ASSERT(!lfsr_omdir_isopen(lfs, &t->mt.o));
+    // some flags don't make sense when only traversing the mtree
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
+    // these flags are internal and shouldn't be provided by the user
+    LFS_ASSERT(!lfsr_f_isdirty(flags));
+
+    // some flags mutate the filesystem
+    if (lfsr_t_ismkconsistent(flags)
+            || lfsr_t_iscompact(flags)) {
+        // prepare our filesystem for writing
+        int err = lfsr_fs_mkconsistent(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    // setup traversal state
+    t->mt.o.type = LFS_TYPE_TRAVERSAL;
+    t->mt.o.flags = flags;
+
+    // let rewind initialize/reset things
+    int err = lfsr_traversal_rewind_(lfs, t);
+    if (err) {
+        return err;
+    }
+
+    // add to tracked mdirs
+    lfsr_omdir_open(lfs, &t->mt.o);
+    return 0;
+}
+
+int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *t) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
+
+    // remove from tracked mdirs
+    lfsr_omdir_close(lfs, &t->mt.o);
+    return 0;
+}
+
+int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
+        struct lfs_tinfo *tinfo) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
+
+    // traversal dirty and excl? terminate early
+    if (lfsr_t_isexcl(t->mt.o.flags)
+            && lfsr_f_isdirty(t->mt.o.flags)) {
+        return LFS_ERR_BUSY;
+    }
+
+    while (true) {
+        // some redund blocks left over?
+        if (t->blocks[0] != -1) {
+            // write our traversal info
+            tinfo->btype = t->btype;
+            tinfo->block = t->blocks[0];
+
+            t->blocks[0] = t->blocks[1];
+            t->blocks[1] = -1;
+            return 0;
+        }
+
+        // find next block
+        lfsr_mtinfo_t mtinfo;
+        int err = lfsr_mtree_traversemut(lfs, &t->mt, &mtinfo);
+        if (err) {
+            // end of traversal?
+            if (err == LFS_ERR_NOENT) {
+                goto done;
+            }
+            return err;
+        }
+
+        // figure out type/blocks
+        if (mtinfo.tag == LFSR_TAG_MDIR) {
+            t->btype = LFS_BTYPE_MDIR;
+            t->blocks[0] = mtinfo.u.mdir.rbyd.blocks[0];
+            t->blocks[1] = mtinfo.u.mdir.rbyd.blocks[1];
+
+        } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
+            t->btype = LFS_BTYPE_BTREE;
+            t->blocks[0] = mtinfo.u.rbyd.blocks[0];
+            t->blocks[1] = -1;
+
+        } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
+            t->btype = LFS_BTYPE_DATA;
+            t->blocks[0] = mtinfo.u.bptr.data.u.disk.block;
+            t->blocks[1] = -1;
+
+        } else {
+            LFS_UNREACHABLE();
+        }
+    }
+
+done:;
+    // was a lookahead scan successful?
+    if (lfsr_t_islookahead(t->mt.o.flags)
+            && !lfsr_f_isdirty(t->mt.o.flags)) {
+        lfs_alloc_markfree(lfs);
+    }
+
+    return LFS_ERR_NOENT;
+}
+
+static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
+    // reset traversal state
+    lfsr_mtree_traverserewind(lfs, &t->mt);
+    t->blocks[0] = -1;
+    t->blocks[1] = -1;
+
+    // shift the lookahead buffer if requested
+    if (lfsr_t_islookahead(t->mt.o.flags)) {
+        lfs_alloc_shift(lfs);
+    }
+
+    return 0;
+}
+
+int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->mt.o));
+
+    return lfsr_traversal_rewind_(lfs, t);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -15970,244 +16117,6 @@ failed:;
 //}
 //#endif
 //
-
-/// Filesystem operations ///
-static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
-    // TODO this all needs to be cleaned up
-    lfs->cfg = cfg;
-    int err = 0;
-
-    // validate that the lfs-cfg sizes were initiated properly before
-    // performing any arithmetic logics with them
-    LFS_ASSERT(lfs->cfg->read_size != 0);
-    LFS_ASSERT(lfs->cfg->prog_size != 0);
-    LFS_ASSERT(lfs->cfg->rcache_size != 0);
-    LFS_ASSERT(lfs->cfg->pcache_size != 0);
-
-    // cache sizes must be a multiple of their operation sizes
-    LFS_ASSERT(lfs->cfg->rcache_size % lfs->cfg->read_size == 0);
-    LFS_ASSERT(lfs->cfg->pcache_size % lfs->cfg->prog_size == 0);
-
-    // block_size must be a multiple of both prog/read size
-    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->read_size == 0);
-    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->prog_size == 0);
-
-    // block_size is currently limited to 28-bits
-    LFS_ASSERT(lfs->cfg->block_size <= 0x0fffffff);
-
-//    // check that the block size is large enough to fit ctz pointers
-//    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
-//            <= lfs->cfg->block_size);
-//
-//    // block_cycles = 0 is no longer supported.
-//    //
-//    // block_cycles is the number of erase cycles before littlefs evicts
-//    // metadata logs as a part of wear leveling. Suggested values are in the
-//    // range of 100-1000, or set block_cycles to -1 to disable block-level
-//    // wear-leveling.
-//    LFS_ASSERT(lfs->cfg->block_cycles != 0);
-
-    // inline_size must be <= block_size/4
-    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
-    // shrub_size must be <= block_size/4
-    LFS_ASSERT(lfs->cfg->shrub_size <= lfs->cfg->block_size/4);
-    // fragment_size must be <= block_size/4
-    LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
-
-    // setup block_count so we can mutate it
-    lfs->block_count = lfs->cfg->block_count;
-
-    // setup read cache
-    lfs->rcache.block = 0;
-    lfs->rcache.off = 0;
-    lfs->rcache.size = 0;
-    if (lfs->cfg->rcache_buffer) {
-        lfs->rcache.buffer = lfs->cfg->rcache_buffer;
-    } else {
-        lfs->rcache.buffer = lfs_malloc(lfs->cfg->rcache_size);
-        if (!lfs->rcache.buffer) {
-            err = LFS_ERR_NOMEM;
-            goto failed;
-        }
-    }
-
-    // setup program cache
-    lfs->pcache.block = 0;
-    lfs->pcache.off = 0;
-    lfs->pcache.size = 0;
-    if (lfs->cfg->pcache_buffer) {
-        lfs->pcache.buffer = lfs->cfg->pcache_buffer;
-    } else {
-        lfs->pcache.buffer = lfs_malloc(lfs->cfg->pcache_size);
-        if (!lfs->pcache.buffer) {
-            err = LFS_ERR_NOMEM;
-            goto failed;
-        }
-    }
-
-    // setup lookahead buffer, note mount finishes initializing this after
-    // we establish a decent pseudo-random seed
-    LFS_ASSERT(lfs->cfg->lookahead_size > 0);
-    if (lfs->cfg->lookahead_buffer) {
-        lfs->lookahead.buffer = lfs->cfg->lookahead_buffer;
-    } else {
-        lfs->lookahead.buffer = lfs_malloc(lfs->cfg->lookahead_size);
-        if (!lfs->lookahead.buffer) {
-            err = LFS_ERR_NOMEM;
-            goto failed;
-        }
-    }
-    lfs->lookahead.start = 0;
-    lfs->lookahead.size = 0;
-    lfs->lookahead.next = 0;
-    lfs->lookahead.ckpoint = 0;
-
-    // check that the size limits are sane
-    LFS_ASSERT(lfs->cfg->name_limit <= LFS_NAME_MAX);
-    lfs->name_limit = lfs->cfg->name_limit;
-    if (!lfs->name_limit) {
-        lfs->name_limit = LFS_NAME_MAX;
-    }
-
-    LFS_ASSERT(lfs->cfg->file_limit <= LFS_FILE_MAX);
-    lfs->file_limit = lfs->cfg->file_limit;
-    if (!lfs->file_limit) {
-        lfs->file_limit = LFS_FILE_MAX;
-    }
-
-    // setup default state
-    lfs->seed = 0;
-
-//    lfs->root[0] = LFS_BLOCK_NULL;
-//    lfs->root[1] = LFS_BLOCK_NULL;
-//    lfs->mlist = NULL;
-//    lfs->gdisk = (lfs_gstate_t){0};
-//    lfs->gstate = (lfs_gstate_t){0};
-//    lfs->gdelta = (lfs_gstate_t){0};
-//#ifdef LFS_MIGRATE
-//    lfs->lfs1 = NULL;
-//#endif
-
-    // TODO maybe reorganize this function?
-
-    lfs->hasorphans = false;
-
-    // TODO do we need to recalculate these after mount?
-
-    // find the number of bits to use for recycle counters
-    //
-    // Add 1, to include the initial erase, multiply by 2, since we
-    // alternate which metadata block we erase each compaction, and limit
-    // to 28-bits so we always have some bits to determine the most recent
-    // revision.
-    if (lfs->cfg->block_recycles != -1) {
-        lfs->recycle_bits = lfs_min(
-                lfs_nlog2(2*(lfs->cfg->block_recycles+1)+1)-1,
-                28);
-    } else {
-        lfs->recycle_bits = -1;
-    }
-
-    // calculate the upper-bound cost of a single rbyd attr after compaction
-    //
-    // Note that with rebalancing during compaction, we know the number
-    // of inner nodes is roughly the same as the number of tags. Unfortunately,
-    // our inner node encoding is rather poor, requiring 2 alts and terminating
-    // with a 4-byte null tag:
-    //
-    //   a_0 = 3t + 4
-    //
-    // If we could build each trunk perfectly, we could get this down to only
-    // 1 alt per tag. But this would require unbounded RAM:
-    //
-    //   a_inf = 2t
-    //
-    // Or, if you build a bounded number of layers perfectly:
-    //
-    //         2t   3t + 4
-    //   a_1 = -- + ------
-    //          2      2
-    //
-    //   a_n = 2t*(1-2^-n) + (3t + 4)*2^-n
-    //
-    // But this would be a tradeoff in code complexity.
-    //
-    // The worst-case tag encoding, t, depends on our size-limit and
-    // block-size. The weight can never exceed size-limit, and the size/jump
-    // field can never exceed a single block:
-    //
-    //   t = 2 + log128(file_limit+1) + log128(block_size)
-    //
-    // Note this is different from LFSR_TAG_DSIZE, which is the worst case
-    // tag encoding at compile-time.
-    //
-    uint8_t tag_estimate
-            = 2
-            + (lfs_nlog2(lfs->file_limit+1)+7-1)/7
-            + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
-    LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
-    lfs->attr_estimate = 3*tag_estimate + 4;
-
-    // calculate the number of bits we need to reserve for mdir rids
-    //
-    // Worst case (or best case?) each metadata entry is a single tag. In
-    // theory each entry also needs a name, but with power-of-two rounding,
-    // this is negligible
-    //
-    // Assuming a _perfect_ compaction algorithm (requires unbounded RAM),
-    // each tag also needs ~1 alt, this gives us:
-    //
-    //       block_size   block_size
-    //   m = ---------- = ----------
-    //          a_inf         2t
-    //
-    // Assuming t=4 bytes, the minimum tag encoding:
-    //
-    //       block_size   block_size
-    //   m = ---------- = ----------
-    //           2*4           8
-    //
-    // Note we can't assume ~1/2 block utilization here, as an mdir may
-    // temporarily fill with more mids before compaction occurs.
-    //
-    // Note note our actual compaction algorithm is not perfect, and
-    // requires 3t+4 bytes per tag, or with t=4 bytes => ~block_size/12
-    // metadata entries per block. But we intentionally don't leverage this
-    // to maintain compatibility with a theoretical perfect implementation.
-    //
-    lfs->mdir_bits = lfs_nlog2(lfs->cfg->block_size/8);
-
-    // zero linked-list of opened mdirs
-    lfs->omdirs = NULL;
-
-    // zero gstate
-    lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
-    lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
-
-    return 0;
-
-failed:;
-    lfs_deinit(lfs);
-    return err;
-}
-
-static int lfs_deinit(lfs_t *lfs) {
-    // free allocated memory
-    if (!lfs->cfg->rcache_buffer) {
-        lfs_free(lfs->rcache.buffer);
-    }
-
-    if (!lfs->cfg->pcache_buffer) {
-        lfs_free(lfs->pcache.buffer);
-    }
-
-    if (!lfs->cfg->lookahead_buffer) {
-        lfs_free(lfs->lookahead.buffer);
-    }
-
-    return 0;
-}
-
 //#ifndef LFS_READONLY
 //static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
 //    int err = 0;
