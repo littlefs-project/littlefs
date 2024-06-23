@@ -605,14 +605,10 @@ typedef struct lfsr_btraversal {
 typedef struct lfsr_mtraversal {
     // core state machine in o.state
     lfsr_omdir_t o;
-    // we really don't want to pay the RAM cost for a full file,
-    // so only store the relevant bits, is this a hack? yes
-    const struct lfs_file_config *cfg;
-    lfsr_bshrub_t bshrub;
-
-    // opened file state, we use an indirect pointer here so we
-    // always point to data associated with the current mid
+    // opened file state
     lfsr_omdir_t *ot;
+    // bshrub/btree state
+    lfsr_bshrub_t bshrub;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
