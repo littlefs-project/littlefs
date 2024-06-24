@@ -105,6 +105,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                  ) \
     TEST_DEFINE(FILE_BUFFER_SIZE,   16                                      ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
+    TEST_DEFINE(GC_COMPACT_THRESH,  0                                       ) \
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
     TEST_DEFINE(SHRUB_SIZE,         INLINE_SIZE                             ) \
     TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
@@ -134,6 +135,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .pcache_size        = PCACHE_SIZE,          \
     .file_buffer_size   = FILE_BUFFER_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
+    .gc_compact_thresh  = GC_COMPACT_THRESH,    \
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \
     .fragment_size      = FRAGMENT_SIZE,        \

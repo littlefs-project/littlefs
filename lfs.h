@@ -268,6 +268,17 @@ struct lfs_config {
     // can track 8 blocks.
     lfs_size_t lookahead_size;
 
+    // Threshold for metadata compaction during gc in bytes. Metadata logs
+    // that exceed this threshold will be compacted during gc operations.
+    // Defaults to ~88% block_size when zero, though this default may change
+    // in the future.
+    //
+    // Note this only affects explicit gc operations. Otherwise metadata is
+    // only compacted when full.
+    //
+    // Set to -1 to disable metadata compaction during gc.
+    lfs_size_t gc_compact_thresh;
+
     // Optional statically allocated read buffer. Must be rcache_size. By
     // default lfs_malloc is used to allocate this buffer.
     void *rcache_buffer;

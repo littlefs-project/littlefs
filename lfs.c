@@ -5903,12 +5903,12 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
 static void lfsr_omdir_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty) {
     for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
         if (o_->type == LFS_TYPE_TRAVERSAL) {
+            lfsr_traversal_t *t = (lfsr_traversal_t*)o_;
             // mark _all_ traversals as dirty if we're mutating the
             // filesystem at all
-            o_->flags |= (dirty) ? LFS_F_DIRTY : 0;
+            t->mt.flags |= (dirty) ? LFS_F_DIRTY : 0;
 
             // clobber any traversals referencing our mdir
-            lfsr_traversal_t *t = (lfsr_traversal_t*)o_;
             if (t->mt.o == o) {
                 lfsr_traversal_clobber(lfs, t, -1);
             }
@@ -7229,7 +7229,9 @@ static void lfs_alloc_ckpoint(lfs_t *lfs);
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // non-mroot mdirs must have weight
-    LFS_ASSERT(lfsr_mdir_cmp(mdir, &lfs->mroot) == 0
+    LFS_ASSERT(mdir->mid == -1
+            // note inlined mdirs are mroots with mid != -1
+            || lfsr_mdir_cmp(mdir, &lfs->mroot) == 0
             || mdir->rbyd.weight > 0);
     // rid in-bounds?
     LFS_ASSERT(lfsr_mid_rid(lfs, mdir->mid)
@@ -7789,8 +7791,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // clobber any related traversals
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (o->type == LFS_TYPE_TRAVERSAL) {
+            // don't clobber the current mdir, we assume upper layers know
+            // what they're doing
+            if (&o->mdir == mdir) {
+                continue;
+            }
+
             // mark all traversals as dirty
-            o->flags |= LFS_F_DIRTY;
+            ((lfsr_traversal_t*)o)->mt.flags |= LFS_F_DIRTY;
 
             // clobber any mdir related traversals
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
@@ -7831,8 +7839,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update mdir to follow requested rid
-    LFS_ASSERT(mdir->mid != -1 || mdir == &lfs->mroot);
     if (mdelta > 0
+            && mdir->mid == -1) {
+        mdir->rbyd = mroot_.rbyd;
+    } else if (mdelta > 0
             && lfsr_mid_rid(lfs, mdir->mid)
                 >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
         mdir->mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
@@ -7851,6 +7861,13 @@ failed:;
     // revert gstate to on-disk state
     lfsr_fs_revertgdelta(lfs);
     return err;
+}
+
+static int lfsr_mdir_compact(lfs_t *lfs, lfsr_mdir_t *mdir) {
+    // the easiest way to do this is to just mark mdir as unerased
+    // and call lfsr_mdir_commit
+    mdir->rbyd.eoff = -1;
+    return lfsr_mdir_commit(lfs, mdir, NULL, 0);
 }
 
 
@@ -8538,11 +8555,58 @@ static int lfsr_mtree_traverse(lfs_t *lfs,
 
 // high-level mutating traversal, handle extra features that require
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
-static int lfsr_mtree_traversemut(lfs_t *lfs,
+static int lfsr_mtree_gc(lfs_t *lfs,
         lfsr_mdir_t *mdir, lfsr_mtraversal_t *mt,
         lfsr_mtinfo_t *mtinfo) {
-    // TODO
-    return lfsr_mtree_traverse(lfs, mdir, mt, mtinfo);
+    int err = lfsr_mtree_traverse(lfs, mdir, mt, mtinfo);
+    if (err) {
+        return err;
+    }
+
+    // compacting mdirs?
+    if (lfsr_t_iscompact(mt->flags)
+            && mtinfo->tag == LFSR_TAG_MDIR
+            // exceed compaction threshold?
+            && lfsr_rbyd_eoff(&mtinfo->u.mdir.rbyd)
+                > ((lfs->cfg->gc_compact_thresh)
+                    ? lfs->cfg->gc_compact_thresh
+                    : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
+        LFS_DEBUG("Compacting mdir %"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"} "
+                "(%"PRId32" > %"PRId32")",
+                mtinfo->u.mdir.mid >> lfs->mdir_bits,
+                mtinfo->u.mdir.rbyd.blocks[0],
+                mtinfo->u.mdir.rbyd.blocks[1],
+                lfsr_rbyd_eoff(&mtinfo->u.mdir.rbyd),
+                (lfs->cfg->gc_compact_thresh)
+                    ? lfs->cfg->gc_compact_thresh
+                    : lfs->cfg->block_size - lfs->cfg->block_size/8);
+
+        // TODO should we really have two mdir copies flying around?
+        LFS_ASSERT(lfsr_mdir_cmp(mdir, &mtinfo->u.mdir) == 0);
+        int err = lfsr_mdir_compact(lfs, mdir);
+        if (err) {
+            return err;
+        }
+        mtinfo->u.mdir = *mdir;
+
+        mt->flags |= LFS_F_DIRTY;
+    }
+
+//    // TODO
+//    // compacting btree nodes?
+//    if (lfsr_t_iscompact(mt->flags)
+//            && mtinfo->tag == LFSR_TAG_BTREE
+//            // exceed compaction threshold?
+//            && lfsr_rbyd_eoff(&mtinfo->u.rbyd)
+//                > ((lfs->cfg->gc_compact_thresh)
+//                    ? lfs->cfg->gc_compact_thresh
+//                    : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
+//
+//        // TODO clobber?
+//    }
+
+    return 0;
 }
 
 
@@ -11465,6 +11529,15 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 //    // wear-leveling.
 //    LFS_ASSERT(lfs->cfg->block_cycles != 0);
 
+    // check that gc_compact_thresh makes sense
+    //
+    // metadata can't be compacted below block_size/2, and metadata can't
+    // exceed a block
+    LFS_ASSERT(lfs->cfg->gc_compact_thresh == 0
+            || lfs->cfg->gc_compact_thresh >= lfs->cfg->block_size/2);
+    LFS_ASSERT(lfs->cfg->gc_compact_thresh == (lfs_size_t)-1
+            || lfs->cfg->gc_compact_thresh <= lfs->cfg->block_size);
+
     // inline_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
     // shrub_size must be <= block_size/4
@@ -12618,8 +12691,8 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o));
 
     // traversal dirty and excl? terminate early
-    if (lfsr_t_isexcl(t->o.flags)
-            && lfsr_f_isdirty(t->o.flags)) {
+    if (lfsr_t_isexcl(t->mt.flags)
+            && lfsr_f_isdirty(t->mt.flags)) {
         return LFS_ERR_BUSY;
     }
 
@@ -12627,7 +12700,7 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         // some redund blocks left over?
         if (t->blocks[0] != -1) {
             // write our traversal info
-            tinfo->btype = lfsr_t_btype(t->o.flags);
+            tinfo->btype = lfsr_t_btype(t->mt.flags);
             tinfo->block = t->blocks[0];
 
             t->blocks[0] = t->blocks[1];
@@ -12637,7 +12710,7 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
         // find next block
         lfsr_mtinfo_t mtinfo;
-        int err = lfsr_mtree_traversemut(lfs, &t->o.mdir, &t->mt, &mtinfo);
+        int err = lfsr_mtree_gc(lfs, &t->o.mdir, &t->mt, &mtinfo);
         if (err) {
             // end of traversal?
             if (err == LFS_ERR_NOENT) {
@@ -12646,19 +12719,26 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
             return err;
         }
 
+        // traversal may itself set the dirty flag if it required
+        // mutation to make progress
+        if (lfsr_t_isexcl(t->mt.flags)
+                && lfsr_f_isdirty(t->mt.flags)) {
+            return LFS_ERR_BUSY;
+        }
+
         // figure out type/blocks
         if (mtinfo.tag == LFSR_TAG_MDIR) {
-            t->o.flags = (t->o.flags & ~0x7) | LFS_BTYPE_MDIR;
+            t->mt.flags = (t->mt.flags & ~0x7) | LFS_BTYPE_MDIR;
             t->blocks[0] = mtinfo.u.mdir.rbyd.blocks[0];
             t->blocks[1] = mtinfo.u.mdir.rbyd.blocks[1];
 
         } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
-            t->o.flags = (t->o.flags & ~0x7) | LFS_BTYPE_BTREE;
+            t->mt.flags = (t->mt.flags & ~0x7) | LFS_BTYPE_BTREE;
             t->blocks[0] = mtinfo.u.rbyd.blocks[0];
             t->blocks[1] = -1;
 
         } else if (mtinfo.tag == LFSR_TAG_BLOCK) {
-            t->o.flags = (t->o.flags & ~0x7) | LFS_BTYPE_DATA;
+            t->mt.flags = (t->mt.flags & ~0x7) | LFS_BTYPE_DATA;
             t->blocks[0] = mtinfo.u.bptr.data.u.disk.block;
             t->blocks[1] = -1;
 
@@ -12669,8 +12749,8 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
 done:;
     // was a lookahead scan successful?
-    if (lfsr_t_islookahead(t->o.flags)
-            && !lfsr_f_isdirty(t->o.flags)) {
+    if (lfsr_t_islookahead(t->mt.flags)
+            && !lfsr_f_isdirty(t->mt.flags)) {
         lfs_alloc_markfree(lfs);
     }
 
@@ -12703,9 +12783,7 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t,
 
 static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     (void)lfs;
-    // clear sticky flags
-    t->o.flags &= ~LFS_F_DIRTY;
-    // reset traversal
+    // reset traversal, note this clears any sticky bits
     t->o.mdir = LFSR_MDIR_NULL();
     t->mt = LFSR_MTRAVERSAL(t->o.flags);
 
@@ -12714,7 +12792,7 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     t->blocks[1] = -1;
 
     // shift the lookahead buffer if requested
-    if (lfsr_t_islookahead(t->o.flags)) {
+    if (lfsr_t_islookahead(t->mt.flags)) {
         lfs_alloc_shift(lfs);
     }
 
