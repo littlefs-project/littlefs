@@ -474,7 +474,6 @@ typedef struct lfsr_mdir {
 typedef struct lfsr_omdir {
     struct lfsr_omdir *next;
     uint8_t type;
-    uint8_t state;
     uint16_t flags;
     lfsr_mdir_t mdir;
 } lfsr_omdir_t;
@@ -603,10 +602,11 @@ typedef struct lfsr_btraversal {
 } lfsr_btraversal_t;
 
 typedef struct lfsr_mtraversal {
-    // core state machine in o.state
-    lfsr_omdir_t o;
+    // core state machine
+    uint8_t state;
+    uint16_t flags;
     // opened file state
-    lfsr_omdir_t *ot;
+    lfsr_omdir_t *o;
     // bshrub/btree state
     lfsr_bshrub_t bshrub;
     union {
@@ -622,9 +622,8 @@ typedef struct lfsr_mtraversal {
 } lfsr_mtraversal_t;
 
 typedef struct lfsr_traversal {
-    // lfsr_mtraversal_t contains most of what we need
+    lfsr_omdir_t o;
     lfsr_mtraversal_t mt;
-    uint8_t btype;
     lfs_sblock_t blocks[2];
 } lfsr_traversal_t;
 
