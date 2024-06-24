@@ -174,10 +174,10 @@ enum lfs_traversal_flags {
     LFS_T_LOOKAHEAD     = 0x0040, // Populate lookahead buffer
     LFS_T_COMPACT       = 0x0080, // Compact metadata logs
     LFS_T_CKMETA        = 0x0100, // Check metadata checksums
-    LFS_T_CKDATA        = 0x0200, // Check data checksums
+    LFS_T_CK            = 0x0200, // Check metadata + data checksums
 // TODO
 //    LFS_T_REPAIRMETA    = 0x0400, // Repair metadata blocks
-//    LFS_T_REPAIRDATA    = 0x0800, // Repair data blocks
+//    LFS_T_REPAIR        = 0x0800, // Repair metadata + data blocks
 
     // internally used flags
     LFS_F_DIRTY         = 0x1000, // Filesystem has been modified

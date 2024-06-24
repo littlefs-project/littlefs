@@ -8188,8 +8188,8 @@ static inline bool lfsr_t_isckmeta(uint32_t flags) {
     return flags & LFS_T_CKMETA;
 }
 
-static inline bool lfsr_t_isckdata(uint32_t flags) {
-    return flags & LFS_T_CKDATA;
+static inline bool lfsr_t_isck(uint32_t flags) {
+    return flags & LFS_T_CK;
 }
 
 static inline bool lfsr_f_isdirty(uint32_t flags) {
@@ -8497,7 +8497,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs,
     }
 
     // validate btree nodes? note mdirs are already validated
-    if (lfsr_t_isckmeta(mt->flags)
+    if ((lfsr_t_isckmeta(mt->flags) || lfsr_t_isck(mt->flags))
             && mtinfo->tag == LFSR_TAG_BRANCH) {
         err = lfsr_rbyd_fetchck(lfs, &mtinfo->u.rbyd,
                 mtinfo->u.rbyd.blocks[0], mtinfo->u.rbyd.trunk,
@@ -8508,7 +8508,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs,
     }
 
     // validate data blocks?
-    if (lfsr_t_isckdata(mt->flags)
+    if (lfsr_t_isck(mt->flags)
             && mtinfo->tag == LFSR_TAG_BLOCK) {
         err = lfsr_bptr_ck(lfs, &mtinfo->u.bptr);
         if (err) {
@@ -12576,7 +12576,7 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     LFS_ASSERT(!lfsr_omdir_isopen(lfs, &t->o));
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isck(flags));
     // these flags are internal and shouldn't be provided by the user
     LFS_ASSERT(!lfsr_f_isdirty(flags));
 
