@@ -296,7 +296,7 @@ static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
 // low-level prog stuff
 static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // prog to disk
     int err = lfsr_bd_prog__(lfs, block, off, buffer, size);
     if (err) {
@@ -338,15 +338,15 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     }
 
     // optional aligned checksum
-    if (cksum_ && align) {
-        *cksum_ = lfs_crc32c(*cksum_, buffer, size);
+    if (cksum && align) {
+        *cksum = lfs_crc32c(*cksum, buffer, size);
     }
 
     return 0;
 }
 
 // flush the pcache
-static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_, bool align) {
+static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum, bool align) {
     if (lfs->pcache.size != 0) {
         // must be in-bounds
         LFS_ASSERT(lfs->pcache.block < lfs->block_count);
@@ -361,7 +361,7 @@ static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_, bool align) {
         // flush
         int err = lfsr_bd_prog_(lfs, lfs->pcache.block,
                 lfs->pcache.off, lfs->pcache.buffer, size,
-                cksum_, align);
+                cksum, align);
         if (err) {
             return err;
         }
@@ -376,7 +376,7 @@ static int lfsr_bd_flush(lfs_t *lfs, uint32_t *cksum_, bool align) {
 static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_size_t size,
         uint8_t **buffer_, lfs_size_t *size_,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
@@ -403,7 +403,7 @@ static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
             }
 
             // flush pcache?
-            int err = lfsr_bd_flush(lfs, cksum_, align);
+            int err = lfsr_bd_flush(lfs, cksum, align);
             if (err) {
                 return err;
             }
@@ -432,7 +432,7 @@ static int lfsr_bd_prognext(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 // with optional checksum
 static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         const void *buffer, lfs_size_t size,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
@@ -452,7 +452,7 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
             lfs_size_t size__;
             int err = lfsr_bd_prognext(lfs, block, off_, size_,
                     &buffer__, &size__,
-                    cksum_, align);
+                    cksum, align);
             if (err) {
                 return err;
             }
@@ -470,14 +470,14 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
                 && size_ >= lfs->cfg->pcache_size) {
             // flush our pcache first, some devices don't support
             // out-of-order progs in a block
-            int err = lfsr_bd_flush(lfs, cksum_, align);
+            int err = lfsr_bd_flush(lfs, cksum, align);
             if (err) {
                 return err;
             }
 
             lfs_size_t d = lfs_aligndown(size_, lfs->cfg->prog_size);
             err = lfsr_bd_prog_(lfs, block, off_, buffer_, d,
-                    cksum_, align);
+                    cksum, align);
             if (err) {
                 return err;
             }
@@ -493,15 +493,15 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_size_t size__;
         int err = lfsr_bd_prognext(lfs, block, off_, size_,
                 &buffer__, &size__,
-                cksum_, align);
+                cksum, align);
         if (err) {
             return err;
         }
     }
 
     // optional checksum
-    if (cksum_ && !align) {
-        *cksum_ = lfs_crc32c(*cksum_, buffer, size);
+    if (cksum && !align) {
+        *cksum = lfs_crc32c(*cksum, buffer, size);
     }
 
     return 0;
@@ -538,7 +538,7 @@ static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
 static int lfsr_bd_cksum(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfs_size_t size,
-        uint32_t *cksum_) {
+        uint32_t *cksum) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
@@ -555,7 +555,7 @@ static int lfsr_bd_cksum(lfs_t *lfs,
             return err;
         }
 
-        *cksum_ = lfs_crc32c(*cksum_, buffer__, size__);
+        *cksum = lfs_crc32c(*cksum, buffer__, size__);
 
         off_ += size__;
         hint_ -= size__;
@@ -603,7 +603,7 @@ static int lfsr_bd_cpy(lfs_t *lfs,
         lfs_block_t dst_block, lfs_size_t dst_off,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
         lfs_size_t size,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // we don't really use hint here because we go through our pcache
     (void)hint;
     // must be in-bounds
@@ -623,7 +623,7 @@ static int lfsr_bd_cpy(lfs_t *lfs,
         lfs_size_t size__;
         int err = lfsr_bd_prognext(lfs, dst_block, dst_off_, size_,
                 &buffer__, &size__,
-                cksum_, align);
+                cksum, align);
         if (err) {
             return err;
         }
@@ -635,8 +635,8 @@ static int lfsr_bd_cpy(lfs_t *lfs,
         }
 
         // optional checksum
-        if (cksum_ && !align) {
-            *cksum_ = lfs_crc32c(*cksum_, buffer__, size__);
+        if (cksum && !align) {
+            *cksum = lfs_crc32c(*cksum, buffer__, size__);
         }
 
         dst_off_ += size__;
@@ -649,7 +649,7 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 
 static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint8_t c, lfs_size_t size,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(off+size <= lfs->cfg->block_size);
@@ -661,7 +661,7 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_size_t size__;
         int err = lfsr_bd_prognext(lfs, block, off_, size_,
                 &buffer__, &size__,
-                cksum_, align);
+                cksum, align);
         if (err) {
             return err;
         }
@@ -669,8 +669,8 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         lfs_memset(buffer__, c, size__);
 
         // optional checksum
-        if (cksum_ && !align) {
-            *cksum_ = lfs_crc32c(*cksum_, buffer__, size__);
+        if (cksum && !align) {
+            *cksum = lfs_crc32c(*cksum, buffer__, size__);
         }
 
         off_ += size__;
@@ -1132,7 +1132,7 @@ static inline bool lfsr_tag_diverging2(
 static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfs_size_t *size_,
-        uint32_t *cksum_) {
+        uint32_t *cksum) {
     // read the largest possible tag size
     uint8_t tag_buf[LFSR_TAG_DSIZE];
     lfs_size_t tag_dsize = lfs_min(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
@@ -1150,11 +1150,11 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
             | ((lfsr_tag_t)tag_buf[1] << 0);
     lfs_ssize_t d = 2;
 
-    if (cksum_) {
+    if (cksum) {
         // on-disk, the tags valid bit must reflect the parity of the
         // preceding data, fortunately for crc32c, this is the same as the
         // parity of the crc
-        if ((tag >> 15) != lfs_parity(*cksum_)) {
+        if ((tag >> 15) != lfs_parity(*cksum)) {
             return LFS_ERR_CORRUPT;
         }
     }
@@ -1182,8 +1182,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     d += d_;
 
     // optional checksum
-    if (cksum_) {
-        *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
+    if (cksum) {
+        *cksum = lfs_crc32c(*cksum, tag_buf, d);
     }
 
     // save what we found, clearing the valid bit from the tag, note we
@@ -1197,7 +1197,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
 static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off,
         lfsr_tag_t tag, lfsr_rid_t weight, lfs_size_t size,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // we set the valid bit here
     LFS_ASSERT(!(tag & 0x8000));
     // bit 7 is reserved for future subtype extensions
@@ -1208,8 +1208,8 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     LFS_ASSERT(size <= 0x0fffffff);
 
     // set the valid bit to the parity of the current cksum
-    if (cksum_) {
-        tag |= (lfsr_tag_t)lfs_parity(*cksum_) << 15;
+    if (cksum) {
+        tag |= (lfsr_tag_t)lfs_parity(*cksum) << 15;
     }
 
     // encode into a be16 and pair of leb128s
@@ -1231,7 +1231,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     d += d_;
 
     int err = lfsr_bd_prog(lfs, block, off, tag_buf, d,
-            cksum_, align);
+            cksum, align);
     if (err < 0) {
         return err;
     }
@@ -1457,13 +1457,13 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
 
 static int lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfsr_data_t data,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // on-disk?
     if (lfsr_data_ondisk(data)) {
         int err = lfsr_bd_cpy(lfs, block, off,
                 data.u.disk.block, data.u.disk.off, lfsr_data_size(data),
                 lfsr_data_size(data),
-                cksum_, align);
+                cksum, align);
         if (err) {
             return err;
         }
@@ -1472,7 +1472,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
     } else {
         int err = lfsr_bd_prog(lfs, block, off,
                 data.u.buffer, data.size,
-                cksum_, align);
+                cksum, align);
         if (err) {
             return err;
         }
@@ -1604,11 +1604,11 @@ static inline lfs_size_t lfsr_cat_size(const void *cat, int16_t count) {
 static int lfsr_bd_progcat(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off,
         const void *cat, int16_t count,
-        uint32_t *cksum_, bool align) {
+        uint32_t *cksum, bool align) {
     // direct buffer?
     if (count >= 0) {
         return lfsr_bd_prog(lfs, block, off, cat, count,
-                cksum_, align);
+                cksum, align);
 
     // indirect concatenated data?
     } else {
@@ -1616,7 +1616,7 @@ static int lfsr_bd_progcat(lfs_t *lfs,
         lfs_size_t data_count = -count;
         for (lfs_size_t i = 0; i < data_count; i++) {
             int err = lfsr_bd_progdata(lfs, block, off, datas[i],
-                    cksum_, align);
+                    cksum, align);
             if (err) {
                 return err;
             }
