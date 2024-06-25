@@ -5890,7 +5890,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
-                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
+                ".block_cycles=%"PRId32", .cache_size=%"PRIu32", "
                 ".lookahead_size=%"PRIu32", .read_buffer=%p, "
                 ".prog_buffer=%p, .lookahead_buffer=%p, "
                 ".name_max=%"PRIu32", .file_max=%"PRIu32", "
@@ -5920,7 +5920,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
-                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
+                ".block_cycles=%"PRId32", .cache_size=%"PRIu32", "
                 ".lookahead_size=%"PRIu32", .read_buffer=%p, "
                 ".prog_buffer=%p, .lookahead_buffer=%p, "
                 ".name_max=%"PRIu32", .file_max=%"PRIu32", "
@@ -6057,7 +6057,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
         return err;
     }
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
-            (void*)lfs, (void*)file, path, flags);
+            (void*)lfs, (void*)file, path, (unsigned)flags);
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_open_(lfs, file, path, flags);
@@ -6077,7 +6077,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_opencfg(%p, %p, \"%s\", %x, %p {"
                  ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
-            (void*)lfs, (void*)file, path, flags,
+            (void*)lfs, (void*)file, path, (unsigned)flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
@@ -6439,7 +6439,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
-                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
+                ".block_cycles=%"PRId32", .cache_size=%"PRIu32", "
                 ".lookahead_size=%"PRIu32", .read_buffer=%p, "
                 ".prog_buffer=%p, .lookahead_buffer=%p, "
                 ".name_max=%"PRIu32", .file_max=%"PRIu32", "
