@@ -613,13 +613,15 @@ typedef struct lfsr_btraversal {
 } lfsr_btraversal_t;
 
 typedef struct lfsr_mtraversal {
-    // core state machine
-    uint8_t state;
-    uint16_t flags;
     // opened file state
     lfsr_omdir_t *o;
     // bshrub/btree state
+    // this lines up with bshrub/btree in lfsr_file_t
     lfsr_bshrub_t bshrub;
+    lfsr_bshrub_t bshrub_;
+    // core state machine
+    uint8_t state;
+    uint16_t flags;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {

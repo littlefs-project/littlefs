@@ -5174,7 +5174,8 @@ static lfs_ssize_t lfsr_sprout_estimate(lfs_t *lfs,
     const lfsr_sprout_t *last = NULL;
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->o.type == LFS_TYPE_REG
+        if ((file_->o.type == LFS_TYPE_REG
+                    || file_->o.type == LFS_TYPE_TRAVERSAL)
                 && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
                 && lfsr_sprout_cmp(&file_->bshrub.u.bsprout, sprout) == 0) {
             last = &file_->bshrub.u.bsprout;
@@ -5203,7 +5204,8 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
     // can update these later if our commit is a success
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->o.type == LFS_TYPE_REG
+        if ((file_->o.type == LFS_TYPE_REG
+                    || file_->o.type == LFS_TYPE_TRAVERSAL)
                 && lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)
                 && lfsr_sprout_cmp(
                     &file_->bshrub.u.bsprout,
@@ -5320,7 +5322,8 @@ static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
     const lfsr_shrub_t *last = NULL;
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->o.type == LFS_TYPE_REG
+        if ((file_->o.type == LFS_TYPE_REG
+                    || file_->o.type == LFS_TYPE_TRAVERSAL)
                 && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
                 && lfsr_shrub_cmp(&file_->bshrub.u.bshrub, shrub) == 0) {
             last = &file_->bshrub.u.bshrub;
@@ -5352,7 +5355,8 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // this should include our current bshrub
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->o.type == LFS_TYPE_REG
+        if ((file_->o.type == LFS_TYPE_REG
+                    || file_->o.type == LFS_TYPE_TRAVERSAL)
                 && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)
                 && lfsr_shrub_cmp(&file_->bshrub.u.bshrub, shrub) == 0) {
             file_->bshrub_.u.bshrub.blocks[0] = rbyd_->blocks[0];
@@ -5456,7 +5460,8 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
     // this includes our current shrub
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file_ = (lfsr_file_t*)o;
-        if (file_->o.type == LFS_TYPE_REG
+        if ((file_->o.type == LFS_TYPE_REG
+                    || file_->o.type == LFS_TYPE_TRAVERSAL)
                 && file_->o.mdir.mid == mdir->mid) {
             if (lfsr_bshrub_isbsprout(&file_->o.mdir, &file_->bshrub)) {
                 lfs_ssize_t dsize = lfsr_sprout_estimate(lfs,
@@ -5633,7 +5638,8 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
     if (lfsr_bshrub_isbtree(mdir, bshrub)) {
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
-            if (file_->o.type == LFS_TYPE_REG
+            if ((file_->o.type == LFS_TYPE_REG
+                        || file_->o.type == LFS_TYPE_TRAVERSAL)
                     && &file_->bshrub != bshrub
                     && lfsr_bshrub_isbshruborbtree(&file_->bshrub)
                     && lfsr_btree_cmp(
@@ -5722,7 +5728,8 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
         // update _all_ shrubs with the new estimate
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
-            if (file_->o.type == LFS_TYPE_REG
+            if ((file_->o.type == LFS_TYPE_REG
+                        || file_->o.type == LFS_TYPE_TRAVERSAL)
                     && file_->o.mdir.mid == mdir->mid
                     && lfsr_bshrub_isbshrub(&file_->o.mdir, &file_->bshrub)) {
                 file_->bshrub.u.bshrub.estimate = estimate;
@@ -6751,8 +6758,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
                     lfsr_file_t *file = (lfsr_file_t*)o;
                     // belongs to our mid?
-                    if (file->o.type != LFS_TYPE_REG
-                            || file->o.mdir.mid != mdir__->mid) {
+                    if (!((file->o.type == LFS_TYPE_REG
+                                || file->o.type == LFS_TYPE_TRAVERSAL)
+                            && file->o.mdir.mid == mdir__->mid)) {
                         continue;
                     }
 
@@ -6939,9 +6947,10 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             // belongs to our mdir + rid?
-            if (file->o.type != LFS_TYPE_REG
-                    || lfsr_mdir_cmp(&file->o.mdir, mdir) != 0
-                    || lfsr_mid_rid(lfs, file->o.mdir.mid) != a_rid) {
+            if (!((file->o.type == LFS_TYPE_REG
+                        || file->o.type == LFS_TYPE_TRAVERSAL)
+                    && lfsr_mdir_cmp(&file->o.mdir, mdir) == 0
+                    && lfsr_mid_rid(lfs, file->o.mdir.mid) == a_rid)) {
                 continue;
             }
 
@@ -7085,11 +7094,12 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         lfsr_file_t *file = (lfsr_file_t*)o;
         // belongs to our mdir?
-        if (file->o.type != LFS_TYPE_REG
-                || lfsr_mdir_cmp(&file->o.mdir, mdir) != 0
-                || lfsr_mid_rid(lfs, file->o.mdir.mid) < start_rid
-                || (lfsr_rid_t)lfsr_mid_rid(lfs, file->o.mdir.mid)
-                    >= (lfsr_rid_t)end_rid) {
+        if (!((file->o.type == LFS_TYPE_REG
+                    || file->o.type == LFS_TYPE_TRAVERSAL)
+                && lfsr_mdir_cmp(&file->o.mdir, mdir) == 0
+                && lfsr_mid_rid(lfs, file->o.mdir.mid) >= start_rid
+                && (lfsr_rid_t)lfsr_mid_rid(lfs, file->o.mdir.mid)
+                    < (lfsr_rid_t)end_rid)) {
             continue;
         }
 
@@ -7346,7 +7356,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // stage any bsprouts/bshrubs
-        if (o->type == LFS_TYPE_REG) {
+        if (o->type == LFS_TYPE_REG || o->type == LFS_TYPE_TRAVERSAL) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             file->bshrub_ = file->bshrub;
         }
@@ -7841,7 +7851,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // update any staged bsprouts/bshrubs
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        if (o->type == LFS_TYPE_REG) {
+        if (o->type == LFS_TYPE_REG || o->type == LFS_TYPE_TRAVERSAL) {
             lfsr_file_t *file = (lfsr_file_t*)o;
             file->bshrub = file->bshrub_;
         }
@@ -8231,6 +8241,7 @@ enum {
         .state=LFSR_MTRAVERSAL_MROOTANCHOR, \
         .flags=_flags, \
         .o=NULL, \
+        .bshrub.u.bshrub.blocks={-1}, \
         .u.mtortoise.mptr={{0, 0}}, \
         .u.mtortoise.step=0, \
         .u.mtortoise.power=0})
@@ -8620,6 +8631,9 @@ static int lfsr_mtree_traverse(lfs_t *lfs,
 static int lfsr_mtree_gc(lfs_t *lfs,
         lfsr_mdir_t *mdir, lfsr_mtraversal_t *mt,
         lfsr_mtinfo_t *mtinfo) {
+    // TODO traversals need to be enrolled in our opened list for
+    // lfsr_mtree_gc to work correctly, can we assert this somehow?
+
     int err = lfsr_mtree_traverse(lfs, mdir, mt, mtinfo);
     if (err) {
         return err;
@@ -8708,7 +8722,7 @@ static int lfsr_mtree_gc(lfs_t *lfs,
                             LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
                             &mt->bshrub.u.bshrub)
                         : LFSR_ATTR(
-                            LFSR_TAG_BTREE, 0,
+                            LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
                             LFSR_DATA_BTREE_(&mt->bshrub.u.btree, buf))));
             if (err) {
                 return err;
