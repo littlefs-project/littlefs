@@ -4786,7 +4786,6 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
     recurse:;
         // done?
         if (!lfsr_rbyd_trunk(&parent)) {
-            LFS_ASSERT(bid == 0);
             *btree = rbyd_;
             *attr_count_ = 0;
             return 0;
@@ -4894,9 +4893,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // adjust bid to point to the zero-most rid
-        bid -= rid_;
-        rid -= bid;
+        // adjust rid
+        rid -= (bid-rid_);
     }
 
     return lfsr_btree_commit_(lfs, btree, bid, &rbyd, rid,
@@ -5814,10 +5812,8 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
             return err;
         }
 
-        // TODO
-        // adjust bid to point to the zero-most rid
-        bid -= rid_;
-        rid -= bid;
+        // adjust rid
+        rid -= (bid-rid_);
     }
 
     return lfsr_bshrub_commit_(lfs, mdir, bshrub, bid, &rbyd, rid,
