@@ -4306,12 +4306,40 @@ typedef struct lfsr_bscratch {
 //
 static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bscratch_t *bscratch,
-        lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_,
-        const lfsr_attr_t **attrs_, lfs_size_t *attr_count_) {
-    LFS_ASSERT(bid <= (lfsr_bid_t)btree->weight);
-    lfsr_srid_t rid = *rid_;
-    const lfsr_attr_t *attrs = *attrs_;
-    lfs_size_t attr_count = *attr_count_;
+        lfsr_bid_t *bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
+        const lfsr_attr_t **attrs, lfs_size_t *attr_count) {
+    lfsr_bid_t bid_ = *bid;
+    LFS_ASSERT(bid_ <= (lfsr_bid_t)btree->weight);
+    const lfsr_attr_t *attrs_ = *attrs;
+    lfs_size_t attr_count_ = *attr_count;
+
+    // if rbyd is NULL, lookup which leaf our bid resides
+    //
+    // for lfsr_btree_commit operations to work out, we need to
+    // limit our bid to an rid in the tree, which is what this min
+    // is doing
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
+    if (!rbyd) {
+        rbyd_ = *btree;
+        rid_ = bid_;
+        if (btree->weight > 0) {
+            lfsr_srid_t rid__;
+            int err = lfsr_btree_lookupnext_(lfs, btree,
+                    lfs_min(bid_, btree->weight-1),
+                    &bid_, &rbyd_, &rid__, NULL, NULL, NULL);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+
+            // adjust rid
+            rid_ -= (bid_-rid__);
+        }
+    } else {
+        rbyd_ = *rbyd;
+        rid_ = rid;
+    }
 
     // tail-recursively commit to btree
     while (true) {
@@ -4319,16 +4347,16 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t parent = {.trunk=0, .weight=0};
         lfsr_srid_t pid = 0;
         // are we root?
-        if (rbyd->blocks[0] == btree->blocks[0]
-                || !lfsr_rbyd_trunk(rbyd)) {
+        if (rbyd_.blocks[0] == btree->blocks[0]
+                || !lfsr_rbyd_trunk(&rbyd_)) {
             // new root? shrub root? yield the final root commit to
             // higher-level btree/bshrub logic
-            if (!lfsr_rbyd_trunk(rbyd)
+            if (!lfsr_rbyd_trunk(&rbyd_)
                     || lfsr_rbyd_isshrub(btree)) {
-                *rid_ = rid;
-                *attrs_ = attrs;
-                *attr_count_ = attr_count;
-                return (!lfsr_rbyd_trunk(rbyd)) ? LFS_ERR_RANGE : 0;
+                *bid = rid_;
+                *attrs = attrs_;
+                *attr_count = attr_count_;
+                return (!lfsr_rbyd_trunk(&rbyd_)) ? LFS_ERR_RANGE : 0;
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -4337,7 +4365,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             btree->eoff = -1;
 
         } else {
-            int err = lfsr_btree_parent(lfs, btree, bid, rbyd,
+            int err = lfsr_btree_parent(lfs, btree, bid_, &rbyd_,
                     &parent, &pid);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -4352,10 +4380,10 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // unfetched
         //
         // a funny benefit is we cache the root of our btree this way
-        if (!lfsr_rbyd_isfetched(rbyd)) {
-            int err = lfsr_rbyd_fetchck(lfs, rbyd,
-                    rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
-                    rbyd->cksum);
+        if (!lfsr_rbyd_isfetched(&rbyd_)) {
+            int err = lfsr_rbyd_fetchck(lfs, &rbyd_,
+                    rbyd_.blocks[0], lfsr_rbyd_trunk(&rbyd_),
+                    rbyd_.cksum);
             if (err) {
                 return err;
             }
@@ -4364,9 +4392,9 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // is rbyd erased? can we sneak our commit into any remaining
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
-        lfsr_rbyd_t rbyd_ = *rbyd;
-        int err = lfsr_rbyd_commit(lfs, &rbyd_, rid,
-                attrs, attr_count);
+        lfsr_rbyd_t rbyd__ = rbyd_;
+        int err = lfsr_rbyd_commit(lfs, &rbyd__, rid_,
+                attrs_, attr_count_);
         if (err) {
             if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
                 goto compact;
@@ -4379,7 +4407,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
     compact:;
         // estimate our compacted size
         lfsr_srid_t split_rid;
-        lfs_ssize_t estimate = lfsr_rbyd_estimate(lfs, rbyd, -1, -1,
+        lfs_ssize_t estimate = lfsr_rbyd_estimate(lfs, &rbyd_, -1, -1,
                 &split_rid);
         if (estimate < 0) {
             return estimate;
@@ -4445,14 +4473,14 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             }
 
             // try the left sibling
-            if (pid-(lfsr_srid_t)rbyd->weight >= 0) {
+            if (pid-(lfsr_srid_t)rbyd_.weight >= 0) {
                 // try looking up the sibling
                 lfsr_srid_t sibling_rid;
                 lfsr_tag_t sibling_tag;
                 lfsr_rid_t sibling_weight;
                 lfsr_data_t sibling_data;
                 err = lfsr_rbyd_lookupnext(lfs, &parent,
-                        pid-rbyd->weight, LFSR_TAG_NAME,
+                        pid-rbyd_.weight, LFSR_TAG_NAME,
                         &sibling_rid, &sibling_tag, &sibling_weight,
                         &sibling_data);
                 if (err) {
@@ -4490,13 +4518,13 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
                         < lfs->cfg->block_size/2) {
                     // if we're merging our left sibling, swap our rbyds
                     // so our sibling is on the right
-                    bid -= sibling.weight;
-                    rid += sibling.weight;
-                    pid -= rbyd->weight;
+                    bid_ -= sibling.weight;
+                    rid_ += sibling.weight;
+                    pid -= rbyd_.weight;
 
-                    rbyd_ = sibling;
-                    sibling = *rbyd;
-                    *rbyd = rbyd_;
+                    rbyd__ = sibling;
+                    sibling = rbyd_;
+                    rbyd_ = rbyd__;
 
                     goto merge;
                 }
@@ -4505,13 +4533,13 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
 
     compact_relocate:;
         // allocate a new rbyd
-        err = lfsr_rbyd_alloc(lfs, &rbyd_);
+        err = lfsr_rbyd_alloc(lfs, &rbyd__);
         if (err) {
             return err;
         }
 
         // try to compact
-        err = lfsr_rbyd_compact(lfs, &rbyd_, rbyd, -1, -1);
+        err = lfsr_rbyd_compact(lfs, &rbyd__, &rbyd_, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4523,8 +4551,8 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, rid,
-                attrs, attr_count);
+        err = lfsr_rbyd_commit(lfs, &rbyd__, rid_,
+                attrs_, attr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4539,17 +4567,17 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
     split:;
         // we should have something to split here
         LFS_ASSERT(split_rid > 0
-                && split_rid < (lfsr_srid_t)rbyd->weight);
+                && split_rid < (lfsr_srid_t)rbyd_.weight);
 
     split_relocate_l:;
         // allocate a new rbyd
-        err = lfsr_rbyd_alloc(lfs, &rbyd_);
+        err = lfsr_rbyd_alloc(lfs, &rbyd__);
         if (err) {
             return err;
         }
 
         // copy over tags < split_rid
-        err = lfsr_rbyd_compact(lfs, &rbyd_, rbyd, -1, split_rid);
+        err = lfsr_rbyd_compact(lfs, &rbyd__, &rbyd_, -1, split_rid);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4563,8 +4591,8 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, rid, -1, split_rid,
-                attrs, attr_count);
+        err = lfsr_rbyd_appendattrs(lfs, &rbyd__, rid_, -1, split_rid,
+                attrs_, attr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4575,7 +4603,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // finalize commit
-        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
+        err = lfsr_rbyd_appendcksum(lfs, &rbyd__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4593,7 +4621,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // copy over tags >= split_rid
-        err = lfsr_rbyd_compact(lfs, &sibling, rbyd, split_rid, -1);
+        err = lfsr_rbyd_compact(lfs, &sibling, &rbyd_, split_rid, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4607,8 +4635,8 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendattrs(lfs, &sibling, rid, split_rid, -1,
-                attrs, attr_count);
+        err = lfsr_rbyd_appendattrs(lfs, &sibling, rid_, split_rid, -1,
+                attrs_, attr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4631,9 +4659,9 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
 
         // did one of our siblings drop to zero? yes this can happen! revert
         // to a normal commit in that case
-        if (rbyd_.weight == 0 || sibling.weight == 0) {
-            if (rbyd_.weight == 0) {
-                rbyd_ = sibling;
+        if (rbyd__.weight == 0 || sibling.weight == 0) {
+            if (rbyd__.weight == 0) {
+                rbyd__ = sibling;
             }
             goto recurse;
         }
@@ -4651,66 +4679,66 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // prepare commit to parent, tail recursing upwards
-        LFS_ASSERT(rbyd_.weight > 0);
+        LFS_ASSERT(rbyd__.weight > 0);
         LFS_ASSERT(sibling.weight > 0);
-        attr_count = 0;
+        attr_count_ = 0;
         // new root?
         if (!lfsr_rbyd_trunk(&parent)) {
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
-                    LFSR_TAG_BRANCH, +rbyd_.weight,
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
+                    LFSR_TAG_BRANCH, +rbyd__.weight,
                     LFSR_DATA_BRANCH_(
-                        &rbyd_,
+                        &rbyd__,
                         &bscratch->buf[0*LFSR_BRANCH_DSIZE]));
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
                     LFSR_DATA_BRANCH_(
                         &sibling,
                         &bscratch->buf[1*LFSR_BRANCH_DSIZE]));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                bscratch->attrs[attr_count++] = LFSR_ATTR_CAT_(
+                bscratch->attrs[attr_count_++] = LFSR_ATTR_CAT_(
                         LFSR_TAG_NAME, 0,
                         &bscratch->split_data, 1);
             }
         // split root?
         } else {
-            bid -= pid - (rbyd->weight-1);
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
+            bid_ -= pid - (rbyd_.weight-1);
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, 0,
                     LFSR_DATA_BRANCH_(
-                        &rbyd_,
+                        &rbyd__,
                         &bscratch->buf[0*LFSR_BRANCH_DSIZE]));
-            if (rbyd_.weight != rbyd->weight) {
-                bscratch->attrs[attr_count++] = LFSR_ATTR(
-                        LFSR_TAG_GROW, -rbyd->weight + rbyd_.weight,
+            if (rbyd__.weight != rbyd_.weight) {
+                bscratch->attrs[attr_count_++] = LFSR_ATTR(
+                        LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         LFSR_DATA_NULL());
             }
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
                     LFSR_DATA_BRANCH_(
                         &sibling,
                         &bscratch->buf[1*LFSR_BRANCH_DSIZE]));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                bscratch->attrs[attr_count++] = LFSR_ATTR_CAT_(
+                bscratch->attrs[attr_count_++] = LFSR_ATTR_CAT_(
                         LFSR_TAG_NAME, 0,
                         &bscratch->split_data, 1);
             }
         }
-        attrs = bscratch->attrs;
+        attrs_ = bscratch->attrs;
 
-        *rbyd = parent;
-        rid = pid;
+        rbyd_ = parent;
+        rid_ = pid;
         continue;
 
     merge:;
     merge_relocate:;
         // allocate a new rbyd
-        err = lfsr_rbyd_alloc(lfs, &rbyd_);
+        err = lfsr_rbyd_alloc(lfs, &rbyd__);
         if (err) {
             return err;
         }
 
         // merge the siblings together
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, rbyd, -1, -1);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd__, &rbyd_, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4720,7 +4748,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd_, &sibling, -1, -1);
+        err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd__, &sibling, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4730,7 +4758,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_appendcompaction(lfs, &rbyd_, 0);
+        err = lfsr_rbyd_appendcompaction(lfs, &rbyd__, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4742,8 +4770,8 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, rid,
-                attrs, attr_count);
+        err = lfsr_rbyd_commit(lfs, &rbyd__, rid_,
+                attrs_, attr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4756,46 +4784,46 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // we must have a parent at this point, but is our parent the root
         // and is the root degenerate?
         LFS_ASSERT(lfsr_rbyd_trunk(&parent));
-        if (rbyd->weight+sibling.weight == btree->weight) {
+        if (rbyd_.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
-            *btree = rbyd_;
-            *attr_count_ = 0;
+            *btree = rbyd__;
+            *attr_count = 0;
             return 0;
         }
 
         // prepare commit to parent, tail recursing upwards
-        LFS_ASSERT(rbyd_.weight > 0);
-        attr_count = 0;
-        bid -= pid - (rbyd->weight-1);
-        bscratch->attrs[attr_count++] = LFSR_ATTR(
+        LFS_ASSERT(rbyd__.weight > 0);
+        attr_count_ = 0;
+        bid_ -= pid - (rbyd_.weight-1);
+        bscratch->attrs[attr_count_++] = LFSR_ATTR(
                 LFSR_TAG_RM, -sibling.weight, LFSR_DATA_NULL());
-        bscratch->attrs[attr_count++] = LFSR_ATTR(
+        bscratch->attrs[attr_count_++] = LFSR_ATTR(
                 LFSR_TAG_BRANCH, 0,
-                LFSR_DATA_BRANCH_(&rbyd_, bscratch->buf));
-        if (rbyd_.weight != rbyd->weight) {
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
-                    LFSR_TAG_GROW, -rbyd->weight + rbyd_.weight,
+                LFSR_DATA_BRANCH_(&rbyd__, bscratch->buf));
+        if (rbyd__.weight != rbyd_.weight) {
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
+                    LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                     LFSR_DATA_NULL());
         }
-        attrs = bscratch->attrs;
+        attrs_ = bscratch->attrs;
 
-        *rbyd = parent;
-        rid = pid + sibling.weight;
+        rbyd_ = parent;
+        rid_ = pid + sibling.weight;
         continue;
 
     recurse:;
         // done?
         if (!lfsr_rbyd_trunk(&parent)) {
-            *btree = rbyd_;
-            *attr_count_ = 0;
+            *btree = rbyd__;
+            *attr_count = 0;
             return 0;
         }
 
         // is our parent the root and is the root degenerate?
-        if (rbyd->weight == btree->weight) {
+        if (rbyd_.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
-            *btree = rbyd_;
-            *attr_count_ = 0;
+            *btree = rbyd__;
+            *attr_count = 0;
             return 0;
         }
 
@@ -4803,36 +4831,37 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
-        attr_count = 0;
-        bid -= pid - (rbyd->weight-1);
-        if (rbyd_.weight == 0) {
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
-                    LFSR_TAG_RM, -rbyd->weight, LFSR_DATA_NULL());
+        attr_count_ = 0;
+        bid_ -= pid - (rbyd_.weight-1);
+        if (rbyd__.weight == 0) {
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
+                    LFSR_TAG_RM, -rbyd_.weight, LFSR_DATA_NULL());
         } else {
-            bscratch->attrs[attr_count++] = LFSR_ATTR(
+            bscratch->attrs[attr_count_++] = LFSR_ATTR(
                     LFSR_TAG_BRANCH, 0,
-                    LFSR_DATA_BRANCH_(&rbyd_, bscratch->buf));
-            if (rbyd_.weight != rbyd->weight) {
-                bscratch->attrs[attr_count++] = LFSR_ATTR(
-                        LFSR_TAG_GROW, -rbyd->weight + rbyd_.weight,
+                    LFSR_DATA_BRANCH_(&rbyd__, bscratch->buf));
+            if (rbyd__.weight != rbyd_.weight) {
+                bscratch->attrs[attr_count_++] = LFSR_ATTR(
+                        LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         LFSR_DATA_NULL());
             }
         }
-        attrs = bscratch->attrs;
+        attrs_ = bscratch->attrs;
 
-        *rbyd = parent;
-        rid = pid;
+        rbyd_ = parent;
+        rid_ = pid;
         continue;
     }
 }
 
+// commit to btree with optional rbyd
 static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to commit to the btree
     lfsr_bscratch_t bscratch;
     int err = lfsr_btree_commit__(lfs, btree, &bscratch,
-            bid, rbyd, &rid, &attrs, &attr_count);
+            &bid, rbyd, rid, &attrs, &attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -4842,12 +4871,13 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         LFS_ASSERT(attr_count > 0);
 
     relocate:;
-        err = lfsr_rbyd_alloc(lfs, rbyd);
+        lfsr_rbyd_t rbyd_;
+        err = lfsr_rbyd_alloc(lfs, &rbyd_);
         if (err) {
             return err;
         }
 
-        err = lfsr_rbyd_commit(lfs, rbyd, rid, attrs, attr_count);
+        err = lfsr_rbyd_commit(lfs, &rbyd_, bid, attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -4857,7 +4887,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        *btree = *rbyd;
+        *btree = rbyd_;
     }
 
     LFS_ASSERT(lfsr_rbyd_trunk(btree));
@@ -4876,28 +4906,7 @@ static int lfsr_btree_compact_(lfs_t *lfs, lfsr_btree_t *btree,
 // commit to a btree, this is atomic
 static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bid_t bid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // lookup in which leaf our bids resides
-    //
-    // for lfsr_btree_commit operations to work out, we need to
-    // limit our bid to an rid in the tree, which is what this min
-    // is doing
-    lfsr_rbyd_t rbyd = *btree;
-    lfsr_srid_t rid = bid;
-    if (btree->weight > 0) {
-        lfsr_srid_t rid_;
-        int err = lfsr_btree_lookupnext_(lfs, btree,
-                lfs_min(bid, btree->weight-1),
-                &bid, &rbyd, &rid_, NULL, NULL, NULL);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        // adjust rid
-        rid -= (bid-rid_);
-    }
-
-    return lfsr_btree_commit_(lfs, btree, bid, &rbyd, rid,
+    return lfsr_btree_commit_(lfs, btree, bid, NULL, -1,
             attrs, attr_count);
 }
 
@@ -5624,6 +5633,7 @@ static int lfsr_bshrub_traverse(lfs_t *lfs,
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         const lfsr_attr_t *attrs, lfs_size_t attr_count);
 
+// commit to bshrub with optional rbyd
 static int lfsr_bshrub_commit_(lfs_t *lfs,
         lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub,
         lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
@@ -5652,7 +5662,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
     // try to commit to the btree
     lfsr_bscratch_t bscratch;
     int err = lfsr_btree_commit__(lfs, &bshrub->u.btree, &bscratch,
-            bid, rbyd, &rid, &attrs, &attr_count);
+            &bid, rbyd, rid, &attrs, &attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -5717,7 +5727,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
         int err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
                 LFSR_ATTR_SHRUBCOMMIT(
                     LFSR_TAG_SHRUBCOMMIT, 0,
-                    &bshrub->u.bshrub, rid, attrs, attr_count)));
+                    &bshrub->u.bshrub, bid, attrs, attr_count)));
         if (err) {
             return err;
         }
@@ -5743,15 +5753,15 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
 
 relocate:;
     // convert to btree
-    err = lfsr_rbyd_alloc(lfs, rbyd);
+    lfsr_rbyd_t rbyd_;
+    err = lfsr_rbyd_alloc(lfs, &rbyd_);
     if (err) {
         return err;
     }
 
     // note this may be a new root
     if (!alloc) {
-        err = lfsr_rbyd_compact(lfs, rbyd,
-                &bshrub->u.btree, -1, -1);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, &bshrub->u.btree, -1, -1);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -5762,8 +5772,7 @@ relocate:;
         }
     }
 
-    err = lfsr_rbyd_commit(lfs, rbyd, rid,
-            attrs, attr_count);
+    err = lfsr_rbyd_commit(lfs, &rbyd_, bid, attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
@@ -5773,7 +5782,7 @@ relocate:;
         return err;
     }
 
-    bshrub->u.btree = *rbyd;
+    bshrub->u.btree = rbyd_;
     return 0;
 }
 
@@ -5793,30 +5802,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs,
         lfsr_bid_t bid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // file must be a bshrub/btree here
     LFS_ASSERT(lfsr_bshrub_isbshruborbtree(bshrub));
-
-    // TODO can we dedup the lookup logic?
-    // lookup in which leaf our bids resides
-    //
-    // for lfsr_btree_commit operations to work out, we need to
-    // limit our bid to an rid in the tree, which is what this min
-    // is doing
-    lfsr_rbyd_t rbyd = bshrub->u.btree;
-    lfsr_srid_t rid = bid;
-    if (bshrub->u.btree.weight > 0) {
-        lfsr_srid_t rid_;
-        int err = lfsr_btree_lookupnext_(lfs, &bshrub->u.btree,
-                lfs_min(bid, bshrub->u.btree.weight-1),
-                &bid, &rbyd, &rid_, NULL, NULL, NULL);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        // adjust rid
-        rid -= (bid-rid_);
-    }
-
-    return lfsr_bshrub_commit_(lfs, mdir, bshrub, bid, &rbyd, rid,
+    return lfsr_bshrub_commit_(lfs, mdir, bshrub, bid, NULL, -1,
             attrs, attr_count);
 }
 
