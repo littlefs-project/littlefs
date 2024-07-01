@@ -1169,7 +1169,10 @@ def main(disk, mroots=None, *,
                             enumerate(ppath)):
                         if x is None:
                             break
-                        if not (changed or px is None or x[0] != px[0]):
+                        if not (changed
+                                or px is None
+                                # bid-rid changed?
+                                or (x[1][0]-x[1][3]) != (px[1][0]-px[1][3])):
                             continue
                         changed = True
 
@@ -1272,12 +1275,15 @@ def main(disk, mroots=None, *,
                             enumerate(ppath)):
                         if x is None:
                             break
-                        if not (changed or px is None or x[0] != px[0]):
+                        if not (changed
+                                or px is None
+                                # bid-rid changed?
+                                or (x[1][0]-x[1][3]) != (px[1][0]-px[1][3])):
                             continue
                         changed = True
 
                         # mark btree inner nodes in our bmap
-                        d, (mid_, w_, rbyd_, rid_, tags_) = x
+                        d, (bid_, w_, rbyd_, rid_, tags_) = x
                         # ignore bshrub roots
                         if shrub and d == 0:
                             continue
