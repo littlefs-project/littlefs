@@ -1696,10 +1696,6 @@ code = '''
         lfsr_file_open(&lfs, &file, "spider",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfsr_file_close(&lfs, &file) => 0;
-
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-        lfsr_traversal_close(&lfs, &t) => 0;
-        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -1716,7 +1712,6 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-done:;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -1815,6 +1810,9 @@ code = '''
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfsr_file_close(&lfs, &file) => 0;
 
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -1938,10 +1936,6 @@ code = '''
             lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
             goto done;
         }
-
-        struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -2016,10 +2010,6 @@ code = '''
             lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
             goto done;
         }
-
-        struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -2094,10 +2084,6 @@ code = '''
             lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
             goto done;
         }
-
-        struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-        goto done;
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -2428,6 +2414,14 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2509,6 +2503,11 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2754,6 +2753,11 @@ code = '''
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
 
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2919,16 +2923,14 @@ code = '''
     }
     lfsr_file_close(&lfs, &file1) => 0;
 
-    if (DESYNC) {
-        // traverse btree
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        assert(tinfo.btype == LFS_BTYPE_BTREE);
-        // traverse two data blocks
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        assert(tinfo.btype == LFS_BTYPE_DATA);
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        assert(tinfo.btype == LFS_BTYPE_DATA);
-    }
+    // traverse btree
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_BTREE);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3013,13 +3015,11 @@ code = '''
     }
     lfsr_file_close(&lfs, &file1) => 0;
 
-    if (DESYNC) {
-        // traverse two data blocks
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        assert(tinfo.btype == LFS_BTYPE_DATA);
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        assert(tinfo.btype == LFS_BTYPE_DATA);
-    }
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3101,6 +3101,11 @@ code = '''
     // remove the file
     lfsr_remove(&lfs, "spider") => 0;
 
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3129,7 +3134,7 @@ code = '''
 
     uint32_t prng = 42;
 
-    // create two files
+    // create three files
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "spider",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -3147,6 +3152,15 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf3[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf3, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
     // try traversing
@@ -3171,6 +3185,16 @@ code = '''
     // rename one file over another
     lfsr_rename(&lfs, "spider", "tarantula") => 0;
 
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3182,6 +3206,11 @@ code = '''
     uint8_t rbuf[SIZE];
     lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "wolfspider", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf3, SIZE) == 0);
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -3219,6 +3248,15 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
+    lfsr_file_open(&lfs, &file, "wolfspider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf3[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf3, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -3241,6 +3279,11 @@ code = '''
     // rename one file over another
     lfsr_rename(&lfs, "tarantula", "spider") => 0;
 
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3253,6 +3296,11 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_file_open(&lfs, &file, "tarantula", LFS_O_RDONLY) => LFS_ERR_NOENT;
+
+    lfsr_file_open(&lfs, &file, "wolfspider", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf3, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -3313,6 +3361,26 @@ code = '''
         i += 1;
     }
 
+    // traverse mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3403,6 +3471,24 @@ code = '''
         i += 1;
     }
 
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3503,6 +3589,14 @@ code = '''
         i += 1;
     }
 
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3583,6 +3677,21 @@ code = '''
         lfsr_remove(&lfs, "uloborus") => 0;
     }
 
+    // traverse mroot
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3664,6 +3773,14 @@ code = '''
         lfsr_remove(&lfs, "uloborus") => 0;
     }
 
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -3863,6 +3980,14 @@ code = '''
         lfsr_remove(&lfs, "uloborus") => 0;
     }
 
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -4169,7 +4294,20 @@ code = '''
         i += 1;
     }
 
-    // traverse untouched mdir
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -4333,8 +4471,10 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
         i += 1;
     }
-
-    // traverse untouched mdir
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -4661,7 +4801,15 @@ code = '''
         lfsr_remove(&lfs, "vulsor") => 0;
     }
 
-    // traverse untouched mdir
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -5004,7 +5152,15 @@ code = '''
         lfsr_remove(&lfs, "vulsor") => 0;
     }
 
-    // traverse untouched mdir
+    // traverse another data block
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse two data blocks
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_DATA);
+    // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
