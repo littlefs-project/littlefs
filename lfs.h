@@ -485,6 +485,7 @@ typedef struct lfsr_mdir {
 typedef struct lfsr_omdir {
     struct lfsr_omdir *next;
     uint8_t type;
+    uint8_t state;
     uint16_t flags;
     lfsr_mdir_t mdir;
 } lfsr_omdir_t;
@@ -565,14 +566,19 @@ typedef struct lfsr_bshrub {
     } u;
 } lfsr_bshrub_t;
 
-typedef struct lfsr_file {
+typedef struct lfsr_obshrub {
+    // bshrubs need to be tracked for commits to work
     lfsr_omdir_t o;
-    const struct lfs_file_config *cfg;
-
     // files contain both an active bshrub and staging bshrub, to allow
     // staging during mdir compacts
     lfsr_bshrub_t bshrub;
     lfsr_bshrub_t bshrub_;
+} lfsr_obshrub_t;
+
+typedef struct lfsr_file {
+    lfsr_obshrub_t o;
+    const struct lfs_file_config *cfg;
+
     lfs_off_t pos;
 
     // note this lines up with lfsr_data_t's buffer representation
@@ -614,15 +620,10 @@ typedef struct lfsr_btraversal {
 } lfsr_btraversal_t;
 
 typedef struct lfsr_mtraversal {
+    // mdir/btree state, this also includes our traversal state machine
+    lfsr_obshrub_t o;
     // opened file state
-    lfsr_omdir_t *o;
-    // bshrub/btree state
-    // this lines up with bshrub/btree in lfsr_file_t
-    lfsr_bshrub_t bshrub;
-    lfsr_bshrub_t bshrub_;
-    // core state machine
-    uint8_t state;
-    uint16_t flags;
+    lfsr_omdir_t *ot;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
@@ -633,13 +634,13 @@ typedef struct lfsr_mtraversal {
         // btree traversal state
         lfsr_btraversal_t bt;
     } u;
+
+    // pending blocks, only used in lfsr_traversal_read
+    lfs_sblock_t blocks[2];
 } lfsr_mtraversal_t;
 
-typedef struct lfsr_traversal {
-    lfsr_omdir_t o;
-    lfsr_mtraversal_t mt;
-    lfs_sblock_t blocks[2];
-} lfsr_traversal_t;
+typedef lfsr_mtraversal_t lfsr_traversal_t;
+
 
 //typedef struct lfs_superblock {
 //    uint32_t version;

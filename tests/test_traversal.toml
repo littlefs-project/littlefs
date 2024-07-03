@@ -5224,7 +5224,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5252,7 +5252,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5296,7 +5296,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5320,7 +5320,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5466,7 +5466,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5496,7 +5496,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5559,10 +5559,10 @@ code = '''
     while (true) {
         // we need internals to check this
         lfs_ssize_t estimate = lfsr_mdir_estimate__(&lfs,
-                &file1.o.mdir, -1, -1,
+                &file1.o.o.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file1.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -5608,8 +5608,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5711,7 +5711,7 @@ code = '''
     // write to each file until mdir >gc_compact_thresh full
     if (COMPACTSET & 0x1) {
         // hack, don't use the internals like this
-        while ((file1.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfsr_file_rewind(&lfs, &file1) => 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5723,7 +5723,7 @@ code = '''
 
     if (COMPACTSET & 0x2) {
         // hack, don't use the internals like this
-        while ((file2.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfsr_file_rewind(&lfs, &file2) => 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5735,7 +5735,7 @@ code = '''
 
     if (COMPACTSET & 0x4) {
         // hack, don't use the internals like this
-        while ((file3.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfsr_file_rewind(&lfs, &file3) => 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5782,9 +5782,9 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5905,10 +5905,10 @@ code = '''
     while (true) {
         // we need internals to check this
         lfs_ssize_t estimate = lfsr_mdir_estimate__(&lfs,
-                &file2.o.mdir, -1, -1,
+                &file2.o.o.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file2.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -5964,10 +5964,10 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file4.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file4.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6075,13 +6075,12 @@ code = '''
     // rewrite a file until btree is >gc_compact_thresh full
     while (true) {
         // we need internals to check this
-        lfsr_mdir_t mdir;
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
         lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
         if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
@@ -6135,12 +6134,11 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mtree should have been compacted
-    lfsr_mdir_t mdir;
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
     lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_MDIR);
-    lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_BRANCH);
     assert(lfsr_rbyd_eoff(&mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
 
@@ -6196,7 +6194,7 @@ code = '''
 
     // rewrite our file until btree is >gc_compact_thresh full
     uint8_t wbuf[SIZE];
-    while ((file.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6229,7 +6227,7 @@ code = '''
 
     // btree should have been compacted
     lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
-    assert((file.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6276,7 +6274,7 @@ code = '''
 
     // rewrite our file until btree is >gc_compact_thresh full
     uint8_t wbuf[SIZE];
-    while ((file.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6308,7 +6306,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
-    assert((file.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6355,7 +6353,7 @@ code = '''
 
     // rewrite our file until btree is >gc_compact_thresh full
     uint8_t wbuf[SIZE];
-    while ((file.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6385,7 +6383,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
-    assert((file.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // file should not have accidentally been created or anything
     struct lfs_info info;
@@ -6436,7 +6434,7 @@ code = '''
 
     // rewrite our file until btree is >gc_compact_thresh full
     uint8_t wbuf1[SIZE];
-    while ((file1.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file1) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6493,7 +6491,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
-    assert((file1.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the files
     lfsr_file_rewind(&lfs, &file1) => 0;
@@ -6555,13 +6553,12 @@ code = '''
     // rewrite part of our file until bshrub is >gc_compact_thresh full
     while (true) {
         // we need internals to check this
-        lfsr_mdir_t mdir;
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
         lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
         if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
@@ -6602,13 +6599,12 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
-    lfsr_mdir_t mdir;
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
     lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -6670,13 +6666,12 @@ code = '''
     // rewrite part of our file until bshrub is >gc_compact_thresh full
     while (true) {
         // we need internals to check this
-        lfsr_mdir_t mdir;
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
         lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
         if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
@@ -6717,13 +6712,12 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
-    lfsr_mdir_t mdir;
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
     lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -6786,13 +6780,12 @@ code = '''
     // rewrite part of our file until bshrub is >gc_compact_thresh full
     while (true) {
         // we need internals to check this
-        lfsr_mdir_t mdir;
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
         lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
         if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
@@ -6831,13 +6824,12 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
-    lfsr_mdir_t mdir;
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
     lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
@@ -6900,13 +6892,12 @@ code = '''
     // rewrite part of our file until bshrub is >gc_compact_thresh full
     while (true) {
         // we need internals to check this
-        lfsr_mdir_t mdir;
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
         lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
         if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
@@ -6966,13 +6957,12 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
-    lfsr_mdir_t mdir;
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
     lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo) => 0;
+    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mdir, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
