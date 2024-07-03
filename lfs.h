@@ -608,8 +608,9 @@ typedef struct lfsr_dir {
 
 typedef struct lfsr_btraversal {
     lfsr_bid_t bid;
+    const lfsr_rbyd_t *branch;
     lfsr_srid_t rid;
-    lfsr_rbyd_t branch;
+    lfsr_rbyd_t rbyd;
 } lfsr_btraversal_t;
 
 typedef struct lfsr_mtraversal {

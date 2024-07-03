@@ -4984,9 +4984,8 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
 #define LFSR_BTRAVERSAL() \
     ((lfsr_btraversal_t){ \
         .bid=0, \
-        .rid=0, \
-        .branch.trunk=0, \
-        .branch.weight=0})
+        .branch=NULL, \
+        .rid=0})
 
 typedef struct lfsr_btinfo {
     lfsr_tag_t tag;
@@ -5004,29 +5003,29 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_btraversal_t *bt,
         lfsr_bid_t *bid_, lfsr_btinfo_t *btinfo) {
     // explicitly traverse the root even if weight=0
-    if (bt->branch.trunk == 0
-            // unless we don't even have a root yet
-            && lfsr_rbyd_trunk(btree) != 0
-            // or are a shrub
-            && !lfsr_rbyd_isshrub(btree)) {
+    if (!bt->branch) {
+        bt->branch = btree;
         bt->rid = bt->bid;
-        bt->branch = *btree;
 
         // traverse the root
-        if (bt->rid == 0) {
+        if (bt->bid == 0
+                // unless we don't even have a root yet
+                && lfsr_rbyd_trunk(btree) != 0
+                // or are a shrub
+                && !lfsr_rbyd_isshrub(btree)) {
             if (bid_) {
                 *bid_ = btree->weight-1;
             }
             btinfo->tag = LFSR_TAG_BRANCH;
-            btinfo->u.rbyd = bt->branch;
+            btinfo->u.rbyd = *bt->branch;
             return 0;
         }
     }
 
     // need to restart from the root?
-    if (bt->rid >= (lfsr_srid_t)bt->branch.weight) {
+    if (bt->rid >= (lfsr_srid_t)bt->branch->weight) {
+        bt->branch = btree;
         bt->rid = bt->bid;
-        bt->branch = *btree;
     }
 
     // descend down the tree
@@ -5035,14 +5034,14 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookupnext(lfs, &bt->branch, bt->rid, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, bt->branch, bt->rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             return err;
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_sublookup(lfs, &bt->branch, rid__, LFSR_TAG_STRUCT,
+            err = lfsr_rbyd_sublookup(lfs, bt->branch, rid__, LFSR_TAG_STRUCT,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5057,11 +5056,12 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
 
             // fetch the next branch
             err = lfsr_data_readbranch(lfs, &data__, weight__,
-                    &bt->branch);
+                    &bt->rbyd);
             if (err) {
                 return err;
             }
-            LFS_ASSERT((lfsr_bid_t)bt->branch.weight == weight__);
+            LFS_ASSERT((lfsr_bid_t)bt->rbyd.weight == weight__);
+            bt->branch = &bt->rbyd;
 
             // return inner btree nodes if this is the first time we've
             // seen them
@@ -5070,7 +5070,7 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
                     *bid_ = bt->bid + (rid__ - bt->rid);
                 }
                 btinfo->tag = LFSR_TAG_BRANCH;
-                btinfo->u.rbyd = bt->branch;
+                btinfo->u.rbyd = *bt->branch;
                 return 0;
             }
 
@@ -8664,16 +8664,18 @@ static int lfsr_mtree_gc(lfs_t *lfs,
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
 
         // TODO should we really have two btree copies flying around?
-        LFS_ASSERT(lfsr_rbyd_cmp(&mt->u.bt.branch, &mtinfo->u.rbyd) == 0);
+        LFS_ASSERT(lfsr_rbyd_cmp(mt->u.bt.branch, &mtinfo->u.rbyd) == 0);
         if (mt->state == LFSR_MTRAVERSAL_MTREE) {
             int err = lfsr_btree_compact_(lfs, &mt->bshrub.u.btree,
-                    mt->u.bt.bid, &mt->u.bt.branch);
+                    // note we may be referencing the btree root here
+                    mt->u.bt.bid, (lfsr_rbyd_t*)mt->u.bt.branch);
             if (err) {
                 return err;
             }
         } else {
             int err = lfsr_bshrub_compact_(lfs, mdir, &mt->bshrub,
-                    mt->u.bt.bid, &mt->u.bt.branch);
+                    // note we may be referencing the btree root here
+                    mt->u.bt.bid, (lfsr_rbyd_t*)mt->u.bt.branch);
             if (err) {
                 return err;
             }
@@ -8716,8 +8718,8 @@ static int lfsr_mtree_gc(lfs_t *lfs,
         }
 
         // reset to btree root
+        mt->u.bt.branch = &mt->bshrub.u.btree;
         mt->u.bt.rid = mt->u.bt.bid;
-        mt->u.bt.branch = mt->bshrub.u.btree;
 
         // mark as dirty
         mt->flags |= LFS_F_DIRTY;
