@@ -5914,13 +5914,8 @@ static void lfsr_omdir_open(lfs_t *lfs, lfsr_omdir_t *o) {
     lfs->omdirs = o;
 }
 
-// needed in lfsr_omdir_close
-static void lfsr_omdir_clobber(lfs_t *lfs, lfsr_omdir_t *o, bool dirty);
-
 static void lfsr_omdir_close(lfs_t *lfs, lfsr_omdir_t *o) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, o));
-    // make sure we're not entangled in any traversals
-    lfsr_omdir_clobber(lfs, o, false);
     // remove from opened list
     for (lfsr_omdir_t **o_ = &lfs->omdirs; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
@@ -9981,6 +9976,12 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     if (!lfsr_o_isrdonly(file->o.flags)
             && !lfsr_o_isdesync(file->o.flags)) {
         err = lfsr_file_sync(lfs, file);
+    }
+
+    // if we're unsync, we need to clobber any traversals that may be
+    // referencing our bshrub/memory, but we don't need to mark as dirty
+    if (lfsr_f_isunsync(file->o.flags)) {
+        lfsr_omdir_clobber(lfs, &file->o, false);
     }
 
     // remove from tracked mdirs
