@@ -122,7 +122,8 @@ enum lfs_type {
 
     // internally used types
     LFS_TYPE_BOOKMARK   = 4,
-    LFS_TYPE_TRAVERSAL  = 5,
+    LFS_TYPE_ORPHAN     = 5,
+    LFS_TYPE_TRAVERSAL  = 9,
 };
 
 // File open flags
