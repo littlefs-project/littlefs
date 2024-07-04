@@ -4992,14 +4992,14 @@ typedef struct lfsr_btinfo {
     union {
         // ignore the mdir here, things get a bit simpler if we can
         // alias mtinfo=btinfo
-        const lfsr_mdir_t *mdir;
-        const lfsr_rbyd_t *rbyd;
+        lfsr_mdir_t *mdir;
+        lfsr_rbyd_t *rbyd;
         lfsr_data_t data;
         lfsr_bptr_t bptr;
     } u;
 } lfsr_btinfo_t;
 
-static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
+static int lfsr_btree_traverse_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_btraversal_t *bt,
         lfsr_bid_t *bid_, lfsr_btinfo_t *btinfo) {
     // explicitly traverse the root even if weight=0
@@ -5094,7 +5094,7 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
     }
 }
 
-static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
+static int lfsr_btree_traverse(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_btraversal_t *bt,
         lfsr_bid_t *bid_, lfsr_btinfo_t *btinfo) {
     return lfsr_btree_traverse_(lfs, btree, bt, bid_, btinfo);
@@ -5588,7 +5588,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs,
 }
 
 static int lfsr_bshrub_traverse(lfs_t *lfs,
-        const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub,
+        const lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub,
         lfsr_btraversal_t *bt,
         lfsr_bid_t *bid_, lfsr_btinfo_t *btinfo) {
     // bnull/bsprout do nothing
@@ -8569,7 +8569,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_mtraversal_t *mt,
                 // we also need to fetch to know if we need to compact
                 || lfsr_t_iscompact(mt->o.o.flags))
             && mtinfo->tag == LFSR_TAG_BRANCH) {
-        err = lfsr_rbyd_fetchck(lfs, (lfsr_rbyd_t*)mtinfo->u.rbyd,
+        err = lfsr_rbyd_fetchck(lfs, mtinfo->u.rbyd,
                 mtinfo->u.rbyd->blocks[0], mtinfo->u.rbyd->trunk,
                 mtinfo->u.rbyd->cksum);
         if (err) {
@@ -8638,7 +8638,7 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_mtraversal_t *mt,
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
 
-        int err = lfsr_mdir_compact(lfs, (lfsr_mdir_t*)mtinfo->u.mdir);
+        int err = lfsr_mdir_compact(lfs, mtinfo->u.mdir);
         if (err) {
             return err;
         }
@@ -8667,14 +8667,14 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_mtraversal_t *mt,
         if (mt->o.o.state == LFSR_MTRAVERSAL_MTREE) {
             int err = lfsr_btree_compact_(lfs, &mt->o.bshrub.u.btree,
                     // note we may be referencing the btree root here
-                    mt->u.bt.bid, (lfsr_rbyd_t*)mtinfo->u.rbyd);
+                    mt->u.bt.bid, mtinfo->u.rbyd);
             if (err) {
                 return err;
             }
         } else {
             int err = lfsr_bshrub_compact_(lfs, &mt->o.o.mdir, &mt->o.bshrub,
                     // note we may be referencing the btree root here
-                    mt->u.bt.bid, (lfsr_rbyd_t*)mtinfo->u.rbyd);
+                    mt->u.bt.bid, mtinfo->u.rbyd);
             if (err) {
                 return err;
             }
