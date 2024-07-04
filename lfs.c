@@ -4992,8 +4992,8 @@ typedef struct lfsr_btinfo {
     union {
         // ignore the mdir here, things get a bit simpler if we can
         // alias mtinfo=btinfo
-        lfsr_mdir_t mdir;
-        lfsr_rbyd_t rbyd;
+        const lfsr_mdir_t *mdir;
+        const lfsr_rbyd_t *rbyd;
         lfsr_data_t data;
         lfsr_bptr_t bptr;
     } u;
@@ -5017,7 +5017,7 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
                 *bid_ = btree->weight-1;
             }
             btinfo->tag = LFSR_TAG_BRANCH;
-            btinfo->u.rbyd = *bt->branch;
+            btinfo->u.rbyd = bt->branch;
             return 0;
         }
     }
@@ -5070,7 +5070,7 @@ static int lfsr_btree_traverse_(lfs_t *lfs, const lfsr_btree_t *btree,
                     *bid_ = bt->bid + (rid__ - bt->rid);
                 }
                 btinfo->tag = LFSR_TAG_BRANCH;
-                btinfo->u.rbyd = *bt->branch;
+                btinfo->u.rbyd = bt->branch;
                 return 0;
             }
 
@@ -8293,7 +8293,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             mt->o.o.state = LFSR_MTRAVERSAL_MROOTCHAIN;
 
             mtinfo->tag = LFSR_TAG_MDIR;
-            mtinfo->u.mdir = mt->o.o.mdir;
+            mtinfo->u.mdir = &mt->o.o.mdir;
             return 0;
 
         // traverse the mroot chain, checking for mroot/mtree/mdir
@@ -8349,7 +8349,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
                 }
 
                 mtinfo->tag = LFSR_TAG_MDIR;
-                mtinfo->u.mdir = mt->o.o.mdir;
+                mtinfo->u.mdir = &mt->o.o.mdir;
                 return 0;
 
             // found an mdir?
@@ -8370,7 +8370,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
                 mt->o.o.state = LFSR_MTRAVERSAL_MDIR;
 
                 mtinfo->tag = LFSR_TAG_MDIR;
-                mtinfo->u.mdir = mt->o.o.mdir;
+                mtinfo->u.mdir = &mt->o.o.mdir;
                 return 0;
 
             // found an mtree?
@@ -8409,7 +8409,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_mtraversal_t *mt,
             mt->o.o.state = LFSR_MTRAVERSAL_MDIR;
 
             mtinfo->tag = LFSR_TAG_MDIR;
-            mtinfo->u.mdir = mt->o.o.mdir;
+            mtinfo->u.mdir = &mt->o.o.mdir;
             return 0;
 
         // scan for blocks/btrees in the current mdir
@@ -8569,9 +8569,9 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_mtraversal_t *mt,
                 // we also need to fetch to know if we need to compact
                 || lfsr_t_iscompact(mt->o.o.flags))
             && mtinfo->tag == LFSR_TAG_BRANCH) {
-        err = lfsr_rbyd_fetchck(lfs, &mtinfo->u.rbyd,
-                mtinfo->u.rbyd.blocks[0], mtinfo->u.rbyd.trunk,
-                mtinfo->u.rbyd.cksum);
+        err = lfsr_rbyd_fetchck(lfs, (lfsr_rbyd_t*)mtinfo->u.rbyd,
+                mtinfo->u.rbyd->blocks[0], mtinfo->u.rbyd->trunk,
+                mtinfo->u.rbyd->cksum);
         if (err) {
             return err;
         }
@@ -8589,11 +8589,11 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_mtraversal_t *mt,
     // track in-use blocks
     if (lfsr_t_islookahead(mt->o.o.flags)) {
         if (mtinfo->tag == LFSR_TAG_MDIR) {
-            lfs_alloc_markinuse(lfs, mtinfo->u.mdir.rbyd.blocks[0]);
-            lfs_alloc_markinuse(lfs, mtinfo->u.mdir.rbyd.blocks[1]);
+            lfs_alloc_markinuse(lfs, mtinfo->u.mdir->rbyd.blocks[0]);
+            lfs_alloc_markinuse(lfs, mtinfo->u.mdir->rbyd.blocks[1]);
 
         } else if (mtinfo->tag == LFSR_TAG_BRANCH) {
-            lfs_alloc_markinuse(lfs, mtinfo->u.rbyd.blocks[0]);
+            lfs_alloc_markinuse(lfs, mtinfo->u.rbyd->blocks[0]);
 
         } else if (mtinfo->tag == LFSR_TAG_BLOCK) {
             lfs_alloc_markinuse(lfs, mtinfo->u.bptr.data.u.disk.block);
@@ -8623,28 +8623,25 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_mtraversal_t *mt,
     if (lfsr_t_iscompact(mt->o.o.flags)
             && mtinfo->tag == LFSR_TAG_MDIR
             // exceed compaction threshold?
-            && lfsr_rbyd_eoff(&mtinfo->u.mdir.rbyd)
+            && lfsr_rbyd_eoff(&mtinfo->u.mdir->rbyd)
                 > ((lfs->cfg->gc_compact_thresh)
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
         LFS_DEBUG("Compacting mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} "
                 "(%"PRId32" > %"PRId32")",
-                mtinfo->u.mdir.mid >> lfs->mdir_bits,
-                mtinfo->u.mdir.rbyd.blocks[0],
-                mtinfo->u.mdir.rbyd.blocks[1],
-                lfsr_rbyd_eoff(&mtinfo->u.mdir.rbyd),
+                mtinfo->u.mdir->mid >> lfs->mdir_bits,
+                mtinfo->u.mdir->rbyd.blocks[0],
+                mtinfo->u.mdir->rbyd.blocks[1],
+                lfsr_rbyd_eoff(&mtinfo->u.mdir->rbyd),
                 (lfs->cfg->gc_compact_thresh)
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
 
-        // TODO should we really have two mdir copies flying around?
-        LFS_ASSERT(lfsr_mdir_cmp(&mt->o.o.mdir, &mtinfo->u.mdir) == 0);
-        int err = lfsr_mdir_compact(lfs, &mt->o.o.mdir);
+        int err = lfsr_mdir_compact(lfs, (lfsr_mdir_t*)mtinfo->u.mdir);
         if (err) {
             return err;
         }
-        mtinfo->u.mdir = mt->o.o.mdir;
 
         // mark as dirty
         mt->o.o.flags |= LFS_F_DIRTY;
@@ -8654,32 +8651,30 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_mtraversal_t *mt,
     if (lfsr_t_iscompact(mt->o.o.flags)
             && mtinfo->tag == LFSR_TAG_BRANCH
             // exceed compaction threshold?
-            && lfsr_rbyd_eoff(&mtinfo->u.rbyd)
+            && lfsr_rbyd_eoff(mtinfo->u.rbyd)
                 > ((lfs->cfg->gc_compact_thresh)
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
         LFS_DEBUG("Compacting rbyd 0x%"PRIx32".%"PRIx32" "
                 "(%"PRId32" > %"PRId32")",
-                mtinfo->u.rbyd.blocks[0],
-                lfsr_rbyd_trunk(&mtinfo->u.rbyd),
-                lfsr_rbyd_eoff(&mtinfo->u.rbyd),
+                mtinfo->u.rbyd->blocks[0],
+                lfsr_rbyd_trunk(mtinfo->u.rbyd),
+                lfsr_rbyd_eoff(mtinfo->u.rbyd),
                 (lfs->cfg->gc_compact_thresh)
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
 
-        // TODO should we really have two btree copies flying around?
-        LFS_ASSERT(lfsr_rbyd_cmp(mt->u.bt.branch, &mtinfo->u.rbyd) == 0);
         if (mt->o.o.state == LFSR_MTRAVERSAL_MTREE) {
             int err = lfsr_btree_compact_(lfs, &mt->o.bshrub.u.btree,
                     // note we may be referencing the btree root here
-                    mt->u.bt.bid, (lfsr_rbyd_t*)mt->u.bt.branch);
+                    mt->u.bt.bid, (lfsr_rbyd_t*)mtinfo->u.rbyd);
             if (err) {
                 return err;
             }
         } else {
             int err = lfsr_bshrub_compact_(lfs, &mt->o.o.mdir, &mt->o.bshrub,
                     // note we may be referencing the btree root here
-                    mt->u.bt.bid, (lfsr_rbyd_t*)mt->u.bt.branch);
+                    mt->u.bt.bid, (lfsr_rbyd_t*)mtinfo->u.rbyd);
             if (err) {
                 return err;
             }
@@ -12268,11 +12263,11 @@ static int lfsr_mountinited(lfs_t *lfs) {
         // found an mdir?
         if (mtinfo.tag == LFSR_TAG_MDIR) {
             // found an mroot?
-            if (mtinfo.u.mdir.mid == -1) {
+            if (mtinfo.u.mdir->mid == -1) {
                 // check for the magic string, all mroot should have this
                 lfsr_data_t data;
                 int err = lfsr_mdir_lookup(lfs,
-                        &mtinfo.u.mdir, LFSR_TAG_MAGIC,
+                        mtinfo.u.mdir, LFSR_TAG_MAGIC,
                         &data);
                 if (err) {
                     if (err == LFS_ERR_NOENT) {
@@ -12293,14 +12288,14 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 }
 
                 // are we the last mroot?
-                err = lfsr_mdir_lookup(lfs, &mtinfo.u.mdir, LFSR_TAG_MROOT,
+                err = lfsr_mdir_lookup(lfs, mtinfo.u.mdir, LFSR_TAG_MROOT,
                         NULL);
                 if (err && err != LFS_ERR_NOENT) {
                     return err;
                 }
                 if (err == LFS_ERR_NOENT) {
                     // track active mroot
-                    lfs->mroot = mtinfo.u.mdir;
+                    lfs->mroot = *mtinfo.u.mdir;
 
                     // mount/validate config in active mroot
                     err = lfsr_mountmroot(lfs, &lfs->mroot);
@@ -12313,25 +12308,27 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 // found a direct mdir? keep track of this
                 if (lfsr_mtree_isnull(&lfs->mtree)) {
                     lfs->mtree = LFSR_MTREE_MPTR(
-                            *lfsr_mdir_mptr(&mtinfo.u.mdir),
+                            *lfsr_mdir_mptr(mtinfo.u.mdir),
                             (1 << lfs->mdir_bits));
                 }
             }
 
             // toss our cksum into the filesystem seed for pseudorandom
             // numbers
-            lfs->seed ^= mtinfo.u.mdir.rbyd.cksum;
+            lfs->seed ^= mtinfo.u.mdir->rbyd.cksum;
 
             // collect any gdeltas from this mdir
-            err = lfsr_fs_consumegdelta(lfs, &mtinfo.u.mdir);
+            err = lfsr_fs_consumegdelta(lfs, mtinfo.u.mdir);
             if (err) {
                 return err;
             }
 
             // check for any orphaned files
-            for (lfs_size_t rid = 0; rid < mtinfo.u.mdir.rbyd.weight; rid++) {
+            for (lfs_size_t rid = 0;
+                    rid < mtinfo.u.mdir->rbyd.weight;
+                    rid++) {
                 lfsr_tag_t tag;
-                err = lfsr_rbyd_sublookup(lfs, &mtinfo.u.mdir.rbyd,
+                err = lfsr_rbyd_sublookup(lfs, &mtinfo.u.mdir->rbyd,
                         rid, LFSR_TAG_NAME,
                         &tag, NULL);
                 if (err) {
@@ -12345,7 +12342,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 if (tag == LFSR_TAG_ORPHAN) {
                     LFS_DEBUG("Found orphaned file "
                             "%"PRId32".%"PRId32,
-                            lfsr_mid_bid(lfs, mtinfo.u.mdir.mid)
+                            lfsr_mid_bid(lfs, mtinfo.u.mdir->mid)
                                 >> lfs->mdir_bits,
                             rid);
                     lfs->hasorphans = true;
@@ -12355,7 +12352,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     // TODO switch to readonly?
                     LFS_ERROR("Found unknown file type "
                             "%"PRId32".%"PRId32" 0x%"PRIx16,
-                            lfsr_mid_bid(lfs, mtinfo.u.mdir.mid)
+                            lfsr_mid_bid(lfs, mtinfo.u.mdir->mid)
                                 >> lfs->mdir_bits,
                             rid,
                             lfsr_tag_subtype(tag));
@@ -12367,7 +12364,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
         } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
             // found the root of the mtree? keep track of this
             if (lfsr_mtree_isnull(&lfs->mtree)) {
-                lfs->mtree.u.btree = mtinfo.u.rbyd;
+                lfs->mtree.u.btree = *mtinfo.u.rbyd;
             }
 
         } else {
@@ -12867,12 +12864,12 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         // figure out type/blocks
         if (mtinfo.tag == LFSR_TAG_MDIR) {
             t->o.o.flags = (t->o.o.flags & ~0x7) | LFS_BTYPE_MDIR;
-            t->blocks[0] = mtinfo.u.mdir.rbyd.blocks[0];
-            t->blocks[1] = mtinfo.u.mdir.rbyd.blocks[1];
+            t->blocks[0] = mtinfo.u.mdir->rbyd.blocks[0];
+            t->blocks[1] = mtinfo.u.mdir->rbyd.blocks[1];
 
         } else if (mtinfo.tag == LFSR_TAG_BRANCH) {
             t->o.o.flags = (t->o.o.flags & ~0x7) | LFS_BTYPE_BTREE;
-            t->blocks[0] = mtinfo.u.rbyd.blocks[0];
+            t->blocks[0] = mtinfo.u.rbyd->blocks[0];
             t->blocks[1] = -1;
 
         } else if (mtinfo.tag == LFSR_TAG_BLOCK) {

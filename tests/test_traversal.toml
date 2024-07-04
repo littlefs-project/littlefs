@@ -6082,7 +6082,7 @@ code = '''
         assert(mtinfo.tag == LFSR_TAG_MDIR);
         lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6140,7 +6140,7 @@ code = '''
     assert(mtinfo.tag == LFSR_TAG_MDIR);
     lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
     assert(mtinfo.tag == LFSR_TAG_BRANCH);
-    assert(lfsr_rbyd_eoff(&mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+    assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6560,7 +6560,7 @@ code = '''
         assert(mtinfo.tag == LFSR_TAG_MDIR);
         lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6610,7 +6610,7 @@ code = '''
             break;
         }
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(&mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the file
@@ -6673,7 +6673,7 @@ code = '''
         assert(mtinfo.tag == LFSR_TAG_MDIR);
         lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6723,7 +6723,7 @@ code = '''
             break;
         }
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(&mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the file
@@ -6787,7 +6787,7 @@ code = '''
         assert(mtinfo.tag == LFSR_TAG_MDIR);
         lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6835,7 +6835,7 @@ code = '''
             break;
         }
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(&mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the file
@@ -6899,7 +6899,7 @@ code = '''
         assert(mtinfo.tag == LFSR_TAG_MDIR);
         lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(&mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6968,7 +6968,7 @@ code = '''
             break;
         }
         assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(&mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the files

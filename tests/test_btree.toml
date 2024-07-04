@@ -4109,11 +4109,11 @@ code = '''
             printf("traversal: %d 0x%x btree 0x%x.%x\n",
                     bid,
                     btinfo.tag,
-                    btinfo.u.rbyd.blocks[0], btinfo.u.rbyd.trunk);
+                    btinfo.u.rbyd->blocks[0], btinfo.u.rbyd->trunk);
 
             // keep track of seen blocks
-            seen[btinfo.u.rbyd.blocks[0] / 8]
-                    |= 1 << (btinfo.u.rbyd.blocks[0] % 8);
+            seen[btinfo.u.rbyd->blocks[0] / 8]
+                    |= 1 << (btinfo.u.rbyd->blocks[0] % 8);
 
         } else if (btinfo.tag == LFSR_TAG_DATA) {
             printf("traversal: %d 0x%x data %d\n",
@@ -4258,11 +4258,11 @@ code = '''
             printf("traversal: %d 0x%x btree 0x%x.%x\n",
                     bid,
                     btinfo.tag,
-                    btinfo.u.rbyd.blocks[0], btinfo.u.rbyd.trunk);
+                    btinfo.u.rbyd->blocks[0], btinfo.u.rbyd->trunk);
 
             // keep track of seen blocks
-            seen[btinfo.u.rbyd.blocks[0] / 8]
-                    |= 1 << (btinfo.u.rbyd.blocks[0] % 8);
+            seen[btinfo.u.rbyd->blocks[0] / 8]
+                    |= 1 << (btinfo.u.rbyd->blocks[0] % 8);
 
         } else if (btinfo.tag == LFSR_TAG_DATA) {
             printf("traversal: %d 0x%x data %d\n",
