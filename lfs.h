@@ -620,7 +620,7 @@ typedef struct lfsr_btraversal {
     lfsr_rbyd_t rbyd;
 } lfsr_btraversal_t;
 
-typedef struct lfsr_mtraversal {
+typedef struct lfsr_traversal {
     // mdir/btree state, this also includes our traversal state machine
     lfsr_obshrub_t o;
     // opened file state
@@ -638,9 +638,7 @@ typedef struct lfsr_mtraversal {
 
     // pending blocks, only used in lfsr_traversal_read
     lfs_sblock_t blocks[2];
-} lfsr_mtraversal_t;
-
-typedef lfsr_mtraversal_t lfsr_traversal_t;
+} lfsr_traversal_t;
 
 
 //typedef struct lfs_superblock {
