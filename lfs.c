@@ -9760,16 +9760,16 @@ static inline bool lfsr_o_isappend(uint32_t flags) {
     return flags & LFS_O_APPEND;
 }
 
+static inline bool lfsr_o_isflush(uint32_t flags) {
+    return flags & LFS_O_FLUSH;
+}
+
 static inline bool lfsr_o_issync(uint32_t flags) {
-    return flags & LFS_O_SYNC;
+    return flags & (LFS_O_SYNC ^ LFS_O_FLUSH);
 }
 
 static inline bool lfsr_o_isdesync(uint32_t flags) {
     return flags & LFS_O_DESYNC;
-}
-
-static inline bool lfsr_o_isflush(uint32_t flags) {
-    return flags & LFS_O_FLUSH;
 }
 
 static inline bool lfsr_f_isunflush(uint32_t flags) {

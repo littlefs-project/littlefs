@@ -137,9 +137,9 @@ enum lfs_open_flags {
     LFS_O_EXCL      = 0x0008,   // Fail if a file already exists
     LFS_O_TRUNC     = 0x0010,   // Truncate the existing file to zero size
     LFS_O_APPEND    = 0x0020,   // Move to end of file on every write
-    LFS_O_SYNC      = 0x0040,   // Sync metadata on every write
-    LFS_O_DESYNC    = 0x0080,   // Do not sync or recieve file updates
-    LFS_O_FLUSH     = 0x0100,   // Flush data on every write
+    LFS_O_FLUSH     = 0x0040,   // Flush data on every write
+    LFS_O_SYNC      = 0x00c0,   // Sync metadata on every write
+    LFS_O_DESYNC    = 0x0100,   // Do not sync or recieve file updates
 #endif
 
     // internally used flags
