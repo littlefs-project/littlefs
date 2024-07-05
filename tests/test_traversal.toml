@@ -6077,12 +6077,14 @@ code = '''
         // we need internals to check this
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-        lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_MDIR);
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_BRANCH);
+        if (lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6135,12 +6137,14 @@ code = '''
 
     // mtree should have been compacted
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-    lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-    assert(mtinfo.tag == LFSR_TAG_MDIR);
-    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-    assert(mtinfo.tag == LFSR_TAG_BRANCH);
-    assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+    lfsr_tag_t tag;
+    lfsr_bptr_t bptr;
+    lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
+    lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_BRANCH);
+    assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+            <= GC_COMPACT_THRESH);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6555,12 +6559,14 @@ code = '''
         // we need internals to check this
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-        lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_MDIR);
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_BRANCH);
+        if (lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6600,17 +6606,19 @@ code = '''
 
     // bshrub should have been compacted
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-    lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-    assert(mtinfo.tag == LFSR_TAG_MDIR);
+    lfsr_tag_t tag;
+    lfsr_bptr_t bptr;
+    lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the file
@@ -6668,12 +6676,14 @@ code = '''
         // we need internals to check this
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-        lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_MDIR);
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_BRANCH);
+        if (lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6713,17 +6723,19 @@ code = '''
 
     // bshrub should have been compacted
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-    lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-    assert(mtinfo.tag == LFSR_TAG_MDIR);
+    lfsr_tag_t tag;
+    lfsr_bptr_t bptr;
+    lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the file
@@ -6782,12 +6794,14 @@ code = '''
         // we need internals to check this
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-        lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_MDIR);
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_BRANCH);
+        if (lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6825,17 +6839,19 @@ code = '''
 
     // bshrub should have been compacted
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-    lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-    assert(mtinfo.tag == LFSR_TAG_MDIR);
+    lfsr_tag_t tag;
+    lfsr_bptr_t bptr;
+    lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the file
@@ -6894,12 +6910,14 @@ code = '''
         // we need internals to check this
         // ckmeta needed for eoff
         lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-        lfsr_mtinfo_t mtinfo;
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_MDIR);
-        lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        if (lfsr_rbyd_eoff(mtinfo.u.rbyd) > GC_COMPACT_THRESH) {
+        lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_MDIR);
+        lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+        assert(tag == LFSR_TAG_BRANCH);
+        if (lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -6958,17 +6976,19 @@ code = '''
 
     // bshrub should have been compacted
     lfsr_mtraversal_t mt = LFSR_MTRAVERSAL(LFS_T_CKMETA);
-    lfsr_mtinfo_t mtinfo;
-    lfsr_mtree_traverse(&lfs, &mt, &mtinfo) => 0;
-    assert(mtinfo.tag == LFSR_TAG_MDIR);
+    lfsr_tag_t tag;
+    lfsr_bptr_t bptr;
+    lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
     while (true) {
-        int err = lfsr_mtree_traverse(&lfs, &mt, &mtinfo);
+        int err = lfsr_mtree_traverse(&lfs, &mt, &tag, &bptr);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
-        assert(mtinfo.tag == LFSR_TAG_BRANCH);
-        assert(lfsr_rbyd_eoff(mtinfo.u.rbyd) <= GC_COMPACT_THRESH);
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
     }
 
     // check we can still read the files
