@@ -5968,7 +5968,7 @@ static bool lfsr_omdir_ismidopen(lfs_t *lfs, lfsr_smid_t mid) {
 static void lfsr_fs_mkdirty(lfs_t *lfs) {
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (o->type == LFS_TYPE_TRAVERSAL) {
-            o->flags |= LFS_I_DIRTY;
+            o->flags |= LFS_F_DIRTY;
         }
     }
 }
@@ -8261,8 +8261,8 @@ static inline bool lfsr_t_isckdata(uint32_t flags) {
     return flags & (LFS_T_CKDATA ^ LFS_T_CKMETA);
 }
 
-static inline bool lfsr_i_isdirty(uint32_t flags) {
-    return flags & LFS_I_DIRTY;
+static inline bool lfsr_f_isdirty(uint32_t flags) {
+    return flags & LFS_F_DIRTY;
 }
 
 
@@ -8679,7 +8679,7 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         }
 
         // mark as dirty
-        t->o.o.flags |= LFS_I_DIRTY;
+        t->o.o.flags |= LFS_F_DIRTY;
     }
 
     // compacting btree nodes?
@@ -8757,7 +8757,7 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         t->u.bt.rid = t->u.bt.bid;
 
         // mark as dirty
-        t->o.o.flags |= LFS_I_DIRTY;
+        t->o.o.flags |= LFS_F_DIRTY;
     }
 
     if (tag_) {
@@ -12827,7 +12827,7 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
     // these flags are internal and shouldn't be provided by the user
-    LFS_ASSERT(!lfsr_i_isdirty(flags));
+    LFS_ASSERT(!lfsr_f_isdirty(flags));
 
     // some flags mutate the filesystem
     if (lfsr_t_ismkconsistent(flags)
@@ -12870,7 +12870,6 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         // some redund blocks left over?
         if (t->blocks[0] != -1) {
             // write our traversal info
-            tinfo->flags = t->o.o.flags & LFS_I_DIRTY;
             tinfo->btype = lfsr_t_btype(t->o.o.flags);
             tinfo->block = t->blocks[0];
 
@@ -12918,7 +12917,7 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 done:;
     // was a lookahead scan successful?
     if (lfsr_t_islookahead(t->o.o.flags)
-            && !lfsr_i_isdirty(t->o.o.flags)) {
+            && !lfsr_f_isdirty(t->o.o.flags)) {
         lfs_alloc_markfree(lfs);
     }
 
@@ -12961,7 +12960,7 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t) {
 static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     (void)lfs;
     // reset traversal
-    t->o.o.flags &= ~LFS_I_DIRTY;
+    t->o.o.flags &= ~LFS_F_DIRTY;
     t->o.o.state = LFSR_TSTATE_MROOTANCHOR;
     t->o.o.mdir.mid = -1;
     t->o.o.mdir.rbyd.weight = 0;

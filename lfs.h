@@ -177,11 +177,9 @@ enum lfs_traversal_flags {
 // TODO
 //    LFS_T_REPAIRMETA    = 0x0400, // Repair metadata blocks
 //    LFS_T_REPAIRDATA    = 0x0c00, // Repair metadata + data blocks
-};
 
-enum lfs_tinfo_flags {
-    // traversal info flags
-    LFS_I_DIRTY         = 0x1000, // Filesystem has been modified
+    // internally used flags
+    LFS_F_DIRTY         = 0x1000, // Filesystem has been modified
 };
 
 
@@ -385,9 +383,6 @@ struct lfs_fsinfo {
 
 // Traversal info structure
 struct lfs_tinfo {
-    // Traversal flags
-    uint16_t flags;
-
     // Type of the block
     uint8_t btype;
 
