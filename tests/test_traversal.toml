@@ -27,9 +27,11 @@ code = '''
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -58,18 +60,22 @@ code = '''
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     lfsr_traversal_rewind(&lfs, &t) => 0;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -98,9 +104,11 @@ code = '''
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -158,6 +166,7 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
+        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE);
         // keep track of seen blocks
@@ -279,6 +288,7 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
+        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -393,6 +403,7 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
+        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -518,6 +529,7 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
+        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE);
         // keep track of seen blocks
@@ -648,6 +660,7 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
+        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -771,6 +784,7 @@ code = '''
         printf("traversal: btype %d block 0x%x\n",
                 tinfo.btype,
                 tinfo.block);
+        assert(tinfo.flags == 0);
         assert(tinfo.btype == LFS_BTYPE_MDIR
                 || tinfo.btype == LFS_BTYPE_BTREE
                 || tinfo.btype == LFS_BTYPE_DATA);
@@ -883,6 +897,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_MDIR) {
                 if (k == i || k == i+1) {
                     // clobber this block
@@ -979,6 +994,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_MDIR) {
                 if (k == i || k == i+1) {
                     // clobber this block
@@ -1010,6 +1026,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1077,6 +1095,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_MDIR) {
                 if (k == i || k == i+1) {
                     // clobber this block
@@ -1108,6 +1127,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1157,6 +1178,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_BTREE) {
                 if (k == i) {
                     // clobber this block
@@ -1186,6 +1208,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1251,6 +1275,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_BTREE) {
                 if (k == i) {
                     // clobber this block
@@ -1280,6 +1305,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1347,6 +1374,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_BTREE) {
                 if (k == i) {
                     // clobber this block
@@ -1376,6 +1404,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1425,6 +1455,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_DATA) {
                 if (k == i) {
                     // clobber this block
@@ -1455,6 +1486,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1520,6 +1553,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_DATA) {
                 if (k == i) {
                     // clobber this block
@@ -1550,6 +1584,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1617,6 +1653,7 @@ code = '''
                 goto done;
             }
 
+            assert(tinfo.flags == 0);
             if (tinfo.btype == LFS_BTYPE_DATA) {
                 if (k == i) {
                     // clobber this block
@@ -1647,6 +1684,8 @@ code = '''
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
+
+            assert(tinfo.flags == 0);
         }
         lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1688,6 +1727,7 @@ code = '''
 
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 0) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1699,6 +1739,7 @@ code = '''
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 1) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1712,74 +1753,6 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    lfsr_unmount(&lfs) => 0;
-'''
-
-[cases.test_traversal_mutation_excl]
-defines.WHEN = [0, 1, 2]
-defines.CKMETA = [false, true]
-defines.CKDATA = [false, true]
-defines.LOOKAHEAD = [false, true]
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // try traversing
-    lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t,
-            LFS_T_EXCL
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
-                | ((CKDATA) ? LFS_T_CKDATA : 0)
-                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
-
-    if (WHEN == 0) {
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "spider",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_close(&lfs, &file) => 0;
-
-        // read should immediately error
-        struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-        lfsr_traversal_close(&lfs, &t) => 0;
-        goto done;
-    }
-
-    struct lfs_tinfo tinfo;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    assert(tinfo.block == 0 || tinfo.block == 1);
-
-    if (WHEN == 1) {
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "spider",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_close(&lfs, &file) => 0;
-
-        // read should immediately error
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-        lfsr_traversal_close(&lfs, &t) => 0;
-        goto done;
-    }
-
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    assert(tinfo.block == 0 || tinfo.block == 1);
-
-    if (WHEN == 2) {
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "spider",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_close(&lfs, &file) => 0;
-
-        // read should immediately error
-        lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-        lfsr_traversal_close(&lfs, &t) => 0;
-        goto done;
-    }
-
-done:;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -1811,6 +1784,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -1833,59 +1807,6 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-
-    lfsr_traversal_close(&lfs, &t) => 0;
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-[cases.test_traversal_mutation_excl_idempotent]
-defines.CKMETA = [false, true]
-defines.CKDATA = [false, true]
-defines.LOOKAHEAD = [false, true]
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    // try traversing
-    lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t,
-            LFS_T_EXCL
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
-                | ((CKDATA) ? LFS_T_CKDATA : 0)
-                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
-    struct lfs_tinfo tinfo;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    assert(tinfo.block == 0 || tinfo.block == 1);
-
-    // mutate
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "spider",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_close(&lfs, &file) => 0;
-
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-
-    // try another mutation just for good measure
-    lfsr_file_open(&lfs, &file, "tarantula",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_close(&lfs, &file) => 0;
-
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
 
     lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1894,7 +1815,6 @@ code = '''
 
 [cases.test_traversal_mutation_mkdir]
 defines.WHEN = [0, 1, 2]
-defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -1906,55 +1826,34 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
 
     if (WHEN == 0) {
         lfsr_mkdir(&lfs, "spider") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 0) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 1) {
         lfsr_mkdir(&lfs, "spider") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 1) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 2) {
         lfsr_mkdir(&lfs, "spider") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-done:;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -1962,7 +1861,6 @@ done:;
 
 [cases.test_traversal_mutation_rm]
 defines.WHEN = [0, 1, 2]
-defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -1980,55 +1878,34 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
 
     if (WHEN == 0) {
         lfsr_remove(&lfs, "spider") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 0) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 1) {
         lfsr_remove(&lfs, "spider") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 1) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 2) {
         lfsr_remove(&lfs, "spider") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-done:;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -2036,7 +1913,6 @@ done:;
 
 [cases.test_traversal_mutation_mv]
 defines.WHEN = [0, 1, 2]
-defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -2054,55 +1930,34 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
 
     if (WHEN == 0) {
         lfsr_rename(&lfs, "spider", "scorpion") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 0) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 1) {
         lfsr_rename(&lfs, "spider", "scorpion") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((WHEN <= 1) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 2) {
         lfsr_rename(&lfs, "spider", "scorpion") => 0;
-
-        if (EXCL) {
-            // read should immediately error
-            struct lfs_tinfo tinfo;
-            lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
-            goto done;
-        }
     }
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-done:;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -2110,7 +1965,6 @@ done:;
 
 # some more complex mutation tests
 [cases.test_traversal_mutation_fwrite]
-defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -2143,8 +1997,7 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
 
@@ -2161,13 +2014,12 @@ code = '''
         // step traversal
         struct lfs_tinfo tinfo;
         int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-        assert(!err
-                || (!EXCL && err == LFS_ERR_NOENT)
-                || (EXCL && err == LFS_ERR_BUSY));
-        if (err == LFS_ERR_NOENT
-                || err == LFS_ERR_BUSY) {
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
             break;
         }
+
+        assert(tinfo.flags == LFS_I_DIRTY);
     }
 
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2183,7 +2035,6 @@ code = '''
 '''
 
 [cases.test_traversal_mutation_fwrite_open]
-defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -2219,8 +2070,7 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
 
@@ -2238,13 +2088,12 @@ code = '''
         // step traversal
         struct lfs_tinfo tinfo;
         int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-        assert(!err
-                || (!EXCL && err == LFS_ERR_NOENT)
-                || (EXCL && err == LFS_ERR_BUSY));
-        if (err == LFS_ERR_NOENT
-                || err == LFS_ERR_BUSY) {
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
             break;
         }
+
+        assert(tinfo.flags == LFS_I_DIRTY);
     }
 
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -2313,9 +2162,11 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2392,16 +2243,20 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite the file
@@ -2416,11 +2271,14 @@ code = '''
 
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -2484,13 +2342,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite the file
@@ -2505,8 +2366,10 @@ code = '''
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -2568,9 +2431,11 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2646,16 +2511,20 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite the file
@@ -2667,11 +2536,14 @@ code = '''
 
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -2737,13 +2609,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite the file
@@ -2755,8 +2630,10 @@ code = '''
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -2823,9 +2700,11 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2905,16 +2784,20 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // close the file
@@ -2925,11 +2808,14 @@ code = '''
 
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((DESYNC) ? 0 : LFS_I_DIRTY));
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((DESYNC) ? 0 : LFS_I_DIRTY));
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((DESYNC) ? 0 : LFS_I_DIRTY));
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3000,13 +2886,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // close the file
@@ -3017,8 +2906,10 @@ code = '''
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((DESYNC) ? 0 : LFS_I_DIRTY));
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((DESYNC) ? 0 : LFS_I_DIRTY));
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3089,13 +2980,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // remove the file
@@ -3103,8 +2997,10 @@ code = '''
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3173,13 +3069,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rename one file over another
@@ -3187,13 +3086,17 @@ code = '''
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3267,13 +3170,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rename one file over another
@@ -3281,8 +3187,10 @@ code = '''
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3347,6 +3255,7 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -3363,23 +3272,31 @@ code = '''
 
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3451,13 +3368,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse a data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // create enough files for mroot to split
@@ -3473,21 +3393,28 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3564,18 +3491,23 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // and another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // create enough files for mroot to split
@@ -3591,11 +3523,14 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3665,6 +3600,7 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -3679,18 +3615,24 @@ code = '''
 
     // traverse mroot
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3755,13 +3697,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse a data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite enough files for mroot to extend
@@ -3775,11 +3720,14 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3853,6 +3801,7 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -3872,18 +3821,24 @@ code = '''
     //
     // traverse mroot
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -3957,17 +3912,22 @@ code = '''
     // traverse mroots
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse a data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite enough files for mroot to relocate
@@ -3982,11 +3942,14 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -4089,6 +4052,7 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -4106,43 +4070,59 @@ code = '''
 
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -4255,31 +4235,41 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // create enough files for mdir to split again
@@ -4296,26 +4286,35 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -4428,36 +4427,48 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // create enough files for mdir to split again
@@ -4473,19 +4484,25 @@ code = '''
     }
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    assert(tinfo.flags == LFS_I_DIRTY);
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // check the file contents
@@ -4601,6 +4618,7 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -4615,38 +4633,52 @@ code = '''
 
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -4765,31 +4797,41 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite enough files for mroot to extend
@@ -4803,21 +4845,28 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -4941,6 +4990,7 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -4956,38 +5006,52 @@ code = '''
 
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -5111,35 +5175,47 @@ code = '''
     // traverse mroots
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse one data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_DATA);
 
     // rewrite enough files for mroot to relocate
@@ -5154,21 +5230,28 @@ code = '''
 
     // traverse another data block
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_DATA);
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -5243,80 +5326,14 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
-
-    // mdir should have been compacted
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-
-    // check we can still read the file
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_file_close(&lfs, &file) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
-            lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
-        }
-
-        lfsr_file_rewind(&lfs, &file) => 0;
-        uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    }
-
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# yes, compactions should return busy if excl
-[cases.test_traversal_compact_excl]
-defines.CKMETA = [false, true]
-defines.CKDATA = [false, true]
-defines.LOOKAHEAD = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
-# set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
-
-    uint32_t prng = 42;
-
-    // write to our mdir until >gc_compact_thresh full
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "jellyfish",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
-
-    // hack, don't use the internals like this
-    uint8_t wbuf[SIZE];
-    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
-        lfsr_file_rewind(&lfs, &file) => 0;
-        for (lfs_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_sync(&lfs, &file) => 0;
-    }
-
-    // try traversing and compacting
-    lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
-                | LFS_T_EXCL
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
-                | ((CKDATA) ? LFS_T_CKDATA : 0)
-                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)) => 0;
-    // traverse mroot
-    struct lfs_tinfo tinfo;
-    // compact, return bust
-    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_BUSY;
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
@@ -5403,15 +5420,19 @@ code = '''
     // traverse mrootanchor
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mroot
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -5489,8 +5510,10 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -5586,23 +5609,30 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // should have split, traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -5755,28 +5785,37 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((COMPACTSET & 0x1) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    // traverse mdir
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS_BTYPE_MDIR);
-    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((COMPACTSET & 0x1) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((COMPACTSET & 0x3) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((COMPACTSET & 0x3) ? LFS_I_DIRTY : 0));
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    // traverse mdir
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((COMPACTSET & 0x7) ? LFS_I_DIRTY : 0));
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == ((COMPACTSET & 0x7) ? LFS_I_DIRTY : 0));
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -5932,33 +5971,44 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // should have split, traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -6114,23 +6164,30 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     // traverse mdir
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -6218,13 +6275,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -6298,13 +6358,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -6375,13 +6438,16 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -6477,19 +6543,24 @@ code = '''
     // traverse mroot
     struct lfs_tinfo tinfo;
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == 0);
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.flags == LFS_I_DIRTY);
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
@@ -6599,6 +6670,7 @@ code = '''
     for (lfs_size_t i = 0; i < 5; i++) {
         // traverse bshrub
         lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.flags == LFS_I_DIRTY);
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -6716,6 +6788,7 @@ code = '''
     for (lfs_size_t i = 0; i < 5; i++) {
         // traverse bshrub
         lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.flags == LFS_I_DIRTY);
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -6832,6 +6905,7 @@ code = '''
     for (lfs_size_t i = 0; i < 5; i++) {
         // traverse bshrub
         lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.flags == LFS_I_DIRTY);
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -6969,6 +7043,7 @@ code = '''
     for (lfs_size_t i = 0; i < 3*5; i++) {
         // traverse bshrub
         lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        assert(tinfo.flags == LFS_I_DIRTY);
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -7028,7 +7103,6 @@ code = '''
 [cases.test_traversal_spam_dir_many]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -7045,8 +7119,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -7062,9 +7135,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }
@@ -7138,7 +7211,6 @@ code = '''
 [cases.test_traversal_spam_dir_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -7162,8 +7234,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -7255,9 +7326,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }
@@ -7319,7 +7390,6 @@ code = '''
 [cases.test_traversal_spam_file_many]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -7346,8 +7416,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -7373,9 +7442,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }
@@ -7423,7 +7492,6 @@ code = '''
 [cases.test_traversal_spam_file_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -7458,8 +7526,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -7587,9 +7654,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }
@@ -7666,7 +7733,6 @@ code = '''
 [cases.test_traversal_spam_fwrite_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -7733,8 +7799,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -7766,9 +7831,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }
@@ -7829,7 +7894,6 @@ code = '''
 [cases.test_traversal_spam_orphanzombie_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -7874,8 +7938,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -8111,9 +8174,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }
@@ -8200,7 +8263,6 @@ code = '''
 [cases.test_traversal_spam_orphanzombiedir_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
-defines.EXCL = [false, true]
 defines.CKMETA = [true]
 defines.CKDATA = [true]
 defines.LOOKAHEAD = [false, true]
@@ -8246,8 +8308,7 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((EXCL) ? LFS_T_EXCL : 0)
-                | ((CKMETA) ? LFS_T_CKMETA : 0)
+            ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)) => 0;
@@ -8544,9 +8605,9 @@ code = '''
         for (lfs_size_t s = 0; s < STEPS; s++) {
             struct lfs_tinfo tinfo;
             int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT || err == LFS_ERR_BUSY);
+            assert(!err || err == LFS_ERR_NOENT);
             // restart traversal
-            if (err == LFS_ERR_NOENT || err == LFS_ERR_BUSY) {
+            if (err == LFS_ERR_NOENT) {
                 lfsr_traversal_rewind(&lfs, &t) => 0;
             }
         }

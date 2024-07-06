@@ -98,7 +98,6 @@ enum lfs_error {
     LFS_ERR_UNKNOWN     = -1,   // Unknown error
     LFS_ERR_INVAL       = -22,  // Invalid parameter
     LFS_ERR_NOTSUP      = -95,  // Operation not supported
-    LFS_ERR_BUSY        = -16,  // Device or resource busy
     LFS_ERR_IO          = -5,   // Error during device operation
     LFS_ERR_CORRUPT     = -84,  // Corrupted
     LFS_ERR_NOENT       = -2,   // No directory entry
@@ -169,8 +168,7 @@ enum lfs_btype {
 // Traversal flags
 enum lfs_traversal_flags {
     // traversal open flags
-    LFS_T_MTREEONLY     = 0x0008, // Only traverse the mtree
-    LFS_T_EXCL          = 0x0010, // Terminate if filesystem modified
+    LFS_T_MTREEONLY     = 0x0010, // Only traverse the mtree
     LFS_T_MKCONSISTENT  = 0x0020, // Make the filesystem consistent
     LFS_T_LOOKAHEAD     = 0x0040, // Populate lookahead buffer
     LFS_T_COMPACT       = 0x0080, // Compact metadata logs
@@ -179,9 +177,11 @@ enum lfs_traversal_flags {
 // TODO
 //    LFS_T_REPAIRMETA    = 0x0400, // Repair metadata blocks
 //    LFS_T_REPAIRDATA    = 0x0c00, // Repair metadata + data blocks
+};
 
-    // internally used flags
-    LFS_F_DIRTY         = 0x1000, // Filesystem has been modified
+enum lfs_tinfo_flags {
+    // traversal info flags
+    LFS_I_DIRTY         = 0x1000, // Filesystem has been modified
 };
 
 
@@ -385,6 +385,9 @@ struct lfs_fsinfo {
 
 // Traversal info structure
 struct lfs_tinfo {
+    // Traversal flags
+    uint16_t flags;
+
     // Type of the block
     uint8_t btype;
 

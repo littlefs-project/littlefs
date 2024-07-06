@@ -6,7 +6,6 @@ ERRS = [
     ('UNKNOWN',         -1,     "Unknown error"                     ),
     ('INVAL',           -22,    "Invalid parameter"                 ),
     ('NOTSUP',          -95,    "Operation not supported"           ),
-    ('BUSY',            -16,    "Device or resource busy"           ),
     ('IO',              -5,     "Error during device operation"     ),
     ('CORRUPT',         -84,    "Corrupted"                         ),
     ('NOENT',           -2,     "No directory entry"                ),
