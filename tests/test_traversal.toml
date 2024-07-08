@@ -341,7 +341,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_clobber_open_files]
+[cases.test_traversal_clobber_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -710,7 +710,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_rewind_clobber_open_files]
+[cases.test_traversal_rewind_clobber_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1024,7 +1024,7 @@ code = '''
 done:;
 '''
 
-[cases.test_traversal_ckmdir_open_files]
+[cases.test_traversal_ckmdir_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1294,7 +1294,7 @@ code = '''
 done:;
 '''
 
-[cases.test_traversal_ckbtree_open_files]
+[cases.test_traversal_ckbtree_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1564,7 +1564,7 @@ code = '''
 done:;
 '''
 
-[cases.test_traversal_ckdata_open_files]
+[cases.test_traversal_ckdata_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1990,7 +1990,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mutation_fwrite_open]
+[cases.test_traversal_mutation_fwrite_opened]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5987,7 +5987,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_compact_btree_open]
+[cases.test_traversal_compact_btree_opened]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6066,7 +6066,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_compact_btree_orphan]
+[cases.test_traversal_compact_btree_orphaned]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6147,7 +6147,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_compact_btree_desync]
+[cases.test_traversal_compact_btree_desynced]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6374,7 +6374,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_compact_bshrub_open]
+[cases.test_traversal_compact_bshrub_opened]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6492,7 +6492,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_compact_bshrub_orphan]
+[cases.test_traversal_compact_bshrub_orphaned]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6608,7 +6608,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_compact_bshrub_desync]
+[cases.test_traversal_compact_bshrub_desynced]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -7140,7 +7140,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_btree_orphan]
+[cases.test_traversal_mkconsistent_btree_orphaned]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -7429,7 +7429,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_bshrub_orphan]
+[cases.test_traversal_mkconsistent_bshrub_orphaned]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
