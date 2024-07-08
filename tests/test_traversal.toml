@@ -6964,13 +6964,10 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should be able to clean up grms
+    // we should be able to clean up grms and orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    // if we introduce actual orphans, me _must not_ clear the orphan flag
-    if (ORPHANS > 3) {
-        assert(lfs.hasorphans == true);
-    }
+    assert(lfs.hasorphans == false);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7839,13 +7836,10 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should be able to clean up grms
+    // we should be able to clean up grms and orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    // if we introduce actual orphans, me _must not_ clear the orphan flag
-    if (ORPHANS > 3) {
-        assert(lfs.hasorphans == true);
-    }
+    assert(lfs.hasorphans == false);
 
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);

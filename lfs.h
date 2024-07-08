@@ -179,8 +179,7 @@ enum lfs_traversal_flags {
 //    LFS_T_REPAIRDATA    = 0x0c00, // Repair metadata + data blocks
 
     // internally used flags
-    LFS_F_DIRTY         = 0x1000, // Filesystem modified during traversal
-    LFS_F_MUTATED       = 0x4000, // Filesystem modified by traversal
+    LFS_F_DIRTY         = 0x1000, // Filesystem has been modified
 };
 
 
