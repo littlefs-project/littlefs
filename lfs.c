@@ -12752,9 +12752,8 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
     //
     // note this never takes longer than lfsr_mount
     //
-    for (lfsr_mid_t mid = 0;
-            mid < lfsr_mtree_weight(lfs);
-            mid += (1 << lfs->mdir_bits)) {
+    lfsr_mid_t mid = 0;
+    while (mid < lfsr_mtree_weight(lfs)) {
         lfsr_mdir_t mdir;
         int err = lfsr_mtree_lookup(lfs, mid,
                 &mdir);
@@ -12763,9 +12762,15 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
             return err;
         }
 
+        // clean up orphans
         err = lfsr_mdir_fixorphans(lfs, &mdir);
         if (err) {
             return err;
+        }
+
+        // incremend mid unless we dropped the mdir
+        if (mdir.rbyd.weight > 0) {
+            mid += 1 << lfs->mdir_bits;
         }
     }
 
