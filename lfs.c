@@ -8265,6 +8265,10 @@ static inline bool lfsr_f_isdirty(uint32_t flags) {
     return flags & LFS_F_DIRTY;
 }
 
+static inline bool lfsr_f_ismutated(uint32_t flags) {
+    return flags & LFS_F_MUTATED;
+}
+
 
 
 // needed in lfsr_mtree_traverse_
@@ -8637,6 +8641,9 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
     return 0;
 }
 
+// needed in lfsr_mtree_gc
+static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir);
+
 // high-level mutating traversal, handle extra features that require
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
 static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
@@ -8645,12 +8652,39 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
     // lfsr_mtree_gc to work correctly
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
 
+again:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
     int err = lfsr_mtree_traverse(lfs, t,
             &tag, &bptr);
     if (err) {
         return err;
+    }
+
+    // keep track of dirty flag before mutation
+    bool dirty = t->o.o.flags & LFS_F_DIRTY;
+
+    // mkconsistencing mdirs?
+    if (lfsr_t_ismkconsistent(t->o.o.flags)
+            && tag == LFSR_TAG_MDIR
+            && lfs->hasorphans) {
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
+        int err = lfsr_mdir_fixorphans(lfs, mdir);
+        if (err) {
+            return err;
+        }
+
+        // did this drop our mdir?
+        if (mdir->mid != -1 && mdir->rbyd.weight == 0) {
+            t->o.o.flags &= ~LFS_F_ZOMBIE;
+            t->o.o.state = LFSR_TSTATE_MDIRS;
+
+            // downgrade any new dirty flags
+            t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
+            t->o.o.flags &= ~LFS_F_DIRTY;
+            t->o.o.flags |= (dirty) ? LFS_F_DIRTY : 0;
+            goto again;
+        }
     }
 
     // compacting mdirs?
@@ -8677,9 +8711,6 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         if (err) {
             return err;
         }
-
-        // mark as dirty
-        t->o.o.flags |= LFS_F_DIRTY;
     }
 
     // compacting btree nodes?
@@ -8755,10 +8786,12 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         // reset to btree root
         t->u.bt.branch = &t->o.bshrub.u.btree;
         t->u.bt.rid = t->u.bt.bid;
-
-        // mark as dirty
-        t->o.o.flags |= LFS_F_DIRTY;
     }
+
+    // downgrade any new dirty flags
+    t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
+    t->o.o.flags &= ~LFS_F_DIRTY;
+    t->o.o.flags |= (dirty) ? LFS_F_DIRTY : 0;
 
     if (tag_) {
         *tag_ = tag;
@@ -12381,7 +12414,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
                 // found an orphaned file?
                 if (tag == LFSR_TAG_ORPHAN) {
-                    LFS_DEBUG("Found orphaned file "
+                    LFS_DEBUG("Found orphan "
                             "%"PRId32".%"PRId32,
                             lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
                             rid);
@@ -12667,49 +12700,76 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
     return 0;
 }
 
+static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir) {
+    // save the current mid
+    lfsr_mid_t mid = mdir->mid;
+
+    // iterate through mids looking for orphans
+    mdir->mid = LFSR_MID(lfs, mdir->mid, 0);
+    int err;
+    while (lfsr_mid_rid(lfs, mdir->mid) < (lfsr_srid_t)mdir->rbyd.weight) {
+        // is this mid open? well we're not an orphan then, skip
+        if (lfsr_omdir_ismidopen(lfs, mdir->mid)) {
+            mdir->mid += 1;
+            continue;
+        }
+
+        // is this mid marked as an orphan?
+        err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_ORPHAN,
+                NULL);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                mdir->mid += 1;
+                continue;
+            }
+            goto failed;
+        }
+
+        // we found an orphaned file, remove
+        LFS_DEBUG("Fixing orphan %"PRId32".%"PRId32,
+                lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
+                lfsr_mid_rid(lfs, mdir->mid));
+
+        err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
+                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
+        if (err) {
+            goto failed;
+        }
+    }
+
+    // restore the current mid
+    mdir->mid = mid;
+    return 0;
+
+failed:;
+    // restore the current mid
+    mdir->mid = mid;
+    return err;
+}
+
 static int lfsr_fs_fixorphans(lfs_t *lfs) {
-    // traverse the filesystem and remove any orphaned files
+    // iterate through the filesystem and remove any orphaned files
     //
     // note this never takes longer than lfsr_mount
     //
-    lfsr_mdir_t mdir = {.mid=0, .rbyd.weight=0};
-    while (true) {
-        // next mdir?
-        if (lfsr_mid_rid(lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            int err = lfsr_mtree_lookup(lfs, lfsr_mid_bid(lfs, mdir.mid) + 1,
-                    &mdir);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    break;
-                }
-                return err;
-            }
+    for (lfsr_mid_t mid = 0;
+            mid < lfsr_mtree_weight(lfs);
+            mid += (1 << lfs->mdir_bits)) {
+        lfsr_mdir_t mdir;
+        int err = lfsr_mtree_lookup(lfs, mid,
+                &mdir);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
         }
 
-        // is this mid open? well we're not an orphan then, skip
-        if (!lfsr_omdir_ismidopen(lfs, mdir.mid)) {
-            // are we an orphan file?
-            int err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_ORPHAN,
-                    NULL);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err != LFS_ERR_NOENT) {
-                // remove orphaned file
-                err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-                        LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
-                if (err) {
-                    return err;
-                }
-
-                continue;
-            }
+        err = lfsr_mdir_fixorphans(lfs, &mdir);
+        if (err) {
+            return err;
         }
-
-        mdir.mid += 1;
     }
 
+    // done, no more orphans
     lfs->hasorphans = false;
     return 0;
 }
@@ -12717,7 +12777,6 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 // prepare the filesystem for mutation
 int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // fix pending grms
-    bool wasinconsistent = false;
     if (lfsr_grm_count(lfs) > 0) {
         if (lfsr_grm_count(lfs) == 2) {
             LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
@@ -12725,12 +12784,11 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]),
                     lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[1]));
-        } else {
+        } else if (lfsr_grm_count(lfs) == 1) {
             LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
                     lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]));
         }
-        wasinconsistent = true;
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
@@ -12745,7 +12803,6 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     //
     if (lfs->hasorphans) {
         LFS_DEBUG("Fixing orphans...");
-        wasinconsistent = true;
 
         int err = lfsr_fs_fixorphans(lfs);
         if (err) {
@@ -12753,9 +12810,6 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
         }
     }
 
-    if (wasinconsistent) {
-        LFS_DEBUG("littlefs is now consistent");
-    }
     return 0;
 }
 
@@ -12829,16 +12883,6 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     // these flags are internal and shouldn't be provided by the user
     LFS_ASSERT(!lfsr_f_isdirty(flags));
 
-    // some flags mutate the filesystem
-    if (lfsr_t_ismkconsistent(flags)
-            || lfsr_t_iscompact(flags)) {
-        // prepare our filesystem for writing
-        int err = lfsr_fs_mkconsistent(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
     // setup traversal state
     t->o.o.type = LFS_TYPE_TRAVERSAL;
     t->o.o.flags = flags;
@@ -12865,6 +12909,36 @@ int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *t) {
 int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         struct lfs_tinfo *tinfo) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
+
+    // check for pending grms every step, just in case some other
+    // operation introduced new grms
+    if (lfsr_t_ismkconsistent(t->o.o.flags)
+            && lfsr_grm_count(lfs) > 0) {
+        if (lfsr_grm_count(lfs) == 2) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
+                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
+        } else if (lfsr_grm_count(lfs) == 1) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
+        }
+
+        // keep track of dirty flag before mutation
+        bool dirty = t->o.o.flags & LFS_F_DIRTY;
+
+        int err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+
+        // downgrade any new dirty flags
+        t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
+        t->o.o.flags &= ~LFS_F_DIRTY;
+        t->o.o.flags |= (dirty) ? LFS_F_DIRTY : 0;
+    }
 
     while (true) {
         // some redund blocks left over?
@@ -12915,9 +12989,16 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
     }
 
 done:;
+    // was mkconsistent successful?
+    if (lfsr_t_ismkconsistent(t->o.o.flags)
+            && !lfsr_f_isdirty(t->o.o.flags)) {
+        lfs->hasorphans = false;
+    }
+
     // was a lookahead scan successful?
     if (lfsr_t_islookahead(t->o.o.flags)
-            && !lfsr_f_isdirty(t->o.o.flags)) {
+            && !lfsr_f_isdirty(t->o.o.flags)
+            && !lfsr_f_ismutated(t->o.o.flags)) {
         lfs_alloc_markfree(lfs);
     }
 
@@ -12960,7 +13041,7 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t) {
 static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     (void)lfs;
     // reset traversal
-    t->o.o.flags &= ~LFS_F_DIRTY;
+    t->o.o.flags &= ~LFS_F_DIRTY & ~LFS_F_MUTATED;
     t->o.o.state = LFSR_TSTATE_MROOTANCHOR;
     t->o.o.mdir.mid = -1;
     t->o.o.mdir.rbyd.weight = 0;
