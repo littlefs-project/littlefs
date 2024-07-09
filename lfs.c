@@ -8269,6 +8269,11 @@ static inline bool lfsr_f_ismutated(uint32_t flags) {
     return flags & LFS_F_MUTATED;
 }
 
+static inline uint32_t lfsr_f_swapdirty(uint32_t flags) {
+    uint32_t x = ((flags >> 14) ^ (flags >> 12)) & 0x1;
+    return flags ^ (x << 14) ^ (x << 12);
+}
+
 
 
 // needed in lfsr_mtree_traverse_
@@ -8648,26 +8653,26 @@ static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir);
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
 static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+    // swap dirty/mutated flags while in lfsr_mtree_gc
+    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
+
 dropped:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
     int err = lfsr_mtree_traverse(lfs, t,
             &tag, &bptr);
     if (err) {
-        return err;
+        goto failed;
     }
-
-    // keep track of flags before mutation
-    uint16_t flags = t->o.o.flags;
 
     // mkconsistencing mdirs?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && tag == LFSR_TAG_MDIR
             && lfs->hasorphans) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
-        int err = lfsr_mdir_fixorphans(lfs, mdir);
+        err = lfsr_mdir_fixorphans(lfs, mdir);
         if (err) {
-            return err;
+            goto failed;
         }
 
         // make sure we clear any zombie flags
@@ -8676,11 +8681,6 @@ dropped:;
         // did this drop our mdir?
         if (mdir->mid != -1 && mdir->rbyd.weight == 0) {
             t->o.o.state = LFSR_TSTATE_MDIRS;
-
-            // downgrade any new dirty flags
-            t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
-            t->o.o.flags = (t->o.o.flags & ~LFS_F_DIRTY)
-                    | (flags & LFS_F_DIRTY);
             goto dropped;
         }
     }
@@ -8705,9 +8705,9 @@ dropped:;
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
 
-        int err = lfsr_mdir_compact(lfs, mdir);
+        err = lfsr_mdir_compact(lfs, mdir);
         if (err) {
-            return err;
+            goto failed;
         }
     }
 
@@ -8734,18 +8734,18 @@ dropped:;
         LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
 
         if (t->o.o.state == LFSR_TSTATE_MTREE) {
-            int err = lfsr_btree_compact_(lfs, &t->o.bshrub.u.btree,
+            err = lfsr_btree_compact_(lfs, &t->o.bshrub.u.btree,
                     // note we may be referencing the btree root here
                     t->u.bt.bid, rbyd);
             if (err) {
-                return err;
+                goto failed;
             }
         } else {
-            int err = lfsr_bshrub_compact_(lfs, &t->o.o.mdir, &t->o.bshrub,
+            err = lfsr_bshrub_compact_(lfs, &t->o.o.mdir, &t->o.bshrub,
                     // note we may be referencing the btree root here
                     t->u.bt.bid, rbyd);
             if (err) {
-                return err;
+                goto failed;
             }
         }
 
@@ -8758,7 +8758,7 @@ dropped:;
         } else {
             // commit to mdir
             uint8_t buf[LFSR_BTREE_DSIZE];
-            int err = lfsr_mdir_commit(lfs, &t->o.o.mdir, LFSR_ATTRS(
+            err = lfsr_mdir_commit(lfs, &t->o.o.mdir, LFSR_ATTRS(
                     (t->o.o.state == LFSR_TSTATE_MTREE)
                         ? LFSR_ATTR(
                             LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
@@ -8771,7 +8771,7 @@ dropped:;
                             LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
                             LFSR_DATA_BTREE_(&t->o.bshrub.u.btree, buf))));
             if (err) {
-                return err;
+                goto failed;
             }
 
             // update any open files
@@ -8790,10 +8790,8 @@ dropped:;
         t->u.bt.rid = t->u.bt.bid;
     }
 
-    // downgrade any new dirty flags
-    t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
-    t->o.o.flags = (t->o.o.flags & ~LFS_F_DIRTY)
-            | (flags & LFS_F_DIRTY);
+    // swap back dirty/mutated flags
+    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
 
     if (tag_) {
         *tag_ = tag;
@@ -8802,6 +8800,11 @@ dropped:;
         *bptr_ = bptr;
     }
     return 0;
+
+failed:;
+    // swap back dirty/mutated flags
+    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
+    return err;
 }
 
 
@@ -12921,18 +12924,16 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]));
         }
 
-        // keep track of flags before mutation
-        uint16_t flags = t->o.o.flags;
+        // swap dirty/mutated flags while mutating
+        t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
+            t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
             return err;
         }
 
-        // downgrade any new dirty flags
-        t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
-        t->o.o.flags = (t->o.o.flags & ~LFS_F_DIRTY)
-                | (flags & LFS_F_DIRTY);
+        t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
     }
 
     while (true) {
