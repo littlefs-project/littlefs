@@ -8648,10 +8648,6 @@ static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir);
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
 static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
-    // traversals need to be enrolled in our opened list for
-    // lfsr_mtree_gc to work correctly
-    LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
-
 dropped:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
@@ -8732,6 +8728,10 @@ dropped:;
                 (lfs->cfg->gc_compact_thresh)
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
+
+        // traversals need to be enrolled in our opened list for btree
+        // compactions to work correctly
+        LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
 
         if (t->o.o.state == LFSR_TSTATE_MTREE) {
             int err = lfsr_btree_compact_(lfs, &t->o.bshrub.u.btree,
@@ -12750,29 +12750,17 @@ failed:;
 }
 
 static int lfsr_fs_fixorphans(lfs_t *lfs) {
-    // iterate through the filesystem and remove any orphaned files
-    //
-    // note this never takes longer than lfsr_mount
-    //
-    lfsr_mid_t mid = 0;
-    while (mid < lfsr_mtree_weight(lfs)) {
-        lfsr_mdir_t mdir;
-        int err = lfsr_mtree_lookup(lfs, mid,
-                &mdir);
+    // LFS_T_MKCONSISTENT really just removes orphans
+    lfsr_traversal_t t = LFSR_TRAVERSAL(
+            LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
+    while (true) {
+        int err = lfsr_mtree_gc(lfs, &t,
+                NULL, NULL);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
             return err;
-        }
-
-        // clean up orphans
-        err = lfsr_mdir_fixorphans(lfs, &mdir);
-        if (err) {
-            return err;
-        }
-
-        // incremend mid unless we dropped the mdir
-        if (mdir.rbyd.weight > 0) {
-            mid += 1 << lfs->mdir_bits;
         }
     }
 
