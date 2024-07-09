@@ -8652,7 +8652,7 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
     // lfsr_mtree_gc to work correctly
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
 
-again:;
+dropped:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
     int err = lfsr_mtree_traverse(lfs, t,
@@ -8661,8 +8661,8 @@ again:;
         return err;
     }
 
-    // keep track of dirty flag before mutation
-    bool dirty = t->o.o.flags & LFS_F_DIRTY;
+    // keep track of flags before mutation
+    uint16_t flags = t->o.o.flags;
 
     // mkconsistencing mdirs?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
@@ -8674,16 +8674,18 @@ again:;
             return err;
         }
 
+        // make sure we clear any zombie flags
+        t->o.o.flags &= ~LFS_F_ZOMBIE;
+
         // did this drop our mdir?
         if (mdir->mid != -1 && mdir->rbyd.weight == 0) {
-            t->o.o.flags &= ~LFS_F_ZOMBIE;
             t->o.o.state = LFSR_TSTATE_MDIRS;
 
             // downgrade any new dirty flags
             t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
-            t->o.o.flags &= ~LFS_F_DIRTY;
-            t->o.o.flags |= (dirty) ? LFS_F_DIRTY : 0;
-            goto again;
+            t->o.o.flags = (t->o.o.flags & ~LFS_F_DIRTY)
+                    | (flags & LFS_F_DIRTY);
+            goto dropped;
         }
     }
 
@@ -8790,8 +8792,8 @@ again:;
 
     // downgrade any new dirty flags
     t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
-    t->o.o.flags &= ~LFS_F_DIRTY;
-    t->o.o.flags |= (dirty) ? LFS_F_DIRTY : 0;
+    t->o.o.flags = (t->o.o.flags & ~LFS_F_DIRTY)
+            | (flags & LFS_F_DIRTY);
 
     if (tag_) {
         *tag_ = tag;
@@ -12931,8 +12933,8 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
                     lfsr_mid_rid(lfs, lfs->grm.mids[0]));
         }
 
-        // keep track of dirty flag before mutation
-        bool dirty = t->o.o.flags & LFS_F_DIRTY;
+        // keep track of flags before mutation
+        uint16_t flags = t->o.o.flags;
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
@@ -12941,8 +12943,8 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
         // downgrade any new dirty flags
         t->o.o.flags |= (t->o.o.flags & LFS_F_DIRTY) ? LFS_F_MUTATED : 0;
-        t->o.o.flags &= ~LFS_F_DIRTY;
-        t->o.o.flags |= (dirty) ? LFS_F_DIRTY : 0;
+        t->o.o.flags = (t->o.o.flags & ~LFS_F_DIRTY)
+                | (flags & LFS_F_DIRTY);
     }
 
     while (true) {
