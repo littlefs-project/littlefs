@@ -8265,7 +8265,7 @@ static inline bool lfsr_t_isckmeta(uint32_t flags) {
 }
 
 static inline bool lfsr_t_isckdata(uint32_t flags) {
-    return flags & (LFS_T_CKDATA ^ LFS_T_CKMETA);
+    return flags & LFS_T_CKDATA;
 }
 
 static inline bool lfsr_f_isdirty(uint32_t flags) {
@@ -8604,6 +8604,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 
     // validate btree nodes? note mdirs are already validated
     if ((lfsr_t_isckmeta(t->o.o.flags)
+                || lfsr_t_isckdata(t->o.o.flags)
                 // we also need to fetch to know if we need to compact
                 || lfsr_t_iscompact(t->o.o.flags))
             && tag == LFSR_TAG_BRANCH) {
@@ -9805,7 +9806,7 @@ static inline bool lfsr_o_isflush(uint32_t flags) {
 }
 
 static inline bool lfsr_o_issync(uint32_t flags) {
-    return flags & (LFS_O_SYNC ^ LFS_O_FLUSH);
+    return flags & LFS_O_SYNC;
 }
 
 static inline bool lfsr_o_isdesync(uint32_t flags) {
