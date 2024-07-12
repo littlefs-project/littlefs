@@ -9866,15 +9866,23 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(!lfsr_omdir_isopen(lfs, &file->o.o));
     // don't allow the forbidden mode!
     LFS_ASSERT((flags & 3) != 3);
+    // unknown flags?
+    LFS_ASSERT((flags
+            & ~LFS_O_RDONLY
+            & ~LFS_O_WRONLY
+            & ~LFS_O_RDWR
+            & ~LFS_O_CREAT
+            & ~LFS_O_EXCL
+            & ~LFS_O_TRUNC
+            & ~LFS_O_APPEND
+            & ~LFS_O_FLUSH
+            & ~LFS_O_SYNC
+            & ~LFS_O_DESYNC) == 0);
     // these flags require a writable file
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_iscreat(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isexcl(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_istrunc(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isappend(flags));
-    // these flags are internal and shouldn't be provided by the user
-    LFS_ASSERT(!lfsr_f_isunflush(flags));
-    LFS_ASSERT(!lfsr_f_isunsync(flags));
-    LFS_ASSERT(!lfsr_f_isorphan(flags));
 
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -12820,9 +12828,14 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
-    // these flags are internal and shouldn't be provided by the user
-    LFS_ASSERT(!lfsr_f_isdirty(flags));
-    LFS_ASSERT(!lfsr_f_ismutated(flags));
+    // unknown flags?
+    LFS_ASSERT((flags
+            & ~LFS_GC_MTREEONLY
+            & ~LFS_GC_MKCONSISTENT
+            & ~LFS_GC_LOOKAHEAD
+            & ~LFS_GC_COMPACT
+            & ~LFS_GC_CKMETA
+            & ~LFS_GC_CKDATA) == 0);
 
     // fix pending grms if requested
     if (lfsr_t_ismkconsistent(flags)
@@ -12970,12 +12983,17 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t);
 int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     // already open?
     LFS_ASSERT(!lfsr_omdir_isopen(lfs, &t->o.o));
+    // unknown flags?
+    LFS_ASSERT((flags
+            & ~LFS_T_MTREEONLY
+            & ~LFS_T_MKCONSISTENT
+            & ~LFS_T_LOOKAHEAD
+            & ~LFS_T_COMPACT
+            & ~LFS_T_CKMETA
+            & ~LFS_T_CKDATA) == 0);
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
-    // these flags are internal and shouldn't be provided by the user
-    LFS_ASSERT(!lfsr_f_isdirty(flags));
-    LFS_ASSERT(!lfsr_f_ismutated(flags));
 
     // setup traversal state
     t->o.o.type = LFS_TYPE_TRAVERSAL;
