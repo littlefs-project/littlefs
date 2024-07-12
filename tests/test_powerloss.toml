@@ -9,6 +9,7 @@ after = [
     'test_files',
     'test_forphans',
     'test_traversal',
+    'test_gc',
 ]
 
 

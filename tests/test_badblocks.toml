@@ -5,6 +5,7 @@ after = [
     'test_fwrite',
     'test_forphans',
     'test_traversal',
+    'test_gc',
 ]
 
 

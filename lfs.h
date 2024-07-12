@@ -183,6 +183,19 @@ enum lfs_traversal_flags {
     LFS_F_MUTATED       = 0x4000, // Filesystem modified by traversal
 };
 
+// GC flags
+enum lfs_gc_flags {
+    LFS_GC_MTREEONLY    = 0x0010, // Only traverse the mtree
+    LFS_GC_MKCONSISTENT = 0x0020, // Make the filesystem consistent
+    LFS_GC_LOOKAHEAD    = 0x0040, // Populate lookahead buffer
+    LFS_GC_COMPACT      = 0x0080, // Compact metadata logs
+    LFS_GC_CKMETA       = 0x0100, // Check metadata checksums
+    LFS_GC_CKDATA       = 0x0200, // Check metadata + data checksums
+// TODO
+//    LFS_GC_REPAIRMETA   = 0x0400, // Repair metadata blocks
+//    LFS_GC_REPAIRDATA   = 0x0800, // Repair metadata + data blocks
+};
+
 
 // Configuration provided during initialization of the littlefs
 struct lfs_config {
@@ -1112,6 +1125,20 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs);
 //
 // Returns a negative error code on failure.
 int lfsr_fs_mkconsistent(lfs_t *lfs);
+#endif
+
+#ifndef LFS_READONLY
+// Attempt any janitorial work that may be pending.
+//
+// The exact janitorial work depends on the provided flags. Note that most
+// of this work can also be accomplished incrementally via
+// lfsr_traversal_read.
+//
+// Calling this function is not required, but may allow the offloading of
+// expensive janitorial work to a less time-critical code path.
+//
+// Returns a negative error code on failure.
+int lfsr_fs_gc(lfs_t *lfs, uint32_t flags);
 #endif
 
 #ifndef LFS_READONLY

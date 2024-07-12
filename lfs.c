@@ -8229,6 +8229,7 @@ enum {
 
 #define LFSR_TRAVERSAL(_flags) \
     ((lfsr_traversal_t){ \
+        .o.o.type=LFS_TYPE_TRAVERSAL, \
         .o.o.state=LFSR_TSTATE_MROOTANCHOR, \
         .o.o.flags=_flags, \
         .o.o.mdir.mid=-1, \
@@ -12815,6 +12816,96 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     return 0;
 }
 
+int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
+    // some flags don't make sense when only traversing the mtree
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
+    // these flags are internal and shouldn't be provided by the user
+    LFS_ASSERT(!lfsr_f_isdirty(flags));
+    LFS_ASSERT(!lfsr_f_ismutated(flags));
+
+    // fix pending grms if requested
+    if (lfsr_t_ismkconsistent(flags)
+            && lfsr_grm_count(lfs) > 0) {
+        if (lfsr_grm_count(lfs) == 2) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
+                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
+        } else if (lfsr_grm_count(lfs) == 1) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
+        }
+
+        int err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    // we need multiple passes because of potential mutation issues
+    for (int i = 0;; i++) {
+        // do we need to do anything?
+        if (!((lfsr_t_ismkconsistent(flags) && lfs->hasorphans)
+                || (lfsr_t_islookahead(flags)
+                    && (lfs->lookahead.next > 0 || lfs->lookahead.size == 0))
+                || (lfsr_t_iscompact(flags) && i == 0)
+                || (lfsr_t_isckmeta(flags) && i == 0)
+                || (lfsr_t_isckdata(flags) && i == 0))) {
+            break;
+        }
+
+        if (lfsr_t_islookahead(flags)) {
+            lfs_alloc_shift(lfs);
+        }
+
+        lfsr_traversal_t t = LFSR_TRAVERSAL(flags);
+        // note we need to be tracked for bshrub commits to work
+        lfsr_omdir_open(lfs, &t.o.o);
+        while (true) {
+            // let lfsr_mtree_gc do most of the work
+            int err = lfsr_mtree_gc(lfs, &t,
+                    NULL, NULL);
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                lfsr_omdir_close(lfs, &t.o.o);
+                return err;
+            }
+        }
+        lfsr_omdir_close(lfs, &t.o.o);
+
+        // no more orphans?
+        if (lfsr_t_ismkconsistent(t.o.o.flags)) {
+            LFS_ASSERT(!lfsr_f_isdirty(t.o.o.flags));
+            lfs->hasorphans = false;
+        }
+
+        // was lookahead scan successful?
+        if (lfsr_t_islookahead(t.o.o.flags)
+                && !lfsr_f_ismutated(t.o.o.flags)) {
+            LFS_ASSERT(!lfsr_f_isdirty(t.o.o.flags));
+            lfs_alloc_markfree(lfs);
+        }
+
+        // update flags, clear mutated/dirty
+        flags = t.o.o.flags & ~LFS_F_DIRTY & ~LFS_F_MUTATED;
+    }
+
+    if (lfsr_t_ismkconsistent(flags)) {
+        LFS_ASSERT(lfsr_grm_count(lfs) == 0);
+        LFS_ASSERT(lfs->hasorphans == false);
+    }
+    if (lfsr_t_islookahead(flags)) {
+        LFS_ASSERT(lfs->lookahead.next == 0);
+        LFS_ASSERT(lfs->lookahead.size > 0);
+    }
+    return 0;
+}
+
 
 int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
     // shrinking the filesystem is not supported
@@ -12884,6 +12975,7 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
     // these flags are internal and shouldn't be provided by the user
     LFS_ASSERT(!lfsr_f_isdirty(flags));
+    LFS_ASSERT(!lfsr_f_ismutated(flags));
 
     // setup traversal state
     t->o.o.type = LFS_TYPE_TRAVERSAL;
