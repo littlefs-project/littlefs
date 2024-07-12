@@ -281,6 +281,17 @@ struct lfs_config {
     // can track 8 blocks.
     lfs_size_t lookahead_size;
 
+    // How many gc steps to perform on each lfsr_fs_gc call.
+    //
+    // Each gc step progresses janitorial work by ~1 block (this is equivalent
+    // to lfsr_traversal_read). More steps per call may make more progress if
+    // interleaving with other work.
+    //
+    // 0 defaults to 1 step, and -1 will perform a full traversal every call,
+    // though multiple traversals may still be needed to complete all
+    // janitorial work.
+    int32_t gc_steps;
+
     // Threshold for metadata compaction during gc in bytes. Metadata logs
     // that exceed this threshold will be compacted during gc operations.
     // Defaults to ~88% block_size when zero, though this default may change
@@ -741,6 +752,9 @@ typedef struct lfs {
     lfsr_grm_t grm;
     uint8_t grm_p[LFSR_GRM_DSIZE];
     uint8_t grm_d[LFSR_GRM_DSIZE];
+
+    // TODO allow compile time opt-out to reclaim RAM
+    lfsr_traversal_t gc;
 } lfs_t;
 
 
@@ -1130,9 +1144,8 @@ int lfsr_fs_mkconsistent(lfs_t *lfs);
 #ifndef LFS_READONLY
 // Attempt any janitorial work that may be pending.
 //
-// The exact janitorial work depends on the provided flags. Note that most
-// of this work can also be accomplished incrementally via
-// lfsr_traversal_read.
+// The exact janitorial work depends on the provided flags. Note multiple
+// calls may be required to complete all janitorial work.
 //
 // Calling this function is not required, but may allow the offloading of
 // expensive janitorial work to a less time-critical code path.

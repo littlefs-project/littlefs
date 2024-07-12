@@ -1,10 +1,866 @@
 # Test GC things
+
+# most of the GC logic is tested in test_traversal, we just test a few
+# GC-specific things here
 after = ['test_traversal']
+
+# test that lookahead can make progress in isolation
+[cases.test_gc_lookahead_progress]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // run GC until our traversal is done
+    while (true) {
+        lfsr_fs_gc(&lfs,
+                LFS_GC_LOOKAHEAD
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+
+        // internal traversal done?
+        if (!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+            break;
+        }
+    }
+
+    // we should have made progress
+    assert(!(lfs.lookahead.next > 0 || lfs.lookahead.size == 0));
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that lookahead clobbering still works with the GC API
+[cases.test_gc_lookahead_mutation]
+defines.GC_STEPS = 1
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // run GC one step
+    lfsr_fs_gc(&lfs,
+            LFS_GC_LOOKAHEAD
+                | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    assert(lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+
+    // mutate the filesystem
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // run GC until our traversal is done
+    while (lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+        lfsr_fs_gc(&lfs,
+                LFS_GC_LOOKAHEAD
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // we should _not_ make progress
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that adding flags doesn't break lookahead
+[cases.test_gc_lookahead_add_flags]
+defines.GC_STEPS = 1
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# we need something to keep the traversal running
+if = 'CKMETA || CKDATA'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // run GC one step
+    lfsr_fs_gc(&lfs,
+            ((CKMETA) ? LFS_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    assert(lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+
+    // change flags and run GC until our traversal is done
+    while (lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+        lfsr_fs_gc(&lfs,
+                LFS_GC_LOOKAHEAD
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // we should _not_ make progress
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that removing flags invalidates lookahead
+[cases.test_gc_lookahead_remove_flags]
+defines.GC_STEPS = 1
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# we need something to keep the traversal running
+if = 'CKMETA || CKDATA'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // run GC one step
+    lfsr_fs_gc(&lfs,
+            LFS_GC_LOOKAHEAD
+                | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    assert(lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+
+    // change flags and run GC until our traversal is done
+    while (lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+        lfsr_fs_gc(&lfs,
+                ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // we should _not_ make progress
+    assert(lfs.lookahead.next > 0 || lfs.lookahead.size == 0);
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# test that mkconsistent can make progress in isolation
+[cases.test_gc_mkconsistent_progress]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+# <=2 => grm-able
+#  >2 => requires orphans
+defines.ORPHANS = [1, 2, 3, 100]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "cuttlefish",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file1) => 0;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "octopus",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file2) => 0;
+
+    // create this many orphaned files
+    //
+    // anytime we close a not-yet-created desync file, we create an
+    // orphan, but note we need these to be different files, and we need
+    // to close them after all open calls, otherwise we just end up with
+    // one orphan (littlefs is eager to clean up orphans)
+    //
+    lfsr_file_t orphans[ORPHANS];
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        char name[256];
+        sprintf(name, "jellyfish%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    }
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // run GC until our traversal is done
+    while (true) {
+        lfsr_fs_gc(&lfs,
+                LFS_GC_MKCONSISTENT
+                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+
+        // internal traversal done?
+        if (!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+            break;
+        }
+    }
+
+    // we should have made progress
+    assert(!(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans));
+
+    // check we can still read the files
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_file_close(&lfs, &file1) => 0;
+            lfsr_file_close(&lfs, &file2) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
+            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+        }
+
+        lfsr_file_rewind(&lfs, &file1) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+
+        lfsr_file_rewind(&lfs, &file2) => 0;
+        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that mkconsistent clobbering still works with the GC API
+[cases.test_gc_mkconsistent_mutation]
+defines.GC_STEPS = 1
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+# <=2 => grm-able
+#  >2 => requires orphans
+defines.ORPHANS = [3, 100]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "cuttlefish",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file1) => 0;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "octopus",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file2) => 0;
+
+    // create at least 3 orphans so GC will start
+    lfsr_file_t orphans[ORPHANS];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        char name[256];
+        sprintf(name, "jellyfish%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    }
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+
+    // run GC one step
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    lfsr_fs_gc(&lfs,
+            LFS_GC_MKCONSISTENT
+                | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    assert(lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+
+    // create the rest of the orphans after GC has started
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        char name[256];
+        sprintf(name, "jellyfish%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    }
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+
+    // we should now have dirty state
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // run GC until our traversal is done
+    while (lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+        lfsr_fs_gc(&lfs,
+                LFS_GC_MKCONSISTENT
+                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // we should _not_ make progress
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // check we can still read the files
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_file_close(&lfs, &file1) => 0;
+            lfsr_file_close(&lfs, &file2) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
+            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+        }
+
+        lfsr_file_rewind(&lfs, &file1) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+
+        lfsr_file_rewind(&lfs, &file2) => 0;
+        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that adding flags doesn't break mkconsistent
+[cases.test_gc_mkconsistent_add_flags]
+defines.GC_STEPS = 1
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+# <=2 => grm-able
+#  >2 => requires orphans
+defines.ORPHANS = [3, 100]
+# we need something to keep the traversal running
+if = 'COMPACT || CKMETA || CKDATA'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "cuttlefish",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file1) => 0;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "octopus",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file2) => 0;
+
+    // create this many orphaned files
+    //
+    // anytime we close a not-yet-created desync file, we create an
+    // orphan, but note we need these to be different files, and we need
+    // to close them after all open calls, otherwise we just end up with
+    // one orphan (littlefs is eager to clean up orphans)
+    //
+    lfsr_file_t orphans[ORPHANS];
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        char name[256];
+        sprintf(name, "jellyfish%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    }
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // run GC one step
+    lfsr_fs_gc(&lfs,
+            ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    assert(lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+
+    // change flags and run GC until our traversal is done
+    while (lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+        lfsr_fs_gc(&lfs,
+                LFS_GC_MKCONSISTENT
+                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // we should _not_ make progress
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // check we can still read the files
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_file_close(&lfs, &file1) => 0;
+            lfsr_file_close(&lfs, &file2) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
+            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+        }
+
+        lfsr_file_rewind(&lfs, &file1) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+
+        lfsr_file_rewind(&lfs, &file2) => 0;
+        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that removing flags invalidates mkconsistent
+[cases.test_gc_mkconsistent_remove_flags]
+defines.GC_STEPS = 1
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FILE_BUFFER_SIZE/2'
+# <=2 => grm-able
+#  >2 => requires orphans
+defines.ORPHANS = [3, 100]
+# we need something to keep the traversal running
+if = 'COMPACT || CKMETA || CKDATA'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfsr_file_t file1;
+    lfsr_file_open(&lfs, &file1, "cuttlefish",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file1) => 0;
+
+    lfsr_file_t file2;
+    lfsr_file_open(&lfs, &file2, "octopus",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_sync(&lfs, &file2) => 0;
+
+    // create this many orphaned files
+    //
+    // anytime we close a not-yet-created desync file, we create an
+    // orphan, but note we need these to be different files, and we need
+    // to close them after all open calls, otherwise we just end up with
+    // one orphan (littlefs is eager to clean up orphans)
+    //
+    lfsr_file_t orphans[ORPHANS];
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        char name[256];
+        sprintf(name, "jellyfish%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    }
+    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+
+    // expect dirty initial state or else our test doesn't work
+    assert(!lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // run GC one step
+    lfsr_fs_gc(&lfs,
+            LFS_GC_MKCONSISTENT
+                | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    assert(lfsr_omdir_isopen(&lfs, &lfs.gc.o.o));
+
+    // change flags and run GC until our traversal is done
+    while (lfsr_omdir_isopen(&lfs, &lfs.gc.o.o)) {
+        lfsr_fs_gc(&lfs,
+                ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // we should _not_ make progress
+    assert(lfsr_grm_count(&lfs) > 0 || lfs.hasorphans);
+
+    // check we can still read the files
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_file_close(&lfs, &file1) => 0;
+            lfsr_file_close(&lfs, &file2) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
+            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+        }
+
+        lfsr_file_rewind(&lfs, &file1) => 0;
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+
+        lfsr_file_rewind(&lfs, &file2) => 0;
+        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file1) => 0;
+    lfsr_file_close(&lfs, &file2) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# pseudo-fuzz test that clobbering still works with the GC API
+[cases.test_gc_mutation]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.STEPS = 100
+defines.MKCONSISTENT = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (uint32_t i = 0; i < STEPS; i++) {
+        // rewrite the file every gc cycle
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // gc!
+        lfsr_fs_gc(&lfs,
+                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    }
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# pseudo-fuzz test that adding/removing flags doesn't break anything
+[cases.test_gc_changing_flags]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.STEPS = 100
+defines.MKCONSISTENT = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (uint32_t i = 0; i < STEPS; i++) {
+        // rewrite the file every gc cycle
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // choose a new subset of flags every cycle
+        uint32_t flags = (
+                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)
+                ) & TEST_PRNG(&prng);
+
+        // gc!
+        lfsr_fs_gc(&lfs, flags) => 0;
+    }
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
 
 # many/fuzz tests mixed with GC
 #
 
 [cases.test_gc_spam_dir_many]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -99,6 +955,7 @@ code = '''
 '''
 
 [cases.test_gc_spam_dir_fuzz]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -264,6 +1121,7 @@ code = '''
 '''
 
 [cases.test_gc_spam_file_many]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -352,6 +1210,7 @@ code = '''
 '''
 
 [cases.test_gc_spam_file_fuzz]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -579,6 +1438,7 @@ code = '''
 '''
 
 [cases.test_gc_spam_fwrite_fuzz]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -726,6 +1586,7 @@ code = '''
 '''
 
 [cases.test_gc_spam_orphanzombie_fuzz]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -1081,6 +1942,7 @@ code = '''
 '''
 
 [cases.test_gc_spam_orphanzombiedir_fuzz]
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]

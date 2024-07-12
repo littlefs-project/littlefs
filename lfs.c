@@ -12532,6 +12532,11 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 }
 
 int lfsr_unmount(lfs_t *lfs) {
+    // close any ongoing gc traversals
+    if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
+        lfsr_omdir_close(lfs, &lfs->gc.o.o);
+    }
+
     // all files/dirs should be closed before lfsr_unmount
     LFS_ASSERT(lfs->omdirs == NULL);
 
@@ -12858,64 +12863,67 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
         }
     }
 
-    // we need multiple passes because of potential mutation issues
-    for (int i = 0;; i++) {
-        // do we need to do anything?
-        if (!((lfsr_t_ismkconsistent(flags) && lfs->hasorphans)
-                || (lfsr_t_islookahead(flags)
-                    && (lfs->lookahead.next > 0 || lfs->lookahead.size == 0))
-                || (lfsr_t_iscompact(flags) && i == 0)
-                || (lfsr_t_isckmeta(flags) && i == 0)
-                || (lfsr_t_isckdata(flags) && i == 0))) {
-            break;
-        }
+    // do we need to do anything?
+    if (!((lfsr_t_ismkconsistent(flags) && lfs->hasorphans)
+            || (lfsr_t_islookahead(flags)
+                && (lfs->lookahead.next > 0 || lfs->lookahead.size == 0))
+            || lfsr_t_iscompact(flags)
+            || lfsr_t_isckmeta(flags)
+            || lfsr_t_isckdata(flags))) {
+        return 0;
+    }
 
-        if (lfsr_t_islookahead(flags)) {
+    // existing traversal?
+    if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
+        // note that we mask out flags! if you change flags mid-traversal,
+        // the result is equivalent to the worst-case set of flags
+        lfs->gc.o.o.flags &= (
+                ~LFS_GC_MTREEONLY
+                    & ~LFS_GC_MKCONSISTENT
+                    & ~LFS_GC_LOOKAHEAD
+                    & ~LFS_GC_COMPACT
+                    & ~LFS_GC_CKMETA
+                    & ~LFS_GC_CKDATA
+                ) | flags;
+    // start a new traversal
+    } else {
+        lfs->gc = LFSR_TRAVERSAL(flags);
+        lfsr_omdir_open(lfs, &lfs->gc.o.o);
+
+        // shift the lookahead buffer if requested
+        if (lfsr_t_islookahead(lfs->gc.o.o.flags)) {
             lfs_alloc_shift(lfs);
         }
+    }
 
-        lfsr_traversal_t t = LFSR_TRAVERSAL(flags);
-        // note we need to be tracked for bshrub commits to work
-        lfsr_omdir_open(lfs, &t.o.o);
-        while (true) {
-            // let lfsr_mtree_gc do most of the work
-            int err = lfsr_mtree_gc(lfs, &t,
-                    NULL, NULL);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    break;
+    for (uint32_t i = 0;
+            i < (lfs->cfg->gc_steps ? (uint32_t)lfs->cfg->gc_steps : 1);
+            i++) {
+        int err = lfsr_mtree_gc(lfs, &lfs->gc,
+                NULL, NULL);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                // was mkconsistent successful?
+                if (lfsr_t_ismkconsistent(lfs->gc.o.o.flags)
+                        && !lfsr_f_isdirty(lfs->gc.o.o.flags)) {
+                    lfs->hasorphans = false;
                 }
-                lfsr_omdir_close(lfs, &t.o.o);
-                return err;
+
+                // was lookahead scan successful?
+                if (lfsr_t_islookahead(lfs->gc.o.o.flags)
+                        && !lfsr_f_isdirty(lfs->gc.o.o.flags)
+                        && !lfsr_f_ismutated(lfs->gc.o.o.flags)) {
+                    lfs_alloc_markfree(lfs);
+                }
+
+                lfsr_omdir_close(lfs, &lfs->gc.o.o);
+                break;
             }
+            lfsr_omdir_close(lfs, &lfs->gc.o.o);
+            return err;
         }
-        lfsr_omdir_close(lfs, &t.o.o);
-
-        // no more orphans?
-        if (lfsr_t_ismkconsistent(t.o.o.flags)) {
-            LFS_ASSERT(!lfsr_f_isdirty(t.o.o.flags));
-            lfs->hasorphans = false;
-        }
-
-        // was lookahead scan successful?
-        if (lfsr_t_islookahead(t.o.o.flags)
-                && !lfsr_f_ismutated(t.o.o.flags)) {
-            LFS_ASSERT(!lfsr_f_isdirty(t.o.o.flags));
-            lfs_alloc_markfree(lfs);
-        }
-
-        // update flags, clear mutated/dirty
-        flags = t.o.o.flags & ~LFS_F_DIRTY & ~LFS_F_MUTATED;
     }
 
-    if (lfsr_t_ismkconsistent(flags)) {
-        LFS_ASSERT(lfsr_grm_count(lfs) == 0);
-        LFS_ASSERT(lfs->hasorphans == false);
-    }
-    if (lfsr_t_islookahead(flags)) {
-        LFS_ASSERT(lfs->lookahead.next == 0);
-        LFS_ASSERT(lfs->lookahead.size > 0);
-    }
     return 0;
 }
 
@@ -13137,7 +13145,7 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t) {
         t->o.o.state = LFSR_TSTATE_OMDIRS;
         t->o.bshrub.u.bshrub.weight = 0;
         t->o.bshrub.u.bshrub.blocks[0] = -1;
-        t->ot = t->ot->next;
+        t->ot = (t->ot) ? t->ot->next : NULL;
     // done traversals should never need clobbering
     } else {
         LFS_UNREACHABLE();
