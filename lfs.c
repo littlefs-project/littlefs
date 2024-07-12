@@ -8657,6 +8657,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 
 // needed in lfsr_mtree_gc
 static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir);
+static void lfs_alloc_markfree(lfs_t *lfs);
 
 // high-level mutating traversal, handle extra features that require
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
@@ -8671,6 +8672,10 @@ dropped:;
     int err = lfsr_mtree_traverse(lfs, t,
             &tag, &bptr);
     if (err) {
+        // end of traversal?
+        if (err == LFS_ERR_NOENT) {
+            goto eot;
+        }
         goto failed;
     }
 
@@ -8809,6 +8814,25 @@ dropped:;
         *bptr_ = bptr;
     }
     return 0;
+
+eot:;
+    // swap back dirty/mutated flags
+    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
+
+    // was mkconsistent successful?
+    if (lfsr_t_ismkconsistent(t->o.o.flags)
+            && !lfsr_f_isdirty(t->o.o.flags)) {
+        lfs->hasorphans = false;
+    }
+
+    // was lookahead scan successful?
+    if (lfsr_t_islookahead(t->o.o.flags)
+            && !lfsr_f_isdirty(t->o.o.flags)
+            && !lfsr_f_ismutated(t->o.o.flags)) {
+        lfs_alloc_markfree(lfs);
+    }
+
+    return LFS_ERR_NOENT;
 
 failed:;
     // swap back dirty/mutated flags
@@ -12785,8 +12809,6 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
         }
     }
 
-    // done, no more orphans
-    lfs->hasorphans = false;
     return 0;
 }
 
@@ -12902,25 +12924,8 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
         int err = lfsr_mtree_gc(lfs, &lfs->gc,
                 NULL, NULL);
         if (err) {
-            if (err == LFS_ERR_NOENT) {
-                // was mkconsistent successful?
-                if (lfsr_t_ismkconsistent(lfs->gc.o.o.flags)
-                        && !lfsr_f_isdirty(lfs->gc.o.o.flags)) {
-                    lfs->hasorphans = false;
-                }
-
-                // was lookahead scan successful?
-                if (lfsr_t_islookahead(lfs->gc.o.o.flags)
-                        && !lfsr_f_isdirty(lfs->gc.o.o.flags)
-                        && !lfsr_f_ismutated(lfs->gc.o.o.flags)) {
-                    lfs_alloc_markfree(lfs);
-                }
-
-                lfsr_omdir_close(lfs, &lfs->gc.o.o);
-                break;
-            }
             lfsr_omdir_close(lfs, &lfs->gc.o.o);
-            return err;
+            return (err == LFS_ERR_NOENT) ? 0 : err;
         }
     }
 
@@ -13076,10 +13081,6 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         int err = lfsr_mtree_gc(lfs, t,
                 &tag, &bptr);
         if (err) {
-            // end of traversal?
-            if (err == LFS_ERR_NOENT) {
-                goto done;
-            }
             return err;
         }
 
@@ -13105,22 +13106,6 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
             LFS_UNREACHABLE();
         }
     }
-
-done:;
-    // was mkconsistent successful?
-    if (lfsr_t_ismkconsistent(t->o.o.flags)
-            && !lfsr_f_isdirty(t->o.o.flags)) {
-        lfs->hasorphans = false;
-    }
-
-    // was a lookahead scan successful?
-    if (lfsr_t_islookahead(t->o.o.flags)
-            && !lfsr_f_isdirty(t->o.o.flags)
-            && !lfsr_f_ismutated(t->o.o.flags)) {
-        lfs_alloc_markfree(lfs);
-    }
-
-    return LFS_ERR_NOENT;
 }
 
 static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t) {
