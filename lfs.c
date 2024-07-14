@@ -12895,13 +12895,21 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
         return 0;
     }
 
+    // do we really need a full traversal?
+    if (!(lfsr_t_islookahead(flags)
+            || lfsr_t_iscompact(flags)
+            || lfsr_t_isckmeta(flags)
+            || lfsr_t_isckdata(flags))) {
+        flags |= LFS_GC_MTREEONLY;
+    }
+
     // existing traversal?
     if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
-        // note that we mask out flags! if you change flags mid-traversal,
-        // the result is equivalent to the worst-case set of flags
+        // note that we mask flags (except mtreeonly)! if you change flags
+        // mid-traversal, the result is equivalent to the worst-case set
+        // of flags
         lfs->gc.o.o.flags &= (
-                ~LFS_GC_MTREEONLY
-                    & ~LFS_GC_MKCONSISTENT
+                ~LFS_GC_MKCONSISTENT
                     & ~LFS_GC_LOOKAHEAD
                     & ~LFS_GC_COMPACT
                     & ~LFS_GC_CKMETA
