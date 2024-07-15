@@ -8785,6 +8785,9 @@ dropped:;
         // compactions to work correctly
         LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
 
+        // checkpoint the allocator
+        lfs_alloc_ckpoint(lfs);
+
         if (t->o.o.state == LFSR_TSTATE_MTREE) {
             err = lfsr_btree_compact_(lfs, &t->o.bshrub.u.btree,
                     // note we may be referencing the btree root here
