@@ -13024,6 +13024,43 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     return 0;
 }
 
+// check the filesystem for metadata errors
+int lfsr_fs_ckmeta(lfs_t *lfs) {
+    // we leave this up to lfsr_mtree_gc
+    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    while (true) {
+        int err = lfsr_mtree_gc(lfs, &t,
+                NULL, NULL);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+// check the filesystem for metadata + data errors
+int lfsr_fs_ckdata(lfs_t *lfs) {
+    // we leave this up to lfsr_mtree_gc
+    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_CKMETA | LFS_T_CKDATA);
+    while (true) {
+        int err = lfsr_mtree_gc(lfs, &t,
+                NULL, NULL);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+// perform any pending janitorial work
 int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));

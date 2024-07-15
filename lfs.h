@@ -1165,7 +1165,23 @@ int lfsr_fs_mkconsistent(lfs_t *lfs);
 #endif
 
 #ifndef LFS_READONLY
-// Attempt any janitorial work that may be pending.
+// Check the filesystem for metadata errors
+//
+// Returns LFS_ERR_CORRUPT if a checksum mismatch is found, or a negative
+// error code on failure.
+int lfsr_fs_ckmeta(lfs_t *lfs);
+#endif
+
+#ifndef LFS_READONLY
+// Check the filesystem for metadata + data errors
+//
+// Returns LFS_ERR_CORRUPT if a checksum mismatch is found, or a negative
+// error code on failure.
+int lfsr_fs_ckdata(lfs_t *lfs);
+#endif
+
+#ifndef LFS_READONLY
+// Perform any janitorial work that may be pending.
 //
 // The exact janitorial work depends on the provided flags. Note multiple
 // calls may be required to complete all janitorial work.
