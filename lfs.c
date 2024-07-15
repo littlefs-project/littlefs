@@ -5905,8 +5905,20 @@ static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
 }
 
 
-// opened mdir things
-//
+/// various flag things ///
+
+static inline bool lfsr_i_isuncompacted(uint32_t flags) {
+    return flags & LFS_I_UNCOMPACTED;
+}
+
+static inline bool lfsr_f_hasorphans(uint32_t flags) {
+    return flags & LFS_F_ORPHANS;
+}
+
+
+
+/// opened mdir things ///
+
 // we maintain a linked-list of all opened mdirs, in order to keep
 // metadata state in-sync, these may be casted to specific file types
 
@@ -7831,6 +7843,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfs->seed ^= mdir_[1].rbyd.cksum;
     }
 
+    // we may have touched any number of mdirs, so assume uncompacted
+    // until lfsr_fs_gc can prove otherwise
+    lfs->flags |= LFS_I_UNCOMPACTED;
+
     // update any gstate changes
     lfsr_fs_commitgdelta(lfs);
 
@@ -8682,7 +8698,7 @@ dropped:;
     // mkconsistencing mdirs?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && tag == LFSR_TAG_MDIR
-            && lfs->hasorphans) {
+            && lfsr_f_hasorphans(lfs->flags)) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
         err = lfsr_mdir_fixorphans(lfs, mdir);
         if (err) {
@@ -8802,6 +8818,9 @@ dropped:;
         // reset to btree root
         t->u.bt.branch = &t->o.bshrub.u.btree;
         t->u.bt.rid = t->u.bt.bid;
+
+        // mark as dirty, we need to do this manually here
+        t->o.o.flags |= LFS_F_DIRTY;
     }
 
     // swap back dirty/mutated flags
@@ -8822,7 +8841,7 @@ eot:;
     // was mkconsistent successful?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && !lfsr_f_isdirty(t->o.o.flags)) {
-        lfs->hasorphans = false;
+        lfs->flags &= ~LFS_F_ORPHANS;
     }
 
     // was lookahead scan successful?
@@ -8830,6 +8849,14 @@ eot:;
             && !lfsr_f_isdirty(t->o.o.flags)
             && !lfsr_f_ismutated(t->o.o.flags)) {
         lfs_alloc_markfree(lfs);
+    }
+
+    // was compaction successful? note we may need multiple passes if
+    // we want to be sure everything is compacted
+    if (lfsr_t_iscompact(t->o.o.flags)
+            && !lfsr_f_isdirty(t->o.o.flags)
+            && !lfsr_f_ismutated(t->o.o.flags)) {
+        lfs->flags &= ~LFS_I_UNCOMPACTED;
     }
 
     return LFS_ERR_NOENT;
@@ -10118,7 +10145,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
         // fallback to just marking the filesystem as orphaned
         } else {
-            lfs->hasorphans = true;
+            lfs->flags |= LFS_F_ORPHANS;
         }
     }
 
@@ -11796,6 +11823,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // fragment_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
 
+    // zero flags
+    lfs->flags = 0;
+
     // setup block_count so we can mutate it
     lfs->block_count = lfs->cfg->block_count;
 
@@ -11869,10 +11899,6 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 //#ifdef LFS_MIGRATE
 //    lfs->lfs1 = NULL;
 //#endif
-
-    // TODO maybe reorganize this function?
-
-    lfs->hasorphans = false;
 
     // TODO do we need to recalculate these after mount?
 
@@ -12460,7 +12486,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                             "%"PRId32".%"PRId32,
                             lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
                             rid);
-                    lfs->hasorphans = true;
+                    lfs->flags |= LFS_F_ORPHANS;
 
                 // found an unknown file type?
                 } else if (lfsr_tag_isunknown(tag)) {
@@ -12520,6 +12546,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
                 lfsr_mid_rid(lfs, lfs->grm.mids[0]));
     }
+
+    // default to assuming we need a compaction somewhere, worst case this
+    // just makes lfsr_fs_gc read more than is strictly needed
+    lfs->flags |= LFS_I_UNCOMPACTED;
 
     return 0;
 }
@@ -12671,10 +12701,24 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
 /// Other filesystem things  ///
 
 int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    // return various filesystem flags
+    fsinfo->flags = lfs->flags & LFS_I_UNCOMPACTED;
+
+    // some flags we calculate on demand
+    if (lfsr_grm_count(lfs) > 0 || lfsr_f_hasorphans(lfs->flags)) {
+        fsinfo->flags |= LFS_I_INCONSISTENT;
+    }
+
+    if (lfs->lookahead.next > 0 || lfs->lookahead.size == 0) {
+        fsinfo->flags |= LFS_I_CANLOOKAHEAD;
+    }
+
+    // return filesystem config, this may come from disk
     fsinfo->block_size = lfs->cfg->block_size;
     fsinfo->block_count = lfs->block_count;
     fsinfo->name_limit = lfs->name_limit;
     fsinfo->file_limit = lfs->file_limit;
+
     return 0;
 }
 
@@ -12839,7 +12883,7 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // this must happen after fixgrm, since removing orphaned files risks
     // outdating the grm
     //
-    if (lfs->hasorphans) {
+    if (lfsr_f_hasorphans(lfs->flags)) {
         LFS_DEBUG("Fixing orphans...");
 
         int err = lfsr_fs_fixorphans(lfs);
@@ -12886,10 +12930,11 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
     }
 
     // do we need to do anything?
-    if (!((lfsr_t_ismkconsistent(flags) && lfs->hasorphans)
+    if (!((lfsr_t_ismkconsistent(flags) && lfsr_f_hasorphans(lfs->flags))
             || (lfsr_t_islookahead(flags)
                 && (lfs->lookahead.next > 0 || lfs->lookahead.size == 0))
-            || lfsr_t_iscompact(flags)
+            || (lfsr_t_iscompact(flags)
+                && lfsr_i_isuncompacted(lfs->flags))
             || lfsr_t_isckmeta(flags)
             || lfsr_t_isckdata(flags))) {
         return 0;
@@ -12923,6 +12968,7 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
         // shift the lookahead buffer if requested
         if (lfsr_t_islookahead(lfs->gc.o.o.flags)) {
             lfs_alloc_shift(lfs);
+            lfs_alloc_ckpoint(lfs);
         }
     }
 
@@ -13173,6 +13219,7 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     // shift the lookahead buffer if requested
     if (lfsr_t_islookahead(t->o.o.flags)) {
         lfs_alloc_shift(lfs);
+        lfs_alloc_ckpoint(lfs);
     }
 
     return 0;

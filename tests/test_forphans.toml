@@ -4701,7 +4701,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
+
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -4831,7 +4835,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
+
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -4975,7 +4983,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
+
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here

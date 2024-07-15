@@ -125,6 +125,16 @@ enum lfs_type {
     LFS_TYPE_TRAVERSAL  = 9,
 };
 
+// Block types
+enum lfs_btype {
+    LFS_BTYPE_MDIR      = 1,
+    LFS_BTYPE_BTREE     = 2,
+    LFS_BTYPE_DATA      = 3,
+// TODO
+//    LFS_BTYPE_PARITY    = 4,
+//    LFS_BTYPE_BAD       = 5,
+};
+
 // File open flags
 enum lfs_open_flags {
     // open flags
@@ -155,14 +165,15 @@ enum lfs_whence_flags {
     LFS_SEEK_END = 2,   // Seek relative to the end of the file
 };
 
-// Block types
-enum lfs_btype {
-    LFS_BTYPE_MDIR      = 1,
-    LFS_BTYPE_BTREE     = 2,
-    LFS_BTYPE_DATA      = 3,
-// TODO
-//    LFS_BTYPE_PARITY    = 4,
-//    LFS_BTYPE_BAD       = 5,
+// Filesystem info flags
+enum lfs_fsinfo_flags {
+    // state flags
+    LFS_I_INCONSISTENT  = 0x01, // Filesystem needs mkconsistent to write
+    LFS_I_CANLOOKAHEAD  = 0x04, // Lookahead buffer is not full
+    LFS_I_UNCOMPACTED   = 0x10, // Filesystem may have uncompacted metadata
+
+    // internally used flags
+    LFS_F_ORPHANS       = 0x80, // Filesystem may have untracked orphans
 };
 
 // Traversal flags
@@ -391,7 +402,8 @@ struct lfs_info {
 
 // Filesystem info structure
 struct lfs_fsinfo {
-    // TODO should we add rcompat/wcompat flags here?
+    // Filesystem flags
+    uint8_t flags;
 
     // Size of a logical block in bytes.
     lfs_size_t block_size;
@@ -713,10 +725,7 @@ typedef struct lfs {
     lfs_size_t name_limit;
     lfs_off_t file_limit;
 
-    // TODO we should put this flag somewhere, should lfs_t have a general
-    // purpose flags field? this has been useful for lfsr_file_t
-    bool hasorphans;
-
+    uint8_t flags;
     int8_t recycle_bits;
     uint8_t attr_estimate;
     uint8_t mdir_bits;

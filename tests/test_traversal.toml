@@ -1667,6 +1667,52 @@ done:;
 
 
 
+# test that in general fsinfo flags work
+[cases.test_traversal_flags]
+defines.MKCONSISTENT = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // check flags before
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // try traversing
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t,
+            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS_T_COMPACT : 0)
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
+                | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
+    struct lfs_tinfo tinfo;
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+    assert(tinfo.btype == LFS_BTYPE_MDIR);
+    assert(tinfo.block == 0 || tinfo.block == 1);
+    lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // check flags after
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 # test that we detect filesystem mutation during traversal
 [cases.test_traversal_mutation]
 defines.WHEN = [0, 1, 2]
@@ -1718,6 +1764,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -1760,6 +1813,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try another mutation just for good measure
     lfsr_file_open(&lfs, &file, "tarantula",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -1771,6 +1831,12 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // we should _not_ update lookahead/compact
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1817,6 +1883,13 @@ code = '''
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1868,6 +1941,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -1917,6 +1997,13 @@ code = '''
 
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1979,6 +2066,13 @@ code = '''
     }
 
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -2051,6 +2145,13 @@ code = '''
     }
 
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_rewind(&lfs, &file) => 0;
@@ -2135,6 +2236,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -2229,6 +2337,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -2315,6 +2430,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -2387,6 +2509,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2480,6 +2609,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
 
@@ -2565,6 +2701,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
 
@@ -2641,6 +2784,14 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact, unless we're desynced
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((DESYNC) ? LFS_I_INCONSISTENT : 0)
+                | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     lfsr_file_close(&lfs, &file2) => 0;
 
@@ -2738,6 +2889,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact, unless we're desynced
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((DESYNC) ? LFS_I_INCONSISTENT : 0)
+                | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
+
     lfsr_file_close(&lfs, &file2) => 0;
 
     // check the file contents
@@ -2827,6 +2986,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact, unless we're desynced
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((DESYNC) ? LFS_I_INCONSISTENT : 0)
+                | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
+
     lfsr_file_close(&lfs, &file2) => 0;
 
     // check the file contents
@@ -2912,6 +3079,14 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact, unless we're desynced
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((DESYNC) ? LFS_I_INCONSISTENT : 0)
+                | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
@@ -3002,6 +3177,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
 
@@ -3090,6 +3272,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3187,6 +3376,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3296,6 +3492,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -3404,6 +3607,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -3499,6 +3709,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -3587,6 +3804,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3692,6 +3916,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -3794,6 +4025,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3950,6 +4188,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4124,6 +4369,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -4291,6 +4543,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -4454,6 +4713,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4626,6 +4892,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -4795,6 +5068,13 @@ code = '''
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
+
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4977,6 +5257,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
+    // we should _not_ update lookahead/compact
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
@@ -5035,6 +5322,13 @@ code = '''
         lfsr_file_sync(&lfs, &file) => 0;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5051,10 +5345,34 @@ code = '''
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // mdir should have been compacted
+    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
     assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5127,6 +5445,13 @@ code = '''
         lfsr_file_sync(&lfs, &file) => 0;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5148,13 +5473,39 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // mrootanchor should have been compacted
     lfsr_mdir_t mrootanchor;
     lfsr_mdir_fetch(&lfs, &mrootanchor,
             -1, &LFSR_MPTR_MROOTANCHOR()) => 0;
     assert(lfsr_rbyd_eoff(&mrootanchor.rbyd) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // mrootanchor should have been compacted
+    lfsr_mdir_fetch(&lfs, &mrootanchor,
+            -1, &LFSR_MPTR_MROOTANCHOR()) => 0;
+    assert(lfsr_rbyd_eoff(&mrootanchor.rbyd) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5209,6 +5560,13 @@ code = '''
         lfsr_file_sync(&lfs, &file) => 0;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5227,10 +5585,34 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // mdir should have been compacted
+    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
     assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5310,6 +5692,13 @@ code = '''
         i += 1;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5339,11 +5728,36 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // mdirs should have been compacted
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5479,6 +5893,13 @@ code = '''
         }
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5513,12 +5934,40 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    if (COMPACTSET) {
+        // mdirs should have been compacted
+        assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+        // but because we mutated, we're still marked as uncompacted
+        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        assert(fsinfo.flags == (
+                LFS_I_CANLOOKAHEAD
+                    | LFS_I_UNCOMPACTED));
+
+        // running another traversal should clear the uncompacted flag
+        lfsr_traversal_rewind(&lfs, &t) => 0;
+        while (true) {
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5656,6 +6105,13 @@ code = '''
         i += 1;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5695,6 +6151,28 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // mdirs should have been compacted
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file4.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
@@ -5702,6 +6180,11 @@ code = '''
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file4.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5838,6 +6321,13 @@ code = '''
     lfsr_file_open(&lfs, &file1, "jellyfish", LFS_O_RDWR) => 0;
     lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDWR) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5867,7 +6357,6 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_MDIR);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // mtree should have been compacted
     lfsr_traversal_t t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
@@ -5879,6 +6368,37 @@ code = '''
     assert(tag == LFSR_TAG_BRANCH);
     assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
             <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // mtree should have been compacted
+    t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
+    lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_BRANCH);
+    assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+            <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5942,6 +6462,13 @@ code = '''
 
     lfsr_file_close(&lfs, &file) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -5961,11 +6488,35 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
     lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
     assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // btree should have been compacted
+    assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6022,6 +6573,13 @@ code = '''
 
     lfsr_file_sync(&lfs, &file) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6041,10 +6599,34 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // btree should have been compacted
+    assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
     assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6099,6 +6681,13 @@ code = '''
         lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6118,10 +6707,34 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // btree should have been compacted
+    assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
     assert((file.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // file should not have accidentally been created or anything
     struct lfs_info info;
@@ -6201,6 +6814,13 @@ code = '''
     lfsr_file_write(&lfs, &file3, wbuf3, SIZE) => SIZE;
     lfsr_file_desync(&lfs, &file3) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6226,10 +6846,34 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
     assert(tinfo.btype == LFS_BTYPE_BTREE);
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
+
+    // btree should have been compacted
+    assert((file1.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // btree should have been compacted
     assert((file1.o.bshrub.u.btree.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     lfsr_file_rewind(&lfs, &file1) => 0;
@@ -6313,6 +6957,13 @@ code = '''
 
     lfsr_file_close(&lfs, &file) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6336,7 +6987,6 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
     lfsr_traversal_t t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
@@ -6354,6 +7004,43 @@ code = '''
         assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
                 <= GC_COMPACT_THRESH);
     }
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // bshrub should have been compacted
+    t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
+    while (true) {
+        int err = lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
+    }
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6430,6 +7117,13 @@ code = '''
 
     lfsr_file_sync(&lfs, &file) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6453,7 +7147,6 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
     lfsr_traversal_t t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
@@ -6471,6 +7164,43 @@ code = '''
         assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
                 <= GC_COMPACT_THRESH);
     }
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // bshrub should have been compacted
+    t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
+    while (true) {
+        int err = lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
+    }
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6546,6 +7276,13 @@ code = '''
         lfsr_file_write(&lfs, &file, wbuf, FRAGMENT_SIZE) => FRAGMENT_SIZE;
     }
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6569,7 +7306,6 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
     lfsr_traversal_t t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
@@ -6587,6 +7323,43 @@ code = '''
         assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
                 <= GC_COMPACT_THRESH);
     }
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // bshrub should have been compacted
+    t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
+    while (true) {
+        int err = lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
+    }
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6683,6 +7456,13 @@ code = '''
     lfsr_file_write(&lfs, &file3, wbuf3, SIZE) => SIZE;
     lfsr_file_desync(&lfs, &file3) => 0;
 
+    // we should be marked as uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6706,7 +7486,6 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // bshrub should have been compacted
     lfsr_traversal_t t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
@@ -6724,6 +7503,43 @@ code = '''
         assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
                 <= GC_COMPACT_THRESH);
     }
+
+    // but because we mutated, we're still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // bshrub should have been compacted
+    t_ = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr) => 0;
+    assert(tag == LFSR_TAG_MDIR);
+    while (true) {
+        int err = lfsr_mtree_traverse(&lfs, &t_, &tag, &bptr);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+        assert(tag == LFSR_TAG_BRANCH);
+        assert(lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
+                <= GC_COMPACT_THRESH);
+    }
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     lfsr_file_rewind(&lfs, &file1) => 0;
@@ -6808,6 +7624,14 @@ code = '''
         lfsr_file_close(&lfs, &orphans[i]) => 0;
     }
 
+    // we should be marked as inconsistent now
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6843,12 +7667,18 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
     assert(file1.o.o.mdir.rbyd.weight <= 3);
     assert(file2.o.o.mdir.rbyd.weight <= 3);
+
+    // and we should be marked as consistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6913,6 +7743,13 @@ code = '''
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
     lfsr_file_sync(&lfs, &file2) => 0;
 
+    // we should not be marked as inconsistent
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -6968,9 +7805,16 @@ code = '''
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
-    if (ORPHANS > 3) {
-        assert(lfs.hasorphans == true);
+    if (ORPHANS >= 3) {
+        assert(lfs.flags & LFS_F_ORPHANS);
     }
+
+    // if we introduced actual orphans, we _must_ be marked as inconsistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS >= 3) ? LFS_I_INCONSISTENT : 0)
+                | ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7057,6 +7901,14 @@ code = '''
         lfsr_file_close(&lfs, &orphans[i]) => 0;
     }
 
+    // we should be marked as inconsistent now
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -7106,12 +7958,18 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
     assert(file1.o.o.mdir.rbyd.weight <= 3);
     assert(file2.o.o.mdir.rbyd.weight <= 3);
+
+    // and we should be marked as consistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7196,6 +8054,14 @@ code = '''
         lfsr_file_close(&lfs, &orphans[i]) => 0;
     }
 
+    // we should be marked as inconsistent now
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -7245,12 +8111,18 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
     assert(file1.o.o.mdir.rbyd.weight <= 3);
     assert(file2.o.o.mdir.rbyd.weight <= 3);
+
+    // and we should be marked as consistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7338,6 +8210,14 @@ code = '''
         lfsr_file_close(&lfs, &orphans[i]) => 0;
     }
 
+    // we should be marked as inconsistent now
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -7395,12 +8275,18 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
     assert(file1.o.o.mdir.rbyd.weight <= 3);
     assert(file2.o.o.mdir.rbyd.weight <= 3);
+
+    // and we should be marked as consistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7486,6 +8372,14 @@ code = '''
         lfsr_file_close(&lfs, &orphans[i]) => 0;
     }
 
+    // we should be marked as inconsistent now
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -7543,12 +8437,18 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
     assert(file1.o.o.mdir.rbyd.weight <= 3);
     assert(file2.o.o.mdir.rbyd.weight <= 3);
+
+    // and we should be marked as consistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7654,6 +8554,14 @@ code = '''
         lfsr_file_sync(&lfs, &file2) => 0;
     }
 
+    // we should be marked as inconsistent and uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -7685,12 +8593,11 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_MDIR);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -7700,6 +8607,33 @@ code = '''
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // we should be marked as consistent, but because we mutated, we're
+    // still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // mdirs should have been compacted
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7787,6 +8721,13 @@ code = '''
         lfsr_file_sync(&lfs, &file2) => 0;
     }
 
+    // we should not be marked as inconsistent
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -7843,13 +8784,20 @@ code = '''
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
-    if (ORPHANS > 3) {
-        assert(lfs.hasorphans == true);
+    if (ORPHANS >= 3) {
+        assert(lfs.flags & LFS_F_ORPHANS);
     }
 
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // if we introduced actual orphans, we _must_ be marked as inconsistent
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS >= 3) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7959,6 +8907,14 @@ code = '''
         lfsr_file_sync(&lfs, &file2) => 0;
     }
 
+    // we should be marked as inconsistent and uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -8004,12 +8960,11 @@ code = '''
         assert(tinfo.btype == LFS_BTYPE_BTREE);
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -8019,6 +8974,33 @@ code = '''
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // we should be marked as consistent, but because we mutated, we're
+    // still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // mdirs should have been compacted
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -8129,6 +9111,14 @@ code = '''
         lfsr_file_sync(&lfs, &file2) => 0;
     }
 
+    // we should be marked as inconsistent and uncompacted
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
@@ -8225,12 +9215,11 @@ code = '''
         }
     }
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
-    lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(lfs.hasorphans == false);
+    assert(!(lfs.flags & LFS_F_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -8240,6 +9229,33 @@ code = '''
     // mdirs should have been compacted
     assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
     assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // we should be marked as consistent, but because we mutated, we're
+    // still marked as uncompacted
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((ORPHANS > 3) ? LFS_I_UNCOMPACTED : 0)
+                | ((!LOOKAHEAD || ORPHANS > 3) ? LFS_I_CANLOOKAHEAD : 0)));
+
+    // running another traversal should clear the uncompacted flag
+    lfsr_traversal_rewind(&lfs, &t) => 0;
+    while (true) {
+        int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    // mdirs should have been compacted
+    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
