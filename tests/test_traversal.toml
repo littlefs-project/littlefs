@@ -1442,9 +1442,8 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfsr_traversal_close(&lfs, &t) => 0;
                     goto clobbered;
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -1537,9 +1536,8 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfsr_traversal_close(&lfs, &t) => 0;
                     goto clobbered;
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 
@@ -1634,9 +1632,8 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfsr_traversal_close(&lfs, &t) => 0;
                     goto clobbered;
-                } else {
-                    k += 1;
                 }
+                k += 1;
             }
         }
 

@@ -5924,6 +5924,19 @@ static inline bool lfsr_f_hasorphans(uint32_t flags) {
     return flags & LFS_F_ORPHANS;
 }
 
+// on-demand flags
+
+// needed in lfsr_fs_isinconsistent
+static inline uint8_t lfsr_grm_count(const lfs_t *lfs);
+
+static bool lfsr_fs_isinconsistent(const lfs_t *lfs) {
+    return lfsr_grm_count(lfs) > 0 || lfsr_f_hasorphans(lfs->flags);
+}
+
+static bool lfsr_fs_canlookahead(const lfs_t *lfs) {
+    return lfs->lookahead.next > 0 || lfs->lookahead.size == 0;
+}
+
 
 
 /// opened mdir things ///
@@ -6044,7 +6057,7 @@ static inline uint8_t lfsr_grm_count_(const lfsr_grm_t *grm) {
     return (grm->mids[0] >= 0) + (grm->mids[1] >= 0);
 }
 
-static inline uint8_t lfsr_grm_count(lfs_t *lfs) {
+static inline uint8_t lfsr_grm_count(const lfs_t *lfs) {
     return lfsr_grm_count_(&lfs->grm);
 }
 
@@ -6061,7 +6074,7 @@ static inline lfsr_smid_t lfsr_grm_pop(lfs_t *lfs) {
     return mid;
 }
 
-static inline bool lfsr_grm_ismidrm(lfs_t *lfs, lfsr_smid_t mid) {
+static inline bool lfsr_grm_ismidrm(const lfs_t *lfs, lfsr_smid_t mid) {
     return lfs->grm.mids[0] == mid || lfs->grm.mids[1] == mid;
 }
 
@@ -12572,16 +12585,38 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, flags, cfg);
+    // some flags don't make sense when only traversing the mtree
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
+    // unknown flags?
+    LFS_ASSERT((flags
+            & ~LFS_M_RDWR
+            & ~LFS_M_RDONLY
+            & ~LFS_M_CKPROGS
+            & ~LFS_M_MTREEONLY
+            & ~LFS_M_MKCONSISTENT
+            & ~LFS_M_LOOKAHEAD
+            & ~LFS_M_COMPACT
+            & ~LFS_M_CKMETA
+            & ~LFS_M_CKDATA) == 0);
+
+    int err = lfs_init(lfs,
+            // strip out the one-time traversal flags
+            flags
+                & ~LFS_M_MTREEONLY
+                & ~LFS_M_MKCONSISTENT
+                & ~LFS_M_LOOKAHEAD
+                & ~LFS_M_COMPACT
+                & ~LFS_M_CKMETA
+                & ~LFS_M_CKDATA,
+            cfg);
     if (err) {
         return err;
     }
 
     err = lfsr_mountinited(lfs);
     if (err) {
-        // make sure we clean up on error
-        lfs_deinit(lfs);
-        return err;
+        goto failed;
     }
 
     // TODO this should use any configured values
@@ -12599,7 +12634,84 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             lfsr_mtree_weight_(&lfs->mtree) >> lfs->mdir_bits,
             1 << lfs->mdir_bits);
 
+    // fix pending grms if requested
+    if (lfsr_t_ismkconsistent(flags)
+            && lfsr_grm_count(lfs) > 0) {
+        if (lfsr_grm_count(lfs) == 2) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
+                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
+        } else if (lfsr_grm_count(lfs) == 1) {
+            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
+                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
+                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
+        }
+
+        err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            goto failed;
+        }
+    }
+
+    // run gc until all requested mount work is done
+    bool mutated = true;
+    while ((lfsr_t_ismkconsistent(flags)
+                && lfsr_f_hasorphans(lfs->flags))
+            || (lfsr_t_islookahead(flags)
+                && lfsr_fs_canlookahead(lfs))
+            || (lfsr_t_iscompact(flags)
+                && lfsr_i_isuncompacted(lfs->flags))
+            || (lfsr_t_isckmeta(flags)
+                && mutated)
+            || (lfsr_t_isckdata(flags)
+                && mutated)) {
+
+        // do we really need a full traversal?
+        uint32_t flags_ = flags;
+        if (!((lfsr_t_islookahead(flags)
+                    && lfsr_fs_canlookahead(lfs))
+                || (lfsr_t_iscompact(flags)
+                    && lfsr_i_isuncompacted(lfs->flags))
+                || (lfsr_t_isckmeta(flags)
+                    && mutated)
+                || (lfsr_t_isckdata(flags)
+                    && mutated))) {
+            flags_ |= LFS_GC_MTREEONLY;
+        }
+
+        lfsr_traversal_t t = LFSR_TRAVERSAL(flags_);
+        lfsr_omdir_open(lfs, &t.o.o);
+
+        // shift the lookahead buffer if requested
+        if (lfsr_t_islookahead(t.o.o.flags)) {
+            lfs_alloc_shift(lfs);
+            lfs_alloc_ckpoint(lfs);
+        }
+
+        while (true) {
+            err = lfsr_mtree_gc(lfs, &t,
+                    NULL, NULL);
+            if (err) {
+                lfsr_omdir_close(lfs, &t.o.o);
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
+                goto failed;
+            }
+        }
+
+        // mutated? we need another pass for ckmeta/ckdata
+        mutated = lfsr_f_ismutated(t.o.o.flags);
+    }
+
     return 0;
+
+failed:;
+    // make sure we clean up on error
+    lfs_deinit(lfs);
+    return err;
 }
 
 int lfsr_unmount(lfs_t *lfs) {
@@ -12723,15 +12835,9 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
             LFS_I_RDONLY
                 | LFS_I_CKPROGS
                 | LFS_I_UNCOMPACTED);
-
     // some flags we calculate on demand
-    if (lfsr_grm_count(lfs) > 0 || lfsr_f_hasorphans(lfs->flags)) {
-        fsinfo->flags |= LFS_I_INCONSISTENT;
-    }
-
-    if (lfs->lookahead.next > 0 || lfs->lookahead.size == 0) {
-        fsinfo->flags |= LFS_I_CANLOOKAHEAD;
-    }
+    fsinfo->flags |= (lfsr_fs_isinconsistent(lfs)) ? LFS_I_INCONSISTENT : 0;
+    fsinfo->flags |= (lfsr_fs_canlookahead(lfs)) ? LFS_I_CANLOOKAHEAD : 0;
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs->cfg->block_size;
@@ -12950,9 +13056,10 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
     }
 
     // do we need to do anything?
-    if (!((lfsr_t_ismkconsistent(flags) && lfsr_f_hasorphans(lfs->flags))
+    if (!((lfsr_t_ismkconsistent(flags)
+                && lfsr_f_hasorphans(lfs->flags))
             || (lfsr_t_islookahead(flags)
-                && (lfs->lookahead.next > 0 || lfs->lookahead.size == 0))
+                && lfsr_fs_canlookahead(lfs))
             || (lfsr_t_iscompact(flags)
                 && lfsr_i_isuncompacted(lfs->flags))
             || lfsr_t_isckmeta(flags)
@@ -12961,8 +13068,10 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
     }
 
     // do we really need a full traversal?
-    if (!(lfsr_t_islookahead(flags)
-            || lfsr_t_iscompact(flags)
+    if (!((lfsr_t_islookahead(flags)
+                && lfsr_fs_canlookahead(lfs))
+            || (lfsr_t_iscompact(flags)
+                && lfsr_i_isuncompacted(lfs->flags))
             || lfsr_t_isckmeta(flags)
             || lfsr_t_isckdata(flags))) {
         flags |= LFS_GC_MTREEONLY;

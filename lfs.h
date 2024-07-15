@@ -117,14 +117,21 @@ enum lfs_error {
 enum lfs_mount_flags {
     LFS_M_RDWR          = 0x0000, // Mount the filesystem as read and write
     LFS_M_RDONLY        = 0x0001, // Mount the filesystem as read only
-    LFS_M_CKPROGS       = 0x0010, // Check progs by reading back progged data
+    LFS_M_CKPROGS       = 0x0008, // Check progs by reading back progged data
+
+    LFS_M_MTREEONLY     = 0x0010, // Only traverse the mtree
+    LFS_M_MKCONSISTENT  = 0x0020, // Make the filesystem consistent
+    LFS_M_LOOKAHEAD     = 0x0040, // Populate lookahead buffer
+    LFS_M_COMPACT       = 0x0080, // Compact metadata logs
+    LFS_M_CKMETA        = 0x0100, // Check metadata checksums
+    LFS_M_CKDATA        = 0x0200, // Check metadata + data checksums
 };
 
 // Filesystem info flags
 enum lfs_fsinfo_flags {
     // mount flags
     LFS_I_RDONLY        = 0x0001, // Filesystem mounted read only
-    LFS_I_CKPROGS       = 0x0010, // Check progs by reading back progged data
+    LFS_I_CKPROGS       = 0x0008, // Check progs by reading back progged data
 
     // state flags
     LFS_I_INCONSISTENT  = 0x0100, // Filesystem needs mkconsistent to write
