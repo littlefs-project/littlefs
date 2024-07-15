@@ -111,7 +111,6 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(SHRUB_SIZE,         INLINE_SIZE                             ) \
     TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
-    TEST_DEFINE(CHECK_PROGS,        false                                   ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
     TEST_DEFINE(ERASE_CYCLES,       0                                       ) \
     TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR            ) \
@@ -141,8 +140,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \
     .fragment_size      = FRAGMENT_SIZE,        \
-    .crystal_thresh     = CRYSTAL_THRESH,       \
-    .check_progs        = CHECK_PROGS,
+    .crystal_thresh     = CRYSTAL_THRESH,
 
 #define TEST_BDCFG \
     .erase_value        = ERASE_VALUE,          \

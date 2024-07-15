@@ -289,6 +289,7 @@ static int lfsr_bd_read(lfs_t *lfs,
 }
 
 // needed in lfsr_bd_prog_ for prog validation
+static inline bool lfsr_m_isckprogs(uint32_t flags);
 static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size);
@@ -304,7 +305,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     }
 
     // check progs?
-    if (lfs->cfg->check_progs) {
+    if (lfsr_m_isckprogs(lfs->flags)) {
         // pcache should have been dropped at this point
         LFS_ASSERT(lfs->pcache.size == 0);
 
@@ -5906,6 +5907,14 @@ static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
 
 
 /// various flag things ///
+
+static inline bool lfsr_m_isrdonly(uint32_t flags) {
+    return flags & LFS_M_RDONLY;
+}
+
+static inline bool lfsr_m_isckprogs(uint32_t flags) {
+    return flags & LFS_M_CKPROGS;
+}
 
 static inline bool lfsr_i_isuncompacted(uint32_t flags) {
     return flags & LFS_I_UNCOMPACTED;
@@ -11772,10 +11781,17 @@ failed:;
 static int lfs_deinit(lfs_t *lfs);
 
 // initialize littlefs state, assert on bad configuration
-static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
+static int lfs_init(lfs_t *lfs, uint32_t flags,
+        const struct lfs_config *cfg) {
     // TODO this all needs to be cleaned up
     lfs->cfg = cfg;
     int err = 0;
+
+    // unknown flags?
+    LFS_ASSERT((flags
+            & ~LFS_M_RDWR
+            & ~LFS_M_RDONLY
+            & ~LFS_M_CKPROGS) == 0);
 
     // validate that the lfs-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
@@ -11823,10 +11839,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // fragment_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
 
-    // zero flags
-    lfs->flags = 0;
+    // setup flags
+    lfs->flags = flags;
 
-    // setup block_count so we can mutate it
+    // copy block_count so we can mutate it
     lfs->block_count = lfs->cfg->block_count;
 
     // setup read cache
@@ -12554,8 +12570,9 @@ static int lfsr_mountinited(lfs_t *lfs) {
     return 0;
 }
 
-int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, cfg);
+int lfsr_mount(lfs_t *lfs, uint32_t flags,
+        const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, flags, cfg);
     if (err) {
         return err;
     }
@@ -12674,7 +12691,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
 }
 
 int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, cfg);
+    int err = lfs_init(lfs, LFS_M_RDWR, cfg);
     if (err) {
         return err;
     }
@@ -12702,7 +12719,10 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
 int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     // return various filesystem flags
-    fsinfo->flags = lfs->flags & LFS_I_UNCOMPACTED;
+    fsinfo->flags = lfs->flags & (
+            LFS_I_RDONLY
+                | LFS_I_CKPROGS
+                | LFS_I_UNCOMPACTED);
 
     // some flags we calculate on demand
     if (lfsr_grm_count(lfs) > 0 || lfsr_f_hasorphans(lfs->flags)) {

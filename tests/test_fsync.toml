@@ -7,7 +7,7 @@ after = 'test_fwrite'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - reader kept open, recvs updates from a
@@ -108,7 +108,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - writer
@@ -228,7 +228,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - writer
@@ -362,7 +362,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - writer
@@ -498,7 +498,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -549,7 +549,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = SEED;
@@ -612,7 +612,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -703,7 +703,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -804,7 +804,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -890,7 +890,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -981,7 +981,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1084,7 +1084,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1196,7 +1196,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1298,7 +1298,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1411,7 +1411,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
     uint8_t between[RW][SIZE];
@@ -1546,7 +1546,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
     uint8_t between[RW][SIZE];
@@ -1714,7 +1714,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - reader kept open, recvs updates from a
@@ -1801,7 +1801,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - reader kept open, recvs updates from a
@@ -1881,7 +1881,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - writer
@@ -2002,7 +2002,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - writer
@@ -2104,7 +2104,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - reader kept open, recvs updates from a
@@ -2206,7 +2206,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
     // b - writer
@@ -2352,7 +2352,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -2448,7 +2448,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -2554,7 +2554,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -2642,7 +2642,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -2740,7 +2740,7 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -2851,7 +2851,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -2969,7 +2969,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
     uint8_t between[RW][SIZE];
@@ -3119,7 +3119,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
     uint8_t between[RW][SIZE];

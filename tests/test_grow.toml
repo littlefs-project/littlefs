@@ -29,7 +29,7 @@ code = '''
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -66,7 +66,7 @@ code = '''
     // try to mount with a bigger block count
     cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -105,7 +105,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // stays after a mount?
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -148,7 +148,7 @@ code = '''
     cfg.block_count = BIGGER_BLOCK_COUNT;
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -185,7 +185,7 @@ code = '''
     // try to mount with a smaller block count
     cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfsr_mount(&lfs, &cfg) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => LFS_ERR_NOTSUP;
 '''
 
 # test we can grow a filesystem
@@ -209,7 +209,7 @@ code = '''
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -246,7 +246,7 @@ code = '''
     // try to grow our filesystem
     cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     lfsr_fs_grow(&lfs, BIGGER_BLOCK_COUNT) => 0;
 
@@ -287,7 +287,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // stays after a mount?
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -324,7 +324,7 @@ code = '''
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -361,7 +361,7 @@ code = '''
     // try to grow to same size
     cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     lfsr_fs_grow(&lfs, SMALLER_BLOCK_COUNT) => 0;
 
@@ -402,7 +402,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // stays after a mount?
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -442,7 +442,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -495,7 +495,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
@@ -512,7 +512,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -585,7 +585,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -731,7 +731,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
@@ -748,7 +748,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -816,7 +816,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -891,7 +891,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
@@ -908,7 +908,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
@@ -965,7 +965,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -1157,7 +1157,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
@@ -1174,7 +1174,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
@@ -1259,7 +1259,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -1683,7 +1683,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
     struct lfs_fsinfo fsinfo;
@@ -2208,14 +2208,14 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         // start with a small number of blocks
         struct lfs_config cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
         lfsr_format(&lfs, &cfg) => 0;
         // mount with maximum block count
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // fsstat up to date?
         struct lfs_fsinfo fsinfo;
@@ -2439,7 +2439,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that things look more-or-less ok
@@ -2521,14 +2521,14 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         // start with a small number of blocks
         struct lfs_config cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
         lfsr_format(&lfs, &cfg) => 0;
         // mount with maximum block count
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // fsstat up to date?
         struct lfs_fsinfo fsinfo;
@@ -2879,7 +2879,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that things look more-or-less ok

@@ -13,7 +13,7 @@ defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -67,7 +67,7 @@ defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -144,7 +144,7 @@ defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -227,7 +227,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -332,7 +332,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -457,7 +457,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -592,7 +592,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -729,7 +729,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -830,7 +830,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -938,7 +938,7 @@ if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -1059,7 +1059,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -1170,7 +1170,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -1286,7 +1286,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -1406,7 +1406,7 @@ defines.SEEK = [0, 1, 2]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     lfsr_mkdir(&lfs, "pricklypear") => 0;
 
@@ -1494,7 +1494,7 @@ defines.SEEK = [0, 1, 2]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     lfsr_mkdir(&lfs, "pricklypear") => 0;
 
@@ -1606,10 +1606,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     if (PARENT) {
@@ -1741,10 +1741,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     if (PARENT) {

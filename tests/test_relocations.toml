@@ -18,7 +18,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // make this many directories
     for (lfs_size_t i = 0; i < N; i++) {
@@ -32,7 +32,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -100,7 +100,7 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -194,7 +194,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -258,7 +258,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
@@ -282,7 +282,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
@@ -334,7 +334,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -465,7 +465,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
@@ -547,7 +547,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -887,7 +887,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -1316,10 +1316,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // keep some test state on disk to survive powerloss
@@ -1455,7 +1455,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that things look more-or-less ok
@@ -1537,10 +1537,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // keep some test state on disk to survive powerloss
@@ -1790,7 +1790,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that things look more-or-less ok

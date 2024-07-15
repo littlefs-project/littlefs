@@ -113,6 +113,28 @@ enum lfs_error {
     LFS_ERR_RANGE       = -34,  // Result out of range
 };
 
+// Filesystem mount flags
+enum lfs_mount_flags {
+    LFS_M_RDWR          = 0x0000, // Mount the filesystem as read and write
+    LFS_M_RDONLY        = 0x0001, // Mount the filesystem as read only
+    LFS_M_CKPROGS       = 0x0010, // Check progs by reading back progged data
+};
+
+// Filesystem info flags
+enum lfs_fsinfo_flags {
+    // mount flags
+    LFS_I_RDONLY        = 0x0001, // Filesystem mounted read only
+    LFS_I_CKPROGS       = 0x0010, // Check progs by reading back progged data
+
+    // state flags
+    LFS_I_INCONSISTENT  = 0x0100, // Filesystem needs mkconsistent to write
+    LFS_I_CANLOOKAHEAD  = 0x0400, // Lookahead buffer is not full
+    LFS_I_UNCOMPACTED   = 0x1000, // Filesystem may have uncompacted metadata
+
+    // internally used flags
+    LFS_F_ORPHANS       = 0x8000, // Filesystem may have untracked orphans
+};
+
 // File types
 enum lfs_type {
     // file types
@@ -123,16 +145,6 @@ enum lfs_type {
     LFS_TYPE_BOOKMARK   = 4,
     LFS_TYPE_ORPHAN     = 5,
     LFS_TYPE_TRAVERSAL  = 9,
-};
-
-// Block types
-enum lfs_btype {
-    LFS_BTYPE_MDIR      = 1,
-    LFS_BTYPE_BTREE     = 2,
-    LFS_BTYPE_DATA      = 3,
-// TODO
-//    LFS_BTYPE_PARITY    = 4,
-//    LFS_BTYPE_BAD       = 5,
 };
 
 // File open flags
@@ -165,15 +177,14 @@ enum lfs_whence_flags {
     LFS_SEEK_END = 2,   // Seek relative to the end of the file
 };
 
-// Filesystem info flags
-enum lfs_fsinfo_flags {
-    // state flags
-    LFS_I_INCONSISTENT  = 0x01, // Filesystem needs mkconsistent to write
-    LFS_I_CANLOOKAHEAD  = 0x04, // Lookahead buffer is not full
-    LFS_I_UNCOMPACTED   = 0x10, // Filesystem may have uncompacted metadata
-
-    // internally used flags
-    LFS_F_ORPHANS       = 0x80, // Filesystem may have untracked orphans
+// Block types
+enum lfs_btype {
+    LFS_BTYPE_MDIR      = 1,
+    LFS_BTYPE_BTREE     = 2,
+    LFS_BTYPE_DATA      = 3,
+// TODO
+//    LFS_BTYPE_PARITY    = 4,
+//    LFS_BTYPE_BAD       = 5,
 };
 
 // Traversal flags
@@ -378,11 +389,6 @@ struct lfs_config {
     // 0 only writes blocks, minimizing disk usage, while -1 or any value >=
     // block_size only writes fragments, minimizing random-write cost.
     lfs_size_t crystal_thresh;
-
-    // TODO should lfs_mount accept flags?
-
-    // Check progs by immediately reading back any progged data
-    bool check_progs;
 };
 
 // File info structure
@@ -403,7 +409,7 @@ struct lfs_info {
 // Filesystem info structure
 struct lfs_fsinfo {
     // Filesystem flags
-    uint8_t flags;
+    uint32_t flags;
 
     // Size of a logical block in bytes.
     lfs_size_t block_size;
@@ -721,11 +727,11 @@ typedef struct lfsr_grm {
 // The littlefs filesystem type
 typedef struct lfs {
     const struct lfs_config *cfg;
+    uint16_t flags;
     lfs_size_t block_count;
     lfs_size_t name_limit;
     lfs_off_t file_limit;
 
-    uint8_t flags;
     int8_t recycle_bits;
     uint8_t attr_estimate;
     uint8_t mdir_bits;
@@ -790,7 +796,8 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *config);
 //
 // Returns a negative error code on failure.
 //int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
-int lfsr_mount(lfs_t *lfs, const struct lfs_config *config);
+int lfsr_mount(lfs_t *lfs, uint32_t flags,
+        const struct lfs_config *config);
 
 // Unmounts a littlefs
 //

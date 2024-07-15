@@ -35,7 +35,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -58,7 +58,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             // note the switch to append here
             lfsr_file_open(&lfs, &file, "hello",
                     LFS_O_WRONLY | LFS_O_APPEND) => 0;
@@ -70,7 +70,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -143,7 +143,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -166,7 +166,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -197,7 +197,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -221,7 +221,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -251,7 +251,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -323,7 +323,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -349,7 +349,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -380,7 +380,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -404,7 +404,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -434,7 +434,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -508,7 +508,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -532,7 +532,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -549,7 +549,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -633,7 +633,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -657,7 +657,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -676,7 +676,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -693,7 +693,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -766,7 +766,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -790,7 +790,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -811,7 +811,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -895,7 +895,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -919,7 +919,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -942,7 +942,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -963,7 +963,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -1033,7 +1033,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1063,7 +1063,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -1084,7 +1084,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -1094,7 +1094,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -1171,7 +1171,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1194,7 +1194,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -1226,7 +1226,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
       }
@@ -1252,7 +1252,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
       }
@@ -1285,7 +1285,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -1360,7 +1360,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, truncating in case of powerloss
     lfsr_file_t file;
@@ -1386,7 +1386,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -1418,7 +1418,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
       }
@@ -1444,7 +1444,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
       }
@@ -1477,7 +1477,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -1549,7 +1549,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -1583,7 +1583,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -1610,7 +1610,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -1620,7 +1620,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -1693,7 +1693,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -1727,7 +1727,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
@@ -1758,7 +1758,7 @@ code = '''
         if (REMOUNT) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
         }
     }
@@ -1768,7 +1768,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -1837,7 +1837,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -1921,7 +1921,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -1995,7 +1995,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -2068,7 +2068,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2166,7 +2166,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -2233,7 +2233,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2274,7 +2274,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -2347,7 +2347,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2381,7 +2381,7 @@ code = '''
     if (REMOUNT) {
         lfsr_file_close(&lfs, &file) => 0;
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         lfsr_file_open(&lfs, &file, "hello", LFS_O_RDWR) => 0;
     }
 
@@ -2419,7 +2419,7 @@ code = '''
             if (REMOUNT) {
                 lfsr_file_close(&lfs, &file) => 0;
                 lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, CFG) => 0;
+                lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
                 lfsr_file_open(&lfs, &file, "hello", LFS_O_RDWR) => 0;
             }
 
@@ -2485,7 +2485,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat

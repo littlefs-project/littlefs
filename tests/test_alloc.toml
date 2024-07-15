@@ -21,7 +21,7 @@ defines.ERASE = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // start allocating
     lfs_alloc_ckpoint(&lfs);
@@ -54,7 +54,7 @@ defines.ERASE = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // start allocating
     lfs_alloc_ckpoint(&lfs);
@@ -111,7 +111,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many directories
     for (lfs_size_t i = 0; i < N; i++) {
@@ -156,7 +156,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // first traverse the tree to find all blocks in use
@@ -221,7 +221,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         for (lfs_size_t i = 0; i < N; i++) {
@@ -276,7 +276,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
@@ -325,7 +325,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // first traverse the tree to find all blocks in use
@@ -399,7 +399,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         prng = 42;
@@ -449,7 +449,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     lfsr_file_t files[N];
@@ -576,7 +576,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         prng = 42;
@@ -617,7 +617,7 @@ code = '''
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create directories until we run out of space
     lfs_size_t n = 0;
@@ -635,7 +635,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our mkdir worked until we ran out of space
@@ -688,7 +688,7 @@ defines.SIZE = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create files until we run out of space
     uint32_t prng = 42;
@@ -728,7 +728,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our file writes worked until we ran out of space

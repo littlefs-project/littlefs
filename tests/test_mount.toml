@@ -1,0 +1,37 @@
+# Advanced mount tests
+after = ['test_mtree', 'test_traversal']
+
+# test we can mount
+[cases.test_mount_simple]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that various mount flags are returned by lfsr_fs_stat
+[cases.test_mount_flags]
+defines.RDONLY = [false, true]
+defines.CKPROGS = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs,
+            ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
+                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+            CFG) => 0;
+
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((RDONLY) ? LFS_I_RDONLY : 0)
+                | ((CKPROGS) ? LFS_I_CKPROGS : 0)
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED));
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# TODO should we move test_incompat here?

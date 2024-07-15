@@ -10,7 +10,7 @@ defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -21,7 +21,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     for (lfs_size_t i = 0; i < N; i++) {
@@ -43,7 +43,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_data_t data;
@@ -63,7 +63,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     for (lfs_size_t i = 0; i < N; i++) {
@@ -88,7 +88,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_data_t data;
@@ -108,7 +108,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     for (lfs_size_t i = 0; i < N; i++) {
@@ -134,7 +134,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 1;
@@ -154,7 +154,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -197,7 +197,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -229,7 +229,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -280,7 +280,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -314,7 +314,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -393,7 +393,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
@@ -439,7 +439,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // create entries
@@ -488,7 +488,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
@@ -521,7 +521,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     bool sim[N];
@@ -589,7 +589,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
@@ -625,7 +625,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -683,7 +683,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -711,7 +711,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -771,7 +771,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -799,7 +799,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -846,7 +846,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -870,7 +870,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -944,7 +944,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert split/drop worked out
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -978,7 +978,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1052,7 +1052,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert split/drop worked out
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1088,7 +1088,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     bool sim[N];
@@ -1182,7 +1182,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
@@ -1220,7 +1220,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1290,7 +1290,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -1334,7 +1334,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1414,7 +1414,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1460,7 +1460,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1540,7 +1540,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1586,7 +1586,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1629,7 +1629,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert that our attr is still in the mroot
     lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
@@ -1661,7 +1661,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1738,7 +1738,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert that our attr is still in the mroot
     lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
@@ -1783,7 +1783,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1845,7 +1845,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert that our attr is still in the mroot
     lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
@@ -1882,7 +1882,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -1967,7 +1967,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -2013,7 +2013,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -2107,7 +2107,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
@@ -2157,7 +2157,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -2226,7 +2226,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -2256,7 +2256,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // force mroot to compact once, so the second compact below will
@@ -2307,7 +2307,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -2341,7 +2341,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // force mroot to compact once, so the second compact below will
@@ -2400,7 +2400,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -2438,7 +2438,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     bool sim[N];
@@ -2561,7 +2561,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
@@ -2594,7 +2594,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -2653,7 +2653,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -2703,7 +2703,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -2755,7 +2755,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -2828,7 +2828,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -2913,7 +2913,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -2971,7 +2971,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -3060,7 +3060,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -3147,7 +3147,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -3249,7 +3249,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // setup our neighbors
@@ -3347,7 +3347,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // insert at least one entry
@@ -3429,7 +3429,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert that our entry is still in the mtree
     lfsr_mtree_namelookup(&lfs, 0, "a", 1,
@@ -3449,7 +3449,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -3552,7 +3552,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -3581,7 +3581,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -3692,7 +3692,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -3723,7 +3723,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -3857,7 +3857,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
@@ -3894,7 +3894,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // insert at least one entry
@@ -3988,7 +3988,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // assert that our entry is still in the mtree
     lfsr_mtree_namelookup(&lfs, 0, "a", 1,
@@ -4009,7 +4009,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     // create entries
@@ -4121,7 +4121,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
@@ -4154,7 +4154,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     bool sim[N];
@@ -4286,7 +4286,7 @@ code = '''
 
     // check things stay sane after remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
@@ -4320,7 +4320,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -4397,7 +4397,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 
@@ -4454,7 +4454,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
 

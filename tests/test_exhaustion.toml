@@ -32,7 +32,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 42
 fuzz = 'SEED'
@@ -56,7 +56,10 @@ code = '''
         // run the test
         lfs_t lfs;
         lfsr_format(&lfs, &cfg) => 0;
-        lfsr_mount(&lfs, &cfg) => 0;
+        lfsr_mount(&lfs,
+                LFS_M_RDWR
+                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                &cfg) => 0;
 
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -231,7 +234,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -265,7 +268,10 @@ code = '''
         // run the test
         lfs_t lfs;
         lfsr_format(&lfs, &cfg) => 0;
-        lfsr_mount(&lfs, &cfg) => 0;
+        lfsr_mount(&lfs,
+                LFS_M_RDWR
+                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                &cfg) => 0;
 
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -503,7 +509,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -546,7 +552,10 @@ code = '''
         // run the test
         lfs_t lfs;
         lfsr_format(&lfs, &cfg) => 0;
-        lfsr_mount(&lfs, &cfg) => 0;
+        lfsr_mount(&lfs,
+                LFS_M_RDWR
+                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                &cfg) => 0;
 
         // create a file
         lfsr_file_t file;
@@ -683,7 +692,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -717,7 +726,10 @@ code = '''
         // run the test
         lfs_t lfs;
         lfsr_format(&lfs, &cfg) => 0;
-        lfsr_mount(&lfs, &cfg) => 0;
+        lfsr_mount(&lfs,
+                LFS_M_RDWR
+                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                &cfg) => 0;
 
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -1096,7 +1108,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CHECK_PROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1130,7 +1142,10 @@ code = '''
         // run the test
         lfs_t lfs;
         lfsr_format(&lfs, &cfg) => 0;
-        lfsr_mount(&lfs, &cfg) => 0;
+        lfsr_mount(&lfs,
+                LFS_M_RDWR
+                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                &cfg) => 0;
 
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));

@@ -126,7 +126,6 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(SHRUB_SIZE,         INLINE_SIZE                            ) \
     BENCH_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                           ) \
     BENCH_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                           ) \
-    BENCH_DEFINE(CHECK_PROGS,        false                                  ) \
     BENCH_DEFINE(ERASE_VALUE,        0xff                                   ) \
     BENCH_DEFINE(ERASE_CYCLES,       0                                      ) \
     BENCH_DEFINE(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR           ) \
@@ -156,8 +155,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \
     .fragment_size      = FRAGMENT_SIZE,        \
-    .crystal_thresh     = CRYSTAL_THRESH,       \
-    .check_progs        = CHECK_PROGS,
+    .crystal_thresh     = CRYSTAL_THRESH,
 
 #define BENCH_BDCFG \
     .erase_value        = ERASE_VALUE,          \

@@ -17,7 +17,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -50,7 +50,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -92,7 +92,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -133,7 +133,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many directories
     for (lfs_size_t i = 0; i < N; i++) {
@@ -187,7 +187,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         for (lfs_size_t i = 0; i < N; i++) {
@@ -243,7 +243,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
@@ -309,7 +309,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         prng = 42;
@@ -358,7 +358,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     lfsr_file_t files[N];
@@ -442,7 +442,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         prng = 42;
@@ -484,7 +484,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many directories
     for (lfs_size_t i = 0; i < N; i++) {
@@ -547,7 +547,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         for (lfs_size_t i = 0; i < N; i++) {
@@ -603,7 +603,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
@@ -678,7 +678,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         prng = 42;
@@ -727,7 +727,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
     lfsr_file_t files[N];
@@ -820,7 +820,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         prng = 42;
@@ -864,7 +864,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -949,7 +949,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
         uint32_t prng = 42;
@@ -1045,7 +1045,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
         lfsr_file_t files[N];
@@ -1138,7 +1138,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -1221,7 +1221,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
         uint32_t prng = 42;
@@ -1315,7 +1315,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
         lfsr_file_t files[N];
@@ -1406,7 +1406,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many directories
         for (lfs_size_t i = 0; i < N; i++) {
@@ -1490,7 +1490,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
         uint32_t prng = 42;
@@ -1585,7 +1585,7 @@ code = '''
 
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
         lfsr_file_t files[N];
@@ -1677,7 +1677,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // check flags before
     struct lfs_fsinfo fsinfo;
@@ -1722,7 +1722,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -1782,7 +1782,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -1851,7 +1851,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -1902,7 +1902,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // make a file
     lfsr_file_t file;
@@ -1959,7 +1959,7 @@ defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // make a file
     lfsr_file_t file;
@@ -2024,7 +2024,7 @@ defines.SIZE = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2100,7 +2100,7 @@ defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2183,7 +2183,7 @@ defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2269,7 +2269,7 @@ defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2368,7 +2368,7 @@ defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2460,7 +2460,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2545,7 +2545,7 @@ defines.INLINE_SIZE = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2643,7 +2643,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2736,7 +2736,7 @@ defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2826,7 +2826,7 @@ defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -2929,7 +2929,7 @@ defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3025,7 +3025,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3108,7 +3108,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3209,7 +3209,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3305,7 +3305,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3407,7 +3407,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3527,7 +3527,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3644,7 +3644,7 @@ defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3741,7 +3741,7 @@ defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3837,7 +3837,7 @@ defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -3948,7 +3948,7 @@ defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4056,7 +4056,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4229,7 +4229,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4409,7 +4409,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4583,7 +4583,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4651,7 +4651,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
     struct lfs_config cfg = *CFG;
     cfg.block_recycles = 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -4754,7 +4754,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4822,7 +4822,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
     struct lfs_config cfg = *CFG;
     cfg.block_recycles = 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -4934,7 +4934,7 @@ defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5111,7 +5111,7 @@ defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5302,7 +5302,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5380,7 +5380,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -5407,7 +5407,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5513,7 +5513,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -5540,7 +5540,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5620,7 +5620,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -5645,7 +5645,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5766,7 +5766,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "jellyfish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -5797,7 +5797,7 @@ defines.COMPACTSET = 'range(0x7)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5977,7 +5977,7 @@ code = '''
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_file_close(&lfs, &file3) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "jellyfish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file3, "octopus", LFS_O_RDONLY) => 0;
@@ -6014,7 +6014,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6195,7 +6195,7 @@ code = '''
             lfsr_file_close(&lfs, &file3) => 0;
             lfsr_file_close(&lfs, &file4) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "jellyfish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file3, "octopus", LFS_O_RDONLY) => 0;
@@ -6242,7 +6242,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6285,7 +6285,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
     struct lfs_config cfg = *CFG;
     cfg.block_recycles = 0;
-    lfsr_mount(&lfs, &cfg) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
     lfsr_file_open(&lfs, &file1, "jellyfish", LFS_O_RDWR) => 0;
     lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDWR) => 0;
 
@@ -6317,7 +6317,7 @@ code = '''
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_file_open(&lfs, &file1, "jellyfish", LFS_O_RDWR) => 0;
     lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDWR) => 0;
 
@@ -6407,7 +6407,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "jellyfish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -6441,7 +6441,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6524,7 +6524,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -6552,7 +6552,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6634,7 +6634,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -6662,7 +6662,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6746,7 +6746,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -6774,7 +6774,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6917,7 +6917,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7047,7 +7047,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
@@ -7077,7 +7077,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7208,7 +7208,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -7238,7 +7238,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7367,7 +7367,7 @@ code = '''
         if (remount) {
             lfsr_file_close(&lfs, &file) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
         }
 
@@ -7397,7 +7397,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7581,7 +7581,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7687,7 +7687,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -7718,7 +7718,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7823,7 +7823,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -7858,7 +7858,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7978,7 +7978,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -8013,7 +8013,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8131,7 +8131,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -8167,7 +8167,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8295,7 +8295,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -8331,7 +8331,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8457,7 +8457,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -8490,7 +8490,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8642,7 +8642,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -8675,7 +8675,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8806,7 +8806,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -8843,7 +8843,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9009,7 +9009,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -9047,7 +9047,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9264,7 +9264,7 @@ code = '''
             lfsr_file_close(&lfs, &file1) => 0;
             lfsr_file_close(&lfs, &file2) => 0;
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
             lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
         }
@@ -9309,7 +9309,7 @@ code = '''
     // test creating directories
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // open a traversal
     lfsr_traversal_t t;
@@ -9345,7 +9345,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -9422,7 +9422,7 @@ code = '''
     // test fuzz with dirs
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -9538,7 +9538,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -9610,7 +9610,7 @@ code = '''
     // test creating files
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // open a traversal
     lfsr_traversal_t t;
@@ -9656,7 +9656,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
@@ -9717,7 +9717,7 @@ code = '''
     // test fuzz with files
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -9870,7 +9870,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
@@ -9969,7 +9969,7 @@ code = '''
     // test with complex file writes
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -10051,7 +10051,7 @@ code = '''
         // remount?
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -10123,7 +10123,7 @@ code = '''
     // test with orphans, zombies, etc
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -10494,7 +10494,7 @@ code = '''
     // test with orphans, zombies, dirs, etc
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));

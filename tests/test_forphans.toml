@@ -18,7 +18,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -32,7 +32,7 @@ code = '''
 
     // check that the file doesn't _really_ exist
     lfs_t lfs_;
-    lfsr_mount(&lfs_, CFG) => 0;
+    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
     // via stat
     struct lfs_info info;
     lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
@@ -69,7 +69,7 @@ code = '''
         }
 
         // check that the file still doesn't _really_ exist
-        lfsr_mount(&lfs_, CFG) => 0;
+        lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
         // via stat
         lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
@@ -94,7 +94,7 @@ code = '''
         lfsr_file_sync(&lfs, &file) => 0;
 
         // now it should show up
-        lfsr_mount(&lfs_, CFG) => 0;
+        lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
         // via stat
         lfsr_stat(&lfs_, "batman", &info) => 0;
         assert(strcmp(info.name, "batman") == 0);
@@ -136,7 +136,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // now it should show up
-    lfsr_mount(&lfs_, CFG) => 0;
+    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
     // via stat
     lfsr_stat(&lfs_, "batman", &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
@@ -176,7 +176,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // should still be there
-    lfsr_mount(&lfs_, CFG) => 0;
+    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
     // via stat
     lfsr_stat(&lfs_, "batman", &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
@@ -228,10 +228,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // create a file
@@ -273,7 +273,7 @@ code = '''
 
     // and after remounting
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     lfsr_file_open(&lfs, &file, "batman", LFS_O_RDONLY) => 0;
     prng = 42;
@@ -302,10 +302,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, CFG);
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // create N files
@@ -355,7 +355,7 @@ code = '''
 
     // and after remounting
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     for (lfs_size_t j = 0; j < N; j++) {
         char name[256];
@@ -393,7 +393,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -600,7 +600,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -801,7 +801,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a desync file
     lfsr_file_t file;
@@ -1134,7 +1134,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a desync file
     lfsr_file_t file;
@@ -1219,7 +1219,7 @@ code = '''
 
     // even after a remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // because the file was desynced, it should still not exist
     // via stat
@@ -1262,7 +1262,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a desync file
     lfsr_file_t file;
@@ -1554,7 +1554,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create N orphans
     lfsr_file_t orphans[N];
@@ -1767,7 +1767,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
     //
@@ -1800,7 +1800,7 @@ code = '''
 
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -1815,7 +1815,7 @@ code = '''
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -1866,7 +1866,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
     //
@@ -1899,7 +1899,7 @@ code = '''
 
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -1910,7 +1910,7 @@ code = '''
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -1954,7 +1954,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
     //
@@ -1987,7 +1987,7 @@ code = '''
 
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -1998,7 +1998,7 @@ code = '''
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -2038,7 +2038,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -2099,7 +2099,7 @@ code = '''
 
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -2112,7 +2112,7 @@ code = '''
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -2191,7 +2191,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
     //
@@ -2224,7 +2224,7 @@ code = '''
 
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -2235,7 +2235,7 @@ code = '''
 
     if (REMOUNT == 1) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -2277,7 +2277,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2371,7 +2371,7 @@ code = '''
 
     // even after a remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // via stat
     lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
@@ -2410,7 +2410,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2504,7 +2504,7 @@ code = '''
 
     // even after a remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // via stat
     lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
@@ -2543,7 +2543,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2719,7 +2719,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // check disk again again
     // via stat
@@ -2774,7 +2774,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2950,7 +2950,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // check disk again again
     // via stat
@@ -3005,7 +3005,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -3216,7 +3216,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // check disk again again
     // via stat
@@ -3271,7 +3271,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -3482,7 +3482,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // check disk again again
     // via stat
@@ -3538,7 +3538,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
     lfsr_file_t zombie;
@@ -3557,7 +3557,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -3590,7 +3590,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -3650,7 +3650,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
     lfsr_file_t zombie;
@@ -3669,7 +3669,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -3697,7 +3697,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -3750,7 +3750,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
     lfsr_file_t zombie;
@@ -3769,7 +3769,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -3797,7 +3797,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -3846,7 +3846,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -3892,7 +3892,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -3922,7 +3922,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -4010,7 +4010,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
     lfsr_file_t zombie;
@@ -4029,7 +4029,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -4057,7 +4057,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -4098,7 +4098,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, not a zombie yet
     lfsr_file_t zombie;
@@ -4133,7 +4133,7 @@ code = '''
     }
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -4186,7 +4186,7 @@ if = [
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -4253,7 +4253,7 @@ code = '''
     }
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -4341,7 +4341,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
     lfsr_file_t zombie;
@@ -4372,7 +4372,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -4400,7 +4400,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -4449,7 +4449,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -4507,7 +4507,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -4537,7 +4537,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -4631,7 +4631,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4692,7 +4692,7 @@ code = '''
     // remount? this has no effect on orphans
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
     // calling lfsr_fs_mkconsistent should clean things up
@@ -4719,7 +4719,7 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         if (remount) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
 
         if (BOOKENDS & 0x1) {
@@ -4772,7 +4772,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -4859,7 +4859,7 @@ code = '''
                 lfsr_file_close(&lfs, &bookend_files[1]) => 0;
             }
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             if (BOOKENDS & 0x1) {
                 lfsr_file_open(&lfs, &bookend_files[0], "aatman",
                         LFS_O_RDONLY) => 0;
@@ -4922,7 +4922,7 @@ in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -5007,7 +5007,7 @@ code = '''
                 lfsr_file_close(&lfs, &bookend_files[1]) => 0;
             }
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
             if (BOOKENDS & 0x1) {
                 lfsr_file_open(&lfs, &bookend_files[0], "aatman",
                         LFS_O_RDONLY) => 0;
@@ -5073,7 +5073,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -5245,7 +5245,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // remount should have no effect
     // via stat
@@ -5316,7 +5316,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -5547,7 +5547,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // remount should have no effect
     // via stat
@@ -5618,7 +5618,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -5898,7 +5898,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // remount should have no effect
     // via stat
@@ -5969,7 +5969,7 @@ defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -6241,7 +6241,7 @@ code = '''
 
     // remount
     lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // remount should have no effect
     // via stat
@@ -6313,7 +6313,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -6359,7 +6359,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -6392,7 +6392,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -6480,7 +6480,7 @@ if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
     if (INTERDIR) {
@@ -6540,7 +6540,7 @@ code = '''
     }
     if (REMOUNT == 2) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
         lfsr_fs_mkconsistent(&lfs) => 0;
@@ -6570,7 +6570,7 @@ code = '''
         }
         if (REMOUNT == 1) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, CFG) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
         }
     }
     if (MKCONSISTENT) {
@@ -6672,7 +6672,7 @@ if = '(SIZE*N*(1+DESYNC+ZOMBIE))/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // we need a file handle for each file + desync + zombie
     lfsr_file_t files[N];
@@ -7019,7 +7019,7 @@ if = '(SIZE*N*(1+DESYNC+ZOMBIE))/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // we need a file handle for each file + desync + zombie
     lfsr_file_t files[N];
@@ -7367,7 +7367,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -7706,7 +7706,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));

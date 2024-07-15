@@ -19,7 +19,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_RM | LFSR_TAG_MAGIC, 0,
@@ -27,7 +27,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_CORRUPT;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
 '''
 
 # test that we fail if we find bad magic
@@ -42,7 +42,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_MAGIC, 0,
@@ -50,7 +50,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_CORRUPT;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
 '''
 
 # test that we fail to mount after a major version bump
@@ -65,7 +65,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_VERSION, 0,
@@ -75,7 +75,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after a minor version bump
@@ -90,7 +90,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_VERSION, 0,
@@ -100,7 +100,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible rcompat flags
@@ -116,7 +116,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_RCOMPAT, 0,
@@ -126,7 +126,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible wcompat flags
@@ -142,7 +142,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_WCOMPAT, 0,
@@ -152,7 +152,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that an incompatible ocompat flag is a noop
@@ -168,7 +168,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_OCOMPAT, 0,
@@ -178,7 +178,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should _not_ fail, ocompat should always be ignored
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -194,7 +194,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR_CAT(
                 LFSR_TAG_RCOMPAT, 0,
@@ -203,7 +203,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 [cases.test_incompat_wcompat_overflow]
@@ -217,7 +217,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR_CAT(
                 LFSR_TAG_WCOMPAT, 0,
@@ -226,7 +226,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 [cases.test_incompat_ocompat_overflow]
@@ -240,7 +240,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR_CAT(
                 LFSR_TAG_OCOMPAT, 0,
@@ -249,7 +249,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should _not_ fail, ocompat should always be ignored
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -266,7 +266,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_GEOMETRY, 0,
@@ -276,7 +276,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible block counts
@@ -292,7 +292,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_GEOMETRY, 0,
@@ -302,7 +302,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible name limit
@@ -318,7 +318,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_NAMELIMIT, 0,
@@ -326,7 +326,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible file limit
@@ -341,7 +341,7 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR_CAT(
                 LFSR_TAG_FILELIMIT, 0,
@@ -354,7 +354,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown config
@@ -366,7 +366,7 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
 
     // create an unknown config
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_CONFIG + 0x13, 0,
@@ -374,7 +374,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown file type
@@ -386,7 +386,7 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "a",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -406,7 +406,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_t mdir;
     lfsr_did_t did;
     const char *name;
@@ -421,5 +421,5 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
 '''
