@@ -7331,9 +7331,6 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfsr_mptr_t *mptr,
     }
 }
 
-// needed in lfsr_mdir_commit
-static void lfs_alloc_ckpoint(lfs_t *lfs);
-
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs_t, etc
@@ -7353,9 +7350,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             <= (lfsr_srid_t)mdir->rbyd.weight);
     // lfs->mroot must have mid=-1
     LFS_ASSERT(lfs->mroot.mid == -1);
-
-    // checkpoint the allocator
-    lfs_alloc_ckpoint(lfs);
 
     // play out any attrs that affect our grm _before_ committing to disk,
     // keep in mind we revert to on-disk gstate if we run into an error
@@ -8697,6 +8691,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 
 // needed in lfsr_mtree_gc
 static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir);
+static void lfs_alloc_ckpoint(lfs_t *lfs);
 static void lfs_alloc_markfree(lfs_t *lfs);
 
 // high-level mutating traversal, handle extra features that require
@@ -8762,6 +8757,10 @@ dropped:;
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8);
 
+        // checkpoint the allocator
+        lfs_alloc_ckpoint(lfs);
+
+        // compact the mdir
         err = lfsr_mdir_compact(lfs, mdir);
         if (err) {
             goto failed;
@@ -9177,6 +9176,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // mid updates, since the mid technically doesn't exist yet...
 
     // commit our bookmark and a grm to self-remove in case of powerloss
+    lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(LFSR_TAG_BOOKMARK, +1, LFSR_DATA_LEB128(did_))));
     if (err) {
@@ -9196,6 +9196,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our new directory into our parent, zeroing the grm in the
     // process
     lfsr_grm_pop(lfs);
+    lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR_NAME(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
@@ -9334,6 +9335,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     bool zombie = lfsr_omdir_ismidopen(lfs, mdir.mid);
 
     // remove the metadata entry
+    lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             // create an orphan if zombied
             //
@@ -9489,6 +9491,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
+    lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_ATTRS(
             LFSR_ATTR_NAME(
                 LFSR_TAG_SUP | old_tag, (!exists) ? +1 : 0,
@@ -10020,6 +10023,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // create an orphan entry if we don't have one, this reserves the
         // mid until first sync
         if (!err) {
+            lfs_alloc_ckpoint(lfs);
             err = lfsr_mdir_commit(lfs, &file->o.o.mdir, LFSR_ATTRS(
                     LFSR_ATTR_NAME(
                         LFSR_TAG_ORPHAN, +1,
@@ -11444,9 +11448,11 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             goto failed;
         }
 
+        // checkpoint the allocator
+        lfs_alloc_ckpoint(lfs);
+
         // commit!
         LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
-
         err = lfsr_mdir_commit(lfs, &file->o.o.mdir,
                 attrs, attr_count);
         if (err) {
@@ -12915,8 +12921,9 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
 
         // mark grm as taken care of
         lfsr_grm_pop(lfs);
-
-        // remove the rid while also updating our grm
+        // checkpoint the allocator
+        lfs_alloc_ckpoint(lfs);
+        // remove the rid while atomically updating our grm
         err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
                 LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
         if (err) {
@@ -12959,6 +12966,7 @@ static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir) {
                 lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
                 lfsr_mid_rid(lfs, mdir->mid));
 
+        lfs_alloc_ckpoint(lfs);
         err = lfsr_mdir_commit(lfs, mdir, LFSR_ATTRS(
                 LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
         if (err) {
@@ -13191,6 +13199,7 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
     lfs_alloc_discard(lfs);
 
     // update our on-disk config
+    lfs_alloc_ckpoint(lfs);
     int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_GEOMETRY, 0,
