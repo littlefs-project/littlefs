@@ -5934,7 +5934,9 @@ static bool lfsr_fs_isinconsistent(const lfs_t *lfs) {
 }
 
 static bool lfsr_fs_canlookahead(const lfs_t *lfs) {
-    return lfs->lookahead.next > 0 || lfs->lookahead.size == 0;
+    return lfs->lookahead.size < lfs_min(
+            8*lfs->cfg->lookahead_size,
+            lfs->cfg->block_size);
 }
 
 
@@ -8704,6 +8706,9 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
     // swap dirty/mutated flags while in lfsr_mtree_gc
     t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
 
+    // checkpoint the allocator to maximize any lookahead scans
+    lfs_alloc_ckpoint(lfs);
+
 dropped:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
@@ -8907,43 +8912,33 @@ static void lfs_alloc_ckpoint(lfs_t *lfs) {
 
 // discard any lookahead state, this is necessary if block_count changes
 static void lfs_alloc_discard(lfs_t *lfs) {
-    // go ahead shift to next available block, we probably want the next
-    // scan to start here
-    lfs->lookahead.start = (lfs->lookahead.start + lfs->lookahead.next)
-            % lfs->block_count;
-    lfs->lookahead.next = 0;
     lfs->lookahead.size = 0;
-}
-
-// shift the lookahead buffer to try to allocate more blocks, may do nothing
-static void lfs_alloc_shift(lfs_t *lfs) {
-    // do nothing if shifting would make no progress
-    if (lfs->lookahead.next > 0) {
-        // discard already shifts to the next block
-        lfs_alloc_discard(lfs);
-    }
-
-    // zero lookahead buffer
-    if (lfs->lookahead.size == 0) {
-        lfs_memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
-    }
-
-    // don't update size until a successful lookahead scan
+    lfs_memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
 }
 
 // mark a block as in-use
 static void lfs_alloc_markinuse(lfs_t *lfs, lfs_block_t block) {
     // translate to lookahead-relative
-    lfs_block_t mark = (block + lfs->block_count - lfs->lookahead.start)
-            % lfs->block_count;
-    if (mark < 8*lfs->cfg->lookahead_size) {
+    lfs_block_t block_ = ((
+                (lfs_sblock_t)(block
+                        - (lfs->lookahead.window + lfs->lookahead.off))
+            // we only need this mess because C's mod is actually rem, and
+            // we want real mod in case block_ goes negative
+                    % (lfs_sblock_t)lfs->block_count)
+                + (lfs_sblock_t)lfs->block_count)
+            % (lfs_sblock_t)lfs->block_count;
+
+    if (block_ < 8*lfs->cfg->lookahead_size) {
         // mark as in-use
-        lfs->lookahead.buffer[mark / 8] |= 1 << (mark % 8);
+        lfs->lookahead.buffer[
+                    ((lfs->lookahead.off + block_) / 8)
+                        % lfs->cfg->lookahead_size]
+                |= 1 << ((lfs->lookahead.off + block_) % 8);
     }
 }
 
 // needed in lfs_alloc_markfree
-static lfs_sblock_t lfs_alloc_findnext(lfs_t *lfs);
+static lfs_sblock_t lfs_alloc_findfree(lfs_t *lfs);
 
 // mark any not-in-use blocks as free
 static void lfs_alloc_markfree(lfs_t *lfs) {
@@ -8952,22 +8947,44 @@ static void lfs_alloc_markfree(lfs_t *lfs) {
             8*lfs->cfg->lookahead_size,
             lfs->lookahead.ckpoint);
 
-    // eagerly find the next free block so shift can make progress
-    lfs_alloc_findnext(lfs);
+    // eagerly find the next free block so lookahead scans can make
+    // the most progress
+    lfs_alloc_findfree(lfs);
+}
+
+// increment lookahead buffer
+static void lfs_alloc_inc(lfs_t *lfs) {
+    LFS_ASSERT(lfs->lookahead.size > 0);
+
+    // clear lookahead as we increment
+    lfs->lookahead.buffer[lfs->lookahead.off / 8]
+            &= ~(1 << (lfs->lookahead.off % 8));
+
+    // increment next/off
+    lfs->lookahead.off += 1;
+    if (lfs->lookahead.off == 8*lfs->cfg->lookahead_size) {
+        lfs->lookahead.off = 0;
+        lfs->lookahead.window = (lfs->lookahead.window
+                + 8*lfs->cfg->lookahead_size)
+                    % lfs->block_count;
+    }
+
+    // decrement size/ckpoint
+    lfs->lookahead.size -= 1;
+    lfs->lookahead.ckpoint -= 1;
 }
 
 // find next free block in lookahead buffer, if there is one
-static lfs_sblock_t lfs_alloc_findnext(lfs_t *lfs) {
-    while (lfs->lookahead.next < lfs->lookahead.size) {
-        if (!(lfs->lookahead.buffer[lfs->lookahead.next / 8]
-                & (1 << (lfs->lookahead.next % 8)))) {
+static lfs_sblock_t lfs_alloc_findfree(lfs_t *lfs) {
+    while (lfs->lookahead.size > 0) {
+        if (!(lfs->lookahead.buffer[lfs->lookahead.off / 8]
+                & (1 << (lfs->lookahead.off % 8)))) {
             // found a free block
-            return (lfs->lookahead.start + lfs->lookahead.next)
+            return (lfs->lookahead.window + lfs->lookahead.off)
                     % lfs->block_count;
         }
 
-        lfs->lookahead.next += 1;
-        lfs->lookahead.ckpoint -= 1;
+        lfs_alloc_inc(lfs);
     }
 
     return LFS_ERR_NOSPC;
@@ -8976,7 +8993,7 @@ static lfs_sblock_t lfs_alloc_findnext(lfs_t *lfs) {
 static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
     while (true) {
         // scan our lookahead buffer for free blocks
-        lfs_sblock_t block = lfs_alloc_findnext(lfs);
+        lfs_sblock_t block = lfs_alloc_findfree(lfs);
         if (block < 0 && block != LFS_ERR_NOSPC) {
             return block;
         }
@@ -8991,8 +9008,7 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
                 if (err) {
                     // bad erase? try another block
                     if (err == LFS_ERR_CORRUPT) {
-                        lfs->lookahead.next += 1;
-                        lfs->lookahead.ckpoint -= 1;
+                        lfs_alloc_inc(lfs);
                         continue;
                     }
                     return err;
@@ -9001,33 +9017,31 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
 
             // eagerly find the next free block to maximize how many blocks
             // lfs_alloc_ckpoint makes available for scanning
-            lfs->lookahead.next += 1;
-            lfs->lookahead.ckpoint -= 1;
-            lfs_alloc_findnext(lfs);
+            lfs_alloc_inc(lfs);
+            lfs_alloc_findfree(lfs);
 
             return block;
         }
 
-        // In order to keep our block allocator from spinning forever when our
+        // in order to keep our block allocator from spinning forever when our
         // filesystem is full, we mark points where there are no in-flight
-        // allocations with a checkpoint before starting a set of allocations.
+        // allocations with a checkpoint before starting a set of allocations
         //
-        // If we've looked at all blocks since the last checkpoint, we report
-        // the filesystem as out of storage.
+        // if we've looked at all blocks since the last checkpoint, we report
+        // the filesystem as out of storage
         //
         if (lfs->lookahead.ckpoint <= 0) {
-            LFS_ERROR("No more free space 0x%"PRIx32,
-                    (lfs->lookahead.start + lfs->lookahead.next)
+            LFS_ERROR("No more free space (0x%"PRIx32")",
+                    (lfs->lookahead.window + lfs->lookahead.off)
                         % lfs->block_count);
             return LFS_ERR_NOSPC;
         }
 
-        // no blocks in our lookahead buffer, we need to scan the filesystem
-        // for unused blocks in the next lookahead window
-        lfs_alloc_shift(lfs);
-
+        // no blocks in our lookahead buffer?
+        //
         // traverse the filesystem, building up knowledge of what blocks are
-        // in use in our lookahead window
+        // in use in the next lookahead window
+        //
         lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_LOOKAHEAD);
         while (true) {
             int err = lfsr_mtree_traverse(lfs, &t,
@@ -11901,10 +11915,11 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
             goto failed;
         }
     }
-    lfs->lookahead.start = 0;
+    lfs->lookahead.window = 0;
+    lfs->lookahead.off = 0;
     lfs->lookahead.size = 0;
-    lfs->lookahead.next = 0;
     lfs->lookahead.ckpoint = 0;
+    lfs_alloc_discard(lfs);
 
     // check that the size limits are sane
     LFS_ASSERT(lfs->cfg->name_limit <= LFS_NAME_MAX);
@@ -12551,7 +12566,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // the purpose of this is to avoid bad wear patterns such as always 
     // allocating blocks near the beginning of disk after a power-loss
     //
-    lfs->lookahead.start = lfs->seed % lfs->block_count;
+    lfs->lookahead.window = lfs->seed % lfs->block_count;
 
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk
@@ -12686,12 +12701,6 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
 
         lfsr_traversal_t t = LFSR_TRAVERSAL(flags_);
         lfsr_omdir_open(lfs, &t.o.o);
-
-        // shift the lookahead buffer if requested
-        if (lfsr_t_islookahead(t.o.o.flags)) {
-            lfs_alloc_shift(lfs);
-            lfs_alloc_ckpoint(lfs);
-        }
 
         while (true) {
             err = lfsr_mtree_gc(lfs, &t,
@@ -13133,12 +13142,6 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
     } else {
         lfs->gc = LFSR_TRAVERSAL(flags);
         lfsr_omdir_open(lfs, &lfs->gc.o.o);
-
-        // shift the lookahead buffer if requested
-        if (lfsr_t_islookahead(lfs->gc.o.o.flags)) {
-            lfs_alloc_shift(lfs);
-            lfs_alloc_ckpoint(lfs);
-        }
     }
 
     for (uint32_t i = 0;
@@ -13384,12 +13387,6 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     // and clear any pending blocks
     t->blocks[0] = -1;
     t->blocks[1] = -1;
-
-    // shift the lookahead buffer if requested
-    if (lfsr_t_islookahead(t->o.o.flags)) {
-        lfs_alloc_shift(lfs);
-        lfs_alloc_ckpoint(lfs);
-    }
 
     return 0;
 }

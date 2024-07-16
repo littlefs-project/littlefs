@@ -764,9 +764,9 @@ typedef struct lfs {
     } pcache;
 
     struct lfs_lookahead {
-        lfs_block_t start;
+        lfs_block_t window;
+        lfs_block_t off;
         lfs_block_t size;
-        lfs_block_t next;
         lfs_block_t ckpoint;
         uint8_t *buffer;
     } lookahead;
