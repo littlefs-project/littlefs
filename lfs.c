@@ -5924,14 +5924,6 @@ static inline bool lfsr_f_hasorphans(uint32_t flags) {
     return flags & LFS_F_ORPHANS;
 }
 
-static inline bool lfsr_f_hasckedmeta(uint32_t flags) {
-    return flags & LFS_F_CKEDMETA;
-}
-
-static inline bool lfsr_f_hasckeddata(uint32_t flags) {
-    return flags & LFS_F_CKEDDATA;
-}
-
 // on-demand flags
 
 // needed in lfsr_fs_isinconsistent
@@ -13040,14 +13032,6 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
-    // do we really need a full traversal?
-    if (!(lfsr_t_islookahead(flags)
-            || lfsr_t_iscompact(flags)
-            || lfsr_t_isckmeta(flags)
-            || lfsr_t_isckdata(flags))) {
-        flags |= LFS_T_MTREEONLY;
-    }
-
     // fix pending grms if requested
     if (lfsr_t_ismkconsistent(flags)
             && lfsr_grm_count(lfs) > 0) {
@@ -13069,42 +13053,54 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
         }
     }
 
-    // every time we call lfsr_fs_gc with ckmeta/ckdata, assume we want
-    // a new traversal
-    lfs->flags &= ~(LFS_F_CKEDMETA | LFS_F_CKEDDATA);
-
     // do we have any pending work?
-    while ((lfs_off_t)steps > 0
-            && ((lfsr_t_ismkconsistent(flags)
-                    && lfsr_f_hasorphans(lfs->flags))
-                || (lfsr_t_islookahead(flags)
-                    && lfsr_fs_canlookahead(lfs))
-                || (lfsr_t_iscompact(flags)
-                    && lfsr_i_isuncompacted(lfs->flags))
-                || (lfsr_t_isckmeta(flags)
-                    && !lfsr_f_hasckedmeta(lfs->flags))
-                || (lfsr_t_isckdata(flags)
-                    && !lfsr_f_hasckeddata(lfs->flags)))) {
+    uint32_t pending = flags & (
+            ((lfsr_f_hasorphans(lfs->flags)) ? LFS_GC_MKCONSISTENT : 0)
+                | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
+                | ((lfsr_i_isuncompacted(lfs->flags)) ? LFS_GC_COMPACT : 0)
+                | LFS_GC_CKMETA
+                | LFS_GC_CKDATA);
+
+    while (pending && (lfs_off_t)steps > 0) {
         // checkpoint the allocator to maximize any lookahead scans
         lfs_alloc_ckpoint(lfs);
 
         // start a new traversal?
         if (!lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
-            lfs->gc = LFSR_TRAVERSAL(flags);
+            lfs->gc = LFSR_TRAVERSAL(pending);
             lfsr_omdir_open(lfs, &lfs->gc.o.o);
 
         // existing traversal?
         } else {
-            // note that we mask flags (except mtreeonly)! if you change flags
-            // mid-traversal, the result is equivalent to the worst-case set
-            // of flags
+            // mask flags, we can't trust existing traversals to make
+            // progress if flags change
             lfs->gc.o.o.flags &= ~(
                     LFS_GC_MKCONSISTENT
                         | LFS_GC_LOOKAHEAD
                         | LFS_GC_COMPACT
                         | LFS_GC_CKMETA
                         | LFS_GC_CKDATA
-                    ) | flags;
+                    ) | pending;
+
+            // will this traversal still make progress? no? start over
+            if (!(lfs->gc.o.o.flags & (
+                    LFS_GC_MKCONSISTENT
+                        | LFS_GC_LOOKAHEAD
+                        | LFS_GC_COMPACT
+                        | LFS_GC_CKMETA
+                        | LFS_GC_CKDATA))) {
+                lfsr_omdir_close(lfs, &lfs->gc.o.o);
+                continue;
+            }
+        }
+
+        // do we really need a full traversal?
+        if (!(lfs->gc.o.o.flags & (
+                LFS_GC_LOOKAHEAD
+                    | LFS_GC_COMPACT
+                    | LFS_GC_CKMETA
+                    | LFS_GC_CKDATA))) {
+            lfs->gc.o.o.flags |= LFS_T_MTREEONLY;
         }
 
         // progress gc
@@ -13114,13 +13110,25 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
             return err;
         }
 
+        // end of traversal?
         if (err == LFS_ERR_NOENT) {
             lfsr_omdir_close(lfs, &lfs->gc.o.o);
 
-            // consider our filesystem checked if we complete at least
-            // one traversal
-            lfs->flags |= ((lfsr_t_isckmeta(flags)) ? LFS_F_CKEDMETA : 0)
-                    | ((lfsr_t_isckdata(flags)) ? LFS_F_CKEDDATA : 0);
+            // clear any pending flags we make progress on
+            pending &= ~(
+                    ((!lfsr_f_hasorphans(lfs->flags))
+                            ? LFS_GC_MKCONSISTENT
+                            : 0)
+                        | ((!lfsr_fs_canlookahead(lfs))
+                            ? LFS_GC_LOOKAHEAD
+                            : 0)
+                        | ((!lfsr_i_isuncompacted(lfs->flags))
+                            ? LFS_GC_COMPACT
+                            : 0)
+                        // consider our filesystem checked if we complete at
+                        // least one traversal
+                        | LFS_GC_CKMETA
+                        | LFS_GC_CKDATA);
         }
 
         // decrement steps

@@ -140,8 +140,6 @@ enum lfs_fsinfo_flags {
 
     // internally used flags
     LFS_F_ORPHANS       = 0x8000, // Filesystem may have untracked orphans
-    LFS_F_CKEDMETA      = 0x2000, // Filesystem metadata checked during gc
-    LFS_F_CKEDDATA      = 0x4000, // Filesystem data checked during gc
 };
 
 // File types
