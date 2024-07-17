@@ -5924,6 +5924,14 @@ static inline bool lfsr_f_hasorphans(uint32_t flags) {
     return flags & LFS_F_ORPHANS;
 }
 
+static inline bool lfsr_f_hasckedmeta(uint32_t flags) {
+    return flags & LFS_F_CKEDMETA;
+}
+
+static inline bool lfsr_f_hasckeddata(uint32_t flags) {
+    return flags & LFS_F_CKEDDATA;
+}
+
 // on-demand flags
 
 // needed in lfsr_fs_isinconsistent
@@ -13061,8 +13069,11 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
         }
     }
 
+    // every time we call lfsr_fs_gc with ckmeta/ckdata, assume we want
+    // a new traversal
+    lfs->flags &= ~(LFS_F_CKEDMETA | LFS_F_CKEDDATA);
+
     // do we have any pending work?
-    bool cked = false;
     while ((lfs_off_t)steps > 0
             && ((lfsr_t_ismkconsistent(flags)
                     && lfsr_f_hasorphans(lfs->flags))
@@ -13071,9 +13082,9 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
                 || (lfsr_t_iscompact(flags)
                     && lfsr_i_isuncompacted(lfs->flags))
                 || (lfsr_t_isckmeta(flags)
-                    && !cked)
+                    && !lfsr_f_hasckedmeta(lfs->flags))
                 || (lfsr_t_isckdata(flags)
-                    && !cked))) {
+                    && !lfsr_f_hasckeddata(lfs->flags)))) {
         // checkpoint the allocator to maximize any lookahead scans
         lfs_alloc_ckpoint(lfs);
 
@@ -13106,9 +13117,10 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
         if (err == LFS_ERR_NOENT) {
             lfsr_omdir_close(lfs, &lfs->gc.o.o);
 
-            // consider our filesystem checked if we completed a traversal
-            // with no mutation
-            cked = !lfsr_f_ismutated(lfs->gc.o.o.flags);
+            // consider our filesystem checked if we complete at least
+            // one traversal
+            lfs->flags |= ((lfsr_t_isckmeta(flags)) ? LFS_F_CKEDMETA : 0)
+                    | ((lfsr_t_isckdata(flags)) ? LFS_F_CKEDDATA : 0);
         }
 
         // decrement steps
