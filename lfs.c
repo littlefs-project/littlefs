@@ -12928,97 +12928,32 @@ failed:;
     return err;
 }
 
-static int lfsr_fs_fixorphans(lfs_t *lfs) {
-    // LFS_T_MKCONSISTENT really just removes orphans
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
-            LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
-    while (true) {
-        int err = lfsr_mtree_gc(lfs, &t,
-                NULL, NULL);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-    }
-
-    return 0;
-}
-
 // prepare the filesystem for mutation
 int lfsr_fs_mkconsistent(lfs_t *lfs) {
-    // fix pending grms
-    if (lfsr_grm_count(lfs) > 0) {
-        if (lfsr_grm_count(lfs) == 2) {
-            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[0]),
-                    lfsr_mid_bid(lfs, lfs->grm.mids[1]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[1]));
-        } else if (lfsr_grm_count(lfs) == 1) {
-            LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
-                    lfsr_mid_bid(lfs, lfs->grm.mids[0]) >> lfs->mdir_bits,
-                    lfsr_mid_rid(lfs, lfs->grm.mids[0]));
-        }
-
-        int err = lfsr_fs_fixgrm(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
-    // fix orphaned files
-    //
-    // this must happen after fixgrm, since removing orphaned files risks
-    // outdating the grm
-    //
-    if (lfsr_f_hasorphans(lfs->flags)) {
-        LFS_DEBUG("Fixing orphans...");
-
-        int err = lfsr_fs_fixorphans(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
-    return 0;
+    // leave this up to lfsr_fs_gc
+    return lfsr_fs_gc(lfs, -1, LFS_GC_MTREEONLY | LFS_GC_MKCONSISTENT);
 }
 
 // check the filesystem for metadata errors
 int lfsr_fs_ckmeta(lfs_t *lfs) {
-    // we leave this up to lfsr_mtree_gc
-    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_CKMETA);
-    while (true) {
-        int err = lfsr_mtree_gc(lfs, &t,
-                NULL, NULL);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
+    // we want a full traversal, so make sure no gc is currently running
+    if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
+        lfsr_omdir_close(lfs, &lfs->gc.o.o);
     }
 
-    return 0;
+    // leave this up to lfsr_fs_gc
+    return lfsr_fs_gc(lfs, -1, LFS_GC_CKMETA);
 }
 
 // check the filesystem for metadata + data errors
 int lfsr_fs_ckdata(lfs_t *lfs) {
-    // we leave this up to lfsr_mtree_gc
-    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_CKMETA | LFS_T_CKDATA);
-    while (true) {
-        int err = lfsr_mtree_gc(lfs, &t,
-                NULL, NULL);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
+    // we want a full traversal, so make sure no gc is currently running
+    if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
+        lfsr_omdir_close(lfs, &lfs->gc.o.o);
     }
 
-    return 0;
+    // leave this up to lfsr_fs_gc
+    return lfsr_fs_gc(lfs, -1, LFS_GC_CKMETA | LFS_GC_CKDATA);
 }
 
 // perform any pending janitorial work
@@ -13034,6 +12969,14 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
+
+    // do we really need a full traversal?
+    if (!(lfsr_t_islookahead(flags)
+            || lfsr_t_iscompact(flags)
+            || lfsr_t_isckmeta(flags)
+            || lfsr_t_isckdata(flags))) {
+        flags |= LFS_T_MTREEONLY;
+    }
 
     // fix pending grms if requested
     if (lfsr_t_ismkconsistent(flags)
@@ -13072,33 +13015,21 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
         // checkpoint the allocator to maximize any lookahead scans
         lfs_alloc_ckpoint(lfs);
 
-        // existing traversal?
-        if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
-            // note that we mask flags (except mtreeonly)! if you change flags
-            // mid-traversal, the result is equivalent to the worst-case set
-            // of flags
-            lfs->gc.o.o.flags &= (
-                    ~LFS_GC_MKCONSISTENT
-                        & ~LFS_GC_LOOKAHEAD
-                        & ~LFS_GC_COMPACT
-                        & ~LFS_GC_CKMETA
-                        & ~LFS_GC_CKDATA
-                    ) | flags;
-        // start a new traversal
-        } else {
-            lfs->gc = LFSR_TRAVERSAL(
-                    flags
-                        // do we really need a full traversal?
-                        | ((!((lfsr_t_islookahead(flags)
-                                    && lfsr_fs_canlookahead(lfs))
-                                || (lfsr_t_iscompact(flags)
-                                    && lfsr_i_isuncompacted(lfs->flags))
-                                || (lfsr_t_isckmeta(flags)
-                                    && !cked)
-                                || (lfsr_t_isckdata(flags)
-                                    && !cked)))
-                            ? LFS_T_MTREEONLY
-                            : 0));
+        // flags mismatch? restart traversal
+        if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)
+                && (flags != (lfs->gc.o.o.flags & (
+                    LFS_T_MTREEONLY
+                        | LFS_T_MKCONSISTENT
+                        | LFS_T_LOOKAHEAD
+                        | LFS_T_COMPACT
+                        | LFS_T_CKMETA
+                        | LFS_T_CKDATA)))) {
+            lfsr_omdir_close(lfs, &lfs->gc.o.o);
+        }
+
+        // start a new traversal?
+        if (!lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
+            lfs->gc = LFSR_TRAVERSAL(flags);
             lfsr_omdir_open(lfs, &lfs->gc.o.o);
         }
 
