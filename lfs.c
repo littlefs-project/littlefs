@@ -8701,9 +8701,6 @@ static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
     // swap dirty/mutated flags while in lfsr_mtree_gc
     t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
 
-    // checkpoint the allocator to maximize any lookahead scans
-    lfs_alloc_ckpoint(lfs);
-
 dropped:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
@@ -12692,6 +12689,9 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             || (lfsr_t_isckdata(flags)
                 && mutated)) {
 
+        // checkpoint the allocator to maximize any lookahead scans
+        lfs_alloc_ckpoint(lfs);
+
         // do we really need a full traversal?
         uint32_t flags_ = flags;
         if (!((lfsr_t_islookahead(flags)
@@ -13124,6 +13124,9 @@ int lfsr_fs_gc(lfs_t *lfs, uint32_t flags) {
         return 0;
     }
 
+    // checkpoint the allocator to maximize any lookahead scans
+    lfs_alloc_ckpoint(lfs);
+
     // do we really need a full traversal?
     if (!((lfsr_t_islookahead(flags)
                 && lfsr_fs_canlookahead(lfs))
@@ -13297,6 +13300,9 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
         t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
     }
+
+    // checkpoint the allocator to maximize any lookahead scans
+    lfs_alloc_ckpoint(lfs);
 
     while (true) {
         // some redund blocks left over?
