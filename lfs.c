@@ -12677,13 +12677,10 @@ failed:;
 }
 
 int lfsr_unmount(lfs_t *lfs) {
-    // close any ongoing gc traversals
-    if (lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
-        lfsr_omdir_close(lfs, &lfs->gc.o.o);
-    }
-
     // all files/dirs should be closed before lfsr_unmount
-    LFS_ASSERT(lfs->omdirs == NULL);
+    LFS_ASSERT(lfs->omdirs == NULL
+            || (lfs->omdirs == &lfs->gc.o.o
+                && lfs->gc.o.o.next == NULL));
 
     return lfs_deinit(lfs);
 }
