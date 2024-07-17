@@ -41,22 +41,21 @@ code = '''
     assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
     assert(lfs.omdirs != &lfs.gc.o.o);
 
-    // run GC until our traversal is done
-    while (true) {
-        lfsr_fs_gc(&lfs,
+    // run GC until we make progress
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_LOOKAHEAD
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
 
-        // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.o.o) {
+        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS_I_CANLOOKAHEAD)) {
             break;
         }
     }
-
-    // we should have made progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_CANLOOKAHEAD));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -106,7 +105,7 @@ code = '''
     assert(lfs.omdirs != &lfs.gc.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             LFS_GC_LOOKAHEAD
                 | ((CKMETA) ? LFS_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -123,7 +122,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_LOOKAHEAD
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -183,14 +182,14 @@ code = '''
     assert(lfs.omdirs != &lfs.gc.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             ((CKMETA) ? LFS_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
     assert(lfs.omdirs == &lfs.gc.o.o);
 
     // change flags and run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_LOOKAHEAD
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -250,7 +249,7 @@ code = '''
     assert(lfs.omdirs != &lfs.gc.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             LFS_GC_LOOKAHEAD
                 | ((CKMETA) ? LFS_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -258,7 +257,7 @@ code = '''
 
     // change flags and run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
     }
@@ -323,28 +322,25 @@ code = '''
     assert(fsinfo.flags & LFS_I_UNCOMPACTED);
     assert(lfs.omdirs != &lfs.gc.o.o);
 
-    // run GC until our traversal is done (twice for compact)
-    for (int i = 0; i < 2; i++) {
-        while (true) {
-            lfsr_fs_gc(&lfs,
-                    LFS_GC_COMPACT
-                        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                        | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    // run GC until we make progress
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            // internal traversal done?
-            if (lfs.omdirs != &lfs.gc.o.o) {
-                break;
-            }
+        lfsr_fs_gc(&lfs, GC_STEPS,
+                LFS_GC_COMPACT
+                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
+                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+
+        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS_I_UNCOMPACTED)) {
+            break;
         }
     }
 
     // mdir should have been compacted
     assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-
-    // we should have made progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_UNCOMPACTED));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -413,7 +409,7 @@ code = '''
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_COMPACT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -424,7 +420,7 @@ code = '''
             break;
         }
     }
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             LFS_GC_COMPACT
                 | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -441,7 +437,7 @@ code = '''
 
     // run GC until our traversal is done (twice for compact)
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_COMPACT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -521,7 +517,7 @@ code = '''
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -531,7 +527,7 @@ code = '''
             break;
         }
     }
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -539,7 +535,7 @@ code = '''
 
     // change flags and run GC until our traversal is done (twice for compact)
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_COMPACT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -619,7 +615,7 @@ code = '''
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_COMPACT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -630,7 +626,7 @@ code = '''
             break;
         }
     }
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             LFS_GC_COMPACT
                 | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -639,7 +635,7 @@ code = '''
 
     // change flags and run GC until our traversal is done (twice for compact)
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
@@ -733,24 +729,23 @@ code = '''
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
     assert(lfs.omdirs != &lfs.gc.o.o);
 
-    // run GC until our traversal is done
-    while (true) {
-        lfsr_fs_gc(&lfs,
+    // run GC until we make progress
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_MKCONSISTENT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
                     | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
 
-        // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.o.o) {
+        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS_I_INCONSISTENT)) {
             break;
         }
     }
-
-    // we should have made progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -925,7 +920,7 @@ code = '''
 
     // run GC one step
     assert(lfs.omdirs != &lfs.gc.o.o);
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             LFS_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -951,7 +946,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_MKCONSISTENT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -1057,7 +1052,7 @@ code = '''
     assert(lfs.omdirs != &lfs.gc.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_GC_COMPACT : 0)
                 | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -1066,7 +1061,7 @@ code = '''
 
     // change flags and run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 LFS_GC_MKCONSISTENT
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -1171,7 +1166,7 @@ code = '''
     assert(lfs.omdirs != &lfs.gc.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs,
+    lfsr_fs_gc(&lfs, GC_STEPS,
             LFS_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -1181,7 +1176,7 @@ code = '''
 
     // change flags and run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
                     | ((CKMETA) ? LFS_GC_CKMETA : 0)
@@ -1302,17 +1297,16 @@ code = '''
 
     clobbered:;
         // running lfsr_fs_gc should eventually find the clobbered block
-        while (true) {
-            int err = lfsr_fs_gc(&lfs, LFS_GC_CKMETA);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+            int err = lfsr_fs_gc(&lfs, GC_STEPS, LFS_GC_CKMETA);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            // we should find the clobbered block before finishing the
-            // traversal
-            assert(lfs.omdirs == &lfs.gc.o.o);
         }
 
         lfsr_unmount(&lfs) => 0;
@@ -1404,17 +1398,16 @@ code = '''
         // running lfsr_fs_gc should eventually find the clobbered block
         //
         // note LFS_GC_CKDATA implies LFS_GC_CKMETA
-        while (true) {
-            int err = lfsr_fs_gc(&lfs, LFS_GC_CKDATA);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+            int err = lfsr_fs_gc(&lfs, GC_STEPS, LFS_GC_CKDATA);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
                 break;
             }
-
-            // we should find the clobbered block before finishing the
-            // traversal
-            assert(lfs.omdirs == &lfs.gc.o.o);
         }
 
         lfsr_unmount(&lfs) => 0;
@@ -1603,7 +1596,7 @@ done:;
 # pseudo-fuzz test that dirtying still works with the GC API
 [cases.test_gc_mutation]
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
-defines.STEPS = 100
+defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -1637,7 +1630,7 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
-    for (uint32_t i = 0; i < STEPS; i++) {
+    for (uint32_t i = 0; i < N; i++) {
         // rewrite the file every gc cycle
         lfsr_file_open(&lfs, &file, "spider",
                 LFS_O_WRONLY | LFS_O_TRUNC) => 0;
@@ -1648,7 +1641,7 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -1669,7 +1662,7 @@ code = '''
 # pseudo-fuzz test that adding/removing flags doesn't break anything
 [cases.test_gc_changing_flags]
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
-defines.STEPS = 100
+defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -1703,7 +1696,7 @@ code = '''
     lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
 
-    for (uint32_t i = 0; i < STEPS; i++) {
+    for (uint32_t i = 0; i < N; i++) {
         // rewrite the file every gc cycle
         lfsr_file_open(&lfs, &file, "spider",
                 LFS_O_WRONLY | LFS_O_TRUNC) => 0;
@@ -1723,7 +1716,7 @@ code = '''
                 ) & TEST_PRNG(&prng);
 
         // gc!
-        lfsr_fs_gc(&lfs, flags) => 0;
+        lfsr_fs_gc(&lfs, GC_STEPS, flags) => 0;
     }
 
     // check the file contents
@@ -1765,7 +1758,7 @@ code = '''
         assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -1943,7 +1936,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -2046,7 +2039,7 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -2245,7 +2238,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -2409,7 +2402,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -2739,7 +2732,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
@@ -3157,7 +3150,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs,
+        lfsr_fs_gc(&lfs, GC_STEPS,
                 ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
                     | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
                     | ((COMPACT) ? LFS_GC_COMPACT : 0)
