@@ -8690,7 +8690,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 }
 
 // needed in lfsr_mtree_gc
-static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir);
+static int lfsr_fs_fixorphans_(lfs_t *lfs, lfsr_mdir_t *mdir);
 static void lfs_alloc_ckpoint(lfs_t *lfs);
 static void lfs_alloc_markfree(lfs_t *lfs);
 
@@ -8722,7 +8722,7 @@ dropped:;
             && tag == LFSR_TAG_MDIR
             && lfsr_f_hasorphans(lfs->flags)) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
-        err = lfsr_mdir_fixorphans(lfs, mdir);
+        err = lfsr_fs_fixorphans_(lfs, mdir);
         if (err) {
             goto failed;
         }
@@ -12936,7 +12936,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
     return 0;
 }
 
-static int lfsr_mdir_fixorphans(lfs_t *lfs, lfsr_mdir_t *mdir) {
+static int lfsr_fs_fixorphans_(lfs_t *lfs, lfsr_mdir_t *mdir) {
     // save the current mid
     lfsr_mid_t mid = mdir->mid;
 
