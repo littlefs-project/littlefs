@@ -8622,11 +8622,12 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
 }
 
 // needed in lfsr_mtree_traverse
-static void lfs_alloc_markinuse(lfs_t *lfs, lfs_block_t block);
+static void lfs_alloc_markinuse(lfs_t *lfs,
+        lfsr_tag_t tag, const lfsr_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
 // but no mutation! (we're called in lfs_alloc, so things would end up
-// recursive)
+// recursive, which would be a bit bad!)
 static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
         lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
     lfsr_tag_t tag;
@@ -8658,25 +8659,6 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
         err = lfsr_bptr_ck(lfs, &bptr);
         if (err) {
             return err;
-        }
-    }
-
-    // track in-use blocks
-    if (lfsr_t_islookahead(t->o.o.flags)) {
-        if (tag == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
-            lfs_alloc_markinuse(lfs, mdir->rbyd.blocks[0]);
-            lfs_alloc_markinuse(lfs, mdir->rbyd.blocks[1]);
-
-        } else if (tag == LFSR_TAG_BRANCH) {
-            lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
-            lfs_alloc_markinuse(lfs, rbyd->blocks[0]);
-
-        } else if (tag == LFSR_TAG_BLOCK) {
-            lfs_alloc_markinuse(lfs, bptr.data.u.disk.block);
-
-        } else {
-            LFS_UNREACHABLE();
         }
     }
 
@@ -8732,6 +8714,11 @@ dropped:;
             t->o.o.state = LFSR_TSTATE_MDIRS;
             goto dropped;
         }
+    }
+
+    // track in-use blocks?
+    if (lfsr_t_islookahead(t->o.o.flags)) {
+        lfs_alloc_markinuse(lfs, tag, &bptr);
     }
 
     // compacting mdirs?
@@ -8913,7 +8900,7 @@ static void lfs_alloc_discard(lfs_t *lfs) {
 }
 
 // mark a block as in-use
-static void lfs_alloc_markinuse(lfs_t *lfs, lfs_block_t block) {
+static void lfs_alloc_markinuse_(lfs_t *lfs, lfs_block_t block) {
     // translate to lookahead-relative
     lfs_block_t block_ = ((
                 (lfs_sblock_t)(block
@@ -8930,6 +8917,26 @@ static void lfs_alloc_markinuse(lfs_t *lfs, lfs_block_t block) {
                     ((lfs->lookahead.off + block_) / 8)
                         % lfs->cfg->lookahead_size]
                 |= 1 << ((lfs->lookahead.off + block_) % 8);
+    }
+}
+
+// mark some filesystem object as in-use
+static void lfs_alloc_markinuse(lfs_t *lfs,
+        lfsr_tag_t tag, const lfsr_bptr_t *bptr) {
+    if (tag == LFSR_TAG_MDIR) {
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr->data.u.buffer;
+        lfs_alloc_markinuse_(lfs, mdir->rbyd.blocks[0]);
+        lfs_alloc_markinuse_(lfs, mdir->rbyd.blocks[1]);
+
+    } else if (tag == LFSR_TAG_BRANCH) {
+        lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr->data.u.buffer;
+        lfs_alloc_markinuse_(lfs, rbyd->blocks[0]);
+
+    } else if (tag == LFSR_TAG_BLOCK) {
+        lfs_alloc_markinuse_(lfs, bptr->data.u.disk.block);
+
+    } else {
+        LFS_UNREACHABLE();
     }
 }
 
@@ -9036,18 +9043,23 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
         // no blocks in our lookahead buffer?
         //
         // traverse the filesystem, building up knowledge of what blocks are
-        // in use in the next lookahead window
+        // in-use in the next lookahead window
         //
         lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_LOOKAHEAD);
         while (true) {
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
             int err = lfsr_mtree_traverse(lfs, &t,
-                    NULL, NULL);
+                    &tag, &bptr);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
                     break;
                 }
                 return err;
             }
+
+            // track in-use blocks
+            lfs_alloc_markinuse(lfs, tag, &bptr);
         }
 
         // mark anything not seen as free
