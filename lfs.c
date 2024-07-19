@@ -8680,9 +8680,6 @@ static void lfs_alloc_markfree(lfs_t *lfs);
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
 static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
         lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
-    // swap dirty/mutated flags while in lfsr_mtree_gc
-    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
-
 dropped:;
     lfsr_tag_t tag;
     lfsr_bptr_t bptr;
@@ -8694,6 +8691,14 @@ dropped:;
             goto eot;
         }
         goto failed;
+    }
+
+    // swap dirty/mutated flags while in lfsr_mtree_gc
+    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
+
+    // track in-use blocks?
+    if (lfsr_t_islookahead(t->o.o.flags)) {
+        lfs_alloc_markinuse(lfs, tag, &bptr);
     }
 
     // mkconsistencing mdirs?
@@ -8711,14 +8716,12 @@ dropped:;
 
         // did this drop our mdir?
         if (mdir->mid != -1 && mdir->rbyd.weight == 0) {
+            // swap back dirty/mutated flags
+            t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
+            // continue traversal
             t->o.o.state = LFSR_TSTATE_MDIRS;
             goto dropped;
         }
-    }
-
-    // track in-use blocks?
-    if (lfsr_t_islookahead(t->o.o.flags)) {
-        lfs_alloc_markinuse(lfs, tag, &bptr);
     }
 
     // compacting mdirs?
@@ -8838,7 +8841,6 @@ dropped:;
 
     // swap back dirty/mutated flags
     t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
-
     if (tag_) {
         *tag_ = tag;
     }
@@ -8847,21 +8849,23 @@ dropped:;
     }
     return 0;
 
-eot:;
+failed:;
     // swap back dirty/mutated flags
     t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
+    return err;
 
-    // was mkconsistent successful?
-    if (lfsr_t_ismkconsistent(t->o.o.flags)
-            && !lfsr_f_isdirty(t->o.o.flags)) {
-        lfs->flags &= ~LFS_F_ORPHANS;
-    }
-
+eot:;
     // was lookahead scan successful?
     if (lfsr_t_islookahead(t->o.o.flags)
             && !lfsr_f_isdirty(t->o.o.flags)
             && !lfsr_f_ismutated(t->o.o.flags)) {
         lfs_alloc_markfree(lfs);
+    }
+
+    // was mkconsistent successful?
+    if (lfsr_t_ismkconsistent(t->o.o.flags)
+            && !lfsr_f_isdirty(t->o.o.flags)) {
+        lfs->flags &= ~LFS_F_ORPHANS;
     }
 
     // was compaction successful? note we may need multiple passes if
@@ -8873,11 +8877,6 @@ eot:;
     }
 
     return LFS_ERR_NOENT;
-
-failed:;
-    // swap back dirty/mutated flags
-    t->o.o.flags = lfsr_f_swapdirty(t->o.o.flags);
-    return err;
 }
 
 
