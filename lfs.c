@@ -13129,10 +13129,12 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
                         | ((!lfsr_i_isuncompacted(lfs->flags))
                             ? LFS_GC_COMPACT
                             : 0)
-                        // consider our filesystem checked if we complete at
-                        // least one traversal
-                        | LFS_GC_CKMETA
-                        | LFS_GC_CKDATA);
+                        // only consider our filesystem checked if we
+                        // weren't mutated
+                        | ((!lfsr_f_isdirty(lfs->gc.o.o.flags)
+                                && !lfsr_f_ismutated(lfs->gc.o.o.flags))
+                            ? LFS_GC_CKMETA | LFS_GC_CKDATA
+                            : 0));
         }
 
         // decrement steps
