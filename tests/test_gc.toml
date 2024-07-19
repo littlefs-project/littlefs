@@ -80,6 +80,8 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+# we need something to keep the traversal running
+if = 'CKMETA || CKDATA'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -378,6 +380,8 @@ defines.SIZE = [
 ]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+# we need something to keep the traversal running
+if = 'CKMETA || CKDATA'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
@@ -878,6 +882,8 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [3, 100]
+# we need something to keep the traversal running
+if = 'CKMETA || CKDATA'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;

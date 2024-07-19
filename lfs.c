@@ -13069,29 +13069,33 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
         if (!lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
             lfs->gc = LFSR_TRAVERSAL(pending);
             lfsr_omdir_open(lfs, &lfs->gc.o.o);
+        }
 
-        // existing traversal?
-        } else {
-            // mask flags, we can't trust existing traversals to make
-            // progress if flags change
-            lfs->gc.o.o.flags &= ~(
+        // mask flags, we can't trust existing traversals to make
+        // progress if flags change
+        lfs->gc.o.o.flags &= (
+                pending | ~(
                     LFS_GC_MKCONSISTENT
                         | LFS_GC_LOOKAHEAD
                         | LFS_GC_COMPACT
                         | LFS_GC_CKMETA
-                        | LFS_GC_CKDATA
-                    ) | pending;
+                        | LFS_GC_CKDATA));
 
-            // will this traversal still make progress? no? start over
-            if (!(lfs->gc.o.o.flags & (
-                    LFS_GC_MKCONSISTENT
-                        | LFS_GC_LOOKAHEAD
-                        | LFS_GC_COMPACT
-                        | LFS_GC_CKMETA
-                        | LFS_GC_CKDATA))) {
-                lfsr_omdir_close(lfs, &lfs->gc.o.o);
-                continue;
-            }
+        // don't bother with lookahead if we've mutated
+        if (lfsr_f_isdirty(lfs->gc.o.o.flags)
+                || lfsr_f_ismutated(lfs->gc.o.o.flags)) {
+            lfs->gc.o.o.flags &= ~LFS_GC_LOOKAHEAD;
+        }
+
+        // will this traversal still make progress? no? start over
+        if (!(lfs->gc.o.o.flags & (
+                LFS_GC_MKCONSISTENT
+                    | LFS_GC_LOOKAHEAD
+                    | LFS_GC_COMPACT
+                    | LFS_GC_CKMETA
+                    | LFS_GC_CKDATA))) {
+            lfsr_omdir_close(lfs, &lfs->gc.o.o);
+            continue;
         }
 
         // do we really need a full traversal?
