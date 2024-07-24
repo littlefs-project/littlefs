@@ -4895,15 +4895,6 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     return 0;
 }
 
-static int lfsr_btree_compact_(lfs_t *lfs, lfsr_btree_t *btree,
-        lfsr_bid_t bid, lfsr_rbyd_t *rbyd) {
-    // the easiest way to do this is to just mark rbyd as unerased
-    // and call lfsr_btree_commit_
-    rbyd->eoff = -1;
-    return lfsr_btree_commit_(lfs, btree, bid, rbyd, 0,
-            NULL, 0);
-}
-
 // commit to a btree, this is atomic
 static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bid_t bid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
@@ -5794,16 +5785,6 @@ relocate:;
 
     bshrub->u.btree = rbyd_;
     return 0;
-}
-
-static int lfsr_bshrub_compact_(lfs_t *lfs,
-        lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub,
-        lfsr_bid_t bid, lfsr_rbyd_t *rbyd) {
-    // the easiest way to do this is to just mark rbyd as unerased
-    // and call lfsr_btree_commit_
-    rbyd->eoff = -1;
-    return lfsr_bshrub_commit_(lfs, mdir, bshrub, bid, rbyd, 0,
-            NULL, 0);
 }
 
 // commit to a bshrub, this is atomic
@@ -8640,9 +8621,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 
     // validate btree nodes? note mdirs are already validated
     if ((lfsr_t_isckmeta(t->o.o.flags)
-                || lfsr_t_isckdata(t->o.o.flags)
-                // we also need to fetch to know if we need to compact
-                || lfsr_t_iscompact(t->o.o.flags))
+                || lfsr_t_isckdata(t->o.o.flags))
             && tag == LFSR_TAG_BRANCH) {
         lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
         err = lfsr_rbyd_fetchck(lfs, rbyd,
@@ -8752,91 +8731,6 @@ dropped:;
         if (err) {
             goto failed;
         }
-    }
-
-    // compacting btree nodes?
-    if (lfsr_t_iscompact(t->o.o.flags)
-            && tag == LFSR_TAG_BRANCH
-            // exceed compaction threshold?
-            && lfsr_rbyd_eoff((lfsr_rbyd_t*)bptr.data.u.buffer)
-                > ((lfs->cfg->gc_compact_thresh)
-                    ? lfs->cfg->gc_compact_thresh
-                    : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
-        lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
-        LFS_DEBUG("Compacting rbyd 0x%"PRIx32".%"PRIx32" "
-                "(%"PRId32" > %"PRId32")",
-                rbyd->blocks[0],
-                lfsr_rbyd_trunk(rbyd),
-                lfsr_rbyd_eoff(rbyd),
-                (lfs->cfg->gc_compact_thresh)
-                    ? lfs->cfg->gc_compact_thresh
-                    : lfs->cfg->block_size - lfs->cfg->block_size/8);
-
-        // traversals need to be enrolled in our opened list for btree
-        // compactions to work correctly
-        LFS_ASSERT(lfsr_omdir_isopen(lfs, &t->o.o));
-
-        // checkpoint the allocator
-        lfs_alloc_ckpoint(lfs);
-
-        if (t->o.o.state == LFSR_TSTATE_MTREE) {
-            err = lfsr_btree_compact_(lfs, &t->o.bshrub.u.btree,
-                    // note we may be referencing the btree root here
-                    t->u.bt.bid, rbyd);
-            if (err) {
-                goto failed;
-            }
-        } else {
-            err = lfsr_bshrub_compact_(lfs, &t->o.o.mdir, &t->o.bshrub,
-                    // note we may be referencing the btree root here
-                    t->u.bt.bid, rbyd);
-            if (err) {
-                goto failed;
-            }
-        }
-
-        if (t->o.o.state == LFSR_TSTATE_OBTREE) {
-            // just update our opened file
-            lfsr_file_t *file = (lfsr_file_t*)t->ot;
-            file->o.o.flags |= LFS_F_UNSYNC;
-            file->o.bshrub = t->o.bshrub;
-
-        } else {
-            // commit to mdir
-            uint8_t buf[LFSR_BTREE_DSIZE];
-            err = lfsr_mdir_commit(lfs, &t->o.o.mdir, LFSR_ATTRS(
-                    (t->o.o.state == LFSR_TSTATE_MTREE)
-                        ? LFSR_ATTR(
-                            LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
-                            LFSR_DATA_BTREE_(&t->o.bshrub.u.btree, buf))
-                    : (lfsr_bshrub_isbshrub(&t->o.o.mdir, &t->o.bshrub))
-                        ? LFSR_ATTR_SHRUBTRUNK(
-                            LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
-                            &t->o.bshrub.u.bshrub)
-                        : LFSR_ATTR(
-                            LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                            LFSR_DATA_BTREE_(&t->o.bshrub.u.btree, buf))));
-            if (err) {
-                goto failed;
-            }
-
-            // update any open files
-            for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-                if (o->type == LFS_TYPE_REG
-                        && o->mdir.mid == t->o.o.mdir.mid
-                        && !lfsr_f_isunsync(o->flags)) {
-                    lfsr_file_t *file = (lfsr_file_t*)o;
-                    file->o.bshrub = t->o.bshrub;
-                }
-            }
-        }
-
-        // reset to btree root
-        t->u.bt.branch = &t->o.bshrub.u.btree;
-        t->u.bt.rid = t->u.bt.bid;
-
-        // mark as dirty, we need to do this manually here
-        t->o.o.flags |= LFS_F_DIRTY;
     }
 
     // swap back dirty/mutated flags
@@ -13112,7 +13006,6 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
         // do we really need a full traversal?
         if (!(lfs->gc.o.o.flags & (
                 LFS_GC_LOOKAHEAD
-                    | LFS_GC_COMPACT
                     | LFS_GC_CKMETA
                     | LFS_GC_CKDATA))) {
             lfs->gc.o.o.flags |= LFS_T_MTREEONLY;
