@@ -166,8 +166,6 @@ enum lfs_type {
 
 // internally used flags
 #define LFS_F_ORPHANS   0x01000000  // Filesystem may have untracked orphans
-#define LFS_F_CANLOOKAHEAD \
-                        0x02000000  // Lookahead buffer is not full
 #define LFS_F_UNCOMPACTED \
                         0x08000000  // Filesystem may have uncompacted metadata
 

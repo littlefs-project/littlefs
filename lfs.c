@@ -6025,10 +6025,6 @@ static inline bool lfsr_f_hasorphans(uint32_t flags) {
     return flags & LFS_F_ORPHANS;
 }
 
-static inline bool lfsr_f_canlookahead(uint32_t flags) {
-    return flags & LFS_F_CANLOOKAHEAD;
-}
-
 static inline bool lfsr_f_isuncompacted(uint32_t flags) {
     return flags & LFS_F_UNCOMPACTED;
 }
@@ -6040,6 +6036,12 @@ static inline uint8_t lfsr_grm_count(const lfs_t *lfs);
 
 static bool lfsr_fs_isinconsistent(const lfs_t *lfs) {
     return lfsr_grm_count(lfs) > 0 || lfsr_f_hasorphans(lfs->flags);
+}
+
+static bool lfsr_fs_canlookahead(const lfs_t *lfs) {
+    return lfs->lookahead.size < lfs_min(
+            8*lfs->cfg->lookahead_size,
+            lfs->cfg->block_size);
 }
 
 
@@ -8931,11 +8933,8 @@ static void lfs_alloc_markfree(lfs_t *lfs) {
             8*lfs->cfg->lookahead_size,
             lfs->lookahead.ckpoint);
 
-    // clear the canlookahead flag
-    lfs->flags &= ~LFS_F_CANLOOKAHEAD;
-
     // eagerly find the next free block so lookahead scans can make
-    // the most progress, this might reset the canlookahead flag
+    // the most progress
     lfs_alloc_findfree(lfs);
 }
 
@@ -8959,10 +8958,6 @@ static void lfs_alloc_inc(lfs_t *lfs) {
     // decrement size/ckpoint
     lfs->lookahead.size -= 1;
     lfs->lookahead.ckpoint -= 1;
-
-    // set the canlookahead flag, we can always make progress after
-    // incrementing the lookahead buffer
-    lfs->flags |= LFS_F_CANLOOKAHEAD;
 }
 
 // find next free block in lookahead buffer, if there is one
@@ -11818,8 +11813,6 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
 
     // setup flags
     lfs->flags = flags
-            // lookahead buffer starts empty
-            | LFS_F_CANLOOKAHEAD
             // default to assuming we need compaction somewhere, worst case
             // this just makes lfsr_fs_gc read more than is strictly needed
             | LFS_F_UNCOMPACTED;
@@ -12738,10 +12731,10 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     fsinfo->flags = lfs->flags & (
             LFS_I_RDONLY
                 | LFS_I_CKPROGS
-                | LFS_I_CANLOOKAHEAD
                 | LFS_I_UNCOMPACTED);
     // some flags we calculate on demand
     fsinfo->flags |= (lfsr_fs_isinconsistent(lfs)) ? LFS_I_INCONSISTENT : 0;
+    fsinfo->flags |= (lfsr_fs_canlookahead(lfs)) ? LFS_I_CANLOOKAHEAD : 0;
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs->cfg->block_size;
@@ -13002,8 +12995,8 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
     uint32_t pending = flags & (
             ((lfs->flags & (
                     LFS_F_ORPHANS
-                        | LFS_F_CANLOOKAHEAD
                         | LFS_F_UNCOMPACTED)) >> 16)
+                | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                 | LFS_GC_CKMETA
                 | LFS_GC_CKDATA);
 
@@ -13067,8 +13060,8 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
             pending &= (
                     ((lfs->flags & (
                             LFS_F_ORPHANS
-                                | LFS_F_CANLOOKAHEAD
                                 | LFS_F_UNCOMPACTED)) >> 16)
+                        | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                         // only consider our filesystem checked if we
                         // weren't mutated
                         | ((lfsr_f_isdirty(lfs->gc.o.o.flags)
