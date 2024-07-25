@@ -113,35 +113,6 @@ enum lfs_error {
     LFS_ERR_RANGE       = -34,  // Result out of range
 };
 
-// Filesystem mount flags
-enum lfs_mount_flags {
-    LFS_M_RDWR          = 0x0000, // Mount the filesystem as read and write
-    LFS_M_RDONLY        = 0x0001, // Mount the filesystem as read only
-    LFS_M_CKPROGS       = 0x0008, // Check progs by reading back progged data
-
-    LFS_M_MTREEONLY     = 0x0010, // Only traverse the mtree
-    LFS_M_MKCONSISTENT  = 0x0020, // Make the filesystem consistent
-    LFS_M_LOOKAHEAD     = 0x0040, // Populate lookahead buffer
-    LFS_M_COMPACT       = 0x0080, // Compact metadata logs
-    LFS_M_CKMETA        = 0x0100, // Check metadata checksums
-    LFS_M_CKDATA        = 0x0200, // Check metadata + data checksums
-};
-
-// Filesystem info flags
-enum lfs_fsinfo_flags {
-    // mount flags
-    LFS_I_RDONLY        = 0x0001, // Filesystem mounted read only
-    LFS_I_CKPROGS       = 0x0008, // Check progs by reading back progged data
-
-    // state flags
-    LFS_I_INCONSISTENT  = 0x0100, // Filesystem needs mkconsistent to write
-    LFS_I_CANLOOKAHEAD  = 0x0400, // Lookahead buffer is not full
-    LFS_I_UNCOMPACTED   = 0x1000, // Filesystem may have uncompacted metadata
-
-    // internally used flags
-    LFS_F_ORPHANS       = 0x8000, // Filesystem may have untracked orphans
-};
-
 // File types
 enum lfs_type {
     // file types
@@ -155,75 +126,94 @@ enum lfs_type {
 };
 
 // File open flags
-enum lfs_open_flags {
-    // open flags
-    LFS_O_RDONLY    = 0,        // Open a file as read only
-#ifndef LFS_READONLY
-    LFS_O_WRONLY    = 1,        // Open a file as write only
-    LFS_O_RDWR      = 2,        // Open a file as read and write
-    LFS_O_CREAT     = 0x0004,   // Create a file if it does not exist
-    LFS_O_EXCL      = 0x0008,   // Fail if a file already exists
-    LFS_O_TRUNC     = 0x0010,   // Truncate the existing file to zero size
-    LFS_O_APPEND    = 0x0020,   // Move to end of file on every write
-    LFS_O_FLUSH     = 0x0040,   // Flush data on every write
-    LFS_O_SYNC      = 0x0080,   // Sync metadata on every write
-    LFS_O_DESYNC    = 0x0100,   // Do not sync or recieve file updates
-#endif
+#define LFS_O_RDONLY             0  // Open a file as read only
+#define LFS_O_WRONLY             1  // Open a file as write only
+#define LFS_O_RDWR               2  // Open a file as read and write
+#define LFS_O_CREAT     0x00000004  // Create a file if it does not exist
+#define LFS_O_EXCL      0x00000008  // Fail if a file already exists
+#define LFS_O_TRUNC     0x00000010  // Truncate the existing file to zero size
+#define LFS_O_APPEND    0x00000020  // Move to end of file on every write
+#define LFS_O_FLUSH     0x00000040  // Flush data on every write
+#define LFS_O_SYNC      0x00000080  // Sync metadata on every write
+#define LFS_O_DESYNC    0x00000100  // Do not sync or recieve file updates
 
-    // internally used flags
-    LFS_F_UNFLUSH   = 0x1000,   // File's data does not match disk
-    LFS_F_UNSYNC    = 0x2000,   // File's metadata does not match disk
-    LFS_F_ORPHAN    = 0x4000,   // File does not exist
-    LFS_F_ZOMBIE    = 0x8000,   // File has been removed
-};
+// internally used flags
+#define LFS_F_TYPE      0xff000000  // The file's type
+#define LFS_F_UNFLUSH   0x00100000  // File's data does not match disk
+#define LFS_F_UNSYNC    0x00200000  // File's metadata does not match disk
+#define LFS_F_ORPHAN    0x00400000  // File does not exist
+#define LFS_F_ZOMBIE    0x00800000  // File has been removed
 
 // File seek flags
-enum lfs_whence_flags {
-    LFS_SEEK_SET = 0,   // Seek relative to an absolute position
-    LFS_SEEK_CUR = 1,   // Seek relative to the current file position
-    LFS_SEEK_END = 2,   // Seek relative to the end of the file
-};
+#define LFS_SEEK_SET 0  // Seek relative to an absolute position
+#define LFS_SEEK_CUR 1  // Seek relative to the current file position
+#define LFS_SEEK_END 2  // Seek relative to the end of the file
+
+// Filesystem mount flags
+#define LFS_M_RDWR               0  // Mount the filesystem as read and write
+#define LFS_M_RDONLY             1  // Mount the filesystem as read only
+#define LFS_M_CKPROGS   0x00000010  // Check progs by reading back progged data
+
+#define LFS_M_MTREEONLY \
+                        0x00010000  // Only traverse the mtree
+#define LFS_M_MKCONSISTENT \
+                        0x00000100  // Make the filesystem consistent
+#define LFS_M_LOOKAHEAD \
+                        0x00000200  // Populate lookahead buffer
+#define LFS_M_COMPACT   0x00000800  // Compact metadata logs
+#define LFS_M_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_M_CKDATA    0x00002000  // Check metadata + data checksums
+
+// internally used flags
+#define LFS_F_ORPHANS   0x01000000  // Filesystem may have untracked orphans
+#define LFS_F_UNCOMPACTED \
+                        0x08000000  // Filesystem may have uncompacted metadata
+
+// Filesystem info flags
+#define LFS_I_RDONLY    0x00000001  // Filesystem mounted read only
+#define LFS_I_CKPROGS   0x00000010  // Check progs by reading back progged data
+
+#define LFS_I_INCONSISTENT \
+                        0x01000000  // Filesystem needs mkconsistent to write
+#define LFS_I_CANLOOKAHEAD \
+                        0x02000000  // Lookahead buffer is not full
+#define LFS_I_UNCOMPACTED \
+                        0x08000000  // Filesystem may have uncompacted metadata
 
 // Block types
 enum lfs_btype {
     LFS_BTYPE_MDIR      = 1,
     LFS_BTYPE_BTREE     = 2,
     LFS_BTYPE_DATA      = 3,
-// TODO
-//    LFS_BTYPE_PARITY    = 4,
-//    LFS_BTYPE_BAD       = 5,
 };
 
 // Traversal flags
-enum lfs_traversal_flags {
-    // traversal open flags
-    LFS_T_MTREEONLY     = 0x0010, // Only traverse the mtree
-    LFS_T_MKCONSISTENT  = 0x0020, // Make the filesystem consistent
-    LFS_T_LOOKAHEAD     = 0x0040, // Populate lookahead buffer
-    LFS_T_COMPACT       = 0x0080, // Compact metadata logs
-    LFS_T_CKMETA        = 0x0100, // Check metadata checksums
-    LFS_T_CKDATA        = 0x0200, // Check metadata + data checksums
-// TODO
-//    LFS_T_REPAIRMETA    = 0x0400, // Repair metadata blocks
-//    LFS_T_REPAIRDATA    = 0x0800, // Repair metadata + data blocks
+#define LFS_T_MTREEONLY \
+                        0x00010000  // Only traverse the mtree
+#define LFS_T_MKCONSISTENT \
+                        0x00000100  // Make the filesystem consistent
+#define LFS_T_LOOKAHEAD \
+                        0x00000200  // Populate lookahead buffer
+#define LFS_T_COMPACT   0x00000800  // Compact metadata logs
+#define LFS_T_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_T_CKDATA    0x00002000  // Check metadata + data checksums
 
-    // internally used flags
-    LFS_F_DIRTY         = 0x1000, // Filesystem modified during traversal
-    LFS_F_MUTATED       = 0x4000, // Filesystem modified by traversal
-};
+// internally used flags
+#define LFS_F_TSTATE    0x0000000f  // The current traversal state
+#define LFS_F_BTYPE     0x000000f0  // The current traversal btype
+#define LFS_F_DIRTY     0x00040000  // Filesystem modified during traversal
+#define LFS_F_MUTATED   0x00080000  // Filesystem modified by traversal
 
 // GC flags
-enum lfs_gc_flags {
-    LFS_GC_MTREEONLY    = 0x0010, // Only traverse the mtree
-    LFS_GC_MKCONSISTENT = 0x0020, // Make the filesystem consistent
-    LFS_GC_LOOKAHEAD    = 0x0040, // Populate lookahead buffer
-    LFS_GC_COMPACT      = 0x0080, // Compact metadata logs
-    LFS_GC_CKMETA       = 0x0100, // Check metadata checksums
-    LFS_GC_CKDATA       = 0x0200, // Check metadata + data checksums
-// TODO
-//    LFS_GC_REPAIRMETA   = 0x0400, // Repair metadata blocks
-//    LFS_GC_REPAIRDATA   = 0x0800, // Repair metadata + data blocks
-};
+#define LFS_GC_MTREEONLY \
+                        0x00010000  // Only traverse the mtree
+#define LFS_GC_MKCONSISTENT \
+                        0x00000100  // Make the filesystem consistent
+#define LFS_GC_LOOKAHEAD \
+                        0x00000200  // Populate lookahead buffer
+#define LFS_GC_COMPACT  0x00000800  // Compact metadata logs
+#define LFS_GC_CKMETA   0x00001000  // Check metadata checksums
+#define LFS_GC_CKDATA   0x00002000  // Check metadata + data checksums
 
 
 // Configuration provided during initialization of the littlefs
@@ -522,9 +512,7 @@ typedef struct lfsr_mdir {
 
 typedef struct lfsr_omdir {
     struct lfsr_omdir *next;
-    uint8_t type;
-    uint8_t state;
-    uint16_t flags;
+    uint32_t flags;
     lfsr_mdir_t mdir;
 } lfsr_omdir_t;
 
@@ -723,7 +711,7 @@ typedef struct lfsr_grm {
 // The littlefs filesystem type
 typedef struct lfs {
     const struct lfs_config *cfg;
-    uint16_t flags;
+    uint32_t flags;
     lfs_size_t block_count;
     lfs_size_t name_limit;
     lfs_off_t file_limit;
