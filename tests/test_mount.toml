@@ -237,6 +237,8 @@ code = '''
 '''
 
 # test we can detect at least fully clobbered blocks
+#
+# these are tested more thoroughly in test_ck
 [cases.test_mount_t_ckmeta]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [

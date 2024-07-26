@@ -1222,6 +1222,8 @@ code = '''
 
 
 # test we can detect at least fully clobbered blocks
+#
+# these are tested more thoroughly in test_ck
 [cases.test_gc_ckmeta]
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]

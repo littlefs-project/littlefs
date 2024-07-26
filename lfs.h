@@ -1013,6 +1013,18 @@ int lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file);
 //lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file);
 
+// Check a file for metadata errors
+//
+// Returns LFS_ERR_CORRUPT if a checksum mismatch is found, or a negative
+// error code on failure.
+int lfsr_file_ckmeta(lfs_t *lfs, lfsr_file_t *file);
+
+// Check a file for metadata + data errors
+//
+// Returns LFS_ERR_CORRUPT if a checksum mismatch is found, or a negative
+// error code on failure.
+int lfsr_file_ckdata(lfs_t *lfs, lfsr_file_t *file);
+
 
 /// Directory operations ///
 

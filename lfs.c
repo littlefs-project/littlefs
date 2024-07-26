@@ -11744,6 +11744,67 @@ failed:;
     return err;
 }
 
+// file check functions
+static int lfsr_file_ck(lfs_t *lfs, lfsr_file_t *file, uint32_t flags) {
+    // traverse the file's btree
+    lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+    while (true) {
+        lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
+        int err = lfsr_bshrub_traverse(lfs,
+                &file->o.o.mdir, &file->o.bshrub,
+                &bt,
+                NULL, &tag, &bptr);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+
+        // validate btree nodes?
+        if ((lfsr_t_isckmeta(flags)
+                    || lfsr_t_isckdata(flags))
+                && tag == LFSR_TAG_BRANCH) {
+            lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+            err = lfsr_rbyd_fetchck(lfs, rbyd,
+                    rbyd->blocks[0], rbyd->trunk,
+                    rbyd->cksum);
+            if (err) {
+                return err;
+            }
+        }
+
+        // validate data blocks?
+        if (lfsr_t_isckdata(flags)
+                && tag == LFSR_TAG_BLOCK) {
+            err = lfsr_bptr_ck(lfs, &bptr);
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    return 0;
+}
+
+int lfsr_file_ckmeta(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+    // can't read from writeonly files
+    LFS_ASSERT(!lfsr_o_iswronly(file->o.o.flags));
+
+    return lfsr_file_ck(lfs, file, LFS_T_CKMETA);
+}
+
+int lfsr_file_ckdata(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+    // can't read from writeonly files
+    LFS_ASSERT(!lfsr_o_iswronly(file->o.o.flags));
+
+    return lfsr_file_ck(lfs, file, LFS_T_CKMETA | LFS_T_CKDATA);
+}
+
+
 
 
 
