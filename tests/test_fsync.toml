@@ -592,14 +592,16 @@ code = '''
 # Test one writer, multiple readers
 [cases.test_fsync_wrrr]
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -612,7 +614,11 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -680,14 +686,16 @@ code = '''
 
 [cases.test_fsync_wrrr_fuzz]
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -703,7 +711,11 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -784,14 +796,16 @@ code = '''
 # Test multiple writers
 [cases.test_fsync_wwww]
 defines.W = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -804,7 +818,11 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -867,14 +885,16 @@ code = '''
 
 [cases.test_fsync_wwww_fuzz]
 defines.W = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -890,7 +910,11 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -961,14 +985,16 @@ code = '''
 [cases.test_fsync_wwrr]
 defines.W = 4
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -981,7 +1007,11 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1061,14 +1091,16 @@ code = '''
 [cases.test_fsync_wwrr_fuzz]
 defines.W = 4
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -1084,7 +1116,11 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1176,14 +1212,16 @@ code = '''
 # Test multiple rd/wrers
 [cases.test_fsync_rwrw]
 defines.RW = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -1196,7 +1234,11 @@ defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1275,14 +1317,16 @@ code = '''
 
 [cases.test_fsync_rwrw_fuzz]
 defines.RW = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -1298,7 +1342,11 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     // create a file
     uint32_t prng = 42;
@@ -1388,14 +1436,16 @@ code = '''
 # Test multiple rw files without fixed size
 [cases.test_fsync_rwrw_sparse_fuzz]
 defines.RW = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.N = 40
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -1411,7 +1461,11 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
     uint8_t between[RW][SIZE];
@@ -1523,14 +1577,16 @@ code = '''
 # Test multiple rw files while also truncating/fruncating
 [cases.test_fsync_rwtfrwtf_sparse_fuzz]
 defines.RW = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1, 2]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [0, 1, 2, 3]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
-defines.FLUSH = [0, 1, 2]
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 1, 2, 3]
 defines.N = 40
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -1546,7 +1602,11 @@ fuzz = 'SEED'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
     uint8_t between[RW][SIZE];
@@ -2332,9 +2392,9 @@ code = '''
 # Test one desynced writer, multiple readers
 [cases.test_fsync_drrr]
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
@@ -2425,9 +2485,9 @@ code = '''
 
 [cases.test_fsync_drrr_fuzz]
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
@@ -2534,9 +2594,9 @@ code = '''
 # Test one writer, multiple desynced readers
 [cases.test_fsync_wddd]
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
@@ -2619,9 +2679,9 @@ code = '''
 
 [cases.test_fsync_wddd_fuzz]
 defines.R = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
@@ -2720,9 +2780,9 @@ code = '''
 # Test multiple desynced rd/wrers
 [cases.test_fsync_rwdrwd]
 defines.RW = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
@@ -2828,9 +2888,9 @@ code = '''
 
 [cases.test_fsync_rwdrwd_fuzz]
 defines.RW = 4
-# FLUSH=0 => no sync, readers not updated
-# FLUSH=1 => sync via lfsr_file_sync
-# FLUSH=2 => sync via LFS_O_SYNC
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
 defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush

@@ -6028,6 +6028,14 @@ static inline bool lfsr_m_isckprogs(uint32_t flags) {
     return flags & LFS_M_CKPROGS;
 }
 
+static inline bool lfsr_m_isflush(uint32_t flags) {
+    return flags & LFS_M_FLUSH;
+}
+
+static inline bool lfsr_m_issync(uint32_t flags) {
+    return flags & LFS_M_SYNC;
+}
+
 // internal fs flags
 static inline bool lfsr_f_hasorphans(uint32_t flags) {
     return flags & LFS_F_ORPHANS;
@@ -9933,7 +9941,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // setup file state
-    file->o.o.flags = lfsr_f_settype(flags, LFS_TYPE_REG);
+    file->o.o.flags = lfsr_f_settype(flags, LFS_TYPE_REG)
+            // mounted with LFS_M_FLUSH/SYNC? implies LFS_O_FLUSH/SYNC
+            | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC));
     file->cfg = cfg;
     file->pos = 0;
     file->eblock = 0;
@@ -11839,12 +11849,6 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     lfs->cfg = cfg;
     int err = 0;
 
-    // unknown flags?
-    LFS_ASSERT((flags & ~(
-            LFS_M_RDWR
-                | LFS_M_RDONLY
-                | LFS_M_CKPROGS)) == 0);
-
     // validate that the lfs-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
     LFS_ASSERT(lfs->cfg->read_size != 0);
@@ -12632,6 +12636,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             LFS_M_RDWR
                 | LFS_M_RDONLY
                 | LFS_M_CKPROGS
+                | LFS_M_FLUSH
+                | LFS_M_SYNC
                 | LFS_M_MTREEONLY
                 | LFS_M_MKCONSISTENT
                 | LFS_M_LOOKAHEAD
@@ -12639,16 +12645,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_CKMETA
                 | LFS_M_CKDATA)) == 0);
 
-    int err = lfs_init(lfs,
-            // strip out the one-time traversal flags
-            flags & ~(
-                LFS_M_MTREEONLY
-                    | LFS_M_MKCONSISTENT
-                    | LFS_M_LOOKAHEAD
-                    | LFS_M_COMPACT
-                    | LFS_M_CKMETA
-                    | LFS_M_CKDATA),
-            cfg);
+    int err = lfs_init(lfs, flags, cfg);
     if (err) {
         return err;
     }
@@ -12811,6 +12808,8 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     fsinfo->flags = lfs->flags & (
             LFS_I_RDONLY
                 | LFS_I_CKPROGS
+                | LFS_I_FLUSH
+                | LFS_I_SYNC
                 | LFS_I_UNCOMPACTED);
     // some flags we calculate on demand
     fsinfo->flags |= (lfsr_fs_isinconsistent(lfs)) ? LFS_I_INCONSISTENT : 0;
