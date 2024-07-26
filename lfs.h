@@ -774,7 +774,7 @@ typedef struct lfs {
 //
 // Returns a negative error code on failure.
 //int lfs_format(lfs_t *lfs, const struct lfs_config *config);
-int lfsr_format(lfs_t *lfs, const struct lfs_config *config);
+int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg);
 #endif
 
 // Mounts a littlefs
@@ -787,7 +787,7 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *config);
 // Returns a negative error code on failure.
 //int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
-        const struct lfs_config *config);
+        const struct lfs_config *cfg);
 
 // Unmounts a littlefs
 //
@@ -895,7 +895,7 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 //        const struct lfs_file_config *config);
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
-        const struct lfs_file_config *config);
+        const struct lfs_file_config *cfg);
 
 // Close a file
 //
@@ -1097,14 +1097,13 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir);
 // the filesystem.
 //
 // Returns a negative error code on failure.
-int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *traversal,
-        uint32_t flags);
+int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags);
 
 // Close a traversal
 //
 // Releases any allocated resources.
 // Returns a negative error code on failure.
-int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *traversal);
+int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *t);
 
 // Progress the traversal and read an entry
 //
@@ -1112,13 +1111,13 @@ int lfsr_traversal_close(lfs_t *lfs, lfsr_traversal_t *traversal);
 //
 // Returns 0 on success, LFS_ERR_NOENT at the end of traversal, or a
 // negative error code on failure.
-int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
+int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
         struct lfs_tinfo *tinfo);
 
 // Reset the traversal
 //
 // Returns a negative error code on failure.
-int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *traversal);
+int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 
 
 /// Filesystem-level filesystem operations
