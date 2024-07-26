@@ -269,6 +269,7 @@ done:;
 [cases.test_ck_file_ckmeta_easy]
 # METHOD=0 => lfsr_file_ckmeta
 # METHOD=1 => lfsr_file_close+open+ckmeta
+# METHOD=2 => lfsr_file_close+open
 defines.METHOD = [0, 1]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -345,11 +346,18 @@ code = '''
             lfsr_file_open(&lfs, &file, "octopus", LFS_O_RDONLY) => 0;
             lfsr_file_ckmeta(&lfs, &file) => LFS_ERR_CORRUPT;
 
+        // find clobbered blocks with lfsr_file_close+open
+        } else if (METHOD == 2) {
+            lfsr_file_open(&lfs, &file, "octopus",
+                    LFS_O_RDONLY | LFS_O_CKMETA) => LFS_ERR_CORRUPT;
+
         } else {
             assert(false);
         }
 
-        lfsr_file_close(&lfs, &file) => 0;
+        if (METHOD != 2) {
+            lfsr_file_close(&lfs, &file) => 0;
+        }
         lfsr_unmount(&lfs) => 0;
     }
 done:;
@@ -359,6 +367,7 @@ done:;
 [cases.test_ck_file_ckdata_easy]
 # METHOD=0 => lfsr_file_ckdata
 # METHOD=1 => lfsr_file_close+open+ckdata
+# METHOD=2 => lfsr_file_close+open
 defines.METHOD = [0, 1]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -436,11 +445,19 @@ code = '''
             lfsr_file_open(&lfs, &file, "octopus", LFS_O_RDONLY) => 0;
             lfsr_file_ckdata(&lfs, &file) => LFS_ERR_CORRUPT;
 
+        // find clobbered blocks with lfsr_file_close+open
+        } else if (METHOD == 2) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_file_open(&lfs, &file, "octopus",
+                    LFS_O_RDONLY | LFS_O_CKDATA) => LFS_ERR_CORRUPT;
+
         } else {
             assert(false);
         }
 
-        lfsr_file_close(&lfs, &file) => 0;
+        if (METHOD != 2) {
+            lfsr_file_close(&lfs, &file) => 0;
+        }
         lfsr_unmount(&lfs) => 0;
     }
 done:;

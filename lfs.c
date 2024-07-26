@@ -5926,6 +5926,14 @@ static inline bool lfsr_o_isdesync(uint32_t flags) {
     return flags & LFS_O_DESYNC;
 }
 
+static inline bool lfsr_o_isckmeta(uint32_t flags) {
+    return flags & LFS_O_CKMETA;
+}
+
+static inline bool lfsr_o_isckdata(uint32_t flags) {
+    return flags & LFS_O_CKDATA;
+}
+
 // internal open flags
 static inline uint8_t lfsr_f_type(uint32_t flags) {
     return flags >> 24;
@@ -9888,6 +9896,8 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 // needed in lfsr_file_opencfg
 static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size);
+static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
+        uint32_t flags);
 
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
@@ -10065,6 +10075,14 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         file->buffer.pos = 0;
         file->buffer.size = lfsr_bshrub_size(&file->o.bshrub);
         file->o.bshrub = LFSR_BSHRUB_BNULL();
+    }
+
+    // check metadata/data for errors?
+    if (lfsr_o_isckmeta(flags) || lfsr_o_isckdata(flags)) {
+        err = lfsr_file_ck(lfs, file, flags);
+        if (err) {
+            goto failed;
+        }
     }
 
     // add to tracked mdirs
@@ -11745,7 +11763,8 @@ failed:;
 }
 
 // file check functions
-static int lfsr_file_ck(lfs_t *lfs, lfsr_file_t *file, uint32_t flags) {
+static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
+        uint32_t flags) {
     // traverse the file's btree
     lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
     while (true) {

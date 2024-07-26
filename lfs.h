@@ -136,6 +136,8 @@ enum lfs_type {
 #define LFS_O_FLUSH     0x00000040  // Flush data on every write
 #define LFS_O_SYNC      0x00000080  // Sync metadata on every write
 #define LFS_O_DESYNC    0x00000100  // Do not sync or recieve file updates
+#define LFS_O_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_O_CKDATA    0x00002000  // Check metadata + data checksums
 
 // internally used flags
 #define LFS_F_TYPE      0xff000000  // The file's type
