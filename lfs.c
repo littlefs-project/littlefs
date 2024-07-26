@@ -13000,10 +13000,10 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     return 0;
 }
 
-// check the filesystem for metadata errors
-int lfsr_fs_ckmeta(lfs_t *lfs) {
+// filesystem check functions
+static int lfsr_fs_ck(lfs_t *lfs, uint32_t flags) {
     // we leave this up to lfsr_mtree_traverse
-    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_CKMETA);
+    lfsr_traversal_t t = LFSR_TRAVERSAL(flags);
     while (true) {
         int err = lfsr_mtree_traverse(lfs, &t,
                 NULL, NULL);
@@ -13018,22 +13018,12 @@ int lfsr_fs_ckmeta(lfs_t *lfs) {
     return 0;
 }
 
-// check the filesystem for metadata + data errors
-int lfsr_fs_ckdata(lfs_t *lfs) {
-    // we leave this up to lfsr_mtree_traverse
-    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_CKMETA | LFS_T_CKDATA);
-    while (true) {
-        int err = lfsr_mtree_traverse(lfs, &t,
-                NULL, NULL);
-        if (err) {
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-    }
+int lfsr_fs_ckmeta(lfs_t *lfs) {
+    return lfsr_fs_ck(lfs, LFS_T_CKMETA);
+}
 
-    return 0;
+int lfsr_fs_ckdata(lfs_t *lfs) {
+    return lfsr_fs_ck(lfs, LFS_T_CKMETA | LFS_T_CKDATA);
 }
 
 // perform any pending janitorial work
