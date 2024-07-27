@@ -452,6 +452,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_CORRUPT;
 '''
 
 # test that we fail if we find bad magic
@@ -475,6 +476,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_CORRUPT;
 '''
 
 # test that we fail to mount after a major version bump
@@ -500,6 +502,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after a minor version bump
@@ -525,6 +528,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible rcompat flags
@@ -551,6 +555,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible wcompat flags
@@ -577,6 +582,10 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+
+    // but we _can_ mount readonly
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
 '''
 
 # test that an incompatible ocompat flag is a noop
@@ -604,6 +613,8 @@ code = '''
     // mount should _not_ fail, ocompat should always be ignored
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
 '''
 
 # these are just a bit harder to detect
@@ -628,6 +639,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 [cases.test_mount_incompat_wcompat_overflow]
@@ -651,6 +663,10 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+
+    // but we _can_ mount readonly
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
 '''
 
 [cases.test_mount_incompat_ocompat_overflow]
@@ -674,6 +690,8 @@ code = '''
 
     // mount should _not_ fail, ocompat should always be ignored
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -701,6 +719,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible block counts
@@ -727,6 +746,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible name limit
@@ -751,6 +771,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible file limit
@@ -779,6 +800,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown config
@@ -799,6 +821,7 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown file type
@@ -846,4 +869,8 @@ code = '''
 
     // mount should now fail
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+
+    // but we _can_ mount readonly
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
 '''

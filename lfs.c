@@ -9926,11 +9926,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 | LFS_O_FLUSH
                 | LFS_O_SYNC
                 | LFS_O_DESYNC)) == 0);
+    // writeable files require a writeable filesystem
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || lfsr_o_isrdonly(flags));
     // these flags require a writable file
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_iscreat(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isexcl(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_istrunc(flags));
-    LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isappend(flags));
 
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -11534,6 +11535,8 @@ lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
 
 int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+    // can't write to readonly files
+    LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
 
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
@@ -11640,6 +11643,8 @@ failed:;
 
 int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+    // can't write to readonly files
+    LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
 
     // exceeds our file limit?
     if (size_ > lfs->file_limit) {
@@ -12275,16 +12280,14 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     lfsr_data_t data;
     int err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_VERSION,
             &data);
-    if (err) {
-        if (err == LFS_ERR_NOENT) {
-            LFS_ERROR("No littlefs version found");
-            return LFS_ERR_CORRUPT;
-        }
+    if (err && err != LFS_ERR_NOENT) {
         return err;
     }
-    lfs_ssize_t d = lfsr_data_read(lfs, &data, version, 2);
-    if (d < 0) {
-        return err;
+    if (err != LFS_ERR_NOENT) {
+        lfs_ssize_t d = lfsr_data_read(lfs, &data, version, 2);
+        if (d < 0) {
+            return err;
+        }
     }
 
     if (version[0] != LFS_DISK_VERSION_MAJOR
@@ -12336,13 +12339,15 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
         }
     }
 
-    // TODO switch to readonly?
     if (lfsr_wcompat_isincompat(wcompat)) {
-        LFS_ERROR("Incompatible wcompat flags 0x%0"PRIx16
+        LFS_WARN("Incompatible wcompat flags 0x%0"PRIx16
                 " (!= 0x%0"PRIx16")",
                 wcompat,
                 LFSR_WCOMPAT_COMPAT);
-        return LFS_ERR_NOTSUP;
+        // we can continue if rdonly
+        if (!lfsr_m_isrdonly(lfs->flags)) {
+            return LFS_ERR_NOTSUP;
+        }
     }
 
     // we don't bother to check for any ocompatflags, we would just
@@ -12542,37 +12547,40 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 return err;
             }
 
-            // check for any orphaned files
-            for (lfs_size_t rid = 0;
-                    rid < mdir->rbyd.weight;
-                    rid++) {
-                lfsr_tag_t tag;
-                err = lfsr_rbyd_sublookup(lfs, &mdir->rbyd, rid, LFSR_TAG_NAME,
-                        &tag, NULL);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                // name 0 should be reserved
-                LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
+            // check for any orphaned files, note we only need this if
+            // filesystem will be writable
+            if (!lfsr_m_isrdonly(lfs->flags)) {
+                for (lfs_size_t rid = 0;
+                        rid < mdir->rbyd.weight;
+                        rid++) {
+                    lfsr_tag_t tag;
+                    err = lfsr_rbyd_sublookup(lfs, &mdir->rbyd,
+                            rid, LFSR_TAG_NAME,
+                            &tag, NULL);
+                    if (err) {
+                        LFS_ASSERT(err != LFS_ERR_NOENT);
+                        return err;
+                    }
+                    // name 0 should be reserved
+                    LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
 
-                // found an orphaned file?
-                if (tag == LFSR_TAG_ORPHAN) {
-                    LFS_DEBUG("Found orphan "
-                            "%"PRId32".%"PRId32,
-                            lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
-                            rid);
-                    lfs->flags |= LFS_F_ORPHANS;
+                    // found an orphaned file?
+                    if (tag == LFSR_TAG_ORPHAN) {
+                        LFS_DEBUG("Found orphan "
+                                "%"PRId32".%"PRId32,
+                                lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
+                                rid);
+                        lfs->flags |= LFS_F_ORPHANS;
 
-                // found an unknown file type?
-                } else if (lfsr_tag_isunknown(tag)) {
-                    // TODO switch to readonly?
-                    LFS_ERROR("Found unknown file type "
-                            "%"PRId32".%"PRId32" 0x%"PRIx16,
-                            lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
-                            rid,
-                            lfsr_tag_subtype(tag));
-                    return LFS_ERR_NOTSUP;
+                    // found an unknown file type?
+                    } else if (lfsr_tag_isunknown(tag)) {
+                        LFS_WARN("Found unknown file type "
+                                "%"PRId32".%"PRId32" 0x%"PRIx16,
+                                lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
+                                rid,
+                                lfsr_tag_subtype(tag));
+                        return LFS_ERR_NOTSUP;
+                    }
                 }
             }
 
@@ -12628,9 +12636,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg) {
-    // some flags don't make sense when only traversing the mtree
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
     // unknown flags?
     LFS_ASSERT((flags & ~(
             LFS_M_RDWR
@@ -12644,6 +12649,13 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_COMPACT
                 | LFS_M_CKMETA
                 | LFS_M_CKDATA)) == 0);
+    // these flags require a writable filesystem
+    LFS_ASSERT(!lfsr_m_isrdonly(flags) || !lfsr_t_ismkconsistent(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(flags) || !lfsr_t_iscompact(flags));
+    // some flags don't make sense when only traversing the mtree
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
     int err = lfs_init(lfs, flags, cfg);
     if (err) {
@@ -12671,16 +12683,24 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             1 << lfs->mdir_bits);
 
     // run gc if requested
-    err = lfsr_fs_gc(lfs, -1,
-            flags & (
-                LFS_M_MTREEONLY
-                    | LFS_M_MKCONSISTENT
-                    | LFS_M_LOOKAHEAD
-                    | LFS_M_COMPACT
-                    | LFS_M_CKMETA
-                    | LFS_M_CKDATA));
-    if (err) {
-        goto failed;
+    if (flags & (
+            LFS_M_MTREEONLY
+                | LFS_M_MKCONSISTENT
+                | LFS_M_LOOKAHEAD
+                | LFS_M_COMPACT
+                | LFS_M_CKMETA
+                | LFS_M_CKDATA)) {
+        err = lfsr_fs_gc(lfs, -1,
+                flags & (
+                    LFS_M_MTREEONLY
+                        | LFS_M_MKCONSISTENT
+                        | LFS_M_LOOKAHEAD
+                        | LFS_M_COMPACT
+                        | LFS_M_CKMETA
+                        | LFS_M_CKDATA));
+        if (err) {
+            goto failed;
+        }
     }
 
     return 0;
@@ -12962,6 +12982,9 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
 
 // prepare the filesystem for mutation
 int lfsr_fs_mkconsistent(lfs_t *lfs) {
+    // filesystem must be writeable
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags));
+
     // fix pending grms
     if (lfsr_grm_count(lfs) > 0) {
         if (lfsr_grm_count(lfs) == 2) {
@@ -13035,6 +13058,10 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
                 | LFS_GC_COMPACT
                 | LFS_GC_CKMETA
                 | LFS_GC_CKDATA)) == 0);
+    // these flags require a writable filesystem
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_ismkconsistent(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_iscompact(flags));
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
@@ -13150,6 +13177,8 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
 
 
 int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
+    // filesystem must be writeable
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags));
     // shrinking the filesystem is not supported
     LFS_ASSERT(block_count_ >= lfs->block_count);
 
@@ -13221,6 +13250,10 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
                 | LFS_T_COMPACT
                 | LFS_T_CKMETA
                 | LFS_T_CKDATA)) == 0);
+    // these flags require a writable filesystem
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_ismkconsistent(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_iscompact(flags));
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
