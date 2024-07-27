@@ -4,7 +4,7 @@ after = [
     'test_files',
     'test_fwrite',
     'test_forphans',
-    'test_incompat',
+    'test_mount',
 ]
 
 # Note, these tests are a bit special. They can run as-is to test various
