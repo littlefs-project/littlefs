@@ -10665,12 +10665,14 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 return err;
             }
 
-            // if left crystal neighbor is a fragment and there is no hole
-            // between our own crystal and our neighbor, include as a part
-            // of our crystal
+            // if left crystal neighbor is a fragment and there is no
+            // obvious hole between our own crystal and our neighbor,
+            // include as a part of our crystal
             if (tag == LFSR_TAG_DATA
-                    && bid-(weight-1)+lfsr_data_size(bptr.data)
-                        >= pos - (lfs->cfg->crystal_thresh-1)) {
+                    // hole? holes can be quite large and shouldn't trigger
+                    // crystallization
+                    && (lfs_soff_t)(bid-(weight-1)+lfsr_data_size(bptr.data))
+                        >= (lfs_soff_t)(pos - (lfs->cfg->crystal_thresh-1))) {
                 crystal_start = bid-(weight-1);
 
             // otherwise our neighbor determines our crystal boundary
