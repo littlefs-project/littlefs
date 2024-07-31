@@ -580,7 +580,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 upper_ += w
 
             if not tag & TAG_ALT:
-                # update data checksum
+                # update canonical checksum
                 cksum = cksum_
                 # derive the current tag's rid from alt weights
                 rid = lower_ + w-1
@@ -997,7 +997,7 @@ def main(disk, blocks=None, *,
 
                 # end of trunk?
                 if not tag & TAG_ALT:
-                    # update data checksum
+                    # update canonical checksum
                     cksum_ = cksum__
                     # update trunk/weight unless we found a shrub or an
                     # explicit trunk (which may be a shrub) is requested

@@ -713,7 +713,7 @@ class Rbyd:
 
                 # end of trunk?
                 if not tag & TAG_ALT:
-                    # update data checksum
+                    # update canonical checksum
                     cksum_ = cksum__
                     # update trunk/weight unless we found a shrub or an
                     # explicit trunk (which may be a shrub) is requested

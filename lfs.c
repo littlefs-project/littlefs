@@ -2284,7 +2284,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 rbyd->weight = weight;
                 ecksum = ecksum_;
 
-                // revert to data checksum
+                // revert to canonical checksum
                 cksum_ = cksum;
                 ecksum_.cksize = -1;
             }
@@ -2311,7 +2311,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // end of trunk?
             if (!lfsr_tag_isalt(tag)) {
-                // update data checksum
+                // update canonical checksum
                 cksum = cksum_;
                 // update trunk and weight, unless we are a shrub trunk
                 if (!lfsr_tag_isshrub(tag) || trunk__ == trunk) {
@@ -3371,7 +3371,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         return err;
     }
 
-    // save the data checksum
+    // save the canonical checksum
     uint32_t cksum = rbyd->cksum;
 
     // align to the next prog unit
@@ -3501,7 +3501,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             = ((lfs_size_t)perturb
                 << (8*sizeof(lfs_size_t)-1))
             | off_;
-    // revert to data checksum
+    // revert to canonical checksum
     rbyd->cksum = cksum;
     return 0;
 }
