@@ -2340,7 +2340,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (ecksum.cksize != -1
             && lfsr_rbyd_eoff(rbyd)+ecksum.cksize <= lfs->cfg->block_size
             && lfsr_rbyd_eoff(rbyd) % lfs->cfg->prog_size == 0) {
-        // the next valid bit must _not_ match, or a commit was attempted
+        // the next valid bit must _not_ match, or a commit was attempted,
+        // this should hopefully stay in our cache
         uint8_t e = 0;
         err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), ecksum.cksize,
@@ -2353,12 +2354,9 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // check that erased-state matches our checksum, if this fails
             // most likely a write was interrupted
             uint32_t ecksum_ = 0;
-            if (err != LFS_ERR_CORRUPT) {
-                ecksum_ = lfs_crc32c(0, &e, 1);
-            }
             err = lfsr_bd_cksum(lfs,
-                    rbyd->blocks[0], lfsr_rbyd_eoff(rbyd)+1, 0,
-                    ecksum.cksize-1,
+                    rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), 0,
+                    ecksum.cksize,
                     &ecksum_);
             if (err && err != LFS_ERR_CORRUPT) {
                 return err;
@@ -3405,7 +3403,8 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // space for ecksum?
     bool perturb = false;
     if (off_ < lfs->cfg->block_size) {
-        // read the leading byte in case we need to perturb the next commit
+        // read the leading byte in case we need to perturb the next commit,
+        // this should hopefully stay in our cache
         uint8_t e = 0;
         err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], off_, lfs->cfg->prog_size,
@@ -3420,23 +3419,22 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         perturb = ((e >> 7) == lfs_parity(cksum));
 
         // calculate the erased-state checksum
-        lfsr_ecksum_t ecksum;
-        ecksum.cksize = lfs->cfg->prog_size;
-        ecksum.cksum = 0;
-        if (err != LFS_ERR_CORRUPT) {
-            ecksum.cksum = lfs_crc32c(0, &e, 1);
-        }
+        uint32_t ecksum = 0;
         err = lfsr_bd_cksum(lfs,
-                rbyd->blocks[0], off_+1, ecksum.cksize-1,
-                ecksum.cksize-1,
-                &ecksum.cksum);
+                rbyd->blocks[0], off_, lfs->cfg->prog_size,
+                lfs->cfg->prog_size,
+                &ecksum);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
 
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
         err = lfsr_rbyd_appendattr_(lfs, rbyd, LFSR_ATTR(
-                LFSR_TAG_ECKSUM, 0, LFSR_DATA_ECKSUM_(&ecksum, ecksum_buf)));
+                LFSR_TAG_ECKSUM, 0, LFSR_DATA_ECKSUM_(
+                    (&(lfsr_ecksum_t){
+                        .cksize=lfs->cfg->prog_size,
+                        .cksum=ecksum}),
+                    ecksum_buf)));
         if (err) {
             return err;
         }
