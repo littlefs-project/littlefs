@@ -559,6 +559,10 @@ static inline size_t lfs_strcspn(const char *a, const char *cs) {
 //// Calculate CRC-32 with polynomial = 0x04c11db7
 //uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 
+// Odd-parity and even-parity zeros in our crc32c ring
+#define LFS_CRC32C_ODDZERO  0xfca42daf
+#define LFS_CRC32C_EVENZERO 0x00000000
+
 // Calculate crc32c incrementally
 //
 // polynomial = 0x11edc6f41

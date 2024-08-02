@@ -537,15 +537,12 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
     while j_ < (block_size if args.get('all') else eoff):
         notes = []
 
-        # perturb?
-        if perturb:
-            cksum_ ^= 0x00000080
-
         # read next tag
         j = j_
         v, tag, w, size, d = fromtag(data[j_:])
         if v != parity(cksum_):
             notes.append('v!=%x' % parity(cksum_))
+        cksum_ ^= 0x00000080 if v else 0
         cksum_ = crc32c(data[j_:j_+d], cksum_)
         j_ += d
 
@@ -555,17 +552,16 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 cksum_ = crc32c(data[j_:j_+size], cksum_)
             # found a cksum?
             else:
-                # check perturb bit
-                if perturb != bool(tag & TAG_Q):
-                    notes.append('q!=%x' % perturb)
                 # check cksum
                 cksum__ = fromle32(data[j_:j_+4])
                 if cksum_ != cksum__:
                     notes.append('cksum!=%08x' % cksum__)
+                if perturb != bool(tag & TAG_Q):
+                    notes.append('q!=%x' % perturb)
                 # update perturb bit
                 perturb = tag & TAG_P
-                # revert to data cksum
-                cksum_ = cksum
+                # revert to data cksum and perturb
+                cksum_ = cksum ^ (0xfca42daf if perturb else 0)
             j_ += size
 
         # evaluate trunks
@@ -579,9 +575,10 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
             else:
                 upper_ += w
 
+            # end of trunk?
             if not tag & TAG_ALT:
-                # update canonical checksum
-                cksum = cksum_
+                # update canonical checksum, xoring out any perturb state
+                cksum = cksum_ ^ (0xfca42daf if perturb else 0)
                 # derive the current tag's rid from alt weights
                 rid = lower_ + w-1
                 trunk_ = 0
@@ -948,14 +945,11 @@ def main(disk, blocks=None, *,
         weight_ = 0
         weight__ = 0
         while j_ < len(data) and (not trunk or eoff <= trunk):
-            # perturb?
-            if perturb:
-                cksum__ ^= 0x00000080
-
             # read next tag
             v, tag, w, size, d = fromtag(data[j_:])
             if v != parity(cksum__):
                 break
+            cksum__ ^= 0x00000080 if v else 0
             cksum__ = crc32c(data[j_:j_+d], cksum__)
             j_ += d
             if not tag & TAG_ALT and j_ + size > len(data):
@@ -967,9 +961,6 @@ def main(disk, blocks=None, *,
                     cksum__ = crc32c(data[j_:j_+size], cksum__)
                 # found a cksum?
                 else:
-                    # check perturb bit
-                    if perturb != bool(tag & TAG_Q):
-                        break
                     # check cksum
                     cksum___ = fromle32(data[j_:j_+4])
                     if cksum__ != cksum___:
@@ -981,8 +972,8 @@ def main(disk, blocks=None, *,
                     weight = weight_
                     # update perturb bit
                     perturb = tag & TAG_P
-                    # revert to data cksum
-                    cksum__ = cksum_
+                    # revert to data cksum and perturb
+                    cksum__ = cksum_ ^ (0xfca42daf if perturb else 0)
 
             # evaluate trunks
             if (tag & 0xf000) != TAG_CKSUM and (
@@ -997,8 +988,8 @@ def main(disk, blocks=None, *,
 
                 # end of trunk?
                 if not tag & TAG_ALT:
-                    # update canonical checksum
-                    cksum_ = cksum__
+                    # update canonical checksum, xoring out any perturb state
+                    cksum_ = cksum__ ^ (0xfca42daf if perturb else 0)
                     # update trunk/weight unless we found a shrub or an
                     # explicit trunk (which may be a shrub) is requested
                     if not tag & TAG_SHRUB or trunk___ == trunk:
