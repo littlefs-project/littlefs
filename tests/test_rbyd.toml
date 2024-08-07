@@ -2815,7 +2815,7 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+    CFG->read(CFG, rbyd.blocks[0], 0,
              backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
     // test all permutations of a given size
@@ -3140,7 +3140,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -3290,7 +3290,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -3905,7 +3905,7 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+    CFG->read(CFG, rbyd.blocks[0], 0,
              backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
     // test all permutations of a given size
@@ -6054,7 +6054,7 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+    CFG->read(CFG, rbyd.blocks[0], 0,
              backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
     // test all permutations of a given size
@@ -6221,7 +6221,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -6401,7 +6401,7 @@ code = '''
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+    CFG->read(CFG, rbyd.blocks[0], 0,
              backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
     // test all permutations of a given size
@@ -10615,7 +10615,7 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try deleting each rid
@@ -10784,7 +10784,7 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try deleting each rid
@@ -10977,7 +10977,7 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try deleting each rid
@@ -11114,7 +11114,7 @@ code = '''
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try deleting each rid
@@ -11547,7 +11547,7 @@ code = '''
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+    CFG->read(CFG, rbyd.blocks[0], 0,
              backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
     // test all permutations of a given size
@@ -11703,7 +11703,7 @@ code = '''
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
     uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-    lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+    CFG->read(CFG, rbyd.blocks[0], 0,
              backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
     // test all permutations of a given size
@@ -13808,7 +13808,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try growing each rid
@@ -13940,7 +13940,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try growing each rid
@@ -14084,7 +14084,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try growing each rid
@@ -14241,7 +14241,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try shrinking each rid
@@ -14373,7 +14373,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try shrinking each rid
@@ -14517,7 +14517,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try shrinking each rid
@@ -14673,7 +14673,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try deleting each rid
@@ -14837,7 +14837,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try appending an attr to each rid, this should not affect
@@ -15471,7 +15471,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -15615,7 +15615,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try replacing each tag
@@ -15857,7 +15857,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -16011,7 +16011,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try replacing each tag
@@ -16248,7 +16248,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -16392,7 +16392,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try replacing each tag
@@ -16622,7 +16622,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try removing each tag
@@ -16766,7 +16766,7 @@ code = '''
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
         uint8_t *backup_block = malloc(lfsr_rbyd_eoff(&rbyd));
-        lfsr_bd_read(&lfs, rbyd.blocks[0], 0, lfsr_rbyd_eoff(&rbyd),
+        CFG->read(CFG, rbyd.blocks[0], 0,
                  backup_block, lfsr_rbyd_eoff(&rbyd)) => 0;
 
         // try replacing each tag

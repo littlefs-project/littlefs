@@ -534,17 +534,29 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
+// context for validating data
+typedef struct lfsr_ck {
+    // sign(cksize)=0 => cksum check
+    // sign(cksize)=1 => parity check
+    lfs_size_t cksize;
+    union {
+        lfs_size_t ckoff;
+        uint32_t cksum;
+    } u;
+} lfsr_ck_t;
+
 // either an on-disk or in-device data pointer
 typedef struct lfsr_data {
     // sign(size)=0 => in-RAM buffer
     // sign(size)=1 => on-disk reference
     lfs_size_t size;
     union {
+        const uint8_t *buffer;
         struct {
             lfs_block_t block;
             lfs_size_t off;
+            lfsr_ck_t ck;
         } disk;
-        const uint8_t *buffer;
     } u;
 } lfsr_data_t;
 
@@ -574,8 +586,6 @@ typedef lfsr_data_t lfsr_sprout_t;
 
 typedef struct lfsr_bptr {
     lfsr_data_t data;
-    lfs_size_t cksize;
-    uint32_t cksum;
 } lfsr_bptr_t;
 
 // the lfsr_bshrub_t struct represents the on-disk component of a file
@@ -714,6 +724,12 @@ typedef struct lfsr_grm {
     lfsr_smid_t mids[2];
 } lfsr_grm_t;
 
+typedef struct lfsr_tailck {
+    lfs_block_t ckblock;
+    // sign(ckoff) => tail parity
+    lfs_size_t ckoff;
+} lfsr_tailck_t;
+
 // The littlefs filesystem type
 typedef struct lfs {
     const struct lfs_config *cfg;
@@ -745,6 +761,8 @@ typedef struct lfs {
         lfs_size_t size;
         uint8_t *buffer;
     } pcache;
+
+    lfsr_tailck_t tailck;
 
     struct lfs_lookahead {
         lfs_block_t window;

@@ -75,6 +75,8 @@ CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
+# compiler bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101854
+CFLAGS += -Wno-stringop-overflow
 CFLAGS += -ftrack-macro-expansion=0
 ifdef DEBUG
 CFLAGS += -O0
