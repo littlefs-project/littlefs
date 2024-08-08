@@ -775,22 +775,13 @@ static lfs_sbool_t lfsr_bd_readparity(lfs_t *lfs,
     }
 }
 
-// caching read with parity/checksum checks
-//
-// the main downside of ckreads is we need to read all data that
-// contributes to the relevant parity/checksum, this may be
-// significantly more than the data we actually end up using
-//
-static int lfsr_bd_readck(lfs_t *lfs,
+static lfs_ssize_t lfsr_bd_ckprefix(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
-        void *buffer, lfs_size_t size,
-        lfsr_ck_t ck) {
+        lfsr_ck_t ck,
+        uint32_t *cksum) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
-    LFS_ASSERT(off+size <= lfs->cfg->block_size);
-    // read should fit in ck info
-    LFS_ASSERT(off >= lfsr_ck_ckoff(ck));
-    LFS_ASSERT(off+size <= lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck));
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
 
     // make sure hint includes our prefix/suffix/pesky parity byte
     lfs_size_t hint_ = lfs_max(
@@ -801,29 +792,36 @@ static int lfsr_bd_readck(lfs_t *lfs,
             lfsr_ck_cksize(ck) + ((lfsr_ck_isparity(ck)) ? 1 : 0));
 
     // checksum any prefixed data
-    uint32_t cksum = 0;
     int err = lfsr_bd_cksum(lfs,
             block, lfsr_ck_ckoff(ck), hint_,
             off-lfsr_ck_ckoff(ck),
-            &cksum);
+            cksum);
     if (err) {
         return err;
     }
 
-    // read and checksum the data we're interested in
-    err = lfsr_bd_read(lfs,
-            block, off, hint_ - (off-lfsr_ck_ckoff(ck)),
-            buffer, size);
-    if (err) {
-        return err;
-    }
+    // return adjusted hint, note we clamped this to a positive range
+    // earlier, otherwise we'd have real problems with hint=-1!
+    return hint_ - (off-lfsr_ck_ckoff(ck));
+}
 
-    cksum = lfs_crc32c(cksum, buffer, size);
+static int lfsr_bd_cksuffix(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        lfsr_ck_t ck,
+        uint32_t cksum) {
+    // must be in-bounds
+    LFS_ASSERT(block < lfs->block_count);
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
+
+    // make sure hint includes our pesky parity byte
+    lfs_size_t hint_ = lfs_max(
+            hint,
+            (lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)) - off);
 
     // checksum any suffixed data
-    err = lfsr_bd_cksum(lfs,
-            block, off+size, hint_ - ((off+size)-lfsr_ck_ckoff(ck)),
-            (lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)) - (off+size),
+    int err = lfsr_bd_cksum(lfs,
+            block, off, hint_,
+            (lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)) - off,
             &cksum);
     if (err) {
         return err;
@@ -835,7 +833,7 @@ static int lfsr_bd_readck(lfs_t *lfs,
                 < lfs->cfg->block_size);
         lfs_sbool_t parity = lfsr_bd_readparity(lfs,
                 block, lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck),
-                hint_ - lfsr_ck_cksize(ck));
+                hint_ - (lfsr_ck_cksize(ck)-off));
         if (parity < 0) {
             return parity;
         }
@@ -864,6 +862,51 @@ static int lfsr_bd_readck(lfs_t *lfs,
     return 0;
 }
 
+// caching read with parity/checksum checks
+//
+// the main downside of ckreads is we need to read all data that
+// contributes to the relevant parity/checksum, this may be
+// significantly more than the data we actually end up using
+//
+static int lfsr_bd_readck(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        void *buffer, lfs_size_t size,
+        lfsr_ck_t ck) {
+    // must be in-bounds
+    LFS_ASSERT(block < lfs->block_count);
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
+    // read should fit in ck info
+    LFS_ASSERT(off >= lfsr_ck_ckoff(ck));
+    LFS_ASSERT(off+size <= lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck));
+
+    // checksum any prefixed data
+    uint32_t cksum = 0;
+    lfs_ssize_t hint_ = lfsr_bd_ckprefix(lfs, block, off, hint, ck,
+            &cksum);
+    if (hint_ < 0) {
+        return hint_;
+    }
+
+    // read and checksum the data we're interested in
+    int err = lfsr_bd_read(lfs,
+            block, off, hint_,
+            buffer, size);
+    if (err) {
+        return err;
+    }
+
+    cksum = lfs_crc32c(cksum, buffer, size);
+
+    // checksum any suffixed data and validate
+    err = lfsr_bd_cksuffix(lfs, block, off+size, hint_-size, ck,
+            cksum);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
 // these could probably be a bit better deduplicated with their
 // unchecked counterparts, but we don't generally use both at the same
 // time
@@ -876,27 +919,17 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
         lfsr_ck_t ck) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
-    LFS_ASSERT(off+size <= lfs->cfg->block_size);
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
     // read should fit in ck info
     LFS_ASSERT(off >= lfsr_ck_ckoff(ck));
     LFS_ASSERT(off+size <= lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck));
 
-    // make sure hint includes our prefix/suffix/pesky parity byte
-    lfs_size_t hint_ = lfs_max(
-            // watch out for overflow when hint=-1!
-            (off-lfsr_ck_ckoff(ck)) + lfs_min(
-                hint,
-                lfs->cfg->block_size - off),
-            lfsr_ck_cksize(ck) + ((lfsr_ck_isparity(ck)) ? 1 : 0));
-
     // checksum any prefixed data
     uint32_t cksum = 0;
-    int err = lfsr_bd_cksum(lfs,
-            block, lfsr_ck_ckoff(ck), hint_,
-            off-lfsr_ck_ckoff(ck),
+    lfs_ssize_t hint_ = lfsr_bd_ckprefix(lfs, block, off, hint, ck,
             &cksum);
-    if (err) {
-        return err;
+    if (hint_ < 0) {
+        return hint_;
     }
 
     // compare the data while simultaneously updating the checksum
@@ -929,45 +962,11 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
         size_ -= size__;
     }
 
-    // checksum any suffixed data
-    err = lfsr_bd_cksum(lfs,
-            block, off+size, hint_ - ((off+size)-lfsr_ck_ckoff(ck)),
-            (lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)) - (off+size),
-            &cksum);
+    // checksum any suffixed data and validate
+    int err = lfsr_bd_cksuffix(lfs, block, off+size, hint_-size, ck,
+            cksum);
     if (err) {
         return err;
-    }
-
-    if (lfsr_ck_isparity(ck)) {
-        // need to read the next byte, which should contain our parity
-        LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)
-                < lfs->cfg->block_size);
-        lfs_sbool_t parity = lfsr_bd_readparity(lfs,
-                block, lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck),
-                hint_ - lfsr_ck_cksize(ck));
-        if (parity < 0) {
-            return parity;
-        }
-
-        // does parity match?
-        if (lfs_parity(cksum) != parity) {
-            LFS_ERROR("Found ckread parity mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "parity %01"PRIx32" (!= %01"PRIx32")",
-                    block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
-                    lfs_parity(cksum), parity);
-            return LFS_ERR_CORRUPT;
-        }
-    } else {
-        // do checksums match?
-        if (cksum != ck.u.cksum) {
-            LFS_ERROR("Found ckread cksum mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "cksum %08"PRIx32" (!= %08"PRIx32")",
-                    block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
-                    cksum, ck.u.cksum);
-            return LFS_ERR_CORRUPT;
-        }
     }
 
     return cmp;
@@ -985,27 +984,17 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
     LFS_ASSERT(dst_block < lfs->block_count);
     LFS_ASSERT(dst_off+size <= lfs->cfg->block_size);
     LFS_ASSERT(src_block < lfs->block_count);
-    LFS_ASSERT(src_off+size <= lfs->cfg->block_size);
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
     // read should fit in ck info
     LFS_ASSERT(src_off >= lfsr_ck_ckoff(ck));
     LFS_ASSERT(src_off+size <= lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck));
 
-    // make sure hint includes our prefix/suffix/pesky parity byte
-    lfs_size_t hint_ = lfs_max(
-            // watch out for overflow when hint=-1!
-            (src_off-lfsr_ck_ckoff(ck)) + lfs_min(
-                hint,
-                lfs->cfg->block_size - src_off),
-            lfsr_ck_cksize(ck) + ((lfsr_ck_isparity(ck)) ? 1 : 0));
-
     // checksum any prefixed data
-    uint32_t cksum_ = 0;
-    int err = lfsr_bd_cksum(lfs,
-            src_block, lfsr_ck_ckoff(ck), hint_,
-            src_off-lfsr_ck_ckoff(ck),
-            &cksum_);
-    if (err) {
-        return err;
+    uint32_t src_cksum = 0;
+    lfs_ssize_t hint_ = lfsr_bd_ckprefix(lfs, src_block, src_off, hint, ck,
+            &src_cksum);
+    if (hint_ < 0) {
+        return hint_;
     }
 
     // TODO wait, why aren't we using hint here?
@@ -1033,7 +1022,7 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
             return err;
         }
 
-        cksum_ = lfs_crc32c(cksum_, buffer__, size__);
+        src_cksum = lfs_crc32c(src_cksum, buffer__, size__);
 
         // optional checksum
         if (cksum && !align) {
@@ -1045,46 +1034,11 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
         size_ -= size__;
     }
 
-    // checksum any suffixed data
-    err = lfsr_bd_cksum(lfs,
-            src_block, src_off+size,
-            hint_ - ((src_off+size)-lfsr_ck_ckoff(ck)),
-            (lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)) - (src_off+size),
-            &cksum_);
+    // checksum any suffixed data and validate
+    int err = lfsr_bd_cksuffix(lfs, src_block, src_off+size, hint_-size, ck,
+            src_cksum);
     if (err) {
         return err;
-    }
-
-    if (lfsr_ck_isparity(ck)) {
-        // need to read the next byte, which should contain our parity
-        LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)
-                < lfs->cfg->block_size);
-        lfs_sbool_t parity = lfsr_bd_readparity(lfs,
-                src_block, lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck),
-                hint_ - lfsr_ck_cksize(ck));
-        if (parity < 0) {
-            return parity;
-        }
-
-        // does parity match?
-        if (lfs_parity(cksum_) != parity) {
-            LFS_ERROR("Found ckread parity mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "parity %01"PRIx32" (!= %01"PRIx32")",
-                    src_block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
-                    lfs_parity(cksum_), parity);
-            return LFS_ERR_CORRUPT;
-        }
-    } else {
-        // do checksums match?
-        if (cksum_ != ck.u.cksum) {
-            LFS_ERROR("Found ckread cksum mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "cksum %08"PRIx32" (!= %08"PRIx32")",
-                    src_block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
-                    cksum_, ck.u.cksum);
-            return LFS_ERR_CORRUPT;
-        }
     }
 
     return 0;
@@ -1615,47 +1569,22 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     // this requires reading the data too, but with any luck the data
     // will stick around in the cache
     } else {
+        // pesky parity byte
+        lfs_size_t size__ = (!lfsr_tag_isalt(tag)) ? size : 0;
+        if (off+d+size__ >= lfs->cfg->block_size) {
+            return LFS_ERR_CORRUPT;
+        }
+
         // checksum the tag, including our valid bit
         uint32_t cksum_ = lfs_crc32c(0, tag_buf, d);
 
-        // checksum the data
-        lfs_size_t d_ = d;
-        if (!lfsr_tag_isalt(tag)) {
-            err = lfsr_bd_cksum(lfs,
-                    block, off+d_,
-                    // make sure hint includes our pesky parity byte
-                    lfs_max(
-                        hint - lfs_min(d_, hint),
-                        size + 1),
-                    size,
-                    &cksum_);
-            if (err) {
-                return err;
-            }
-
-            d_ += size;
-        }
-
-        // pesky parity byte
-        if (off+d_ >= lfs->cfg->block_size) {
-            return LFS_ERR_CORRUPT;
-        }
-
-        // need to read the next byte, which should contain our parity
-        lfs_sbool_t parity = lfsr_bd_readparity(lfs,
-                block, off+d_, hint - lfs_min(d_, hint));
-        if (parity < 0) {
-            return parity;
-        }
-
-        // does parity match?
-        if (lfs_parity(cksum_) != parity) {
-            LFS_ERROR("Found ckread parity mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "parity %01"PRIx32" (!= %01"PRIx32")",
-                    block, off, d_,
-                    lfs_parity(cksum_), parity);
-            return LFS_ERR_CORRUPT;
+        // checksum the data and validate with parity byte
+        err = lfsr_bd_cksuffix(lfs,
+                block, off+d, hint - lfs_min(d, hint),
+                LFSR_CK_PARITY(off, d+size__),
+                cksum_);
+        if (err) {
+            return err;
         }
     }
 
