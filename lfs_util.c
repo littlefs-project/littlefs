@@ -30,7 +30,8 @@ ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size) {
         }
     }
 
-    return LFS_ERR_CORRUPT;
+    // buffer overflow?
+    LFS_UNREACHABLE();
 }
 
 ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
@@ -51,6 +52,7 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
         }
     }
 
+    // truncated?
     return LFS_ERR_CORRUPT;
 }
 
