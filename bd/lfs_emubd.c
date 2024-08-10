@@ -77,6 +77,8 @@ static lfs_emubd_block_t *lfs_emubd_mutblock(
 
         block_->rc = 1;
         block_->wear = 0;
+        block_->metastable = false;
+        block_->bad_bit = 0;
 
         // zero for consistency
         lfs_emubd_t *bd = cfg->context;
@@ -312,14 +314,29 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     const lfs_emubd_block_t *b = bd->blocks[block];
     if (b) {
         // block bad?
-        if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles &&
-                bd->cfg->badblock_behavior == LFS_EMUBD_BADBLOCK_READERROR) {
-            LFS_EMUBD_TRACE("lfs_emubd_read -> %d", LFS_ERR_CORRUPT);
-            return LFS_ERR_CORRUPT;
+        if (b->wear > bd->cfg->erase_cycles) {
+            // erroring reads? error
+            if (bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_READERROR) {
+                LFS_EMUBD_TRACE("lfs_emubd_read -> %d", LFS_ERR_CORRUPT);
+                return LFS_ERR_CORRUPT;
+            }
         }
 
         // read data
         memcpy(buffer, &b->data[off], size);
+
+        // metastable? randomly decide if our bad bit flips
+        if (b->metastable) {
+            lfs_size_t bit = b->bad_bit & 0x7fffffff;
+            if (bit/8 >= off
+                    && bit/8 < off+size
+                    && (lfs_emubd_prng(&bd->prng) & 1)) {
+                ((uint8_t*)buffer)[(bit/8) - off] ^= 1 << (bit%8);
+            }
+        }
+
+    // no block yet
     } else {
         // zero for consistency
         memset(buffer,
@@ -361,8 +378,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     // were we erased properly?
     LFS_ASSERT(bd->blocks[block]);
     if (bd->cfg->erase_value != -1
-            && !(bd->cfg->erase_cycles
-                && bd->blocks[block]->wear >= bd->cfg->erase_cycles)) {
+            && bd->blocks[block]->wear <= bd->cfg->erase_cycles) {
         for (lfs_off_t i = 0; i < size; i++) {
             LFS_ASSERT(bd->blocks[block]->data[off+i] == bd->cfg->erase_value);
         }
@@ -372,7 +388,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     if (bd->power_cycles > 0) {
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
-            // if emulating some bits, choose a random bit to flip
+            // emulating some bits? choose a random bit to flip
             if (bd->cfg->powerloss_behavior
                     == LFS_EMUBD_POWERLOSS_SOMEBITS) {
                 // mutate the block
@@ -387,7 +403,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                 // flip bit
                 lfs_size_t bit = lfs_emubd_prng(&bd->prng)
                         % (cfg->prog_size*8);
-                b->data[off + (bit/8)] ^= (1 << (bit%8));
+                b->data[off + (bit/8)] ^= 1 << (bit%8);
 
                 // mirror to disk file?
                 if (bd->disk) {
@@ -408,7 +424,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                     }
                 }
 
-            // if emulating most bits, prog data and choose a random bit
+            // emulating most bits? prog data and choose a random bit
             // to flip
             } else if (bd->cfg->powerloss_behavior
                     == LFS_EMUBD_POWERLOSS_MOSTBITS) {
@@ -427,7 +443,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                 // flip bit
                 lfs_size_t bit = lfs_emubd_prng(&bd->prng)
                         % (cfg->prog_size*8);
-                b->data[off + (bit/8)] ^= (1 << (bit%8));
+                b->data[off + (bit/8)] ^= 1 << (bit%8);
 
                 // mirror to disk file?
                 if (bd->disk) {
@@ -448,7 +464,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                     }
                 }
 
-            // if emulating out-of-order writes, revert everything unsynced
+            // emulating out-of-order writes? revert everything unsynced
             // except for our current block
             } else if (bd->cfg->powerloss_behavior
                     == LFS_EMUBD_POWERLOSS_OOO) {
@@ -482,6 +498,50 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                                 return err;
                             }
                         }
+                    }
+                }
+
+            // emulating metastability? prog data, choose a random bad bit,
+            // and mark as metastable
+            } else if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_METASTABLE) {
+                // mutate the block
+                lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg,
+                        bd->blocks[block]);
+                if (!b) {
+                    LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
+                    return LFS_ERR_NOMEM;
+                }
+                bd->blocks[block] = b;
+
+                // prog data
+                memcpy(&b->data[off], buffer, size);
+
+                // choose a new bad bit unless overridden
+                if (!(0x80000000 & b->bad_bit)) {
+                    b->bad_bit = lfs_emubd_prng(&bd->prng)
+                            % (cfg->block_size*8);
+                }
+
+                // mark as metastable
+                b->metastable = true;
+
+                // mirror to disk file?
+                if (bd->disk) {
+                    off_t res1 = lseek(bd->disk->fd,
+                            (off_t)block*cfg->block_size + (off_t)off,
+                            SEEK_SET);
+                    if (res1 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+                        return err;
+                    }
+
+                    ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
+                    if (res2 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
+                        return err;
                     }
                 }
             }
@@ -533,23 +593,47 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     bd->blocks[block] = b;
 
     // block bad?
-    if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles) {
-        if (bd->cfg->badblock_behavior ==
-                LFS_EMUBD_BADBLOCK_PROGERROR) {
+    if (b->wear > bd->cfg->erase_cycles) {
+        // erroring progs? error
+        if (bd->cfg->badblock_behavior
+                == LFS_EMUBD_BADBLOCK_PROGERROR) {
             LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_CORRUPT);
             return LFS_ERR_CORRUPT;
-        } else if (bd->cfg->badblock_behavior ==
-                LFS_EMUBD_BADBLOCK_PROGNOOP ||
-                bd->cfg->badblock_behavior ==
-                LFS_EMUBD_BADBLOCK_ERASENOOP) {
-            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
-            return 0;
+
+        // noop progs? skip
+        } else if (bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_PROGNOOP
+                || bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_ERASENOOP) {
+            goto progged;
+
+        // progs flipping bits? flip our bad bit, exactly which bit
+        // is chosen during erase
+        } else if (bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_PROGFLIP) {
+            lfs_size_t bit = b->bad_bit & 0x7fffffff;
+            if (bit/8 >= off && bit/8 < off+size) {
+                memcpy(&b->data[off], buffer, size);
+                b->data[bit/8] ^= 1 << (bit%8);
+                goto progged;
+            }
+
+        // reads flipping bits? prog as normal but mark as metastable
+        } else if (bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_READFLIP) {
+            memcpy(&b->data[off], buffer, size);
+            b->metastable = true;
+            goto progged;
         }
     }
 
     // prog data
     memcpy(&b->data[off], buffer, size);
 
+    // clear any metastability
+    b->metastable = false;
+
+progged:;
     // mirror to disk file?
     if (bd->disk) {
         off_t res1 = lseek(bd->disk->fd,
@@ -599,7 +683,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     if (bd->power_cycles > 0) {
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
-            // if emulating some bits, choose a random bit to flip
+            // emulating some bits? choose a random bit to flip
             if (bd->cfg->powerloss_behavior
                     == LFS_EMUBD_POWERLOSS_SOMEBITS) {
                 // mutate the block
@@ -614,7 +698,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 // flip bit
                 lfs_size_t bit = lfs_emubd_prng(&bd->prng)
                         % (cfg->block_size*8);
-                b->data[(bit/8)] ^= (1 << (bit%8));
+                b->data[(bit/8)] ^= 1 << (bit%8);
 
                 // mirror to disk file?
                 if (bd->disk) {
@@ -636,7 +720,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                     }
                 }
 
-            // if emulating most bits, erase data and choose a random bit
+            // emulating most bits? erase data and choose a random bit
             // to flip
             } else if (bd->cfg->powerloss_behavior
                     == LFS_EMUBD_POWERLOSS_MOSTBITS) {
@@ -657,7 +741,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 // flip bit
                 lfs_size_t bit = lfs_emubd_prng(&bd->prng)
                         % (cfg->block_size*8);
-                b->data[(bit/8)] ^= (1 << (bit%8));
+                b->data[(bit/8)] ^= 1 << (bit%8);
 
                 // mirror to disk file?
                 if (bd->disk) {
@@ -679,7 +763,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                     }
                 }
 
-            // if emulating out-of-order writes, revert everything unsynced
+            // emulating out-of-order writes? revert everything unsynced
             // except for our current block
             } else if (bd->cfg->powerloss_behavior
                     == LFS_EMUBD_POWERLOSS_OOO) {
@@ -710,6 +794,53 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                                 return err;
                             }
                         }
+                    }
+                }
+
+            // emulating metastability? erase data, choose a random bad bit,
+            // and mark as metastable
+            } else if (bd->cfg->powerloss_behavior
+                    == LFS_EMUBD_POWERLOSS_METASTABLE) {
+                // mutate the block
+                lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg,
+                        bd->blocks[block]);
+                if (!b) {
+                    LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_NOMEM);
+                    return LFS_ERR_NOMEM;
+                }
+                bd->blocks[block] = b;
+
+                // emulate an erase value?
+                if (bd->cfg->erase_value != -1) {
+                    memset(b->data, bd->cfg->erase_value, cfg->block_size);
+                }
+
+                // choose a new bad bit unless overridden
+                if (!(0x80000000 & b->bad_bit)) {
+                    b->bad_bit = lfs_emubd_prng(&bd->prng)
+                            % (cfg->block_size*8);
+                }
+
+                // mark as metastable
+                b->metastable = true;
+
+                // mirror to disk file?
+                if (bd->disk) {
+                    off_t res1 = lseek(bd->disk->fd,
+                            (off_t)block*cfg->block_size,
+                            SEEK_SET);
+                    if (res1 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                        return err;
+                    }
+
+                    ssize_t res2 = write(bd->disk->fd,
+                            b->data, cfg->block_size);
+                    if (res2 < 0) {
+                        int err = -errno;
+                        LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
+                        return err;
                     }
                 }
             }
@@ -760,21 +891,35 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     }
     bd->blocks[block] = b;
 
+    // keep track of wear
+    if (bd->cfg->erase_cycles && b->wear <= bd->cfg->erase_cycles) {
+        b->wear += 1;
+    }
+
     // block bad?
-    if (bd->cfg->erase_cycles) {
-        if (b && b->wear >= bd->cfg->erase_cycles) {
-            if (bd->cfg->badblock_behavior ==
-                    LFS_EMUBD_BADBLOCK_ERASEERROR) {
-                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_CORRUPT);
-                return LFS_ERR_CORRUPT;
-            } else if (bd->cfg->badblock_behavior ==
-                    LFS_EMUBD_BADBLOCK_ERASENOOP) {
-                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", 0);
-                return 0;
+    if (b->wear > bd->cfg->erase_cycles) {
+        // erroring erases? error
+        if (bd->cfg->badblock_behavior
+                == LFS_EMUBD_BADBLOCK_ERASEERROR) {
+            LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_CORRUPT);
+            return LFS_ERR_CORRUPT;
+
+        // noop erases? skip
+        } else if (bd->cfg->badblock_behavior
+                == LFS_EMUBD_BADBLOCK_ERASENOOP) {
+            goto erased;
+
+        // flipping bits? if we're not manually overridden, choose a
+        // new bad bit on erase, this makes it more likely to
+        // eventually cause problems
+        } else if (bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_PROGFLIP
+                || bd->cfg->badblock_behavior
+                    == LFS_EMUBD_BADBLOCK_READFLIP) {
+            if (!(0x80000000 & b->bad_bit)) {
+                b->bad_bit = lfs_emubd_prng(&bd->prng)
+                        % (cfg->block_size*8);
             }
-        } else {
-            // mark wear
-            b->wear += 1;
         }
     }
 
@@ -802,6 +947,10 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
+    // clear any metastability
+    b->metastable = false;
+
+erased:;
     // track erases
     bd->erased += cfg->block_size;
     if (bd->cfg->erase_sleep) {
@@ -838,6 +987,17 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
 
 /// Additional extended API for driving test features ///
+
+int lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed) {
+    LFS_EMUBD_TRACE("lfs_emubd_seed(%p, 0x%08"PRIx32")",
+            (void*)cfg, seed);
+    lfs_emubd_t *bd = cfg->context;
+
+    bd->prng = seed;
+
+    LFS_EMUBD_TRACE("lfs_emubd_seed -> %d", 0);
+    return 0;
+}
 
 static int lfs_emubd_rawcksum(const struct lfs_config *cfg,
         lfs_block_t block, uint32_t *cksum) {
@@ -980,6 +1140,149 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
     b->wear = wear;
 
     LFS_EMUBD_TRACE("lfs_emubd_setwear -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_markbad(const struct lfs_config *cfg,
+        lfs_block_t block) {
+    LFS_EMUBD_TRACE("lfs_emubd_markbad(%p, %"PRIu32")",
+            (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_markbad -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // set the wear
+    b->wear = -1;
+
+    LFS_EMUBD_TRACE("lfs_emubd_markbad -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_markgood(const struct lfs_config *cfg,
+        lfs_block_t block) {
+    LFS_EMUBD_TRACE("lfs_emubd_markgood(%p, %"PRIu32")",
+            (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_markgood -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // set the wear
+    b->wear = 0;
+
+    LFS_EMUBD_TRACE("lfs_emubd_markgood -> %d", 0);
+    return 0;
+}
+
+lfs_ssize_t lfs_emubd_badbit(const struct lfs_config *cfg,
+        lfs_block_t block) {
+    LFS_EMUBD_TRACE("lfs_emubd_badbit(%p, %"PRIu32")", (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // get the bad bit
+    lfs_size_t bad_bit;
+    const lfs_emubd_block_t *b = bd->blocks[block];
+    if (b) {
+        bad_bit = 0x7fffffff & b->bad_bit;
+    } else {
+        bad_bit = 0;
+    }
+
+    LFS_EMUBD_TRACE("lfs_emubd_badbit -> %"PRIi32, bad_bit);
+    return bad_bit;
+}
+
+int lfs_emubd_setbadbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit) {
+    LFS_EMUBD_TRACE("lfs_emubd_setbadbit(%p, %"PRIu32", %"PRIu32")",
+            (void*)cfg, block, bit);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_setbadbit -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // set the bad bit and mark as fixed
+    b->bad_bit = 0x80000000 | bit;
+
+    LFS_EMUBD_TRACE("lfs_emubd_setbadbit -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_randomizebadbit(const struct lfs_config *cfg,
+        lfs_block_t block) {
+    LFS_EMUBD_TRACE("lfs_emubd_randomizebadbit(%p, %"PRIu32")",
+            (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_randomizebadbit -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // mark the bad bit as randomized
+    b->bad_bit &= ~0x80000000;
+
+    LFS_EMUBD_TRACE("lfs_emubd_randomizebadbit -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_markbadbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit) {
+    LFS_EMUBD_TRACE("lfs_emubd_markbadbit(%p, %"PRIu32", %"PRIu32")",
+            (void*)cfg, block, bit);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_markbadbit -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // set the wear
+    b->wear = -1;
+    // set the bad bit and mark as fixed
+    b->bad_bit = 0x80000000 | bit;
+
+    LFS_EMUBD_TRACE("lfs_emubd_markbadbit -> %d", 0);
     return 0;
 }
 

@@ -19,7 +19,6 @@ after = [
 # B-tree's ridiculous branching factor is great for performance, but it makes
 # them a bit of a pain to test, here we test them explicitly
 [cases.test_badblocks_single_btree_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -27,6 +26,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -43,7 +43,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test creating a btree
@@ -124,13 +124,12 @@ code = '''
         lfs_deinit(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # with dirs
 [cases.test_badblocks_single_dir_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -138,6 +137,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -149,7 +149,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test creating directories
@@ -234,13 +234,12 @@ code = '''
         lfsr_unmount(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # fuzz dirs
 [cases.test_badblocks_single_dir_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -248,6 +247,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -262,7 +262,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test fuzz with dirs
@@ -415,13 +415,12 @@ code = '''
         lfsr_unmount(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # with files
 [cases.test_badblocks_single_file_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -429,6 +428,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -450,7 +450,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test creating files
@@ -519,13 +519,12 @@ code = '''
         lfsr_unmount(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # fuzz files
 [cases.test_badblocks_single_file_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -533,6 +532,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -557,7 +557,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test fuzz with files
@@ -762,13 +762,12 @@ code = '''
         lfsr_unmount(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # with more complex file writes
 [cases.test_badblocks_single_fwrite_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -776,6 +775,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -809,7 +809,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test with complex file writes
@@ -927,13 +927,12 @@ code = '''
         lfsr_unmount(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # with orphans, zombies, etc
 [cases.test_badblocks_single_orphanzombie_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -941,6 +940,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -965,7 +965,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test with orphans, zombies, etc
@@ -1293,13 +1293,12 @@ code = '''
         free(sim_files);
         lfsr_unmount(&lfs) => 0;
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
 # with orphans, zombies, dirs, etc
 [cases.test_badblocks_single_orphanzombiedir_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -1307,6 +1306,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -1331,7 +1331,7 @@ code = '''
             i++) {
         lfs_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
         // mark our badblock as bad
-        lfs_emubd_setwear(CFG, badblock, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, badblock) => 0;
         printf("--- badblock: 0x%x ---\n", badblock);
 
         // test with orphans, zombies, dirs, etc
@@ -1739,7 +1739,7 @@ code = '''
         lfsr_unmount(&lfs) => 0;
 
         // reset badblock
-        lfs_emubd_setwear(CFG, badblock, 0) => 0;
+        lfs_emubd_markgood(CFG, badblock) => 0;
     }
 '''
 
@@ -1753,13 +1753,13 @@ code = '''
 # B-tree's ridiculous branching factor is great for performance, but it makes
 # them a bit of a pain to test, here we test them explicitly
 [cases.test_badblocks_region_btree_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -1775,9 +1775,9 @@ code = '''
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+            lfs_emubd_markbad(CFG, i) => 0;
         } else {
-            lfs_emubd_setwear(CFG, i + BLOCK_COUNT/2, 0xffffffff) => 0;
+            lfs_emubd_markbad(CFG, i + BLOCK_COUNT/2) => 0;
         }
     }
 
@@ -1861,13 +1861,13 @@ code = '''
 
 # with dirs
 [cases.test_badblocks_region_dir_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -1879,11 +1879,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -1972,13 +1972,13 @@ code = '''
 
 # fuzz dirs
 [cases.test_badblocks_region_dir_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -1993,11 +1993,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -2154,13 +2154,13 @@ code = '''
 
 # with files
 [cases.test_badblocks_region_file_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -2182,11 +2182,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -2259,13 +2259,13 @@ code = '''
 
 # fuzz files
 [cases.test_badblocks_region_file_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -2290,11 +2290,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -2503,13 +2503,13 @@ code = '''
 
 # with more complex file writes
 [cases.test_badblocks_region_fwrite_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -2543,11 +2543,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -2669,13 +2669,13 @@ code = '''
 
 # with orphans, zombies, etc
 [cases.test_badblocks_region_orphanzombie_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -2700,11 +2700,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -3036,13 +3036,13 @@ code = '''
 
 # with orphans, zombies, dirs, etc
 [cases.test_badblocks_region_orphanzombiedir_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -3067,11 +3067,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (i >= 2) {
-                lfs_emubd_setwear(CFG, i, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i) => 0;
             }
         } else {
             if (i+BLOCK_COUNT/2 >= 2) {
-                lfs_emubd_setwear(CFG, i+BLOCK_COUNT/2, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
     }
@@ -3488,13 +3488,13 @@ code = '''
 # B-tree's ridiculous branching factor is great for performance, but it makes
 # them a bit of a pain to test, here we test them explicitly
 [cases.test_badblocks_alternating_btree_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -3510,9 +3510,9 @@ code = '''
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+            lfs_emubd_markbad(CFG, 2*i+0) => 0;
         } else {
-            lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+            lfs_emubd_markbad(CFG, 2*i+1) => 0;
         }
     }
 
@@ -3596,13 +3596,13 @@ code = '''
 
 # with dirs
 [cases.test_badblocks_alternating_dir_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -3614,11 +3614,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -3707,13 +3707,13 @@ code = '''
 
 # fuzz dirs
 [cases.test_badblocks_alternating_dir_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -3728,11 +3728,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -3889,13 +3889,13 @@ code = '''
 
 # with files
 [cases.test_badblocks_alternating_file_many]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -3917,11 +3917,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -3994,13 +3994,13 @@ code = '''
 
 # fuzz files
 [cases.test_badblocks_alternating_file_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -4025,11 +4025,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -4238,13 +4238,13 @@ code = '''
 
 # with more complex file writes
 [cases.test_badblocks_alternating_fwrite_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -4278,11 +4278,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -4402,13 +4402,13 @@ code = '''
 
 # with orphans, zombies, etc
 [cases.test_badblocks_alternating_orphanzombie_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -4433,11 +4433,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -4769,13 +4769,13 @@ code = '''
 
 # with orphans, zombies, dirs, etc
 [cases.test_badblocks_alternating_orphanzombiedir_fuzz]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
     'LFS_EMUBD_BADBLOCK_READERROR',
     'LFS_EMUBD_BADBLOCK_PROGNOOP',
     'LFS_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
@@ -4800,11 +4800,11 @@ code = '''
         // mark our badblock as bad
         if (!MIRROR) {
             if (2*i+0 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+0, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
             if (2*i+1 >= 2) {
-                lfs_emubd_setwear(CFG, 2*i+1, 0xffffffff) => 0;
+                lfs_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
     }
@@ -5218,7 +5218,6 @@ code = '''
 
 # test formatting with 0 or 1 bad, this should just error
 [cases.test_badblocks_mrootanchor_format]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCKS = [0x1, 0x2, 0x3]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -5229,10 +5228,10 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 code = '''
     if (BADBLOCKS & 0x1) {
-        lfs_emubd_setwear(CFG, 0, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, 0) => 0;
     }
     if (BADBLOCKS & 0x2) {
-        lfs_emubd_setwear(CFG, 1, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, 1) => 0;
     }
 
     lfs_t lfs;
@@ -5241,7 +5240,6 @@ code = '''
 
 # test blocks 0 or 1 going bad, this should just error
 [cases.test_badblocks_mrootanchor_wear]
-defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCKS = [0x1, 0x2]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -5257,10 +5255,10 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
 
     if (BADBLOCKS & 0x1) {
-        lfs_emubd_setwear(CFG, 0, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, 0) => 0;
     }
     if (BADBLOCKS & 0x2) {
-        lfs_emubd_setwear(CFG, 1, 0xffffffff) => 0;
+        lfs_emubd_markbad(CFG, 1) => 0;
     }
 
     lfsr_mount(&lfs,

@@ -31,25 +31,25 @@ extern "C"
 
 // Mode determining how "bad-blocks" behave during testing. This simulates
 // some real-world circumstances such as progs not sticking (prog-noop),
-// a readonly disk (erase-noop), and ECC failures (read-error).
-//
-// Not that read-noop is not allowed. Read _must_ return a consistent (but
-// may be arbitrary) value on every read.
+// a readonly disk (erase-noop), ECC failures (read-error), and of course,
+// random bit failures (prog-flip, read-flip)
 typedef enum lfs_emubd_badblock_behavior {
-    LFS_EMUBD_BADBLOCK_PROGERROR  = 0, // Error on prog
-    LFS_EMUBD_BADBLOCK_ERASEERROR = 1, // Error on erase
-    LFS_EMUBD_BADBLOCK_READERROR  = 2, // Error on read
-    LFS_EMUBD_BADBLOCK_PROGNOOP   = 3, // Prog does nothing silently
-    LFS_EMUBD_BADBLOCK_ERASENOOP  = 4, // Erase does nothing silently
+    LFS_EMUBD_BADBLOCK_PROGERROR    = 0, // Error on prog
+    LFS_EMUBD_BADBLOCK_ERASEERROR   = 1, // Error on erase
+    LFS_EMUBD_BADBLOCK_READERROR    = 2, // Error on read
+    LFS_EMUBD_BADBLOCK_PROGNOOP     = 3, // Prog does nothing silently
+    LFS_EMUBD_BADBLOCK_ERASENOOP    = 4, // Erase does nothing silently
+    LFS_EMUBD_BADBLOCK_PROGFLIP     = 5, // Prog flips a bit
+    LFS_EMUBD_BADBLOCK_READFLIP     = 6, // Read flips a bit sometimes
 } lfs_emubd_badblock_behavior_t;
 
-// Mode determining how power-loss behaves during testing. For now this
-// only supports a noop behavior, leaving the data on-disk untouched.
+// Mode determining how power-loss behaves during testing.
 typedef enum lfs_emubd_powerloss_behavior {
-    LFS_EMUBD_POWERLOSS_NOOP     = 0, // Progs are atomic
-    LFS_EMUBD_POWERLOSS_SOMEBITS = 1, // One bit is progged
-    LFS_EMUBD_POWERLOSS_MOSTBITS = 2, // All-but-one bit is progged
-    LFS_EMUBD_POWERLOSS_OOO      = 3, // Blocks are written out-of-order
+    LFS_EMUBD_POWERLOSS_NOOP        = 0, // Progs are atomic
+    LFS_EMUBD_POWERLOSS_SOMEBITS    = 1, // One bit is progged
+    LFS_EMUBD_POWERLOSS_MOSTBITS    = 2, // All-but-one bit is progged
+    LFS_EMUBD_POWERLOSS_OOO         = 3, // Blocks are written out-of-order
+    LFS_EMUBD_POWERLOSS_METASTABLE  = 4, // Reads may flip a bit
 } lfs_emubd_powerloss_behavior_t;
 
 // Type for measuring read/program/erase operations
@@ -121,6 +121,10 @@ struct lfs_emubd_config {
 typedef struct lfs_emubd_block {
     uint32_t rc;
     lfs_emubd_wear_t wear;
+    bool metastable;
+    // sign(bad_bit)=0 => randomized on erase
+    // sign(bad_bit)=1 => fixed
+    lfs_size_t bad_bit;
 
     uint8_t data[];
 } lfs_emubd_block_t;
@@ -186,6 +190,9 @@ int lfs_emubd_sync(const struct lfs_config *cfg);
 
 /// Additional extended API for driving test features ///
 
+// Set the current prng state
+int lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed);
+
 // A checksum of a block for debugging purposes
 int lfs_emubd_cksum(const struct lfs_config *cfg,
         lfs_block_t block, uint32_t *cksum);
@@ -218,6 +225,28 @@ lfs_emubd_swear_t lfs_emubd_wear(const struct lfs_config *cfg,
 // Manually set simulated wear on a given block
 int lfs_emubd_setwear(const struct lfs_config *cfg,
         lfs_block_t block, lfs_emubd_wear_t wear);
+
+// Mark a block as bad, this is equivalent to setting wear to maximum
+int lfs_emubd_markbad(const struct lfs_config *cfg, lfs_block_t block);
+
+// Clear any simulated wear on a given block
+int lfs_emubd_markgood(const struct lfs_config *cfg, lfs_block_t block);
+
+// Get which bit failed, this changes on erase/power-loss unless manually set
+lfs_ssize_t lfs_emubd_badbit(const struct lfs_config *cfg,
+        lfs_block_t block);
+
+// Set which bit should fail in a given block
+int lfs_emubd_setbadbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit);
+
+// Randomize the bad bit on erase (the default)
+int lfs_emubd_randomizebadbit(const struct lfs_config *cfg,
+        lfs_block_t block);
+
+// Mark a block as bad and which bit should fail
+int lfs_emubd_markbadbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit);
 
 // Get the remaining power-cycles
 lfs_emubd_spowercycles_t lfs_emubd_powercycles(

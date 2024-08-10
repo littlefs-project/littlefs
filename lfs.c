@@ -12968,7 +12968,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
             if (mdir->mid == -1) {
                 // check for the magic string, all mroot should have this
                 lfsr_data_t data;
-                int err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_MAGIC,
+                err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_MAGIC,
                         &data);
                 if (err) {
                     if (err == LFS_ERR_NOENT) {
@@ -13274,7 +13274,8 @@ static int lfsr_formatinited(lfs_t *lfs) {
 }
 
 int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, LFS_M_RDWR, cfg);
+    // TODO hmmm, should lfsr_format take flags?
+    int err = lfs_init(lfs, LFS_M_RDWR | LFS_M_CKPROGS, cfg);
     if (err) {
         return err;
     }
