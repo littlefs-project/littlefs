@@ -832,7 +832,7 @@ code = '''
         if (err == LFS_ERR_CORRUPT) {
             goto corrupt;
         }
-        err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+        err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG);
         assert(!err || err == LFS_ERR_CORRUPT);
         if (err == LFS_ERR_CORRUPT) {
             goto corrupt;
@@ -868,7 +868,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
-                    err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+                    err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG);
                     if (err == LFS_ERR_CORRUPT) {
                         goto corrupt;
                     }
@@ -923,7 +923,7 @@ code = '''
     // format
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -974,7 +974,7 @@ code = '''
         // format
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
 
         {
             // create a file
@@ -1002,7 +1002,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -1056,7 +1056,7 @@ code = '''
     // format
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -1109,7 +1109,7 @@ code = '''
         // format
         lfs_t lfs;
         lfsr_format(&lfs, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
 
         {
             // create a file
@@ -1137,7 +1137,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
                 }
 
                 // yes reads can fail here

@@ -868,7 +868,7 @@ static int lfsr_bd_cksuffix(lfs_t *lfs,
 // contributes to the relevant parity/checksum, this may be
 // significantly more than the data we actually end up using
 //
-static int lfsr_bd_readck(lfs_t *lfs,
+static int lfsr_bd_readck_(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         void *buffer, lfs_size_t size,
         lfsr_ck_t ck) {
@@ -907,13 +907,33 @@ static int lfsr_bd_readck(lfs_t *lfs,
     return 0;
 }
 
+// needed in lfsr_bd_readck
+static inline bool lfsr_m_isckreads(uint32_t flags);
+
+static int lfsr_bd_readck(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        void *buffer, lfs_size_t size,
+        lfsr_ck_t ck) {
+    // are we actually checking reads?
+    if (lfsr_m_isckreads(lfs->flags)) {
+        return lfsr_bd_readck_(lfs,
+                block, off, hint,
+                buffer, size,
+                ck);
+    } else {
+        return lfsr_bd_read(lfs,
+                block, off, hint,
+                buffer, size);
+    }
+}
+
 // these could probably be a bit better deduplicated with their
 // unchecked counterparts, but we don't generally use both at the same
 // time
 //
 // we'd also need to worry about early termination in lfsr_bd_cmp/cmpck
 
-static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
+static lfs_scmp_t lfsr_bd_cmpck_(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size,
         lfsr_ck_t ck) {
@@ -972,7 +992,24 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
     return cmp;
 }
 
-static int lfsr_bd_cpyck(lfs_t *lfs,
+static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off, lfs_size_t hint,
+        const void *buffer, lfs_size_t size,
+        lfsr_ck_t ck) {
+    // are we actually checking reads?
+    if (lfsr_m_isckreads(lfs->flags)) {
+        return lfsr_bd_cmpck_(lfs,
+                block, off, hint,
+                buffer, size,
+                ck);
+    } else {
+        return lfsr_bd_cmp(lfs,
+                block, off, hint,
+                buffer, size);
+    }
+}
+
+static int lfsr_bd_cpyck_(lfs_t *lfs,
         lfs_block_t dst_block, lfs_size_t dst_off,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
         lfs_size_t size,
@@ -1042,6 +1079,29 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
     }
 
     return 0;
+}
+
+static int lfsr_bd_cpyck(lfs_t *lfs,
+        lfs_block_t dst_block, lfs_size_t dst_off,
+        lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
+        lfs_size_t size,
+        lfsr_ck_t ck,
+        uint32_t *cksum, bool align) {
+    // are we actually checking reads?
+    if (lfsr_m_isckreads(lfs->flags)) {
+        return lfsr_bd_cpyck_(lfs,
+                dst_block, dst_off,
+                src_block, src_off, hint,
+                size,
+                ck,
+                cksum, align);
+    } else {
+        return lfsr_bd_cpy(lfs,
+                dst_block, dst_off,
+                src_block, src_off, hint,
+                size,
+                cksum, align);
+    }
 }
 
 
@@ -1563,12 +1623,14 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         *cksum ^= tag_buf[0] & 0x00000080;
         // calculate checksum
         *cksum = lfs_crc32c(*cksum, tag_buf, d);
+    }
 
-    // check the parity if we're not already calculating a checksum
+    // check the parity if we're checking reads and not already
+    // calculating a checksum
     //
-    // this requires reading the data too, but with any luck the data
-    // will stick around in the cache
-    } else {
+    // this requires reading all of the data as well, but with any luck
+    // the data will stick around in the cache
+    if (lfsr_m_isckreads(lfs->flags) && !cksum) {
         // pesky parity byte
         lfs_size_t size__ = (!lfsr_tag_isalt(tag)) ? size : 0;
         if (off+d+size__ >= lfs->cfg->block_size) {
@@ -6501,6 +6563,10 @@ static inline bool lfsr_m_isrdonly(uint32_t flags) {
 
 static inline bool lfsr_m_isckprogs(uint32_t flags) {
     return flags & LFS_M_CKPROGS;
+}
+
+static inline bool lfsr_m_isckreads(uint32_t flags) {
+    return flags & LFS_M_CKREADS;
 }
 
 static inline bool lfsr_m_isflush(uint32_t flags) {
@@ -13118,6 +13184,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             LFS_M_RDWR
                 | LFS_M_RDONLY
                 | LFS_M_CKPROGS
+                | LFS_M_CKREADS
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
                 | LFS_M_MTREEONLY
@@ -13275,7 +13342,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
 
 int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
     // TODO hmmm, should lfsr_format take flags?
-    int err = lfs_init(lfs, LFS_M_RDWR | LFS_M_CKPROGS, cfg);
+    int err = lfs_init(lfs, LFS_M_RDWR | LFS_M_CKPROGS | LFS_M_CKREADS, cfg);
     if (err) {
         return err;
     }
@@ -13306,6 +13373,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     fsinfo->flags = lfs->flags & (
             LFS_I_RDONLY
                 | LFS_I_CKPROGS
+                | LFS_I_CKREADS
                 | LFS_I_FLUSH
                 | LFS_I_SYNC
                 | LFS_I_UNCOMPACTED);
