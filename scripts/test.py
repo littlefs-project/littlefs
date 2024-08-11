@@ -55,6 +55,9 @@ class TestCase:
         self.if_ = config.pop('if', [])
         if not isinstance(self.if_, list):
             self.if_ = [self.if_]
+        self.ifdef = config.pop('ifdef', [])
+        if not isinstance(self.ifdef, list):
+            self.ifdef = [self.ifdef]
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
@@ -203,6 +206,10 @@ class TestSuite:
             self.if_ = config.pop('if', [])
             if not isinstance(self.if_, list):
                 self.if_ = [self.if_]
+
+            self.ifdef = config.pop('ifdef', [])
+            if not isinstance(self.ifdef, list):
+                self.ifdef = [self.ifdef]
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
@@ -368,6 +375,12 @@ def compile(test_paths, **args):
             # note it's up to the specific generated file to declare
             # the test defines
             def write_case_functions(f, suite, case):
+                    # write any ifdef prologues
+                    if case.ifdef:
+                        for ifdef in case.ifdef:
+                            f.writeln('#ifdef %s' % ifdef)
+                        f.writeln()
+
                     # create case define functions
                     for i, permutation in enumerate(case.permutations):
                         for k, vs in sorted(permutation.items()):
@@ -424,7 +437,19 @@ def compile(test_paths, **args):
                     f.writeln('}')
                     f.writeln()
 
+                    # write any ifdef epilogues
+                    if case.ifdef:
+                        for ifdef in case.ifdef:
+                            f.writeln('#endif')
+                        f.writeln()
+
             if not args.get('source'):
+                # write any ifdef prologues
+                if suite.ifdef:
+                    for ifdef in suite.ifdef:
+                        f.writeln('#ifdef %s' % ifdef)
+                    f.writeln()
+
                 # write any suite defines
                 if suite.defines:
                     for define in sorted(suite.defines):
@@ -462,6 +487,12 @@ def compile(test_paths, **args):
                             % (case.name))
                         f.writeln()
 
+                # write any ifdef epilogues
+                if suite.ifdef:
+                    for ifdef in suite.ifdef:
+                        f.writeln('#endif')
+                    f.writeln()
+
                 # create suite struct
                 f.writeln('const struct test_suite __test__%s__suite = {'
                     % suite.name)
@@ -473,6 +504,8 @@ def compile(test_paths, **args):
                         'TEST_REENTRANT' if suite.reentrant else None,
                         'TEST_FUZZ' if suite.fuzz else None]))
                         or 0))
+                for ifdef in suite.ifdef:
+                    f.writeln(4*' '+'#ifdef %s' % ifdef)
                 # create suite defines
                 if suite.defines:
                     f.writeln(4*' '+'.defines = (const test_define_t[]){')
@@ -481,6 +514,8 @@ def compile(test_paths, **args):
                             % (k, k))
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
+                for ifdef in suite.ifdef:
+                    f.writeln(4*' '+'#endif')
                 if suite.cases:
                     f.writeln(4*' '+'.cases = (const struct test_case[]){')
                     for case in suite.cases:
@@ -494,6 +529,8 @@ def compile(test_paths, **args):
                                 'TEST_REENTRANT' if case.reentrant else None,
                                 'TEST_FUZZ' if case.fuzz else None]))
                                 or 0))
+                        for ifdef in it.chain(suite.ifdef, case.ifdef):
+                            f.writeln(12*' '+'#ifdef %s' % ifdef)
                         # create case defines
                         if case.defines:
                             f.writeln(12*' '+'.defines'
@@ -521,6 +558,8 @@ def compile(test_paths, **args):
                                 % (case.name))
                         f.writeln(12*' '+'.run = __test__%s__run,'
                             % (case.name))
+                        for ifdef in it.chain(suite.ifdef, case.ifdef):
+                            f.writeln(12*' '+'#endif')
                         f.writeln(8*' '+'},')
                     f.writeln(4*' '+'},')
                 f.writeln(4*' '+'.case_count = %d,' % len(suite.cases))
@@ -553,6 +592,13 @@ def compile(test_paths, **args):
 
                 # write any internal tests
                 for suite in suites:
+                    # any ifdef prologues
+                    if suite.ifdef:
+                        for ifdef in suite.ifdef:
+                            f.writeln('#ifdef %s' % ifdef)
+                        f.writeln()
+
+                    # any suite code
                     if suite.isin(args['source']):
                         if suite.code_lineno is not None:
                             f.writeln('#line %d "%s"'
@@ -563,9 +609,16 @@ def compile(test_paths, **args):
                                 % (f.lineno+1, args['output']))
                         f.writeln()
 
+                    # any case functions
                     for case in suite.cases:
                         if case.isin(args['source']):
                             write_case_functions(f, suite, case)
+
+                    # any ifdef epilogues
+                    if suite.ifdef:
+                        for ifdef in suite.ifdef:
+                            f.writeln('#endif')
+                        f.writeln()
 
                 # declare our test suites
                 #

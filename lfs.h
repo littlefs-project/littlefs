@@ -155,7 +155,9 @@ enum lfs_type {
 #define LFS_M_RDWR               0  // Mount the filesystem as read and write
 #define LFS_M_RDONLY             1  // Mount the filesystem as read only
 #define LFS_M_CKPROGS   0x00000010  // Check progs by reading back progged data
+#ifdef LFS_CKREADS
 #define LFS_M_CKREADS   0x00000020  // Check reads via parity bits/checksums
+#endif
 #define LFS_M_FLUSH     0x00000040  // Open all files with LFS_O_FLUSH
 #define LFS_M_SYNC      0x00000080  // Open all files with LFS_O_SYNC
 
@@ -177,7 +179,9 @@ enum lfs_type {
 // Filesystem info flags
 #define LFS_I_RDONLY    0x00000001  // Filesystem mounted read only
 #define LFS_I_CKPROGS   0x00000010  // Filesystem mounted with LFS_M_CKPROGS
+#ifdef LFS_CKREADS
 #define LFS_I_CKREADS   0x00000020  // Filesystem mounted with LFS_M_CKREADS
+#endif
 #define LFS_I_FLUSH     0x00000040  // Filesystem mounted with LFS_M_FLUSH
 #define LFS_I_SYNC      0x00000080  // Filesystem mounted with LFS_M_SYNC
 
@@ -536,6 +540,7 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
+#ifdef LFS_CKREADS
 // context for validating data
 typedef struct lfsr_ck {
     // sign(cksize)=0 => cksum check
@@ -546,6 +551,7 @@ typedef struct lfsr_ck {
         uint32_t cksum;
     } u;
 } lfsr_ck_t;
+#endif
 
 // either an on-disk or in-device data pointer
 typedef struct lfsr_data {
@@ -557,7 +563,9 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
+            #ifdef LFS_CKREADS
             lfsr_ck_t ck;
+            #endif
         } disk;
     } u;
 } lfsr_data_t;
@@ -588,6 +596,10 @@ typedef lfsr_data_t lfsr_sprout_t;
 
 typedef struct lfsr_bptr {
     lfsr_data_t data;
+    #ifndef LFS_CKREADS
+    lfs_size_t cksize;
+    uint32_t cksum;
+    #endif
 } lfsr_bptr_t;
 
 // the lfsr_bshrub_t struct represents the on-disk component of a file
@@ -726,11 +738,13 @@ typedef struct lfsr_grm {
     lfsr_smid_t mids[2];
 } lfsr_grm_t;
 
+#ifdef LFS_CKREADS
 typedef struct lfsr_tailck {
     lfs_block_t ckblock;
     // sign(ckoff) => tail parity
     lfs_size_t ckoff;
 } lfsr_tailck_t;
+#endif
 
 // The littlefs filesystem type
 typedef struct lfs {
@@ -764,7 +778,9 @@ typedef struct lfs {
         uint8_t *buffer;
     } pcache;
 
+    #ifdef LFS_CKREADS
     lfsr_tailck_t tailck;
+    #endif
 
     struct lfs_lookahead {
         lfs_block_t window;

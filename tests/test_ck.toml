@@ -2,6 +2,7 @@
 after = ['test_traversal', 'test_gc', 'test_mount']
 
 
+
 # Test filesystem-level checksum things
 
 # test we can detect at least fully clobbered blocks
@@ -804,6 +805,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
+ifdef = 'LFS_CKREADS'
 code = '''
     // test all bad bits in the mroot
     for (lfs_size_t i = 0;
@@ -915,6 +917,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
+ifdef = 'LFS_CKREADS'
 code = '''
     // first we need to figure out where the data block will actually
     // end up, fortunately our block randomization is intentionally
@@ -1048,6 +1051,7 @@ defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'
+ifdef = 'LFS_CKREADS'
 code = '''
     // first we need to figure out where the btree block will actually
     // end up, fortunately our block randomization is intentionally

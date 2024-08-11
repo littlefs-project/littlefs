@@ -812,7 +812,7 @@ void perm_count(
 
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
-    if (!test_all && case_->if_ && !case_->if_()) {
+    if (!case_->run || !(test_all || !case_->if_ || case_->if_())) {
         return;
     }
 
@@ -1808,7 +1808,7 @@ void perm_run(
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
     // filter?
-    if (!test_all && case_->if_ && !case_->if_()) {
+    if (!case_->run || !(test_all || !case_->if_ || case_->if_())) {
         printf("skipped ");
         perm_printid(suite, case_, NULL, 0);
         printf("\n");

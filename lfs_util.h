@@ -137,6 +137,14 @@ extern "C"
 #endif
 
 
+// Some ifdef conveniences
+#ifdef LFS_CKREADS
+#define LFS_IFDEF_CKREADS(a, b) a
+#else
+#define LFS_IFDEF_CKREADS(a, b) b
+#endif
+
+
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more
 // expensive basic C implementation for debugging purposes

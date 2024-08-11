@@ -18,13 +18,14 @@ defines.CKPROGS = [false, true]
 defines.CKREADS = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
+if = 'LFS_IFDEF_CKREADS(true, !CKREADS)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs,
             ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0)
-                | ((CKREADS) ? LFS_M_CKREADS : 0)
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, 0) : 0)
                 | ((FLUSH) ? LFS_M_FLUSH : 0)
                 | ((SYNC) ? LFS_M_SYNC : 0),
             CFG) => 0;
@@ -34,7 +35,7 @@ code = '''
     assert(fsinfo.flags == (
             ((RDONLY) ? LFS_I_RDONLY : 0)
                 | ((CKPROGS) ? LFS_I_CKPROGS : 0)
-                | ((CKREADS) ? LFS_I_CKREADS : 0)
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_I_CKREADS, 0) : 0)
                 | ((FLUSH) ? LFS_I_FLUSH : 0)
                 | ((SYNC) ? LFS_I_SYNC : 0)
                 | LFS_I_CANLOOKAHEAD
