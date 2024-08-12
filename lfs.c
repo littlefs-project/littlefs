@@ -11846,7 +11846,8 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        if (!lfsr_f_isunflush(file->o.o.flags)
+        if ((!lfsr_f_isunflush(file->o.o.flags)
+                    || file->buffer.size == 0)
                 && size >= lfsr_file_buffersize(lfs, file)) {
             err = lfsr_file_flush_(lfs, file,
                     pos, buffer_, size);
@@ -11864,6 +11865,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     lfsr_file_buffersize(lfs, file));
             file->buffer.size = lfsr_file_buffersize(lfs, file);
 
+            file->o.o.flags &= ~LFS_F_UNFLUSH;
             written += size;
             pos += size;
             buffer_ += size;
@@ -11881,14 +11883,16 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // 2. Bypassing the buffer above means we only write to the
         //    buffer once, and flush at most twice.
         //
-        if (!lfsr_f_isunflush(file->o.o.flags)
+        if ((!lfsr_f_isunflush(file->o.o.flags)
+                    || file->buffer.size == 0)
                 || (pos >= file->buffer.pos
                     && pos <= file->buffer.pos + file->buffer.size
                     && pos
                         < file->buffer.pos
                             + lfsr_file_buffersize(lfs, file))) {
             // unused buffer? we can move it where we need it
-            if (!lfsr_f_isunflush(file->o.o.flags)) {
+            if ((!lfsr_f_isunflush(file->o.o.flags)
+                    || file->buffer.size == 0)) {
                 file->buffer.pos = pos;
                 file->buffer.size = 0;
             }
