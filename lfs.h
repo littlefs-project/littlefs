@@ -198,7 +198,8 @@ enum lfs_type {
                         0x08000000  // Filesystem may have uncompacted metadata
 
 // internally used flags, don't use these
-#define LFS_I_ORPHANS   0x01000000  // Filesystem may have untracked orphans
+#define LFS_I_HASORPHANS \
+                        0x01000000  // Filesystem may have untracked orphans
 
 
 // Block types

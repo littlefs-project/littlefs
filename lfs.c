@@ -6701,7 +6701,7 @@ static inline bool lfsr_m_issync(uint32_t flags) {
 
 // internal fs flags
 static inline bool lfsr_i_hasorphans(uint32_t flags) {
-    return flags & LFS_I_ORPHANS;
+    return flags & LFS_I_HASORPHANS;
 }
 
 static inline bool lfsr_i_isuncompacted(uint32_t flags) {
@@ -9529,7 +9529,7 @@ eot:;
     // was mkconsistent successful?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_ORPHANS;
+        lfs->flags &= ~LFS_I_HASORPHANS;
     }
 
     // was compaction successful? note we may need multiple passes if
@@ -10817,7 +10817,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
         // fallback to just marking the filesystem as orphaned
         } else {
-            lfs->flags |= LFS_I_ORPHANS;
+            lfs->flags |= LFS_I_HASORPHANS;
         }
     }
 
@@ -13275,7 +13275,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                                 "%"PRId32".%"PRId32,
                                 lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
                                 rid);
-                        lfs->flags |= LFS_I_ORPHANS;
+                        lfs->flags |= LFS_I_HASORPHANS;
 
                     // found an unknown file type?
                     } else if (lfsr_tag_isunknown(tag)) {
@@ -13830,7 +13830,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
     // do we have any pending work?
     uint32_t pending = flags & (
             ((lfs->flags & (
-                    LFS_I_ORPHANS
+                    LFS_I_HASORPHANS
                         | LFS_I_UNCOMPACTED)) >> 16)
                 | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                 | LFS_GC_CKMETA
@@ -13895,7 +13895,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
             // clear any pending flags we make progress on
             pending &= (
                     ((lfs->flags & (
-                            LFS_I_ORPHANS
+                            LFS_I_HASORPHANS
                                 | LFS_I_UNCOMPACTED)) >> 16)
                         | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                         // only consider our filesystem checked if we
