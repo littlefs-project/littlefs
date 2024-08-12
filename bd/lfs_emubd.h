@@ -193,13 +193,6 @@ int lfs_emubd_sync(const struct lfs_config *cfg);
 // Set the current prng state
 int lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed);
 
-// A checksum of a block for debugging purposes
-int lfs_emubd_cksum(const struct lfs_config *cfg,
-        lfs_block_t block, uint32_t *cksum);
-
-// A checksum of the entire block device for debugging purposes
-int lfs_emubd_bdcksum(const struct lfs_config *cfg, uint32_t *cksum);
-
 // Get total amount of bytes read
 lfs_emubd_sio_t lfs_emubd_readed(const struct lfs_config *cfg);
 

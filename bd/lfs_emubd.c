@@ -999,60 +999,6 @@ int lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed) {
     return 0;
 }
 
-static int lfs_emubd_rawcksum(const struct lfs_config *cfg,
-        lfs_block_t block, uint32_t *cksum) {
-    lfs_emubd_t *bd = cfg->context;
-
-    // check if block is valid
-    LFS_ASSERT(block < cfg->block_count);
-
-    // checksum the block
-    uint32_t cksum_ = 0;
-    const lfs_emubd_block_t *b = bd->blocks[block];
-    if (b) {
-        cksum_ = lfs_crc32c(cksum_, b->data, cfg->block_size);
-    } else {
-        uint8_t erase_value = (bd->cfg->erase_value != -1)
-                ? bd->cfg->erase_value
-                : 0;
-        for (lfs_size_t i = 0; i < cfg->block_size; i++) {
-            cksum_ = lfs_crc32c(cksum_, &erase_value, 1);
-        }
-    }
-    *cksum = cksum_;
-
-    return 0;
-}
-
-int lfs_emubd_cksum(const struct lfs_config *cfg,
-        lfs_block_t block, uint32_t *cksum) {
-    LFS_EMUBD_TRACE("lfs_emubd_cksum(%p, %"PRIu32", %p)",
-            (void*)cfg, block, cksum);
-    int err = lfs_emubd_rawcksum(cfg, block, cksum);
-    LFS_EMUBD_TRACE("lfs_emubd_cksum -> %d", err);
-    return err;
-}
-
-int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *cksum) {
-    LFS_EMUBD_TRACE("lfs_emubd_bdcksum(%p, %p)", (void*)cfg, cksum);
-
-    uint32_t cksum_ = 0;
-    for (lfs_block_t i = 0; i < cfg->block_count; i++) {
-        uint32_t i_cksum;
-        int err = lfs_emubd_rawcksum(cfg, i, &i_cksum);
-        if (err) {
-            LFS_EMUBD_TRACE("lfs_emubd_bdcksum -> %d", err);
-            return err;
-        }
-
-        cksum_ = lfs_crc32c(cksum_, &i_cksum, sizeof(uint32_t));
-    }
-    *cksum = cksum_;
-
-    LFS_EMUBD_TRACE("lfs_emubd_bdcksum -> %d", 0);
-    return 0;
-}
-
 lfs_emubd_sio_t lfs_emubd_readed(const struct lfs_config *cfg) {
     LFS_EMUBD_TRACE("lfs_emubd_readed(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
