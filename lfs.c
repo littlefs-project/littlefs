@@ -616,8 +616,6 @@ static int lfsr_bd_cpy(lfs_t *lfs,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
         lfs_size_t size,
         uint32_t *cksum, bool align) {
-    // we don't really use hint here because we go through our pcache
-    (void)hint;
     // must be in-bounds
     LFS_ASSERT(dst_block < lfs->block_count);
     LFS_ASSERT(dst_off+size <= lfs->cfg->block_size);
@@ -626,6 +624,7 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 
     lfs_size_t dst_off_ = dst_off;
     lfs_size_t src_off_ = src_off;
+    lfs_size_t hint_ = lfs_max(hint, size); // make sure hint >= size
     lfs_size_t size_ = size;
     while (size_ > 0) {
         // prefer the pcache here to avoid rcache conflicts with prog
@@ -640,7 +639,7 @@ static int lfsr_bd_cpy(lfs_t *lfs,
             return err;
         }
 
-        err = lfsr_bd_read(lfs, src_block, src_off_, 0,
+        err = lfsr_bd_read(lfs, src_block, src_off_, hint_,
                 buffer__, size__);
         if (err) {
             return err;
@@ -653,6 +652,7 @@ static int lfsr_bd_cpy(lfs_t *lfs,
 
         dst_off_ += size__;
         src_off_ += size__;
+        hint_ -= size__;
         size_ -= size__;
     }
 
@@ -1068,8 +1068,6 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
         lfs_size_t size,
         lfsr_ck_t ck,
         uint32_t *cksum, bool align) {
-    // we don't really use hint here because we go through our pcache
-    (void)hint;
     // must be in-bounds
     LFS_ASSERT(dst_block < lfs->block_count);
     LFS_ASSERT(dst_off+size <= lfs->cfg->block_size);
@@ -1087,11 +1085,10 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
         return hint_;
     }
 
-    // TODO wait, why aren't we using hint here?
-
     // copy the data while simultaneously updating our checksum
     lfs_size_t dst_off_ = dst_off;
     lfs_size_t src_off_ = src_off;
+    lfs_size_t hint__ = hint_;
     lfs_size_t size_ = size;
     while (size_ > 0) {
         // prefer the pcache here to avoid rcache conflicts with prog
@@ -1106,7 +1103,7 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
             return err;
         }
 
-        err = lfsr_bd_read(lfs, src_block, src_off_, 0,
+        err = lfsr_bd_read(lfs, src_block, src_off_, hint__,
                 buffer__, size__);
         if (err) {
             return err;
@@ -1121,6 +1118,7 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
 
         dst_off_ += size__;
         src_off_ += size__;
+        hint__ -= size__;
         size_ -= size__;
     }
 
