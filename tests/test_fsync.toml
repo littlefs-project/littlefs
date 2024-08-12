@@ -6,7 +6,7 @@ after = 'test_fwrite'
 [cases.test_fsync_sync_wrr]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -107,7 +107,7 @@ code = '''
 [cases.test_fsync_sync_wwrr]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -227,7 +227,7 @@ code = '''
 [cases.test_fsync_sync_wwrr_noop]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -361,7 +361,7 @@ code = '''
 [cases.test_fsync_sync_wwrr_append]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -497,7 +497,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -548,7 +548,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -613,7 +613,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -710,7 +710,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -817,7 +817,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -909,7 +909,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1006,7 +1006,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1115,7 +1115,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1233,7 +1233,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1341,7 +1341,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1460,7 +1460,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1601,7 +1601,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
@@ -1773,7 +1773,7 @@ code = '''
 [cases.test_fsync_desync_wdrr]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -1860,7 +1860,7 @@ code = '''
 [cases.test_fsync_desync_wrrd]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -1940,7 +1940,7 @@ code = '''
 [cases.test_fsync_desync_wdwdrr]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -2061,7 +2061,7 @@ code = '''
 [cases.test_fsync_desync_wdwdrr_noop]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -2163,7 +2163,7 @@ code = '''
 [cases.test_fsync_desync_wrrd_noop]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -2265,7 +2265,7 @@ code = '''
 [cases.test_fsync_desync_wdwdrr_append]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // a - writer
@@ -2411,7 +2411,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2507,7 +2507,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2613,7 +2613,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2701,7 +2701,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2799,7 +2799,7 @@ defines.SIZE = [
 defines.CHUNK = '(SIZE+16-1) / 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2910,7 +2910,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -3028,7 +3028,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3178,7 +3178,7 @@ defines.SEED = 'range(20)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;

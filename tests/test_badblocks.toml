@@ -154,7 +154,10 @@ code = '''
 
         // test creating directories
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -267,7 +270,10 @@ code = '''
 
         // test fuzz with dirs
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -455,7 +461,10 @@ code = '''
 
         // test creating files
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -562,7 +571,10 @@ code = '''
 
         // test fuzz with files
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -814,7 +826,10 @@ code = '''
 
         // test with complex file writes
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -970,7 +985,10 @@ code = '''
 
         // test with orphans, zombies, etc
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -1336,7 +1354,10 @@ code = '''
 
         // test with orphans, zombies, dirs, etc
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -1890,7 +1911,10 @@ code = '''
 
     // test creating directories
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -2004,7 +2028,10 @@ code = '''
 
     // test fuzz with dirs
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -2193,7 +2220,10 @@ code = '''
 
     // test creating files
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -2301,7 +2331,10 @@ code = '''
 
     // test fuzz with files
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -2554,7 +2587,10 @@ code = '''
 
     // test with complex file writes
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -2711,7 +2747,10 @@ code = '''
 
     // test with orphans, zombies, etc
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -3078,7 +3117,10 @@ code = '''
 
     // test with orphans, zombies, dirs, etc
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -3625,7 +3667,10 @@ code = '''
 
     // test creating directories
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -3739,7 +3784,10 @@ code = '''
 
     // test fuzz with dirs
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -3928,7 +3976,10 @@ code = '''
 
     // test creating files
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -4036,7 +4087,10 @@ code = '''
 
     // test fuzz with files
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -4289,7 +4343,10 @@ code = '''
 
     // test with complex file writes
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -4444,7 +4501,10 @@ code = '''
 
     // test with orphans, zombies, etc
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -4811,7 +4871,10 @@ code = '''
 
     // test with orphans, zombies, dirs, etc
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+            CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -5235,7 +5298,7 @@ code = '''
     }
 
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => LFS_ERR_CORRUPT;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => LFS_ERR_CORRUPT;
 '''
 
 # test blocks 0 or 1 going bad, this should just error
@@ -5252,7 +5315,10 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs,
+            LFS_M_RDWR
+                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+            CFG) => 0;
 
     if (BADBLOCKS & 0x1) {
         lfs_emubd_markbad(CFG, 0) => 0;

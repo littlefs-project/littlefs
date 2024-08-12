@@ -26,7 +26,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // start allocating
@@ -70,7 +70,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // start allocating
@@ -127,7 +127,7 @@ defines.REMOUNT = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many directories
@@ -292,7 +292,7 @@ in = 'lfs.c'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -465,7 +465,7 @@ in = 'lfs.c'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -644,7 +644,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // create directories until we run out of space
@@ -726,7 +726,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // create files until we run out of space

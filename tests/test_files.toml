@@ -6,7 +6,7 @@ after = ['test_dirs', 'test_btree']
 [cases.test_files_create]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -63,7 +63,7 @@ code = '''
 [cases.test_files_hello]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -127,7 +127,7 @@ code = '''
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -206,7 +206,7 @@ code = '''
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -281,7 +281,7 @@ code = '''
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -365,7 +365,7 @@ code = '''
 [cases.test_files_dir_not_file]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a directory
@@ -451,7 +451,7 @@ code = '''
 [cases.test_files_root_not_file]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try reading our root as a file
@@ -530,7 +530,7 @@ code = '''
 [cases.test_files_noent_not_file]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try reading our invalid path as a file
@@ -625,7 +625,7 @@ defines.SIZE = [
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -710,7 +710,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -796,7 +796,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -933,7 +933,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -1012,7 +1012,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -1159,7 +1159,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -1315,7 +1315,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a number of directories to distance our files
@@ -1416,7 +1416,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a number of directories to distance our files
@@ -1526,7 +1526,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -1611,7 +1611,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -1707,7 +1707,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -1803,7 +1803,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -1888,7 +1888,7 @@ defines.REMOUNT = [false, true]
 defines.FILE_BUFFER_SIZE = 64
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -1983,7 +1983,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -2120,7 +2120,7 @@ defines.SIZE = [
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files while renaming
@@ -2195,7 +2195,7 @@ defines.SIZE = [
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files while renaming
@@ -2276,7 +2276,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -2473,7 +2473,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -2698,7 +2698,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 

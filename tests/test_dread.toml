@@ -12,7 +12,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -66,7 +66,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -143,7 +143,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -226,7 +226,7 @@ defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -331,7 +331,7 @@ defines.SEEK = [0, 1, 2, 3, 4]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -456,7 +456,7 @@ defines.SEEK = [0, 1, 2, 3, 4]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -591,7 +591,7 @@ defines.SEEK = [0, 1, 2, 3, 4]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -728,7 +728,7 @@ defines.SEEK = [0, 1, 2]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -829,7 +829,7 @@ defines.SEEK = [0, 1, 2]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -937,7 +937,7 @@ defines.SEEK = [0, 1, 2]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -1058,7 +1058,7 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -1169,7 +1169,7 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -1285,7 +1285,7 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     if (PARENT) {
@@ -1405,7 +1405,7 @@ defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
 defines.SEEK = [0, 1, 2]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -1493,7 +1493,7 @@ defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
 defines.SEEK = [0, 1, 2]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -1608,7 +1608,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -1743,7 +1743,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 

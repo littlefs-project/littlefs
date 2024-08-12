@@ -82,7 +82,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     // confirm the previous mount works
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -109,7 +109,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     // write COUNT dirs
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -169,7 +169,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     // write COUNT files
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -259,7 +259,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     // write COUNT files+dirs
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -376,7 +376,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     // write COUNT/2 dirs
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -443,7 +443,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     // write half COUNT files
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -565,7 +565,7 @@ code = '''
     assert(sizeof(struct lfsp_config) == sizeof(struct lfs_config));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
-    lfsp_format(&lfsp, &cfgp) => 0;
+    lfsr_format(&lfsp, LFS_F_RDWR, &cfgp) => 0;
 
     //////
 
@@ -715,7 +715,7 @@ if = [
 code = '''
     // create the new version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // confirm the new mount works
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -743,7 +743,7 @@ if = [
 code = '''
     // create the new version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // write COUNT dirs
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -803,7 +803,7 @@ if = [
 code = '''
     // create the new version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // write COUNT files
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -893,7 +893,7 @@ if = [
 code = '''
     // create the new version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // write COUNT files+dirs
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -1010,7 +1010,7 @@ if = [
 code = '''
     // create the new version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // write COUNT/2 dirs
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -1077,7 +1077,7 @@ if = [
 code = '''
     // create the previous version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // write half COUNT files
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -1199,7 +1199,7 @@ if = [
 code = '''
     // create the previous version
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // write half COUNT files
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;

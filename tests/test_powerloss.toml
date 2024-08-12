@@ -36,7 +36,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
@@ -146,7 +146,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
@@ -249,7 +249,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {
@@ -481,7 +481,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
     if (MKCONSISTENT) {

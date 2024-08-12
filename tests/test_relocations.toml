@@ -17,7 +17,7 @@ defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // make this many directories
@@ -99,7 +99,7 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -257,7 +257,7 @@ defines.SIZE = [
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -333,7 +333,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -546,7 +546,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -886,7 +886,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -1318,7 +1318,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -1539,7 +1539,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 

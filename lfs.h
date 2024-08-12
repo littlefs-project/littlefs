@@ -119,7 +119,7 @@ enum lfs_type {
     LFS_TYPE_REG        = 1,
     LFS_TYPE_DIR        = 2,
 
-    // internally used types
+    // internally used types, don't use these
     LFS_TYPE_BOOKMARK   = 4,
     LFS_TYPE_ORPHAN     = 5,
     LFS_TYPE_TRAVERSAL  = 9,
@@ -139,17 +139,24 @@ enum lfs_type {
 #define LFS_O_CKMETA    0x00001000  // Check metadata checksums
 #define LFS_O_CKDATA    0x00002000  // Check metadata + data checksums
 
-// internally used flags
-#define LFS_F_TYPE      0xff000000  // The file's type
-#define LFS_F_UNFLUSH   0x00100000  // File's data does not match disk
-#define LFS_F_UNSYNC    0x00200000  // File's metadata does not match disk
-#define LFS_F_ORPHAN    0x00400000  // File does not exist
-#define LFS_F_ZOMBIE    0x00800000  // File has been removed
+// internally used flags, don't use these
+#define LFS_O_TYPE      0xff000000  // The file's type
+#define LFS_O_UNFLUSH   0x00100000  // File's data does not match disk
+#define LFS_O_UNSYNC    0x00200000  // File's metadata does not match disk
+#define LFS_O_ORPHAN    0x00400000  // File does not exist
+#define LFS_O_ZOMBIE    0x00800000  // File has been removed
 
 // File seek flags
 #define LFS_SEEK_SET 0  // Seek relative to an absolute position
 #define LFS_SEEK_CUR 1  // Seek relative to the current file position
 #define LFS_SEEK_END 2  // Seek relative to the end of the file
+
+// Filesystem format flags
+#define LFS_F_RDWR               0  // Format the filesystem as read and write
+#define LFS_F_CKPROGS   0x00000010  // Check progs by reading back progged data
+#ifdef LFS_CKREADS
+#define LFS_F_CKREADS   0x00000020  // Check reads via parity bits/checksums
+#endif
 
 // Filesystem mount flags
 #define LFS_M_RDWR               0  // Mount the filesystem as read and write
@@ -161,20 +168,13 @@ enum lfs_type {
 #define LFS_M_FLUSH     0x00000040  // Open all files with LFS_O_FLUSH
 #define LFS_M_SYNC      0x00000080  // Open all files with LFS_O_SYNC
 
-#define LFS_M_MTREEONLY \
-                        0x00010000  // Only traverse the mtree
+#define LFS_M_MTREEONLY 0x00010000  // Only traverse the mtree
 #define LFS_M_MKCONSISTENT \
                         0x00000100  // Make the filesystem consistent
-#define LFS_M_LOOKAHEAD \
-                        0x00000200  // Populate lookahead buffer
+#define LFS_M_LOOKAHEAD 0x00000200  // Populate lookahead buffer
 #define LFS_M_COMPACT   0x00000800  // Compact metadata logs
 #define LFS_M_CKMETA    0x00001000  // Check metadata checksums
 #define LFS_M_CKDATA    0x00002000  // Check metadata + data checksums
-
-// internally used flags
-#define LFS_F_ORPHANS   0x01000000  // Filesystem may have untracked orphans
-#define LFS_F_UNCOMPACTED \
-                        0x08000000  // Filesystem may have uncompacted metadata
 
 // Filesystem info flags
 #define LFS_I_RDONLY    0x00000001  // Filesystem mounted read only
@@ -192,6 +192,10 @@ enum lfs_type {
 #define LFS_I_UNCOMPACTED \
                         0x08000000  // Filesystem may have uncompacted metadata
 
+// internally used flags, don't use these
+#define LFS_I_ORPHANS   0x01000000  // Filesystem may have untracked orphans
+
+
 // Block types
 enum lfs_btype {
     LFS_BTYPE_MDIR      = 1,
@@ -200,21 +204,19 @@ enum lfs_btype {
 };
 
 // Traversal flags
-#define LFS_T_MTREEONLY \
-                        0x00010000  // Only traverse the mtree
+#define LFS_T_MTREEONLY 0x00010000  // Only traverse the mtree
 #define LFS_T_MKCONSISTENT \
                         0x00000100  // Make the filesystem consistent
-#define LFS_T_LOOKAHEAD \
-                        0x00000200  // Populate lookahead buffer
+#define LFS_T_LOOKAHEAD 0x00000200  // Populate lookahead buffer
 #define LFS_T_COMPACT   0x00000800  // Compact metadata logs
 #define LFS_T_CKMETA    0x00001000  // Check metadata checksums
 #define LFS_T_CKDATA    0x00002000  // Check metadata + data checksums
 
-// internally used flags
-#define LFS_F_TSTATE    0x0000000f  // The current traversal state
-#define LFS_F_BTYPE     0x000000f0  // The current traversal btype
-#define LFS_F_DIRTY     0x00040000  // Filesystem modified during traversal
-#define LFS_F_MUTATED   0x00080000  // Filesystem modified by traversal
+// internally used flags, don't use these
+#define LFS_T_TSTATE    0x0000000f  // The current traversal state
+#define LFS_T_BTYPE     0x000000f0  // The current traversal btype
+#define LFS_T_DIRTY     0x00040000  // Filesystem modified during traversal
+#define LFS_T_MUTATED   0x00080000  // Filesystem modified by traversal
 
 // GC flags
 #define LFS_GC_MTREEONLY \
@@ -810,7 +812,8 @@ typedef struct lfs {
 //
 // Returns a negative error code on failure.
 //int lfs_format(lfs_t *lfs, const struct lfs_config *config);
-int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg);
+int lfsr_format(lfs_t *lfs, uint32_t flags,
+        const struct lfs_config *cfg);
 #endif
 
 // Mounts a littlefs

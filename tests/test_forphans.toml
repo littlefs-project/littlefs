@@ -17,7 +17,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -230,7 +230,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -304,7 +304,7 @@ code = '''
     lfs_t lfs;
     int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
     if (err) {
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     }
 
@@ -392,7 +392,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -599,7 +599,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -800,7 +800,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a desync file
@@ -1133,7 +1133,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a desync file
@@ -1261,7 +1261,7 @@ defines.SYNC = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a desync file
@@ -1553,7 +1553,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create N orphans
@@ -1766,7 +1766,7 @@ defines.REMOUNT = [0, 1, 2]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
@@ -1865,7 +1865,7 @@ defines.REMOUNT = [0, 1, 2]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
@@ -1953,7 +1953,7 @@ defines.REMOUNT = [0, 1, 2]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
@@ -2037,7 +2037,7 @@ defines.REMOUNT = [0, 1, 2]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -2190,7 +2190,7 @@ defines.REMOUNT = [0, 1, 2]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create neighboring orphaned files
@@ -2276,7 +2276,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2409,7 +2409,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2542,7 +2542,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2773,7 +2773,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -3004,7 +3004,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -3270,7 +3270,7 @@ defines.CHUNK = 'LFS_MIN(64, SIZE)'
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -3537,7 +3537,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
@@ -3649,7 +3649,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
@@ -3749,7 +3749,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
@@ -3845,7 +3845,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -4009,7 +4009,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
@@ -4097,7 +4097,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file, not a zombie yet
@@ -4185,7 +4185,7 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -4340,7 +4340,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a zombie
@@ -4448,7 +4448,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -4630,7 +4630,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4701,7 +4701,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -4771,7 +4771,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4835,7 +4835,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -4921,7 +4921,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4983,7 +4983,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5072,7 +5072,7 @@ defines.DISTANCE = [0, 1, 100]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -5315,7 +5315,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -5617,7 +5617,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -5968,7 +5968,7 @@ defines.SYNC = [false, true]
 defines.MKCONSISTENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -6312,7 +6312,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -6479,7 +6479,7 @@ defines.MKCONSISTENT = [false, true]
 if = 'REMOUNT <= CLOSE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create an interesting directory structure
@@ -6671,7 +6671,7 @@ defines.ZOMBIE = [false, true]
 if = '(SIZE*N*(1+DESYNC+ZOMBIE))/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // we need a file handle for each file + desync + zombie
@@ -7018,7 +7018,7 @@ defines.ZOMBIE = [false, true]
 if = '(SIZE*N*(1+DESYNC+ZOMBIE))/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // we need a file handle for each file + desync + zombie
@@ -7366,7 +7366,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -7705,7 +7705,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against

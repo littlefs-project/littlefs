@@ -9,7 +9,7 @@ defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 [cases.test_mtree_mroot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
@@ -20,7 +20,7 @@ defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -62,7 +62,7 @@ defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -107,7 +107,7 @@ defines.N = [5, 5000]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -153,7 +153,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -228,7 +228,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -313,7 +313,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -438,7 +438,7 @@ defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -520,7 +520,7 @@ fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -624,7 +624,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -710,7 +710,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -798,7 +798,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -869,7 +869,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -977,7 +977,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1087,7 +1087,7 @@ fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -1219,7 +1219,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1333,7 +1333,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1459,7 +1459,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1585,7 +1585,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1660,7 +1660,7 @@ defines.PROG_SIZE = 'BLOCK_SIZE'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1782,7 +1782,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -1881,7 +1881,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -2012,7 +2012,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -2156,7 +2156,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -2255,7 +2255,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2340,7 +2340,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2437,7 +2437,7 @@ fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2593,7 +2593,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2652,7 +2652,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2702,7 +2702,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2754,7 +2754,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2827,7 +2827,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2912,7 +2912,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -2970,7 +2970,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -3059,7 +3059,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -3146,7 +3146,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -3248,7 +3248,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -3346,7 +3346,7 @@ defines.CKMETA = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -3448,7 +3448,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -3580,7 +3580,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -3722,7 +3722,7 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -3893,7 +3893,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -4008,7 +4008,7 @@ defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -4153,7 +4153,7 @@ fuzz = 'SEED'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -4319,7 +4319,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
@@ -4374,7 +4374,7 @@ code = '''
 [cases.test_mtree_magic]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // check our magic string
     //
@@ -4396,7 +4396,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;
@@ -4453,7 +4453,7 @@ defines.PROG_SIZE = 'BLOCK_SIZE'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
     lfsr_data_t data;

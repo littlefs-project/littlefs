@@ -29,7 +29,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -148,7 +148,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -209,7 +209,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -324,7 +324,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -441,7 +441,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     // mount with maximum block count
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -584,7 +584,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     // mount with maximum block count
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -815,7 +815,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     // mount with maximum block count
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -964,7 +964,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     // mount with maximum block count
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -1258,7 +1258,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     // mount with maximum block count
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -1682,7 +1682,7 @@ code = '''
     struct lfs_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs_t lfs;
-    lfsr_format(&lfs, &cfg) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
     // mount with maximum block count
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -2214,7 +2214,7 @@ code = '''
         // start with a small number of blocks
         struct lfs_config cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
         // mount with maximum block count
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
@@ -2527,7 +2527,7 @@ code = '''
         // start with a small number of blocks
         struct lfs_config cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
         // mount with maximum block count
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 

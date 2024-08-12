@@ -5,7 +5,7 @@ after = 'test_dirs'
 [cases.test_paths_normal]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "tea") => 0;
     lfsr_mkdir(&lfs, "tea/green") => 0;
@@ -30,7 +30,7 @@ code = '''
 [cases.test_paths_redundant_slashes]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "tea") => 0;
     lfsr_mkdir(&lfs, "tea/green") => 0;
@@ -57,7 +57,7 @@ code = '''
 [cases.test_paths_dot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "tea") => 0;
     lfsr_mkdir(&lfs, "tea/green") => 0;
@@ -86,7 +86,7 @@ code = '''
 [cases.test_paths_dot_dot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "tea") => 0;
     lfsr_mkdir(&lfs, "tea/green") => 0;
@@ -119,7 +119,7 @@ code = '''
 [cases.test_paths_trailing_dot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "tea") => 0;
     lfsr_mkdir(&lfs, "tea/green") => 0;
@@ -144,7 +144,7 @@ code = '''
 [cases.test_paths_leading_dot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, ".milk") => 0;
     struct lfs_info info;
@@ -159,7 +159,7 @@ code = '''
 [cases.test_paths_root_dot_dot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "tea") => 0;
     lfsr_mkdir(&lfs, "tea/green") => 0;
@@ -186,7 +186,7 @@ code = '''
 [cases.test_paths_invalid]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG);
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     struct lfs_info info;
     lfsr_stat(&lfs, "milk", &info) => LFS_ERR_NOENT;
@@ -211,7 +211,7 @@ code = '''
 [cases.test_paths_root]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     struct lfs_info info;
     lfsr_stat(&lfs, "/", &info) => 0;
@@ -232,7 +232,7 @@ code = '''
 [cases.test_paths_root_reprs]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     struct lfs_info info;
     lfsr_stat(&lfs, "/", &info) => 0;
@@ -266,7 +266,7 @@ code = '''
 [cases.test_paths_max]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "coffee") => 0;
     lfsr_mkdir(&lfs, "coffee/drip") => 0;
@@ -294,7 +294,7 @@ code = '''
 [cases.test_paths_really_big]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mkdir(&lfs, "coffee") => 0;
     lfsr_mkdir(&lfs, "coffee/drip") => 0;

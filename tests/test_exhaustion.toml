@@ -55,7 +55,10 @@ code = '''
 
         // run the test
         lfs_t lfs;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -267,7 +270,10 @@ code = '''
 
         // run the test
         lfs_t lfs;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -551,7 +557,10 @@ code = '''
 
         // run the test
         lfs_t lfs;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -725,7 +734,10 @@ code = '''
 
         // run the test
         lfs_t lfs;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),
@@ -1141,7 +1153,10 @@ code = '''
 
         // run the test
         lfs_t lfs;
-        lfsr_format(&lfs, &cfg) => 0;
+        lfsr_format(&lfs,
+                LFS_F_RDWR
+                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
                     | ((CKPROGS) ? LFS_M_CKPROGS : 0),

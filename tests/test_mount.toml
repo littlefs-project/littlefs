@@ -6,7 +6,7 @@ after = ['test_mtree', 'test_traversal']
 [cases.test_mount_simple]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
@@ -21,7 +21,7 @@ defines.SYNC = [false, true]
 if = 'LFS_IFDEF_CKREADS(true, !CKREADS)'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0)
@@ -44,6 +44,25 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# test that various format flags don't, uh, assert or anything
+# 
+# these end up passed to mount internally
+[cases.test_mount_format_flags]
+defines.CKPROGS = [false, true]
+defines.CKREADS = [false, true]
+if = 'LFS_IFDEF_CKREADS(true, !CKREADS)'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs,
+            LFS_F_RDWR
+                | ((CKPROGS) ? LFS_F_CKPROGS : 0)
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0) : 0),
+            CFG) => 0;
+
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 # test that on-mount traversals do what they say they do
 
@@ -52,7 +71,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // by default we need a lookahead scan
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -91,7 +110,7 @@ defines.SIZE = [
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -161,7 +180,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -269,7 +288,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -358,7 +377,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -441,7 +460,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // delete the magic string
     //
@@ -465,7 +484,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // tweak the magic string
     //
@@ -489,7 +508,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // bump the major version
     //
@@ -515,7 +534,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // bump the minor version
     //
@@ -541,7 +560,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set the nonstandard rcompat flag, this will always be incompatible
     // with standard littlefs
@@ -568,7 +587,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set the nonstandard rcompat flag, this will always be incompatible
     // with standard littlefs
@@ -598,7 +617,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set the nonstandard ocompat flag, this will always be incompatible
     // with standard littlefs
@@ -627,7 +646,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set a really far rcompat flag
     //
@@ -651,7 +670,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set a really far wcompat flag
     //
@@ -678,7 +697,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set a really far ocompat flag
     //
@@ -706,7 +725,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set an incompatible block size
     //
@@ -733,7 +752,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set an incompatible block count
     //
@@ -760,7 +779,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set an incompatible block size
     //
@@ -784,7 +803,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // set an incompatible file limit
     //
@@ -813,7 +832,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // create an unknown config
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
@@ -834,7 +853,7 @@ in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
     // create some files
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;

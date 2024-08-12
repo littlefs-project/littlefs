@@ -16,7 +16,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
@@ -49,7 +49,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
@@ -91,7 +91,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
@@ -132,7 +132,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many directories
@@ -242,7 +242,7 @@ defines.CKDATA = [false, true]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -357,7 +357,7 @@ defines.CKDATA = [false, true]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -483,7 +483,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many directories
@@ -602,7 +602,7 @@ defines.CKDATA = [false, true]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -726,7 +726,7 @@ defines.CKDATA = [false, true]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -863,7 +863,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many directories
@@ -948,7 +948,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
@@ -1044,7 +1044,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
@@ -1137,7 +1137,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many directories
@@ -1220,7 +1220,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
@@ -1314,7 +1314,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
@@ -1405,7 +1405,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many directories
@@ -1488,7 +1488,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
@@ -1582,7 +1582,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs_t lfs;
-        lfsr_format(&lfs, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
         lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
         // create this many files
@@ -1673,7 +1673,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // check flags before
@@ -1718,7 +1718,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
@@ -1778,7 +1778,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
@@ -1847,7 +1847,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // try traversing
@@ -1898,7 +1898,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // make a file
@@ -1955,7 +1955,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // make a file
@@ -2020,7 +2020,7 @@ defines.SIZE = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2096,7 +2096,7 @@ defines.SIZE = [
 defines.SYNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2179,7 +2179,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2265,7 +2265,7 @@ defines.INLINE_SIZE = 0
 defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2364,7 +2364,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2456,7 +2456,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_BUFFER_SIZE/2'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2541,7 +2541,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.INLINE_SIZE = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2639,7 +2639,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2732,7 +2732,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2822,7 +2822,7 @@ defines.INLINE_SIZE = 0
 defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2925,7 +2925,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3021,7 +3021,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3104,7 +3104,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3205,7 +3205,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3301,7 +3301,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3403,7 +3403,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3523,7 +3523,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3640,7 +3640,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3737,7 +3737,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3833,7 +3833,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -3944,7 +3944,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4052,7 +4052,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4225,7 +4225,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4405,7 +4405,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4579,7 +4579,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4750,7 +4750,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -4930,7 +4930,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -5107,7 +5107,7 @@ defines.SIZE = '2*BLOCK_SIZE'
 defines.BLOCK_RECYCLES = 0
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -5298,7 +5298,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -5403,7 +5403,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -5536,7 +5536,7 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -5641,7 +5641,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -5793,7 +5793,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.COMPACTSET = 'range(0x7)'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6010,7 +6010,7 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6240,7 +6240,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6327,7 +6327,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -6377,7 +6377,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6466,7 +6466,7 @@ code = '''
     assert(lfs.grm.mids[1] == -1);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs.flags & LFS_F_ORPHANS);
+        assert(lfs.flags & LFS_I_ORPHANS);
     }
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
@@ -6517,7 +6517,7 @@ defines.SIZE = '2*FRAGMENT_SIZE'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6618,7 +6618,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -6672,7 +6672,7 @@ defines.SIZE = '2*FRAGMENT_SIZE'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6771,7 +6771,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -6826,7 +6826,7 @@ defines.SIZE = 'BLOCK_SIZE'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -6935,7 +6935,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -6990,7 +6990,7 @@ defines.SIZE = 'BLOCK_SIZE'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -7097,7 +7097,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -7149,7 +7149,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -7257,7 +7257,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_F_ORPHANS));
+    assert(!(lfs.flags & LFS_I_ORPHANS));
 
     // which means there shouldn't be that many files left
     assert((lfs.mtree.u.weight & 0x7fffffff) <= (2 << lfs.mdir_bits));
@@ -7334,7 +7334,7 @@ defines.ORPHANS = [0, 1, 2, 3, 100]
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -7445,7 +7445,7 @@ code = '''
     assert(lfs.grm.mids[1] == -1);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs.flags & LFS_F_ORPHANS);
+        assert(lfs.flags & LFS_I_ORPHANS);
     }
 
     // mdirs should have been compacted
@@ -7510,7 +7510,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 code = '''
     // test creating directories
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // open a traversal
@@ -7623,7 +7623,7 @@ fuzz = 'SEED'
 code = '''
     // test fuzz with dirs
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -7811,7 +7811,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     // test creating files
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // open a traversal
@@ -7918,7 +7918,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test fuzz with files
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -8170,7 +8170,7 @@ if = [
 code = '''
     // test with complex file writes
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create a file
@@ -8324,7 +8324,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test with orphans, zombies, etc
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -8695,7 +8695,7 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // test with orphans, zombies, dirs, etc
     lfs_t lfs;
-    lfsr_format(&lfs, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
