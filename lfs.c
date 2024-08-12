@@ -6672,8 +6672,8 @@ static inline bool lfsr_t_ismutated(uint32_t flags) {
 }
 
 static inline uint32_t lfsr_t_swapdirty(uint32_t flags) {
-    uint32_t x = ((flags >> 19) ^ (flags >> 18)) & 0x1;
-    return flags ^ (x << 19) ^ (x << 18);
+    uint32_t x = ((flags >> 9) ^ (flags >> 8)) & 0x1;
+    return flags ^ (x << 9) ^ (x << 8);
 }
 
 // mount flags
@@ -13831,7 +13831,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
     uint32_t pending = flags & (
             ((lfs->flags & (
                     LFS_I_HASORPHANS
-                        | LFS_I_UNCOMPACTED)) >> 16)
+                        | LFS_I_UNCOMPACTED)) >> 12)
                 | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                 | LFS_GC_CKMETA
                 | LFS_GC_CKDATA);
@@ -13896,7 +13896,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
             pending &= (
                     ((lfs->flags & (
                             LFS_I_HASORPHANS
-                                | LFS_I_UNCOMPACTED)) >> 16)
+                                | LFS_I_UNCOMPACTED)) >> 12)
                         | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                         // only consider our filesystem checked if we
                         // weren't mutated

@@ -136,8 +136,8 @@ enum lfs_type {
 #define LFS_O_FLUSH     0x00000040  // Flush data on every write
 #define LFS_O_SYNC      0x00000080  // Sync metadata on every write
 #define LFS_O_DESYNC    0x00000100  // Do not sync or recieve file updates
-#define LFS_O_CKMETA    0x00001000  // Check metadata checksums
-#define LFS_O_CKDATA    0x00002000  // Check metadata + data checksums
+#define LFS_O_CKMETA    0x00010000  // Check metadata checksums
+#define LFS_O_CKDATA    0x00020000  // Check metadata + data checksums
 
 // internally used flags, don't use these
 #define LFS_O_TYPE      0xff000000  // The file's type
@@ -153,42 +153,42 @@ enum lfs_type {
 
 // Filesystem format flags
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
-#define LFS_F_CKPROGS   0x00000010  // Check progs by reading back progged data
+#define LFS_F_CKPROGS   0x00100000  // Check progs by reading back progged data
 #ifdef LFS_CKREADS
-#define LFS_F_CKREADS   0x00000020  // Check reads via parity bits/checksums
+#define LFS_F_CKREADS   0x00200000  // Check reads via parity bits/checksums
 #endif
 
-#define LFS_F_MTREEONLY 0x00010000  // Only traverse the mtree
-#define LFS_F_COMPACT   0x00000800  // Compact metadata logs
-#define LFS_F_CKMETA    0x00001000  // Check metadata checksums
-#define LFS_F_CKDATA    0x00002000  // Check metadata + data checksums
+#define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
+#define LFS_F_COMPACT   0x00008000  // Compact metadata logs
+#define LFS_F_CKMETA    0x00010000  // Check metadata checksums
+#define LFS_F_CKDATA    0x00020000  // Check metadata + data checksums
 
 // Filesystem mount flags
 #define LFS_M_RDWR               0  // Mount the filesystem as read and write
 #define LFS_M_RDONLY             1  // Mount the filesystem as read only
-#define LFS_M_CKPROGS   0x00000010  // Check progs by reading back progged data
-#ifdef LFS_CKREADS
-#define LFS_M_CKREADS   0x00000020  // Check reads via parity bits/checksums
-#endif
 #define LFS_M_FLUSH     0x00000040  // Open all files with LFS_O_FLUSH
 #define LFS_M_SYNC      0x00000080  // Open all files with LFS_O_SYNC
+#define LFS_M_CKPROGS   0x00100000  // Check progs by reading back progged data
+#ifdef LFS_CKREADS
+#define LFS_M_CKREADS   0x00200000  // Check reads via parity bits/checksums
+#endif
 
-#define LFS_M_MTREEONLY 0x00010000  // Only traverse the mtree
+#define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
 #define LFS_M_MKCONSISTENT \
-                        0x00000100  // Make the filesystem consistent
-#define LFS_M_LOOKAHEAD 0x00000200  // Populate lookahead buffer
-#define LFS_M_COMPACT   0x00000800  // Compact metadata logs
-#define LFS_M_CKMETA    0x00001000  // Check metadata checksums
-#define LFS_M_CKDATA    0x00002000  // Check metadata + data checksums
+                        0x00001000  // Make the filesystem consistent
+#define LFS_M_LOOKAHEAD 0x00002000  // Populate lookahead buffer
+#define LFS_M_COMPACT   0x00008000  // Compact metadata logs
+#define LFS_M_CKMETA    0x00010000  // Check metadata checksums
+#define LFS_M_CKDATA    0x00020000  // Check metadata + data checksums
 
 // Filesystem info flags
 #define LFS_I_RDONLY    0x00000001  // Filesystem mounted read only
-#define LFS_I_CKPROGS   0x00000010  // Filesystem mounted with LFS_M_CKPROGS
-#ifdef LFS_CKREADS
-#define LFS_I_CKREADS   0x00000020  // Filesystem mounted with LFS_M_CKREADS
-#endif
 #define LFS_I_FLUSH     0x00000040  // Filesystem mounted with LFS_M_FLUSH
 #define LFS_I_SYNC      0x00000080  // Filesystem mounted with LFS_M_SYNC
+#define LFS_I_CKPROGS   0x00100000  // Filesystem mounted with LFS_M_CKPROGS
+#ifdef LFS_CKREADS
+#define LFS_I_CKREADS   0x00200000  // Filesystem mounted with LFS_M_CKREADS
+#endif
 
 #define LFS_I_INCONSISTENT \
                         0x01000000  // Filesystem needs mkconsistent to write
@@ -210,30 +210,30 @@ enum lfs_btype {
 };
 
 // Traversal flags
-#define LFS_T_MTREEONLY 0x00010000  // Only traverse the mtree
+#define LFS_T_MTREEONLY 0x00000800  // Only traverse the mtree
 #define LFS_T_MKCONSISTENT \
-                        0x00000100  // Make the filesystem consistent
-#define LFS_T_LOOKAHEAD 0x00000200  // Populate lookahead buffer
-#define LFS_T_COMPACT   0x00000800  // Compact metadata logs
-#define LFS_T_CKMETA    0x00001000  // Check metadata checksums
-#define LFS_T_CKDATA    0x00002000  // Check metadata + data checksums
+                        0x00001000  // Make the filesystem consistent
+#define LFS_T_LOOKAHEAD 0x00002000  // Populate lookahead buffer
+#define LFS_T_COMPACT   0x00008000  // Compact metadata logs
+#define LFS_T_CKMETA    0x00010000  // Check metadata checksums
+#define LFS_T_CKDATA    0x00020000  // Check metadata + data checksums
 
 // internally used flags, don't use these
 #define LFS_T_TSTATE    0x0000000f  // The current traversal state
 #define LFS_T_BTYPE     0x000000f0  // The current traversal btype
-#define LFS_T_DIRTY     0x00040000  // Filesystem modified during traversal
-#define LFS_T_MUTATED   0x00080000  // Filesystem modified by traversal
+#define LFS_T_DIRTY     0x00000100  // Filesystem modified during traversal
+#define LFS_T_MUTATED   0x00000200  // Filesystem modified by traversal
 
 // GC flags
 #define LFS_GC_MTREEONLY \
-                        0x00010000  // Only traverse the mtree
+                        0x00000800  // Only traverse the mtree
 #define LFS_GC_MKCONSISTENT \
-                        0x00000100  // Make the filesystem consistent
+                        0x00001000  // Make the filesystem consistent
 #define LFS_GC_LOOKAHEAD \
-                        0x00000200  // Populate lookahead buffer
-#define LFS_GC_COMPACT  0x00000800  // Compact metadata logs
-#define LFS_GC_CKMETA   0x00001000  // Check metadata checksums
-#define LFS_GC_CKDATA   0x00002000  // Check metadata + data checksums
+                        0x00002000  // Populate lookahead buffer
+#define LFS_GC_COMPACT  0x00008000  // Compact metadata logs
+#define LFS_GC_CKMETA   0x00010000  // Check metadata checksums
+#define LFS_GC_CKDATA   0x00020000  // Check metadata + data checksums
 
 
 // Configuration provided during initialization of the littlefs
