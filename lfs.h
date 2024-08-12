@@ -158,6 +158,11 @@ enum lfs_type {
 #define LFS_F_CKREADS   0x00000020  // Check reads via parity bits/checksums
 #endif
 
+#define LFS_F_MTREEONLY 0x00010000  // Only traverse the mtree
+#define LFS_F_COMPACT   0x00000800  // Compact metadata logs
+#define LFS_F_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_F_CKDATA    0x00002000  // Check metadata + data checksums
+
 // Filesystem mount flags
 #define LFS_M_RDWR               0  // Mount the filesystem as read and write
 #define LFS_M_RDONLY             1  // Mount the filesystem as read only

@@ -13373,21 +13373,6 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
         goto failed;
     }
 
-    // TODO this should use any configured values
-    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
-            "%"PRId32"x%"PRId32" "
-            "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
-            "w%"PRId32".%"PRId32,
-            LFS_DISK_VERSION_MAJOR,
-            LFS_DISK_VERSION_MINOR,
-            lfs->cfg->block_size,
-            lfs->block_count,
-            lfs->mroot.rbyd.blocks[0],
-            lfs->mroot.rbyd.blocks[1],
-            lfsr_rbyd_trunk(&lfs->mroot.rbyd),
-            lfsr_mtree_weight_(&lfs->mtree) >> lfs->mdir_bits,
-            1 << lfs->mdir_bits);
-
     // run gc if requested
     if (flags & (
             LFS_M_MTREEONLY
@@ -13408,6 +13393,21 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             goto failed;
         }
     }
+
+    // TODO this should use any configured values
+    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
+            "%"PRId32"x%"PRId32" "
+            "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
+            "w%"PRId32".%"PRId32,
+            LFS_DISK_VERSION_MAJOR,
+            LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->block_count,
+            lfs->mroot.rbyd.blocks[0],
+            lfs->mroot.rbyd.blocks[1],
+            lfsr_rbyd_trunk(&lfs->mroot.rbyd),
+            lfsr_mtree_weight_(&lfs->mtree) >> lfs->mdir_bits,
+            1 << lfs->mdir_bits);
 
     return 0;
 
@@ -13493,12 +13493,6 @@ static int lfsr_formatinited(lfs_t *lfs) {
         return err;
     }
 
-    // test that mount works with our formatted disk
-    err = lfsr_mountinited(lfs);
-    if (err) {
-        return err;
-    }
-
     return 0;
 }
 
@@ -13508,7 +13502,11 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT((flags & ~(
             LFS_F_RDWR
                 | LFS_F_CKPROGS
-                | LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0))) == 0);
+                | LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0)
+                | LFS_F_MTREEONLY
+                | LFS_F_COMPACT
+                | LFS_F_CKMETA
+                | LFS_F_CKDATA)) == 0);
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
@@ -13526,12 +13524,38 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
 
     err = lfsr_formatinited(lfs);
     if (err) {
-        // make sure we clean up on error
-        lfs_deinit(lfs);
-        return err;
+        goto failed;
+    }
+
+    // test that mount works with our formatted disk
+    err = lfsr_mountinited(lfs);
+    if (err) {
+        goto failed;
+    }
+
+    // run gc if requested
+    if (flags & (
+            LFS_F_MTREEONLY
+                | LFS_F_COMPACT
+                | LFS_F_CKMETA
+                | LFS_F_CKDATA)) {
+        err = lfsr_fs_gc(lfs, -1,
+                flags & (
+                    LFS_F_MTREEONLY
+                        | LFS_F_COMPACT
+                        | LFS_F_CKMETA
+                        | LFS_F_CKDATA));
+        if (err) {
+            goto failed;
+        }
     }
 
     return lfs_deinit(lfs);
+
+failed:;
+    // make sure we clean up on error
+    lfs_deinit(lfs);
+    return err;
 }
 
 

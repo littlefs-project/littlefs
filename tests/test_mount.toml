@@ -11,14 +11,28 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test that various mount flags are returned by lfsr_fs_stat
+# test that various mount flags don't assert and are returned by
+# lfsr_fs_stat
 [cases.test_mount_flags]
 defines.RDONLY = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKREADS = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
-if = 'LFS_IFDEF_CKREADS(true, !CKREADS)'
+defines.MTREEONLY = [false, true]
+defines.MKCONSISTENT = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+if = [
+    'LFS_IFDEF_CKREADS(true, !CKREADS)',
+    '!RDONLY || !MKCONSISTENT',
+    '!RDONLY || !LOOKAHEAD',
+    '!RDONLY || !COMPACT',
+    '!MTREEONLY || !LOOKAHEAD',
+    '!MTREEONLY || !CKDATA',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -27,9 +41,16 @@ code = '''
                 | ((CKPROGS) ? LFS_M_CKPROGS : 0)
                 | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, 0) : 0)
                 | ((FLUSH) ? LFS_M_FLUSH : 0)
-                | ((SYNC) ? LFS_M_SYNC : 0),
+                | ((SYNC) ? LFS_M_SYNC : 0)
+                | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
+                | ((MKCONSISTENT) ? LFS_M_MKCONSISTENT : 0)
+                | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS_M_COMPACT : 0)
+                | ((CKMETA) ? LFS_M_CKMETA : 0)
+                | ((CKDATA) ? LFS_M_CKDATA : 0),
             CFG) => 0;
 
+    // lfsr_fs_stat only returns some flags
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
@@ -38,8 +59,8 @@ code = '''
                 | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_I_CKREADS, 0) : 0)
                 | ((FLUSH) ? LFS_I_FLUSH : 0)
                 | ((SYNC) ? LFS_I_SYNC : 0)
-                | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -50,13 +71,24 @@ code = '''
 [cases.test_mount_format_flags]
 defines.CKPROGS = [false, true]
 defines.CKREADS = [false, true]
-if = 'LFS_IFDEF_CKREADS(true, !CKREADS)'
+defines.MTREEONLY = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+if = [
+    'LFS_IFDEF_CKREADS(true, !CKREADS)',
+    '!MTREEONLY || !CKDATA',
+]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_F_CKPROGS : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0) : 0),
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0) : 0)
+                | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
+                | ((COMPACT) ? LFS_M_COMPACT : 0)
+                | ((CKMETA) ? LFS_M_CKMETA : 0)
+                | ((CKDATA) ? LFS_M_CKDATA : 0),
             CFG) => 0;
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
