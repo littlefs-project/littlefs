@@ -191,7 +191,10 @@ int lfs_emubd_sync(const struct lfs_config *cfg);
 /// Additional extended API for driving test features ///
 
 // Set the current prng state
-int lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed);
+void lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed);
+
+// Get a pseudo-random number from emubd's internal prng
+uint32_t lfs_emubd_prng(const struct lfs_config *cfg);
 
 // Get total amount of bytes read
 lfs_emubd_sio_t lfs_emubd_readed(const struct lfs_config *cfg);

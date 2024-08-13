@@ -92,7 +92,7 @@ static lfs_emubd_block_t *lfs_emubd_mutblock(
 
 
 // prng used for some emulation things
-static uint32_t lfs_emubd_prng(uint32_t *state) {
+static uint32_t lfs_emubd_prng_(uint32_t *state) {
     // A simple xorshift32 generator, easily reproducible. Keep in mind
     // determinism is much more important than actual randomness here.
     uint32_t x = *state;
@@ -331,7 +331,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
             lfs_size_t bit = b->bad_bit & 0x7fffffff;
             if (bit/8 >= off
                     && bit/8 < off+size
-                    && (lfs_emubd_prng(&bd->prng) & 1)) {
+                    && (lfs_emubd_prng_(&bd->prng) & 1)) {
                 ((uint8_t*)buffer)[(bit/8) - off] ^= 1 << (bit%8);
             }
         }
@@ -401,7 +401,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                 bd->blocks[block] = b;
 
                 // flip bit
-                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                lfs_size_t bit = lfs_emubd_prng_(&bd->prng)
                         % (cfg->prog_size*8);
                 b->data[off + (bit/8)] ^= 1 << (bit%8);
 
@@ -441,7 +441,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
                 memcpy(&b->data[off], buffer, size);
 
                 // flip bit
-                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                lfs_size_t bit = lfs_emubd_prng_(&bd->prng)
                         % (cfg->prog_size*8);
                 b->data[off + (bit/8)] ^= 1 << (bit%8);
 
@@ -519,7 +519,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
                 // choose a new bad bit unless overridden
                 if (!(0x80000000 & b->bad_bit)) {
-                    b->bad_bit = lfs_emubd_prng(&bd->prng)
+                    b->bad_bit = lfs_emubd_prng_(&bd->prng)
                             % (cfg->block_size*8);
                 }
 
@@ -696,7 +696,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 bd->blocks[block] = b;
 
                 // flip bit
-                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                lfs_size_t bit = lfs_emubd_prng_(&bd->prng)
                         % (cfg->block_size*8);
                 b->data[(bit/8)] ^= 1 << (bit%8);
 
@@ -739,7 +739,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 }
 
                 // flip bit
-                lfs_size_t bit = lfs_emubd_prng(&bd->prng)
+                lfs_size_t bit = lfs_emubd_prng_(&bd->prng)
                         % (cfg->block_size*8);
                 b->data[(bit/8)] ^= 1 << (bit%8);
 
@@ -817,7 +817,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
 
                 // choose a new bad bit unless overridden
                 if (!(0x80000000 & b->bad_bit)) {
-                    b->bad_bit = lfs_emubd_prng(&bd->prng)
+                    b->bad_bit = lfs_emubd_prng_(&bd->prng)
                             % (cfg->block_size*8);
                 }
 
@@ -917,7 +917,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 || bd->cfg->badblock_behavior
                     == LFS_EMUBD_BADBLOCK_READFLIP) {
             if (!(0x80000000 & b->bad_bit)) {
-                b->bad_bit = lfs_emubd_prng(&bd->prng)
+                b->bad_bit = lfs_emubd_prng_(&bd->prng)
                         % (cfg->block_size*8);
             }
         }
@@ -988,15 +988,24 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
 /// Additional extended API for driving test features ///
 
-int lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed) {
+void lfs_emubd_seed(const struct lfs_config *cfg, uint32_t seed) {
     LFS_EMUBD_TRACE("lfs_emubd_seed(%p, 0x%08"PRIx32")",
             (void*)cfg, seed);
     lfs_emubd_t *bd = cfg->context;
 
     bd->prng = seed;
 
-    LFS_EMUBD_TRACE("lfs_emubd_seed -> %d", 0);
-    return 0;
+    LFS_EMUBD_TRACE("lfs_emubd_seed -> _");
+}
+
+uint32_t lfs_emubd_prng(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_prng(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
+
+    uint32_t x = lfs_emubd_prng_(&bd->prng);
+
+    LFS_EMUBD_TRACE("lfs_emubd_prng -> 0x%08"PRIx32, x);
+    return x;
 }
 
 lfs_emubd_sio_t lfs_emubd_readed(const struct lfs_config *cfg) {
