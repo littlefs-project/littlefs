@@ -317,7 +317,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
     }
 
     #ifdef LFS_CKPROGS
-    // check progs?
+    // checking progs?
     if (lfsr_m_isckprogs(lfs->flags)) {
         // pcache should have been dropped at this point
         LFS_ASSERT(lfs->pcache.size == 0);
@@ -4794,6 +4794,11 @@ static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
 
 // core btree operations
 
+// needed in lfsr_btree_lookupnext_
+#ifdef LFS_CKFETCHES
+static inline bool lfsr_m_isckfetches(uint32_t flags);
+#endif
+
 static int lfsr_btree_lookupnext_(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
@@ -4832,6 +4837,18 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs, const lfsr_btree_t *btree,
             if (err) {
                 return err;
             }
+
+            #ifdef LFS_CKFETCHES
+            // checking fetches?
+            if (lfsr_m_isckfetches(lfs->flags)) {
+                err = lfsr_rbyd_fetchck(lfs, &branch,
+                        branch.blocks[0], lfsr_rbyd_trunk(&branch),
+                        branch.cksum);
+                if (err) {
+                    return err;
+                }
+            }
+            #endif
 
         // found our bid
         } else {
@@ -4945,6 +4962,18 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
             }
             return 0;
         }
+
+        #ifdef LFS_CKFETCHES
+        // checking fetches?
+        if (lfsr_m_isckfetches(lfs->flags)) {
+            err = lfsr_rbyd_fetchck(lfs, &branch_,
+                    branch_.blocks[0], lfsr_rbyd_trunk(&branch_),
+                    branch_.cksum);
+            if (err) {
+                return err;
+            }
+        }
+        #endif
 
         branch = branch_;
     }
@@ -5117,6 +5146,18 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
                     return err;
                 }
 
+                #ifdef LFS_CKFETCHES
+                // checking fetches?
+                if (lfsr_m_isckfetches(lfs->flags)) {
+                    err = lfsr_rbyd_fetchck(lfs, &sibling,
+                            sibling.blocks[0], lfsr_rbyd_trunk(&sibling),
+                            sibling.cksum);
+                    if (err) {
+                        return err;
+                    }
+                }
+                #endif
+
                 // estimate if our sibling will fit
                 lfs_ssize_t sibling_estimate = lfsr_rbyd_estimate(lfs,
                         &sibling, -1, -1,
@@ -5164,6 +5205,18 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
                 if (err) {
                     return err;
                 }
+
+                #ifdef LFS_CKFETCHES
+                // checking fetches?
+                if (lfsr_m_isckfetches(lfs->flags)) {
+                    err = lfsr_rbyd_fetchck(lfs, &sibling,
+                            sibling.blocks[0], lfsr_rbyd_trunk(&sibling),
+                            sibling.cksum);
+                    if (err) {
+                        return err;
+                    }
+                }
+                #endif
 
                 // estimate if our sibling will fit
                 lfs_ssize_t sibling_estimate = lfsr_rbyd_estimate(lfs,
@@ -5607,6 +5660,18 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
                 return err;
             }
 
+            #ifdef LFS_CKFETCHES
+            // checking fetches?
+            if (lfsr_m_isckfetches(lfs->flags)) {
+                err = lfsr_rbyd_fetchck(lfs, &branch,
+                        branch.blocks[0], lfsr_rbyd_trunk(&branch),
+                        branch.cksum);
+                if (err < 0) {
+                    return err;
+                }
+            }
+            #endif
+
         // found our rid
         } else {
             // TODO how many of these should be conditional?
@@ -5703,6 +5768,19 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
             if (err) {
                 return err;
             }
+
+            #ifdef LFS_CKFETCHES
+            // checking fetches?
+            if (lfsr_m_isckfetches(lfs->flags)) {
+                err = lfsr_rbyd_fetchck(lfs, &bt->rbyd,
+                        bt->rbyd.blocks[0], lfsr_rbyd_trunk(&bt->rbyd),
+                        bt->rbyd.cksum);
+                if (err) {
+                    return err;
+                }
+            }
+            #endif
+
             LFS_ASSERT((lfsr_bid_t)bt->rbyd.weight == weight__);
             bt->branch = &bt->rbyd;
 
@@ -6694,6 +6772,12 @@ static inline bool lfsr_m_isckprogs(uint32_t flags) {
 #ifdef LFS_CKREADS
 static inline bool lfsr_m_isckreads(uint32_t flags) {
     return flags & LFS_M_CKREADS;
+}
+#endif
+
+#ifdef LFS_CKFETCHES
+static inline bool lfsr_m_isckfetches(uint32_t flags) {
+    return flags & LFS_M_CKFETCHES;
 }
 #endif
 
@@ -9185,6 +9269,19 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                     return err;
                 }
 
+                #ifdef LFS_CKFETCHES
+                // checking fetches?
+                if (lfsr_m_isckfetches(lfs->flags)) {
+                    err = lfsr_rbyd_fetchck(lfs, &t->o.bshrub.u.btree,
+                            t->o.bshrub.u.btree.blocks[0],
+                            lfsr_rbyd_trunk(&t->o.bshrub.u.btree),
+                            t->o.bshrub.u.btree.cksum);
+                    if (err) {
+                        return err;
+                    }
+                }
+                #endif
+
                 // transition to traversing the mtree
                 t->u.bt = LFSR_BTRAVERSAL();
                 t->o.o.flags = lfsr_t_settstate(t->o.o.flags,
@@ -9265,6 +9362,19 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 if (err) {
                     return err;
                 }
+
+                #ifdef LFS_CKFETCHES
+                // checking fetches?
+                if (lfsr_m_isckfetches(lfs->flags)) {
+                    err = lfsr_rbyd_fetchck(lfs, &t->o.bshrub.u.btree,
+                            t->o.bshrub.u.btree.blocks[0],
+                            lfsr_rbyd_trunk(&t->o.bshrub.u.btree),
+                            t->o.bshrub.u.btree.cksum);
+                    if (err) {
+                        return err;
+                    }
+                }
+                #endif
 
             // no? next we need to check any opened files
             } else {
@@ -10726,6 +10836,19 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 if (err) {
                     return err;
                 }
+
+                #ifdef LFS_CKFETCHES
+                // checking fetches?
+                if (lfsr_m_isckfetches(lfs->flags)) {
+                    err = lfsr_rbyd_fetchck(lfs, &file->o.bshrub.u.btree,
+                            file->o.bshrub.u.btree.blocks[0],
+                            lfsr_rbyd_trunk(&file->o.bshrub.u.btree),
+                            file->o.bshrub.u.btree.cksum);
+                    if (err) {
+                        return err;
+                    }
+                }
+                #endif
             }
         }
     }
@@ -10846,6 +10969,17 @@ static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
     if (err) {
         return err;
     }
+
+    #ifdef LFS_CKFETCHES
+    // checking fetches?
+    if (lfsr_m_isckfetches(lfs->flags)
+            && tag == LFSR_TAG_BLOCK) {
+        err = lfsr_bptr_ck(lfs, &bptr);
+        if (err) {
+            return err;
+        }
+    }
+    #endif
 
     // any data on disk?
     if (pos_ < bid-(weight-1) + lfsr_data_size(bptr.data)) {
@@ -11088,6 +11222,17 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
+
+        #ifdef LFS_CKFETCHES
+        // checking fetches?
+        if (lfsr_m_isckfetches(lfs->flags)
+                && tag_ == LFSR_TAG_BLOCK) {
+            err = lfsr_bptr_ck(lfs, &bptr_);
+            if (err) {
+                return err;
+            }
+        }
+        #endif
 
         // note, an entry can be both a left and right sibling
         lfsr_data_t left_slice_ = lfsr_data_slice(bptr_.data,
@@ -11556,6 +11701,17 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     return err;
                 }
 
+                #ifdef LFS_CKFETCHES
+                // checking fetches?
+                if (lfsr_m_isckfetches(lfs->flags)
+                        && tag_ == LFSR_TAG_BLOCK) {
+                    err = lfsr_bptr_ck(lfs, &bptr_);
+                    if (err) {
+                        return err;
+                    }
+                }
+                #endif
+
                 // make sure to include all of our crystal, or else this
                 // loop may never terminate
                 if (bid_-(weight_-1) >= crystal_end
@@ -11718,6 +11874,17 @@ fragment:;
                 return err;
             }
 
+            #ifdef LFS_CKFETCHES
+            // checking fetches?
+            if (lfsr_m_isckfetches(lfs->flags)
+                    && tag == LFSR_TAG_BLOCK) {
+                err = lfsr_bptr_ck(lfs, &bptr);
+                if (err) {
+                    return err;
+                }
+            }
+            #endif
+
             // can we coalesce?
             if (bid-(weight-1) + lfsr_data_size(bptr.data) >= fragment_start
                     && fragment_end - (bid-(weight-1))
@@ -11755,6 +11922,17 @@ fragment:;
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
+
+            #ifdef LFS_CKFETCHES
+            // checking fetches?
+            if (lfsr_m_isckfetches(lfs->flags)
+                    && tag == LFSR_TAG_BLOCK) {
+                err = lfsr_bptr_ck(lfs, &bptr);
+                if (err) {
+                    return err;
+                }
+            }
+            #endif
 
             // can we coalesce?
             if (fragment_end < bid-(weight-1) + lfsr_data_size(bptr.data)
@@ -13353,6 +13531,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_RDONLY
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKREADS(LFS_M_CKREADS, 0)
+                | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
                 | LFS_M_MTREEONLY
@@ -13509,6 +13688,7 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
             LFS_F_RDWR
                 | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                 | LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0)
+                | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                 | LFS_F_MTREEONLY
                 | LFS_F_COMPACT
                 | LFS_F_CKMETA
@@ -13574,6 +13754,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
             LFS_I_RDONLY
                 | LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, 0)
                 | LFS_IFDEF_CKREADS(LFS_I_CKREADS, 0)
+                | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_I_FLUSH
                 | LFS_I_SYNC
                 | LFS_I_UNCOMPACTED);

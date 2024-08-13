@@ -17,6 +17,7 @@ code = '''
 defines.RDONLY = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKREADS = [false, true]
+defines.CKFETCHES = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
 defines.MTREEONLY = [false, true]
@@ -28,6 +29,7 @@ defines.CKDATA = [false, true]
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKREADS(true, !CKREADS)',
+    'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     '!RDONLY || !COMPACT',
@@ -41,6 +43,7 @@ code = '''
             ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((FLUSH) ? LFS_M_FLUSH : 0)
                 | ((SYNC) ? LFS_M_SYNC : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
@@ -58,6 +61,7 @@ code = '''
             ((RDONLY) ? LFS_I_RDONLY : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
                 | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_I_CKREADS, -1) : 0)
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
                 | ((FLUSH) ? LFS_I_FLUSH : 0)
                 | ((SYNC) ? LFS_I_SYNC : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
@@ -72,6 +76,7 @@ code = '''
 [cases.test_mount_format_flags]
 defines.CKPROGS = [false, true]
 defines.CKREADS = [false, true]
+defines.CKFETCHES = [false, true]
 defines.MTREEONLY = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -79,6 +84,7 @@ defines.CKDATA = [false, true]
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKREADS(true, !CKREADS)',
+    'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     '!MTREEONLY || !CKDATA',
 ]
 code = '''
@@ -87,6 +93,7 @@ code = '''
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
                 | ((COMPACT) ? LFS_M_COMPACT : 0)
                 | ((CKMETA) ? LFS_M_CKMETA : 0)

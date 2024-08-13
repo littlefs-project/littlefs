@@ -241,6 +241,10 @@ int lfs_emubd_randomizebadbit(const struct lfs_config *cfg,
 int lfs_emubd_markbadbit(const struct lfs_config *cfg,
         lfs_block_t block, lfs_size_t bit);
 
+// Flip a bit in a given block, intended for emulating bit errors
+int lfs_emubd_flipbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit);
+
 // Get the remaining power-cycles
 lfs_emubd_spowercycles_t lfs_emubd_powercycles(
         const struct lfs_config *cfg);

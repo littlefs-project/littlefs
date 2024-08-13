@@ -159,6 +159,9 @@ enum lfs_type {
 #ifdef LFS_CKREADS
 #define LFS_F_CKREADS   0x00200000  // Check reads via parity bits/checksums
 #endif
+#ifdef LFS_CKFETCHES
+#define LFS_F_CKFETCHES 0x00400000  // Check checksums before reads
+#endif
 
 #define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
 #define LFS_F_COMPACT   0x00008000  // Compact metadata logs
@@ -175,6 +178,9 @@ enum lfs_type {
 #endif
 #ifdef LFS_CKREADS
 #define LFS_M_CKREADS   0x00200000  // Check reads via parity bits/checksums
+#endif
+#ifdef LFS_CKFETCHES
+#define LFS_M_CKFETCHES 0x00400000  // Check checksums before reads
 #endif
 
 #define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -194,6 +200,9 @@ enum lfs_type {
 #endif
 #ifdef LFS_CKREADS
 #define LFS_I_CKREADS   0x00200000  // Filesystem mounted with LFS_M_CKREADS
+#endif
+#ifdef LFS_CKFETCHES
+#define LFS_I_CKFETCHES 0x00400000  // Filesystem mounted with LFS_M_CKFETCHES
 #endif
 
 #define LFS_I_INCONSISTENT \

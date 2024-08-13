@@ -150,6 +150,12 @@ extern "C"
 #define LFS_IFDEF_CKREADS(a, b) (b)
 #endif
 
+#ifdef LFS_CKFETCHES
+#define LFS_IFDEF_CKFETCHES(a, b) (a)
+#else
+#define LFS_IFDEF_CKFETCHES(a, b) (b)
+#endif
+
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more

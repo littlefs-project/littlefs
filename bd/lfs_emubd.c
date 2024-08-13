@@ -1232,6 +1232,30 @@ int lfs_emubd_markbadbit(const struct lfs_config *cfg,
     return 0;
 }
 
+int lfs_emubd_flipbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit) {
+    LFS_EMUBD_TRACE("lfs_emubd_flipbit(%p, %"PRIu32", %"PRIu32")",
+            (void*)cfg, block, bit);
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if block is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // mutate the block
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
+    if (!b) {
+        LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+    bd->blocks[block] = b;
+
+    // flip the bit
+    b->data[bit/8] ^= 1 << (bit%8);
+
+    LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", 0);
+    return 0;
+}
+
 lfs_emubd_spowercycles_t lfs_emubd_powercycles(
         const struct lfs_config *cfg) {
     LFS_EMUBD_TRACE("lfs_emubd_powercycles(%p)", (void*)cfg);
