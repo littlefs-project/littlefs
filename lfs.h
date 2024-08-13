@@ -153,7 +153,9 @@ enum lfs_type {
 
 // Filesystem format flags
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
+#ifdef LFS_CKPROGS
 #define LFS_F_CKPROGS   0x00100000  // Check progs by reading back progged data
+#endif
 #ifdef LFS_CKREADS
 #define LFS_F_CKREADS   0x00200000  // Check reads via parity bits/checksums
 #endif
@@ -168,7 +170,9 @@ enum lfs_type {
 #define LFS_M_RDONLY             1  // Mount the filesystem as read only
 #define LFS_M_FLUSH     0x00000040  // Open all files with LFS_O_FLUSH
 #define LFS_M_SYNC      0x00000080  // Open all files with LFS_O_SYNC
+#ifdef LFS_CKPROGS
 #define LFS_M_CKPROGS   0x00100000  // Check progs by reading back progged data
+#endif
 #ifdef LFS_CKREADS
 #define LFS_M_CKREADS   0x00200000  // Check reads via parity bits/checksums
 #endif
@@ -185,7 +189,9 @@ enum lfs_type {
 #define LFS_I_RDONLY    0x00000001  // Filesystem mounted read only
 #define LFS_I_FLUSH     0x00000040  // Filesystem mounted with LFS_M_FLUSH
 #define LFS_I_SYNC      0x00000080  // Filesystem mounted with LFS_M_SYNC
+#ifdef LFS_CKPROGS
 #define LFS_I_CKPROGS   0x00100000  // Filesystem mounted with LFS_M_CKPROGS
+#endif
 #ifdef LFS_CKREADS
 #define LFS_I_CKREADS   0x00200000  // Filesystem mounted with LFS_M_CKREADS
 #endif

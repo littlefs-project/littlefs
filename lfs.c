@@ -295,7 +295,9 @@ static int lfsr_bd_read(lfs_t *lfs,
 }
 
 // needed in lfsr_bd_prog_ for prog validation
+#ifdef LFS_CKPROGS
 static inline bool lfsr_m_isckprogs(uint32_t flags);
+#endif
 static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size);
@@ -314,6 +316,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         return err;
     }
 
+    #ifdef LFS_CKPROGS
     // check progs?
     if (lfsr_m_isckprogs(lfs->flags)) {
         // pcache should have been dropped at this point
@@ -335,6 +338,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
             return LFS_ERR_CORRUPT;
         }
     }
+    #endif
 
     // update rcache if we can
     if (block == lfs->rcache.block
@@ -6681,9 +6685,11 @@ static inline bool lfsr_m_isrdonly(uint32_t flags) {
     return flags & LFS_M_RDONLY;
 }
 
+#ifdef LFS_CKPROGS
 static inline bool lfsr_m_isckprogs(uint32_t flags) {
     return flags & LFS_M_CKPROGS;
 }
+#endif
 
 #ifdef LFS_CKREADS
 static inline bool lfsr_m_isckreads(uint32_t flags) {
@@ -13345,7 +13351,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT((flags & ~(
             LFS_M_RDWR
                 | LFS_M_RDONLY
-                | LFS_M_CKPROGS
+                | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKREADS(LFS_M_CKREADS, 0)
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
@@ -13501,7 +13507,7 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     // unknown flags?
     LFS_ASSERT((flags & ~(
             LFS_F_RDWR
-                | LFS_F_CKPROGS
+                | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                 | LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0)
                 | LFS_F_MTREEONLY
                 | LFS_F_COMPACT
@@ -13566,7 +13572,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     // return various filesystem flags
     fsinfo->flags = lfs->flags & (
             LFS_I_RDONLY
-                | LFS_I_CKPROGS
+                | LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, 0)
                 | LFS_IFDEF_CKREADS(LFS_I_CKREADS, 0)
                 | LFS_I_FLUSH
                 | LFS_I_SYNC

@@ -138,10 +138,16 @@ extern "C"
 
 
 // Some ifdef conveniences
-#ifdef LFS_CKREADS
-#define LFS_IFDEF_CKREADS(a, b) a
+#ifdef LFS_CKPROGS
+#define LFS_IFDEF_CKPROGS(a, b) (a)
 #else
-#define LFS_IFDEF_CKREADS(a, b) b
+#define LFS_IFDEF_CKPROGS(a, b) (b)
+#endif
+
+#ifdef LFS_CKREADS
+#define LFS_IFDEF_CKREADS(a, b) (a)
+#else
+#define LFS_IFDEF_CKREADS(a, b) (b)
 #endif
 
 

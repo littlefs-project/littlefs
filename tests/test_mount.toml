@@ -26,6 +26,7 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKREADS(true, !CKREADS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
@@ -38,8 +39,8 @@ code = '''
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, 0) : 0)
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
                 | ((FLUSH) ? LFS_M_FLUSH : 0)
                 | ((SYNC) ? LFS_M_SYNC : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
@@ -55,8 +56,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((RDONLY) ? LFS_I_RDONLY : 0)
-                | ((CKPROGS) ? LFS_I_CKPROGS : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_I_CKREADS, 0) : 0)
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_I_CKREADS, -1) : 0)
                 | ((FLUSH) ? LFS_I_FLUSH : 0)
                 | ((SYNC) ? LFS_I_SYNC : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
@@ -76,6 +77,7 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKREADS(true, !CKREADS)',
     '!MTREEONLY || !CKDATA',
 ]
@@ -83,8 +85,8 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, 0) : 0)
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
+                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
                 | ((COMPACT) ? LFS_M_COMPACT : 0)
                 | ((CKMETA) ? LFS_M_CKMETA : 0)

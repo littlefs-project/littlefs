@@ -35,6 +35,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 in = 'lfs.c'
 code = '''
     // test all possible bad blocks
@@ -50,7 +51,7 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
         // create free lookahead
         memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
@@ -142,6 +143,7 @@ defines.BADBLOCK_BEHAVIOR = [
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -156,11 +158,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // make this many directories
@@ -177,7 +179,9 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs,
                         LFS_M_RDWR
-                            | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                            | ((CKPROGS)
+                                ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                                : 0),
                         CFG) => 0;
             }
 
@@ -258,6 +262,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -272,11 +277,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // set up a simulation to compare against
@@ -373,7 +378,9 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs,
                         LFS_M_RDWR
-                            | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                            | ((CKPROGS)
+                                ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                                : 0),
                         CFG) => 0;
             }
 
@@ -448,7 +455,10 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+]
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -463,11 +473,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // create this many files
@@ -494,7 +504,9 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs,
                         LFS_M_RDWR
-                            | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                            | ((CKPROGS)
+                                ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                                : 0),
                         CFG) => 0;
             }
 
@@ -558,7 +570,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -573,11 +588,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // set up a simulation to compare against
@@ -711,7 +726,9 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs,
                         LFS_M_RDWR
-                            | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                            | ((CKPROGS)
+                                ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                                : 0),
                         CFG) => 0;
             }
 
@@ -810,6 +827,7 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -828,11 +846,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // create a file
@@ -897,7 +915,9 @@ code = '''
                 lfsr_unmount(&lfs) => 0;
                 lfsr_mount(&lfs,
                         LFS_M_RDWR
-                            | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                            | ((CKPROGS)
+                                ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                                : 0),
                         CFG) => 0;
             }
 
@@ -972,7 +992,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -987,11 +1010,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // set up a simulation to compare against
@@ -1341,7 +1364,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test all possible bad blocks
     for (lfs_size_t i = 2;
@@ -1356,11 +1382,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 CFG) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 CFG) => 0;
 
         // set up a simulation to compare against
@@ -1790,6 +1816,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 in = 'lfs.c'
 code = '''
     // test a large region of bad blocks
@@ -1806,7 +1833,7 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
@@ -1894,6 +1921,7 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -1913,11 +1941,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // make this many directories
@@ -1934,7 +1962,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -2011,6 +2041,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -2030,11 +2061,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -2131,7 +2162,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -2202,7 +2235,10 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -2222,11 +2258,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // create this many files
@@ -2253,7 +2289,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -2313,7 +2351,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -2333,11 +2374,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -2471,7 +2512,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -2566,6 +2609,7 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -2589,11 +2633,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // create a file
@@ -2658,7 +2702,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -2729,7 +2775,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -2749,11 +2798,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -3099,7 +3148,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16'
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -3119,11 +3171,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -3546,6 +3598,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 in = 'lfs.c'
 code = '''
     // test a large region of bad blocks
@@ -3562,7 +3615,7 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
     // create free lookahead
     memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
@@ -3650,6 +3703,7 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -3669,11 +3723,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // make this many directories
@@ -3690,7 +3744,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -3767,6 +3823,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -3786,11 +3843,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -3887,7 +3944,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -3958,7 +4017,10 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -3978,11 +4040,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // create this many files
@@ -4009,7 +4071,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -4069,7 +4133,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -4089,11 +4156,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -4227,7 +4294,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -4322,6 +4391,7 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -4345,11 +4415,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // create a file
@@ -4412,7 +4482,9 @@ code = '''
             lfsr_unmount(&lfs) => 0;
             lfsr_mount(&lfs,
                     LFS_M_RDWR
-                        | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                        | ((CKPROGS)
+                            ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
+                            : 0),
                     CFG) => 0;
         }
 
@@ -4483,7 +4555,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -4503,11 +4578,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -4853,7 +4928,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // test a large region of bad blocks
     for (lfs_size_t i = 0; i < BLOCK_COUNT/2; i++) {
@@ -4873,11 +4951,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -5313,11 +5391,12 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     if (BADBLOCKS & 0x1) {
@@ -5329,7 +5408,7 @@ code = '''
 
     lfsr_mount(&lfs,
             LFS_M_RDWR
-                | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
             CFG) => 0;
 
     for (lfs_size_t i = 0;; i++) {

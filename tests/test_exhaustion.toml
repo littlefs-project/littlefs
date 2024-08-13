@@ -36,6 +36,7 @@ defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
     // storage, and compare how many operations we were able to perform
@@ -57,11 +58,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
@@ -250,7 +251,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
     // storage, and compare how many operations we were able to perform
@@ -272,11 +276,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
@@ -534,6 +538,7 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -559,11 +564,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 &cfg) => 0;
 
         // create a file
@@ -714,7 +719,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
     // storage, and compare how many operations we were able to perform
@@ -736,11 +744,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
@@ -1133,7 +1141,10 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+]
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
     // storage, and compare how many operations we were able to perform
@@ -1155,11 +1166,11 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
-                    | ((CKPROGS) ? LFS_F_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0),
                 &cfg) => 0;
         lfsr_mount(&lfs,
                 LFS_M_RDWR
-                    | ((CKPROGS) ? LFS_M_CKPROGS : 0),
+                    | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
