@@ -502,7 +502,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            err = lfsr_file_open(&lfs, &file, "stygiomedusa",
+            err = lfsr_file_open(&lfs, &file, "physalia",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
             assert(!err || err == LFS_ERR_CORRUPT);
             if (err == LFS_ERR_CORRUPT) {
@@ -533,7 +533,7 @@ code = '''
                     lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPROGS, CFG) => 0;
                 }
 
-                lfsr_file_open(&lfs, &file, "stygiomedusa", LFS_O_RDONLY) => 0;
+                lfsr_file_open(&lfs, &file, "physalia", LFS_O_RDONLY) => 0;
                 uint8_t rbuf[SIZE];
                 lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
                 assert(memcmp(rbuf, wbuf, SIZE) == 0);
@@ -569,7 +569,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "stygiomedusa",
+    lfsr_file_open(&lfs, &file, "physalia",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 42;
     uint8_t wbuf[SIZE];
@@ -614,7 +614,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "stygiomedusa",
+            lfsr_file_open(&lfs, &file, "physalia",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -641,7 +641,7 @@ code = '''
                     lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPROGS, CFG) => 0;
                 }
 
-                lfsr_file_open(&lfs, &file, "stygiomedusa", LFS_O_RDONLY) => 0;
+                lfsr_file_open(&lfs, &file, "physalia", LFS_O_RDONLY) => 0;
                 uint8_t rbuf[SIZE];
                 lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
                 assert(memcmp(rbuf, wbuf, SIZE) == 0);
@@ -679,7 +679,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "stygiomedusa",
+    lfsr_file_open(&lfs, &file, "physalia",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 42;
     uint8_t wbuf[SIZE];
@@ -724,7 +724,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "stygiomedusa",
+            lfsr_file_open(&lfs, &file, "physalia",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -751,7 +751,7 @@ code = '''
                     lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPROGS, CFG) => 0;
                 }
 
-                lfsr_file_open(&lfs, &file, "stygiomedusa", LFS_O_RDONLY) => 0;
+                lfsr_file_open(&lfs, &file, "physalia", LFS_O_RDONLY) => 0;
                 uint8_t rbuf[SIZE];
                 lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
                 assert(memcmp(rbuf, wbuf, SIZE) == 0);
@@ -844,7 +844,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            err = lfsr_file_open(&lfs, &file, "bathykorus",
+            err = lfsr_file_open(&lfs, &file, "tripedalia",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
             assert(!err || err == LFS_ERR_CORRUPT);
             if (err == LFS_ERR_CORRUPT) {
@@ -878,7 +878,7 @@ code = '''
                 }
 
                 // yes reads can fail here
-                err = lfsr_file_open(&lfs, &file, "bathykorus", LFS_O_RDONLY);
+                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
                 assert(!err
                     || err == LFS_ERR_CORRUPT
                     // bit errors can also cause our fs state to "rollback",
@@ -931,7 +931,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "bathykorus",
+    lfsr_file_open(&lfs, &file, "tripedalia",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 42;
     uint8_t wbuf[SIZE];
@@ -983,7 +983,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "bathykorus",
+            lfsr_file_open(&lfs, &file, "tripedalia",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -1010,7 +1010,7 @@ code = '''
                 }
 
                 // yes reads can fail here
-                err = lfsr_file_open(&lfs, &file, "bathykorus", LFS_O_RDONLY);
+                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
                 assert(!err
                     || err == LFS_ERR_CORRUPT
                     // bit errors can also cause our fs state to "rollback",
@@ -1065,7 +1065,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "bathykorus",
+    lfsr_file_open(&lfs, &file, "tripedalia",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 42;
     uint8_t wbuf[SIZE];
@@ -1119,7 +1119,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "bathykorus",
+            lfsr_file_open(&lfs, &file, "tripedalia",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -1146,7 +1146,7 @@ code = '''
                 }
 
                 // yes reads can fail here
-                err = lfsr_file_open(&lfs, &file, "bathykorus", LFS_O_RDONLY);
+                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
                 assert(!err
                     || err == LFS_ERR_CORRUPT
                     // bit errors can also cause our fs state to "rollback",
@@ -1205,7 +1205,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "tripedalia",
+            lfsr_file_open(&lfs, &file, "stygiomedusa",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -1234,7 +1234,7 @@ code = '''
 
                 // yes reads can fail here
                 int err = lfsr_file_open(&lfs, &file,
-                        "tripedalia", LFS_O_RDONLY);
+                        "stygiomedusa", LFS_O_RDONLY);
                 assert(!err
                     // bit errors can also cause our fs state to "rollback",
                     // which is not great but we can't solve this with
@@ -1277,7 +1277,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "tripedalia",
+    lfsr_file_open(&lfs, &file, "stygiomedusa",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 42;
     uint8_t wbuf[SIZE];
@@ -1320,7 +1320,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "tripedalia",
+            lfsr_file_open(&lfs, &file, "stygiomedusa",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -1343,7 +1343,7 @@ code = '''
 
                 // yes reads can fail here
                 int err = lfsr_file_open(&lfs, &file,
-                        "tripedalia", LFS_O_RDONLY);
+                        "stygiomedusa", LFS_O_RDONLY);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -1389,7 +1389,7 @@ code = '''
 
     // create a file
     lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "tripedalia",
+    lfsr_file_open(&lfs, &file, "stygiomedusa",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     uint32_t prng = 42;
     uint8_t wbuf[SIZE];
@@ -1432,7 +1432,7 @@ code = '''
         {
             // create a file
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "tripedalia",
+            lfsr_file_open(&lfs, &file, "stygiomedusa",
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             uint32_t prng = 42;
             uint8_t wbuf[SIZE];
@@ -1455,7 +1455,7 @@ code = '''
 
                 // yes reads can fail here
                 int err = lfsr_file_open(&lfs, &file,
-                        "tripedalia", LFS_O_RDONLY);
+                        "stygiomedusa", LFS_O_RDONLY);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
