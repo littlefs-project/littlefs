@@ -4326,7 +4326,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_MROOT, 0,
-                LFSR_DATA_MPTR(&LFSR_MPTR_MROOTANCHOR())))) => 0;
+                LFSR_DATA_MPTR(LFSR_MPTR_MROOTANCHOR())))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
     lfsr_traversal_t t = LFSR_TRAVERSAL(

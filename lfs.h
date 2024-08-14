@@ -536,10 +536,6 @@ typedef struct {
     lfs_size_t estimate;
 } lfsr_shrub_t;
 
-typedef struct lfsr_mptr {
-    lfs_block_t blocks[2];
-} lfsr_mptr_t;
-
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
     lfsr_rbyd_t rbyd;
@@ -706,7 +702,7 @@ typedef struct lfsr_traversal {
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
-            lfsr_mptr_t mptr;
+            lfs_block_t blocks[2];
             lfs_block_t step;
             uint8_t power;
         } mtortoise;
@@ -740,7 +736,7 @@ typedef struct lfsr_mtree {
         lfsr_mid_t weight;
         struct {
             lfsr_mid_t weight;
-            lfsr_mptr_t mptr;
+            lfs_block_t blocks[2];
         } mptr;
         lfsr_btree_t btree;
     } u;

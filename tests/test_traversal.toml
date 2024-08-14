@@ -5429,7 +5429,7 @@ code = '''
         // we need internals to check this
         lfsr_mdir_t mrootanchor;
         lfsr_mdir_fetch(&lfs, &mrootanchor,
-                -1, &LFSR_MPTR_MROOTANCHOR()) => 0;
+                -1, LFSR_MPTR_MROOTANCHOR()) => 0;
         if (lfsr_rbyd_eoff(&mrootanchor.rbyd) > GC_COMPACT_THRESH) {
             break;
         }
@@ -5474,7 +5474,7 @@ code = '''
     // mrootanchor should have been compacted
     lfsr_mdir_t mrootanchor;
     lfsr_mdir_fetch(&lfs, &mrootanchor,
-            -1, &LFSR_MPTR_MROOTANCHOR()) => 0;
+            -1, LFSR_MPTR_MROOTANCHOR()) => 0;
     assert(lfsr_rbyd_eoff(&mrootanchor.rbyd) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
@@ -5496,7 +5496,7 @@ code = '''
 
     // mrootanchor should have been compacted
     lfsr_mdir_fetch(&lfs, &mrootanchor,
-            -1, &LFSR_MPTR_MROOTANCHOR()) => 0;
+            -1, LFSR_MPTR_MROOTANCHOR()) => 0;
     assert(lfsr_rbyd_eoff(&mrootanchor.rbyd) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
