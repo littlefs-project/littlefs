@@ -7206,6 +7206,19 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
     return LFS_ERR_CORRUPT;
 }
 
+static int lfsr_data_fetchmdir(lfs_t *lfs,
+        lfsr_data_t *data, lfsr_smid_t mid,
+        lfsr_mdir_t *mdir) {
+    // decode mptr and fetch
+    int err = lfsr_data_readmptr(lfs, data,
+            (lfsr_mptr_t*)mdir->rbyd.blocks);
+    if (err) {
+        return err;
+    }
+
+    return lfsr_mdir_fetch(lfs, mdir, mid, lfsr_mdir_mptr(mdir));
+}
+
 static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
@@ -7386,15 +7399,9 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
         LFS_ASSERT((lfsr_sbid_t)bid == lfsr_mid_bid(lfs, mid));
         LFS_ASSERT(tag == LFSR_TAG_MDIR);
 
-        // decode mdir
-        lfsr_mptr_t mptr;
-        err = lfsr_data_readmptr(lfs, &data, &mptr);
-        if (err) {
-            return err;
-        }
-
         // fetch mdir
-        return lfsr_mdir_fetch(lfs, mdir_, mid, &mptr);
+        return lfsr_data_fetchmdir(lfs, &data, mid,
+                mdir_);
     }
 }
 
@@ -8931,15 +8938,9 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
         LFS_ASSERT(tag == LFSR_TAG_MDIR);
         LFS_ASSERT(weight == (1U << lfs->mdir_bits));
 
-        // decode mdir
-        lfsr_mptr_t mptr;
-        int err = lfsr_data_readmptr(lfs, &data, &mptr);
-        if (err) {
-            return err;
-        }
-
         // fetch mdir
-        err = lfsr_mdir_fetch(lfs, &mdir, bid-(weight-1), &mptr);
+        int err = lfsr_data_fetchmdir(lfs, &data, bid-(weight-1),
+                &mdir);
         if (err) {
             return err;
         }
@@ -9194,8 +9195,9 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
 
             // found a new mroot
             if (tag == LFSR_TAG_MROOT) {
-                lfsr_mptr_t mptr;
-                err = lfsr_data_readmptr(lfs, &data, &mptr);
+                // fetch this mroot
+                err = lfsr_data_fetchmdir(lfs, &data, -1,
+                        &t->o.o.mdir);
                 if (err) {
                     return err;
                 }
@@ -9206,25 +9208,21 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 // btree inner nodes require checksums of their pointers,
                 // so creating a valid cycle is actually quite difficult
                 //
-                if (lfsr_mptr_cmp(&mptr, &t->u.mtortoise.mptr) == 0) {
+                if (lfsr_mptr_cmp(
+                        lfsr_mdir_mptr(&t->o.o.mdir),
+                        &t->u.mtortoise.mptr) == 0) {
                     LFS_ERROR("Cycle detected during mtree traversal "
                             "0x{%"PRIx32",%"PRIx32"}",
-                            mptr.blocks[0],
-                            mptr.blocks[1]);
+                            t->o.o.mdir.rbyd.blocks[0],
+                            t->o.o.mdir.rbyd.blocks[1]);
                     return LFS_ERR_CORRUPT;
                 }
                 if (t->u.mtortoise.step == (1U << t->u.mtortoise.power)) {
-                    t->u.mtortoise.mptr = mptr;
+                    t->u.mtortoise.mptr = *lfsr_mdir_mptr(&t->o.o.mdir);
                     t->u.mtortoise.step = 0;
                     t->u.mtortoise.power += 1;
                 }
                 t->u.mtortoise.step += 1;
-
-                // fetch this mroot
-                err = lfsr_mdir_fetch(lfs, &t->o.o.mdir, -1, &mptr);
-                if (err) {
-                    return err;
-                }
 
                 if (tag_) {
                     *tag_ = LFSR_TAG_MDIR;
@@ -9237,13 +9235,8 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             // found an mdir?
             } else if (tag == LFSR_TAG_MDIR) {
                 // fetch this mdir
-                lfsr_mptr_t mptr;
-                err = lfsr_data_readmptr(lfs, &data, &mptr);
-                if (err) {
-                    return err;
-                }
-
-                err = lfsr_mdir_fetch(lfs, &t->o.o.mdir, 0, &mptr);
+                err = lfsr_data_fetchmdir(lfs, &data, 0,
+                        &t->o.o.mdir);
                 if (err) {
                     return err;
                 }
