@@ -8297,7 +8297,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_spam_orphanzombie_fuzz]
+[cases.test_traversal_spam_oz_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -8668,7 +8668,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_traversal_spam_orphanzombiedir_fuzz]
+[cases.test_traversal_spam_ozd_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]

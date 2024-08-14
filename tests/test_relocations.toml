@@ -12,7 +12,7 @@ after = [
 # relatively aggressive wear-leveling.
 
 # dirs + relocations may create problems for gstate
-[cases.test_relocations_dir_many]
+[cases.test_relocations_spam_dir_many]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
@@ -91,7 +91,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_relocations_dir_fuzz]
+[cases.test_relocations_spam_dir_fuzz]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
@@ -242,7 +242,7 @@ code = '''
 '''
 
 # files + relocations may create problems for shrubs
-[cases.test_relocations_file_many]
+[cases.test_relocations_spam_file_many]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -315,7 +315,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_relocations_file_fuzz]
+[cases.test_relocations_spam_file_fuzz]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -528,7 +528,7 @@ code = '''
 '''
 
 # open files + relocations may create problems for orphans/zombies
-[cases.test_relocations_orphanzombie_fuzz]
+[cases.test_relocations_spam_oz_fuzz]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -868,7 +868,7 @@ code = '''
 
 # open files + dirs + relocations can cause so many problems it's not worth
 # listing them
-[cases.test_relocations_orphanzombiedir_fuzz]
+[cases.test_relocations_spam_ozd_fuzz]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -1296,7 +1296,7 @@ code = '''
 # the best. Most likely an internal assert will trigger if anything goes
 # wrong.
 #
-[cases.test_relocations_file_pl_fuzz]
+[cases.test_relocations_spam_f_pl_fuzz]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
@@ -1515,7 +1515,7 @@ code = '''
 # the best. Most likely an internal assert will trigger if anything goes
 # wrong.
 #
-[cases.test_relocations_filedir_pl_fuzz]
+[cases.test_relocations_spam_fd_pl_fuzz]
 defines.BLOCK_RECYCLES = [4, 1, 0]
 # note dirs x files grows O(n^2)
 defines.N = [1, 2, 4, 8]

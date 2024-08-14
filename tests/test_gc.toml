@@ -2468,7 +2468,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_gc_spam_orphanzombie_fuzz]
+[cases.test_gc_spam_oz_fuzz]
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -2824,7 +2824,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_gc_spam_orphanzombiedir_fuzz]
+[cases.test_gc_spam_ozd_fuzz]
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]

@@ -432,7 +432,7 @@ code = '''
 # one block. Hopefully this will catch most grow-related bugs.
 #
 
-[cases.test_grow_incr_dir_many]
+[cases.test_grow_incr_spam_dir_many]
 defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
@@ -572,7 +572,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_grow_incr_dir_fuzz]
+[cases.test_grow_incr_spam_dir_fuzz]
 defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
@@ -796,7 +796,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_grow_incr_file_many]
+[cases.test_grow_incr_spam_file_many]
 defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -942,7 +942,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_grow_incr_file_fuzz]
+[cases.test_grow_incr_spam_file_fuzz]
 defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1237,7 +1237,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_grow_incr_orphanzombie_fuzz]
+[cases.test_grow_incr_spam_oz_fuzz]
 defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -1661,7 +1661,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_grow_incr_orphanzombiedir_fuzz]
+[cases.test_grow_incr_spam_ozd_fuzz]
 defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -2189,7 +2189,7 @@ code = '''
 # the best. Most likely an internal assert will trigger if anything goes
 # wrong.
 #
-[cases.test_grow_incr_file_pl_fuzz]
+[cases.test_grow_incr_spam_f_pl_fuzz]
 defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
@@ -2500,7 +2500,7 @@ code = '''
 # the best. Most likely an internal assert will trigger if anything goes
 # wrong.
 #
-[cases.test_grow_incr_filedir_pl_fuzz]
+[cases.test_grow_incr_spam_fd_pl_fuzz]
 defines.INIT_BLOCK_COUNT = 2
 # note dirs x files grows O(n^2)
 defines.N = [1, 2, 4, 8]

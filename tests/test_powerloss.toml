@@ -21,7 +21,7 @@ after = [
 # We always make progress so this should be O(n) progs, (but maybe
 # O(n^2) reads)
 #
-[cases.test_powerloss_dir_many]
+[cases.test_powerloss_spam_dir_many]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
@@ -119,7 +119,7 @@ code = '''
 # We always make progress so this should be O(n) progs, (but maybe
 # O(n^2) reads)
 #
-[cases.test_powerloss_file_many]
+[cases.test_powerloss_spam_file_many]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
@@ -219,7 +219,7 @@ code = '''
 # the best. Most likely an internal assert will trigger if anything goes
 # wrong.
 #
-[cases.test_powerloss_file_pl_fuzz]
+[cases.test_powerloss_spam_f_pl_fuzz]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
@@ -449,7 +449,7 @@ code = '''
 # the best. Most likely an internal assert will trigger if anything goes
 # wrong.
 #
-[cases.test_powerloss_filedir_pl_fuzz]
+[cases.test_powerloss_spam_fd_pl_fuzz]
 defines.POWERLOSS_BEHAVIOR = [
     'LFS_EMUBD_POWERLOSS_NOOP',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',

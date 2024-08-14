@@ -2272,7 +2272,7 @@ corrupt_mounted:;
 '''
 
 # fuzz errors with orphans, zombies, etc
-[cases.test_ck_spam_orphanzombie_fuzz]
+[cases.test_ck_spam_oz_fuzz]
 defines.BADBLOCK = -1
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
@@ -2709,7 +2709,7 @@ corrupt_mounted:;
 '''
 
 # fuzz errors with orphans, zombies, dirs, etc
-[cases.test_ck_spam_orphanzombiedir_fuzz]
+[cases.test_ck_spam_ozd_fuzz]
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
 # METHOD=1 => ckreads

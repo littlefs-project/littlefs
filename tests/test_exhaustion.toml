@@ -21,7 +21,7 @@ after = [
 # storage roughly doubles the lifetime of the storage.
 
 # test dir wear-leveling
-[cases.test_exhaustion_dir_fuzz]
+[cases.test_exhaustion_spam_dir_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
 defines.BADBLOCK_BEHAVIOR = [
@@ -227,7 +227,7 @@ code = '''
 '''
 
 # test file wear-leveling
-[cases.test_exhaustion_file_fuzz]
+[cases.test_exhaustion_spam_file_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
 defines.BADBLOCK_BEHAVIOR = [
@@ -508,7 +508,7 @@ code = '''
 '''
 
 # with more complex file writes
-[cases.test_exhaustion_fwrite_fuzz]
+[cases.test_exhaustion_spam_fwrite_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
 defines.BADBLOCK_BEHAVIOR = [
@@ -695,7 +695,7 @@ code = '''
 '''
 
 # with orphans, zombies, etc
-[cases.test_exhaustion_orphanzombie_fuzz]
+[cases.test_exhaustion_spam_oz_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
 defines.BADBLOCK_BEHAVIOR = [
@@ -1117,7 +1117,7 @@ code = '''
 '''
 
 # with orphans, zombies, dirs, etc
-[cases.test_exhaustion_orphanzombiedir_fuzz]
+[cases.test_exhaustion_spam_ozd_fuzz]
 defines.ERASE_CYCLES = 10
 defines.BLOCK_RECYCLES = 4
 defines.BADBLOCK_BEHAVIOR = [
