@@ -5268,7 +5268,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             }
         }
 
-    compact_relocate:;
+    relocate:;
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd__);
         if (err) {
@@ -5281,7 +5281,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
             if (err == LFS_ERR_CORRUPT) {
-                goto compact_relocate;
+                goto relocate;
             }
             return err;
         }
@@ -5294,7 +5294,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
             if (err == LFS_ERR_CORRUPT) {
-                goto compact_relocate;
+                goto relocate;
             }
             return err;
         }
@@ -8066,7 +8066,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
             mid, attrs, attr_count);
     if (err) {
         if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
-            goto compact;
+            goto swap;
         }
         return err;
     }
@@ -8075,8 +8075,10 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     *mdir = mdir_;
     return 0;
 
-compact:;
-    // can't commit, try to compact
+swap:;
+    // can't commit, can we compact?
+    bool relocated = false;
+    bool overcompacted = false;
 
     // check if we're within our compaction threshold
     lfs_ssize_t estimate = lfsr_mdir_estimate__(lfs, mdir, start_rid, end_rid,
@@ -8092,45 +8094,46 @@ compact:;
 
     // swap blocks, increment revision count
     err = lfsr_mdir_swap__(lfs, &mdir_, mdir, false);
-    if (err && err != LFS_ERR_NOSPC
-            && err != LFS_ERR_CORRUPT) {
+    if (err) {
+        if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
-    bool overcompactable = (err != LFS_ERR_CORRUPT);
-    bool all = true;
+    goto compact;
+
 relocate:;
-    // relocate? bad prog? ok, try allocating a new mdir
-    if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
-        err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, all);
-        if (err && !(err == LFS_ERR_NOSPC && overcompactable)) {
-            return err;
-        }
-        all = false;
+    // needs relocation? bad prog? ok, try allocating a new mdir
+    err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, !relocated);
+    if (err && !(err == LFS_ERR_NOSPC && !overcompacted)) {
+        return err;
+    }
+    relocated = true;
 
-        // no more blocks? wear-leveling falls apart here, but we can try
-        // without relocating
-        if (err == LFS_ERR_NOSPC) {
-            LFS_WARN("Overcompacting mdir %"PRId32" "
-                    "0x{%"PRIx32",%"PRIx32"}",
-                    mdir->mid >> lfs->mdir_bits,
-                    mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
-            overcompactable = false;
+    // no more blocks? wear-leveling falls apart here, but we can try
+    // without relocating
+    if (err == LFS_ERR_NOSPC) {
+        LFS_WARN("Overcompacting mdir %"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"}",
+                mdir->mid >> lfs->mdir_bits,
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
+        overcompacted = true;
 
-            err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
-            if (err) {
-                // bad prog? can't do much here, mdir stuck
-                if (err == LFS_ERR_CORRUPT) {
-                    LFS_DEBUG("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
-                            mdir->rbyd.blocks[0],
-                            mdir->rbyd.blocks[1]);
-                    return LFS_ERR_NOSPC;
-                }
-                return err;
+        err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
+        if (err) {
+            // bad prog? can't do much here, mdir stuck
+            if (err == LFS_ERR_CORRUPT) {
+                LFS_DEBUG("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
+                        mdir->rbyd.blocks[0],
+                        mdir->rbyd.blocks[1]);
+                return LFS_ERR_NOSPC;
             }
+            return err;
         }
     }
 
+compact:;
     // compact our mdir
     err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid, end_rid);
     if (err) {
