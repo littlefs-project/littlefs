@@ -7743,9 +7743,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (rbyd_.weight == 0
             // unless we are an mroot
             && !(mdir->mid == -1 || lfsr_mdir_cmp(mdir, &lfs->mroot) == 0)) {
-        // mark weight as zero, but note! we can no longer read from this mdir
-        // as our pcache may be clobbered
-        mdir->rbyd.weight = 0;
+        // note we can no longer read from this mdir as our pcache may
+        // be clobbered
         return LFS_ERR_NOENT;
     }
 
@@ -8143,14 +8142,11 @@ relocate:;
         return err;
     }
 
-    // update mdir, we need to propagate mdir changes if commit fails
-    *mdir = mdir_;
-
     // now try to commit again
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
+    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
             mid, attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -8161,6 +8157,8 @@ relocate:;
         return err;
     }
 
+    // update mdir
+    *mdir = mdir_;
     return 0;
 }
 
@@ -8349,6 +8347,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
                 goto failed;
             }
+            // empty? set weight to zero
+            if (err == LFS_ERR_NOENT) {
+                mdir_[i^left].rbyd.weight = 0;
+            }
         }
 
         // adjust our sibling's mid after committing attrs
@@ -8467,6 +8469,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 "0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
+        // set weight to zero
+        mdir_[0].rbyd.weight = 0;
 
         // consume gstate so we don't lose any info
         err = lfsr_fs_consumegdelta(lfs, mdir);

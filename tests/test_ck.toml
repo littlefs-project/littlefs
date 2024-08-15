@@ -1493,9 +1493,7 @@ code = '''
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
-# TODO rollback is even a problem for ckprogs, change this
-# to PROGFLIP when rollback protection is in place
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGNOOP'
+defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKREADS   = 'METHOD == 1'
 defines.CKFETCHES = 'METHOD == 2'
@@ -1736,9 +1734,7 @@ corrupt_mounted:;
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
-# TODO rollback is even a problem for ckprogs, change this
-# to PROGFLIP when rollback protection is in place
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGNOOP'
+defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKREADS   = 'METHOD == 1'
 defines.CKFETCHES = 'METHOD == 2'
@@ -2051,9 +2047,7 @@ corrupt_mounted:;
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
-# TODO rollback is even a problem for ckprogs, change this
-# to PROGFLIP when rollback protection is in place
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGNOOP'
+defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKREADS   = 'METHOD == 1'
 defines.CKFETCHES = 'METHOD == 2'
@@ -2281,9 +2275,7 @@ defines.BADBLOCK = -1
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
-# TODO rollback is even a problem for ckprogs, change this
-# to PROGFLIP when rollback protection is in place
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGNOOP'
+defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKREADS   = 'METHOD == 1'
 defines.CKFETCHES = 'METHOD == 2'
@@ -2717,9 +2709,7 @@ corrupt_mounted:;
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
-# TODO rollback is even a problem for ckprogs, change this
-# to PROGFLIP when rollback protection is in place
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGNOOP'
+defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKREADS   = 'METHOD == 1'
 defines.CKFETCHES = 'METHOD == 2'
