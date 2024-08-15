@@ -7516,11 +7516,6 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         lfsr_smid_t mid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // try to append a commit
-    lfsr_rbyd_t rbyd_ = mdir->rbyd;
-    // mark as erased in case of failure
-    mdir->rbyd.eoff = -1;
-
     // since we only ever commit to one mid or split, we can ignore the
     // entire attr-list if our mid is out of range
     lfsr_srid_t rid = lfsr_mid_rid(lfs, mid);
@@ -7559,14 +7554,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 // reset shrub if it doesn't live in our block, this happens
                 // when converting from a btree
-                if (shrub_->blocks[0] != rbyd_.blocks[0]) {
-                    shrub_->blocks[0] = rbyd_.blocks[0];
+                if (shrub_->blocks[0] != mdir->rbyd.blocks[0]) {
+                    shrub_->blocks[0] = mdir->rbyd.blocks[0];
                     shrub_->trunk = LFSR_RBYD_ISSHRUB | 0;
                     shrub_->weight = 0;
                 }
 
                 // commit to shrub
-                int err = lfsr_shrub_commit(lfs, &rbyd_,
+                int err = lfsr_shrub_commit(lfs, &mdir->rbyd,
                         shrub_, shrubcommit->rid,
                         shrubcommit->attrs, shrubcommit->attr_count);
                 if (err) {
@@ -7584,7 +7579,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 lfsr_shrub_t *shrub_ = &((lfsr_bshrub_t*)shrub + 1)->u.bshrub;
 
                 uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-                int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                int err = lfsr_rbyd_appendattr(lfs, &mdir->rbyd,
                         rid - lfs_smax(start_rid, 0),
                         LFSR_ATTR(
                             lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_BSHRUB,
@@ -7619,14 +7614,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     // found an inlined sprout? we can just copy this like
                     // normal but we need to update any opened inlined files
                     if (tag == LFSR_TAG_DATA) {
-                        err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                        err = lfsr_rbyd_appendattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
                                 LFSR_ATTR_CAT_(tag, 0, &data, 1));
                         if (err) {
                             return err;
                         }
 
-                        err = lfsr_sprout_compact(lfs, &rbyd_, &data,
+                        err = lfsr_sprout_compact(lfs, &mdir->rbyd, &data,
                                 &data);
                         if (err) {
                             return err;
@@ -7643,7 +7638,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         }
 
                         // compact our shrub
-                        err = lfsr_shrub_compact(lfs, &rbyd_, &shrub,
+                        err = lfsr_shrub_compact(lfs, &mdir->rbyd, &shrub,
                                 &shrub);
                         if (err) {
                             return err;
@@ -7651,7 +7646,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                         // write our new shrub tag
                         uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-                        err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                        err = lfsr_rbyd_appendattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
                                 LFSR_ATTR(
                                     LFSR_TAG_BSHRUB, 0,
@@ -7662,7 +7657,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                     // append the attr
                     } else {
-                        err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                        err = lfsr_rbyd_appendattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
                                 LFSR_ATTR_CAT_(tag, 0, &data, 1));
                         if (err) {
@@ -7686,8 +7681,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             // only compact once, first compact should stage
                             // the new block
                             && bshrub->bshrub_.u.bsprout.u.disk.block
-                                != rbyd_.blocks[0]) {
-                        int err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_,
+                                != mdir->rbyd.blocks[0]) {
+                        int err = lfsr_rbyd_appendcompactattr(lfs, &mdir->rbyd,
                                 LFSR_ATTR_CAT_(
                                     LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
                                     &bshrub->bshrub.u.bsprout, 1));
@@ -7695,7 +7690,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             return err;
                         }
 
-                        err = lfsr_sprout_compact(lfs, &rbyd_,
+                        err = lfsr_sprout_compact(lfs, &mdir->rbyd,
                                 &bshrub->bshrub_.u.bsprout,
                                 &bshrub->bshrub.u.bsprout);
                         if (err) {
@@ -7708,8 +7703,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             // only compact once, first compact should stage
                             // the new block
                             && bshrub->bshrub_.u.bshrub.blocks[0]
-                                != rbyd_.blocks[0]) {
-                        int err = lfsr_shrub_compact(lfs, &rbyd_,
+                                != mdir->rbyd.blocks[0]) {
+                        int err = lfsr_shrub_compact(lfs, &mdir->rbyd,
                                 &bshrub->bshrub_.u.bshrub,
                                 &bshrub->bshrub.u.bshrub);
                         if (err) {
@@ -7722,7 +7717,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else {
                 LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
 
-                int err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                int err = lfsr_rbyd_appendattr(lfs, &mdir->rbyd,
                         rid - lfs_smax(start_rid, 0),
                         attrs[i]);
                 if (err) {
@@ -7740,24 +7735,24 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     // If we finish the commit it becomes immediately visible, but we really
     // need to atomically remove this mdir from the mtree. Leave the actual
     // remove up to upper layers.
-    if (rbyd_.weight == 0
+    if (mdir->rbyd.weight == 0
             // unless we are an mroot
             && !(mdir->mid == -1 || lfsr_mdir_cmp(mdir, &lfs->mroot) == 0)) {
-        // note we can no longer read from this mdir as our pcache may
+        // note! we can no longer read from this mdir as our pcache may
         // be clobbered
         return LFS_ERR_NOENT;
     }
 
     // append any gstate?
     if (start_rid == -1) {
-        int err = lfsr_rbyd_appendgdelta(lfs, &rbyd_);
+        int err = lfsr_rbyd_appendgdelta(lfs, &mdir->rbyd);
         if (err) {
             return err;
         }
     }
 
     // finalize commit
-    int err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
+    int err = lfsr_rbyd_appendcksum(lfs, &mdir->rbyd);
     if (err) {
         return err;
     }
@@ -7767,7 +7762,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_fs_flushgdelta(lfs);
     }
 
-    mdir->rbyd = rbyd_;
     return 0;
 }
 
@@ -8062,8 +8056,13 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         lfsr_srid_t *split_rid_,
         lfsr_smid_t mid, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    // make a copy
+    lfsr_mdir_t mdir_ = *mdir;
+    // mark as erased in case of failure
+    mdir->rbyd.eoff = -1;
+
     // try to commit
-    int err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
+    int err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
             mid, attrs, attr_count);
     if (err) {
         if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
@@ -8072,6 +8071,8 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         return err;
     }
 
+    // update mdir
+    *mdir = mdir_;
     return 0;
 
 compact:;
@@ -8090,7 +8091,6 @@ compact:;
     }
 
     // swap blocks, increment revision count
-    lfsr_mdir_t mdir_;
     err = lfsr_mdir_swap__(lfs, &mdir_, mdir, false);
     if (err && err != LFS_ERR_NOSPC
             && err != LFS_ERR_CORRUPT) {
@@ -8281,11 +8281,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         goto failed;
     }
 
-    // handle possible mtree updates, this gets a bit messy
+    // keep track of any mroot changes
     lfsr_mdir_t mroot_ = lfs->mroot;
-    if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
+    if (!err && lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
         mroot_.rbyd = mdir_[0].rbyd;
     }
+
+    // handle possible mtree updates, this gets a bit messy
     lfsr_mtree_t mtree_ = lfs->mtree;
     lfsr_smid_t mdelta = 0;
     // need to split?
