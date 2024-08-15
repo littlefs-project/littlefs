@@ -7413,11 +7413,11 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
 
 // low-level mdir operations needed by lfsr_mdir_commit
 static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
-        lfsr_smid_t mid, bool all) {
+        lfsr_smid_t mid, bool partial) {
     // assign the mid
     mdir->mid = mid;
 
-    if (all) {
+    if (!partial) {
         // allocate one block without an erase
         lfs_sblock_t block = lfs_alloc(lfs, false);
         if (block < 0) {
@@ -8105,7 +8105,7 @@ swap:;
 
 relocate:;
     // needs relocation? bad prog? ok, try allocating a new mdir
-    err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, !relocated);
+    err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, relocated);
     if (err && !(err == LFS_ERR_NOSPC && !overcompacted)) {
         return err;
     }
@@ -8317,15 +8317,15 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // shrubs are staged correctly
             bool left = lfsr_mid_rid(lfs, mdir->mid) < split_rid;
 
-            bool all = true;
+            bool relocated = false;;
         split_relocate:;
             // alloc and compact into new mdirs
             err = lfsr_mdir_alloc__(lfs, &mdir_[i^left],
-                    lfs_smax(mdir->mid, 0), all);
+                    lfs_smax(mdir->mid, 0), relocated);
             if (err) {
                 goto failed;
             }
-            all = false;
+            relocated = true;
 
             err = lfsr_mdir_compact__(lfs, &mdir_[i^left],
                     mdir,
