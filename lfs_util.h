@@ -144,16 +144,16 @@ extern "C"
 #define LFS_IFDEF_CKPROGS(a, b) (b)
 #endif
 
-#ifdef LFS_CKREADS
-#define LFS_IFDEF_CKREADS(a, b) (a)
-#else
-#define LFS_IFDEF_CKREADS(a, b) (b)
-#endif
-
 #ifdef LFS_CKFETCHES
 #define LFS_IFDEF_CKFETCHES(a, b) (a)
 #else
 #define LFS_IFDEF_CKFETCHES(a, b) (b)
+#endif
+
+#ifdef LFS_CKPARITY
+#define LFS_IFDEF_CKPARITY(a, b) (a)
+#else
+#define LFS_IFDEF_CKPARITY(a, b) (b)
 #endif
 
 

@@ -767,415 +767,6 @@ code = '''
 
 
 
-# Some simple ckread tests
-
-# These tests were originally intended to test all single-bit
-# metastability errors with ckreads, however they quickly found that
-# ckreads can't actually guarantee single-bit error-detection since
-# the bit flip may alter the leb128 encoded size field and find a new,
-# erronous, parity bit.
-#
-# For example, one bit flip:
-#
-#   40 0c 00 12 80 0d ff ff
-#   '----.----' ^--------------------.
-#        '- altble 0xc w0 -18 parity=1
-#
-#   40 0c 80 12 80 0d ff ff
-#   '-------.-------' ^----------------------.
-#           '- altble 0xc w2304 -1664 parity=1
-#
-# This doesn't make ckreads _completely_ useless, just mostly useless.
-# We can still use it to check parity bits, but without a systematic
-# proof.
-#
-# So for now these tests are sort of in stasis, limited to testing
-# metastability in areas we know we can detect (revision counts, raw
-# data blocks, etc). Maybe future features will make them more useful.
-#
-
-# test every single-bit error in block 0/1
-[cases.test_ck_ckreads_mroot]
-defines.BADBLOCK = [0, 1]
-defines.BADBIT = -1
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGFLIP',
-    'LFS_EMUBD_BADBLOCK_READFLIP',
-]
-# this should stay inlined
-defines.SIZE = 'BLOCK_SIZE/16'
-ifdef = 'LFS_CKREADS'
-code = '''
-    // test all bad bits in the mroot
-    for (lfs_size_t i = 0;
-            // we can't detect metastable tags, so limit read-flips
-            // to our revision count
-            i < ((BADBIT == -1) ? 8*4 : 1);
-            i++) {
-        lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
-
-        // reset the bd prng every run for reproducibility
-        lfs_emubd_seed(CFG, 42);
-        printf("--- badblock: 0x%x.%x, badbit: 0x%x (0x%x+%x) ---\n",
-                (lfs_size_t)BADBLOCK, badbit/8, badbit, badbit/8, badbit%8);
-
-        // mark our badbit as bad
-        lfs_emubd_markbadbit(CFG, BADBLOCK, badbit) => 0;
-
-        // With metastability, basically any filesystem operation can
-        // return LFS_ERR_CORRUPT. This is ok, what we're really testing
-        // for is no internal/external asserts failing.
-
-        // format
-        lfs_t lfs;
-        int err = lfsr_format(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG);
-        assert(!err || err == LFS_ERR_CORRUPT);
-        if (err == LFS_ERR_CORRUPT) {
-            goto corrupt;
-        }
-        err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG);
-        assert(!err || err == LFS_ERR_CORRUPT);
-        if (err == LFS_ERR_CORRUPT) {
-            goto corrupt;
-        }
-
-        {
-            // create a file
-            lfsr_file_t file;
-            err = lfsr_file_open(&lfs, &file, "tripedalia",
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
-            assert(!err || err == LFS_ERR_CORRUPT);
-            if (err == LFS_ERR_CORRUPT) {
-                goto corrupt_mounted;
-            }
-            uint32_t prng = 42;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-            }
-            lfs_ssize_t res = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-            assert(res == SIZE || res == LFS_ERR_CORRUPT);
-            if (res == LFS_ERR_CORRUPT) {
-                lfsr_file_close(&lfs, &file) => 0;
-                goto corrupt_mounted;
-            }
-            err = lfsr_file_close(&lfs, &file);
-            if (err == LFS_ERR_CORRUPT) {
-                goto corrupt_mounted;
-            }
-
-            // try to read our file
-            for (int remount = 0; remount < 2; remount++) {
-                // remount?
-                if (remount) {
-                    lfsr_unmount(&lfs) => 0;
-                    err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG);
-                    if (err == LFS_ERR_CORRUPT) {
-                        goto corrupt;
-                    }
-                }
-
-                // yes reads can fail here
-                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
-                assert(!err
-                    || err == LFS_ERR_CORRUPT
-                    // bit errors can also cause our fs state to "rollback",
-                    // which is not great but we can't solve this with ckreads
-                    // alone
-                    || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOENT) {
-                    goto corrupt_mounted;
-                }
-                uint8_t rbuf[SIZE];
-                lfs_ssize_t res = lfsr_file_read(&lfs, &file, rbuf, SIZE);
-                assert(res == SIZE || res == LFS_ERR_CORRUPT);
-                if (res == LFS_ERR_CORRUPT) {
-                    lfsr_file_close(&lfs, &file) => 0;
-                    goto corrupt_mounted;
-                }
-                assert(memcmp(rbuf, wbuf, SIZE) == 0);
-                lfsr_file_close(&lfs, &file) => 0;
-            }
-        }
-
-    corrupt_mounted:;
-        lfsr_unmount(&lfs) => 0;
-
-    corrupt:;
-        // reset badbit
-        lfs_emubd_markgood(CFG, BADBLOCK) => 0;
-    }
-'''
-
-# test every single-bit error in a file's data block
-[cases.test_ck_ckreads_data]
-defines.BADBIT = -1
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGFLIP',
-    'LFS_EMUBD_BADBLOCK_READFLIP',
-]
-# this should create a single block file
-defines.SIZE = 'BLOCK_SIZE'
-ifdef = 'LFS_CKREADS'
-code = '''
-    // first we need to figure out where the data block will actually
-    // end up, fortunately our block randomization is intentionally
-    // consistent
-
-    // format
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKREADS, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
-
-    // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "tripedalia",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    uint32_t prng = 42;
-    uint8_t wbuf[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
-         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-    }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
-
-    // find the data block
-    lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
-    lfs_block_t badblock;
-    while (true) {
-        struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        if (tinfo.btype == LFS_BTYPE_DATA) {
-            badblock = tinfo.block;
-            break;
-        }
-    }
-    lfsr_traversal_close(&lfs, &t) => 0;
-
-    lfsr_unmount(&lfs) => 0;
-
-    // now test all bad bits in the data block
-    for (lfs_size_t i = 0;
-            i < ((BADBIT == -1) ? 8*BLOCK_SIZE : 1);
-            i++) {
-        lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
-
-        // reset the bd prng every run for reproducibility
-        lfs_emubd_seed(CFG, 42);
-        printf("--- badblock: 0x%x.%x, badbit: 0x%x (0x%x+%x) ---\n",
-                badblock, badbit/8, badbit, badbit/8, badbit%8);
-
-        // mark our badbit as bad
-        lfs_emubd_markbadbit(CFG, badblock, badbit) => 0;
-
-        // With metastability, basically any filesystem operation can
-        // return LFS_ERR_CORRUPT. This is ok, what we're really testing
-        // for is no internal/external asserts failing.
-
-        // format
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKREADS, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
-
-        {
-            // create a file
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "tripedalia",
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            uint32_t prng = 42;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-            }
-            lfs_ssize_t res = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-            assert(res == SIZE || res == LFS_ERR_CORRUPT);
-            if (res == LFS_ERR_CORRUPT) {
-                lfsr_file_close(&lfs, &file) => 0;
-                goto corrupt_mounted;
-            }
-            int err = lfsr_file_close(&lfs, &file);
-            if (err == LFS_ERR_CORRUPT) {
-                goto corrupt_mounted;
-            }
-
-            // try to read our file
-            for (int remount = 0; remount < 2; remount++) {
-                // remount?
-                if (remount) {
-                    lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
-                }
-
-                // yes reads can fail here
-                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
-                assert(!err
-                    || err == LFS_ERR_CORRUPT
-                    // bit errors can also cause our fs state to "rollback",
-                    // which is not great but we can't solve this with ckreads
-                    // alone
-                    || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOENT) {
-                    goto corrupt_mounted;
-                }
-                uint8_t rbuf[SIZE];
-                lfs_ssize_t res = lfsr_file_read(&lfs, &file, rbuf, SIZE);
-                assert(res == SIZE || res == LFS_ERR_CORRUPT);
-                if (res == LFS_ERR_CORRUPT) {
-                    lfsr_file_close(&lfs, &file) => 0;
-                    goto corrupt_mounted;
-                }
-                assert(memcmp(rbuf, wbuf, SIZE) == 0);
-                lfsr_file_close(&lfs, &file) => 0;
-            }
-        }
-
-    corrupt_mounted:;
-        lfsr_unmount(&lfs) => 0;
-
-        // reset badbit
-        lfs_emubd_markgood(CFG, badblock) => 0;
-    }
-'''
-
-# test every single-bit error in a file's btree node
-[cases.test_ck_ckreads_btree]
-defines.BADBIT = -1
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS_EMUBD_BADBLOCK_PROGFLIP',
-    'LFS_EMUBD_BADBLOCK_READFLIP',
-]
-# force the file to create a btree
-defines.INLINE_SIZE = 0
-defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
-defines.SIZE = '2*FRAGMENT_SIZE'
-ifdef = 'LFS_CKREADS'
-code = '''
-    // first we need to figure out where the btree block will actually
-    // end up, fortunately our block randomization is intentionally
-    // consistent
-
-    // format
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKREADS, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
-
-    // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "tripedalia",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    uint32_t prng = 42;
-    uint8_t wbuf[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
-         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-    }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
-
-    // find the btree block
-    lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
-    lfs_block_t badblock;
-    while (true) {
-        struct lfs_tinfo tinfo;
-        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
-        if (tinfo.btype == LFS_BTYPE_BTREE) {
-            badblock = tinfo.block;
-            break;
-        }
-    }
-    lfsr_traversal_close(&lfs, &t) => 0;
-
-    lfsr_unmount(&lfs) => 0;
-
-    // now test all bad bits in the btree block
-    for (lfs_size_t i = 0;
-            // we can't detect metastable tags, so limit read-flips
-            // to our revision count
-            i < ((BADBIT == -1) ? 8*4 : 1);
-            i++) {
-        lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
-
-        // reset the bd prng every run for reproducibility
-        lfs_emubd_seed(CFG, 42);
-        printf("--- badblock: 0x%x.%x, badbit: 0x%x (0x%x+%x) ---\n",
-                badblock, badbit/8, badbit, badbit/8, badbit%8);
-
-        // mark our badbit as bad
-        lfs_emubd_markbadbit(CFG, badblock, badbit) => 0;
-
-        // With metastability, basically any filesystem operation can
-        // return LFS_ERR_CORRUPT. This is ok, what we're really testing
-        // for is no internal/external asserts failing.
-
-        // format
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKREADS, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
-
-        {
-            // create a file
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, "tripedalia",
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            uint32_t prng = 42;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
-                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-            }
-            lfs_ssize_t res = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-            assert(res == SIZE || res == LFS_ERR_CORRUPT);
-            if (res == LFS_ERR_CORRUPT) {
-                lfsr_file_close(&lfs, &file) => 0;
-                goto corrupt_mounted;
-            }
-            int err = lfsr_file_close(&lfs, &file);
-            if (err == LFS_ERR_CORRUPT) {
-                goto corrupt_mounted;
-            }
-
-            // try to read our file
-            for (int remount = 0; remount < 2; remount++) {
-                // remount?
-                if (remount) {
-                    lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKREADS, CFG) => 0;
-                }
-
-                // yes reads can fail here
-                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
-                assert(!err
-                    || err == LFS_ERR_CORRUPT
-                    // bit errors can also cause our fs state to "rollback",
-                    // which is not great but we can't solve this with ckreads
-                    // alone
-                    || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOENT) {
-                    goto corrupt_mounted;
-                }
-                uint8_t rbuf[SIZE];
-                lfs_ssize_t res = lfsr_file_read(&lfs, &file, rbuf, SIZE);
-                assert(res == SIZE || res == LFS_ERR_CORRUPT);
-                if (res == LFS_ERR_CORRUPT) {
-                    lfsr_file_close(&lfs, &file) => 0;
-                    goto corrupt_mounted;
-                }
-                assert(memcmp(rbuf, wbuf, SIZE) == 0);
-                lfsr_file_close(&lfs, &file) => 0;
-            }
-        }
-
-    corrupt_mounted:;
-        lfsr_unmount(&lfs) => 0;
-
-        // reset badbit
-        lfs_emubd_markgood(CFG, badblock) => 0;
-    }
-'''
-
-
-
 # Some simple ckfetches tests
 
 # test every single-bit error in block 0/1
@@ -1477,6 +1068,285 @@ code = '''
 
 
 
+# Some simple ckparity tests
+
+# These tests were originally intended to test all single-bit
+# metastability errors with ckparity, however they quickly found that
+# ckparity can't actually guarantee single-bit error-detection since
+# the bit flip may alter the leb128 encoded size field and find a new,
+# erronous, parity bit.
+#
+# For example, one bit flip:
+#
+#   40 0c 00 12 80 0d ff ff
+#   '----.----' ^--------------------.
+#        '- altble 0xc w0 -18 parity=1
+#
+#   40 0c 80 12 80 0d ff ff
+#   '-------.-------' ^----------------------.
+#           '- altble 0xc w2304 -1664 parity=1
+#
+# This doesn't make ckparity _completely_ useless, just mostly useless.
+# We can still use it to check parity bits, but without a systematic
+# proof.
+#
+# So for now these tests are sort of in stasis, limited to testing
+# metastability in areas we know we can detect (revision counts, raw
+# data blocks, etc). Maybe future features will make them more useful.
+#
+
+# test every single-bit error in block 0/1
+[cases.test_ck_ckparity_mroot]
+defines.BADBLOCK = [0, 1]
+defines.BADBIT = -1
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
+    'LFS_EMUBD_BADBLOCK_READFLIP',
+]
+# this should stay inlined
+defines.SIZE = 'BLOCK_SIZE/16'
+ifdef = 'LFS_CKPARITY'
+code = '''
+    // test all bad bits in the mroot
+    for (lfs_size_t i = 0;
+            // we can't detect metastable tags, so limit read-flips
+            // to our revision count
+            i < ((BADBIT == -1) ? 8*4 : 1);
+            i++) {
+        lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
+
+        // reset the bd prng every run for reproducibility
+        lfs_emubd_seed(CFG, 42);
+        printf("--- badblock: 0x%x.%x, badbit: 0x%x (0x%x+%x) ---\n",
+                (lfs_size_t)BADBLOCK, badbit/8, badbit, badbit/8, badbit%8);
+
+        // mark our badbit as bad
+        lfs_emubd_markbadbit(CFG, BADBLOCK, badbit) => 0;
+
+        // With metastability, basically any filesystem operation can
+        // return LFS_ERR_CORRUPT. This is ok, what we're really testing
+        // for is no internal/external asserts failing.
+
+        // format
+        lfs_t lfs;
+        int err = lfsr_format(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG);
+        assert(!err || err == LFS_ERR_CORRUPT);
+        if (err == LFS_ERR_CORRUPT) {
+            goto corrupt;
+        }
+        err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG);
+        assert(!err || err == LFS_ERR_CORRUPT);
+        if (err == LFS_ERR_CORRUPT) {
+            goto corrupt;
+        }
+
+        {
+            // create a file
+            lfsr_file_t file;
+            err = lfsr_file_open(&lfs, &file, "tripedalia",
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            if (err == LFS_ERR_CORRUPT) {
+                goto corrupt_mounted;
+            }
+            uint32_t prng = 42;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfs_ssize_t res = lfsr_file_write(&lfs, &file, wbuf, SIZE);
+            assert(res == SIZE || res == LFS_ERR_CORRUPT);
+            if (res == LFS_ERR_CORRUPT) {
+                lfsr_file_close(&lfs, &file) => 0;
+                goto corrupt_mounted;
+            }
+            err = lfsr_file_close(&lfs, &file);
+            if (err == LFS_ERR_CORRUPT) {
+                goto corrupt_mounted;
+            }
+
+            // try to read our file
+            for (int remount = 0; remount < 2; remount++) {
+                // remount?
+                if (remount) {
+                    lfsr_unmount(&lfs) => 0;
+                    err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG);
+                    if (err == LFS_ERR_CORRUPT) {
+                        goto corrupt;
+                    }
+                }
+
+                // yes reads can fail here
+                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
+                assert(!err
+                    || err == LFS_ERR_CORRUPT
+                    // bit errors can also cause our fs state to "rollback",
+                    // which is not great but we can't solve this with
+                    // ckparity alone
+                    || err == LFS_ERR_NOENT);
+                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOENT) {
+                    goto corrupt_mounted;
+                }
+                uint8_t rbuf[SIZE];
+                lfs_ssize_t res = lfsr_file_read(&lfs, &file, rbuf, SIZE);
+                assert(res == SIZE || res == LFS_ERR_CORRUPT);
+                if (res == LFS_ERR_CORRUPT) {
+                    lfsr_file_close(&lfs, &file) => 0;
+                    goto corrupt_mounted;
+                }
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                lfsr_file_close(&lfs, &file) => 0;
+            }
+        }
+
+    corrupt_mounted:;
+        lfsr_unmount(&lfs) => 0;
+
+    corrupt:;
+        // reset badbit
+        lfs_emubd_markgood(CFG, BADBLOCK) => 0;
+    }
+'''
+
+# test every single-bit error in a file's btree node
+[cases.test_ck_ckparity_btree]
+defines.BADBIT = -1
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS_EMUBD_BADBLOCK_PROGFLIP',
+    'LFS_EMUBD_BADBLOCK_READFLIP',
+]
+# force the file to create a btree
+defines.INLINE_SIZE = 0
+defines.CRYSTAL_THRESH = -1
+defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
+defines.SIZE = '2*FRAGMENT_SIZE'
+ifdef = 'LFS_CKPARITY'
+code = '''
+    // first we need to figure out where the btree block will actually
+    // end up, fortunately our block randomization is intentionally
+    // consistent
+
+    // format
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKPARITY, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "tripedalia",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint32_t prng = 42;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // find the btree block
+    lfsr_traversal_t t;
+    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfs_block_t badblock;
+    while (true) {
+        struct lfs_tinfo tinfo;
+        lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
+        if (tinfo.btype == LFS_BTYPE_BTREE) {
+            badblock = tinfo.block;
+            break;
+        }
+    }
+    lfsr_traversal_close(&lfs, &t) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+
+    // now test all bad bits in the btree block
+    for (lfs_size_t i = 0;
+            // we can't detect metastable tags, so limit read-flips
+            // to our revision count
+            i < ((BADBIT == -1) ? 8*4 : 1);
+            i++) {
+        lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
+
+        // reset the bd prng every run for reproducibility
+        lfs_emubd_seed(CFG, 42);
+        printf("--- badblock: 0x%x.%x, badbit: 0x%x (0x%x+%x) ---\n",
+                badblock, badbit/8, badbit, badbit/8, badbit%8);
+
+        // mark our badbit as bad
+        lfs_emubd_markbadbit(CFG, badblock, badbit) => 0;
+
+        // With metastability, basically any filesystem operation can
+        // return LFS_ERR_CORRUPT. This is ok, what we're really testing
+        // for is no internal/external asserts failing.
+
+        // format
+        lfs_t lfs;
+        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKPARITY, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG) => 0;
+
+        {
+            // create a file
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, "tripedalia",
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            uint32_t prng = 42;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfs_ssize_t res = lfsr_file_write(&lfs, &file, wbuf, SIZE);
+            assert(res == SIZE || res == LFS_ERR_CORRUPT);
+            if (res == LFS_ERR_CORRUPT) {
+                lfsr_file_close(&lfs, &file) => 0;
+                goto corrupt_mounted;
+            }
+            int err = lfsr_file_close(&lfs, &file);
+            if (err == LFS_ERR_CORRUPT) {
+                goto corrupt_mounted;
+            }
+
+            // try to read our file
+            for (int remount = 0; remount < 2; remount++) {
+                // remount?
+                if (remount) {
+                    lfsr_unmount(&lfs) => 0;
+                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG) => 0;
+                }
+
+                // yes reads can fail here
+                err = lfsr_file_open(&lfs, &file, "tripedalia", LFS_O_RDONLY);
+                assert(!err
+                    || err == LFS_ERR_CORRUPT
+                    // bit errors can also cause our fs state to "rollback",
+                    // which is not great but we can't solve this with
+                    // ckparity alone
+                    || err == LFS_ERR_NOENT);
+                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOENT) {
+                    goto corrupt_mounted;
+                }
+                uint8_t rbuf[SIZE];
+                lfs_ssize_t res = lfsr_file_read(&lfs, &file, rbuf, SIZE);
+                assert(res == SIZE || res == LFS_ERR_CORRUPT);
+                if (res == LFS_ERR_CORRUPT) {
+                    lfsr_file_close(&lfs, &file) => 0;
+                    goto corrupt_mounted;
+                }
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                lfsr_file_close(&lfs, &file) => 0;
+            }
+        }
+
+    corrupt_mounted:;
+        lfsr_unmount(&lfs) => 0;
+
+        // reset badbit
+        lfs_emubd_markgood(CFG, badblock) => 0;
+    }
+'''
+
+
+
+
 ## High-level error spam tests
 #
 # we basically just throw errors at filesystem operations until they
@@ -1488,22 +1358,22 @@ code = '''
 [cases.test_ck_spam_dir_fuzz]
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckreads
-# METHOD=2 => ckfetches
+# METHOD=1 => ckfetches
+# METHOD=2 => ckparity
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
-defines.CKREADS   = 'METHOD == 1'
-defines.CKFETCHES = 'METHOD == 2'
+defines.CKFETCHES = 'METHOD == 1'
+defines.CKPARITY  = 'METHOD == 2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
 ]
 code = '''
     // seed our block device with our seed so we have different error
@@ -1523,14 +1393,14 @@ code = '''
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -1551,13 +1421,13 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckreads?
-            if (METHOD == 0 || METHOD == 1) {
+            // ckprogs? ckparity?
+            if (METHOD == 0 || METHOD == 2) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
 
             // ckfetches?
-            } else if (METHOD == 2) {
+            } else if (METHOD == 1) {
                 // flip a bit
                 lfs_emubd_flipbit(CFG, badblock,
                         lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
@@ -1668,11 +1538,11 @@ code = '''
                         | ((CKPROGS)
                             ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
                             : 0)
-                        | ((CKREADS)
-                            ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1)
-                            : 0)
                         | ((CKFETCHES)
                             ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1)
+                            : 0)
+                        | ((CKPARITY)
+                            ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
                             : 0),
                     CFG) => 0;
         }
@@ -1729,15 +1599,15 @@ corrupt_mounted:;
 [cases.test_ck_spam_file_fuzz]
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckreads
-# METHOD=2 => ckfetches
+# METHOD=1 => ckfetches
+# METHOD=2 => ckparity
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
-defines.CKREADS   = 'METHOD == 1'
-defines.CKFETCHES = 'METHOD == 2'
+defines.CKFETCHES = 'METHOD == 1'
+defines.CKPARITY  = 'METHOD == 2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1752,8 +1622,8 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -1774,14 +1644,14 @@ code = '''
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -1803,13 +1673,13 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckreads?
-            if (METHOD == 0 || METHOD == 1) {
+            // ckprogs? ckparity?
+            if (METHOD == 0 || METHOD == 2) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
 
             // ckfetches?
-            } else if (METHOD == 2) {
+            } else if (METHOD == 1) {
                 // flip a bit
                 lfs_emubd_flipbit(CFG, badblock,
                         lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
@@ -1966,11 +1836,11 @@ code = '''
                         | ((CKPROGS)
                             ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
                             : 0)
-                        | ((CKREADS)
-                            ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1)
-                            : 0)
                         | ((CKFETCHES)
                             ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1)
+                            : 0)
+                        | ((CKPARITY)
+                            ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
                             : 0),
                     CFG) => 0;
         }
@@ -2042,15 +1912,15 @@ corrupt_mounted:;
 [cases.test_ck_spam_fwrite_fuzz]
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckreads
-# METHOD=2 => ckfetches
+# METHOD=1 => ckfetches
+# METHOD=2 => ckparity
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
-defines.CKREADS   = 'METHOD == 1'
-defines.CKFETCHES = 'METHOD == 2'
+defines.CKFETCHES = 'METHOD == 1'
+defines.CKPARITY  = 'METHOD == 2'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -2070,8 +1940,8 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -2094,14 +1964,14 @@ code = '''
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0),
             CFG) => 0;
 
     // create a file
@@ -2145,13 +2015,13 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckreads?
-            if (METHOD == 0 || METHOD == 1) {
+            // ckprogs? ckparity?
+            if (METHOD == 0 || METHOD == 2) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
 
             // ckfetches?
-            } else if (METHOD == 2) {
+            } else if (METHOD == 1) {
                 // flip a bit
                 lfs_emubd_flipbit(CFG, badblock,
                         lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
@@ -2208,11 +2078,11 @@ code = '''
                         | ((CKPROGS)
                             ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1)
                             : 0)
-                        | ((CKREADS)
-                            ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1)
-                            : 0)
                         | ((CKFETCHES)
                             ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1)
+                            : 0)
+                        | ((CKPARITY)
+                            ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
                             : 0),
                     CFG) => 0;
         }
@@ -2270,15 +2140,15 @@ corrupt_mounted:;
 defines.BADBLOCK = -1
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckreads
-# METHOD=2 => ckfetches
+# METHOD=1 => ckfetches
+# METHOD=2 => ckparity
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
-defines.CKREADS   = 'METHOD == 1'
-defines.CKFETCHES = 'METHOD == 2'
+defines.CKFETCHES = 'METHOD == 1'
+defines.CKPARITY  = 'METHOD == 2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -2293,8 +2163,8 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -2315,14 +2185,14 @@ code = '''
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -2354,13 +2224,13 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckreads?
-            if (METHOD == 0 || METHOD == 1) {
+            // ckprogs? ckparity?
+            if (METHOD == 0 || METHOD == 2) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
 
             // ckfetches?
-            } else if (METHOD == 2) {
+            } else if (METHOD == 1) {
                 // flip a bit
                 lfs_emubd_flipbit(CFG, badblock,
                         lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
@@ -2704,15 +2574,15 @@ corrupt_mounted:;
 [cases.test_ck_spam_ozd_fuzz]
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckreads
-# METHOD=2 => ckfetches
+# METHOD=1 => ckfetches
+# METHOD=2 => ckparity
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
-defines.CKREADS   = 'METHOD == 1'
-defines.CKFETCHES = 'METHOD == 2'
+defines.CKFETCHES = 'METHOD == 1'
+defines.CKPARITY  = 'METHOD == 2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -2727,9 +2597,8 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -2750,14 +2619,14 @@ code = '''
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0),
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -2790,13 +2659,13 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckreads?
-            if (METHOD == 0 || METHOD == 1) {
+            // ckprogs? ckparity?
+            if (METHOD == 0 || METHOD == 2) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
 
             // ckfetches?
-            } else if (METHOD == 2) {
+            } else if (METHOD == 1) {
                 // flip a bit
                 lfs_emubd_flipbit(CFG, badblock,
                         lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;

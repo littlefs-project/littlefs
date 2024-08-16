@@ -15,11 +15,11 @@ code = '''
 # lfsr_fs_stat
 [cases.test_mount_flags]
 defines.RDONLY = [false, true]
-defines.CKPROGS = [false, true]
-defines.CKREADS = [false, true]
-defines.CKFETCHES = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
+defines.CKPROGS = [false, true]
+defines.CKFETCHES = [false, true]
+defines.CKPARITY = [false, true]
 defines.MTREEONLY = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -28,8 +28,8 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     '!RDONLY || !COMPACT',
@@ -41,11 +41,11 @@ code = '''
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs,
             ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
-                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_M_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((FLUSH) ? LFS_M_FLUSH : 0)
                 | ((SYNC) ? LFS_M_SYNC : 0)
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
                 | ((MKCONSISTENT) ? LFS_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
@@ -59,11 +59,11 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((RDONLY) ? LFS_I_RDONLY : 0)
-                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_I_CKREADS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
                 | ((FLUSH) ? LFS_I_FLUSH : 0)
                 | ((SYNC) ? LFS_I_SYNC : 0)
+                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
+                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, -1) : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
 
@@ -75,16 +75,16 @@ code = '''
 # these end up passed to mount internally
 [cases.test_mount_format_flags]
 defines.CKPROGS = [false, true]
-defines.CKREADS = [false, true]
 defines.CKFETCHES = [false, true]
+defines.CKPARITY = [false, true]
 defines.MTREEONLY = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKREADS(true, !CKREADS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
     '!MTREEONLY || !CKDATA',
 ]
 code = '''
@@ -92,8 +92,8 @@ code = '''
     lfsr_format(&lfs,
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKREADS) ? LFS_IFDEF_CKREADS(LFS_F_CKREADS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
                 | ((COMPACT) ? LFS_M_COMPACT : 0)
                 | ((CKMETA) ? LFS_M_CKMETA : 0)

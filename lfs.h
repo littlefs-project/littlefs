@@ -156,11 +156,11 @@ enum lfs_type {
 #ifdef LFS_CKPROGS
 #define LFS_F_CKPROGS   0x00100000  // Check progs by reading back progged data
 #endif
-#ifdef LFS_CKREADS
-#define LFS_F_CKREADS   0x00200000  // Check reads via parity bits/checksums
-#endif
 #ifdef LFS_CKFETCHES
-#define LFS_F_CKFETCHES 0x00400000  // Check checksums before reads
+#define LFS_F_CKFETCHES 0x00200000  // Check block checksums before first use
+#endif
+#ifdef LFS_CKPARITY
+#define LFS_F_CKPARITY  0x00400000  // Check tag parity bits on reads
 #endif
 
 #define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -176,11 +176,11 @@ enum lfs_type {
 #ifdef LFS_CKPROGS
 #define LFS_M_CKPROGS   0x00100000  // Check progs by reading back progged data
 #endif
-#ifdef LFS_CKREADS
-#define LFS_M_CKREADS   0x00200000  // Check reads via parity bits/checksums
-#endif
 #ifdef LFS_CKFETCHES
-#define LFS_M_CKFETCHES 0x00400000  // Check checksums before reads
+#define LFS_M_CKFETCHES 0x00200000  // Check block checksums before first use
+#endif
+#ifdef LFS_CKPARITY
+#define LFS_M_CKPARITY  0x00400000  // Check tag parity bits on reads
 #endif
 
 #define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -198,11 +198,11 @@ enum lfs_type {
 #ifdef LFS_CKPROGS
 #define LFS_I_CKPROGS   0x00100000  // Filesystem mounted with LFS_M_CKPROGS
 #endif
-#ifdef LFS_CKREADS
-#define LFS_I_CKREADS   0x00200000  // Filesystem mounted with LFS_M_CKREADS
-#endif
 #ifdef LFS_CKFETCHES
-#define LFS_I_CKFETCHES 0x00400000  // Filesystem mounted with LFS_M_CKFETCHES
+#define LFS_I_CKFETCHES 0x00200000  // Filesystem mounted with LFS_M_CKFETCHES
+#endif
+#ifdef LFS_CKPARITY
+#define LFS_I_CKPARITY  0x00400000  // Filesystem mounted with LFS_M_CKPARITY
 #endif
 
 #define LFS_I_INCONSISTENT \
@@ -559,7 +559,7 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
-#ifdef LFS_CKREADS
+#ifdef LFS_CKPARITY
 // context for validating data
 typedef struct lfsr_ck {
     // sign(cksize)=0 => cksum check
@@ -582,7 +582,7 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
-            #ifdef LFS_CKREADS
+            #ifdef LFS_CKPARITY
             lfsr_ck_t ck;
             #endif
         } disk;
@@ -615,7 +615,7 @@ typedef lfsr_data_t lfsr_sprout_t;
 
 typedef struct lfsr_bptr {
     lfsr_data_t data;
-    #ifndef LFS_CKREADS
+    #ifndef LFS_CKPARITY
     lfs_size_t cksize;
     uint32_t cksum;
     #endif
@@ -757,7 +757,7 @@ typedef struct lfsr_grm {
     lfsr_smid_t mids[2];
 } lfsr_grm_t;
 
-#ifdef LFS_CKREADS
+#ifdef LFS_CKPARITY
 typedef struct lfsr_tailck {
     lfs_block_t ckblock;
     // sign(ckoff) => tail parity
@@ -797,7 +797,7 @@ typedef struct lfs {
         uint8_t *buffer;
     } pcache;
 
-    #ifdef LFS_CKREADS
+    #ifdef LFS_CKPARITY
     lfsr_tailck_t tailck;
     #endif
 
