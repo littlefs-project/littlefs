@@ -3661,6 +3661,26 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
 }
 #endif
 
+static bool check_valid_off(lfs_off_t current_pos, lfs_soff_t off) {
+    /* Check if current_pos + off would be less than 0. We cannot use signed addition
+     * to check that because it would result in possible UB.
+     */
+    if (off == INT32_MIN) {
+        return false;
+    }
+
+    if (off < 0 && ((lfs_soff_t) current_pos) < -off) {
+        return false;
+    }
+
+    /* Unsigned overflow. */
+    if (off > 0 && (current_pos + ((lfs_off_t) off) < current_pos)) {
+        return false;
+    }
+
+    return true;
+}
+
 static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
     // find new pos
@@ -3668,17 +3688,16 @@ static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
     if (whence == LFS_SEEK_SET) {
         npos = off;
     } else if (whence == LFS_SEEK_CUR) {
-        if ((lfs_soff_t)file->pos + off < 0) {
+        if (!check_valid_off(file->pos, off)) {
             return LFS_ERR_INVAL;
         } else {
             npos = file->pos + off;
         }
     } else if (whence == LFS_SEEK_END) {
-        lfs_soff_t res = lfs_file_size_(lfs, file) + off;
-        if (res < 0) {
+        if (!check_valid_off(lfs_file_size_(lfs, file), off)) {
             return LFS_ERR_INVAL;
         } else {
-            npos = res;
+            npos = lfs_file_size_(lfs, file) + off;
         }
     }
 
