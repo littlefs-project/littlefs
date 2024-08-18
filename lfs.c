@@ -121,9 +121,6 @@ static inline void lfsr_bd_droppcache(lfs_t *lfs) {
 
 // caching read that lends you a buffer
 //
-// this fundamentally can't provide checked reads, so we really should
-// only use it to build other low-level bd functions
-//
 // note hint has two conveniences:
 //  0 => minimal caching
 // -1 => maximal caching
@@ -704,6 +701,7 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 }
 
 
+
 /// lfsr_ck_t stuff ///
 
 #ifdef LFS_CKPARITY
@@ -753,6 +751,7 @@ static inline lfs_size_t lfsr_ck_ckoff(lfsr_ck_t ck) {
 }
 #endif
 
+
 // lfsr_tailck_t stuff
 //
 // tailck tracks the most recent trunk's parity so we can parity-check
@@ -784,9 +783,9 @@ static lfs_sbool_t lfsr_bd_readparity(lfs_t *lfs,
 
     // _usually_, the byte following a tag contains the tag's parity
     //
-    // but if we're in the middle of building a commit things get
-    // tricky since we may not have written this bit yet... this is why
-    // tailck exists, to track the most recent trunk's parity
+    // unless we're in the middle of building a commit, where things get
+    // tricky... to avoid problems with not-yet-written parity bits
+    // tailck tracks the most recent trunk's parity
     //
 
     // parity in in tailck?
@@ -807,6 +806,9 @@ static lfs_sbool_t lfsr_bd_readparity(lfs_t *lfs,
     }
 }
 #endif
+
+
+// checked read functions
 
 #ifdef LFS_CKPARITY
 static lfs_ssize_t lfsr_bd_ckprefix(lfs_t *lfs,
