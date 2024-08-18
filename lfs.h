@@ -566,6 +566,7 @@ typedef struct lfsr_ck {
     // sign(cksize)=1 => parity check
     lfs_size_t cksize;
     union {
+        // sign(ckoff) => parity
         lfs_size_t ckoff;
         uint32_t cksum;
     } u;
