@@ -7477,9 +7477,8 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    int err = LFSR_BD_READCK(lfs, mdir->rbyd.blocks[0], 0, 0,
-            &rev, sizeof(uint32_t),
-            LFSR_CK_PARITY(0, sizeof(uint32_t)));
+    int err = lfsr_bd_read(lfs, mdir->rbyd.blocks[0], 0, 0,
+            &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
