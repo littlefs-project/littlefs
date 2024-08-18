@@ -1091,8 +1091,8 @@ code = '''
 # proof.
 #
 # So for now these tests are sort of in stasis, limited to testing
-# metastability in areas we know we can detect (revision counts, raw
-# data blocks, etc). Maybe future features will make them more useful.
+# metastability in areas we know we can detect. Maybe future features
+# will make them more useful.
 #
 
 # test every single-bit error in block 0/1
@@ -1110,8 +1110,8 @@ code = '''
     // test all bad bits in the mroot
     for (lfs_size_t i = 0;
             // we can't detect metastable tags, so limit read-flips
-            // to our revision count
-            i < ((BADBIT == -1) ? 8*4 : 1);
+            // to our revision count + first tag
+            i < ((BADBIT == -1) ? 8*6 : 1);
             i++) {
         lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
 
@@ -1262,8 +1262,8 @@ code = '''
     // now test all bad bits in the btree block
     for (lfs_size_t i = 0;
             // we can't detect metastable tags, so limit read-flips
-            // to our revision count
-            i < ((BADBIT == -1) ? 8*4 : 1);
+            // to our revision count + first tag
+            i < ((BADBIT == -1) ? 8*6 : 1);
             i++) {
         lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
 
