@@ -162,6 +162,9 @@ enum lfs_type {
 #ifdef LFS_CKPARITY
 #define LFS_F_CKPARITY  0x00400000  // Check tag parity bits on reads
 #endif
+#ifdef LFS_CKCKSUMS
+#define LFS_F_CKCKSUMS  0x00800000  // Check checksums on reads (expensive!)
+#endif
 
 #define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
 #define LFS_F_COMPACT   0x00008000  // Compact metadata logs
@@ -181,6 +184,9 @@ enum lfs_type {
 #endif
 #ifdef LFS_CKPARITY
 #define LFS_M_CKPARITY  0x00400000  // Check tag parity bits on reads
+#endif
+#ifdef LFS_CKCKSUMS
+#define LFS_M_CKCKSUMS  0x00800000  // Check checksums on reads (expensive!)
 #endif
 
 #define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -203,6 +209,9 @@ enum lfs_type {
 #endif
 #ifdef LFS_CKPARITY
 #define LFS_I_CKPARITY  0x00400000  // Filesystem mounted with LFS_M_CKPARITY
+#endif
+#ifdef LFS_CKCKSUMS
+#define LFS_I_CKCKSUMS  0x00800000  // Filesystem mounted with LFS_M_CKCKSUMS
 #endif
 
 #define LFS_I_INCONSISTENT \
@@ -559,7 +568,7 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 // context for validating data
 typedef struct lfsr_ck {
     // sign(cksize)=0 => cksum check
@@ -583,7 +592,7 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
-            #ifdef LFS_CKPARITY
+            #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
             lfsr_ck_t ck;
             #endif
         } disk;
@@ -758,11 +767,11 @@ typedef struct lfsr_grm {
     lfsr_smid_t mids[2];
 } lfsr_grm_t;
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 typedef struct lfsr_tailck {
     lfs_block_t ckblock;
-    // sign(ckoff) => tail parity
     lfs_size_t ckoff;
+    uint32_t cksum;
 } lfsr_tailck_t;
 #endif
 
@@ -798,7 +807,7 @@ typedef struct lfs {
         uint8_t *buffer;
     } pcache;
 
-    #ifdef LFS_CKPARITY
+    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
     lfsr_tailck_t tailck;
     #endif
 

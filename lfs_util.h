@@ -156,6 +156,12 @@ extern "C"
 #define LFS_IFDEF_CKPARITY(a, b) (b)
 #endif
 
+#ifdef LFS_CKCKSUMS
+#define LFS_IFDEF_CKCKSUMS(a, b) (a)
+#else
+#define LFS_IFDEF_CKCKSUMS(a, b) (b)
+#endif
+
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more

@@ -704,20 +704,20 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 
 /// lfsr_ck_t stuff ///
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 // yes, these are slightly different things
 #define LFSR_CK_ISPARITY 0x80000000
 #define LFSR_CK_PARITY   0x80000000
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_CK_CKSUM(_cksize, _cksum) \
     ((lfsr_ck_t){ \
         .cksize=_cksize, \
         .u.cksum=_cksum})
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_CK_PARITY_(_ckoff, _cksize, _parity) \
     ((lfsr_ck_t){ \
         .cksize=LFSR_CK_ISPARITY | (_cksize), \
@@ -727,31 +727,31 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 #endif
 
 // ck helpers
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static inline bool lfsr_ck_isparity(lfsr_ck_t ck) {
     return ck.cksize & LFSR_CK_ISPARITY;
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static inline bool lfsr_ck_iscksum(lfsr_ck_t ck) {
     return !(ck.cksize & LFSR_CK_ISPARITY);
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static inline lfs_size_t lfsr_ck_cksize(lfsr_ck_t ck) {
     return ck.cksize & ~LFSR_CK_ISPARITY;
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static inline bool lfsr_ck_parity(lfsr_ck_t ck) {
     return ck.u.ckoff & LFSR_CK_PARITY;
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static inline lfs_size_t lfsr_ck_ckoff(lfsr_ck_t ck) {
     if (lfsr_ck_isparity(ck)) {
         return ck.u.ckoff & ~LFSR_CK_PARITY;
@@ -767,23 +767,11 @@ static inline lfs_size_t lfsr_ck_ckoff(lfsr_ck_t ck) {
 // tailck tracks the most recent trunk's parity so we can parity-check
 // if it hasn't been written to disk yet
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_TAILCK_PARITY 0x80000000
 #endif
 
-#ifdef LFS_CKPARITY
-static inline bool lfsr_tailck_parity(const lfsr_tailck_t *tailck) {
-    return tailck->ckoff & LFSR_TAILCK_PARITY;
-}
-#endif
-
-#ifdef LFS_CKPARITY
-static inline lfs_size_t lfsr_tailck_ckoff(const lfsr_tailck_t *tailck) {
-    return tailck->ckoff & ~LFSR_TAILCK_PARITY;
-}
-#endif
-
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 // read the pesky parity byte from disk
 static lfs_sbool_t lfsr_bd_readparity(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint) {
@@ -795,15 +783,14 @@ static lfs_sbool_t lfsr_bd_readparity(lfs_t *lfs,
     //
     // unless we're in the middle of building a commit, where things get
     // tricky... to avoid problems with not-yet-written parity bits
-    // tailck tracks the most recent trunk's parity
+    // tailck tracks the most recent trunk's cksum
     //
 
     // parity in in tailck?
-    if (block == lfs->tailck.ckblock
-            && off == lfsr_tailck_ckoff(&lfs->tailck)) {
-        return lfsr_tailck_parity(&lfs->tailck);
+    if (block == lfs->tailck.ckblock && off == lfs->tailck.ckoff) {
+        return lfs_parity(lfs->tailck.cksum);
 
-    // parity on disk
+    // parity on disk?
     } else {
         uint8_t p;
         int err = lfsr_bd_read(lfs, block, off, hint,
@@ -818,21 +805,43 @@ static lfs_sbool_t lfsr_bd_readparity(lfs_t *lfs,
 #endif
 
 
-// checked read functions
+// checked read helpers
 
-#ifdef LFS_CKPARITY
-static lfs_ssize_t lfsr_bd_ckprefix(lfs_t *lfs,
+// needed in lfsr_bd_ckprefix
+#ifdef LFS_CKCKSUMS
+static inline bool lfsr_m_isckcksums(uint32_t flags);
+static int lfsr_bd_ckrbydprefix(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off,
+        lfsr_ck_t ck,
+        lfs_size_t *hint_,
+        uint32_t *cksum);
+static int lfsr_bd_ckrbydsuffix(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off,
+        lfsr_ck_t ck,
+        uint32_t cksum);
+#endif
+
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
+static int lfsr_bd_ckprefix(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfsr_ck_t ck,
+        lfs_size_t *hint_,
         uint32_t *cksum) {
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
-    // only parity checking is currently supported
-    LFS_ASSERT(lfsr_ck_isparity(ck));
+
+    #ifdef LFS_CKCKSUMS
+    // in rbyd? checking checksums? this gets a bit more complicated
+    if (lfsr_m_isckcksums(lfs->flags) && lfsr_ck_isparity(ck)) {
+        return lfsr_bd_ckrbydprefix(lfs, block, off, ck,
+                hint_,
+                cksum);
+    }
+    #endif
 
     // make sure hint includes our prefix/suffix
-    lfs_size_t hint_ = lfs_max(
+    lfs_size_t hint__ = lfs_max(
             // watch out for overflow when hint=-1!
             (off-lfsr_ck_ckoff(ck)) + lfs_min(
                 hint,
@@ -841,7 +850,7 @@ static lfs_ssize_t lfsr_bd_ckprefix(lfs_t *lfs,
 
     // checksum any prefixed data
     int err = lfsr_bd_cksum(lfs,
-            block, lfsr_ck_ckoff(ck), hint_,
+            block, lfsr_ck_ckoff(ck), hint__,
             off-lfsr_ck_ckoff(ck),
             cksum);
     if (err) {
@@ -850,11 +859,12 @@ static lfs_ssize_t lfsr_bd_ckprefix(lfs_t *lfs,
 
     // return adjusted hint, note we clamped this to a positive range
     // earlier, otherwise we'd have real problems with hint=-1!
-    return hint_ - (off-lfsr_ck_ckoff(ck));
+    *hint_ = hint__ - (off-lfsr_ck_ckoff(ck));
+    return 0;
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static int lfsr_bd_cksuffix(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfsr_ck_t ck,
@@ -862,8 +872,21 @@ static int lfsr_bd_cksuffix(lfs_t *lfs,
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
-    // only parity checking is currently supported
-    LFS_ASSERT(lfsr_ck_isparity(ck));
+
+    #ifdef LFS_CKCKSUMS
+    // in rbyd? checking checksums? this gets a bit more complicated
+    if (lfsr_m_isckcksums(lfs->flags) && lfsr_ck_isparity(ck)) {
+        int err = lfsr_bd_ckrbydsuffix(lfs, block, off, ck,
+                cksum);
+        if (err) {
+            LFS_ERROR("Found ckcksums rbyd mismatch "
+                    "0x%"PRIx32".%"PRIx32" %"PRId32,
+                    block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck));
+            return err;
+        }
+        return 0;
+    }
+    #endif
 
     // checksum any suffixed data
     int err = lfsr_bd_cksum(lfs,
@@ -874,21 +897,41 @@ static int lfsr_bd_cksuffix(lfs_t *lfs,
         return err;
     }
 
-    // does parity match?
-    if (lfs_parity(cksum) != lfsr_ck_parity(ck)) {
-        LFS_ERROR("Found ckparity mismatch "
-                "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                "parity %01"PRIx32" (!= %01"PRIx32")",
-                block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
-                lfs_parity(cksum), lfsr_ck_parity(ck));
-        return LFS_ERR_CORRUPT;
+    if (lfsr_ck_isparity(ck)) {
+        #ifdef LFS_CKPARITY
+        // does parity match?
+        if (lfs_parity(cksum) != lfsr_ck_parity(ck)) {
+            LFS_ERROR("Found ckparity mismatch "
+                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
+                    "parity %01"PRIx32" (!= %01"PRIx32")",
+                    block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
+                    lfs_parity(cksum), lfsr_ck_parity(ck));
+            return LFS_ERR_CORRUPT;
+        }
+        #endif
+
+    } else {
+        #ifdef LFS_CKCKSUMS
+        // do checksums match?
+        if (cksum != ck.u.cksum) {
+            LFS_ERROR("Found ckcksums mismatch "
+                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
+                    "cksum %08"PRIx32" (!= %08"PRIx32")",
+                    block, lfsr_ck_ckoff(ck), lfsr_ck_cksize(ck),
+                    cksum, ck.u.cksum);
+            return LFS_ERR_CORRUPT;
+        }
+        #endif
     }
 
     return 0;
 }
 #endif
 
-#ifdef LFS_CKPARITY
+
+// checked read functions
+
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 // caching read with parity/checksum checks
 //
 // the main downside of checking reads is we need to read all data that
@@ -908,14 +951,16 @@ static int lfsr_bd_readck_(lfs_t *lfs,
 
     // checksum any prefixed data
     uint32_t cksum = 0;
-    lfs_ssize_t hint_ = lfsr_bd_ckprefix(lfs, block, off, hint, ck,
+    lfs_size_t hint_;
+    int err = lfsr_bd_ckprefix(lfs, block, off, hint, ck,
+            &hint_,
             &cksum);
-    if (hint_ < 0) {
-        return hint_;
+    if (err) {
+        return err;
     }
 
     // read and checksum the data we're interested in
-    int err = lfsr_bd_read(lfs,
+    err = lfsr_bd_read(lfs,
             block, off, hint_,
             buffer, size);
     if (err) {
@@ -935,17 +980,24 @@ static int lfsr_bd_readck_(lfs_t *lfs,
 }
 #endif
 
-#ifdef LFS_CKPARITY
 // needed in lfsr_bd_readck
+#ifdef LFS_CKPARITY
 static inline bool lfsr_m_isckparity(uint32_t flags);
+#endif
 
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static int lfsr_bd_readck(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         void *buffer, lfs_size_t size,
         lfsr_ck_t ck) {
     // check this read?
-    if (lfsr_m_isckparity(lfs->flags)
-            && lfsr_ck_isparity(ck)) {
+    if (LFS_IFDEF_CKPARITY(
+                lfsr_m_isckparity(lfs->flags)
+                    && lfsr_ck_isparity(ck),
+                false)
+            || LFS_IFDEF_CKCKSUMS(
+                lfsr_m_isckcksums(lfs->flags),
+                false)) {
         return lfsr_bd_readck_(lfs,
                 block, off, hint,
                 buffer, size,
@@ -959,7 +1011,7 @@ static int lfsr_bd_readck(lfs_t *lfs,
 #endif
 
 // redirect to lfsr_bd_read if not checking reads
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_BD_READCK(_lfs, _block, _off, _hint, _buffer, _size, _ck) \
     lfsr_bd_readck(_lfs, _block, _off, _hint, _buffer, _size, _ck)
 #else
@@ -973,7 +1025,7 @@ static int lfsr_bd_readck(lfs_t *lfs,
 //
 // we'd also need to worry about early termination in lfsr_bd_cmp/cmpck
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static lfs_scmp_t lfsr_bd_cmpck_(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size,
@@ -987,10 +1039,12 @@ static lfs_scmp_t lfsr_bd_cmpck_(lfs_t *lfs,
 
     // checksum any prefixed data
     uint32_t cksum = 0;
-    lfs_ssize_t hint_ = lfsr_bd_ckprefix(lfs, block, off, hint, ck,
+    lfs_size_t hint_;
+    int err = lfsr_bd_ckprefix(lfs, block, off, hint, ck,
+            &hint_,
             &cksum);
-    if (hint_ < 0) {
-        return hint_;
+    if (err) {
+        return err;
     }
 
     // compare the data while simultaneously updating the checksum
@@ -1002,7 +1056,7 @@ static lfs_scmp_t lfsr_bd_cmpck_(lfs_t *lfs,
     while (size_ > 0) {
         const uint8_t *buffer__;
         lfs_size_t size__;
-        int err = lfsr_bd_readnext(lfs, block, off_, hint__, size_,
+        err = lfsr_bd_readnext(lfs, block, off_, hint__, size_,
                 &buffer__, &size__);
         if (err) {
             return err;
@@ -1024,7 +1078,7 @@ static lfs_scmp_t lfsr_bd_cmpck_(lfs_t *lfs,
     }
 
     // checksum any suffixed data and validate
-    int err = lfsr_bd_cksuffix(lfs, block, off+size, hint_-size, ck,
+    err = lfsr_bd_cksuffix(lfs, block, off+size, hint_-size, ck,
             cksum);
     if (err) {
         return err;
@@ -1034,14 +1088,19 @@ static lfs_scmp_t lfsr_bd_cmpck_(lfs_t *lfs,
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size,
         lfsr_ck_t ck) {
     // check this read?
-    if (lfsr_m_isckparity(lfs->flags)
-            && lfsr_ck_isparity(ck)) {
+    if (LFS_IFDEF_CKPARITY(
+                lfsr_m_isckparity(lfs->flags)
+                    && lfsr_ck_isparity(ck),
+                false)
+            || LFS_IFDEF_CKCKSUMS(
+                lfsr_m_isckcksums(lfs->flags),
+                false)) {
         return lfsr_bd_cmpck_(lfs,
                 block, off, hint,
                 buffer, size,
@@ -1055,7 +1114,7 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
 #endif
 
 // redirect to lfsr_bd_cmp if not checking reads
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_BD_CMPCK(_lfs, _block, _off, _hint, _buffer, _size, _ck) \
     lfsr_bd_cmpck(_lfs, _block, _off, _hint, _buffer, _size, _ck)
 #else
@@ -1063,7 +1122,7 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
     lfsr_bd_cmp(_lfs, _block, _off, _hint, _buffer, _size)
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static int lfsr_bd_cpyck_(lfs_t *lfs,
         lfs_block_t dst_block, lfs_size_t dst_off,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
@@ -1081,10 +1140,12 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
 
     // checksum any prefixed data
     uint32_t src_cksum = 0;
-    lfs_ssize_t hint_ = lfsr_bd_ckprefix(lfs, src_block, src_off, hint, ck,
+    lfs_size_t hint_;
+    int err = lfsr_bd_ckprefix(lfs, src_block, src_off, hint, ck,
+            &hint_,
             &src_cksum);
-    if (hint_ < 0) {
-        return hint_;
+    if (err) {
+        return err;
     }
 
     // copy the data while simultaneously updating our checksum
@@ -1098,7 +1159,7 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
         // clobbering the rcache at all
         uint8_t *buffer__;
         lfs_size_t size__;
-        int err = lfsr_bd_prognext(lfs, dst_block, dst_off_, size_,
+        err = lfsr_bd_prognext(lfs, dst_block, dst_off_, size_,
                 &buffer__, &size__,
                 cksum, align);
         if (err) {
@@ -1125,7 +1186,7 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
     }
 
     // checksum any suffixed data and validate
-    int err = lfsr_bd_cksuffix(lfs, src_block, src_off+size, hint_-size, ck,
+    err = lfsr_bd_cksuffix(lfs, src_block, src_off+size, hint_-size, ck,
             src_cksum);
     if (err) {
         return err;
@@ -1135,7 +1196,7 @@ static int lfsr_bd_cpyck_(lfs_t *lfs,
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 static int lfsr_bd_cpyck(lfs_t *lfs,
         lfs_block_t dst_block, lfs_size_t dst_off,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
@@ -1143,8 +1204,13 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
         lfsr_ck_t ck,
         uint32_t *cksum, bool align) {
     // check this read?
-    if (lfsr_m_isckparity(lfs->flags)
-            && lfsr_ck_isparity(ck)) {
+    if (LFS_IFDEF_CKPARITY(
+                lfsr_m_isckparity(lfs->flags)
+                    && lfsr_ck_isparity(ck),
+                false)
+            || LFS_IFDEF_CKCKSUMS(
+                lfsr_m_isckcksums(lfs->flags),
+                false)) {
         return lfsr_bd_cpyck_(lfs,
                 dst_block, dst_off,
                 src_block, src_off, hint,
@@ -1162,7 +1228,7 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
 #endif
 
 // redirect to lfsr_bd_cpy if not checking reads
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_BD_CPYCK(_lfs, \
         _dst_block, _dst_off, \
         _src_block, _src_off, _hint, \
@@ -1646,6 +1712,23 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         bool *parity_,
         uint32_t *cksum) {
     (void)parity_;
+
+    #ifdef LFS_CKCKSUMS
+    // if we're checking checksums and not already calculating a
+    // checksum, we first need to checksum any prefixed data
+    uint32_t cksum__ = 0;
+    if (lfsr_m_isckcksums(lfs->flags) && !cksum) {
+        int err = lfsr_bd_ckprefix(lfs, block, off, hint,
+                // the actual parity doesn't really matter here
+                LFSR_CK_PARITY_(off, 0, 0),
+                &hint,
+                &cksum__);
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
     // read the largest possible tag size
     uint8_t tag_buf[LFSR_TAG_DSIZE];
     lfs_size_t tag_dsize = lfs_min(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
@@ -1653,8 +1736,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         return LFS_ERR_CORRUPT;
     }
 
-    int err = lfsr_bd_read(lfs,
-            block, off, hint,
+    int err = lfsr_bd_read(lfs, block, off, hint,
             tag_buf, tag_dsize);
     if (err < 0) {
         return err;
@@ -1767,6 +1849,29 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     }
     #endif
 
+    #ifdef LFS_CKCKSUMS
+    // if we're checking checksums and not already calculating a
+    // checksum, checksum any suffixed data
+    //
+    // this uses the rbyd's checksum to check things
+    if (lfsr_m_isckcksums(lfs->flags) && !cksum) {
+        // exclude valid bit from checksum
+        cksum__ ^= tag_buf[0] & 0x00000080;
+        // calculate checksum
+        cksum__ = lfs_crc32c(cksum__, tag_buf, d);
+
+        err = lfsr_bd_cksuffix(lfs, block, off+d, hint,
+                // the actual parity doesn't really matter here
+                LFSR_CK_PARITY_(off,
+                    d + ((!lfsr_tag_isalt(tag)) ? size : 0),
+                    0),
+                cksum__);
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
     // save what we found, clearing the valid bit, we don't need it
     // anymore
     *tag_ = tag & 0x7fff;
@@ -1837,7 +1942,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .size=_size, \
         .u.buffer=(const void*)(_buffer)})
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_DATA_DISKCKSUM(_block, _off, _size, _cksize, _cksum) \
     ((lfsr_data_t){ \
         .size=LFSR_DATA_ONDISK | (_size), \
@@ -1852,7 +1957,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.disk.off=_off})
 #endif
 
-#ifdef LFS_CKPARITY
+#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
 #define LFSR_DATA_DISKPARITY(_block, _off, _size, _ckoff, _cksize, _parity) \
     ((lfsr_data_t){ \
         .size=LFSR_DATA_ONDISK | (_size), \
@@ -2514,7 +2619,7 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 // unnecessarily duplicate, long story short accessing ck info gets
 // annoyingly messy...
 static inline lfs_size_t lfsr_bptr_cksize(const lfsr_bptr_t *bptr) {
-    #ifdef LFS_CKPARITY
+    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
     return bptr->data.u.disk.ck.cksize;
     #else
     return bptr->cksize;
@@ -2522,7 +2627,7 @@ static inline lfs_size_t lfsr_bptr_cksize(const lfsr_bptr_t *bptr) {
 }
 
 static inline uint32_t lfsr_bptr_cksum(const lfsr_bptr_t *bptr) {
-    #ifdef LFS_CKPARITY
+    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
     return bptr->data.u.disk.ck.u.cksum;
     #else
     return bptr->cksum;
@@ -2595,7 +2700,9 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
     err = lfsr_data_readlleb128(lfs, data,
             LFS_IFDEF_CKPARITY(
                 &bptr->data.u.disk.ck.cksize,
-                &bptr->cksize));
+                LFS_IFDEF_CKCKSUMS(
+                    &bptr->data.u.disk.ck.cksize,
+                    &bptr->cksize)));
     if (err) {
         return err;
     }
@@ -2603,7 +2710,9 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
     err = lfsr_data_readle32(lfs, data,
             LFS_IFDEF_CKPARITY(
                 &bptr->data.u.disk.ck.u.cksum,
-                &bptr->cksum));
+                LFS_IFDEF_CKCKSUMS(
+                    &bptr->data.u.disk.ck.u.cksum,
+                    &bptr->cksum)));
     if (err) {
         return err;
     }
@@ -3158,7 +3267,10 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             if (data_) {
                 *data_ = LFSR_DATA_DISKPARITY(
                         rbyd->blocks[0], branch + d, jump,
-                        branch, d + jump, parity);
+                        branch, d + jump,
+                        // we don't really care about the parity if
+                        // we're not checking it
+                        LFS_IFDEF_CKPARITY(parity, false));
             }
             return 0;
         }
@@ -3234,6 +3346,282 @@ static int lfsr_rbyd_suplookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 
+// checked read rbyd helpers
+
+#ifdef LFS_CKCKSUMS
+// a weaker lfsr_bd_readtag that is just used for ckcksums
+//
+// we can't call lfsr_bd_readtag in lfsr_bd_ckrbydprefix/suffix or else
+// things would end up recursive
+static int lfsr_bd_ckrbydtag(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off,
+        lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfs_size_t *size_,
+        uint32_t *cksum) {
+    // read the largest possible tag size
+    uint8_t tag_buf[LFSR_TAG_DSIZE];
+    lfs_size_t tag_dsize = lfs_min(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
+    if (tag_dsize < 4) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    int err = lfsr_bd_read(lfs, block, off, -1,
+            tag_buf, tag_dsize);
+    if (err < 0) {
+        return err;
+    }
+
+    // check the valid bit
+    if ((tag_buf[0] >> 7) != lfs_parity(*cksum)) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    lfsr_tag_t tag
+            = ((lfsr_tag_t)tag_buf[0] << 8)
+            | ((lfsr_tag_t)tag_buf[1] << 0);
+    lfs_ssize_t d = 2;
+
+    lfsr_rid_t weight;
+    lfs_ssize_t d_ = lfs_fromleb128(&weight, &tag_buf[d], tag_dsize-d);
+    if (d_ < 0) {
+        return d_;
+    }
+    // weights should be limited to 31-bits
+    if (weight > 0x7fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
+    d += d_;
+
+    lfs_size_t size;
+    d_ = lfs_fromleb128(&size, &tag_buf[d], tag_dsize-d);
+    if (d_ < 0) {
+        return d_;
+    }
+    // sizes should be limited to 28-bits
+    if (size > 0x0fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
+    d += d_;
+
+    // check our tag does not go out of bounds
+    if (!lfsr_tag_isalt(tag) && off+d + size > lfs->cfg->block_size) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    // exclude valid bit from checksum
+    *cksum ^= tag_buf[0] & 0x00000080;
+    // calculate checksum
+    *cksum = lfs_crc32c(*cksum, tag_buf, d);
+
+    // save what we found, clearing the valid bit, we don't need it
+    // anymore
+    *tag_ = tag & 0x7fff;
+    *weight_ = weight;
+    *size_ = size;
+    return d;
+}
+#endif
+
+#ifdef LFS_CKCKSUMS
+static int lfsr_bd_ckrbydprefix(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off,
+        lfsr_ck_t ck,
+        lfs_size_t *hint_,
+        uint32_t *cksum) {
+    // must be in-bounds
+    LFS_ASSERT(block < lfs->block_count);
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
+    // doesn't make sense to be here if not checking parity
+    LFS_ASSERT(lfsr_ck_isparity(ck));
+
+    // this is basically just a small rbyd parser
+
+    // checksum the revision count
+    uint32_t cksum_ = *cksum;
+    int err = lfsr_bd_cksum(lfs, block, 0, -1, sizeof(uint32_t),
+            &cksum_);
+    if (err) {
+        return err;
+    }
+
+    uint32_t cksum__ = cksum_;
+    bool perturb = false;
+    lfs_size_t off_ = sizeof(uint32_t);
+    while (off_ < off) {
+        // read next tag
+        lfsr_tag_t tag;
+        lfsr_rid_t weight;
+        lfs_size_t size;
+        lfs_ssize_t d = lfsr_bd_ckrbydtag(lfs, block, off_,
+                &tag, &weight, &size,
+                &cksum__);
+        if (d < 0) {
+            return d;
+        }
+        lfs_size_t off__ = off_ + d;
+
+        // ckrbydtag should already check we're in-bounds
+        LFS_ASSERT(lfsr_tag_isalt(tag)
+                || off__ + size <= lfs->cfg->block_size);
+
+        // take care of cksum
+        if (!lfsr_tag_isalt(tag)) {
+            // not an end-of-commit cksum
+            if (lfsr_tag_suptype(tag) != LFSR_TAG_CKSUM) {
+                // checksum the entry
+                err = lfsr_bd_cksum(lfs, block, off__, -1,
+                        // stop early if we hit our data
+                        lfs_min(size, off-off__),
+                        &cksum__);
+                if (err) {
+                    return err;
+                }
+
+            // is an end-of-commit cksum
+            } else {
+                // check checksum
+                uint32_t cksum___ = 0;
+                err = lfsr_bd_read(lfs, block, off__, -1,
+                        &cksum___, sizeof(uint32_t));
+                if (err) {
+                    return err;
+                }
+                cksum___ = lfs_fromle32_(&cksum___);
+
+                if (cksum__ != cksum___) {
+                    // uh oh, checksums don't match
+                    return LFS_ERR_CORRUPT;
+                }
+
+                // revert to canonical checksum and perturb if necessary
+                perturb = lfsr_tag_p(tag);
+                cksum__ = cksum_ ^ ((perturb)
+                        ? LFS_CRC32C_ODDZERO
+                        : LFS_CRC32C_EVENZERO);
+            }
+        }
+
+        // found a trunk?
+        if (lfsr_tag_istrunk(tag)) {
+            // update canonical checksum, xoring out any perturb
+            // state
+            cksum_ = cksum__ ^ ((perturb)
+                    ? LFS_CRC32C_ODDZERO
+                    : LFS_CRC32C_EVENZERO);
+        }
+
+        // skip data
+        if (!lfsr_tag_isalt(tag)) {
+            off__ += size;
+        }
+
+        off_ = off__;
+    }
+
+    *hint_ = -1;
+    *cksum = cksum__;
+    return 0;
+}
+#endif
+
+#ifdef LFS_CKCKSUMS
+static int lfsr_bd_ckrbydsuffix(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off,
+        lfsr_ck_t ck,
+        uint32_t cksum) {
+    // must be in-bounds
+    LFS_ASSERT(block < lfs->block_count);
+    LFS_ASSERT(lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck) <= lfs->cfg->block_size);
+    // doesn't make sense to be here if not checking parity
+    LFS_ASSERT(lfsr_ck_isparity(ck));
+
+    // checksum any suffixed data
+    int err = lfsr_bd_cksum(lfs, block, off, -1,
+            (lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck)) - off,
+            &cksum);
+    if (err) {
+        return err;
+    }
+
+    lfs_size_t off_ = lfsr_ck_ckoff(ck)+lfsr_ck_cksize(ck);
+    while (off_ < lfs->cfg->block_size) {
+        // wait did we hit our tailck? tailck provides a temporary
+        // cksum if we're in the middle of building a commit
+        if (block == lfs->tailck.ckblock && off_ == lfs->tailck.ckoff) {
+            if (cksum != lfs->tailck.cksum) {
+                // uh oh, checksums don't match
+                return LFS_ERR_CORRUPT;
+            }
+
+            // if we get here we've checked the commit containing
+            // our data
+            return 0;
+        }
+
+        // read next tag
+        lfsr_tag_t tag;
+        lfsr_rid_t weight;
+        lfs_size_t size;
+        lfs_ssize_t d = lfsr_bd_ckrbydtag(lfs, block, off_,
+                &tag, &weight, &size,
+                &cksum);
+        if (d < 0) {
+            return d;
+        }
+        lfs_size_t off__ = off_ + d;
+
+        // ckrbydtag should already check we're in-bounds
+        LFS_ASSERT(lfsr_tag_isalt(tag)
+                || off__ + size <= lfs->cfg->block_size);
+
+        // take care of cksum
+        if (!lfsr_tag_isalt(tag)) {
+            // not an end-of-commit cksum
+            if (lfsr_tag_suptype(tag) != LFSR_TAG_CKSUM) {
+                // checksum the entry
+                err = lfsr_bd_cksum(lfs, block, off__, -1, size,
+                        &cksum);
+                if (err) {
+                    return err;
+                }
+
+            // is an end-of-commit cksum
+            } else {
+                // check checksum
+                uint32_t cksum_ = 0;
+                err = lfsr_bd_read(lfs, block, off__, -1,
+                        &cksum_, sizeof(uint32_t));
+                if (err) {
+                    return err;
+                }
+                cksum_ = lfs_fromle32_(&cksum_);
+
+                if (cksum != cksum_) {
+                    // uh oh, checksums don't match
+                    return LFS_ERR_CORRUPT;
+                }
+
+                // if we get here we've checked the commit containing
+                // our data
+                return 0;
+            }
+        }
+
+        // skip data
+        if (!lfsr_tag_isalt(tag)) {
+            off__ += size;
+        }
+
+        off_ = off__;
+    }
+
+    // didn't find a checksum tag? that's weird
+    return LFS_ERR_CORRUPT;
+}
+#endif
+
+
+
+// rbyd append operations
 
 // append a revision count
 //
@@ -3279,14 +3667,13 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     rbyd->eoff += d;
 
-    #ifdef LFS_CKPARITY
-    // keep track of most recent parity
+    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
+    // keep track of most recent cksum
     lfs->tailck.ckblock = rbyd->blocks[0];
-    lfs->tailck.ckoff
-            = ((lfs_size_t)(
-                    lfs_parity(rbyd->cksum) ^ lfsr_rbyd_isperturb(rbyd)
-                ) << (8*sizeof(lfs_size_t)-1))
-            | lfsr_rbyd_eoff(rbyd);
+    lfs->tailck.ckoff = lfsr_rbyd_eoff(rbyd);
+    lfs->tailck.cksum = rbyd->cksum ^ ((lfsr_rbyd_isperturb(rbyd))
+            ? LFS_CRC32C_ODDZERO
+            : LFS_CRC32C_EVENZERO);
     #endif
 
     return 0;
@@ -3310,14 +3697,13 @@ static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     rbyd->eoff += lfsr_cat_size(cat, count);
 
-    #ifdef LFS_CKPARITY
+    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
     // keep track of most recent parity
     lfs->tailck.ckblock = rbyd->blocks[0];
-    lfs->tailck.ckoff
-            = ((lfs_size_t)(
-                    lfs_parity(rbyd->cksum) ^ lfsr_rbyd_isperturb(rbyd)
-                ) << (8*sizeof(lfs_size_t)-1))
-            | lfsr_rbyd_eoff(rbyd);
+    lfs->tailck.ckoff = lfsr_rbyd_eoff(rbyd);
+    lfs->tailck.cksum = rbyd->cksum ^ ((lfsr_rbyd_isperturb(rbyd))
+            ? LFS_CRC32C_ODDZERO
+            : LFS_CRC32C_EVENZERO);
     #endif
 
     return 0;
@@ -6806,6 +7192,12 @@ static inline bool lfsr_m_isckprogs(uint32_t flags) {
 #ifdef LFS_CKPARITY
 static inline bool lfsr_m_isckparity(uint32_t flags) {
     return flags & LFS_M_CKPARITY;
+}
+#endif
+
+#ifdef LFS_CKCKSUMS
+static inline bool lfsr_m_isckcksums(uint32_t flags) {
+    return flags & LFS_M_CKCKSUMS;
 }
 #endif
 
@@ -11330,10 +11722,13 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                             LFS_IFDEF_CKPARITY(
                                 (&(lfsr_bptr_t){
                                     .data=left_slice_}),
-                                (&(lfsr_bptr_t){
-                                    .data=left_slice_,
-                                    .cksize=bptr_.cksize,
-                                    .cksum=bptr_.cksum})),
+                                LFS_IFDEF_CKCKSUMS(
+                                    (&(lfsr_bptr_t){
+                                        .data=left_slice_}),
+                                    (&(lfsr_bptr_t){
+                                        .data=left_slice_,
+                                        .cksize=bptr_.cksize,
+                                        .cksum=bptr_.cksum}))),
                             left.buf));
 
             } else {
@@ -11388,10 +11783,13 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                             LFS_IFDEF_CKPARITY(
                                 (&(lfsr_bptr_t){
                                     .data=right_slice_}),
-                                (&(lfsr_bptr_t){
-                                    .data=right_slice_,
-                                    .cksize=bptr_.cksize,
-                                    .cksum=bptr_.cksum})),
+                                LFS_IFDEF_CKCKSUMS(
+                                    (&(lfsr_bptr_t){
+                                        .data=right_slice_}),
+                                    (&(lfsr_bptr_t){
+                                        .data=right_slice_,
+                                        .cksize=bptr_.cksize,
+                                        .cksum=bptr_.cksum}))),
                             right.buf));
 
             } else {
@@ -11633,10 +12031,14 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         bptr.data = LFSR_DATA_DISKCKSUM(block, 0, 0, 0, 0);
         LFS_IFDEF_CKPARITY(
                 bptr.data.u.disk.ck.cksize,
-                bptr.cksize) = 0;
+                LFS_IFDEF_CKCKSUMS(
+                    bptr.data.u.disk.ck.cksize,
+                    bptr.cksize)) = 0;
         LFS_IFDEF_CKPARITY(
                 bptr.data.u.disk.ck.u.cksum,
-                bptr.cksum) = 0;
+                LFS_IFDEF_CKCKSUMS(
+                    bptr.data.u.disk.ck.u.cksum,
+                    bptr.cksum)) = 0;
 
     compact:;
         // compact data into our block
@@ -11669,7 +12071,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                             &buffer[pos_ - pos], d_,
                             LFS_IFDEF_CKPARITY(
                                 &bptr.data.u.disk.ck.u.cksum,
-                                &bptr.cksum), true);
+                                LFS_IFDEF_CKCKSUMS(
+                                    &bptr.data.u.disk.ck.u.cksum,
+                                    &bptr.cksum)), true);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         // bad prog? try another block
@@ -11682,7 +12086,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     pos_ += d_;
                     LFS_IFDEF_CKPARITY(
                             bptr.data.u.disk.ck.cksize,
-                            bptr.cksize) += d_;
+                            LFS_IFDEF_CKCKSUMS(
+                                bptr.data.u.disk.ck.cksize,
+                                bptr.cksize)) += d_;
                     d -= d_;
                 }
 
@@ -11745,7 +12151,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                                 d_),
                             LFS_IFDEF_CKPARITY(
                                 &bptr.data.u.disk.ck.u.cksum,
-                                &bptr.cksum), true);
+                                LFS_IFDEF_CKCKSUMS(
+                                    &bptr.data.u.disk.ck.u.cksum,
+                                    &bptr.cksum)), true);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         // bad prog? try another block
@@ -11758,7 +12166,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     pos_ += d_;
                     LFS_IFDEF_CKPARITY(
                             bptr.data.u.disk.ck.cksize,
-                            bptr.cksize) += d_;
+                            LFS_IFDEF_CKCKSUMS(
+                                bptr.data.u.disk.ck.cksize,
+                                bptr.cksize)) += d_;
                     d -= d_;
                 }
 
@@ -11772,7 +12182,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     0, d,
                     LFS_IFDEF_CKPARITY(
                         &bptr.data.u.disk.ck.u.cksum,
-                        &bptr.cksum), true);
+                        LFS_IFDEF_CKCKSUMS(
+                            &bptr.data.u.disk.ck.u.cksum,
+                            &bptr.cksum)), true);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 // bad prog? try another block
@@ -11785,7 +12197,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             pos_ += d;
             LFS_IFDEF_CKPARITY(
                     bptr.data.u.disk.ck.cksize,
-                    bptr.cksize) += d;
+                    LFS_IFDEF_CKCKSUMS(
+                        bptr.data.u.disk.ck.cksize,
+                        bptr.cksize)) += d;
         }
 
         // A bit of a hack here, we need to truncate our block to prog_size
@@ -11796,12 +12210,16 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         lfs->pcache.size -= d;
         LFS_IFDEF_CKPARITY(
                 bptr.data.u.disk.ck.cksize,
-                bptr.cksize) -= d;
+                LFS_IFDEF_CKCKSUMS(
+                    bptr.data.u.disk.ck.cksize,
+                    bptr.cksize)) -= d;
 
         // finalize our write
         int err = lfsr_bd_flush(lfs, LFS_IFDEF_CKPARITY(
                 &bptr.data.u.disk.ck.u.cksum,
-                &bptr.cksum), true);
+                LFS_IFDEF_CKCKSUMS(
+                    &bptr.data.u.disk.ck.u.cksum,
+                    &bptr.cksum)), true);
         if (err) {
             // bad prog? try another block
             if (err == LFS_ERR_CORRUPT) {
@@ -12827,10 +13245,11 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
         }
     }
 
-    #ifdef LFS_CKPARITY
+    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
     // setup tailck, nothing should actually check off=0
     lfs->tailck.ckblock = 0;
     lfs->tailck.ckoff = 0;
+    lfs->tailck.cksum = 0;
     #endif
 
     // setup lookahead buffer, note mount finishes initializing this after
@@ -13542,6 +13961,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
+                | LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, 0)
                 | LFS_M_MTREEONLY
                 | LFS_M_MKCONSISTENT
                 | LFS_M_LOOKAHEAD
@@ -13697,6 +14117,7 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
+                | LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, 0)
                 | LFS_F_MTREEONLY
                 | LFS_F_COMPACT
                 | LFS_F_CKMETA
@@ -13765,6 +14186,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
                 | LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
+                | LFS_IFDEF_CKCKSUMS(LFS_I_CKCKSUMS, 0)
                 | LFS_I_UNCOMPACTED);
     // some flags we calculate on demand
     fsinfo->flags |= (lfsr_fs_isinconsistent(lfs)) ? LFS_I_INCONSISTENT : 0;
