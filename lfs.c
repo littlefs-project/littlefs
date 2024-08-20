@@ -12402,17 +12402,19 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
 
-    // would this write make our file larger than our file limit?
-    if (size > lfs->file_limit - file->pos) {
-        return LFS_ERR_FBIG;
-    }
-
     // size=0 is a bit special and is guaranteed to have no effects on the
     // underlying file, this means no updating file pos or file size
     //
     // since we need to test for this, just return early
     if (size == 0) {
         return 0;
+    }
+
+    // would this write make our file larger than our file limit?
+    int err;
+    if (size > lfs->file_limit - file->pos) {
+        err = LFS_ERR_FBIG;
+        goto failed;
     }
 
     // clobber entangled traversals
@@ -12441,7 +12443,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     const uint8_t *buffer_ = buffer;
     lfs_size_t written = 0;
-    int err;
     while (size > 0) {
         // bypass buffer?
         //
@@ -12609,8 +12610,10 @@ failed:;
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
     // removed? we can't sync
+    int err;
     if (lfsr_o_iszombie(file->o.o.flags)) {
-        return LFS_ERR_NOENT;
+        err = LFS_ERR_NOENT;
+        goto failed;
     }
 
     // first flush any data in our buffer, this is a noop if already
@@ -12620,7 +12623,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // flush succeeds but mdir commit fails it's ok to fall back to
     // our flushed state
     //
-    int err = lfsr_file_flush(lfs, file);
+    err = lfsr_file_flush(lfs, file);
     if (err) {
         goto failed;
     }
@@ -12840,15 +12843,17 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
 
-    // exceeds our file limit?
-    if (size_ > lfs->file_limit) {
-        return LFS_ERR_FBIG;
-    }
-
     // do nothing if our size does not change
     lfs_off_t size = lfsr_file_size_(file);
     if (lfsr_file_size_(file) == size_) {
         return 0;
+    }
+
+    // exceeds our file limit?
+    int err;
+    if (size_ > lfs->file_limit) {
+        err = LFS_ERR_FBIG;
+        goto failed;
     }
 
     // clobber entangled traversals
@@ -12859,7 +12864,6 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     file->o.o.flags |= LFS_O_UNSYNC;
 
     // does our file become small?
-    int err;
     if (size_ <= lfsr_file_inlinesize(lfs, file)) {
         // if our data is not already in our buffer we unfortunately
         // need to flush so our buffer is available to hold everything
@@ -12948,15 +12952,17 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
 
-    // exceeds our file limit?
-    if (size_ > lfs->file_limit) {
-        return LFS_ERR_FBIG;
-    }
-
     // do nothing if our size does not change
     lfs_off_t size = lfsr_file_size_(file);
     if (size == size_) {
         return 0;
+    }
+
+    // exceeds our file limit?
+    int err;
+    if (size_ > lfs->file_limit) {
+        err = LFS_ERR_FBIG;
+        goto failed;
     }
 
     // clobber entangled traversals
@@ -12967,7 +12973,6 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     file->o.o.flags |= LFS_O_UNSYNC;
 
     // does our file become small?
-    int err;
     if (size_ <= lfsr_file_inlinesize(lfs, file)) {
         // if our data is not already in our buffer we unfortunately
         // need to flush so our buffer is available to hold everything
