@@ -3066,40 +3066,42 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
         }
 
-        // found a trunk of a tree?
-        if (lfsr_tag_istrunk(tag)
-                && (!trunk || off <= trunk || trunk__)) {
-            // start of trunk?
-            if (!trunk__) {
-                // keep track of trunk's entry point
-                trunk__ = off;
-                // reset weight
-                weight_ = 0;
-            }
-
-            // derive weight of the tree from alt pointers
-            //
-            // NOTE we can't check for overflow/underflow here because we
-            // may be overeagerly parsing an invalid commit, it's ok for
-            // this to overflow/underflow as long as we throw it out later
-            // on a bad cksum
-            weight_ += weight__;
-
-            // end of trunk?
-            if (!lfsr_tag_isalt(tag)) {
-                // update canonical checksum, xoring out any perturb
-                // state, we don't want erased-state affecting our
-                // canonical checksum
-                cksum = cksum_ ^ ((lfsr_rbyd_isperturb(rbyd))
-                        ? LFS_CRC32C_ODDZERO
-                        : LFS_CRC32C_EVENZERO);
-                // update trunk and weight, unless we are a shrub trunk
-                if (!lfsr_tag_isshrub(tag) || trunk__ == trunk) {
-                    trunk_ = trunk__;
-                    weight = weight_;
+        // found a trunk?
+        if (lfsr_tag_istrunk(tag)) {
+            if (!(trunk && off > trunk && !trunk__)) {
+                // start of trunk?
+                if (!trunk__) {
+                    // keep track of trunk's entry point
+                    trunk__ = off;
+                    // reset weight
+                    weight_ = 0;
                 }
-                trunk__ = 0;
+
+                // derive weight of the tree from alt pointers
+                //
+                // NOTE we can't check for overflow/underflow here because we
+                // may be overeagerly parsing an invalid commit, it's ok for
+                // this to overflow/underflow as long as we throw it out later
+                // on a bad cksum
+                weight_ += weight__;
+
+                // end of trunk?
+                if (!lfsr_tag_isalt(tag)) {
+                    // update trunk and weight, unless we are a shrub trunk
+                    if (!lfsr_tag_isshrub(tag) || trunk__ == trunk) {
+                        trunk_ = trunk__;
+                        weight = weight_;
+                    }
+                    trunk__ = 0;
+                }
             }
+
+            // update canonical checksum, xoring out any perturb
+            // state, we don't want erased-state affecting our
+            // canonical checksum
+            cksum = cksum_ ^ ((lfsr_rbyd_isperturb(rbyd))
+                    ? LFS_CRC32C_ODDZERO
+                    : LFS_CRC32C_EVENZERO);
         }
 
         // skip data

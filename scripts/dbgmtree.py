@@ -383,33 +383,34 @@ class Rbyd:
                     cksum__ = cksum_ ^ (0xfca42daf if perturb else 0)
 
             # evaluate trunks
-            if (tag & 0xf000) != TAG_CKSUM and (
-                    not trunk or j_-d <= trunk or trunk___):
-                # new trunk?
-                if not trunk___:
-                    trunk___ = j_-d
-                    weight__ = 0
+            if (tag & 0xf000) != TAG_CKSUM:
+                if not (trunk and j_-d > trunk and not trunk___):
+                    # new trunk?
+                    if not trunk___:
+                        trunk___ = j_-d
+                        weight__ = 0
 
-                # keep track of weight
-                weight__ += w
+                    # keep track of weight
+                    weight__ += w
 
-                # end of trunk?
-                if not tag & TAG_ALT:
-                    # update canonical checksum, xoring out any perturb state
-                    cksum_ = cksum__ ^ (0xfca42daf if perturb else 0)
-                    # update trunk/weight unless we found a shrub or an
-                    # explicit trunk (which may be a shrub) is requested
-                    if not tag & TAG_SHRUB or trunk___ == trunk:
-                        trunk__ = trunk___
-                        weight_ = weight__
-                        # keep track of eoff for best matching trunk
-                        if trunk and j_ + size > trunk:
-                            eoff_ = j_ + size
-                            eoff = eoff_
-                            cksum = cksum_
-                            trunk_ = trunk__
-                            weight = weight_
-                    trunk___ = 0
+                    # end of trunk?
+                    if not tag & TAG_ALT:
+                        # update trunk/weight unless we found a shrub or an
+                        # explicit trunk (which may be a shrub) is requested
+                        if not tag & TAG_SHRUB or trunk___ == trunk:
+                            trunk__ = trunk___
+                            weight_ = weight__
+                            # keep track of eoff for best matching trunk
+                            if trunk and j_ + size > trunk:
+                                eoff_ = j_ + size
+                                eoff = eoff_
+                                cksum = cksum_
+                                trunk_ = trunk__
+                                weight = weight_
+                        trunk___ = 0
+
+                # update canonical checksum, xoring out any perturb state
+                cksum_ = cksum__ ^ (0xfca42daf if perturb else 0)
 
             if not tag & TAG_ALT:
                 j_ += size
