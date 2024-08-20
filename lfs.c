@@ -1716,13 +1716,13 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     #ifdef LFS_CKCKSUMS
     // if we're checking checksums and not already calculating a
     // checksum, we first need to checksum any prefixed data
-    uint32_t cksum__ = 0;
+    uint32_t cksum_ = 0;
     if (lfsr_m_isckcksums(lfs->flags) && !cksum) {
         int err = lfsr_bd_ckprefix(lfs, block, off, hint,
                 // the actual parity doesn't really matter here
                 LFSR_CK_PARITY_(off, 0, 0),
                 &hint,
-                &cksum__);
+                &cksum_);
         if (err) {
             return err;
         }
@@ -1802,17 +1802,18 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     // the data will stick around in the cache
     if (lfsr_m_isckparity(lfs->flags) && !cksum) {
         // checksum the tag, including our valid bit
-        uint32_t cksum_ = lfs_crc32c(0, tag_buf, d);
+        uint32_t cksum__ = lfs_crc32c(0, tag_buf, d);
 
         // checksum the data, if we have any
         lfs_size_t hint_ = hint - lfs_min(d, hint);
         lfs_size_t d_ = d;
+        uint32_t cksum___ = cksum__;
         if (!lfsr_tag_isalt(tag)) {
             err = lfsr_bd_cksum(lfs,
                     // make sure hint includes our pesky parity byte
                     block, off+d_, lfs_max(hint_, size+1),
                     size,
-                    &cksum_);
+                    &cksum___);
             if (err) {
                 return err;
             }
@@ -1834,17 +1835,18 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         }
 
         // does parity match?
-        if (lfs_parity(cksum_) != parity) {
+        if (lfs_parity(cksum___) != parity) {
             LFS_ERROR("Found ckparity mismatch "
                     "0x%"PRIx32".%"PRIx32" %"PRId32", "
                     "parity %01"PRIx32" (!= %01"PRIx32")",
                     block, off, d_,
-                    lfs_parity(cksum_), parity);
+                    lfs_parity(cksum___), parity);
             return LFS_ERR_CORRUPT;
         }
 
+        // return the parity of just the data;
         if (parity_) {
-            *parity_ = parity;
+            *parity_ = parity ^ lfs_parity(cksum__);
         }
     }
     #endif
@@ -1856,16 +1858,16 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     // this uses the rbyd's checksum to check things
     if (lfsr_m_isckcksums(lfs->flags) && !cksum) {
         // exclude valid bit from checksum
-        cksum__ ^= tag_buf[0] & 0x00000080;
+        cksum_ ^= tag_buf[0] & 0x00000080;
         // calculate checksum
-        cksum__ = lfs_crc32c(cksum__, tag_buf, d);
+        cksum_ = lfs_crc32c(cksum_, tag_buf, d);
 
         err = lfsr_bd_cksuffix(lfs, block, off+d, hint,
                 // the actual parity doesn't really matter here
                 LFSR_CK_PARITY_(off,
                     d + ((!lfsr_tag_isalt(tag)) ? size : 0),
                     0),
-                cksum__);
+                cksum_);
         if (err) {
             return err;
         }
@@ -3271,7 +3273,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             if (data_) {
                 *data_ = LFSR_DATA_DISKPARITY(
                         rbyd->blocks[0], branch + d, jump,
-                        branch, d + jump,
+                        branch + d, jump,
                         // we don't really care about the parity if
                         // we're not checking it
                         LFS_IFDEF_CKPARITY(parity, false));
