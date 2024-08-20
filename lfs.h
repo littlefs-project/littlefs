@@ -988,6 +988,15 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file);
 //int lfs_file_sync(lfs_t *lfs, lfs_file_t *file);
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
+// Flush any buffered data
+//
+// This does not update metadata and is called implicitly by lfsr_file_sync.
+// Calling this explicitly may be useful for preventing write errors in
+// read operations.
+//
+// Returns a negative error code on failure.
+int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file);
+
 // Mark a file as desynchronized
 //
 // Desynchronized files do not recieve file updates and do not sync on close.
@@ -997,20 +1006,19 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 // If an error occurs during a write operation, the file is implicitly marked
 // as desynchronized.
 //
-// An explicit and successful call to lfsr_file_sync reverses this, marking
-// the file as synchronized again.
+// An explicit and successful call to either lfsr_file_sync or
+// lfsr_file_resync reverses this, marking the file as synchronized again.
 //
 // Returns a negative error code on failure.
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file);
 
-// Flush any buffered data
+// Discard unsynchronized changes and mark a file as synchronized
 //
-// This does not update metadata and is called implicitly by lfsr_file_sync.
-// Calling this explicitly may be useful for preventing write errors in
-// read operations.
+// This is effectively the same as closing and reopening the file, and
+// may read from disk to figure out file state.
 //
 // Returns a negative error code on failure.
-int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file);
+int lfsr_file_resync(lfs_t *lfs, lfsr_file_t *file);
 
 // Read data from file
 //

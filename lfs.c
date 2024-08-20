@@ -11127,15 +11127,15 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // setup file state
+    file->cfg = cfg;
     file->o.o.flags = lfsr_o_settype(flags, LFS_TYPE_REG)
             // mounted with LFS_M_FLUSH/SYNC? implies LFS_O_FLUSH/SYNC
             | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC));
-    file->cfg = cfg;
+    // default data state
+    file->o.bshrub = LFSR_BSHRUB_BNULL();
     file->pos = 0;
     file->eblock = 0;
     file->eoff = -1;
-    // default data state
-    file->o.bshrub = LFSR_BSHRUB_BNULL();
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -11202,7 +11202,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // if we're truncating don't bother to read any state, we're
         // just going to truncate after all
         if (!lfsr_o_istrunc(flags)) {
-            // read any inlined state
+            // lookup the file struct, if there is one
             lfsr_tag_t tag;
             lfsr_data_t data;
             err = lfsr_mdir_lookupnext(lfs, &file->o.o.mdir, LFSR_TAG_DATA,
@@ -11259,9 +11259,10 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->buffer.size = 0;
 
     // if our file is small, try to keep the whole thing in our buffer
-    if (lfsr_bshrub_size(&file->o.bshrub) <= lfsr_file_inlinesize(lfs, file)) {
+    lfs_size_t size = lfsr_bshrub_size(&file->o.bshrub);
+    if (size <= lfsr_file_inlinesize(lfs, file)) {
         lfs_ssize_t d = lfsr_file_read_(lfs, file,
-                0, file->buffer.buffer, lfsr_bshrub_size(&file->o.bshrub));
+                0, file->buffer.buffer, size);
         if (d < 0) {
             err = d;
             goto failed;
@@ -11269,9 +11270,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // small files remain perpetually unflushed
         file->o.o.flags |= LFS_O_UNFLUSH;
-        file->buffer.pos = 0;
-        file->buffer.size = lfsr_bshrub_size(&file->o.bshrub);
         file->o.bshrub = LFSR_BSHRUB_BNULL();
+        file->buffer.pos = 0;
+        file->buffer.size = size;
     }
 
     // check metadata/data for errors?
@@ -12561,10 +12562,8 @@ failed:;
 
 int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
-    // readonly files should do nothing
-    LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags)
-            || !lfsr_o_isunflush(file->o.o.flags)
-            || lfsr_file_size_(file) <= lfsr_file_inlinesize(lfs, file));
+    // can't write to readonly files
+    LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
 
     // do nothing if our file is already flushed
     if (!lfsr_o_isunflush(file->o.o.flags)) {
@@ -12609,6 +12608,10 @@ failed:;
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+    // can't write to readonly files, if you want to resync call
+    // lfsr_file_resync
+    LFS_ASSERT(!lfsr_o_isrdonly(file->o.o.flags));
+
     // removed? we can't sync
     int err;
     if (lfsr_o_iszombie(file->o.o.flags)) {
@@ -12648,23 +12651,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(!lfsr_o_isorphan(file->o.o.flags)
             || lfsr_o_isunsync(file->o.o.flags));
 
-    // don't write to disk if our disk is already in-sync
+    // don't write to disk if already in-sync
     if (lfsr_o_isunsync(file->o.o.flags)) {
-        // readonly files should do nothing
-        //
-        // but readonly files _can_ end up unsynced, in the roundabout
-        // case where:
-        //
-        // 1. a file is opened rdonly + desync
-        // 2. the same file is opened and written to
-        // 3. we try to sync our original file handle
-        //
-        // the best thing we can do in this case is return an error
-        if (lfsr_o_isrdonly(file->o.o.flags)) {
-            err = LFS_ERR_INVAL;
-            goto failed;
-        }
-
         // commit any changes to our file's metadata
         lfsr_attr_t attrs[2];
         lfs_size_t attr_count = 0;
@@ -12782,8 +12770,111 @@ int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
 
+    // mark as desynced
     file->o.o.flags |= LFS_O_DESYNC;
     return 0;
+}
+
+int lfsr_file_resync(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+
+    // removed? we can't resync
+    int err;
+    if (lfsr_o_iszombie(file->o.o.flags)) {
+        err = LFS_ERR_NOENT;
+        goto failed;
+    }
+
+    // do nothing if already in-sync
+    if (lfsr_o_isunsync(file->o.o.flags)) {
+        // default data state
+        file->o.bshrub_ = LFSR_BSHRUB_BNULL();
+
+        // don't bother reading disk if we're an orphan
+        if (!lfsr_o_isorphan(file->o.o.flags)) {
+            // lookup the file struct, if there is one
+            lfsr_tag_t tag;
+            lfsr_data_t data;
+            err = lfsr_mdir_lookupnext(lfs, &file->o.o.mdir, LFSR_TAG_DATA,
+                    &tag, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                goto failed;
+            }
+
+            // note many of these functions leave bshrub undefined if
+            // there is an error, so we first read into the staging
+            // bshrub
+
+            // may be a sprout (simple inlined data)
+            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
+                file->o.bshrub_.u.bsprout = data;
+
+            // or a direct block
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
+                err = lfsr_data_readbptr(lfs, &data,
+                        &file->o.bshrub_.u.bptr);
+                if (err) {
+                    goto failed;
+                }
+
+            // or a bshrub (inlined btree)
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+                err = lfsr_data_readshrub(lfs, &data, &file->o.o.mdir,
+                        &file->o.bshrub_.u.bshrub);
+                if (err) {
+                    goto failed;
+                }
+
+            // or a btree
+            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
+                err = lfsr_data_fetchbtree(lfs, &data,
+                        &file->o.bshrub_.u.btree);
+                if (err) {
+                    goto failed;
+                }
+            }
+        }
+
+        // mark as flushed and synced if we're not an orphan
+        file->o.o.flags &= ~(
+                LFS_O_UNFLUSH
+                    | ((!lfsr_o_isorphan(file->o.o.flags))
+                        ? LFS_O_UNSYNC
+                        : 0));
+        // update the bshrub
+        file->o.bshrub = file->o.bshrub_;
+        // discard the current buffer
+        file->buffer.pos = 0;
+        file->buffer.size = 0;
+
+        // if our file is small, try to keep the whole thing in our buffer
+        //
+        // if this fails we may end up with corrupt data, but that's ok, we
+        // just can't end up with corrupt metadata
+        lfs_size_t size = lfsr_bshrub_size(&file->o.bshrub);
+        if (size <= lfsr_file_inlinesize(lfs, file)) {
+            lfs_ssize_t d = lfsr_file_read_(lfs, file,
+                    0, file->buffer.buffer, size);
+            if (d < 0) {
+                err = d;
+                goto failed;
+            }
+
+            // small files remain perpetually unflushed
+            file->o.o.flags |= LFS_O_UNFLUSH;
+            file->o.bshrub = LFSR_BSHRUB_BNULL();
+            file->buffer.pos = 0;
+            file->buffer.size = size;
+        }
+    }
+
+    // mark as resynced
+    file->o.o.flags &= ~LFS_O_DESYNC;
+    return 0;
+
+failed:;
+    file->o.o.flags |= LFS_O_DESYNC;
+    return err;
 }
 
 // other file operations
@@ -12897,9 +12988,9 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // small files remain perpetually unflushed
         file->o.o.flags |= LFS_O_UNFLUSH;
+        file->o.bshrub = LFSR_BSHRUB_BNULL();
         file->buffer.pos = 0;
         file->buffer.size = size_;
-        file->o.bshrub = LFSR_BSHRUB_BNULL();
 
     // truncate our file normally
     } else {
@@ -13019,9 +13110,9 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // small files remain perpetually unflushed
         file->o.o.flags |= LFS_O_UNFLUSH;
+        file->o.bshrub = LFSR_BSHRUB_BNULL();
         file->buffer.pos = 0;
         file->buffer.size = size_;
-        file->o.bshrub = LFSR_BSHRUB_BNULL();
 
     // fruncate our file normally
     } else {
