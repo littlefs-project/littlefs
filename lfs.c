@@ -3059,9 +3059,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 ecksum = ecksum_;
 
                 // revert to canonical checksum and perturb if necessary
-                cksum_ = cksum ^ ((lfsr_rbyd_isperturb(rbyd))
-                        ? LFS_CRC32C_ODDZERO
-                        : LFS_CRC32C_EVENZERO);
+                cksum_ = cksum
+                        ^ ((lfsr_rbyd_isperturb(rbyd))
+                            ? LFS_CRC32C_ODDZERO
+                            : 0);
                 ecksum_ = LFSR_DATA_NULL();
             }
         }
@@ -3099,9 +3100,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // update canonical checksum, xoring out any perturb
             // state, we don't want erased-state affecting our
             // canonical checksum
-            cksum = cksum_ ^ ((lfsr_rbyd_isperturb(rbyd))
-                    ? LFS_CRC32C_ODDZERO
-                    : LFS_CRC32C_EVENZERO);
+            cksum = cksum_
+                    ^ ((lfsr_rbyd_isperturb(rbyd))
+                        ? LFS_CRC32C_ODDZERO
+                        : 0);
         }
 
         // skip data
@@ -3496,9 +3498,7 @@ static int lfsr_bd_ckrbydprefix(lfs_t *lfs,
 
                 // revert to canonical checksum and perturb if necessary
                 perturb = lfsr_tag_p(tag);
-                cksum__ = cksum_ ^ ((perturb)
-                        ? LFS_CRC32C_ODDZERO
-                        : LFS_CRC32C_EVENZERO);
+                cksum__ = cksum_ ^ ((perturb) ? LFS_CRC32C_ODDZERO : 0);
             }
         }
 
@@ -3506,9 +3506,7 @@ static int lfsr_bd_ckrbydprefix(lfs_t *lfs,
         if (lfsr_tag_istrunk(tag)) {
             // update canonical checksum, xoring out any perturb
             // state
-            cksum_ = cksum__ ^ ((perturb)
-                    ? LFS_CRC32C_ODDZERO
-                    : LFS_CRC32C_EVENZERO);
+            cksum_ = cksum__ ^ ((perturb) ? LFS_CRC32C_ODDZERO : 0);
         }
 
         // skip data
@@ -3673,9 +3671,8 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // keep track of most recent cksum
     lfs->tailck.ckblock = rbyd->blocks[0];
     lfs->tailck.ckoff = lfsr_rbyd_eoff(rbyd);
-    lfs->tailck.cksum = rbyd->cksum ^ ((lfsr_rbyd_isperturb(rbyd))
-            ? LFS_CRC32C_ODDZERO
-            : LFS_CRC32C_EVENZERO);
+    lfs->tailck.cksum = rbyd->cksum
+            ^ ((lfsr_rbyd_isperturb(rbyd)) ? LFS_CRC32C_ODDZERO : 0);
     #endif
 
     return 0;
@@ -3703,9 +3700,8 @@ static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // keep track of most recent parity
     lfs->tailck.ckblock = rbyd->blocks[0];
     lfs->tailck.ckoff = lfsr_rbyd_eoff(rbyd);
-    lfs->tailck.cksum = rbyd->cksum ^ ((lfsr_rbyd_isperturb(rbyd))
-            ? LFS_CRC32C_ODDZERO
-            : LFS_CRC32C_EVENZERO);
+    lfs->tailck.cksum = rbyd->cksum
+            ^ ((lfsr_rbyd_isperturb(rbyd)) ? LFS_CRC32C_ODDZERO : 0);
     #endif
 
     return 0;
@@ -4560,9 +4556,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     //
     // note the odd-parity zero preserves our position in the crc32c
     // ring while only changing the parity
-    cksum_ ^= (lfsr_rbyd_isperturb(rbyd))
-            ? LFS_CRC32C_ODDZERO
-            : LFS_CRC32C_EVENZERO;
+    cksum_ ^= (lfsr_rbyd_isperturb(rbyd)) ? LFS_CRC32C_ODDZERO : 0;
     lfs_tole32_(cksum_, &cksum_buf[2+1+4]);
 
     // prog, when this lands on disk commit is committed
