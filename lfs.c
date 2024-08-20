@@ -13156,6 +13156,17 @@ static int lfs_deinit(lfs_t *lfs);
 // initialize littlefs state, assert on bad configuration
 static int lfs_init(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg) {
+    // unknown flags?
+    LFS_ASSERT((flags & ~(
+            LFS_M_RDWR
+                | LFS_M_RDONLY
+                | LFS_M_FLUSH
+                | LFS_M_SYNC
+                | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
+                | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
+                | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
+                | LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, 0))) == 0);
+
     // TODO this all needs to be cleaned up
     lfs->cfg = cfg;
     int err = 0;
@@ -13974,7 +13985,17 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
-    int err = lfs_init(lfs, flags, cfg);
+    int err = lfs_init(lfs,
+            flags & (
+                LFS_M_RDWR
+                    | LFS_M_RDONLY
+                    | LFS_M_FLUSH
+                    | LFS_M_SYNC
+                    | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
+                    | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
+                    | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
+                    | LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, 0)),
+            cfg);
     if (err) {
         return err;
     }
@@ -14123,7 +14144,14 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
-    int err = lfs_init(lfs, flags, cfg);
+    int err = lfs_init(lfs,
+            flags & (
+                LFS_F_RDWR
+                    | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
+                    | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
+                    | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
+                    | LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, 0)),
+            cfg);
     if (err) {
         return err;
     }
@@ -14444,9 +14472,9 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
 
     // do we have any pending work?
     uint32_t pending = flags & (
-            ((lfs->flags & (
+            (lfs->flags & (
                     LFS_I_HASORPHANS
-                        | LFS_I_UNCOMPACTED)) >> 12)
+                        | LFS_I_UNCOMPACTED))
                 | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                 | LFS_GC_CKMETA
                 | LFS_GC_CKDATA);
@@ -14509,9 +14537,9 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
 
             // clear any pending flags we make progress on
             pending &= (
-                    ((lfs->flags & (
+                    (lfs->flags & (
                             LFS_I_HASORPHANS
-                                | LFS_I_UNCOMPACTED)) >> 12)
+                                | LFS_I_UNCOMPACTED))
                         | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                         // only consider our filesystem checked if we
                         // weren't mutated

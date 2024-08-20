@@ -215,15 +215,15 @@ enum lfs_type {
 #endif
 
 #define LFS_I_INCONSISTENT \
-                        0x01000000  // Filesystem needs mkconsistent to write
+                        0x00001000  // Filesystem needs mkconsistent to write
 #define LFS_I_CANLOOKAHEAD \
-                        0x02000000  // Lookahead buffer is not full
+                        0x00002000  // Lookahead buffer is not full
 #define LFS_I_UNCOMPACTED \
-                        0x08000000  // Filesystem may have uncompacted metadata
+                        0x00008000  // Filesystem may have uncompacted metadata
 
 // internally used flags, don't use these
 #define LFS_I_HASORPHANS \
-                        0x01000000  // Filesystem may have untracked orphans
+                        0x00001000  // Filesystem may have untracked orphans
 
 
 // Block types
