@@ -27,14 +27,14 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
                 LFSR_ATTR(
-                    LFSR_TAG_UATTR(i), 0,
+                    LFSR_TAG_ATTR(i), 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_data_t data;
         uint8_t buffer[1];
-        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i), &data) => 0;
+        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(i), &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, 1) => 1;
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
@@ -48,7 +48,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_data_t data;
         uint8_t buffer[1];
-        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i), &data) => 0;
+        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(i), &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, 1) => 1;
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
@@ -72,14 +72,14 @@ code = '''
 
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
                 LFSR_ATTR(
-                    LFSR_TAG_UATTR(i), 0,
+                    LFSR_TAG_ATTR(i), 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_data_t data;
         uint8_t buffer[1];
-        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i), &data) => 0;
+        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(i), &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, 1) => 1;
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
@@ -93,7 +93,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_data_t data;
         uint8_t buffer[1];
-        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(i), &data) => 0;
+        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(i), &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, 1) => 1;
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
@@ -114,19 +114,19 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
                 LFSR_ATTR(
-                    LFSR_TAG_UATTR(1), 0,
+                    LFSR_TAG_ATTR(1), 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         lfsr_data_t data;
 
         uint8_t buffer[4];
-        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+        lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
         lfsr_data_read(&lfs, &data, buffer, 4) => 1;
         assert(memcmp(buffer, &(uint8_t){'a'+(i % 26)}, 1) == 0);
     }
     lfsr_data_t data;
 
     uint8_t buffer[4];
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 1;
     assert(memcmp(buffer, &(uint8_t){'a'+((N-1) % 26)}, 1) == 0);
 
@@ -136,7 +136,7 @@ code = '''
     // check things stay sane after remount
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 4) => 1;
     assert(memcmp(buffer, &(uint8_t){'a'+((N-1) % 26)}, 1) == 0);
 
@@ -162,18 +162,18 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -181,17 +181,17 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -205,17 +205,17 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -254,7 +254,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -274,7 +274,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -300,7 +300,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -339,7 +339,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -357,7 +357,7 @@ code = '''
     // force mdir to compact
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("e", 1)))) => 0;
 
     // assert mdir was split correctly
     assert(lfsr_mtree_weight_(&lfs.mtree) == (3 << lfs.mdir_bits));
@@ -377,7 +377,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -387,7 +387,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -413,7 +413,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -423,7 +423,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -650,7 +650,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -677,7 +677,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -697,7 +697,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -736,7 +736,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -765,7 +765,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -785,7 +785,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -895,7 +895,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -932,7 +932,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -958,7 +958,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -1003,7 +1003,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1046,7 +1046,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -1072,7 +1072,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -1228,18 +1228,18 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined
     assert(lfsr_mtree_weight_(&lfs.mtree) == (1 << lfs.mdir_bits));
@@ -1251,10 +1251,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(4), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(4), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(5), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(5), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1264,27 +1264,27 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(5), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1298,27 +1298,27 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(5), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1359,7 +1359,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1373,10 +1373,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1398,17 +1398,17 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1434,17 +1434,17 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1485,7 +1485,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1499,10 +1499,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1524,17 +1524,17 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1560,17 +1560,17 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1605,10 +1605,10 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("b", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("b", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("c", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1619,11 +1619,11 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -1638,11 +1638,11 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -1680,10 +1680,10 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("b", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("b", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("c", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1692,16 +1692,16 @@ code = '''
     old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(4), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(4), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(5), 0, LFSR_DATA_BUF("f", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(5), 0, LFSR_DATA_BUF("f", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(6), 0, LFSR_DATA_BUF("g", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(6), 0, LFSR_DATA_BUF("g", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1712,27 +1712,27 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(5), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'f');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(6), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'g');
 
@@ -1747,27 +1747,27 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(5), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(5), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'f');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(6), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(6), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'g');
 
@@ -1802,10 +1802,10 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("b", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("b", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("c", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1813,10 +1813,10 @@ code = '''
     old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(4), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(4), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1827,19 +1827,19 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1854,19 +1854,19 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(4), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1907,7 +1907,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -1924,10 +1924,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
     // assert mroot relocated
@@ -1951,17 +1951,17 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -1987,17 +1987,17 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
     lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
@@ -2038,7 +2038,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -2060,10 +2060,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("e", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("e", 1)))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("f", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("f", 1)))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
     // assert mroot relocated
@@ -2087,7 +2087,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2097,11 +2097,11 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'f');
 
@@ -2127,7 +2127,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2137,11 +2137,11 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'd');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'e');
 
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'f');
 
@@ -2182,7 +2182,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight_(&lfs.mtree) == (2 << lfs.mdir_bits));
@@ -2199,7 +2199,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF("d", 1)))) => 0;
     // force mdir to compact while we're removing
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -2220,7 +2220,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2240,7 +2240,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2269,19 +2269,19 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(2), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact, this should both uninline and relocate
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(3), 0, LFSR_DATA_BUF("c", 1)))) => 0;
     // assert mroot relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -2291,17 +2291,17 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2315,17 +2315,17 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(2), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(3), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(3), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2372,7 +2372,7 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF("c", 1)))) => 0;
     // assert mroot relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -2394,7 +2394,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -2420,7 +2420,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
@@ -3457,13 +3457,13 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_UATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
+            LFSR_ATTR(LFSR_TAG_ATTR(1), 0, LFSR_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
@@ -3540,13 +3540,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 
@@ -3560,13 +3560,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our attrs are still in the mroot/mtree
-    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &lfs.mroot, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
-    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_UATTR(1), &data) => 0;
+    lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'b');
 

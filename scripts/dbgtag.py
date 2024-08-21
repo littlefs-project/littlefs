@@ -33,8 +33,9 @@ TAG_MDIR        = 0x0315    #  0x0314  v--- --11 ---1 -1rr
 TAG_MTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
 TAG_DID         = 0x0320    #  0x0320  v--- --11 --1- ----
 TAG_BRANCH      = 0x032c    #  0x032c  v--- --11 --1- 11rr
-TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-a -aaa aaaa
-TAG_SATTR       = 0x0600    #  0x06aa  v--- -11a -aaa aaaa
+TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
+TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
+TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
 TAG_SHRUB       = 0x1000    ## 0x1kkk  v--1 kkkk -kkk kkkk
 TAG_ALT         = 0x4000    ## 0x4kkk  v1cd kkkk -kkk kkkk
 TAG_B           = 0x0000
@@ -170,16 +171,11 @@ def tagrepr(tag, w=None, size=None, off=None):
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
-    elif (tag & 0x6e00) == TAG_UATTR:
-        return '%suattr 0x%02x%s%s' % (
+    elif (tag & 0x6e00) == TAG_ATTR:
+        return '%s%sattr 0x%02x%s%s' % (
             'shrub' if tag & TAG_SHRUB else '',
-            ((tag & 0x100) >> 1) | (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
-    elif (tag & 0x6e00) == TAG_SATTR:
-        return '%ssattr 0x%02x%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            ((tag & 0x100) >> 1) | (tag & 0xff),
+            's' if tag & 0x100 else 'u',
+            ((tag & 0x100) >> 1) ^ (tag & 0xff),
             ' w%d' % w if w else '',
             ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:

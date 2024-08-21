@@ -1392,8 +1392,9 @@ enum lfsr_tag {
     LFSR_TAG_BRANCH         = 0x032c,
 
     // user/sys attributes
+    LFSR_TAG_ATTR           = 0x0400,
     LFSR_TAG_UATTR          = 0x0400,
-    LFSR_TAG_SATTR          = 0x0600,
+    LFSR_TAG_SATTR          = 0x0500,
 
     // shrub tags belong to secondary trees
     LFSR_TAG_SHRUB          = 0x1000,
@@ -1433,13 +1434,8 @@ enum lfsr_tag {
         | (0x1000 & (d)) \
         | (0x0fff & (lfsr_tag_t)(key)))
 
-#define LFSR_TAG_UATTR(attr) \
-    (LFSR_TAG_UATTR \
-        | ((0x80 & (lfsr_tag_t)(attr)) << 1) \
-        | (0x7f & (lfsr_tag_t)(attr)))
-
-#define LFSR_TAG_SATTR(attr) \
-    (LFSR_TAG_SATTR \
+#define LFSR_TAG_ATTR(attr) \
+    (LFSR_TAG_ATTR \
         | ((0x80 & (lfsr_tag_t)(attr)) << 1) \
         | (0x7f & (lfsr_tag_t)(attr)))
 
