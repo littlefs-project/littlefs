@@ -6645,11 +6645,11 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
 
 static int lfsr_bshrub_lookupnext(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub,
-        lfs_off_t pos,
+        lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
         lfsr_bptr_t *bptr_) {
     // out of bounds?
-    if (pos >= lfsr_bshrub_size(bshrub)) {
+    if (bid >= lfsr_bshrub_size(bshrub)) {
         return LFS_ERR_NOENT;
     }
     // the above size check should make this impossible
@@ -6689,14 +6689,14 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs,
 
     // bshrub/btree?
     } else if (lfsr_bshrub_isbshruborbtree(bshrub)) {
-        lfsr_bid_t bid;
+        lfsr_bid_t bid__;
         lfsr_rbyd_t rbyd;
         lfsr_srid_t rid;
         lfsr_tag_t tag;
         lfsr_bid_t weight;
         lfsr_data_t data;
-        int err = lfsr_btree_lookupnext_(lfs, &bshrub->u.btree, pos,
-                &bid, &rbyd, &rid, &tag, &weight, &data);
+        int err = lfsr_btree_lookupnext_(lfs, &bshrub->u.btree, bid,
+                &bid__, &rbyd, &rid, &tag, &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -6705,7 +6705,7 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs,
                 || tag == LFSR_TAG_BLOCK);
 
         if (bid_) {
-            *bid_ = bid;
+            *bid_ = bid__;
         }
         if (tag_) {
             *tag_ = tag;
@@ -11381,6 +11381,15 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
 // low-level file reading
 
+static int lfsr_file_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
+        lfs_off_t pos,
+        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
+        lfsr_bptr_t *bptr_) {
+    return lfsr_bshrub_lookupnext(lfs,
+            &file->o.o.mdir, &file->o.bshrub, pos,
+            bid_, tag_, weight_, bptr_);
+}
+
 static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
     lfs_off_t pos_ = pos;
@@ -11389,8 +11398,7 @@ static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
     lfsr_tag_t tag;
     lfsr_bid_t weight;
     lfsr_bptr_t bptr;
-    int err = lfsr_bshrub_lookupnext(lfs,
-            &file->o.o.mdir, &file->o.bshrub, pos_,
+    int err = lfsr_file_lookupnext(lfs, file, pos_,
             &bid, &tag, &weight, &bptr);
     if (err) {
         return err;
@@ -11555,6 +11563,15 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 // low-level file writing
 
+static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
+        lfs_off_t pos, const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    // file must be a bshrub/btree here
+    LFS_ASSERT(lfsr_bshrub_isbshruborbtree(&file->o.bshrub));
+    return lfsr_bshrub_commit(lfs,
+            &file->o.o.mdir, &file->o.bshrub,
+            pos, attrs, attr_count);
+}
+
 static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfsr_attr_t attr) {
     // Note! This function has some rather special constraints:
@@ -11606,8 +11623,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         if (attr_count > 0) {
             LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
 
-            int err = lfsr_bshrub_commit(lfs,
-                    &file->o.o.mdir, &file->o.bshrub, 0,
+            int err = lfsr_file_commit(lfs, file, 0,
                     attrs, attr_count);
             if (err) {
                 return err;
@@ -11641,8 +11657,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         lfsr_tag_t tag_;
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
-        int err = lfsr_bshrub_lookupnext(lfs,
-                &file->o.o.mdir, &file->o.bshrub, pos,
+        int err = lfsr_file_lookupnext(lfs, file, pos,
                 &bid, &tag_, &weight_, &bptr_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -11677,17 +11692,16 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     lfs->cfg->fragment_size,
                     -1);
             
-            err = lfsr_bshrub_commit(lfs,
-                    &file->o.o.mdir, &file->o.bshrub, bid, LFSR_ATTRS(
-                        LFSR_ATTR_CAT(
-                            LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
-                                -(weight_ - lfs->cfg->fragment_size),
-                            lfsr_data_truncate(left_slice_,
-                                    lfs->cfg->fragment_size)),
-                        LFSR_ATTR(
-                            LFSR_TAG_BLOCK,
-                                +(weight_ - lfs->cfg->fragment_size),
-                            LFSR_DATA_BPTR_(&bptr_, left.buf))));
+            err = lfsr_file_commit(lfs, file, bid, LFSR_ATTRS(
+                    LFSR_ATTR_CAT(
+                        LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
+                            -(weight_ - lfs->cfg->fragment_size),
+                        lfsr_data_truncate(left_slice_,
+                                lfs->cfg->fragment_size)),
+                    LFSR_ATTR(
+                        LFSR_TAG_BLOCK,
+                            +(weight_ - lfs->cfg->fragment_size),
+                        LFSR_DATA_BPTR_(&bptr_, left.buf))));
             if (err) {
                 return err;
             }
@@ -11707,17 +11721,16 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     -1,
                     lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
 
-            err = lfsr_bshrub_commit(lfs,
-                    &file->o.o.mdir, &file->o.bshrub, bid, LFSR_ATTRS(
-                        LFSR_ATTR(
-                            LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
-                                -(weight_ - lfsr_data_size(bptr_.data)),
-                            LFSR_DATA_BPTR_(&bptr_, right.buf)),
-                        LFSR_ATTR_CAT(
-                            LFSR_TAG_DATA,
-                                +(weight_ - lfsr_data_size(bptr_.data)),
-                            lfsr_data_fruncate(right_slice_,
-                                lfs->cfg->fragment_size))));
+            err = lfsr_file_commit(lfs, file, bid, LFSR_ATTRS(
+                    LFSR_ATTR(
+                        LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
+                            -(weight_ - lfsr_data_size(bptr_.data)),
+                        LFSR_DATA_BPTR_(&bptr_, right.buf)),
+                    LFSR_ATTR_CAT(
+                        LFSR_TAG_DATA,
+                            +(weight_ - lfsr_data_size(bptr_.data)),
+                        lfsr_data_fruncate(right_slice_,
+                            lfs->cfg->fragment_size))));
             if (err) {
                 return err;
             }
@@ -11778,8 +11791,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(lfsr_data_size(right_slice_) == 0);
             LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
 
-            err = lfsr_bshrub_commit(lfs,
-                    &file->o.o.mdir, &file->o.bshrub, bid,
+            err = lfsr_file_commit(lfs, file, bid,
                     attrs, attr_count);
             if (err) {
                 return err;
@@ -11867,8 +11879,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     if (attr_count > 0) {
         LFS_ASSERT(attr_count <= sizeof(attrs)/sizeof(lfsr_attr_t));
 
-        int err = lfsr_bshrub_commit(lfs,
-                &file->o.o.mdir, &file->o.bshrub, bid,
+        int err = lfsr_file_commit(lfs, file, bid,
                 attrs, attr_count);
         if (err) {
             return err;
@@ -11909,8 +11920,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
-            int err = lfsr_bshrub_lookupnext(lfs,
-                    &file->o.o.mdir, &file->o.bshrub,
+            int err = lfsr_file_lookupnext(lfs, file,
                     lfs_smax(pos - (lfs->cfg->crystal_thresh-1), 0),
                     &bid, &tag, &weight, &bptr);
             if (err) {
@@ -11961,8 +11971,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
-            int err = lfsr_bshrub_lookupnext(lfs,
-                    &file->o.o.mdir, &file->o.bshrub,
+            int err = lfsr_file_lookupnext(lfs, file,
                     lfs_min(
                         crystal_start + (lfs->cfg->crystal_thresh-1),
                         lfsr_bshrub_size(&file->o.bshrub)-1),
@@ -12007,8 +12016,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
-            int err = lfsr_bshrub_lookupnext(lfs,
-                    &file->o.o.mdir, &file->o.bshrub,
+            int err = lfsr_file_lookupnext(lfs, file,
                     lfs_min(
                         crystal_start-1,
                         lfsr_bshrub_size(&file->o.bshrub)-1),
@@ -12133,8 +12141,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 lfsr_tag_t tag_;
                 lfsr_bid_t weight_;
                 lfsr_bptr_t bptr_;
-                int err = lfsr_bshrub_lookupnext(lfs,
-                        &file->o.o.mdir, &file->o.bshrub, pos_,
+                int err = lfsr_file_lookupnext(lfs, file, pos_,
                         &bid_, &tag_, &weight_, &bptr_);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -12317,8 +12324,7 @@ fragment:;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
-            int err = lfsr_bshrub_lookupnext(lfs,
-                    &file->o.o.mdir, &file->o.bshrub,
+            int err = lfsr_file_lookupnext(lfs, file,
                     fragment_start-1,
                     &bid, &tag, &weight, &bptr);
             if (err) {
@@ -12366,8 +12372,7 @@ fragment:;
             lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
-            int err = lfsr_bshrub_lookupnext(lfs,
-                    &file->o.o.mdir, &file->o.bshrub,
+            int err = lfsr_file_lookupnext(lfs, file,
                     fragment_end,
                     &bid, &tag, &weight, &bptr);
             if (err) {
@@ -13134,6 +13139,15 @@ failed:;
 }
 
 // file check functions
+
+static int lfsr_file_traverse(lfs_t *lfs, const lfsr_file_t *file,
+        lfsr_btraversal_t *bt,
+        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+    return lfsr_bshrub_traverse(lfs,
+            &file->o.o.mdir, &file->o.bshrub, bt,
+            bid_, tag_, bptr_);
+}
+
 static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
         uint32_t flags) {
     // traverse the file's btree
@@ -13141,9 +13155,7 @@ static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
     while (true) {
         lfsr_tag_t tag;
         lfsr_bptr_t bptr;
-        int err = lfsr_bshrub_traverse(lfs,
-                &file->o.o.mdir, &file->o.bshrub,
-                &bt,
+        int err = lfsr_file_traverse(lfs, file, &bt,
                 NULL, &tag, &bptr);
         if (err) {
             if (err == LFS_ERR_NOENT) {
