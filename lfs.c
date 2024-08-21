@@ -11086,9 +11086,94 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 
 // file operations
 
-// needed in lfsr_file_opencfg
+// needed in lfsr_file_fetch
 static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size);
+
+static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
+    // default data state
+    file->o.bshrub_ = LFSR_BSHRUB_BNULL();
+
+    // don't bother reading disk if we're an orphan
+    if (!lfsr_o_isorphan(file->o.o.flags)) {
+        // lookup the file struct, if there is one
+        lfsr_tag_t tag;
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookupnext(lfs, &file->o.o.mdir, LFSR_TAG_DATA,
+                &tag, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // note many of these functions leave bshrub undefined if
+        // there is an error, so we first read into the staging
+        // bshrub
+
+        // may be a sprout (simple inlined data)
+        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
+            file->o.bshrub_.u.bsprout = data;
+
+        // or a direct block
+        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
+            err = lfsr_data_readbptr(lfs, &data,
+                    &file->o.bshrub_.u.bptr);
+            if (err) {
+                return err;
+            }
+
+        // or a bshrub (inlined btree)
+        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+            err = lfsr_data_readshrub(lfs, &data, &file->o.o.mdir,
+                    &file->o.bshrub_.u.bshrub);
+            if (err) {
+                return err;
+            }
+
+        // or a btree
+        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
+            err = lfsr_data_fetchbtree(lfs, &data,
+                    &file->o.bshrub_.u.btree);
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    // mark as flushed and synced if we're not an orphan
+    file->o.o.flags &= ~(
+            LFS_O_UNFLUSH
+                | ((!lfsr_o_isorphan(file->o.o.flags))
+                    ? LFS_O_UNSYNC
+                    : 0));
+    // update the bshrub
+    file->o.bshrub = file->o.bshrub_;
+    // discard the current buffer
+    file->buffer.pos = 0;
+    file->buffer.size = 0;
+
+    // if our file is small, try to keep the whole thing in our buffer
+    //
+    // if this fails we may end up with corrupt data, but that's ok, we
+    // just can't end up with corrupt metadata
+    lfs_size_t size = lfsr_bshrub_size(&file->o.bshrub);
+    if (size <= lfsr_file_inlinesize(lfs, file)) {
+        lfs_ssize_t d = lfsr_file_read_(lfs, file,
+                0, file->buffer.buffer, size);
+        if (d < 0) {
+            return d;
+        }
+
+        // small files remain perpetually unflushed
+        file->o.o.flags |= LFS_O_UNFLUSH;
+        file->o.bshrub = LFSR_BSHRUB_BNULL();
+        file->buffer.pos = 0;
+        file->buffer.size = size;
+    }
+
+    return 0;
+}
+
+// needed in lfsr_file_opencfg
 static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
         uint32_t flags);
 
@@ -11130,7 +11215,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->cfg = cfg;
     file->o.o.flags = lfsr_o_settype(flags, LFS_TYPE_REG)
             // mounted with LFS_M_FLUSH/SYNC? implies LFS_O_FLUSH/SYNC
-            | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC));
+            | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC))
+            // default to unflushed for orphans/truncated files
+            | LFS_O_UNFLUSH;
     // default data state
     file->o.bshrub = LFSR_BSHRUB_BNULL();
     file->pos = 0;
@@ -11189,60 +11276,14 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         file->o.o.flags |= LFS_O_UNSYNC | LFS_O_ORPHAN;
 
     } else {
+        // wanted to create a new entry?
         if (lfsr_o_isexcl(flags)) {
-            // oh, we really wanted to create a new entry
             return LFS_ERR_EXIST;
         }
 
         // wrong type?
         if (tag != LFSR_TAG_REG) {
             return LFS_ERR_ISDIR;
-        }
-
-        // if we're truncating don't bother to read any state, we're
-        // just going to truncate after all
-        if (!lfsr_o_istrunc(flags)) {
-            // lookup the file struct, if there is one
-            lfsr_tag_t tag;
-            lfsr_data_t data;
-            err = lfsr_mdir_lookupnext(lfs, &file->o.o.mdir, LFSR_TAG_DATA,
-                    &tag, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            // TODO the above clobbers data on failure, which is why we can't
-            // lookup into the inlined data directly. Should this be avoided?
-            // Should we at least be consistent in this codebase?
-
-            // may be a sprout (simple inlined data)
-            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
-                file->o.bshrub.u.bsprout = data;
-
-            // or a direct block
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
-                err = lfsr_data_readbptr(lfs, &data,
-                        &file->o.bshrub.u.bptr);
-                if (err) {
-                    return err;
-                }
-
-            // or a bshrub (inlined btree)
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-                err = lfsr_data_readshrub(lfs, &data, &file->o.o.mdir,
-                        &file->o.bshrub.u.bshrub);
-                if (err) {
-                    return err;
-                }
-
-            // or a btree
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
-                err = lfsr_data_fetchbtree(lfs, &data,
-                        &file->o.bshrub.u.btree);
-                if (err) {
-                    return err;
-                }
-            }
         }
     }
 
@@ -11258,21 +11299,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->buffer.pos = 0;
     file->buffer.size = 0;
 
-    // if our file is small, try to keep the whole thing in our buffer
-    lfs_size_t size = lfsr_bshrub_size(&file->o.bshrub);
-    if (size <= lfsr_file_inlinesize(lfs, file)) {
-        lfs_ssize_t d = lfsr_file_read_(lfs, file,
-                0, file->buffer.buffer, size);
-        if (d < 0) {
-            err = d;
+    // fetch the file struct if we're not truncating
+    if (!lfsr_o_istrunc(file->o.o.flags)) {
+        err = lfsr_file_fetch(lfs, file);
+        if (err) {
             goto failed;
         }
-
-        // small files remain perpetually unflushed
-        file->o.o.flags |= LFS_O_UNFLUSH;
-        file->o.bshrub = LFSR_BSHRUB_BNULL();
-        file->buffer.pos = 0;
-        file->buffer.size = size;
     }
 
     // check metadata/data for errors?
@@ -12787,84 +12819,10 @@ int lfsr_file_resync(lfs_t *lfs, lfsr_file_t *file) {
 
     // do nothing if already in-sync
     if (lfsr_o_isunsync(file->o.o.flags)) {
-        // default data state
-        file->o.bshrub_ = LFSR_BSHRUB_BNULL();
-
-        // don't bother reading disk if we're an orphan
-        if (!lfsr_o_isorphan(file->o.o.flags)) {
-            // lookup the file struct, if there is one
-            lfsr_tag_t tag;
-            lfsr_data_t data;
-            err = lfsr_mdir_lookupnext(lfs, &file->o.o.mdir, LFSR_TAG_DATA,
-                    &tag, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                goto failed;
-            }
-
-            // note many of these functions leave bshrub undefined if
-            // there is an error, so we first read into the staging
-            // bshrub
-
-            // may be a sprout (simple inlined data)
-            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
-                file->o.bshrub_.u.bsprout = data;
-
-            // or a direct block
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
-                err = lfsr_data_readbptr(lfs, &data,
-                        &file->o.bshrub_.u.bptr);
-                if (err) {
-                    goto failed;
-                }
-
-            // or a bshrub (inlined btree)
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-                err = lfsr_data_readshrub(lfs, &data, &file->o.o.mdir,
-                        &file->o.bshrub_.u.bshrub);
-                if (err) {
-                    goto failed;
-                }
-
-            // or a btree
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
-                err = lfsr_data_fetchbtree(lfs, &data,
-                        &file->o.bshrub_.u.btree);
-                if (err) {
-                    goto failed;
-                }
-            }
-        }
-
-        // mark as flushed and synced if we're not an orphan
-        file->o.o.flags &= ~(
-                LFS_O_UNFLUSH
-                    | ((!lfsr_o_isorphan(file->o.o.flags))
-                        ? LFS_O_UNSYNC
-                        : 0));
-        // update the bshrub
-        file->o.bshrub = file->o.bshrub_;
-        // discard the current buffer
-        file->buffer.pos = 0;
-        file->buffer.size = 0;
-
-        // if our file is small, try to keep the whole thing in our buffer
-        //
-        // if this fails we may end up with corrupt data, but that's ok, we
-        // just can't end up with corrupt metadata
-        lfs_size_t size = lfsr_bshrub_size(&file->o.bshrub);
-        if (size <= lfsr_file_inlinesize(lfs, file)) {
-            lfs_ssize_t d = lfsr_file_read_(lfs, file,
-                    0, file->buffer.buffer, size);
-            if (d < 0) {
-                err = d;
-                goto failed;
-            }
-
-            // small files remain perpetually unflushed
-            file->o.o.flags |= LFS_O_UNFLUSH;
-            file->o.bshrub = LFSR_BSHRUB_BNULL();
-            file->buffer.pos = 0;
-            file->buffer.size = size;
+        // refetch the file struct from disk
+        err = lfsr_file_fetch(lfs, file);
+        if (err) {
+            goto failed;
         }
     }
 
