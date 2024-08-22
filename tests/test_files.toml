@@ -201,7 +201,54 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# check for LFS_F_EXCL errors
+# check for ENOENT errors
+[cases.test_files_noent]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // try to open a file that doesn't exist, this should error
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // make sure open didn't quietly create a file
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => LFS_ERR_NOENT;
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# check for EEXIST errors
 [cases.test_files_excl]
 defines.REMOUNT = [false, true]
 code = '''

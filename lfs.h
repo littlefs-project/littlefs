@@ -151,6 +151,10 @@ enum lfs_type {
 #define LFS_SEEK_CUR 1  // Seek relative to the current file position
 #define LFS_SEEK_END 2  // Seek relative to the end of the file
 
+// Custom attribute flags
+#define LFS_A_CREAT           0x04  // Create an attr if it does not exist
+#define LFS_A_EXCL            0x08  // Fail if an attr already exists
+
 // Filesystem format flags
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
 #ifdef LFS_CKPROGS
@@ -893,38 +897,39 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 
 // Get a custom attribute
 //
-// Custom attributes are uniquely identified by an 8-bit type and limited
-// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
-// the buffer, it will be padded with zeros. If the stored attribute is larger,
-// then it will be silently truncated. If no attribute is found, the error
-// LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
-//
-// Returns the size of the attribute, or a negative error code on failure.
-// Note, the returned size is the size of the attribute on disk, irrespective
-// of the size of the buffer. This can be used to dynamically allocate a buffer
-// or check for existence.
+// Returns the number of bytes read, or a negative error code on failure.
+// Note this may be less than the on-disk attr size if the buffer is not
+// large enough.
 //lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 //        uint8_t type, void *buffer, lfs_size_t size);
+lfs_ssize_t lfsr_getattr(lfs_t *lfs, const char *path, uint8_t type,
+        void *buffer, lfs_size_t size);
+
+// Get a custom attribute's size
+//
+// Returns the size of the attribute, or a negative error code on failure.
+lfs_ssize_t lfsr_sizeattr(lfs_t *lfs, const char *path, uint8_t type);
 
 #ifndef LFS_READONLY
 // Set custom attributes
 //
-// Custom attributes are uniquely identified by an 8-bit type and limited
-// to LFS_ATTR_MAX bytes. If an attribute is not found, it will be
-// implicitly created.
+// The flags field controls the exact behavior if the attribute is or
+// isn't found.
 //
 // Returns a negative error code on failure.
 //int lfs_setattr(lfs_t *lfs, const char *path,
 //        uint8_t type, const void *buffer, lfs_size_t size);
+int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
+        const void *buffer, lfs_size_t size,
+        uint32_t flags);
 #endif
 
 #ifndef LFS_READONLY
 // Removes a custom attribute
 //
-// If an attribute is not found, nothing happens.
-//
 // Returns a negative error code on failure.
 //int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
+int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 #endif
 
 

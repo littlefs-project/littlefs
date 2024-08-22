@@ -1,3 +1,1547 @@
+# Custom attribute tests
+after = ['test_files', 'test_fsync', 'test_forphans']
+
+
+# test some simple attr operations
+[cases.test_attrs_setattr]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
+        lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
+        lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
+        // try reading the attrs
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test some simple attr operations
+[cases.test_attrs_setattr_trunc]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
+        lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
+        lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
+
+        // mark rbuf so we can detect overflow
+        uint8_t rbuf[256];
+        rbuf[1] = '!';
+        // try reading truncated attrs
+        lfsr_getattr(&lfs, path, 'a', rbuf, 1) => 1;
+        assert(memcmp(rbuf, a, 1) == 0);
+        assert(rbuf[1] == '!');
+        lfsr_getattr(&lfs, path, 'b', rbuf, 1) => 1;
+        assert(memcmp(rbuf, b, 1) == 0);
+        assert(rbuf[1] == '!');
+        lfsr_getattr(&lfs, path, 'c', rbuf, 1) => 1;
+        assert(memcmp(rbuf, c, 1) == 0);
+        assert(rbuf[1] == '!');
+
+        // mark rbuf so we can detect overflow
+        rbuf[4] = '!';
+        // try reading truncated attrs
+        lfsr_getattr(&lfs, path, 'a', rbuf, 4) => 4;
+        assert(memcmp(rbuf, a, 4) == 0);
+        assert(rbuf[4] == '!');
+        lfsr_getattr(&lfs, path, 'b', rbuf, 4) => 4;
+        assert(memcmp(rbuf, b, 4) == 0);
+        assert(rbuf[4] == '!');
+        lfsr_getattr(&lfs, path, 'c', rbuf, 4) => 4;
+        assert(memcmp(rbuf, c, 4) == 0);
+        assert(rbuf[4] == '!');
+
+        // try reading the full attrs
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test ENOATTR works
+[cases.test_attrs_setattr_noattr]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+    // try getting the attr sizes
+    lfsr_sizeattr(&lfs, path, 'a') => LFS_ERR_NOATTR;
+    lfsr_sizeattr(&lfs, path, 'b') => LFS_ERR_NOATTR;
+    lfsr_sizeattr(&lfs, path, 'c') => LFS_ERR_NOATTR;
+
+    // try reading attrs
+    uint8_t rbuf[256];
+    lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+    lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+    lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+
+    // try setting attrs but without CREAT
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a), 0) => LFS_ERR_NOATTR;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b), 0) => LFS_ERR_NOATTR;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c), 0) => LFS_ERR_NOATTR;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // make sure setattr didn't quietly create attrs
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => LFS_ERR_NOATTR;
+        lfsr_sizeattr(&lfs, path, 'b') => LFS_ERR_NOATTR;
+        lfsr_sizeattr(&lfs, path, 'c') => LFS_ERR_NOATTR;
+        // try reading attrs
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test EEXIST works
+[cases.test_attrs_setattr_excl]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    // try to create again with excl, this should fail
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    lfsr_setattr(&lfs, path, 'a', a_, strlen(a_),
+            LFS_A_CREAT | LFS_A_EXCL) => LFS_ERR_EXIST;
+    const char *b_ = "Three slash four cup butter or margarine.";
+    lfsr_setattr(&lfs, path, 'b', b_, strlen(b_),
+            LFS_A_CREAT | LFS_A_EXCL) => LFS_ERR_EXIST;
+    const char *c_ = "One and two third cups granulated sugar.";
+    lfsr_setattr(&lfs, path, 'c', c_, strlen(b_),
+            LFS_A_CREAT | LFS_A_EXCL) => LFS_ERR_EXIST;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
+        lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
+        lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
+        // try reading the attrs
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that updating attrs works
+[cases.test_attrs_setattr_update]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+# update based on this mask
+defines.MASK = 'range(0x8)'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    // rewrite some attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    if (MASK & 0x1) {
+        lfsr_setattr(&lfs, path, 'a', a_, strlen(a_), 0) => 0;
+    }
+    const char *b_ = "Three slash four cup butter or margarine.";
+    if (MASK & 0x2) {
+        lfsr_setattr(&lfs, path, 'b', b_, strlen(b_), 0) => 0;
+    }
+    const char *c_ = "One and two third cups granulated sugar.";
+    if (MASK & 0x4) {
+        lfsr_setattr(&lfs, path, 'c', c_, strlen(c_), 0) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        if (MASK & 0x1) {
+            lfsr_sizeattr(&lfs, path, 'a') => strlen(a_);
+        } else {
+            lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfsr_sizeattr(&lfs, path, 'b') => strlen(b_);
+        } else {
+            lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
+        }
+        if (MASK & 0x4) {
+            lfsr_sizeattr(&lfs, path, 'c') => strlen(c_);
+        } else {
+            lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
+        }
+
+        // try reading attrs
+        uint8_t rbuf[256];
+        if (MASK & 0x1) {
+            lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a_);
+            assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+        } else {
+            lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b_);
+            assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+        } else {
+            lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b);
+            assert(memcmp(rbuf, b, strlen(b)) == 0);
+        }
+        if (MASK & 0x4) {
+            lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c_);
+            assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+        } else {
+            lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test removing attrs
+[cases.test_attrs_removeattr]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+# remove based on this mask
+defines.MASK = 'range(0x8)'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    // remove some attrs
+    if (MASK & 0x1) {
+        lfsr_removeattr(&lfs, path, 'a') => 0;
+    }
+    if (MASK & 0x2) {
+        lfsr_removeattr(&lfs, path, 'b') => 0;
+    }
+    if (MASK & 0x4) {
+        lfsr_removeattr(&lfs, path, 'c') => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        if (MASK & 0x1) {
+            lfsr_sizeattr(&lfs, path, 'a') => LFS_ERR_NOATTR;
+        } else {
+            lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfsr_sizeattr(&lfs, path, 'b') => LFS_ERR_NOATTR;
+        } else {
+            lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
+        }
+        if (MASK & 0x4) {
+            lfsr_sizeattr(&lfs, path, 'c') => LFS_ERR_NOATTR;
+        } else {
+            lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
+        }
+
+        // try reading the full attrs
+        uint8_t rbuf[256];
+        if (MASK & 0x1) {
+            lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf))
+                    => LFS_ERR_NOATTR;
+        } else {
+            lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf))
+                    => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf))
+                    => LFS_ERR_NOATTR;
+        } else {
+            lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf))
+                    => strlen(b);
+            assert(memcmp(rbuf, b, strlen(b)) == 0);
+        }
+        if (MASK & 0x4) {
+            lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf))
+                    => LFS_ERR_NOATTR;
+        } else {
+            lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf))
+                    => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# test the full range of attrs
+[cases.test_attrs_all]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+defines.SIZE = 4
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // try creating every attr, this tests encoding quirks
+    uint32_t prng = 42;
+    for (uint16_t a = 0; a < 0x100; a++) {
+        // create the attr
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_setattr(&lfs, path, a, wbuf, SIZE,
+                LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+        // try getting the attr size
+        lfsr_sizeattr(&lfs, path, a) => SIZE;
+        // try reading the attr
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // remove the attr
+        lfsr_removeattr(&lfs, path, a) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test creating a bunch of attrs
+[cases.test_attrs_many]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+defines.M = 40
+defines.SIZE = 4
+defines.COMPACT = [false, true]
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create M attrs
+    uint32_t prng = 42;
+    for (uint16_t a = 0; a < M; a++) {
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_setattr(&lfs, path, a, wbuf, SIZE,
+                LFS_A_CREAT | LFS_A_EXCL) => 0;
+    }
+
+    // try compacting?
+    if (COMPACT) {
+        lfsr_fs_gc(&lfs, -1, LFS_GC_COMPACT) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        for (uint16_t a = 0; a < M; a++) {
+            lfsr_sizeattr(&lfs, path, a) => SIZE;
+        }
+        // try reading the attrs
+        prng = 42;
+        for (uint16_t a = 0; a < M; a++) {
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t i = 0; i < SIZE; i++) {
+                wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[256];
+            lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test creating a bunch of attrs on a bunch of files
+[cases.test_attrs_many_many]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+defines.FILETYPE = [0, 1]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.COMPACT = [false, true]
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create N files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char path[256];
+        // create a file?
+        if (FILETYPE == 0) {
+            sprintf(path, "cat%03x", i);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, path,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+                    => strlen("meow");
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // create a dir?
+        } else {
+            sprintf(path, "armadillo%03x", i);
+            lfsr_mkdir(&lfs, path) => 0;
+        }
+
+        // create M attrs
+        for (uint16_t a = 0; a < M; a++) {
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfsr_setattr(&lfs, path, a, wbuf, SIZE,
+                    LFS_A_CREAT | LFS_A_EXCL) => 0;
+        }
+    }
+
+    // try compacting?
+    if (COMPACT) {
+        lfsr_fs_gc(&lfs, -1, LFS_GC_COMPACT) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        prng = 42;
+        for (lfs_size_t x = 0; x < N; x++) {
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+
+            // try getting the attr sizes
+            for (uint16_t a = 0; a < M; a++) {
+                lfsr_sizeattr(&lfs, path, a) => SIZE;
+            }
+            // try reading the attrs
+            for (uint16_t a = 0; a < M; a++) {
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+                uint8_t rbuf[256];
+                lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            }
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz attrs
+[cases.test_attrs_fuzz]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+# FILETYPE=2 => root
+defines.FILETYPE = [0, 1, 2]
+defines.M = 10
+defines.SIZE = 4
+defines.OPS = '4*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else if (FILETYPE == 1) {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(M*sizeof(uint32_t));
+    memset(sim_prngs, 0, M*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // create an attr?
+        if (op == 0) {
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the attr
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            if (sim_prngs[a]) {
+                lfsr_setattr(&lfs, path, a, wbuf, SIZE, 0) => 0;
+            } else {
+                lfsr_setattr(&lfs, path, a, wbuf, SIZE,
+                        LFS_A_CREAT | LFS_A_EXCL) => 0;
+            }
+
+            // update our sim
+            sim_prngs[a] = wprng;
+
+        // remove an attr?
+        } else if (op == 1) {
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+
+            // remove the attr
+            if (sim_prngs[a]) {
+                lfsr_removeattr(&lfs, path, a) => 0;
+            } else {
+                lfsr_removeattr(&lfs, path, a) => LFS_ERR_NOATTR;
+            }
+
+            // update our sim
+            sim_prngs[a] = 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting each attr size
+        for (uint16_t a = 0; a < M; a++) {
+            if (sim_prngs[a]) {
+                lfsr_sizeattr(&lfs, path, a) => SIZE;
+            } else {
+                lfsr_sizeattr(&lfs, path, a) => LFS_ERR_NOATTR;
+            }
+        }
+        // try reading each attr
+        for (uint16_t a = 0; a < M; a++) {
+            if (sim_prngs[a]) {
+                uint32_t wprng_ = sim_prngs[a];
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t i = 0; i < SIZE; i++) {
+                    wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                uint8_t rbuf[256];
+                lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            } else {
+                uint8_t rbuf[256];
+                lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf))
+                        => LFS_ERR_NOATTR;
+            }
+        }
+    }
+
+    // clean up sim/lfs
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz attrs on multiple files
+[cases.test_attrs_fuzz_fuzz]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+defines.FILETYPE = [0, 1]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.OPS = '4*N*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create N files
+    for (lfs_size_t i = 0; i < N; i++) {
+        char path[256];
+        // create a file?
+        if (FILETYPE == 0) {
+            sprintf(path, "cat%03x", i);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, path,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+                    => strlen("meow");
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // create a dir?
+        } else {
+            sprintf(path, "armadillo%03x", i);
+            lfsr_mkdir(&lfs, path) => 0;
+        }
+    }
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*M*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*M*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // create an attr?
+        if (op == 0) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the attr
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            if (sim_prngs[x*M+a]) {
+                lfsr_setattr(&lfs, path, a, wbuf, SIZE, 0) => 0;
+            } else {
+                lfsr_setattr(&lfs, path, a, wbuf, SIZE,
+                        LFS_A_CREAT | LFS_A_EXCL) => 0;
+            }
+
+            // update our sim
+            sim_prngs[x*M+a] = wprng;
+
+        // remove an attr?
+        } else if (op == 1) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+
+            // remove the attr
+            if (sim_prngs[x*M+a]) {
+                lfsr_removeattr(&lfs, path, a) => 0;
+            } else {
+                lfsr_removeattr(&lfs, path, a) => LFS_ERR_NOATTR;
+            }
+
+            // update our sim
+            sim_prngs[x*M+a] = 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        for (lfs_size_t x = 0; x < N; x++) {
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+
+            // try getting each attr size
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    lfsr_sizeattr(&lfs, path, a) => SIZE;
+                } else {
+                    lfsr_sizeattr(&lfs, path, a) => LFS_ERR_NOATTR;
+                }
+            }
+            // try reading each attr
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    uint32_t wprng_ = sim_prngs[x*M+a];
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t i = 0; i < SIZE; i++) {
+                        wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                    }
+                    uint8_t rbuf[256];
+                    lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+                    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                } else {
+                    uint8_t rbuf[256];
+                    lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf))
+                            => LFS_ERR_NOATTR;
+                }
+            }
+        }
+    }
+
+    // clean up sim/lfs
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# test that removing a file removes all attrs
+[cases.test_attrs_rm]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+defines.FILETYPE = [0, 1]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    // remove the file
+    lfsr_remove(&lfs, path) => 0;
+
+    // create the file again
+
+    // file?
+    if (FILETYPE == 0) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "miao", strlen("miao")) => strlen("miao");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // dir?
+    } else {
+        lfsr_mkdir(&lfs, path) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => LFS_ERR_NOATTR;
+        lfsr_sizeattr(&lfs, path, 'b') => LFS_ERR_NOATTR;
+        lfsr_sizeattr(&lfs, path, 'c') => LFS_ERR_NOATTR;
+        // try reading the attrs
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that moving onto a file removes all attrs
+[cases.test_attrs_mv_dst]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+defines.FILETYPE = [0, 1]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else {
+        path = "armadillo";
+        lfsr_mkdir(&lfs, path) => 0;
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    // create another file and move it onto our file
+
+    // file?
+    if (FILETYPE == 0) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "beaver", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "miao", strlen("miao")) => strlen("miao");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // dir?
+    } else {
+        lfsr_mkdir(&lfs, "beaver") => 0;
+    }
+
+    lfsr_rename(&lfs, "beaver", path) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => LFS_ERR_NOATTR;
+        lfsr_sizeattr(&lfs, path, 'b') => LFS_ERR_NOATTR;
+        lfsr_sizeattr(&lfs, path, 'c') => LFS_ERR_NOATTR;
+        // try reading the attrs
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that moves bring over all attrs
+[cases.test_attrs_mv_src]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+defines.FILETYPE = [0, 1]
+defines.REPLACE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    const char *path;
+    // file?
+    if (FILETYPE == 0) {
+        path = "cat";
+    // dir?
+    } else {
+        path = "armadillo";
+    }
+
+    // if replacing create a file to replace
+    if (REPLACE) {
+        // create a file?
+        if (FILETYPE == 0) {
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+                    => strlen("meow");
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // create a dir?
+        } else {
+            lfsr_mkdir(&lfs, path) => 0;
+        }
+    }
+
+    // create a file?
+    if (FILETYPE == 0) {
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, "beaver",
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "miao", strlen("miao"))
+                => strlen("miao");
+        lfsr_file_close(&lfs, &file) => 0;
+
+    // create a dir?
+    } else {
+        lfsr_mkdir(&lfs, "beaver") => 0;
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "beaver", 'a', a, strlen(a),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "beaver", 'b', b, strlen(b),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "beaver", 'c', c, strlen(c),
+            LFS_A_CREAT | LFS_A_EXCL) => 0;
+
+    // move file
+    lfsr_rename(&lfs, "beaver", path) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
+        lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
+        lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
+        // try reading the attrs
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz attrs mixed with file moves and removes
+[cases.test_attrs_mvrm_fuzz_fuzz]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => directory
+defines.FILETYPE = [0, 1]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.OPS = '4*N*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create N files
+    for (lfs_size_t i = 0; i < N; i++) {
+        char path[256];
+        // create a file?
+        if (FILETYPE == 0) {
+            sprintf(path, "cat%03x", i);
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, path,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+                    => strlen("meow");
+            lfsr_file_close(&lfs, &file) => 0;
+
+        // create a dir?
+        } else {
+            sprintf(path, "armadillo%03x", i);
+            lfsr_mkdir(&lfs, path) => 0;
+        }
+    }
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*M*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*M*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 4;
+
+        // create an attr?
+        if (op == 0) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the attr
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            if (sim_prngs[x*M+a]) {
+                lfsr_setattr(&lfs, path, a, wbuf, SIZE, 0) => 0;
+            } else {
+                lfsr_setattr(&lfs, path, a, wbuf, SIZE,
+                        LFS_A_CREAT | LFS_A_EXCL) => 0;
+            }
+
+            // update our sim
+            sim_prngs[x*M+a] = wprng;
+
+        // remove an attr?
+        } else if (op == 1) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+
+            // remove the attr
+            if (sim_prngs[x*M+a]) {
+                lfsr_removeattr(&lfs, path, a) => 0;
+            } else {
+                lfsr_removeattr(&lfs, path, a) => LFS_ERR_NOATTR;
+            }
+
+            // update our sim
+            sim_prngs[x*M+a] = 0;
+
+        // remove a file?
+        } else if (op == 2) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+
+            // remove the file
+            lfsr_remove(&lfs, path) => 0;
+
+            // but recreate the file so we always have something to
+            // attach attrs to
+
+            // create a file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+                lfsr_file_t file;
+                lfsr_file_open(&lfs, &file, path,
+                        LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                lfsr_file_write(&lfs, &file, "miao", strlen("miao"))
+                        => strlen("miao");
+                lfsr_file_close(&lfs, &file) => 0;
+
+            // create a dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+                lfsr_mkdir(&lfs, path) => 0;
+            }
+
+            // update our sim
+            memset(&sim_prngs[x*M], 0, M*sizeof(uint32_t));
+
+        // rename a file?
+        } else if (op == 3) {
+            // choose two files
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            char path[256];
+            char path_[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+                sprintf(path_, "cat%03x", y);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+                sprintf(path_, "armadillo%03x", y);
+            }
+
+            // rename the file
+            lfsr_rename(&lfs, path, path_) => 0;
+
+            if (x != y) {
+                // but recreate the file so we always have something to
+                // attach attrs to
+
+                // create a file?
+                if (FILETYPE == 0) {
+                    sprintf(path, "cat%03x", x);
+                    lfsr_file_t file;
+                    lfsr_file_open(&lfs, &file, path,
+                            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                    lfsr_file_write(&lfs, &file, "nyan", strlen("nyan"))
+                            => strlen("nyan");
+                    lfsr_file_close(&lfs, &file) => 0;
+
+                // create a dir?
+                } else {
+                    sprintf(path, "armadillo%03x", x);
+                    lfsr_mkdir(&lfs, path) => 0;
+                }
+
+                // update our sim
+                memcpy(&sim_prngs[y*M], &sim_prngs[x*M], M*sizeof(uint32_t));
+                memset(&sim_prngs[x*M], 0, M*sizeof(uint32_t));
+            }
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        for (lfs_size_t x = 0; x < N; x++) {
+            char path[256];
+            // file?
+            if (FILETYPE == 0) {
+                sprintf(path, "cat%03x", x);
+            // dir?
+            } else {
+                sprintf(path, "armadillo%03x", x);
+            }
+
+            // try getting each attr size
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    lfsr_sizeattr(&lfs, path, a) => SIZE;
+                } else {
+                    lfsr_sizeattr(&lfs, path, a) => LFS_ERR_NOATTR;
+                }
+            }
+            // try reading each attr
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    uint32_t wprng_ = sim_prngs[x*M+a];
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t i = 0; i < SIZE; i++) {
+                        wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                    }
+                    uint8_t rbuf[256];
+                    lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+                    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                } else {
+                    uint8_t rbuf[256];
+                    lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf))
+                            => LFS_ERR_NOATTR;
+                }
+            }
+        }
+    }
+
+    // clean up sim/lfs
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[cases.test_attrs_get_set]
 #code = '''
 #    lfs_t lfs;

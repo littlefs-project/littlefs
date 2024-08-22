@@ -9417,7 +9417,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_,
         lfsr_did_t *did_, const char **name_, lfs_size_t *name_size_) {
     // setup root
-    lfsr_mdir_t mdir = {.mid = -1};
+    lfsr_mdir_t mdir = lfs->mroot;
     lfsr_tag_t tag = LFSR_TAG_DIR;
     lfsr_did_t did = LFSR_DID_ROOT;
     
@@ -11051,6 +11051,132 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     return lfsr_dir_rewind_(lfs, dir);
 }
 
+
+
+/// Custom attribute stuff ///
+
+static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
+        lfsr_mdir_t *mdir_, lfsr_data_t *data_) {
+    // lookup our entry
+    lfsr_tag_t tag;
+    int err = lfsr_mtree_pathlookup(lfs, path,
+            mdir_, &tag, NULL, NULL, NULL);
+    if (err && err != LFS_ERR_EXIST
+            && err != LFS_ERR_INVAL) {
+        return err;
+    }
+    // doesn't exist? note orphans don't really exist
+    if (!err || tag == LFSR_TAG_ORPHAN) {
+        return LFS_ERR_NOENT;
+    }
+
+    // lookup our attr
+    err = lfsr_mdir_lookup(lfs, mdir_, LFSR_TAG_ATTR(type),
+            data_);
+    if (err) {
+        if (err == LFS_ERR_NOENT) {
+            return LFS_ERR_NOATTR;
+        }
+        return err;
+    }
+
+    return 0;
+}
+
+lfs_ssize_t lfsr_getattr(lfs_t *lfs, const char *path, uint8_t type,
+        void *buffer, lfs_size_t size) {
+    // lookup our attr
+    lfsr_mdir_t mdir;
+    lfsr_data_t data;
+    int err = lfsr_lookupattr(lfs, path, type,
+            &mdir, &data);
+    if (err) {
+        return err;
+    }
+
+    // read the attr
+    return lfsr_data_read(lfs, &data, buffer, size);
+}
+
+lfs_ssize_t lfsr_sizeattr(lfs_t *lfs, const char *path, uint8_t type) {
+    // lookup our attr
+    lfsr_mdir_t mdir;
+    lfsr_data_t data;
+    int err = lfsr_lookupattr(lfs, path, type,
+            &mdir, &data);
+    if (err) {
+        return err;
+    }
+
+    // return the attr size
+    return lfsr_data_size(data);
+}
+
+int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
+        const void *buffer, lfs_size_t size,
+        uint32_t flags) {
+    // unknown flags?
+    LFS_ASSERT((flags & ~(
+            LFS_A_CREAT
+                | LFS_O_EXCL)) == 0);
+
+    // prepare our filesystem for writing
+    int err = lfsr_fs_mkconsistent(lfs);
+    if (err) {
+        return err;
+    }
+
+    // lookup our attr
+    lfsr_mdir_t mdir;
+    lfsr_data_t data;
+    err = lfsr_lookupattr(lfs, path, type,
+            &mdir, &data);
+    if (err && err != LFS_ERR_NOATTR) {
+        return err;
+    }
+
+    // doesn't exist?
+    if (!lfsr_o_iscreat(flags)
+            && err == LFS_ERR_NOATTR) {
+        return LFS_ERR_NOATTR;
+
+    // does exist?
+    } else if (lfsr_o_iscreat(flags)
+            && lfsr_o_isexcl(flags)
+            && err != LFS_ERR_NOATTR) {
+        return LFS_ERR_EXIST;
+    }
+
+    // commit our attr
+    lfs_alloc_ckpoint(lfs);
+    return lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_ATTR(type), 0,
+                LFSR_DATA_BUF(buffer, size))));
+}
+
+int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
+    // prepare our filesystem for writing
+    int err = lfsr_fs_mkconsistent(lfs);
+    if (err) {
+        return err;
+    }
+
+    // lookup our attr
+    lfsr_mdir_t mdir;
+    err = lfsr_lookupattr(lfs, path, type,
+            &mdir, NULL);
+    if (err) {
+        return err;
+    }
+
+    // commit our removal
+    lfs_alloc_ckpoint(lfs);
+    return lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+            LFSR_ATTR(
+                LFSR_TAG_RM | LFSR_TAG_ATTR(type), 0,
+                LFSR_DATA_NULL())));
+}
 
 
 

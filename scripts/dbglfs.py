@@ -1047,6 +1047,15 @@ class Config:
 
                 self.config[tag] = (j+d, data)
 
+            # also read any custom attributes in the mroot
+            tag = TAG_ATTR
+            while True:
+                done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, tag+0x1)
+                if done or rid != -1 or (tag & 0xfe00) != TAG_ATTR:
+                    break
+
+                self.config[tag] = (j+d, data)
+
     # accessors for known config
     @ft.cached_property
     def magic(self):
@@ -1144,7 +1153,7 @@ class Config:
             elif tag == TAG_FILELIMIT:
                 return 'filelimit %d' % self.file_limit
             else:
-                return 'config 0x%02x %d' % (tag, len(data))
+                return tagrepr(tag, size=len(data))
 
         for tag, (j, data) in sorted(self.config.items()):
             yield crepr(tag, data), tag, j, data
