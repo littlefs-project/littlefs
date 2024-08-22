@@ -1419,6 +1419,7 @@ enum lfsr_tag {
     LFSR_TAG_SHRUBCOMMIT    = 0x0801,
     LFSR_TAG_SHRUBTRUNK     = 0x0802,
     LFSR_TAG_MOVE           = 0x0803,
+    LFSR_TAG_UATTRS         = 0x0804,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -2394,6 +2395,11 @@ typedef struct lfsr_data_name {
 #define LFSR_ATTR_ATTRS(_tag, _weight, _attrs, _attr_count) \
     LFSR_ATTR_(_tag, _weight, (const lfsr_attr_t*){_attrs}, _attr_count)
 
+// chain a list of user attributes, these require a bit of last-minute
+// reencoding during commits
+#define LFSR_ATTR_UATTRS(_tag, _weight, _attrs, _attr_count) \
+    LFSR_ATTR_(_tag, _weight, (const struct lfs_attr*){_attrs}, _attr_count)
+
 // a move of all attrs from an mdir entry
 #define LFSR_ATTR_MOVE(_tag, _weight, _mdir) \
     LFSR_ATTR_(_tag, _weight, (const lfsr_mdir_t*){_mdir}, 0)
@@ -2417,6 +2423,41 @@ typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
 
 #define LFSR_ATTR_SHRUBTRUNK(_tag, _weight, _shrub) \
     LFSR_ATTR_(_tag, _weight, (const lfsr_shrub_t*){_shrub}, 0)
+
+
+// operations on custom attribute lists
+//
+// a slightly different struct because it's user facing
+
+static inline lfs_ssize_t lfsr_uattr_size(const struct lfs_attr *attr) {
+    // we default to the buffer_size if a mutable size is not provided
+    if (attr->size) {
+        return *attr->size;
+    } else {
+        return attr->buffer_size;
+    }
+}
+
+static inline bool lfsr_uattr_isnoattr(const struct lfs_attr *attr) {
+    return lfsr_uattr_size(attr) == LFS_ERR_NOATTR;
+}
+
+static lfs_scmp_t lfsr_uattr_cmp(lfs_t *lfs, const struct lfs_attr *attr,
+        const lfsr_data_t *data) {
+    // note data=NULL => NOATTR
+    if (!data) {
+        return (lfsr_uattr_isnoattr(attr)) ? LFS_CMP_EQ : LFS_CMP_GT;
+    } else {
+        if (lfsr_uattr_isnoattr(attr)) {
+            return LFS_CMP_LT;
+        } else {
+            return lfsr_data_cmp(lfs, *data,
+                    attr->buffer,
+                    lfsr_uattr_size(attr));
+        }
+    }
+}
+
 
 
 //struct lfsr_attr_from {
@@ -7117,6 +7158,11 @@ static inline bool lfsr_o_iszombie(uint32_t flags) {
     return flags & LFS_O_ZOMBIE;
 }
 
+// custom attr flags
+static inline bool lfsr_a_islazy(uint32_t flags) {
+    return flags & LFS_A_LAZY;
+}
+
 // traversal flags
 static inline bool lfsr_t_ismtreeonly(uint32_t flags) {
     return flags & LFS_T_MTREEONLY;
@@ -8132,6 +8178,57 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         if (err) {
                             return err;
                         }
+                    }
+                }
+
+            // custom attributes need to be reencoded into our tag format
+            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_UATTRS) {
+                const struct lfs_attr *attrs_ = attrs[i].cat;
+                lfs_size_t attr_count_ = attrs[i].count;
+
+                for (lfs_size_t j = 0; j < attr_count_; j++) {
+                    // skip readonly attrs and lazy attrs
+                    if (lfsr_o_isrdonly(attrs_[j].flags)) {
+                        continue;
+                    }
+
+                    // first lets check if the attr changed, we don't want
+                    // to append attrs unless we have to
+                    lfsr_data_t data;
+                    int err = lfsr_mdir_lookup(lfs, mdir,
+                            LFSR_TAG_ATTR(attrs_[j].type),
+                            &data);
+                    if (err && err != LFS_ERR_NOENT) {
+                        return err;
+                    }
+
+                    // does disk match our attr?
+                    lfs_scmp_t cmp = lfsr_uattr_cmp(lfs, &attrs_[j],
+                            (err != LFS_ERR_NOENT) ? &data : NULL);
+                    if (cmp < 0) {
+                        return cmp;
+                    }
+
+                    if (cmp == LFS_CMP_EQ) {
+                        continue;
+                    }
+
+                    // append the custom attr
+                    err = lfsr_rbyd_appendattr(lfs, &mdir->rbyd,
+                            rid - lfs_smax(start_rid, 0),
+                            // removing or updating?
+                            (lfsr_uattr_isnoattr(&attrs_[j]))
+                                ? LFSR_ATTR(
+                                    LFSR_TAG_RM
+                                        | LFSR_TAG_ATTR(attrs_[j].type), 0,
+                                    LFSR_DATA_NULL())
+                                : LFSR_ATTR(
+                                    LFSR_TAG_ATTR(attrs_[j].type), 0,
+                                    LFSR_DATA_BUF(
+                                        attrs_[j].buffer,
+                                        lfsr_uattr_size(&attrs_[j]))));
+                    if (err) {
+                        return err;
                     }
                 }
 
@@ -11149,10 +11246,39 @@ int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
 
     // commit our attr
     lfs_alloc_ckpoint(lfs);
-    return lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_ATTR(type), 0,
                 LFSR_DATA_BUF(buffer, size))));
+    if (err) {
+        return err;
+    }
+
+    // update any opened files tracking custom attrs
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        if (!(lfsr_o_type(o->flags) == LFS_TYPE_REG
+                && o->mdir.mid == mdir.mid
+                && !lfsr_o_isdesync(o->flags))) {
+            continue;
+        }
+
+        lfsr_file_t *file = (lfsr_file_t*)o;
+        for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
+            if (!(file->cfg->attrs[i].type == type
+                    && !lfsr_o_iswronly(file->cfg->attrs[i].flags))) {
+                continue;
+            }
+
+            lfs_size_t d = lfs_min(size, file->cfg->attrs[i].buffer_size);
+            memcpy(file->cfg->attrs[i].buffer, buffer, d);
+            if (file->cfg->attrs[i].size) {
+                *file->cfg->attrs[i].size = d;
+            }
+        }
+    }
+
+
+    return 0;
 }
 
 int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
@@ -11172,10 +11298,36 @@ int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
 
     // commit our removal
     lfs_alloc_ckpoint(lfs);
-    return lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(
                 LFSR_TAG_RM | LFSR_TAG_ATTR(type), 0,
                 LFSR_DATA_NULL())));
+    if (err) {
+        return err;
+    }
+
+    // update any opened files tracking custom attrs
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        if (!(lfsr_o_type(o->flags) == LFS_TYPE_REG
+                && o->mdir.mid == mdir.mid
+                && !lfsr_o_isdesync(o->flags))) {
+            continue;
+        }
+
+        lfsr_file_t *file = (lfsr_file_t*)o;
+        for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
+            if (!(file->cfg->attrs[i].type == type
+                    && !lfsr_o_iswronly(file->cfg->attrs[i].flags))) {
+                continue;
+            }
+
+            if (file->cfg->attrs[i].size) {
+                *file->cfg->attrs[i].size = LFS_ERR_NOATTR;
+            }
+        }
+    }
+
+    return 0;
 }
 
 
@@ -11292,6 +11444,43 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
         file->buffer.size = size;
     }
 
+    // try to fetch any custom attributes
+    for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
+        // skip writeonly attrs
+        if (lfsr_o_iswronly(file->cfg->attrs[i].flags)) {
+            continue;
+        }
+
+        // lookup the attr
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookup(lfs, &file->o.o.mdir,
+                LFSR_TAG_ATTR(file->cfg->attrs[i].type),
+                &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // read the attr, if it exists
+        if (err == LFS_ERR_NOENT
+                // awkward case here if buffer_size is LFS_ERR_NOATTR
+                || file->cfg->attrs[i].buffer_size == LFS_ERR_NOATTR) {
+            if (file->cfg->attrs[i].size) {
+                *file->cfg->attrs[i].size = LFS_ERR_NOATTR;
+            }
+        } else {
+            lfs_ssize_t d = lfsr_data_read(lfs, &data,
+                    file->cfg->attrs[i].buffer,
+                    file->cfg->attrs[i].buffer_size);
+            if (d < 0) {
+                return d;
+            }
+
+            if (file->cfg->attrs[i].size) {
+                *file->cfg->attrs[i].size = d;
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -11324,6 +11513,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_iscreat(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isexcl(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_istrunc(flags));
+    for (lfs_size_t i = 0; i < cfg->attr_count; i++) {
+        // these flags require a writable attr
+        LFS_ASSERT(!lfsr_o_isrdonly(cfg->attrs[i].flags)
+                || !lfsr_o_iscreat(cfg->attrs[i].flags));
+        LFS_ASSERT(!lfsr_o_isrdonly(cfg->attrs[i].flags)
+                || !lfsr_o_isexcl(cfg->attrs[i].flags));
+    }
 
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -12810,30 +13006,34 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(!lfsr_o_isorphan(file->o.o.flags)
             || lfsr_o_isunsync(file->o.o.flags));
 
-    // don't write to disk if already in-sync
-    if (lfsr_o_isunsync(file->o.o.flags)) {
-        // commit any changes to our file's metadata
-        lfsr_attr_t attrs[2];
-        lfs_size_t attr_count = 0;
-        lfsr_data_t name_data;
-        uint8_t buf[LFSR_BTREE_DSIZE];
+    // build a commit of any pending file metadata
+    lfsr_attr_t attrs[3];
+    lfs_size_t attr_count = 0;
+    lfsr_data_t name_data;
+    uint8_t buf[LFSR_BTREE_DSIZE];
 
-        // not created yet? need to convert orphan to normal file
-        if (lfsr_o_isorphan(file->o.o.flags)) {
-            err = lfsr_mdir_lookup(lfs, &file->o.o.mdir, LFSR_TAG_ORPHAN,
-                    &name_data);
-            if (err) {
-                // we must have an orphan at this point
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                goto failed;
-            }
-
-            attrs[attr_count++] = LFSR_ATTR_CAT_(
-                    LFSR_TAG_SUB | LFSR_TAG_REG, 0,
-                    &name_data, 1);
+    // not created yet? need to convert orphan to normal file
+    if (lfsr_o_isorphan(file->o.o.flags)) {
+        err = lfsr_mdir_lookup(lfs, &file->o.o.mdir, LFSR_TAG_ORPHAN,
+                &name_data);
+        if (err) {
+            // orphan flag but no orphan tag?
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            goto failed;
         }
 
-        // commit the file state
+        attrs[attr_count++] = LFSR_ATTR_CAT_(
+                LFSR_TAG_SUB | LFSR_TAG_REG, 0,
+                &name_data, 1);
+    }
+
+    // pending file changes?
+    if (lfsr_o_isunsync(file->o.o.flags)) {
+        // make sure data is on-disk before committing metadata
+        err = lfsr_bd_sync(lfs);
+        if (err) {
+            goto failed;
+        }
 
         // null? no attr?
         if (lfsr_o_isunflush(file->o.o.flags) && file->buffer.size == 0) {
@@ -12858,13 +13058,54 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         } else {
             LFS_UNREACHABLE();
         }
+    }
 
-        // make sure data is on-disk before committing metadata
-        err = lfsr_bd_sync(lfs);
-        if (err) {
-            goto failed;
+    // pending custom attributes?
+    //
+    // this gets real messy, since users can change custom attributes
+    // whenever they want without informing littlefs, the best we can do
+    // is read from disk to manually check if any attributes changed
+    bool uattrs = lfsr_o_isunsync(file->o.o.flags);
+    if (!uattrs) {
+        for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
+            // skip readonly attrs and lazy attrs
+            if (lfsr_o_isrdonly(file->cfg->attrs[i].flags)
+                    || lfsr_a_islazy(file->cfg->attrs[i].flags)) {
+                continue;
+            }
+
+            // lookup the attr
+            lfsr_data_t data;
+            err = lfsr_mdir_lookup(lfs, &file->o.o.mdir,
+                    LFSR_TAG_ATTR(file->cfg->attrs[i].type),
+                    &data);
+            if (err && err != LFS_ERR_NOENT) {
+                goto failed;
+            }
+
+            // does disk match our attr?
+            lfs_scmp_t cmp = lfsr_uattr_cmp(lfs, &file->cfg->attrs[i],
+                    (err != LFS_ERR_NOENT) ? &data : NULL);
+            if (cmp < 0) {
+                err = cmp;
+                goto failed;
+            }
+
+            if (cmp != LFS_CMP_EQ) {
+                uattrs = true;
+                break;
+            }
         }
+    }
+    if (uattrs) {
+        // need to append custom attributes
+        attrs[attr_count++] = LFSR_ATTR_UATTRS(
+                LFSR_TAG_UATTRS, 0,
+                file->cfg->attrs, file->cfg->attr_count);
+    }
 
+    // pending metadata? looks like we need to write to disk
+    if (attr_count > 0) {
         // checkpoint the allocator
         lfs_alloc_ckpoint(lfs);
 
@@ -12907,6 +13148,38 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                         file->buffer.buffer,
                         file->buffer.size);
                 file_->buffer.size = file->buffer.size;
+
+                // update any custom attrs
+                for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
+                    if (lfsr_o_isrdonly(file->cfg->attrs[i].flags)) {
+                        continue;
+                    }
+
+                    for (lfs_size_t j = 0; j < file_->cfg->attr_count; j++) {
+                        if (!(file_->cfg->attrs[j].type
+                                    == file->cfg->attrs[i].type
+                                && !lfsr_o_iswronly(
+                                    file_->cfg->attrs[j].flags))) {
+                            continue;
+                        }
+
+                        if (lfsr_uattr_isnoattr(&file->cfg->attrs[i])) {
+                            if (file_->cfg->attrs[j].size) {
+                                *file_->cfg->attrs[j].size = LFS_ERR_NOATTR;
+                            }
+                        } else {
+                            lfs_size_t d = lfs_min(
+                                    lfsr_uattr_size(&file->cfg->attrs[i]),
+                                    file_->cfg->attrs[j].buffer_size);
+                            memcpy(file_->cfg->attrs[j].buffer,
+                                    file->cfg->attrs[i].buffer,
+                                    d);
+                            if (file_->cfg->attrs[j].size) {
+                                *file_->cfg->attrs[j].size = d;
+                            }
+                        }
+                    }
+                }
             }
 
         // clobber entangled traversals

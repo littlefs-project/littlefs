@@ -152,8 +152,12 @@ enum lfs_type {
 #define LFS_SEEK_END 2  // Seek relative to the end of the file
 
 // Custom attribute flags
+#define LFS_A_RDONLY             0  // Open an attr as read only
+#define LFS_A_WRONLY             1  // Open an attr as write only
+#define LFS_A_RDWR               2  // Open an attr as read and write
 #define LFS_A_CREAT           0x04  // Create an attr if it does not exist
 #define LFS_A_EXCL            0x08  // Fail if an attr already exists
+#define LFS_A_LAZY            0x10  // Only write attr if file changed
 
 // Filesystem format flags
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
@@ -481,6 +485,33 @@ struct lfs_tinfo {
 //    lfs_size_t size;
 //};
 
+// Custom attribute structure, used to describe custom attributes
+// committed atomically during file writes.
+struct lfs_attr {
+    // Type of attribute
+    //
+    // Note some of this range is reserved:
+    // 0x00-0x7f - Free for custom attributes
+    // 0x80-0xff - May be assigned a standard attribute
+    uint8_t type;
+
+    // Flags that control how attr is read/written/removed
+    uint8_t flags;
+
+    // Pointer the buffer where the attr will be read/written
+    void *buffer;
+
+    // Size of the attr buffer in bytes, this can be set to
+    // LFS_ERR_NOATTR to remove the attr
+    lfs_ssize_t buffer_size;
+
+    // Optional pointer to a mutable attr size, updated on read/write,
+    // set to LFS_ERR_NOATTR if attr does not exist
+    //
+    // Defaults to buffer_size if NULL
+    lfs_ssize_t *size;
+};
+
 // Optional configuration provided during lfs_file_opencfg
 struct lfs_file_config {
     // Optional statically allocated file buffer. Must be buffer_size.
@@ -507,6 +538,15 @@ struct lfs_file_config {
 //
 //    // Number of custom attributes in the list
 //    lfs_size_t attr_count;
+
+    // Optional list of custom attributes attached to the file. If readable,
+    // these attributes will be kept up to date with the attributes on-disk.
+    // If writeable, these attributes will be written to disk atomically on
+    // every file sync or close.
+    struct lfs_attr *attrs;
+
+    // Number of custom attributes in the list
+    lfs_size_t attr_count;
 };
 
 
