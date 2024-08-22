@@ -5790,7 +5790,7 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
-defines.COMPACTSET = 'range(0x7)'
+defines.COMPACTSET = 'range(0x8)'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
