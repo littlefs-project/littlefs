@@ -456,7 +456,7 @@ code = '''
         path = "/";
     }
 
-    // try creating every attr, this tests encoding quirks
+    // try creating every attr, this tests any encoding quirks
     uint32_t prng = 42;
     for (uint16_t a = 0; a < 0x100; a++) {
         // create the attr
@@ -790,7 +790,7 @@ code = '''
             sprintf(path, "cat%03x", i);
             lfsr_file_t file;
             lfsr_file_open(&lfs, &file, path,
-                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
             lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
                     => strlen("meow");
             lfsr_file_close(&lfs, &file) => 0;
@@ -2501,27 +2501,1808 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# TODO
-#[cases.test_attrs_fattr_all]
-#[cases.test_attrs_fattr_many]
-#[cases.test_attrs_fattr_many_many]
-#[cases.test_attrs_fattr_fuzz]
-#[cases.test_attrs_fattr_fuzz_fuzz]
 
-#[cases.test_attrs_fattr_broadcast]
-#[cases.test_attrs_fattr_remove_broadcast]
-#[cases.test_attrs_fattr_setattr_broadcast]
-#[cases.test_attrs_fattr_removeattr_broadcast]
-#[cases.test_attrs_fattr_wronly_broadcast]
-#[cases.test_attrs_fattr_rdonly_broadcast]
-#[cases.test_attrs_fattr_desync_broadcast]
+# test that attr updates are broadcast to other file handles
+[cases.test_attrs_fattr_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
-#[cases.test_attrs_fattr_resync]
-#[cases.test_attrs_fattr_zombie_resync] TODO do we test file zombie resync?
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
 
-#[cases.test_attrs_fattr_pl] ?
-#[cases.test_attrs_fattr_orphan] ?
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // update _one_ file's attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    const char *b_ = "Three slash four cup butter or margarine.";
+    const char *c_ = "One and two third cups granulated sugar.";
+    memcpy(a_buf[1], a_, strlen(a_));
+    memcpy(b_buf[1], b_, strlen(b_));
+    memcpy(c_buf[1], c_, strlen(c_));
+    a_size[1] = strlen(a_);
+    b_size[1] = strlen(b_);
+    c_size[1] = strlen(c_);
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[1], "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_sync(&lfs, &file[1]) => 0;
+
+    // were attrs broadcasted to the other files?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a_));
+        }
+        assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b_));
+        }
+        assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c_));
+        }
+        assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that attr removes are broadcast to other file handles
+[cases.test_attrs_fattr_remove_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // remove _one_ file's attrs
+    a_size[1] = LFS_ERR_NOATTR;
+    b_size[1] = LFS_ERR_NOATTR;
+    c_size[1] = LFS_ERR_NOATTR;
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[1], "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_sync(&lfs, &file[1]) => 0;
+
+    // were attrs broadcasted to the other files?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == LFS_ERR_NOATTR);
+        }
+        if (MUTSIZE) {
+            assert(b_size[i] == LFS_ERR_NOATTR);
+        }
+        if (MUTSIZE) {
+            assert(c_size[i] == LFS_ERR_NOATTR);
+        }
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that setattr can also broadcast
+[cases.test_attrs_fattr_setattr_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // update attrs with setattr
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    lfsr_setattr(&lfs, "cat", 'a', a_, strlen(a_)) => 0;
+    const char *b_ = "Three slash four cup butter or margarine.";
+    lfsr_setattr(&lfs, "cat", 'b', b_, strlen(b_)) => 0;
+    const char *c_ = "One and two third cups granulated sugar.";
+    lfsr_setattr(&lfs, "cat", 'c', c_, strlen(c_)) => 0;
+
+    // were attrs broadcasted to the other files?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a_));
+        }
+        assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b_));
+        }
+        assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c_));
+        }
+        assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that attr removes are broadcast to other file handles
+[cases.test_attrs_fattr_removeattr_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // remove attrs with lfsr_removeattr
+    lfsr_removeattr(&lfs, "cat", 'a') => 0;
+    lfsr_removeattr(&lfs, "cat", 'b') => 0;
+    lfsr_removeattr(&lfs, "cat", 'c') => 0;
+
+    // were attrs broadcasted to the other files?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == LFS_ERR_NOATTR);
+        }
+        if (MUTSIZE) {
+            assert(b_size[i] == LFS_ERR_NOATTR);
+        }
+        if (MUTSIZE) {
+            assert(c_size[i] == LFS_ERR_NOATTR);
+        }
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that attr broadcasts do _not_ update wronly attrs
+[cases.test_attrs_fattr_wronly_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // make one attr set wronly
+    attrs[0][0].flags = LFS_A_WRONLY;
+    attrs[0][1].flags = LFS_A_WRONLY;
+    attrs[0][2].flags = LFS_A_WRONLY;
+
+    // update another file's attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    const char *b_ = "Three slash four cup butter or margarine.";
+    const char *c_ = "One and two third cups granulated sugar.";
+    memcpy(a_buf[2], a_, strlen(a_));
+    memcpy(b_buf[2], b_, strlen(b_));
+    memcpy(c_buf[2], c_, strlen(c_));
+    a_size[2] = strlen(a_);
+    b_size[2] = strlen(b_);
+    c_size[2] = strlen(c_);
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[2], "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_sync(&lfs, &file[2]) => 0;
+
+    // were attrs broadcasted to the other files? but not our wronly attrs?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a_));
+            }
+            assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b_));
+            }
+            assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c_));
+            }
+            assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+        }
+    }
+
+    // update attrs with setattr
+    const char *a__ = "Two cups all-purpose flower.";
+    lfsr_setattr(&lfs, "cat", 'a', a__, strlen(a__)) => 0;
+    const char *b__ = "Dont forget garnishes such as:";
+    lfsr_setattr(&lfs, "cat", 'b', b__, strlen(b__)) => 0;
+    const char *c__ = "Fish-shaped crackers.";
+    lfsr_setattr(&lfs, "cat", 'c', c__, strlen(c__)) => 0;
+
+    // were attrs broadcasted to the other files? but not our wronly attrs?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a__));
+            }
+            assert(memcmp(a_buf[i], a__, strlen(a__)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b__));
+            }
+            assert(memcmp(b_buf[i], b__, strlen(b__)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c__));
+            }
+            assert(memcmp(c_buf[i], c__, strlen(c__)) == 0);
+        }
+    }
+
+    // if we sync our wronly file we should get the original attrs back
+    lfsr_file_sync(&lfs, &file[0]) => 0;
+
+    // were attrs broadcasted to the other files?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that attr broadcasts do _not_ broadcast rdonly attrs
+[cases.test_attrs_fattr_rdonly_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // make one attr set rdonly
+    attrs[0][0].flags = LFS_A_RDONLY;
+    attrs[0][1].flags = LFS_A_RDONLY;
+    attrs[0][2].flags = LFS_A_RDONLY;
+
+    // change the rdonly file's attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    const char *b_ = "Three slash four cup butter or margarine.";
+    const char *c_ = "One and two third cups granulated sugar.";
+    memcpy(a_buf[0], a_, strlen(a_));
+    memcpy(b_buf[0], b_, strlen(b_));
+    memcpy(c_buf[0], c_, strlen(c_));
+    a_size[0] = strlen(a_);
+    b_size[0] = strlen(b_);
+    c_size[0] = strlen(c_);
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[0], "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_sync(&lfs, &file[0]) => 0;
+
+    // rdonly attrs should not have been broadcasted
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a_));
+            }
+            assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b_));
+            }
+            assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c_));
+            }
+            assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        }
+    }
+
+    // sync any file to update our rdonly attrs
+    lfsr_file_sync(&lfs, &file[2]) => 0;
+
+    // reset attrs?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that desync files do not recieve attr broadcasts
+[cases.test_attrs_fattr_desync_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // make one file desync
+    lfsr_file_desync(&lfs, &file[0]) => 0;
+
+    // update another file's attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    const char *b_ = "Three slash four cup butter or margarine.";
+    const char *c_ = "One and two third cups granulated sugar.";
+    memcpy(a_buf[2], a_, strlen(a_));
+    memcpy(b_buf[2], b_, strlen(b_));
+    memcpy(c_buf[2], c_, strlen(c_));
+    a_size[2] = strlen(a_);
+    b_size[2] = strlen(b_);
+    c_size[2] = strlen(c_);
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[2], "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_sync(&lfs, &file[2]) => 0;
+
+    // were attrs broadcasted to the other files? but not our desync file?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a_));
+            }
+            assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b_));
+            }
+            assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c_));
+            }
+            assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+        }
+    }
+
+    // update attrs with setattr
+    const char *a__ = "Two cups all-purpose flower.";
+    lfsr_setattr(&lfs, "cat", 'a', a__, strlen(a__)) => 0;
+    const char *b__ = "Dont forget garnishes such as:";
+    lfsr_setattr(&lfs, "cat", 'b', b__, strlen(b__)) => 0;
+    const char *c__ = "Fish-shaped crackers.";
+    lfsr_setattr(&lfs, "cat", 'c', c__, strlen(c__)) => 0;
+
+    // were attrs broadcasted to the other files? but not our desync file?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a__));
+            }
+            assert(memcmp(a_buf[i], a__, strlen(a__)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b__));
+            }
+            assert(memcmp(b_buf[i], b__, strlen(b__)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c__));
+            }
+            assert(memcmp(c_buf[i], c__, strlen(c__)) == 0);
+        }
+    }
+
+    // syncing the desync file should broadcast the original attrs
+    lfsr_file_sync(&lfs, &file[0]) => 0;
+
+    // were attrs broadcasted to the other files?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that resync files will reread attrs
+[cases.test_attrs_fattr_resync_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // make one file desync
+    lfsr_file_desync(&lfs, &file[0]) => 0;
+
+    // update another file's attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    const char *b_ = "Three slash four cup butter or margarine.";
+    const char *c_ = "One and two third cups granulated sugar.";
+    memcpy(a_buf[2], a_, strlen(a_));
+    memcpy(b_buf[2], b_, strlen(b_));
+    memcpy(c_buf[2], c_, strlen(c_));
+    a_size[2] = strlen(a_);
+    b_size[2] = strlen(b_);
+    c_size[2] = strlen(c_);
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[2], "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_sync(&lfs, &file[2]) => 0;
+
+    // were attrs broadcasted to the other files? but not our desync file?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a_));
+            }
+            assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b_));
+            }
+            assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c_));
+            }
+            assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+        }
+    }
+
+    // resync the desync file
+    lfsr_file_resync(&lfs, &file[0]) => 0;
+
+    // reread attrs?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a_));
+        }
+        assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b_));
+        }
+        assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c_));
+        }
+        assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that zombie files error correctly
+[cases.test_attrs_fattr_zombie_broadcast]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // remove the file
+    lfsr_remove(&lfs, "cat") => 0;
+
+    // update one file's attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    const char *b_ = "Three slash four cup butter or margarine.";
+    const char *c_ = "One and two third cups granulated sugar.";
+    memcpy(a_buf[1], a_, strlen(a_));
+    memcpy(b_buf[1], b_, strlen(b_));
+    memcpy(c_buf[1], c_, strlen(c_));
+    a_size[1] = strlen(a_);
+    b_size[1] = strlen(b_);
+    c_size[1] = strlen(c_);
+
+    // attempting to sync should error
+    lfsr_file_sync(&lfs, &file[1]) => LFS_ERR_NOENT;
+
+    // attempting to resync should error
+    lfsr_file_resync(&lfs, &file[1]) => LFS_ERR_NOENT;
+
+    // other file unaffected?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 1) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a_));
+            }
+            assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b_));
+            }
+            assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c_));
+            }
+            assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        }
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# test the full range of attrs
+[cases.test_attrs_fattr_all]
+defines.SIZE = 4
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // setup our attr
+    uint8_t a_buf[SIZE];
+    lfs_ssize_t a_size = -1;
+    struct lfs_attr attrs[] = {
+        {
+            .flags = LFS_A_RDWR,
+            .buffer = a_buf,
+            .buffer_size = sizeof(a_buf),
+            .size = &a_size,
+        }
+    };
+    struct lfs_file_config filecfg = {
+        .attrs = attrs,
+        .attr_count = 1,
+    };
+
+    // try creating every attr, this tests any encoding quirks
+    uint32_t prng = 42;
+    for (uint16_t a = 0; a < 0x100; a++) {
+        attrs[0].type = a;
+
+        // create the attr via open
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_opencfg(&lfs, &file, "cat", LFS_A_RDWR, &filecfg) => 0;
+        memcpy(a_buf, wbuf, SIZE);
+        a_size = SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // try getting the attr size
+        lfsr_sizeattr(&lfs, "cat", a) => SIZE;
+        // try reading the attr
+        uint8_t rbuf[256];
+        lfsr_getattr(&lfs, "cat", a, rbuf, sizeof(rbuf)) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+
+        // clobber our in-RAM attr and try reading via open
+        memset(a_buf, 0xcc, sizeof(a_buf));
+        lfsr_file_opencfg(&lfs, &file, "cat", LFS_A_RDWR, &filecfg) => 0;
+        assert(a_size == SIZE);
+        assert(memcmp(a_buf, wbuf, SIZE) == 0);
+
+        // remove the attr
+        a_size = LFS_ERR_NOATTR;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // make sure attr is removed
+        lfsr_sizeattr(&lfs, "cat", a) => LFS_ERR_NOATTR;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test creating a bunch of attrs on a bunch of files
+[cases.test_attrs_fattr_many_many]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.COMPACT = [false, true]
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create N files with M attrs
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char path[256];
+        sprintf(path, "cat%03x", i);
+        uint8_t a_buf[M][SIZE];
+        struct lfs_attr attrs[M];
+        for (lfs_size_t j = 0; j < M; j++) {
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                a_buf[j][k] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            attrs[j] = (struct lfs_attr){
+                .type = j,
+                .flags = LFS_A_WRONLY,
+                .buffer = a_buf[j],
+                .buffer_size = SIZE,
+            };
+        }
+        struct lfs_file_config filecfg = {
+            .attrs = attrs,
+            .attr_count = M,
+        };
+        lfsr_file_t file;
+        lfsr_file_opencfg(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT, &filecfg) => 0;
+        lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+                => strlen("meow");
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // try compacting?
+    if (COMPACT) {
+        lfsr_fs_gc(&lfs, -1, LFS_GC_COMPACT) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        prng = 42;
+        for (lfs_size_t x = 0; x < N; x++) {
+            char path[256];
+            sprintf(path, "cat%03x", x);
+
+            // try getting the attr sizes
+            for (uint16_t a = 0; a < M; a++) {
+                lfsr_sizeattr(&lfs, path, a) => SIZE;
+            }
+            // try reading the attrs
+            for (uint16_t a = 0; a < M; a++) {
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+                uint8_t rbuf[256];
+                lfsr_getattr(&lfs, path, a, rbuf, sizeof(rbuf)) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            }
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz attrs on multiple files
+[cases.test_attrs_fattr_fuzz_fuzz]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.OPS = '4*N*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint8_t a_buf[N][M][SIZE];
+    lfs_ssize_t a_size[N][M];
+    struct lfs_attr attrs[N][M];
+    struct lfs_file_config filecfg[N];
+    lfsr_file_t file[N];
+
+    // create N files
+    for (lfs_size_t x = 0; x < N; x++) {
+        char path[256];
+        sprintf(path, "cat%03x", x);
+        for (lfs_size_t a = 0; a < M; a++) {
+            attrs[x][a] = (struct lfs_attr){
+                .type = a,
+                .flags = LFS_A_RDWR,
+                .buffer = a_buf[x][a],
+                .buffer_size = SIZE,
+                .size = &a_size[x][a],
+            };
+        }
+        filecfg[x] = (struct lfs_file_config){
+            .attrs = attrs[x],
+            .attr_count = M,
+        };
+
+        lfsr_file_opencfg(&lfs, &file[x], path,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL,
+                &filecfg[x]) => 0;
+        lfsr_file_write(&lfs, &file[x], "meow", strlen("meow"))
+                => strlen("meow");
+        lfsr_file_sync(&lfs, &file[x]) => 0;
+    }
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*M*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*M*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // create an attr?
+        if (op == 0) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update the attr
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            memcpy(a_buf[x][a], wbuf, SIZE);
+            a_size[x][a] = SIZE;
+            lfsr_file_sync(&lfs, &file[x]) => 0;
+
+            // update our sim
+            sim_prngs[x*M+a] = wprng;
+
+        // remove an attr?
+        } else if (op == 1) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+
+            // remove the attr
+            a_size[x][a] = LFS_ERR_NOATTR;
+            lfsr_file_sync(&lfs, &file[x]) => 0;
+
+            // update our sim
+            sim_prngs[x*M+a] = 0;
+        }
+    }
+
+    // check attrs on all file handles
+    for (lfs_size_t x = 0; x < N; x++) {
+        for (uint16_t a = 0; a < M; a++) {
+            if (sim_prngs[x*M+a]) {
+                assert(a_size[x][a] == SIZE);
+                uint32_t wprng_ = sim_prngs[x*M+a];
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t i = 0; i < SIZE; i++) {
+                    wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
+            } else {
+                assert(a_size[x][a] == LFS_ERR_NOATTR);
+            }
+        }
+    }
+
+    // clean up sim/lfs
+    for (lfs_size_t x = 0; x < N; x++) {
+        lfsr_file_close(&lfs, &file[x]) => 0;
+    }
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz attrs on multiple overlapping files
+[cases.test_attrs_fattr_fuzz_fuzz_fuzz]
+defines.N = 64
+defines.H = 4
+defines.M = 4
+defines.SIZE = 4
+defines.OPS = '4*N*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint8_t a_buf[N][H][M][SIZE];
+    lfs_ssize_t a_size[N][H][M];
+    struct lfs_attr attrs[N][H][M];
+    struct lfs_file_config filecfg[N][H];
+    lfsr_file_t file[N][H];
+
+    // create N files
+    for (lfs_size_t x = 0; x < N; x++) {
+        char path[256];
+        sprintf(path, "cat%03x", x);
+        for (lfs_size_t y = 0; y < H; y++) {
+            for (lfs_size_t a = 0; a < M; a++) {
+                attrs[x][y][a] = (struct lfs_attr){
+                    .type = a,
+                    .flags = LFS_A_RDWR,
+                    .buffer = a_buf[x][y][a],
+                    .buffer_size = SIZE,
+                    .size = &a_size[x][y][a],
+                };
+            }
+            filecfg[x][y] = (struct lfs_file_config){
+                .attrs = attrs[x][y],
+                .attr_count = M,
+            };
+
+            lfsr_file_opencfg(&lfs, &file[x][y], path,
+                    LFS_O_WRONLY | LFS_O_CREAT,
+                    &filecfg[x][y]) => 0;
+            lfsr_file_write(&lfs, &file[x][y], "meow", strlen("meow"))
+                    => strlen("meow");
+            lfsr_file_sync(&lfs, &file[x][y]) => 0;
+        }
+    }
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*M*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*M*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // create an attr?
+        if (op == 0) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // choose a file handle
+            lfs_size_t y = TEST_PRNG(&prng) % H;
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update the attr
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            memcpy(a_buf[x][y][a], wbuf, SIZE);
+            a_size[x][y][a] = SIZE;
+            lfsr_file_sync(&lfs, &file[x][y]) => 0;
+
+            // update our sim
+            sim_prngs[x*M+a] = wprng;
+
+        // remove an attr?
+        } else if (op == 1) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // choose a file handle
+            lfs_size_t y = TEST_PRNG(&prng) % H;
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+
+            // remove the attr
+            a_size[x][y][a] = LFS_ERR_NOATTR;
+            lfsr_file_sync(&lfs, &file[x][y]) => 0;
+
+            // update our sim
+            sim_prngs[x*M+a] = 0;
+        }
+    }
+
+    // check attrs on all file handles
+    for (lfs_size_t x = 0; x < N; x++) {
+        for (lfs_size_t y = 0; y < H; y++) {
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    assert(a_size[x][y][a] == SIZE);
+                    uint32_t wprng_ = sim_prngs[x*M+a];
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t i = 0; i < SIZE; i++) {
+                        wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                    }
+                    assert(memcmp(a_buf[x][y][a], wbuf, SIZE) == 0);
+                } else {
+                    assert(a_size[x][y][a] == LFS_ERR_NOATTR);
+                }
+            }
+        }
+    }
+
+    // clean up sim/lfs
+    for (lfs_size_t x = 0; x < N; x++) {
+        for (lfs_size_t y = 0; y < M; y++) {
+            lfsr_file_close(&lfs, &file[x][y]) => 0;
+        }
+    }
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that file-attached attrs are actually atomic
+[cases.test_attrs_fattr_pl_fuzz_fuzz]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.OPS = '4*N*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+    if (err) {
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+
+    // keep some test state on disk to survive powerloss
+    typedef struct fuzz_state {
+        lfs_size_t i;
+        uint32_t prng;
+    } fuzz_state_t;
+
+    lfsr_file_t state_file;
+    lfsr_file_open(&lfs, &state_file, "state", LFS_O_RDWR | LFS_O_CREAT) => 0;
+    fuzz_state_t state;
+    if (lfsr_file_size(&lfs, &state_file) == 0) {
+        state.i = 0;
+        state.prng = SEED;
+    } else {
+        lfsr_file_read(&lfs, &state_file, &state, sizeof(state))
+                => sizeof(state);
+    }
+
+    for (; state.i < OPS; state.i++) {
+        // choose a random file
+        lfs_size_t x = TEST_PRNG(&state.prng) % N;
+        char path[256];
+        sprintf(path, "cat%03x", x);
+
+        // the invariant we hold here is that attrs are some increment
+        // of the file data mod 26, this should catch any issues with
+        // atomically updating attrs attached to files
+
+        // try to open the file with attrs
+        uint8_t a_buf[M][SIZE];
+        lfs_ssize_t a_size[M];
+        struct lfs_attr attrs[M];
+        struct lfs_file_config filecfg;
+        lfsr_file_t file;
+        for (lfs_size_t a = 0; a < M; a++) {
+            attrs[a] = (struct lfs_attr){
+                .type = a,
+                .flags = LFS_A_RDWR,
+                .buffer = a_buf[a],
+                .buffer_size = SIZE,
+                .size = &a_size[a],
+            };
+        }
+        filecfg = (struct lfs_file_config){
+            .attrs = attrs,
+            .attr_count = M,
+        };
+
+        lfsr_file_opencfg(&lfs, &file, path, LFS_O_RDWR | LFS_O_CREAT,
+                &filecfg) => 0;
+
+        // if the file exists, check our invariant
+        if (lfsr_file_size(&lfs, &file) > 0) {
+            uint8_t wbuf[SIZE];
+            lfsr_file_read(&lfs, &file, wbuf, SIZE) => SIZE;
+
+            for (lfs_size_t a = 0; a < M; a++) {
+                assert(a_size[a] == SIZE);
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    assert(a_buf[a][j] == 'a' + (((wbuf[j]-'a') + a) % 26));
+                }
+            }
+        }
+
+        // choose a new seed and rewrite our file
+        uint32_t wprng = TEST_PRNG(&state.prng);
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+        }
+        lfsr_file_rewind(&lfs, &file) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+
+        // and update attrs
+        for (lfs_size_t a = 0; a < M; a++) {
+            a_size[a] = SIZE;
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                a_buf[a][j] = 'a' + (((wbuf[j]-'a') + a) % 26);
+            }
+        }
+
+        // and sync/close
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // update our state file
+        lfsr_file_rewind(&lfs, &state_file) => 0;
+        lfsr_file_write(&lfs, &state_file, &state, sizeof(state))
+                => sizeof(state);
+        lfsr_file_sync(&lfs, &state_file) => 0;
+    }
+
+    // go ahead and close our state file in case we remount
+    lfsr_file_close(&lfs, &state_file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check that our invariant was held in all files
+        for (lfs_size_t x = 0; x < N; x++) {
+            char path[256];
+            sprintf(path, "cat%03x", x);
+            uint8_t a_buf[M][SIZE];
+            lfs_ssize_t a_size[M];
+            struct lfs_attr attrs[M];
+            struct lfs_file_config filecfg;
+            lfsr_file_t file;
+            for (lfs_size_t a = 0; a < M; a++) {
+                attrs[a] = (struct lfs_attr){
+                    .type = a,
+                    .flags = LFS_A_RDWR,
+                    .buffer = a_buf[a],
+                    .buffer_size = SIZE,
+                    .size = &a_size[a],
+                };
+            }
+            filecfg = (struct lfs_file_config){
+                .attrs = attrs,
+                .attr_count = M,
+            };
+
+            int err = lfsr_file_opencfg(&lfs, &file, path, LFS_O_RDONLY,
+                    &filecfg);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                continue;
+            }
+
+            // if the file exists, check our invariant
+            uint8_t wbuf[SIZE];
+            lfsr_file_read(&lfs, &file, wbuf, SIZE) => SIZE;
+
+            for (lfs_size_t a = 0; a < M; a++) {
+                assert(a_size[a] == SIZE);
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                    assert(a_buf[a][j] == 'a' + (((wbuf[j]-'a') + a) % 26));
+                }
+            }
+
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
 
 
 
