@@ -11346,12 +11346,17 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size);
 
-static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
+static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // default data state
-    file->o.bshrub_ = LFSR_BSHRUB_BNULL();
+    file->o.bshrub = LFSR_BSHRUB_BNULL();
+    // discard the current buffer
+    file->buffer.pos = 0;
+    file->buffer.size = 0;
+    // mark as flushed
+    file->o.o.flags &= ~LFS_O_UNFLUSH;
 
-    // don't bother reading disk if we're an orphan
-    if (!lfsr_o_isorphan(file->o.o.flags)) {
+    // don't bother reading disk if we're an orphan or truncating
+    if (!lfsr_o_isorphan(file->o.o.flags) && !trunc) {
         // lookup the file struct, if there is one
         lfsr_tag_t tag;
         lfsr_data_t data;
@@ -11364,6 +11369,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
         // note many of these functions leave bshrub undefined if
         // there is an error, so we first read into the staging
         // bshrub
+        file->o.bshrub_ = file->o.bshrub;
 
         // may be a sprout (simple inlined data)
         if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
@@ -11393,19 +11399,13 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
                 return err;
             }
         }
-    }
 
-    // mark as flushed and synced if we're not an orphan
-    file->o.o.flags &= ~(
-            LFS_O_UNFLUSH
-                | ((!lfsr_o_isorphan(file->o.o.flags))
-                    ? LFS_O_UNSYNC
-                    : 0));
-    // update the bshrub
-    file->o.bshrub = file->o.bshrub_;
-    // discard the current buffer
-    file->buffer.pos = 0;
-    file->buffer.size = 0;
+        // update the bshrub
+        file->o.bshrub = file->o.bshrub_;
+
+        // mark as synced
+        file->o.o.flags &= ~LFS_O_UNSYNC;
+    }
 
     // if our file is small, try to keep the whole thing in our buffer
     //
@@ -11430,6 +11430,14 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
     for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
         // skip writeonly attrs
         if (lfsr_o_iswronly(file->cfg->attrs[i].flags)) {
+            continue;
+        }
+
+        // don't bother reading disk if we're an orphan
+        if (lfsr_o_isorphan(file->o.o.flags)) {
+            if (file->cfg->attrs[i].size) {
+                *file->cfg->attrs[i].size = LFS_ERR_NOATTR;
+            }
             continue;
         }
 
@@ -11467,6 +11475,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file) {
 }
 
 // needed in lfsr_file_opencfg
+static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file);
 static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
         uint32_t flags);
 
@@ -11518,8 +11527,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC))
             // default to unflushed for orphans/truncated files
             | LFS_O_UNFLUSH;
-    // default data state
-    file->o.bshrub = LFSR_BSHRUB_BNULL();
     file->pos = 0;
     file->eblock = 0;
     file->eoff = -1;
@@ -11599,12 +11606,11 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->buffer.pos = 0;
     file->buffer.size = 0;
 
-    // fetch the file struct if we're not truncating
-    if (!lfsr_o_istrunc(file->o.o.flags)) {
-        err = lfsr_file_fetch(lfs, file);
-        if (err) {
-            goto failed;
-        }
+    // fetch the file struct and custom attrs
+    err = lfsr_file_fetch(lfs, file,
+            lfsr_o_istrunc(file->o.o.flags));
+    if (err) {
+        goto failed;
     }
 
     // check metadata/data for errors?
@@ -11620,11 +11626,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     return 0;
 
 failed:;
-    // clean up memory
-    if (!file->cfg->buffer) {
-        lfs_free(file->buffer.buffer);
-    }
-
+    // clean up resources
+    lfsr_file_close_(lfs, file);
     return err;
 }
 
@@ -11636,22 +11639,8 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
     return lfsr_file_opencfg(lfs, file, path, flags, &lfsr_file_defaults);
 }
 
-// needed in lfsr_file_close
-int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
-
-int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
-    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
-
-    // don't call lfsr_file_sync if we're readonly or desynced
-    int err = 0;
-    if (!lfsr_o_isrdonly(file->o.o.flags)
-            && !lfsr_o_isdesync(file->o.o.flags)) {
-        err = lfsr_file_sync(lfs, file);
-    }
-
-    // remove from tracked mdirs
-    lfsr_omdir_close(lfs, &file->o.o);
-
+// clean up resources
+static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
     // clean up memory
     if (!file->cfg->buffer) {
         lfs_free(file->buffer.buffer);
@@ -11675,6 +11664,26 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
             lfs->flags |= LFS_I_HASORPHANS;
         }
     }
+}
+
+// needed in lfsr_file_close
+int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
+
+int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->o.o));
+
+    // don't call lfsr_file_sync if we're readonly or desynced
+    int err = 0;
+    if (!lfsr_o_isrdonly(file->o.o.flags)
+            && !lfsr_o_isdesync(file->o.o.flags)) {
+        err = lfsr_file_sync(lfs, file);
+    }
+
+    // remove from tracked mdirs
+    lfsr_omdir_close(lfs, &file->o.o);
+
+    // clean up resources
+    lfsr_file_close_(lfs, file);
 
     return err;
 }
@@ -13202,7 +13211,7 @@ int lfsr_file_resync(lfs_t *lfs, lfsr_file_t *file) {
     // do nothing if already in-sync
     if (lfsr_o_isunsync(file->o.o.flags)) {
         // refetch the file struct from disk
-        err = lfsr_file_fetch(lfs, file);
+        err = lfsr_file_fetch(lfs, file, false);
         if (err) {
             goto failed;
         }

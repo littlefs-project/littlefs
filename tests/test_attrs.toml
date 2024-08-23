@@ -1611,6 +1611,148 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# catch LFS_O_TRUNC mistakes, this has created issues before
+[cases.test_attrs_fattr_otrunc]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // try opening a file with these attrs
+    uint8_t a_buf[256];
+    lfs_ssize_t a_size = -1;
+    uint8_t b_buf[256];
+    lfs_ssize_t b_size = -1;
+    uint8_t c_buf[256];
+    lfs_ssize_t c_size = -1;
+    struct lfs_attr attrs[] = {
+        {
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf,
+            .buffer_size = sizeof(a_buf),
+            .size = (MUTSIZE) ? &a_size : NULL,
+        },
+        {
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf,
+            .buffer_size = sizeof(b_buf),
+            .size = (MUTSIZE) ? &b_size : NULL,
+        },
+        {
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf,
+            .buffer_size = sizeof(c_buf),
+            .size = (MUTSIZE) ? &c_size : NULL,
+        }
+    };
+    struct lfs_file_config filecfg = {
+        .attrs = attrs,
+        .attr_count = 3,
+    };
+    lfsr_file_opencfg(&lfs, &file, "cat",
+            MODE | LFS_O_TRUNC, &filecfg) => 0;
+
+    // did we read the attrs correctly?
+    if (MUTSIZE) {
+        assert(a_size == strlen(a));
+    }
+    assert(memcmp(a_buf, a, strlen(a)) == 0);
+    if (MUTSIZE) {
+        assert(b_size == strlen(b));
+    }
+    assert(memcmp(b_buf, b, strlen(b)) == 0);
+    if (MUTSIZE) {
+        assert(c_size == strlen(c));
+    }
+    assert(memcmp(c_buf, c, strlen(c)) == 0);
+
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# orphan files should zero attributes
+[cases.test_attrs_fattr_orphan]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // _don't_ create a file
+
+    // try opening a file with these attrs
+    uint8_t a_buf[256];
+    lfs_ssize_t a_size = -1;
+    uint8_t b_buf[256];
+    lfs_ssize_t b_size = -1;
+    uint8_t c_buf[256];
+    lfs_ssize_t c_size = -1;
+    struct lfs_attr attrs[] = {
+        {
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf,
+            .buffer_size = sizeof(a_buf),
+            .size = (MUTSIZE) ? &a_size : NULL,
+        },
+        {
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf,
+            .buffer_size = sizeof(b_buf),
+            .size = (MUTSIZE) ? &b_size : NULL,
+        },
+        {
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf,
+            .buffer_size = sizeof(c_buf),
+            .size = (MUTSIZE) ? &c_size : NULL,
+        }
+    };
+    struct lfs_file_config filecfg = {
+        .attrs = attrs,
+        .attr_count = 3,
+    };
+    lfsr_file_t file;
+    lfsr_file_opencfg(&lfs, &file, "cat",
+            MODE | LFS_O_CREAT, &filecfg) => 0;
+
+    // did we read the attrs correctly?
+    if (MUTSIZE) {
+        assert(a_size == LFS_ERR_NOATTR);
+    }
+    if (MUTSIZE) {
+        assert(b_size == LFS_ERR_NOATTR);
+    }
+    if (MUTSIZE) {
+        assert(c_size == LFS_ERR_NOATTR);
+    }
+
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
 # test that file-attached attrs are written correctly
 [cases.test_attrs_fattr_set]
 defines.MODE = ['LFS_A_WRONLY', 'LFS_A_RDWR']
@@ -2378,6 +2520,7 @@ code = '''
 #[cases.test_attrs_fattr_zombie_resync] TODO do we test file zombie resync?
 
 #[cases.test_attrs_fattr_pl] ?
+#[cases.test_attrs_fattr_orphan] ?
 
 
 
