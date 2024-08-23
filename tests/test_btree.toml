@@ -52,8 +52,8 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -93,10 +93,10 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -142,10 +142,10 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -192,12 +192,12 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -250,12 +250,12 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -313,8 +313,8 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         n += 1;
@@ -363,8 +363,8 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((N-1-i) % 26)}, 1)))) => 0;
         n += 1;
@@ -428,8 +428,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -497,8 +497,8 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +W,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         n += 1;
@@ -588,8 +588,8 @@ code = '''
         }
 
         // add to btree
-        lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +weight,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -698,11 +698,11 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     // update the tree
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -743,17 +743,17 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
     // update the tree
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("A", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("B", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -801,23 +801,23 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
     // update the tree
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("A", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("B", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("C", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -874,15 +874,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
     }
@@ -931,8 +931,8 @@ code = '''
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
@@ -952,8 +952,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % N;
 
         // update btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
 
@@ -1017,15 +1017,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +W,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i*W+W-1, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i*W+W-1, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
     }
@@ -1090,8 +1090,8 @@ code = '''
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +W,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
@@ -1122,11 +1122,11 @@ code = '''
 
         // update btree
         lfsr_btree_commit(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                    LFSR_ATTR(
+                weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)),
-                    LFSR_ATTR(
+                    LFSR_RATTR(
                         LFSR_TAG_GROW, +weight-sim_weights[bid],
                         LFSR_DATA_NULL()))) => 0;
 
@@ -1232,11 +1232,11 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     // pop!
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1253,8 +1253,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("A", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1288,13 +1288,13 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
     // pop!
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1318,8 +1318,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("B", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("B", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1360,13 +1360,13 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
     // pop!
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1390,8 +1390,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("A", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("A", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1432,15 +1432,15 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
     // pop!
-    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1471,8 +1471,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfsr_btree_commit(&lfs, &btree, 2, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("C", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("C", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1524,15 +1524,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        lfsr_btree_commit(&lfs, &btree, N-1-i, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+        lfsr_btree_commit(&lfs, &btree, N-1-i, LFSR_RATTRS(
+                LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     }
 
     printf("btree: w%d 0x%x.%x\n",
@@ -1561,8 +1561,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try recovering
-    lfsr_btree_commit(&lfs, &btree, REMAINING, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("R", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, REMAINING, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("R", 1)))) => 0;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
         lfsr_btree_lookup(&lfs, &btree, i,
@@ -1603,15 +1603,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+        lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+                LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -1640,8 +1640,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try recovering
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("R", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("R", 1)))) => 0;
 
     lfsr_btree_lookup(&lfs, &btree, 0,
             &tag_, &weight_, &data_) => 0;
@@ -1685,8 +1685,8 @@ code = '''
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
@@ -1707,8 +1707,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // remove from btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -1773,15 +1773,15 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +W,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        lfsr_btree_commit(&lfs, &btree, (N-1-i)*W+W-1, LFSR_ATTRS(
-                LFSR_ATTR(LFSR_TAG_RM, -W, LFSR_DATA_NULL()))) => 0;
+        lfsr_btree_commit(&lfs, &btree, (N-1-i)*W+W-1, LFSR_RATTRS(
+                LFSR_RATTR(LFSR_TAG_RM, -W, LFSR_DATA_NULL()))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -1809,8 +1809,8 @@ code = '''
             &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // try recovering
-    lfsr_btree_commit(&lfs, &btree, REMAINING*W, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +W, LFSR_DATA_BUF("R", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, REMAINING*W, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +W, LFSR_DATA_BUF("R", 1)))) => 0;
 
     for (lfs_size_t i = 0; i < REMAINING; i++) {
         lfsr_btree_lookup(&lfs, &btree, i*W+W-1,
@@ -1899,8 +1899,8 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +weight,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -1921,8 +1921,8 @@ code = '''
 
         // remove from btree
         lfsr_btree_commit(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                    LFSR_ATTR(
+                weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_RM, -sim_weights[bid],
                         LFSR_DATA_NULL()))) => 0;
 
@@ -2028,17 +2028,17 @@ code = '''
 
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_DATA, +1,
                 LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i-1, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1)),
-                LFSR_ATTR(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1)))) => 0;
         n += 1;
@@ -2087,8 +2087,8 @@ code = '''
 
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -2105,11 +2105,11 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // split btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
-                LFSR_ATTR(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
 
@@ -2176,17 +2176,17 @@ code = '''
 
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_DATA, +W,
                 LFSR_DATA_BUF(&(uint8_t){'a'+(0 % 26)}, 1)))) => 0;
     lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((i-1) % 26)}, 1)),
-                LFSR_ATTR(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +W,
                     LFSR_DATA_BUF(&(uint8_t){'a'+((i-0) % 26)}, 1)))) => 0;
         n += 1;
@@ -2236,8 +2236,8 @@ code = '''
 
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +W, LFSR_DATA_BUF("_", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +W, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -2267,14 +2267,14 @@ code = '''
 
         // split btree
         lfsr_btree_commit(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                    LFSR_ATTR(
+                weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_GROW, +weight1-sim_weights[bid],
                         LFSR_DATA_NULL()),
-                    LFSR_ATTR(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
-                    LFSR_ATTR(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, +weight2,
                         LFSR_DATA_BUF(&(uint8_t){'A'+(i % 26)}, 1)))) => 0;
 
@@ -2416,28 +2416,28 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down to zero,
     // this should force one of the blocks to drop
-    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2483,20 +2483,20 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
@@ -2506,8 +2506,8 @@ code = '''
     //
     // do this while forcing a compaction
     btree.eoff = -1;
-    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2553,15 +2553,15 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
 
     // force compaction, causing a split, but while we're splitting,
     // also remove an entry, bringing the split rbyd down to zero mid split
@@ -2569,8 +2569,8 @@ code = '''
     // messy, isn't it? this is why we need an explicit test
     //
     btree.eoff = -1;
-    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2616,39 +2616,39 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
-            LFSR_ATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF(buf1, SIZE)),
+            LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now make both entries small so they should be merged if either compacts
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("a", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF("b", 1)))) => 0;
 
     // force compaction, while removing one entry, this drops the rbyd
     // down to zero while also triggering a merge
     btree.eoff = -1;
-    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2710,8 +2710,8 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, +1,
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -2722,8 +2722,8 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -2732,8 +2732,8 @@ code = '''
 
         } else {
             // pop from btree
-            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                    LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -2826,8 +2826,8 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_ATTRS(
-                    LFSR_ATTR(
+            lfsr_btree_commit(&lfs, &btree, weighted_bid, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, +weight,
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -2842,11 +2842,11 @@ code = '''
         } else if (op == 1) {
             // update btree
             lfsr_btree_commit(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                        LFSR_ATTR(
+                    weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)),
-                        LFSR_ATTR(
+                        LFSR_RATTR(
                             LFSR_TAG_GROW, +weight-sim_weights[bid],
                             LFSR_DATA_NULL()))) => 0;
 
@@ -2857,8 +2857,8 @@ code = '''
         } else {
             // remove from btree
             lfsr_btree_commit(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                        LFSR_ATTR(
+                    weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_RM, -sim_weights[bid],
                             LFSR_DATA_NULL()))) => 0;
 
@@ -2997,11 +2997,11 @@ code = '''
 
     // create a single-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "aaa", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3049,17 +3049,17 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "aaa", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
-            LFSR_ATTR_NAME(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "aab", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3115,23 +3115,23 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "aaa", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
-            LFSR_ATTR_NAME(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 1*DID, "aab", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 1, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)),
-            LFSR_ATTR_NAME(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)),
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 2*DID, "aac", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3195,23 +3195,23 @@ code = '''
 
     // create a two-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "aaa", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)),
-            LFSR_ATTR_NAME(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)),
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 2*DID, "aac", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
-            LFSR_ATTR_NAME(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("2", 1)))) => 0;
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("0", 1)),
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 1*DID, "aab", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("1", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -3279,11 +3279,11 @@ code = '''
     char name[3] = {
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, name, 3),
-            LFSR_ATTR(
+            LFSR_RATTR(
                 LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
     lfs_size_t n = 1;
@@ -3291,14 +3291,14 @@ code = '''
         char name[3] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
-        lfsr_btree_commit(&lfs, &btree, i-1, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i-1, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
-                LFSR_ATTR_NAME(
+                LFSR_RATTR_NAME(
                     LFSR_TAG_NAME, +1,
                     i*DID, name, 3),
-                LFSR_ATTR(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1)))) => 0;
         n += 1;
@@ -3349,11 +3349,11 @@ code = '''
 
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "___", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -3386,14 +3386,14 @@ code = '''
         }
 
         // split btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
-                LFSR_ATTR_NAME(
+                LFSR_RATTR_NAME(
                     LFSR_TAG_NAME, +1,
                     0, name, 3),
-                LFSR_ATTR(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
 
@@ -3466,11 +3466,11 @@ code = '''
     char name[3] = {
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +W,
                 0, name, 3),
-            LFSR_ATTR(
+            LFSR_RATTR(
                 LFSR_TAG_DATA, 0,
                 LFSR_DATA_BUF(&(uint8_t){'0'+(0 % 10)}, 1)))) => 0;
     lfs_size_t n = 1;
@@ -3478,14 +3478,14 @@ code = '''
         char name[3] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
-        lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, (i-1)*W+W-1, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-1) % 10)}, 1)),
-                LFSR_ATTR_NAME(
+                LFSR_RATTR_NAME(
                     LFSR_TAG_NAME, +W,
                     i*DID, name, 3),
-                LFSR_ATTR(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, 0,
                     LFSR_DATA_BUF(&(uint8_t){'0'+((i-0) % 10)}, 1)))) => 0;
         n += 1;
@@ -3537,11 +3537,11 @@ code = '''
 
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +W,
                 0, "___", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -3587,17 +3587,17 @@ code = '''
 
         // split btree
         lfsr_btree_commit(&lfs, &btree,
-                weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                    LFSR_ATTR(
+                weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_GROW, +weight1-sim_weights[bid],
                         LFSR_DATA_NULL()),
-                    LFSR_ATTR(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
-                    LFSR_ATTR_NAME(
+                    LFSR_RATTR_NAME(
                         LFSR_TAG_NAME, +weight2,
                         0, name, 3),
-                    LFSR_ATTR(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
 
@@ -3693,11 +3693,11 @@ code = '''
 
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +1,
                 0, "___", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -3744,23 +3744,23 @@ code = '''
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
                 lfsr_btree_commit(&lfs, &btree,
-                        split_bid, LFSR_ATTRS(
-                            LFSR_ATTR_NAME(
+                        split_bid, LFSR_RATTRS(
+                            LFSR_RATTR_NAME(
                                 LFSR_TAG_NAME, +1,
                                 0, name, 3),
-                            LFSR_ATTR(
+                            LFSR_RATTR(
                                 LFSR_TAG_DATA, 0,
                                 LFSR_DATA_BUF(
                                     &(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             } else {
-                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
-                        LFSR_ATTR_CAT_(
+                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
+                        LFSR_RATTR_CAT_(
                             LFSR_TAG_DATA, 0,
                             &split_data, 1),
-                        LFSR_ATTR_NAME(
+                        LFSR_RATTR_NAME(
                             LFSR_TAG_NAME, +1,
                             0, name, 3),
-                        LFSR_ATTR(
+                        LFSR_RATTR(
                             LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             }
@@ -3774,8 +3774,8 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
 
@@ -3784,8 +3784,8 @@ code = '''
 
         } else {
             // pop from btree
-            lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                    LFSR_ATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                    LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3850,11 +3850,11 @@ code = '''
 
     // create a btree
     lfsr_btree_t btree = LFSR_BTREE_NULL();
-    lfsr_btree_commit(&lfs, &btree, 0, LFSR_ATTRS(
-            LFSR_ATTR_NAME(
+    lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME, +W,
                 0, "___", 3),
-            LFSR_ATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
+            LFSR_RATTR(LFSR_TAG_DATA, 0, LFSR_DATA_BUF("_", 1)))) => 0;
 
     // set up a simulation to compare against
     //
@@ -3913,23 +3913,23 @@ code = '''
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
                 lfsr_btree_commit(&lfs, &btree,
-                        split_bid-(split_weight-1), LFSR_ATTRS(
-                            LFSR_ATTR_NAME(
+                        split_bid-(split_weight-1), LFSR_RATTRS(
+                            LFSR_RATTR_NAME(
                                 LFSR_TAG_NAME, +weight,
                                 0, name, 3),
-                            LFSR_ATTR(
+                            LFSR_RATTR(
                                 LFSR_TAG_DATA, 0,
                                 LFSR_DATA_BUF(
                                     &(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             } else {
-                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_ATTRS(
-                        LFSR_ATTR_CAT_(
+                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
+                        LFSR_RATTR_CAT_(
                             LFSR_TAG_DATA, 0,
                             &split_data, 1),
-                        LFSR_ATTR_NAME(
+                        LFSR_RATTR_NAME(
                             LFSR_TAG_NAME, +weight,
                             0, name, 3),
-                        LFSR_ATTR(
+                        LFSR_RATTR(
                             LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)))) => 0;
             }
@@ -3947,11 +3947,11 @@ code = '''
         } else if (op == 1) {
             // update btree
             lfsr_btree_commit(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                        LFSR_ATTR(
+                    weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             LFSR_DATA_BUF(&(uint8_t){'0'+(i % 10)}, 1)),
-                        LFSR_ATTR(
+                        LFSR_RATTR(
                             LFSR_TAG_GROW, +weight-sim_weights[bid],
                             LFSR_DATA_NULL()))) => 0;
 
@@ -3962,8 +3962,8 @@ code = '''
         } else {
             // pop from btree
             lfsr_btree_commit(&lfs, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFSR_ATTRS(
-                        LFSR_ATTR(
+                    weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_RM, -sim_weights[bid],
                             LFSR_DATA_NULL()))) => 0;
 
@@ -4057,8 +4057,8 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL();
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_commit(&lfs, &btree, i, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, i, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
         n += 1;
@@ -4193,8 +4193,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_ATTRS(
-                LFSR_ATTR(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
