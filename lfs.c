@@ -11210,13 +11210,7 @@ lfs_ssize_t lfsr_sizeattr(lfs_t *lfs, const char *path, uint8_t type) {
 }
 
 int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
-        const void *buffer, lfs_size_t size,
-        uint32_t flags) {
-    // unknown flags?
-    LFS_ASSERT((flags & ~(
-            LFS_A_CREAT
-                | LFS_O_EXCL)) == 0);
-
+        const void *buffer, lfs_size_t size) {
     // prepare our filesystem for writing
     int err = lfsr_fs_mkconsistent(lfs);
     if (err) {
@@ -11230,18 +11224,6 @@ int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
             &mdir, &data);
     if (err && err != LFS_ERR_NOATTR) {
         return err;
-    }
-
-    // doesn't exist?
-    if (!lfsr_o_iscreat(flags)
-            && err == LFS_ERR_NOATTR) {
-        return LFS_ERR_NOATTR;
-
-    // does exist?
-    } else if (lfsr_o_iscreat(flags)
-            && lfsr_o_isexcl(flags)
-            && err != LFS_ERR_NOATTR) {
-        return LFS_ERR_EXIST;
     }
 
     // commit our attr

@@ -155,9 +155,7 @@ enum lfs_type {
 #define LFS_A_RDONLY             0  // Open an attr as read only
 #define LFS_A_WRONLY             1  // Open an attr as write only
 #define LFS_A_RDWR               2  // Open an attr as read and write
-#define LFS_A_CREAT           0x04  // Create an attr if it does not exist
-#define LFS_A_EXCL            0x08  // Fail if an attr already exists
-#define LFS_A_LAZY            0x10  // Only write attr if file changed
+#define LFS_A_LAZY            0x04  // Only write attr if file changed
 
 // Filesystem format flags
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
@@ -951,17 +949,13 @@ lfs_ssize_t lfsr_getattr(lfs_t *lfs, const char *path, uint8_t type,
 lfs_ssize_t lfsr_sizeattr(lfs_t *lfs, const char *path, uint8_t type);
 
 #ifndef LFS_READONLY
-// Set custom attributes
-//
-// The flags field controls the exact behavior if the attribute is or
-// isn't found.
+// Set a custom attributes
 //
 // Returns a negative error code on failure.
 //int lfs_setattr(lfs_t *lfs, const char *path,
 //        uint8_t type, const void *buffer, lfs_size_t size);
 int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
-        const void *buffer, lfs_size_t size,
-        uint32_t flags);
+        const void *buffer, lfs_size_t size);
 #endif
 
 #ifndef LFS_READONLY

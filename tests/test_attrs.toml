@@ -37,14 +37,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -104,14 +101,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -192,14 +186,6 @@ code = '''
     lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
     lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
 
-    // try setting attrs but without CREAT
-    const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a), 0) => LFS_ERR_NOATTR;
-    const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b), 0) => LFS_ERR_NOATTR;
-    const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c), 0) => LFS_ERR_NOATTR;
-
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
@@ -218,83 +204,6 @@ code = '''
         lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
         lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
         lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
-    }
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
-# test EEXIST works
-[cases.test_attrs_setattr_excl]
-# type of file to attach attrs to
-# FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
-code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-
-    const char *path;
-    // create a file?
-    if (FILETYPE == 0) {
-        path = "cat";
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
-        lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
-        lfsr_file_close(&lfs, &file) => 0;
-
-    // create a dir?
-    } else if (FILETYPE == 1) {
-        path = "armadillo";
-        lfsr_mkdir(&lfs, path) => 0;
-
-    // do nothing for root
-    } else {
-        path = "/";
-    }
-
-    // create some attrs
-    const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
-    const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
-    const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
-
-    // try to create again with excl, this should fail
-    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
-    lfsr_setattr(&lfs, path, 'a', a_, strlen(a_),
-            LFS_A_CREAT | LFS_A_EXCL) => LFS_ERR_EXIST;
-    const char *b_ = "Three slash four cup butter or margarine.";
-    lfsr_setattr(&lfs, path, 'b', b_, strlen(b_),
-            LFS_A_CREAT | LFS_A_EXCL) => LFS_ERR_EXIST;
-    const char *c_ = "One and two third cups granulated sugar.";
-    lfsr_setattr(&lfs, path, 'c', c_, strlen(b_),
-            LFS_A_CREAT | LFS_A_EXCL) => LFS_ERR_EXIST;
-
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-        }
-
-        // try getting the attr sizes
-        lfsr_sizeattr(&lfs, path, 'a') => strlen(a);
-        lfsr_sizeattr(&lfs, path, 'b') => strlen(b);
-        lfsr_sizeattr(&lfs, path, 'c') => strlen(c);
-        // try reading the attrs
-        uint8_t rbuf[256];
-        lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
-        assert(memcmp(rbuf, a, strlen(a)) == 0);
-        lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => strlen(b);
-        assert(memcmp(rbuf, b, strlen(b)) == 0);
-        lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
-        assert(memcmp(rbuf, c, strlen(c)) == 0);
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -335,27 +244,24 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
 
     // rewrite some attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
     if (MASK & 0x1) {
-        lfsr_setattr(&lfs, path, 'a', a_, strlen(a_), 0) => 0;
+        lfsr_setattr(&lfs, path, 'a', a_, strlen(a_)) => 0;
     }
     const char *b_ = "Three slash four cup butter or margarine.";
     if (MASK & 0x2) {
-        lfsr_setattr(&lfs, path, 'b', b_, strlen(b_), 0) => 0;
+        lfsr_setattr(&lfs, path, 'b', b_, strlen(b_)) => 0;
     }
     const char *c_ = "One and two third cups granulated sugar.";
     if (MASK & 0x4) {
-        lfsr_setattr(&lfs, path, 'c', c_, strlen(c_), 0) => 0;
+        lfsr_setattr(&lfs, path, 'c', c_, strlen(c_)) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -445,14 +351,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
 
     // remove some attrs
     if (MASK & 0x1) {
@@ -561,8 +464,7 @@ code = '''
         for (lfs_size_t i = 0; i < SIZE; i++) {
             wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_setattr(&lfs, path, a, wbuf, SIZE,
-                LFS_A_CREAT | LFS_A_EXCL) => 0;
+        lfsr_setattr(&lfs, path, a, wbuf, SIZE) => 0;
 
         // try getting the attr size
         lfsr_sizeattr(&lfs, path, a) => SIZE;
@@ -620,8 +522,7 @@ code = '''
         for (lfs_size_t i = 0; i < SIZE; i++) {
             wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_setattr(&lfs, path, a, wbuf, SIZE,
-                LFS_A_CREAT | LFS_A_EXCL) => 0;
+        lfsr_setattr(&lfs, path, a, wbuf, SIZE) => 0;
     }
 
     // try compacting?
@@ -698,8 +599,7 @@ code = '''
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
-            lfsr_setattr(&lfs, path, a, wbuf, SIZE,
-                    LFS_A_CREAT | LFS_A_EXCL) => 0;
+            lfsr_setattr(&lfs, path, a, wbuf, SIZE) => 0;
         }
     }
 
@@ -804,12 +704,7 @@ code = '''
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            if (sim_prngs[a]) {
-                lfsr_setattr(&lfs, path, a, wbuf, SIZE, 0) => 0;
-            } else {
-                lfsr_setattr(&lfs, path, a, wbuf, SIZE,
-                        LFS_A_CREAT | LFS_A_EXCL) => 0;
-            }
+            lfsr_setattr(&lfs, path, a, wbuf, SIZE) => 0;
 
             // update our sim
             sim_prngs[a] = wprng;
@@ -939,12 +834,7 @@ code = '''
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            if (sim_prngs[x*M+a]) {
-                lfsr_setattr(&lfs, path, a, wbuf, SIZE, 0) => 0;
-            } else {
-                lfsr_setattr(&lfs, path, a, wbuf, SIZE,
-                        LFS_A_CREAT | LFS_A_EXCL) => 0;
-            }
+            lfsr_setattr(&lfs, path, a, wbuf, SIZE) => 0;
 
             // update our sim
             sim_prngs[x*M+a] = wprng;
@@ -1055,14 +945,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
 
     // remove the file
     lfsr_remove(&lfs, path) => 0;
@@ -1130,14 +1017,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, path, 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, path, 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, path, 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
 
     // create another file and move it onto our file
 
@@ -1229,14 +1113,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "beaver", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "beaver", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "beaver", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "beaver", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "beaver", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "beaver", 'c', c, strlen(c)) => 0;
 
     // move file
     lfsr_rename(&lfs, "beaver", path) => 0;
@@ -1334,12 +1215,7 @@ code = '''
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            if (sim_prngs[x*M+a]) {
-                lfsr_setattr(&lfs, path, a, wbuf, SIZE, 0) => 0;
-            } else {
-                lfsr_setattr(&lfs, path, a, wbuf, SIZE,
-                        LFS_A_CREAT | LFS_A_EXCL) => 0;
-            }
+            lfsr_setattr(&lfs, path, a, wbuf, SIZE) => 0;
 
             // update our sim
             sim_prngs[x*M+a] = wprng;
@@ -1524,14 +1400,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with these attrs
     uint8_t a_buf[256];
@@ -1605,14 +1478,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with these attrs, marking bufs so we can
     // detect overflow
@@ -1850,14 +1720,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
@@ -1961,14 +1828,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
     uint8_t a_buf[256];
@@ -2069,14 +1933,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with new wronly attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
@@ -2173,14 +2034,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with rdonly attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
@@ -2284,14 +2142,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
@@ -2395,14 +2250,11 @@ code = '''
 
     // create some attrs
     const char *a = "One 18.25 ounce package chocolate cake mix.";
-    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
     const char *b = "One can prepared coconut pecan frosting.";
-    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
-    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c),
-            LFS_A_CREAT | LFS_A_EXCL) => 0;
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
