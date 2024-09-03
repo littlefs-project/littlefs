@@ -704,19 +704,19 @@ jobs:
           pip3 install toml
           gcc --version
           python3 --version
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4.1.7
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
           name: sizes
           path: sizes
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4.1.7
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
           name: cov
           path: cov
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4.1.7
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
