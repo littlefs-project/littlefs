@@ -237,7 +237,7 @@ jobs:
       - name: upload-sizes
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: sizes
+          name: sizes-${{matrix.arch}}
           path: sizes
       - name: status-sizes
         run: |
@@ -273,9 +273,10 @@ jobs:
             }' | tee status/$(basename $f .csv).json
           done
       - name: upload-status-sizes
+        if: ${{matrix.arch == 'x86_64'}}
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: status
+          name: status-sizes-${{matrix.arch}}
           path: status
           retention-days: 1
 
@@ -317,11 +318,11 @@ jobs:
               target_step: env.STEP,
             }' | tee status/$(basename $f .csv)-$s.json
           done
-      - name: upload-status-sizes
+      - name: upload-status-cov
         if: ${{matrix.arch == 'x86_64'}}
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: status
+          name: status-cov
           path: status
           retention-days: 1
 
@@ -527,7 +528,7 @@ jobs:
       - name: upload-status-bench
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: status
+          name: status-bench
           path: status
           retention-days: 1
 
@@ -708,7 +709,7 @@ jobs:
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: sizes
+          name: sizes-x86_64
           path: sizes
       - uses: actions/download-artifact@v4.1.8
         if: ${{github.event_name == 'pull_request'}}
