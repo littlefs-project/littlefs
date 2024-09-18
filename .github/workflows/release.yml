@@ -20,7 +20,7 @@ jobs:
       github.event.workflow_run.head_sha == github.sha}}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         with:
           ref: ${{github.event.workflow_run.head_sha}}
           # need workflow access since we push branches

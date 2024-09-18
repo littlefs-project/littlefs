@@ -21,7 +21,7 @@ jobs:
         arch: [x86_64, thumb, mips, powerpc]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -235,7 +235,7 @@ jobs:
 
       # create size statuses
       - name: upload-sizes
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: sizes
           path: sizes
@@ -273,7 +273,7 @@ jobs:
             }' | tee status/$(basename $f .csv).json
           done
       - name: upload-status-sizes
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: status
           path: status
@@ -282,7 +282,7 @@ jobs:
       # create cov statuses
       - name: upload-cov
         if: ${{matrix.arch == 'x86_64'}}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: cov
           path: cov
@@ -319,7 +319,7 @@ jobs:
           done
       - name: upload-status-sizes
         if: ${{matrix.arch == 'x86_64'}}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: status
           path: status
@@ -336,7 +336,7 @@ jobs:
         pls: [1, 2]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -361,7 +361,7 @@ jobs:
   test-no-intrinsics:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -378,7 +378,7 @@ jobs:
   test-multiversion:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -395,7 +395,7 @@ jobs:
   test-lfs2_0:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -414,7 +414,7 @@ jobs:
   test-valgrind:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -436,7 +436,7 @@ jobs:
   test-clang:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -459,7 +459,7 @@ jobs:
   bench:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -491,7 +491,7 @@ jobs:
 
       # create bench statuses
       - name: upload-bench
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: bench
           path: bench
@@ -525,7 +525,7 @@ jobs:
             }' | tee status/$(basename $f .csv)-$s.json
           done
       - name: upload-status-bench
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: status
           path: status
@@ -535,10 +535,10 @@ jobs:
   test-compat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         if: ${{github.event_name == 'pull_request'}}
       # checkout the current pr target into lfsp
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         if: ${{github.event_name == 'pull_request'}}
         with:
           ref: ${{github.event.pull_request.base.ref}}
@@ -572,7 +572,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{!endsWith(github.ref, '-prefix')}}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -582,7 +582,7 @@ jobs:
           gcc --version
           python3 --version
           fusermount -V
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         with:
           repository: littlefs-project/littlefs-fuse
           ref: v2
@@ -622,7 +622,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{!endsWith(github.ref, '-prefix')}}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
       - name: install
         run: |
           # need a few things
@@ -632,12 +632,12 @@ jobs:
           gcc --version
           python3 --version
           fusermount -V
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         with:
           repository: littlefs-project/littlefs-fuse
           ref: v2
           path: v2
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         with:
           repository: littlefs-project/littlefs-fuse
           ref: v1
@@ -694,7 +694,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, bench]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.7
         if: ${{github.event_name == 'pull_request'}}
       - name: install
         if: ${{github.event_name == 'pull_request'}}
@@ -704,19 +704,19 @@ jobs:
           pip3 install toml
           gcc --version
           python3 --version
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4.1.8
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
           name: sizes
           path: sizes
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4.1.8
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
           name: cov
           path: cov
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4.1.8
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
@@ -862,7 +862,7 @@ jobs:
             body: $comment,
           }' | tee comment/comment.json
       - name: upload-comment
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: comment
           path: comment
