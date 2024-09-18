@@ -31,11 +31,11 @@
 // extern void *my_malloc(size_t sz);
 // #define LFS_MALLOC(sz) my_malloc(sz)
 //
-// And build littlefs with the header by defining LFS_USER_DEFINES.
-// (-DLFS_USER_DEFINES=my_defines.h)
+// And build littlefs with the header by defining LFS_DEFINES.
+// (-DLFS_DEFINES=my_defines.h)
 
-#ifdef LFS_USER_DEFINES
-#include LFS_STRINGIZE(LFS_USER_DEFINES)
+#ifdef LFS_DEFINES
+#include LFS_STRINGIZE(LFS_DEFINES)
 #endif
 
 // System includes
