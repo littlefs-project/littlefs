@@ -30,27 +30,27 @@ jobs:
           fetch-depth: 0
 
       # try to get results from tests
-      - uses: dawidd6/action-download-artifact@v6
+      - uses: actions/download-artifact@v4.1.8
         continue-on-error: true
         with:
-          workflow: ${{github.event.workflow_run.name}}
-          run_id: ${{github.event.workflow_run.id}}
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          run-id: ${{github.event.workflow_run.id}}
           pattern: '{sizes,sizes-*}'
           merge-multiple: true
           path: sizes
-      - uses: dawidd6/action-download-artifact@v6
+      - uses: actions/download-artifact@v4.1.8
         continue-on-error: true
         with:
-          workflow: ${{github.event.workflow_run.name}}
-          run_id: ${{github.event.workflow_run.id}}
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          run-id: ${{github.event.workflow_run.id}}
           pattern: '{cov,cov-*}'
           merge-multiple: true
           path: cov
-      - uses: dawidd6/action-download-artifact@v6
+      - uses: actions/download-artifact@v4.1.8
         continue-on-error: true
         with:
-          workflow: ${{github.event.workflow_run.name}}
-          run_id: ${{github.event.workflow_run.id}}
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          run-id: ${{github.event.workflow_run.id}}
           pattern: '{bench,bench-*}'
           merge-multiple: true
           path: bench
