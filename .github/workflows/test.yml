@@ -709,19 +709,22 @@ jobs:
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: sizes-x86_64
+          pattern: '{sizes,sizes-*}'
+          merge-multiple: true
           path: sizes
       - uses: actions/download-artifact@v4.1.8
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: cov
+          pattern: '{cov,cov-*}'
+          merge-multiple: true
           path: cov
       - uses: actions/download-artifact@v4.1.8
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: bench
+          pattern: '{bench,bench-*}'
+          merge-multiple: true
           path: bench
 
       # try to find results from tests
