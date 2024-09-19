@@ -20,7 +20,7 @@ jobs:
       github.event.workflow_run.head_sha == github.sha}}
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4
         with:
           ref: ${{github.event.workflow_run.head_sha}}
           # need workflow access since we push branches
@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       # try to get results from tests
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
@@ -38,7 +38,7 @@ jobs:
           pattern: '{sizes,sizes-*}'
           merge-multiple: true
           path: sizes
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
@@ -46,7 +46,7 @@ jobs:
           pattern: '{cov,cov-*}'
           merge-multiple: true
           path: cov
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
