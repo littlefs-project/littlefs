@@ -4396,6 +4396,30 @@ cleanup:
 }
 #endif
 
+struct lfs_tortoise_t {
+    lfs_block_t pair[2];
+    lfs_size_t i;
+    lfs_size_t period;
+};
+
+static int lfs_tortoise_detectcycles(
+    const lfs_mdir_t *dir, struct lfs_tortoise_t *tortoise) {
+    // detect cycles with Brent's algorithm
+    if (lfs_pair_issync(dir->tail, tortoise->pair)) {
+        LFS_WARN("Cycle detected in tail list");
+        return LFS_ERR_CORRUPT;
+    }
+    if (tortoise->i == tortoise->period) {
+        tortoise->pair[0] = dir->tail[0];
+        tortoise->pair[1] = dir->tail[1];
+        tortoise->i = 0;
+        tortoise->period *= 2;
+    }
+    tortoise->i += 1;
+
+    return LFS_ERR_OK;
+}
+
 static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = lfs_init(lfs, cfg);
     if (err) {
@@ -4404,23 +4428,16 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // scan directory blocks for superblock and any global updates
     lfs_mdir_t dir = {.tail = {0, 1}};
-    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
-    lfs_size_t tortoise_i = 1;
-    lfs_size_t tortoise_period = 1;
+    struct lfs_tortoise_t tortoise = {
+        .pair = {LFS_BLOCK_NULL, LFS_BLOCK_NULL},
+        .i = 1,
+        .period = 1,
+    };
     while (!lfs_pair_isnull(dir.tail)) {
-        // detect cycles with Brent's algorithm
-        if (lfs_pair_issync(dir.tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
-            err = LFS_ERR_CORRUPT;
+        err = lfs_tortoise_detectcycles(&dir, &tortoise);
+        if (err < 0) {
             goto cleanup;
         }
-        if (tortoise_i == tortoise_period) {
-            tortoise[0] = dir.tail[0];
-            tortoise[1] = dir.tail[1];
-            tortoise_i = 0;
-            tortoise_period *= 2;
-        }
-        tortoise_i += 1;
 
         // fetch next block in tail list
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
@@ -4633,22 +4650,17 @@ int lfs_fs_traverse_(lfs_t *lfs,
     }
 #endif
 
-    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
-    lfs_size_t tortoise_i = 1;
-    lfs_size_t tortoise_period = 1;
+    struct lfs_tortoise_t tortoise = {
+        .pair = {LFS_BLOCK_NULL, LFS_BLOCK_NULL},
+        .i = 1,
+        .period = 1,
+    };
+    int err = LFS_ERR_OK;
     while (!lfs_pair_isnull(dir.tail)) {
-        // detect cycles with Brent's algorithm
-        if (lfs_pair_issync(dir.tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
+        err = lfs_tortoise_detectcycles(&dir, &tortoise);
+        if (err < 0) {
             return LFS_ERR_CORRUPT;
         }
-        if (tortoise_i == tortoise_period) {
-            tortoise[0] = dir.tail[0];
-            tortoise[1] = dir.tail[1];
-            tortoise_i = 0;
-            tortoise_period *= 2;
-        }
-        tortoise_i += 1;
 
         for (int i = 0; i < 2; i++) {
             int err = cb(data, dir.tail[i]);
@@ -4727,22 +4739,17 @@ static int lfs_fs_pred(lfs_t *lfs,
     // iterate over all directory directory entries
     pdir->tail[0] = 0;
     pdir->tail[1] = 1;
-    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
-    lfs_size_t tortoise_i = 1;
-    lfs_size_t tortoise_period = 1;
+    struct lfs_tortoise_t tortoise = {
+        .pair = {LFS_BLOCK_NULL, LFS_BLOCK_NULL},
+        .i = 1,
+        .period = 1,
+    };
+    int err = LFS_ERR_OK;
     while (!lfs_pair_isnull(pdir->tail)) {
-        // detect cycles with Brent's algorithm
-        if (lfs_pair_issync(pdir->tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
+        err = lfs_tortoise_detectcycles(pdir, &tortoise);
+        if (err < 0) {
             return LFS_ERR_CORRUPT;
         }
-        if (tortoise_i == tortoise_period) {
-            tortoise[0] = pdir->tail[0];
-            tortoise[1] = pdir->tail[1];
-            tortoise_i = 0;
-            tortoise_period *= 2;
-        }
-        tortoise_i += 1;
 
         if (lfs_pair_cmp(pdir->tail, pair) == 0) {
             return 0;
@@ -4792,22 +4799,17 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
     // use fetchmatch with callback to find pairs
     parent->tail[0] = 0;
     parent->tail[1] = 1;
-    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
-    lfs_size_t tortoise_i = 1;
-    lfs_size_t tortoise_period = 1;
+    struct lfs_tortoise_t tortoise = {
+        .pair = {LFS_BLOCK_NULL, LFS_BLOCK_NULL},
+        .i = 1,
+        .period = 1,
+    };
+    int err = LFS_ERR_OK;
     while (!lfs_pair_isnull(parent->tail)) {
-        // detect cycles with Brent's algorithm
-        if (lfs_pair_issync(parent->tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
-            return LFS_ERR_CORRUPT;
+        err = lfs_tortoise_detectcycles(parent, &tortoise);
+        if (err < 0) {
+            return err;
         }
-        if (tortoise_i == tortoise_period) {
-            tortoise[0] = parent->tail[0];
-            tortoise[1] = parent->tail[1];
-            tortoise_i = 0;
-            tortoise_period *= 2;
-        }
-        tortoise_i += 1;
 
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, parent, parent->tail,
                 LFS_MKTAG(0x7ff, 0, 0x3ff),
