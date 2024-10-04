@@ -4210,6 +4210,15 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->compact_thresh == (lfs_size_t)-1
             || lfs->cfg->compact_thresh <= lfs->cfg->block_size);
 
+    // check that metadata_max is a multiple of read_size and prog_size,
+    // and a factor of the block_size
+    LFS_ASSERT(!lfs->cfg->metadata_max
+            || lfs->cfg->metadata_max % lfs->cfg->read_size == 0);
+    LFS_ASSERT(!lfs->cfg->metadata_max
+            || lfs->cfg->metadata_max % lfs->cfg->prog_size == 0);
+    LFS_ASSERT(!lfs->cfg->metadata_max
+            || lfs->cfg->block_size % lfs->cfg->metadata_max == 0);
+
     // setup read cache
     if (lfs->cfg->read_buffer) {
         lfs->rcache.buffer = lfs->cfg->read_buffer;
