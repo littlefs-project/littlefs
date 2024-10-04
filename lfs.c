@@ -2128,13 +2128,14 @@ static int lfs_dir_splittingcompact(lfs_t *lfs, lfs_mdir_t *dir,
             // And we cap at half a block to avoid degenerate cases with
             // nearly-full metadata blocks.
             //
+            lfs_size_t metadata_max = (lfs->cfg->metadata_max)
+                    ? lfs->cfg->metadata_max
+                    : lfs->cfg->block_size;
             if (end - split < 0xff
                     && size <= lfs_min(
-                        lfs->cfg->block_size - 40,
+                        metadata_max - 40,
                         lfs_alignup(
-                            (lfs->cfg->metadata_max
-                                ? lfs->cfg->metadata_max
-                                : lfs->cfg->block_size)/2,
+                            metadata_max/2,
                             lfs->cfg->prog_size))) {
                 break;
             }
