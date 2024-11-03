@@ -828,12 +828,12 @@ def table(Result, results, diff_results=None, *,
             widths[i] = max(widths[i], ((len(x[0])+1+4-1)//4)*4-1)
             notes[i] = max(notes[i], 1+2*len(x[1])+sum(len(n) for n in x[1]))
 
-    # adjust the name width based on the call depth
     if not summary:
+        # find the actual depth
+        #
+        # note unlike stack.py we can't end up with cycles here
         depth_ = depth
         if m.isinf(depth_):
-            # find the actual depth, this may not terminate! in which
-            # case it's up to the user to provide an explicit depth
             def rec_depth(results_):
                 # rebuild our tables at each layer
                 table_ = {
@@ -852,6 +852,7 @@ def table(Result, results, diff_results=None, *,
                 if name in table),
                 default=-1) + 1
 
+        # adjust the name width based on the call depth
         widths[0] += 4*max(depth_-1, 0)
 
     # print the tree recursively
