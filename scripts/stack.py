@@ -234,18 +234,29 @@ def collect(ci_paths, *,
             callgraph_[source] = (s_file, s_function, frame, targets)
         callgraph = callgraph_
 
+    # memoize via only the first argument
+    def cache1(f):
+        def f_(a, *args, **kwargs):
+            if a in f_.cache:
+                return f_.cache[a]
+            r = f(a, *args, **kwargs)
+            f_.cache[a] = r
+            return r
+        f_.cache = {}
+        return f_
+
     # find maximum stack size recursively, this requires also detecting cycles
     # (in case of recursion)
-    def find_limit(source, seen=None):
-        seen = seen or set()
+    @cache1
+    def find_limit(source, seen=set()):
         if source not in callgraph:
             return 0
         _, _, frame, targets = callgraph[source]
 
         limit = 0
         for target in targets:
+            # found a cycle?
             if target in seen:
-                # found a cycle
                 return m.inf
             limit_ = find_limit(target, seen | {target})
             limit = max(limit, limit_)
