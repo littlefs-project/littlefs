@@ -639,7 +639,8 @@ def table(Result, results, diff_results=None, *,
         summary=False,
         all=False,
         percent=False,
-        depth=1,
+        depth=None,
+        hot=False,
         **_):
     all_, all = all, __builtins__.all
 
@@ -794,26 +795,27 @@ def table(Result, results, diff_results=None, *,
 
     if not summary:
         # find the actual depth
-        #
-        # note unlike stack.py we can't end up with cycles here
         depth_ = depth
-        if m.isinf(depth_):
-            def rec_depth(results_):
+        if hot:
+            depth_ = 2
+        elif m.isinf(depth_):
+            def rec_depth(results_, seen=set()):
                 # rebuild our tables at each layer
                 table_ = {
                     ','.join(str(getattr(r, k) or '') for k in by): r
                     for r in results_}
                 names_ = list(table_.keys())
 
-                return max((
-                    rec_depth(table_[name].children)
-                    for name in names_),
+                return max(
+                    (rec_depth(table_[name].children, seen | {name})
+                        for name in names_
+                        if name not in seen),
                     default=-1) + 1
 
-            depth_ = max((
-                rec_depth(table[name].children)
-                for name in names
-                if name in table),
+            depth_ = max(
+                (rec_depth(table[name].children, {name})
+                    for name in names
+                    if name in table),
                 default=-1) + 1
 
         # adjust the name width based on the call depth
@@ -828,50 +830,121 @@ def table(Result, results, diff_results=None, *,
             for i, x in enumerate(lines[0][1:], 1))))
 
     if not summary:
-        def recurse(results_, depth_, prefixes=('', '', '', '')):
-            # rebuild our tables at each layer
-            table_ = {
-                ','.join(str(getattr(r, k) or '') for k in by): r
-                for r in results_}
-            names_ = list(table_.keys())
+        if hot:
+            def recurse(results_, depth_, seen=set(),
+                    prefixes=('', '', '', '')):
+                # rebuild our tables at each layer
+                table_ = {
+                    ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+                names_ = list(table_.keys())
+                if not names_:
+                    return
 
-            # sort again at each layer, keep in mind the numbers are
-            # changing as we descend
-            names_.sort()
-            if sort:
-                for k, reverse in reversed(sort):
-                    names_.sort(
-                        key=lambda n: tuple(
+                # find the "hottest" path at each step, we use
+                # the sort field if requested, but ignore reversedness
+                name = max(names_,
+                    key=lambda n: tuple(
+                        tuple(
+                            # make sure to use the rebuilt table
                             (getattr(table_[n], k),)
                             if getattr(table_.get(n), k, None) is not None
                             else ()
                             for k in ([k] if k else [
-                                k for k in Result._sort if k in fields])),
-                        reverse=reverse ^ (not k or k in Result._fields))
+                                k for k in Result._sort if k in fields])
+                            if k in fields)
+                        for k, reverse in it.chain(
+                            sort or [],
+                            [(None, False)])))
 
-            for i, name in enumerate(names_):
                 r = table_[name]
-                is_last = (i == len(names_)-1)
+                is_last = not r.children
 
                 line = table_entry(name, r)
-                line = [x if isinstance(x, tuple) else (x, []) for x in line]
+                line = [x if isinstance(x, tuple) else (x, [])
+                    for x in line]
                 print('%s%-*s  %s' % (
                     prefixes[0+is_last],
                     widths[0] - len(prefixes[0+is_last]), line[0][0],
                     ' '.join('%*s%-*s' % (
                             widths[i], x[0],
-                            notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
+                            notes[i],
+                                ' (%s)' % ', '.join(it.chain(
+                                        x[1], ['cycle detected']))
+                                    if i == len(widths)-1 and name in seen
+                                else ' (%s)' % ', '.join(x[1]) if x[1]
+                                else '')
                         for i, x in enumerate(line[1:], 1))))
+
+                # found a cycle?
+                if name in seen:
+                    return
 
                 # recurse?
                 if depth_ > 1:
                     recurse(
                         r.children,
                         depth_-1,
-                        (prefixes[2+is_last] + "|-> ",
-                         prefixes[2+is_last] + "'-> ",
-                         prefixes[2+is_last] + "|   ",
-                         prefixes[2+is_last] + "    "))
+                        seen | {name},
+                        prefixes)
+
+        else:
+            def recurse(results_, depth_, seen=set(),
+                    prefixes=('', '', '', '')):
+                # rebuild our tables at each layer
+                table_ = {
+                    ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+                names_ = list(table_.keys())
+
+                # sort again at each layer, keep in mind the numbers are
+                # changing as we descend
+                names_.sort()
+                if sort:
+                    for k, reverse in reversed(sort):
+                        names_.sort(
+                            key=lambda n: tuple(
+                                (getattr(table_[n], k),)
+                                if getattr(table_.get(n), k, None) is not None
+                                else ()
+                                for k in ([k] if k else [
+                                    k for k in Result._sort if k in fields])),
+                            reverse=reverse ^ (not k or k in Result._fields))
+
+                for i, name in enumerate(names_):
+                    r = table_[name]
+                    is_last = (i == len(names_)-1)
+
+                    line = table_entry(name, r)
+                    line = [x if isinstance(x, tuple) else (x, [])
+                        for x in line]
+                    print('%s%-*s  %s' % (
+                        prefixes[0+is_last],
+                        widths[0] - len(prefixes[0+is_last]), line[0][0],
+                        ' '.join('%*s%-*s' % (
+                                widths[i], x[0],
+                                notes[i],
+                                    ' (%s)' % ', '.join(it.chain(
+                                            x[1], ['cycle detected']))
+                                        if i == len(widths)-1 and name in seen
+                                    else ' (%s)' % ', '.join(x[1]) if x[1]
+                                    else '')
+                            for i, x in enumerate(line[1:], 1))))
+
+                    # found a cycle?
+                    if name in seen:
+                        continue
+
+                    # recurse?
+                    if depth_ > 1:
+                        recurse(
+                            r.children,
+                            depth_-1,
+                            seen | {name},
+                            (prefixes[2+is_last] + "|-> ",
+                             prefixes[2+is_last] + "'-> ",
+                             prefixes[2+is_last] + "|   ",
+                             prefixes[2+is_last] + "    "))
 
         # we have enough going on with diffing to make the top layer
         # a special case
@@ -887,6 +960,7 @@ def table(Result, results, diff_results=None, *,
                 recurse(
                     table[name].children,
                     depth-1,
+                    {name},
                     ("|-> ",
                      "'-> ",
                      "|   ",
@@ -1027,8 +1101,10 @@ def report(obj_path='', trace_paths=[], *,
     else:
         args['color'] = False
 
-    # depth of 0 == m.inf
-    if args.get('depth') == 0:
+    # figure out depth
+    if args.get('depth') is None:
+        args['depth'] = m.inf if args.get('hot') else 1
+    elif args.get('depth') == 0:
         args['depth'] = m.inf
 
     # find sizes
@@ -1239,6 +1315,10 @@ if __name__ == "__main__":
         const=0,
         help="Depth of function calls to show. 0 shows all calls but may not "
             "terminate!")
+    parser.add_argument(
+        '-t', '--hot',
+        action='store_true',
+        help="Show only the hot path for each function call.")
     parser.add_argument(
         '-A', '--annotate',
         action='store_true',

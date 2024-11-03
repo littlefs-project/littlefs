@@ -321,7 +321,8 @@ def table(Result, results, diff_results=None, *,
         summary=False,
         all=False,
         percent=False,
-        depth=1,
+        depth=None,
+        hot=False,
         **_):
     all_, all = all, __builtins__.all
 
@@ -477,27 +478,26 @@ def table(Result, results, diff_results=None, *,
     if not summary:
         # find the actual depth
         depth_ = depth
-        if m.isinf(depth_):
-            def rec_depth(names_, seen=set()):
-                depth_ = -1
-                for name in names_:
-                    # found a cycle?
-                    if name in seen:
-                        continue
+        if hot:
+            depth_ = 2
+        elif m.isinf(depth_):
+            def rec_depth(children_, seen=set()):
+                names_ = {
+                    ','.join(str(getattr(Result(*c), k) or '')
+                        for k in by)
+                    for c in children_}
 
-                    # recurse?
-                    if name in table:
-                        children = {
-                            ','.join(str(getattr(Result(*c), k) or '')
-                                for k in by)
-                            for c in table[name].children}
-                        depth_ = max(depth_,
-                            rec_depth(
-                                [n for n in names if n in children],
-                                seen | {name}))
-                return depth_ + 1
+                return max(
+                    (rec_depth(table[name].children, seen | {name})
+                        for name in names_
+                        if name not in seen),
+                    default=-1) + 1
 
-            depth_ = rec_depth(names)
+            depth_ = max(
+                (rec_depth(table[name].children, {name})
+                    for name in names
+                    if name in table),
+                default=-1) + 1
 
         # adjust the name width based on the call depth
         widths[0] += 4*max(depth_-1, 0)
@@ -513,46 +513,120 @@ def table(Result, results, diff_results=None, *,
     if not summary:
         line_table = {n: l for n, l in zip(names, lines[1:-1])}
 
-        def recurse(names_, depth_, seen=set(), prefixes=('', '', '', '')):
-            for i, name in enumerate(names_):
-                if name not in line_table:
-                    continue
-                line = line_table[name]
-                is_last = (i == len(names_)-1)
+        if hot:
+            def recurse(children_, depth_, seen=set(),
+                    prefixes=('', '', '', '')):
+                names_ = {','.join(str(getattr(Result(*c), k) or '')
+                        for k in by)
+                    for c in children_}
+                if not names_:
+                    return
 
-                print('%s%-*s  %s' % (
-                    prefixes[0+is_last],
-                    widths[0] - len(prefixes[0+is_last]), line[0][0],
-                    ' '.join('%*s%-*s' % (
-                            widths[i], x[0],
-                            notes[i],
-                                ' (%s)' % ', '.join(it.chain(
-                                        x[1], ['cycle detected']))
-                                    if i == len(widths)-1 and name in seen
-                                else ' (%s)' % ', '.join(x[1]) if x[1]
-                                else '')
-                        for i, x in enumerate(line[1:], 1))))
+                # find the "hottest" path at each step, we use
+                # the sort field if requested, but ignore reversedness
+                name = max(names_,
+                    key=lambda n: tuple(
+                        tuple(
+                            (getattr(table[n], k),)
+                            if getattr(table.get(n), k, None) is not None
+                            else ()
+                            for k in ([k] if k else [
+                                k for k in Result._sort if k in fields])
+                            if k in fields)
+                        for k, reverse in it.chain(
+                            sort or [],
+                            [(None, False)])))
+
+                if name in line_table:
+                    line = line_table[name]
+                    is_last = not table[name].children
+
+                    print('%s%-*s  %s' % (
+                        prefixes[0+is_last],
+                        widths[0] - len(prefixes[0+is_last]), line[0][0],
+                        ' '.join('%*s%-*s' % (
+                                widths[i], x[0],
+                                notes[i],
+                                    ' (%s)' % ', '.join(it.chain(
+                                            x[1], ['cycle detected']))
+                                        if i == len(widths)-1 and name in seen
+                                    else ' (%s)' % ', '.join(x[1]) if x[1]
+                                    else '')
+                            for i, x in enumerate(line[1:], 1))))
 
                 # found a cycle?
                 if name in seen:
-                    continue
+                    return
 
                 # recurse?
-                if name in table and depth_ > 1:
-                    children = {
-                        ','.join(str(getattr(Result(*c), k) or '') for k in by)
-                        for c in table[name].children}
+                if depth_ > 1:
                     recurse(
-                        # note we're maintaining sort order
-                        [n for n in names if n in children],
+                        table[name].children,
                         depth_-1,
                         seen | {name},
-                        (prefixes[2+is_last] + "|-> ",
-                         prefixes[2+is_last] + "'-> ",
-                         prefixes[2+is_last] + "|   ",
-                         prefixes[2+is_last] + "    "))
+                        prefixes)
 
-        recurse(names, depth)
+        else:
+            def recurse(children_, depth_, seen=set(),
+                    prefixes=('', '', '', '')):
+                # note we're maintaining sort order
+                names_ = {','.join(str(getattr(Result(*c), k) or '')
+                        for k in by)
+                    for c in children_}
+                names_ = [n for n in names if n in names_]
+
+                for i, name in enumerate(names_):
+                    if name not in line_table:
+                        continue
+                    line = line_table[name]
+                    is_last = (i == len(names_)-1)
+
+                    print('%s%-*s  %s' % (
+                        prefixes[0+is_last],
+                        widths[0] - len(prefixes[0+is_last]), line[0][0],
+                        ' '.join('%*s%-*s' % (
+                                widths[i], x[0],
+                                notes[i],
+                                    ' (%s)' % ', '.join(it.chain(
+                                            x[1], ['cycle detected']))
+                                        if i == len(widths)-1 and name in seen
+                                    else ' (%s)' % ', '.join(x[1]) if x[1]
+                                    else '')
+                            for i, x in enumerate(line[1:], 1))))
+
+                    # found a cycle?
+                    if name in seen:
+                        continue
+
+                    # recurse?
+                    if depth_ > 1:
+                        recurse(
+                            table[name].children,
+                            depth_-1,
+                            seen | {name},
+                            (prefixes[2+is_last] + "|-> ",
+                             prefixes[2+is_last] + "'-> ",
+                             prefixes[2+is_last] + "|   ",
+                             prefixes[2+is_last] + "    "))
+
+        # make the top layer a special case
+        for name, line in zip(names, lines[1:-1]):
+            print('%-*s  %s' % (
+                widths[0], line[0][0],
+                ' '.join('%*s%-*s' % (
+                        widths[i], x[0],
+                        notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
+                    for i, x in enumerate(line[1:], 1))))
+
+            if name in table and depth > 1:
+                recurse(
+                    table[name].children,
+                    depth-1,
+                    {name},
+                    ("|-> ",
+                     "'-> ",
+                     "|   ",
+                     "    "))
 
     print('%-*s  %s' % (
         widths[0], lines[-1][0][0],
@@ -568,8 +642,9 @@ def main(ci_paths,
         defines=[],
         sort=None,
         **args):
+    # figure out depth
     if args.get('depth') is None:
-        args['depth'] = 1
+        args['depth'] = m.inf if args.get('hot') else 1
     elif args.get('depth') == 0:
         args['depth'] = m.inf
 
@@ -760,6 +835,10 @@ if __name__ == "__main__":
         const=0,
         help="Depth of function calls to show. 0 shows all calls but may not "
             "terminate!")
+    parser.add_argument(
+        '-t', '--hot',
+        action='store_true',
+        help="Show only the hot path for each function call.")
     parser.add_argument(
         '-e', '--error-on-recursion',
         action='store_true',
