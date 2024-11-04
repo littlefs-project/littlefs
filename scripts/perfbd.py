@@ -662,7 +662,15 @@ def table(Result, results, diff_results=None, *,
     diff_table = {
         ','.join(str(getattr(r, k) or '') for k in by): r
         for r in diff_results or []}
-    names = list(table.keys() | diff_table.keys())
+    names = [name
+        for name in table.keys() | diff_table.keys()
+        if diff_results is None
+            or all_
+            or any(
+                types[k].ratio(
+                    getattr(table.get(name), k, None),
+                    getattr(diff_table.get(name), k, None))
+                for k in fields)]
 
     # sort again, now with diff info, note that python's sort is stable
     names.sort()
@@ -763,12 +771,6 @@ def table(Result, results, diff_results=None, *,
                 diff_r = None
             else:
                 diff_r = diff_table.get(name)
-                if not all_ and not any(
-                        types[k].ratio(
-                            getattr(r, k, None),
-                            getattr(diff_r, k, None))
-                        for k in fields):
-                    continue
             lines.append(table_entry(name, r, diff_r))
 
     # total
