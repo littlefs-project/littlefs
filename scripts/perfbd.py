@@ -621,15 +621,6 @@ def fold(Result, results, by=None, defines=[]):
     for name, rs in folding.items():
         folded.append(sum(rs[1:], start=rs[0]))
 
-    # fold recursively
-    folded_ = []
-    for r in folded:
-        folded_.append(r._replace(children=fold(
-            Result, r.children,
-            by=by,
-            defines=defines)))
-    folded = folded_
-
     return folded
 
 def table(Result, results, diff_results=None, *,
@@ -802,7 +793,8 @@ def table(Result, results, diff_results=None, *,
             depth_ = 2
         elif m.isinf(depth_):
             def rec_depth(results_, seen=set()):
-                # rebuild our tables at each layer
+                # build the children table at each layer
+                results_ = fold(Result, results_, by=by)
                 table_ = {
                     ','.join(str(getattr(r, k) or '') for k in by): r
                     for r in results_}
@@ -835,7 +827,8 @@ def table(Result, results, diff_results=None, *,
         if hot:
             def recurse(results_, depth_, seen=set(),
                     prefixes=('', '', '', '')):
-                # rebuild our tables at each layer
+                # build the children table at each layer
+                results_ = fold(Result, results_, by=by)
                 table_ = {
                     ','.join(str(getattr(r, k) or '') for k in by): r
                     for r in results_}
@@ -893,14 +886,14 @@ def table(Result, results, diff_results=None, *,
         else:
             def recurse(results_, depth_, seen=set(),
                     prefixes=('', '', '', '')):
-                # rebuild our tables at each layer
+                # build the children table at each layer
+                results_ = fold(Result, results_, by=by)
                 table_ = {
                     ','.join(str(getattr(r, k) or '') for k in by): r
                     for r in results_}
                 names_ = list(table_.keys())
 
-                # sort again at each layer, keep in mind the numbers are
-                # changing as we descend
+                # sort the children layer
                 names_.sort()
                 if sort:
                     for k, reverse in reversed(sort):
@@ -948,8 +941,7 @@ def table(Result, results, diff_results=None, *,
                              prefixes[2+is_last] + "|   ",
                              prefixes[2+is_last] + "    "))
 
-        # we have enough going on with diffing to make the top layer
-        # a special case
+        # the top layer is a bit of a special case
         for name, line in zip(names, lines[1:-1]):
             print('%-*s  %s' % (
                 widths[0], line[0][0],

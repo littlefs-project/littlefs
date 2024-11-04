@@ -104,7 +104,8 @@ class StackResult(co.namedtuple('StackResult', [
 
     __slots__ = ()
     def __new__(cls, file='', function='',
-            frame=0, limit=0, children=set()):
+            frame=0, limit=0,
+            children=[]):
         return super().__new__(cls, file, function,
             RInt(frame), RInt(limit),
             children)
@@ -113,7 +114,7 @@ class StackResult(co.namedtuple('StackResult', [
         return StackResult(self.file, self.function,
             self.frame + other.frame,
             max(self.limit, other.limit),
-            self.children | other.children)
+            self.children + other.children)
 
 
 def openio(path, mode='r', buffering=-1):
@@ -257,22 +258,21 @@ def collect(ci_paths, *,
         find_limit.cache[source] = frame + limit
         return frame + limit
 
-    def find_children(targets):
-        children = set()
-        for target in targets:
-            if target in callgraph:
-                t_file, t_function, _, _ = callgraph[target]
-                children.add((t_file, t_function))
-        return children
-
     # build results
-    results = []
-    for source, (s_file, s_function, frame, targets) in callgraph.items():
+    results = {}
+    for source, (s_file, s_function, frame, _) in callgraph.items():
         limit = find_limit(source)
-        children = find_children(targets)
-        results.append(StackResult(s_file, s_function, frame, limit, children))
+        results[source] = StackResult(s_file, s_function, frame, limit, [])
 
-    return results
+    # connect parents to their children, this may create a fully cyclic graph
+    # in the case of recursion
+    for source, (_, _, _, targets) in callgraph.items():
+        results[source].children.extend(
+            results[target]
+                for target in targets
+                if target in results)
+
+    return list(results.values())
 
 
 def fold(Result, results, by=None, defines=[]):
@@ -477,14 +477,16 @@ def table(Result, results, diff_results=None, *,
         if hot:
             depth_ = 2
         elif m.isinf(depth_):
-            def rec_depth(children_, seen=set()):
-                names_ = {
-                    ','.join(str(getattr(Result(*c), k) or '')
-                        for k in by)
-                    for c in children_}
+            def rec_depth(results_, seen=set()):
+                # build the children table at each layer
+                results_ = fold(Result, results_, by=by)
+                table_ = {
+                    ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+                names_ = list(table_.keys())
 
                 return max(
-                    (rec_depth(table[name].children, seen | {name})
+                    (rec_depth(table_[name].children, seen | {name})
                         for name in names_
                         if name not in seen),
                     default=-1) + 1
@@ -507,14 +509,15 @@ def table(Result, results, diff_results=None, *,
             for i, x in enumerate(lines[0][1:], 1))))
 
     if not summary:
-        line_table = {n: l for n, l in zip(names, lines[1:-1])}
-
         if hot:
-            def recurse(children_, depth_, seen=set(),
+            def recurse(results_, depth_, seen=set(),
                     prefixes=('', '', '', '')):
-                names_ = {','.join(str(getattr(Result(*c), k) or '')
-                        for k in by)
-                    for c in children_}
+                # build the children table at each layer
+                results_ = fold(Result, results_, by=by)
+                table_ = {
+                    ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+                names_ = list(table_.keys())
                 if not names_:
                     return
 
@@ -523,8 +526,9 @@ def table(Result, results, diff_results=None, *,
                 name = max(names_,
                     key=lambda n: tuple(
                         tuple(
-                            (getattr(table[n], k),)
-                            if getattr(table.get(n), k, None) is not None
+                            # make sure to use the rebuilt table
+                            (getattr(table_[n], k),)
+                            if getattr(table_.get(n), k, None) is not None
                             else ()
                             for k in ([k] if k else [
                                 k for k in Result._sort if k in fields])
@@ -533,22 +537,24 @@ def table(Result, results, diff_results=None, *,
                             sort or [],
                             [(None, False)])))
 
-                if name in line_table:
-                    line = line_table[name]
-                    is_last = not table[name].children
+                r = table_[name]
+                is_last = not r.children
 
-                    print('%s%-*s  %s' % (
-                        prefixes[0+is_last],
-                        widths[0] - len(prefixes[0+is_last]), line[0][0],
-                        ' '.join('%*s%-*s' % (
-                                widths[i], x[0],
-                                notes[i],
-                                    ' (%s)' % ', '.join(it.chain(
-                                            x[1], ['cycle detected']))
-                                        if i == len(widths)-1 and name in seen
-                                    else ' (%s)' % ', '.join(x[1]) if x[1]
-                                    else '')
-                            for i, x in enumerate(line[1:], 1))))
+                line = table_entry(name, r)
+                line = [x if isinstance(x, tuple) else (x, [])
+                    for x in line]
+                print('%s%-*s  %s' % (
+                    prefixes[0+is_last],
+                    widths[0] - len(prefixes[0+is_last]), line[0][0],
+                    ' '.join('%*s%-*s' % (
+                            widths[i], x[0],
+                            notes[i],
+                                ' (%s)' % ', '.join(it.chain(
+                                        x[1], ['cycle detected']))
+                                    if i == len(widths)-1 and name in seen
+                                else ' (%s)' % ', '.join(x[1]) if x[1]
+                                else '')
+                        for i, x in enumerate(line[1:], 1))))
 
                 # found a cycle?
                 if name in seen:
@@ -557,26 +563,41 @@ def table(Result, results, diff_results=None, *,
                 # recurse?
                 if depth_ > 1:
                     recurse(
-                        table[name].children,
+                        r.children,
                         depth_-1,
                         seen | {name},
                         prefixes)
 
         else:
-            def recurse(children_, depth_, seen=set(),
+            def recurse(results_, depth_, seen=set(),
                     prefixes=('', '', '', '')):
-                # note we're maintaining sort order
-                names_ = {','.join(str(getattr(Result(*c), k) or '')
-                        for k in by)
-                    for c in children_}
-                names_ = [n for n in names if n in names_]
+                # build the children table at each layer
+                results_ = fold(Result, results_, by=by)
+                table_ = {
+                    ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+                names_ = list(table_.keys())
+
+                # sort the children layer
+                names_.sort()
+                if sort:
+                    for k, reverse in reversed(sort):
+                        names_.sort(
+                            key=lambda n: tuple(
+                                (getattr(table_[n], k),)
+                                if getattr(table_.get(n), k, None) is not None
+                                else ()
+                                for k in ([k] if k else [
+                                    k for k in Result._sort if k in fields])),
+                            reverse=reverse ^ (not k or k in Result._fields))
 
                 for i, name in enumerate(names_):
-                    if name not in line_table:
-                        continue
-                    line = line_table[name]
+                    r = table_[name]
                     is_last = (i == len(names_)-1)
 
+                    line = table_entry(name, r)
+                    line = [x if isinstance(x, tuple) else (x, [])
+                        for x in line]
                     print('%s%-*s  %s' % (
                         prefixes[0+is_last],
                         widths[0] - len(prefixes[0+is_last]), line[0][0],
@@ -597,7 +618,7 @@ def table(Result, results, diff_results=None, *,
                     # recurse?
                     if depth_ > 1:
                         recurse(
-                            table[name].children,
+                            r.children,
                             depth_-1,
                             seen | {name},
                             (prefixes[2+is_last] + "|-> ",
@@ -605,7 +626,7 @@ def table(Result, results, diff_results=None, *,
                              prefixes[2+is_last] + "|   ",
                              prefixes[2+is_last] + "    "))
 
-        # make the top layer a special case
+        # the top layer is a bit of a special case
         for name, line in zip(names, lines[1:-1]):
             print('%-*s  %s' % (
                 widths[0], line[0][0],
