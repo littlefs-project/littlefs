@@ -510,6 +510,7 @@ def table(Result, results, diff_results=None, *,
             header.append('d'+k)
     lines.append(header)
 
+    # entry helper
     def table_entry(name, r, diff_r=None):
         entry = [name]
         if diff_results is None:
