@@ -1306,7 +1306,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '-P', '--propagate',
+        '-g', '--propagate',
         type=lambda x: int(x, 0),
         help="Depth to propagate samples up the call-stack. 0 propagates up "
             "to the entry point, 1 does no propagation. Defaults to 0.")
