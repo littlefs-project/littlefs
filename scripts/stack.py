@@ -234,21 +234,14 @@ def collect(ci_paths, *,
             callgraph_[source] = (s_file, s_function, frame, targets)
         callgraph = callgraph_
 
-    # memoize via only the first argument
-    def cache1(f):
-        def f_(a, *args, **kwargs):
-            if a in f_.cache:
-                return f_.cache[a]
-            r = f(a, *args, **kwargs)
-            f_.cache[a] = r
-            return r
-        f_.cache = {}
-        return f_
-
     # find maximum stack size recursively, this requires also detecting cycles
     # (in case of recursion)
-    @cache1
     def find_limit(source, seen=set()):
+        if not hasattr(find_limit, 'cache'):
+            find_limit.cache = {}
+        if source in find_limit.cache:
+            return find_limit.cache[source]
+
         if source not in callgraph:
             return 0
         _, _, frame, targets = callgraph[source]
@@ -261,6 +254,7 @@ def collect(ci_paths, *,
             limit_ = find_limit(target, seen | {target})
             limit = max(limit, limit_)
 
+        find_limit.cache[source] = frame + limit
         return frame + limit
 
     def find_children(targets):
