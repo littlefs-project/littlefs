@@ -1290,8 +1290,8 @@ if __name__ == "__main__":
         nargs='?',
         type=lambda x: int(x, 0),
         const=0,
-        help="Depth of function calls to show. 0 shows all calls but may not "
-            "terminate!")
+        help="Depth of function calls to show. 0 shows all calls unless we "
+            "find a cycle. Defaults to 0.")
     parser.add_argument(
         '-t', '--hot',
         action='store_true',
