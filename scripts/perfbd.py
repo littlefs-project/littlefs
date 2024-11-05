@@ -631,7 +631,7 @@ def table(Result, results, diff_results=None, *,
         all=False,
         percent=False,
         depth=None,
-        hot=False,
+        hot=None,
         **_):
     all_, all = all, __builtins__.all
 
@@ -645,6 +645,33 @@ def table(Result, results, diff_results=None, *,
     results = fold(Result, results, by=by)
     if diff_results is not None:
         diff_results = fold(Result, diff_results, by=by)
+
+    # reduce children to hot paths?
+    if hot:
+        def rec_hot(results_, seen=set()):
+            if not results_:
+                return []
+
+            r = max(results_,
+                key=lambda r: tuple(
+                    tuple(
+                        (getattr(r, k),)
+                        if getattr(r, k, None) is not None
+                        else ()
+                        for k in ([k] if k else [
+                            k for k in Result._sort if k in fields])
+                        if k in fields)
+                    for k in it.chain(hot, [None])))
+
+            # found a cycle?
+            if tuple(getattr(r, k) for k in Result._by) in seen:
+                return []
+
+            return [r._replace(children=[])] + rec_hot(
+                r.children,
+                seen | {tuple(getattr(r, k) for k in Result._by)})
+
+        results = [r._replace(children=rec_hot(r.children)) for r in results]
 
     # organize by name
     table = {
@@ -755,37 +782,32 @@ def table(Result, results, diff_results=None, *,
                                 getattr(diff_r, k, None)))))
         return entry
 
-    # recursive entry helpers
-    if hot:
-        def recurse(results_, depth_, seen=set(),
-                prefixes=('', '', '', '')):
-            # build the children table at each layer
-            results_ = fold(Result, results_, by=by)
-            table_ = {
-                ','.join(str(getattr(r, k) or '') for k in by): r
-                for r in results_}
-            names_ = list(table_.keys())
-            if not names_:
-                return
+    # recursive entry helper
+    def recurse(results_, depth_, seen=set(),
+            prefixes=('', '', '', '')):
+        # build the children table at each layer
+        results_ = fold(Result, results_, by=by)
+        table_ = {
+            ','.join(str(getattr(r, k) or '') for k in by): r
+            for r in results_}
+        names_ = list(table_.keys())
 
-            # find the "hottest" path at each step, we use
-            # the sort field if requested, but ignore reversedness
-            name = max(names_,
-                key=lambda n: tuple(
-                    tuple(
-                        # make sure to use the rebuilt table
+        # sort the children layer
+        names_.sort()
+        if sort:
+            for k, reverse in reversed(sort):
+                names_.sort(
+                    key=lambda n: tuple(
                         (getattr(table_[n], k),)
                         if getattr(table_.get(n), k, None) is not None
                         else ()
                         for k in ([k] if k else [
-                            k for k in Result._sort if k in fields])
-                        if k in fields)
-                    for k, reverse in it.chain(
-                        sort or [],
-                        [(None, False)])))
+                            k for k in Result._sort if k in fields])),
+                    reverse=reverse ^ (not k or k in Result._fields))
 
+        for i, name in enumerate(names_):
             r = table_[name]
-            is_last = not r.children
+            is_last = (i == len(names_)-1)
 
             line = table_entry(name, r)
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
@@ -798,7 +820,7 @@ def table(Result, results, diff_results=None, *,
 
             # found a cycle?
             if name in seen:
-                return
+                continue
 
             # recurse?
             if depth_ > 1:
@@ -806,58 +828,10 @@ def table(Result, results, diff_results=None, *,
                     r.children,
                     depth_-1,
                     seen | {name},
-                    prefixes)
-
-    else:
-        def recurse(results_, depth_, seen=set(),
-                prefixes=('', '', '', '')):
-            # build the children table at each layer
-            results_ = fold(Result, results_, by=by)
-            table_ = {
-                ','.join(str(getattr(r, k) or '') for k in by): r
-                for r in results_}
-            names_ = list(table_.keys())
-
-            # sort the children layer
-            names_.sort()
-            if sort:
-                for k, reverse in reversed(sort):
-                    names_.sort(
-                        key=lambda n: tuple(
-                            (getattr(table_[n], k),)
-                            if getattr(table_.get(n), k, None) is not None
-                            else ()
-                            for k in ([k] if k else [
-                                k for k in Result._sort if k in fields])),
-                        reverse=reverse ^ (not k or k in Result._fields))
-
-            for i, name in enumerate(names_):
-                r = table_[name]
-                is_last = (i == len(names_)-1)
-
-                line = table_entry(name, r)
-                line = [x if isinstance(x, tuple) else (x, []) for x in line]
-                # add prefixes
-                line[0] = (prefixes[0+is_last] + line[0][0], line[0][1])
-                # add cycle detection
-                if name in seen:
-                    line[-1] = (line[-1][0], line[-1][1] + ['cycle detected'])
-                lines.append(line)
-
-                # found a cycle?
-                if name in seen:
-                    continue
-
-                # recurse?
-                if depth_ > 1:
-                    recurse(
-                        r.children,
-                        depth_-1,
-                        seen | {name},
-                        (prefixes[2+is_last] + "|-> ",
-                         prefixes[2+is_last] + "'-> ",
-                         prefixes[2+is_last] + "|   ",
-                         prefixes[2+is_last] + "    "))
+                    (prefixes[2+is_last] + "|-> ",
+                     prefixes[2+is_last] + "'-> ",
+                     prefixes[2+is_last] + "|   ",
+                     prefixes[2+is_last] + "    "))
 
     # entries
     if not summary:
@@ -1255,7 +1229,8 @@ if __name__ == "__main__":
             "find a cycle. Defaults to 0.")
     parser.add_argument(
         '-t', '--hot',
-        action='store_true',
+        nargs='?',
+        action='append',
         help="Show only the hot path for each function call.")
     parser.add_argument(
         '-A', '--annotate',
