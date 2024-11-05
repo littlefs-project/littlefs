@@ -3,7 +3,7 @@
 import bisect
 import collections as co
 import itertools as it
-import math as m
+import math as mt
 import os
 import struct
 
@@ -879,7 +879,7 @@ def main(disk, mroots=None, *,
 
         # determine the mleaf_weight from the block_size, this is just for
         # printing purposes
-        mleaf_weight = 1 << m.ceil(m.log2(block_size // 8))
+        mleaf_weight = 1 << mt.ceil(mt.log2(block_size // 8))
 
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
@@ -1510,8 +1510,8 @@ def main(disk, mroots=None, *,
 
         # dynamically size the id field
         w_width = max(
-            m.ceil(m.log10(max(1, bweight//mleaf_weight)+1)),
-            m.ceil(m.log10(max(1, rweight)+1)),
+            mt.ceil(mt.log10(max(1, bweight//mleaf_weight)+1)),
+            mt.ceil(mt.log10(max(1, rweight)+1)),
             # in case of -1.-1
             2)
 

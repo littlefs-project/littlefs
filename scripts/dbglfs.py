@@ -4,7 +4,7 @@ import bisect
 import collections as co
 import functools as ft
 import itertools as it
-import math as m
+import math as mt
 import os
 import struct
 
@@ -1461,7 +1461,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
 
 
     # dynamically size the id field
-    w_width = m.ceil(m.log10(max(1, btree.weight)+1))
+    w_width = mt.ceil(mt.log10(max(1, btree.weight)+1))
 
     # prbyd here means the last rendered rbyd, we update
     # in dbg_branch to always print interleaved addresses
@@ -1719,7 +1719,7 @@ def main(disk, mroots=None, *,
 
         # determine the mleaf_weight from the block_size, this is just for
         # printing purposes
-        mleaf_weight = 1 << m.ceil(m.log2(block_size // 8))
+        mleaf_weight = 1 << mt.ceil(mt.log2(block_size // 8))
 
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
@@ -1888,7 +1888,7 @@ def main(disk, mroots=None, *,
                             width_ = max(width_, width__)
                 return 1+depth_, width_
 
-            depth, f_width = rec_f_width(0, args.get('depth') or m.inf)
+            depth, f_width = rec_f_width(0, args.get('depth') or mt.inf)
             # adjust to make space for max depth
             f_width += 4*(depth-1)
 
@@ -1906,8 +1906,8 @@ def main(disk, mroots=None, *,
 
         # dynamically size the id field
         w_width = max(
-            m.ceil(m.log10(max(1, bweight//mleaf_weight)+1)),
-            m.ceil(m.log10(max(1, rweight)+1)),
+            mt.ceil(mt.log10(max(1, bweight//mleaf_weight)+1)),
+            mt.ceil(mt.log10(max(1, rweight)+1)),
             # in case of -1.-1
             2)
 
@@ -2162,7 +2162,7 @@ def main(disk, mroots=None, *,
                                  prefixes[2+(i==len(dir)-1)] + "|   ",
                                  prefixes[2+(i==len(dir)-1)] + "    "))
 
-            rec_dir(0, args.get('depth') or m.inf)
+            rec_dir(0, args.get('depth') or mt.inf)
 
     if args.get('error_on_corrupt') and corrupted:
         sys.exit(2)

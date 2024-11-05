@@ -3,7 +3,7 @@
 import bisect
 import collections as co
 import itertools as it
-import math as m
+import math as mt
 import os
 import struct
 
@@ -920,7 +920,7 @@ def main(disk, roots=None, *,
 
 
         # dynamically size the id field
-        w_width = m.ceil(m.log10(max(1, btree.weight)+1))
+        w_width = mt.ceil(mt.log10(max(1, btree.weight)+1))
 
         # prbyd here means the last rendered rbyd, we update
         # in dbg_branch to always print interleaved addresses

@@ -4,7 +4,7 @@ import bisect
 import collections as co
 import functools as ft
 import itertools as it
-import math as m
+import math as mt
 import os
 import shutil
 import struct
@@ -269,9 +269,9 @@ def lebesgue_curve(width, height):
     # we create a truncated Z-curve by simply filtering out the points
     # that are outside our region
     curve = []
-    for i in range(2**(2*m.ceil(m.log2(max(width, height))))):
+    for i in range(2**(2*mt.ceil(mt.log2(max(width, height))))):
         # we just operate on binary strings here because it's easier
-        b = '{:0{}b}'.format(i, 2*m.ceil(m.log2(i+1)/2))
+        b = '{:0{}b}'.format(i, 2*mt.ceil(mt.log2(i+1)/2))
         x = int(b[1::2], 2) if b[1::2] else 0
         y = int(b[0::2], 2) if b[0::2] else 0
         if x < width and y < height:
@@ -1330,8 +1330,8 @@ def main(disk, mroots=None, *,
 
     # and then print the bmap
     for row in range(
-            m.ceil(bmap.height/4) if braille
-            else m.ceil(bmap.height/2) if dots
+            mt.ceil(bmap.height/4) if braille
+            else mt.ceil(bmap.height/2) if dots
             else bmap.height):
         line = bmap.draw(row,
             mdirs=mdirs,

@@ -6,7 +6,7 @@
 import collections as co
 import csv
 import itertools as it
-import math as m
+import math as mt
 import os
 
 
@@ -36,7 +36,7 @@ def dat(x):
     try:
         return float(x)
         # just don't allow infinity or nan
-        if m.isinf(x) or m.isnan(x):
+        if mt.isinf(x) or mt.isnan(x):
             raise ValueError("invalid dat %r" % x)
     except ValueError:
         pass
@@ -182,23 +182,23 @@ def main(csv_paths, output, *,
                     else {meas: meas__+'+'+meas_}))
 
         if sum_:    append('sum',     lambda vs: sum(vs))
-        if prod:    append('prod',    lambda vs: m.prod(vs))
+        if prod:    append('prod',    lambda vs: mt.prod(vs))
         if min_:    append('min',     lambda vs: min(vs, default=0))
         if max_:    append('max',     lambda vs: max(vs, default=0))
         if bnd:     append('bnd',     lambda vs: min(vs, default=0))
         if bnd:     append('bnd',     lambda vs: max(vs, default=0))
         if avg:     append('avg',     lambda vs: sum(vs) / max(len(vs), 1))
         if stddev:  append('stddev',  lambda vs: (
-                lambda avg: m.sqrt(
+                lambda avg: mt.sqrt(
                     sum((v - avg)**2 for v in vs) / max(len(vs), 1))
             )(sum(vs) / max(len(vs), 1)))
         if gmean:   append('gmean',   lambda vs:
-            m.prod(float(v) for v in vs)**(1 / max(len(vs), 1)))
+            mt.prod(float(v) for v in vs)**(1 / max(len(vs), 1)))
         if gstddev: append('gstddev', lambda vs: (
-            lambda gmean: m.exp(m.sqrt(
-                    sum(m.log(v/gmean)**2 for v in vs) / max(len(vs), 1)))
-                if gmean else m.inf
-            )(m.prod(float(v) for v in vs)**(1 / max(len(vs), 1))))
+            lambda gmean: mt.exp(mt.sqrt(
+                    sum(mt.log(v/gmean)**2 for v in vs) / max(len(vs), 1)))
+                if gmean else mt.inf
+            )(mt.prod(float(v) for v in vs)**(1 / max(len(vs), 1))))
 
     # write results to CSVS
     with openio(output, 'w') as f:

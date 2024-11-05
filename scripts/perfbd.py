@@ -16,7 +16,7 @@ import collections as co
 import csv
 import functools as ft
 import itertools as it
-import math as m
+import math as mt
 import multiprocessing as mp
 import os
 import re
@@ -40,24 +40,24 @@ class RInt(co.namedtuple('RInt', 'x')):
             except ValueError:
                 # also accept +-∞ and +-inf
                 if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
-                    x = m.inf
+                    x = mt.inf
                 elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
-                    x = -m.inf
+                    x = -mt.inf
                 else:
                     raise
-        assert isinstance(x, int) or m.isinf(x), x
+        assert isinstance(x, int) or mt.isinf(x), x
         return super().__new__(cls, x)
 
     def __str__(self):
-        if self.x == m.inf:
+        if self.x == mt.inf:
             return '∞'
-        elif self.x == -m.inf:
+        elif self.x == -mt.inf:
             return '-∞'
         else:
             return str(self.x)
 
     def __int__(self):
-        assert not m.isinf(self.x)
+        assert not mt.isinf(self.x)
         return self.x
 
     def __float__(self):
@@ -71,9 +71,9 @@ class RInt(co.namedtuple('RInt', 'x')):
         new = self.x if self else 0
         old = other.x if other else 0
         diff = new - old
-        if diff == +m.inf:
+        if diff == +mt.inf:
             return '%7s' % '+∞'
-        elif diff == -m.inf:
+        elif diff == -mt.inf:
             return '%7s' % '-∞'
         else:
             return '%+7d' % diff
@@ -81,16 +81,16 @@ class RInt(co.namedtuple('RInt', 'x')):
     def ratio(self, other):
         new = self.x if self else 0
         old = other.x if other else 0
-        if m.isinf(new) and m.isinf(old):
+        if mt.isinf(new) and mt.isinf(old):
             return 0.0
-        elif m.isinf(new):
-            return +m.inf
-        elif m.isinf(old):
-            return -m.inf
+        elif mt.isinf(new):
+            return +mt.inf
+        elif mt.isinf(old):
+            return -mt.inf
         elif not old and not new:
             return 0.0
         elif not old:
-            return +m.inf
+            return +mt.inf
         else:
             return (new-old) / old
 
@@ -566,7 +566,7 @@ def collect(obj_path, trace_paths, *,
                 trace_ranges.append([(None, None)])
                 continue
 
-            perjob = m.ceil(size // jobs)
+            perjob = mt.ceil(size // jobs)
             trace_ranges.append([(i, i+perjob) for i in range(0, size, perjob)])
 
         results = []
@@ -753,8 +753,8 @@ def table(Result, results, diff_results=None, *,
                     (getattr(r, k).table()
                             if getattr(r, k, None) is not None
                             else types[k].none,
-                        (lambda t: ['+∞%'] if t == +m.inf
-                                else ['-∞%'] if t == -m.inf
+                        (lambda t: ['+∞%'] if t == +mt.inf
+                                else ['-∞%'] if t == -mt.inf
                                 else ['%+.1f%%' % (100*t)])(
                             types[k].ratio(
                                 getattr(r, k, None),
@@ -773,8 +773,8 @@ def table(Result, results, diff_results=None, *,
                     (types[k].diff(
                             getattr(r, k, None),
                             getattr(diff_r, k, None)),
-                        (lambda t: ['+∞%'] if t == +m.inf
-                                else ['-∞%'] if t == -m.inf
+                        (lambda t: ['+∞%'] if t == +mt.inf
+                                else ['-∞%'] if t == -mt.inf
                                 else ['%+.1f%%' % (100*t)] if t
                                 else [])(
                             types[k].ratio(
@@ -1015,9 +1015,9 @@ def report(obj_path='', trace_paths=[], *,
 
     # figure out depth
     if args.get('depth') is None:
-        args['depth'] = m.inf if args.get('hot') else 1
+        args['depth'] = mt.inf if args.get('hot') else 1
     elif args.get('depth') == 0:
-        args['depth'] = m.inf
+        args['depth'] = mt.inf
 
     # find sizes
     if not args.get('use', None):

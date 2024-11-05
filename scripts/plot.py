@@ -15,7 +15,7 @@ import collections as co
 import csv
 import io
 import itertools as it
-import math as m
+import math as mt
 import os
 import shlex
 import shutil
@@ -95,7 +95,7 @@ def si(x, w=4):
     #
     # note we adjust this so that 100K = .1M, which has more info
     # per character
-    p = 3*int(m.log(abs(x)*10, 10**3))
+    p = 3*int(mt.log(abs(x)*10, 10**3))
     p = min(18, max(-18, p))
     # format with enough digits
     s = '%.*f' % (w, abs(x) / (10.0**p))
@@ -114,7 +114,7 @@ def si2(x, w=5):
     #
     # note we adjust this so that 128Ki = .1Mi, which has more info
     # per character
-    p = 10*int(m.log(abs(x)*10, 2**10))
+    p = 10*int(mt.log(abs(x)*10, 2**10))
     p = min(30, max(-30, p))
     # format with enough digits
     s = '%.*f' % (w, abs(x) / (2.0**p))
@@ -258,7 +258,7 @@ def dat(x):
     try:
         return float(x)
         # just don't allow infinity or nan
-        if m.isinf(x) or m.isnan(x):
+        if mt.isinf(x) or mt.isnan(x):
             raise ValueError("invalid dat %r" % x)
     except ValueError:
         pass
@@ -270,9 +270,9 @@ def dat(x):
 # a hack log that preserves sign, with a linear region between -1 and 1
 def symlog(x):
     if x > 1:
-        return m.log(x)+1
+        return mt.log(x)+1
     elif x < -1:
-        return -m.log(-x)-1
+        return -mt.log(-x)-1
     else:
         return x
 
@@ -614,9 +614,9 @@ class Grid:
             self_i = 0
             other_i = 0
             self_xweight = (self_xweights[self_i]
-                if self_i < len(self_xweights) else m.inf)
+                if self_i < len(self_xweights) else mt.inf)
             other_xweight = (other_xweights[other_i]
-                if other_i < len(other_xweights) else m.inf)
+                if other_i < len(other_xweights) else mt.inf)
             while self_i < len(self_xweights) and other_i < len(other_xweights):
                 if other_xweight - self_xweight > 0.0000001:
                     new_xweights.append(self_xweight)
@@ -635,7 +635,7 @@ class Grid:
 
                     self_i += 1
                     self_xweight = (self_xweights[self_i]
-                        if self_i < len(self_xweights) else m.inf)
+                        if self_i < len(self_xweights) else mt.inf)
                 elif self_xweight - other_xweight > 0.0000001:
                     new_xweights.append(other_xweight)
                     self_xweight -= other_xweight
@@ -653,7 +653,7 @@ class Grid:
 
                     other_i += 1
                     other_xweight = (other_xweights[other_i]
-                        if other_i < len(other_xweights) else m.inf)
+                        if other_i < len(other_xweights) else mt.inf)
                 else:
                     new_xweights.append(self_xweight)
 
@@ -665,10 +665,10 @@ class Grid:
 
                     self_i += 1
                     self_xweight = (self_xweights[self_i]
-                        if self_i < len(self_xweights) else m.inf)
+                        if self_i < len(self_xweights) else mt.inf)
                     other_i += 1
                     other_xweight = (other_xweights[other_i]
-                        if other_i < len(other_xweights) else m.inf)
+                        if other_i < len(other_xweights) else mt.inf)
 
             # squish so ratios are preserved
             self_h = sum(self.yweights)
@@ -712,9 +712,9 @@ class Grid:
             self_i = 0
             other_i = 0
             self_yweight = (self_yweights[self_i]
-                if self_i < len(self_yweights) else m.inf)
+                if self_i < len(self_yweights) else mt.inf)
             other_yweight = (other_yweights[other_i]
-                if other_i < len(other_yweights) else m.inf)
+                if other_i < len(other_yweights) else mt.inf)
             while self_i < len(self_yweights) and other_i < len(other_yweights):
                 if other_yweight - self_yweight > 0.0000001:
                     new_yweights.append(self_yweight)
@@ -733,7 +733,7 @@ class Grid:
 
                     self_i += 1
                     self_yweight = (self_yweights[self_i]
-                        if self_i < len(self_yweights) else m.inf)
+                        if self_i < len(self_yweights) else mt.inf)
                 elif self_yweight - other_yweight > 0.0000001:
                     new_yweights.append(other_yweight)
                     self_yweight -= other_yweight
@@ -751,7 +751,7 @@ class Grid:
 
                     other_i += 1
                     other_yweight = (other_yweights[other_i]
-                        if other_i < len(other_yweights) else m.inf)
+                        if other_i < len(other_yweights) else mt.inf)
                 else:
                     new_yweights.append(self_yweight)
 
@@ -763,10 +763,10 @@ class Grid:
 
                     self_i += 1
                     self_yweight = (self_yweights[self_i]
-                        if self_i < len(self_yweights) else m.inf)
+                        if self_i < len(self_yweights) else mt.inf)
                     other_i += 1
                     other_yweight = (other_yweights[other_i]
-                        if other_i < len(other_yweights) else m.inf)
+                        if other_i < len(other_yweights) else mt.inf)
 
             # squish so ratios are preserved
             self_w = sum(self.xweights)
@@ -1117,8 +1117,8 @@ def main(csv_paths, *,
         # exceeding the requested dimensions, this means we usually are less
         # than the requested dimensions by quite a bit when we have many
         # subplots, but it's a tradeoff for a relatively simple implementation
-        widths = [m.floor(w*width_) for w in grid.xweights]
-        heights = [m.floor(w*height_) for w in grid.yweights]
+        widths = [mt.floor(w*width_) for w in grid.xweights]
+        heights = [mt.floor(w*height_) for w in grid.yweights]
 
         # tweak dimensions to allow all plots to have a minimum width,
         # this may force the plot to be larger than the requested dimensions,

@@ -3,7 +3,7 @@
 import bisect
 import collections as co
 import itertools as it
-import math as m
+import math as mt
 import os
 import struct
 
@@ -513,7 +513,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 weight_ = max(weight_, weight__)
                 trunk_ = 0
 
-    w_width = m.ceil(m.log10(max(1, weight_)+1))
+    w_width = mt.ceil(mt.log10(max(1, weight_)+1))
 
     # print revision count
     if args.get('raw'):
@@ -839,7 +839,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
 
     # dynamically size the id field
-    w_width = m.ceil(m.log10(max(1, weight)+1))
+    w_width = mt.ceil(mt.log10(max(1, weight)+1))
 
     rid, tag = -1, 0
     for i in it.count():
