@@ -57,24 +57,25 @@ def main(paths, **args):
                 else:
                     print('%08x' % crc)
 
+
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Calculates crc32cs.",
-        allow_abbrev=False)
+            description="Calculates crc32cs.",
+            allow_abbrev=False)
     parser.add_argument(
-        'paths',
-        nargs='*',
-        help="Paths to read. Reads stdin by default.")
+            'paths',
+            nargs='*',
+            help="Paths to read. Reads stdin by default.")
     parser.add_argument(
-        '-x', '--hex',
-        action='store_true',
-        help="Interpret as a sequence of hex bytes.")
+            '-x', '--hex',
+            action='store_true',
+            help="Interpret as a sequence of hex bytes.")
     parser.add_argument(
-        '-s', '--string',
-        action='store_true',
-        help="Interpret as strings.")
+            '-s', '--string',
+            action='store_true',
+            help="Interpret as strings.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

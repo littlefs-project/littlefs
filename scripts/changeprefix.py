@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import tempfile
 
+
 GIT_PATH = ['git']
 
 
@@ -36,17 +37,17 @@ def openio(path, mode='r', buffering=-1):
 
 def changeprefix(from_prefix, to_prefix, line):
     line, count1 = re.subn(
-        '\\b'+from_prefix,
-        to_prefix,
-        line)
+            '\\b'+from_prefix,
+            to_prefix,
+            line)
     line, count2 = re.subn(
-        '\\b'+from_prefix.upper(),
-        to_prefix.upper(),
-        line)
+            '\\b'+from_prefix.upper(),
+            to_prefix.upper(),
+            line)
     line, count3 = re.subn(
-        '\\B-D'+from_prefix.upper(),
-        '-D'+to_prefix.upper(),
-        line)
+            '\\B-D'+from_prefix.upper(),
+            '-D'+to_prefix.upper(),
+            line)
     return line, count1+count2+count3
 
 def changefile(from_prefix, to_prefix, from_path, to_path, *,
@@ -79,8 +80,9 @@ def changefile(from_prefix, to_prefix, from_path, to_path, *,
 
     # Summary
     print('%s: %d replacements' % (
-        '%s -> %s' % (from_path, to_path) if not to_path_temp else from_path,
-        count))
+            '%s -> %s' % (from_path, to_path) if not to_path_temp
+                else from_path,
+            count))
 
 def main(from_prefix, to_prefix, paths=[], *,
         verbose=False,
@@ -111,7 +113,7 @@ def main(from_prefix, to_prefix, paths=[], *,
 
         # rename contents
         changefile(from_prefix, to_prefix, from_path, to_path,
-            no_replacements=no_replacements)
+                no_replacements=no_replacements)
 
         # stage?
         if git and not no_stage:
@@ -130,49 +132,49 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Change prefixes in files/filenames. Useful for creating "
-            "different versions of a codebase that don't conflict at compile "
-            "time.",
-        allow_abbrev=False)
+            description="Change prefixes in files/filenames. Useful for "
+                "creating different versions of a codebase that don't "
+                "conflict at compile time.",
+            allow_abbrev=False)
     parser.add_argument(
-        'from_prefix',
-        help="Prefix to replace.")
+            'from_prefix',
+            help="Prefix to replace.")
     parser.add_argument(
-        'to_prefix',
-        help="Prefix to replace with.")
+            'to_prefix',
+            help="Prefix to replace with.")
     parser.add_argument(
-        'paths',
-        nargs='*',
-        help="Files to operate on.")
+            'paths',
+            nargs='*',
+            help="Files to operate on.")
     parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help="Output commands that run behind the scenes.")
+            '-v', '--verbose',
+            action='store_true',
+            help="Output commands that run behind the scenes.")
     parser.add_argument(
-        '-o', '--output',
-        help="Output file.")
+            '-o', '--output',
+            help="Output file.")
     parser.add_argument(
-        '-N', '--no-replacements',
-        action='store_true',
-        help="Don't change prefixes in files")
+            '-N', '--no-replacements',
+            action='store_true',
+            help="Don't change prefixes in files")
     parser.add_argument(
-        '-R', '--no-renames',
-        action='store_true',
-        help="Don't rename files")
+            '-R', '--no-renames',
+            action='store_true',
+            help="Don't rename files")
     parser.add_argument(
-        '--git',
-        action='store_true',
-        help="Use git to find/update files.")
+            '--git',
+            action='store_true',
+            help="Use git to find/update files.")
     parser.add_argument(
-        '--no-stage',
-        action='store_true',
-        help="Don't stage changes with git.")
+            '--no-stage',
+            action='store_true',
+            help="Don't stage changes with git.")
     parser.add_argument(
-        '--git-path',
-        type=lambda x: x.split(),
-        default=GIT_PATH,
-        help="Path to git executable, may include flags. "
-            "Defaults to %r." % GIT_PATH)
+            '--git-path',
+            type=lambda x: x.split(),
+            default=GIT_PATH,
+            help="Path to git executable, may include flags. "
+                "Defaults to %r." % GIT_PATH)
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

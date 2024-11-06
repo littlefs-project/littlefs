@@ -53,8 +53,8 @@ def collect(csv_paths, renames=[], defines=[]):
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 fields.extend(
-                    k for k in reader.fieldnames
-                    if k not in fields)
+                        k for k in reader.fieldnames
+                        if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -90,8 +90,8 @@ def main(csv_paths, output, *,
 
     # separate out renames
     renames = list(it.chain.from_iterable(
-        ((k, v) for v in vs)
-        for k, vs in it.chain(by or [], fields or [])))
+            ((k, v) for v in vs)
+            for k, vs in it.chain(by or [], fields or [])))
     if by is not None:
         by = [k for k, _ in by]
     if fields is not None:
@@ -99,7 +99,7 @@ def main(csv_paths, output, *,
 
     if by is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
 
     # collect results from csv files
@@ -108,24 +108,22 @@ def main(csv_paths, output, *,
     # if by not specified, guess it's anything not in
     # iter/size/fields/renames/defines
     if by is None:
-        by = [
-            k for k in fields_
-            if k != iter
-                and k != size
-                and k not in (fields or [])
-                and not any(k == old_k for _, old_k in renames)
-                and not any(k == k_ for k_, _ in defines)]
+        by = [k for k in fields_
+                if k != iter
+                    and k != size
+                    and k not in (fields or [])
+                    and not any(k == old_k for _, old_k in renames)
+                    and not any(k == k_ for k_, _ in defines)]
 
     # if fields not specified, guess it's anything not in
     # by/iter/size/renames/defines
     if fields is None:
-        fields = [
-            k for k in fields_
-            if k not in (by or [])
-                and k != iter
-                and k != size
-                and not any(k == old_k for _, old_k in renames)
-                and not any(k == k_ for k_, _ in defines)]
+        fields = [k for k in fields_
+                if k not in (by or [])
+                    and k != iter
+                    and k != size
+                    and not any(k == old_k for _, old_k in renames)
+                    and not any(k == k_ for k_, _ in defines)]
 
     # add meas to by if it isn't already present
     if meas is not None and meas not in by:
@@ -161,23 +159,23 @@ def main(csv_paths, output, *,
             # find amortized results
             if amor:
                 amors.append(r
-                    | {f: sums[f] / size_ for f in fields}
-                    | ({} if meas is None
-                        else {meas: r[meas]+'+amor'} if meas in r
-                        else {meas: 'amor'}))
+                        | {f: sums[f] / size_ for f in fields}
+                        | ({} if meas is None
+                            else {meas: r[meas]+'+amor'} if meas in r
+                            else {meas: 'amor'}))
 
             # also find per-byte results
             if per:
                 amors.append(r
-                    | {f: r.get(f, 0) / size_ for f in fields}
-                    | ({} if meas is None
-                        else {meas: r[meas]+'+per'} if meas in r
-                        else {meas: 'per'}))
+                        | {f: r.get(f, 0) / size_ for f in fields}
+                        | ({} if meas is None
+                            else {meas: r[meas]+'+per'} if meas in r
+                            else {meas: 'per'}))
 
     # write results to CSV
     with openio(output, 'w') as f:
         writer = csv.DictWriter(f,
-            by + [iter] + ([size] if size is not None else []) + fields)
+                by + [iter] + ([size] if size is not None else []) + fields)
         writer.writeheader()
         for r in amors:
             writer.writerow(r)
@@ -187,68 +185,70 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Amortize benchmark measurements.",
-        allow_abbrev=False)
+            description="Amortize benchmark measurements.",
+            allow_abbrev=False)
     parser.add_argument(
-        'csv_paths',
-        nargs='*',
-        help="Input *.csv files.")
+            'csv_paths',
+            nargs='*',
+            help="Input *.csv files.")
     parser.add_argument(
-        '-o', '--output',
-        required=True,
-        help="*.csv file to write amortized measurements to.")
+            '-o', '--output',
+            required=True,
+            help="*.csv file to write amortized measurements to.")
     parser.add_argument(
-        '--amor',
-        action='store_true',
-        help="Compute amortized results.")
+            '--amor',
+            action='store_true',
+            help="Compute amortized results.")
     parser.add_argument(
-        '--per',
-        action='store_true',
-        help="Compute per-byte results.")
+            '--per',
+            action='store_true',
+            help="Compute per-byte results.")
     parser.add_argument(
-        '-b', '--by',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Group by this field. Can rename fields with new_name=old_name.")
+            '-b', '--by',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Group by this field. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-m', '--meas',
-        help="Optional name of measurement name field. If provided, the name "
-            "will be modified with +amor or +per.")
+            '-m', '--meas',
+            help="Optional name of measurement name field. If provided, the "
+                "name will be modified with +amor or +per.")
     parser.add_argument(
-        '-i', '--iter',
-        required=True,
-        help="Name of iteration field.")
+            '-i', '--iter',
+            required=True,
+            help="Name of iteration field.")
     parser.add_argument(
-        '-n', '--size',
-        help="Optional name of size field.")
+            '-n', '--size',
+            help="Optional name of size field.")
     parser.add_argument(
-        '-f', '--field',
-        dest='fields',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to amortize. Can rename fields with new_name=old_name.")
+            '-f', '--field',
+            dest='fields',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to amortize. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-D', '--define',
-        dest='defines',
-        action='append',
-        type=lambda x: (
-            lambda k, vs: (
-                k.strip(),
-                {v.strip() for v in vs.split(',')})
-            )(*x.split('=', 1)),
-        help="Only include results where this field is this value. May include "
-            "comma-separated options.")
+            '-D', '--define',
+            dest='defines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Only include results where this field is this value. May "
+                "include comma-separated options.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))
 

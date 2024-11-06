@@ -53,8 +53,8 @@ def collect(csv_paths, renames=[], defines=[]):
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 fields.extend(
-                    k for k in reader.fieldnames
-                    if k not in fields)
+                        k for k in reader.fieldnames
+                        if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -108,8 +108,8 @@ def main(csv_paths, output, *,
 
     # separate out renames
     renames = list(it.chain.from_iterable(
-        ((k, v) for v in vs)
-        for k, vs in it.chain(by or [], seeds or [], fields or [])))
+            ((k, v) for v in vs)
+            for k, vs in it.chain(by or [], seeds or [], fields or [])))
     if by is not None:
         by = [k for k, _ in by]
     if seeds is not None:
@@ -119,7 +119,7 @@ def main(csv_paths, output, *,
 
     if by is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
 
     # collect results from csv files
@@ -128,22 +128,20 @@ def main(csv_paths, output, *,
     # if by not specified, guess it's anything not in
     # seeds/fields/renames/defines
     if by is None:
-        by = [
-            k for k in fields_
-            if k not in (seeds or [])
-                and k not in (fields or [])
-                and not any(k == old_k for _, old_k in renames)
-                and not any(k == k_ for k_, _ in defines)]
+        by = [k for k in fields_
+                if k not in (seeds or [])
+                    and k not in (fields or [])
+                    and not any(k == old_k for _, old_k in renames)
+                    and not any(k == k_ for k_, _ in defines)]
 
     # if fields not specified, guess it's anything not in
     # by/seeds/renames/defines
     if fields is None:
-        fields = [
-            k for k in fields_
-            if k not in (by or [])
-                and k not in (seeds or [])
-                and not any(k == old_k for _, old_k in renames)
-                and not any(k == k_ for k_, _ in defines)]
+        fields = [k for k in fields_
+                if k not in (by or [])
+                    and k not in (seeds or [])
+                    and not any(k == old_k for _, old_k in renames)
+                    and not any(k == k_ for k_, _ in defines)]
 
     # add meas to by if it isn't already present
     if meas is not None and meas not in by:
@@ -174,12 +172,11 @@ def main(csv_paths, output, *,
                 meas__ = r[meas]
 
         def append(meas_, f_):
-            avgs.append(
-                {k: v for k, v in zip(by, key)}
-                | {f: f_(vs_) for f, vs_ in vs.items()}
-                | ({} if meas is None
-                    else {meas: meas_} if meas__ is None
-                    else {meas: meas__+'+'+meas_}))
+            avgs.append({k: v for k, v in zip(by, key)}
+                    | {f: f_(vs_) for f, vs_ in vs.items()}
+                    | ({} if meas is None
+                        else {meas: meas_} if meas__ is None
+                        else {meas: meas__+'+'+meas_}))
 
         if sum_:    append('sum',     lambda vs: sum(vs))
         if prod:    append('prod',    lambda vs: mt.prod(vs))
@@ -189,16 +186,16 @@ def main(csv_paths, output, *,
         if bnd:     append('bnd',     lambda vs: max(vs, default=0))
         if avg:     append('avg',     lambda vs: sum(vs) / max(len(vs), 1))
         if stddev:  append('stddev',  lambda vs: (
-                lambda avg: mt.sqrt(
-                    sum((v - avg)**2 for v in vs) / max(len(vs), 1))
-            )(sum(vs) / max(len(vs), 1)))
+                    lambda avg: mt.sqrt(
+                        sum((v - avg)**2 for v in vs) / max(len(vs), 1))
+                )(sum(vs) / max(len(vs), 1)))
         if gmean:   append('gmean',   lambda vs:
-            mt.prod(float(v) for v in vs)**(1 / max(len(vs), 1)))
+                mt.prod(float(v) for v in vs)**(1 / max(len(vs), 1)))
         if gstddev: append('gstddev', lambda vs: (
-            lambda gmean: mt.exp(mt.sqrt(
-                    sum(mt.log(v/gmean)**2 for v in vs) / max(len(vs), 1)))
-                if gmean else mt.inf
-            )(mt.prod(float(v) for v in vs)**(1 / max(len(vs), 1))))
+                lambda gmean: mt.exp(mt.sqrt(
+                        sum(mt.log(v/gmean)**2 for v in vs) / max(len(vs), 1)))
+                    if gmean else mt.inf
+                )(mt.prod(float(v) for v in vs)**(1 / max(len(vs), 1))))
 
     # write results to CSVS
     with openio(output, 'w') as f:
@@ -212,101 +209,103 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Compute averages/etc of benchmark measurements.",
-        allow_abbrev=False)
+            description="Compute averages/etc of benchmark measurements.",
+            allow_abbrev=False)
     parser.add_argument(
-        'csv_paths',
-        nargs='*',
-        help="Input *.csv files.")
+            'csv_paths',
+            nargs='*',
+            help="Input *.csv files.")
     parser.add_argument(
-        '-o', '--output',
-        required=True,
-        help="*.csv file to write amortized measurements to.")
+            '-o', '--output',
+            required=True,
+            help="*.csv file to write amortized measurements to.")
     parser.add_argument(
-        '--sum',
-        action='store_true',
-        help="Compute the sum.")
+            '--sum',
+            action='store_true',
+            help="Compute the sum.")
     parser.add_argument(
-        '--prod',
-        action='store_true',
-        help="Compute the product.")
+            '--prod',
+            action='store_true',
+            help="Compute the product.")
     parser.add_argument(
-        '--min',
-        action='store_true',
-        help="Compute the min.")
+            '--min',
+            action='store_true',
+            help="Compute the min.")
     parser.add_argument(
-        '--max',
-        action='store_true',
-        help="Compute the max.")
+            '--max',
+            action='store_true',
+            help="Compute the max.")
     parser.add_argument(
-        '--bnd',
-        action='store_true',
-        help="Compute the bounds (min+max concatenated).")
+            '--bnd',
+            action='store_true',
+            help="Compute the bounds (min+max concatenated).")
     parser.add_argument(
-        '--avg', '--mean',
-        action='store_true',
-        help="Compute the average (the default).")
+            '--avg', '--mean',
+            action='store_true',
+            help="Compute the average (the default).")
     parser.add_argument(
-        '--stddev',
-        action='store_true',
-        help="Compute the standard deviation.")
+            '--stddev',
+            action='store_true',
+            help="Compute the standard deviation.")
     parser.add_argument(
-        '--gmean',
-        action='store_true',
-        help="Compute the geometric mean.")
+            '--gmean',
+            action='store_true',
+            help="Compute the geometric mean.")
     parser.add_argument(
-        '--gstddev',
-        action='store_true',
-        help="Compute the geometric standard deviation.")
+            '--gstddev',
+            action='store_true',
+            help="Compute the geometric standard deviation.")
     parser.add_argument(
-        '-b', '--by',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Group by this field. Can rename fields with new_name=old_name.")
+            '-b', '--by',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Group by this field. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-m', '--meas',
-        help="Optional name of measurement name field. If provided, the name "
-            "will be modified with +amor or +per.")
+            '-m', '--meas',
+            help="Optional name of measurement name field. If provided, the "
+                "name will be modified with +amor or +per.")
     parser.add_argument(
-        '-s', '--seed',
-        dest='seeds',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to ignore when averaging. Can rename fields with "
-            "new_name=old_name.")
+            '-s', '--seed',
+            dest='seeds',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to ignore when averaging. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-f', '--field',
-        dest='fields',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to amortize. Can rename fields with new_name=old_name.")
+            '-f', '--field',
+            dest='fields',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to amortize. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-D', '--define',
-        dest='defines',
-        action='append',
-        type=lambda x: (
-            lambda k, vs: (
-                k.strip(),
-                {v.strip() for v in vs.split(',')})
-            )(*x.split('=', 1)),
-        help="Only include results where this field is this value. May include "
-            "comma-separated options.")
+            '-D', '--define',
+            dest='defines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Only include results where this field is this value. May "
+                "include comma-separated options.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))
 

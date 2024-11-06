@@ -169,108 +169,108 @@ def frombtree(data):
 def xxd(data, width=16):
     for i in range(0, len(data), width):
         yield '%-*s %-*s' % (
-            3*width,
-            ' '.join('%02x' % b for b in data[i:i+width]),
-            width,
-            ''.join(
-                b if b >= ' ' and b <= '~' else '.'
-                for b in map(chr, data[i:i+width])))
+                3*width,
+                ' '.join('%02x' % b for b in data[i:i+width]),
+                width,
+                ''.join(
+                    b if b >= ' ' and b <= '~' else '.'
+                        for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, w=None, size=None, off=None):
     if (tag & 0x6fff) == TAG_NULL:
         return '%snull%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            ' w%d' % w if w else '',
-            ' %d' % size if size else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                ' w%d' % w if w else '',
+                ' %d' % size if size else '')
     elif (tag & 0x6f00) == TAG_CONFIG:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'magic' if (tag & 0xfff) == TAG_MAGIC
-                else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
-                else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
-                else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
-                else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
-                else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
-                else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
-                else 'config 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'magic' if (tag & 0xfff) == TAG_MAGIC
+                    else 'version' if (tag & 0xfff) == TAG_VERSION
+                    else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
+                    else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
+                    else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
+                    else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
+                    else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
+                    else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
+                    else 'config 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_GDELTA:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
-                else 'gdelta 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
+                    else 'gdelta 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_NAME:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'name' if (tag & 0xfff) == TAG_NAME
-                else 'reg' if (tag & 0xfff) == TAG_REG
-                else 'dir' if (tag & 0xfff) == TAG_DIR
-                else 'orphan' if (tag & 0xfff) == TAG_ORPHAN
-                else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
-                else 'name 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'name' if (tag & 0xfff) == TAG_NAME
+                    else 'reg' if (tag & 0xfff) == TAG_REG
+                    else 'dir' if (tag & 0xfff) == TAG_DIR
+                    else 'orphan' if (tag & 0xfff) == TAG_ORPHAN
+                    else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
+                    else 'name 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_STRUCT:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'data' if (tag & 0xfff) == TAG_DATA
-                else 'block' if (tag & 0xfff) == TAG_BLOCK
-                else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
-                else 'btree' if (tag & 0xfff) == TAG_BTREE
-                else 'mroot' if (tag & 0xfff) == TAG_MROOT
-                else 'mdir' if (tag & 0xfff) == TAG_MDIR
-                else 'mtree' if (tag & 0xfff) == TAG_MTREE
-                else 'did' if (tag & 0xfff) == TAG_DID
-                else 'branch' if (tag & 0xfff) == TAG_BRANCH
-                else 'struct 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'data' if (tag & 0xfff) == TAG_DATA
+                    else 'block' if (tag & 0xfff) == TAG_BLOCK
+                    else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
+                    else 'btree' if (tag & 0xfff) == TAG_BTREE
+                    else 'mroot' if (tag & 0xfff) == TAG_MROOT
+                    else 'mdir' if (tag & 0xfff) == TAG_MDIR
+                    else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                    else 'did' if (tag & 0xfff) == TAG_DID
+                    else 'branch' if (tag & 0xfff) == TAG_BRANCH
+                    else 'struct 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6e00) == TAG_ATTR:
         return '%s%sattr 0x%02x%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            's' if tag & 0x100 else 'u',
-            ((tag & 0x100) >> 1) ^ (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                's' if tag & 0x100 else 'u',
+                ((tag & 0x100) >> 1) ^ (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:
         return 'alt%s%s%s%s%s' % (
-            'r' if tag & TAG_R else 'b',
-            'a' if tag & 0x0fff == 0 and tag & TAG_GT
-                else 'n' if tag & 0x0fff == 0
-                else 'gt' if tag & TAG_GT
-                else 'le',
-            ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
-            ' w%d' % w if w is not None else '',
-            ' 0x%x' % (0xffffffff & (off-size))
-                if size and off is not None
-                else ' -%d' % size if size
-                else '')
+                'r' if tag & TAG_R else 'b',
+                'a' if tag & 0x0fff == 0 and tag & TAG_GT
+                    else 'n' if tag & 0x0fff == 0
+                    else 'gt' if tag & TAG_GT
+                    else 'le',
+                ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
+                ' w%d' % w if w is not None else '',
+                ' 0x%x' % (0xffffffff & (off-size))
+                    if size and off is not None
+                    else ' -%d' % size if size
+                    else '')
     elif (tag & 0x7f00) == TAG_CKSUM:
         return 'cksum%s%s%s%s%s' % (
-            'q' if not tag & 0xfc and tag & TAG_Q else '',
-            'p' if not tag & 0xfc and tag & TAG_P else '',
-            ' 0x%02x' % (tag & 0xff) if tag & 0xfc else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'q' if not tag & 0xfc and tag & TAG_Q else '',
+                'p' if not tag & 0xfc and tag & TAG_P else '',
+                ' 0x%02x' % (tag & 0xff) if tag & 0xfc else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_NOTE:
         return 'note%s%s%s' % (
-            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_ECKSUM:
         return 'ecksum%s%s%s' % (
-            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     else:
         return '0x%04x%s%s' % (
-            tag,
-            ' w%d' % w if w is not None else '',
-            ' %d' % size if size is not None else '')
+                tag,
+                ' w%d' % w if w is not None else '',
+                ' %d' % size if size is not None else '')
 
 
 # this type is used for tree representations
@@ -293,9 +293,9 @@ class Rbyd:
             return '0x%x.%x' % (self.block, self.trunk)
         else:
             return '0x{%x,%s}.%x' % (
-                self.block,
-                ','.join('%x' % block for block in self.redund_blocks),
-                self.trunk)
+                    self.block,
+                    ','.join('%x' % block for block in self.redund_blocks),
+                    self.trunk)
 
     @classmethod
     def fetch(cls, f, block_size, blocks, trunk=None):
@@ -304,21 +304,23 @@ class Rbyd:
 
         if len(blocks) > 1:
             # fetch all blocks
-            rbyds = [cls.fetch(f, block_size, block, trunk) for block in blocks]
+            rbyds = [cls.fetch(f, block_size, block, trunk)
+                    for block in blocks]
             # determine most recent revision
             i = 0
             for i_, rbyd in enumerate(rbyds):
                 # compare with sequence arithmetic
                 if rbyd and (
                         not rbyds[i]
-                        or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
-                        or (rbyd.rev == rbyds[i].rev
-                            and rbyd.trunk > rbyds[i].trunk)):
+                            or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
+                            or (rbyd.rev == rbyds[i].rev
+                                and rbyd.trunk > rbyds[i].trunk)):
                     i = i_
             # keep track of the other blocks
             rbyd = rbyds[i]
-            rbyd.redund_blocks = [rbyds[(i+1+j) % len(rbyds)].block
-                for j in range(len(rbyds)-1)]
+            rbyd.redund_blocks = [
+                    rbyds[(i+1+j) % len(rbyds)].block
+                        for j in range(len(rbyds)-1)]
             return rbyd
         else:
             # block may encode a trunk
@@ -472,7 +474,9 @@ class Rbyd:
 
                 done = not tag_ or (rid_, tag_) < (rid, tag)
 
-                return done, rid_, tag_, w_, j, d, self.data[j+d:j+d+jump], path
+                return (done, rid_, tag_, w_, j, d,
+                        self.data[j+d:j+d+jump],
+                        path)
 
     def __bool__(self):
         return bool(self.trunk)
@@ -564,8 +568,8 @@ class Rbyd:
             else:
                 if 'h' not in alts[j_]:
                     alts[j_]['h'] = max(
-                        rec_height(alts[j_]['f']),
-                        rec_height(alts[j_]['nf'])) + 1
+                            rec_height(alts[j_]['f']),
+                            rec_height(alts[j_]['nf'])) + 1
                 return alts[j_]['h']
 
         for j_ in alts.keys():
@@ -616,7 +620,7 @@ class Rbyd:
             w = 0
             for i in it.count():
                 done, rid__, tag, w_, j, d, data, _ = rbyd.lookup(
-                    rid_, tag+0x1)
+                        rid_, tag+0x1)
                 if done or (i != 0 and rid__ != rid_):
                     break
 
@@ -659,7 +663,7 @@ class Rbyd:
         bid = -1
         while True:
             done, bid, w, rbyd_, rid, tags, path = self.btree_lookup(
-                f, block_size, bid+1, depth=depth)
+                    f, block_size, bid+1, depth=depth)
             if done:
                 break
 
@@ -674,7 +678,7 @@ class Rbyd:
         bid = -1
         while True:
             done, bid, w, rbyd_, rid, tags, path = self.btree_lookup(
-                f, block_size, bid+1, depth=depth)
+                    f, block_size, bid+1, depth=depth)
             if done:
                 break
 
@@ -707,8 +711,8 @@ class Rbyd:
                 # connect our branch to the rbyd's root
                 if leaf is not None:
                     root = min(rtree,
-                        key=lambda branch: branch.d,
-                        default=None)
+                            key=lambda branch: branch.d,
+                            default=None)
 
                     if root is not None:
                         r_rid, r_tag = root.a
@@ -734,9 +738,10 @@ class Rbyd:
 
                 d_ += max(bdepths.get(d, 0), 1)
                 leaf = (bid-(w-1), d, rid-(w-1),
-                    next((tag for tag, _, _, _ in tags
-                            if tag & 0xfff == TAG_BRANCH),
-                        TAG_BRANCH))
+                        next(
+                            (tag for tag, _, _, _ in tags
+                                if tag & 0xfff == TAG_BRANCH),
+                            TAG_BRANCH))
 
         # remap branches to leaves if we aren't showing inner branches
         if not inner:
@@ -793,7 +798,7 @@ class Rbyd:
         bid = -1
         while True:
             done, bid, w, rbyd, rid, tags, path = self.btree_lookup(
-                f, block_size, bid+1, depth=depth)
+                    f, block_size, bid+1, depth=depth)
             if done:
                 break
 
@@ -816,7 +821,7 @@ class Rbyd:
                     continue
 
                 b = (bid-(w-1), d, rid-(w-1),
-                    (name if name else tags[0])[0])
+                        (name if name else tags[0])[0])
 
                 # remap branches to leaves if we aren't showing
                 # inner branches
@@ -826,8 +831,8 @@ class Rbyd:
                         if not tags:
                             continue
                         branches[b] = (
-                            bid-(w-1), len(path)-1, rid-(w-1),
-                            (name if name else tags[0])[0])
+                                bid-(w-1), len(path)-1, rid-(w-1),
+                                (name if name else tags[0])[0])
                     b = branches[b]
 
                 # found entry point?
@@ -935,8 +940,8 @@ def main(disk, mroots=None, *,
                 mbid = -1
                 while True:
                     done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mbid+1,
-                        depth=args.get('depth', mdepth)-mdepth)
+                            f, block_size, mbid+1,
+                            depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
 
@@ -947,10 +952,11 @@ def main(disk, mroots=None, *,
                     mdir__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(((tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag == TAG_MDIR),
-                            None)
+                        mdir__ = next(
+                                ((tag, j, d, data)
+                                    for tag, j, d, data in tags
+                                    if tag == TAG_MDIR),
+                                None)
 
                     if mdir__:
                         # fetch the mdir
@@ -981,8 +987,8 @@ def main(disk, mroots=None, *,
                 # connect branch to our root
                 if d > 0:
                     root = min(rtree,
-                        key=lambda branch: branch.d,
-                        default=None)
+                            key=lambda branch: branch.d,
+                            default=None)
 
                     if root:
                         r_rid, r_tag = root.a
@@ -1026,8 +1032,8 @@ def main(disk, mroots=None, *,
 
                 # connect branch to our root
                 root = min(rtree,
-                    key=lambda branch: branch.d,
-                    default=None)
+                        key=lambda branch: branch.d,
+                        default=None)
 
                 if root:
                     r_rid, r_tag = root.a
@@ -1054,10 +1060,10 @@ def main(disk, mroots=None, *,
             # compute the mtree's rbyd-tree if there is one
             if mtree:
                 tree_, tdepth = mtree.btree_tree(
-                    f, block_size,
-                    depth=args.get('depth', mdepth)-mdepth,
-                    inner=args.get('inner'),
-                    rbyd=args.get('rbyd'))
+                        f, block_size,
+                        depth=args.get('depth', mdepth)-mdepth,
+                        inner=args.get('inner'),
+                        rbyd=args.get('rbyd'))
 
                 # connect a branch to the root of the tree
                 root = min(tree_, key=lambda branch: branch.d, default=None)
@@ -1086,8 +1092,8 @@ def main(disk, mroots=None, *,
                 mbid = -1
                 while True:
                     done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mbid+1,
-                        depth=args.get('depth', mdepth)-mdepth)
+                            f, block_size, mbid+1,
+                            depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
 
@@ -1098,10 +1104,11 @@ def main(disk, mroots=None, *,
                     mdir__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(((tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag == TAG_MDIR),
-                            None)
+                        mdir__ = next(
+                                ((tag, j, d, data)
+                                    for tag, j, d, data in tags
+                                    if tag == TAG_MDIR),
+                                None)
 
                     if mdir__:
                         # fetch the mdir
@@ -1116,8 +1123,8 @@ def main(disk, mroots=None, *,
                 mbid = -1
                 while True:
                     done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mbid+1,
-                        depth=args.get('depth', mdepth)-mdepth)
+                            f, block_size, mbid+1,
+                            depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
 
@@ -1128,10 +1135,11 @@ def main(disk, mroots=None, *,
                     mdir__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(((tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag == TAG_MDIR),
-                            None)
+                        mdir__ = next(
+                                ((tag, j, d, data)
+                                    for tag, j, d, data in tags
+                                    if tag == TAG_MDIR),
+                                None)
 
                     if mdir__:
                         # fetch the mdir
@@ -1143,19 +1151,19 @@ def main(disk, mroots=None, *,
 
                         # connect the root to the mtree
                         branch = max(
-                            (branch for branch in tree
-                                if branch.b[0] == mbid-(mw-1)),
-                            key=lambda branch: branch.d,
-                            default=None)
-                        if branch:
-                            root = min(rtree,
+                                (branch for branch in tree
+                                    if branch.b[0] == mbid-(mw-1)),
                                 key=lambda branch: branch.d,
                                 default=None)
+                        if branch:
+                            root = min(rtree,
+                                    key=lambda branch: branch.d,
+                                    default=None)
                             if root:
                                 r_rid, r_tag = root.a
                             else:
                                 _, r_rid, r_tag, _, _, _, _, _ = (
-                                    mdir_.lookup(-1, 0x1))
+                                        mdir_.lookup(-1, 0x1))
                             tree.add(TBranch(
                                 a=branch.b,
                                 b=(mbid-(mw-1), len(path), 0, r_rid, r_tag),
@@ -1183,7 +1191,7 @@ def main(disk, mroots=None, *,
                     # keep track of the original bids, unfortunately because we
                     # store the bids in the branches we overwrite these
                     tree = {(branch.b[0] - branch.b[2], branch)
-                        for branch in tree}
+                            for branch in tree}
 
                     for bd in reversed(range(b_depth-1)):
                         # find leaf-roots at this level
@@ -1274,9 +1282,9 @@ def main(disk, mroots=None, *,
             # compute the mtree's B-tree if there is one
             if mtree:
                 tree_, tdepth = mtree.btree_btree(
-                    f, block_size,
-                    depth=args.get('depth', mdepth)-mdepth,
-                    inner=args.get('inner'))
+                        f, block_size,
+                        depth=args.get('depth', mdepth)-mdepth,
+                        inner=args.get('inner'))
 
                 # connect a branch to the root of the tree
                 root = min(tree_, key=lambda branch: branch.d, default=None)
@@ -1306,8 +1314,8 @@ def main(disk, mroots=None, *,
                     while True:
                         done, mbid, mw, rbyd, rid, tags, path = (
                             mtree.btree_lookup(
-                                f, block_size, mbid+1,
-                                depth=args.get('depth', mdepth)-mdepth))
+                                    f, block_size, mbid+1,
+                                    depth=args.get('depth', mdepth)-mdepth))
                         if done:
                             break
 
@@ -1318,10 +1326,11 @@ def main(disk, mroots=None, *,
                         mdir__ = None
                         if (not args.get('depth')
                                 or mdepth+len(path) < args.get('depth')):
-                            mdir__ = next(((tag, j, d, data)
-                                for tag, j, d, data in tags
-                                if tag == TAG_MDIR),
-                                None)
+                            mdir__ = next(
+                                    ((tag, j, d, data)
+                                        for tag, j, d, data in tags
+                                        if tag == TAG_MDIR),
+                                    None)
 
                         if mdir__:
                             # fetch the mdir
@@ -1332,7 +1341,7 @@ def main(disk, mroots=None, *,
                             # find the first entry in the mdir, map branches
                             # to this entry
                             done, rid, tag, _, j, d, data, _ = (
-                                mdir_.lookup(-1, 0x1))
+                                    mdir_.lookup(-1, 0x1))
 
                             tree_ = set()
                             for branch in tree:
@@ -1373,8 +1382,8 @@ def main(disk, mroots=None, *,
                                     for branch in tree):
                                 return '+-', branch.c, branch.c
                             elif any(branch.d == d
-                                    and x > min(branch.a, branch.b)
-                                    and x < max(branch.a, branch.b)
+                                        and x > min(branch.a, branch.b)
+                                        and x < max(branch.a, branch.b)
                                     for branch in tree):
                                 return '|-', branch.c, branch.c
                             elif branch.a < branch.b:
@@ -1397,17 +1406,18 @@ def main(disk, mroots=None, *,
                 was = None
                 for d in range(t_depth):
                     t, c, was = branchrepr(
-                        (mbid-max(mw-1, 0), md, mrid-max(mw-1, 0), rid, tag),
-                        d, was)
+                            (mbid-max(mw-1, 0), md,
+                                mrid-max(mw-1, 0), rid, tag),
+                            d, was)
 
                     trunk.append('%s%s%s%s' % (
-                        '\x1b[33m' if color and c == 'y'
-                            else '\x1b[31m' if color and c == 'r'
-                            else '\x1b[90m' if color and c == 'b'
-                            else '',
-                        t,
-                        ('>' if was else ' ') if d == t_depth-1 else '',
-                        '\x1b[m' if color and c else ''))
+                            '\x1b[33m' if color and c == 'y'
+                                else '\x1b[31m' if color and c == 'r'
+                                else '\x1b[90m' if color and c == 'b'
+                                else '',
+                            t,
+                            ('>' if was else ' ') if d == t_depth-1 else '',
+                            '\x1b[m' if color and c else ''))
 
                 return '%s ' % ''.join(trunk)
 
@@ -1416,41 +1426,45 @@ def main(disk, mroots=None, *,
             for i, (rid, tag, w, j, d, data) in enumerate(mdir):
                 # show human-readable tag representation
                 print('%12s %s%s' % (
-                    '{%s}:' % ','.join('%04x' % block
-                        for block in it.chain([mdir.block],
-                            mdir.redund_blocks))
-                        if i == 0 else '',
-                    treerepr(mbid-max(mw-1, 0), 0, md, 0, rid, tag)
-                        if args.get('tree')
-                            or args.get('rbyd')
-                            or args.get('btree') else '',
-                    '%*s %-*s%s' % (
-                        2*w_width+1, '%d.%d-%d' % (
-                                mbid//mleaf_weight, rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mbid//mleaf_weight, rid)
-                            if w > 0 or i == 0 else '',
-                        21+w_width, tagrepr(tag, w, len(data), j),
-                        '  %s' % next(xxd(data, 8), '')
-                            if not args.get('raw')
-                                and not args.get('no_truncate')
-                            else '')))
+                        '{%s}:' % ','.join('%04x' % block
+                            for block in it.chain(
+                                [mdir.block],
+                                mdir.redund_blocks))
+                            if i == 0 else '',
+                        treerepr(mbid-max(mw-1, 0), 0, md, 0, rid, tag)
+                            if args.get('tree')
+                                or args.get('rbyd')
+                                or args.get('btree')
+                            else '',
+                        '%*s %-*s%s' % (
+                            2*w_width+1, '%d.%d-%d' % (
+                                    mbid//mleaf_weight, rid-(w-1), rid)
+                                if w > 1
+                                else '%d.%d' % (mbid//mleaf_weight, rid)
+                                if w > 0 or i == 0
+                                else '',
+                            21+w_width, tagrepr(tag, w, len(data), j),
+                            '  %s' % next(xxd(data, 8), '')
+                                if not args.get('raw')
+                                    and not args.get('no_truncate')
+                                else '')))
 
                 # show on-disk encoding of tags
                 if args.get('raw'):
                     for o, line in enumerate(xxd(mdir.data[j:j+d])):
                         print('%11s: %*s%*s %s' % (
-                            '%04x' % (j + o*16),
-                            t_width, '',
-                            2*w_width+1, '',
-                            line))
+                                '%04x' % (j + o*16),
+                                t_width, '',
+                                2*w_width+1, '',
+                                line))
                 if args.get('raw') or args.get('no_truncate'):
                     if not tag & TAG_ALT:
                         for o, line in enumerate(xxd(data)):
                             print('%11s: %*s%*s %s' % (
-                                '%04x' % (j+d + o*16),
-                                t_width, '',
-                                2*w_width+1, '',
-                                line))
+                                    '%04x' % (j+d + o*16),
+                                    t_width, '',
+                                    2*w_width+1, '',
+                                    line))
 
         # prbyd here means the last rendered rbyd, we update
         # in dbg_branch to always print interleaved addresses
@@ -1461,59 +1475,61 @@ def main(disk, mroots=None, *,
             # show human-readable representation
             for i, (tag, j, d, data) in enumerate(tags):
                 print('%12s %s%*s %-*s  %s' % (
-                    '%04x.%04x:' % (rbyd.block, rbyd.trunk)
-                        if prbyd is None or rbyd != prbyd
-                        else '',
-                    treerepr(bid, w, bd, rid, 0, tag)
-                        if args.get('tree')
-                            or args.get('rbyd')
-                            or args.get('btree') else '',
-                    2*w_width+1, '' if i != 0
-                        else '%d-%d' % (
+                        '%04x.%04x:' % (rbyd.block, rbyd.trunk)
+                            if prbyd is None or rbyd != prbyd
+                            else '',
+                        treerepr(bid, w, bd, rid, 0, tag)
+                            if args.get('tree')
+                                or args.get('rbyd')
+                                or args.get('btree')
+                            else '',
+                        2*w_width+1, '' if i != 0
+                            else '%d-%d' % (
                                 (bid-(w-1))//mleaf_weight,
                                 bid//mleaf_weight)
                             if (w//mleaf_weight) > 1
-                        else bid//mleaf_weight if w > 0
-                        else '',
-                    21+w_width, tagrepr(
-                        tag, w if i == 0 else 0, len(data), None),
-                    next(xxd(data, 8), '')
-                        if not args.get('raw') and not args.get('no_truncate')
-                        else ''))
+                            else bid//mleaf_weight if w > 0
+                            else '',
+                        21+w_width, tagrepr(
+                            tag, w if i == 0 else 0, len(data), None),
+                        next(xxd(data, 8), '')
+                            if not args.get('raw')
+                                and not args.get('no_truncate')
+                            else ''))
                 prbyd = rbyd
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
                     for o, line in enumerate(xxd(rbyd.data[j:j+d])):
                         print('%11s: %*s%*s %s' % (
-                            '%04x' % (j + o*16),
-                            t_width, '',
-                            2*w_width+1, '',
-                            line))
+                                '%04x' % (j + o*16),
+                                t_width, '',
+                                2*w_width+1, '',
+                                line))
                 if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
                         print('%11s: %*s%*s %s' % (
-                            '%04x' % (j+d + o*16),
-                            t_width, '',
-                            2*w_width+1, '',
-                            line))
+                                '%04x' % (j+d + o*16),
+                                t_width, '',
+                                2*w_width+1, '',
+                                line))
 
 
         #### actual debugging begins here
 
         # print some information about the mtree
         print('mtree %s w%d.%d, rev %08x, cksum %08x' % (
-            mroot.addr(),
-            bweight//mleaf_weight, 1*mleaf_weight,
-            mroot.rev,
-            mroot.cksum))
+                mroot.addr(),
+                bweight//mleaf_weight, 1*mleaf_weight,
+                mroot.rev,
+                mroot.cksum))
 
         # dynamically size the id field
         w_width = max(
-            mt.ceil(mt.log10(max(1, bweight//mleaf_weight)+1)),
-            mt.ceil(mt.log10(max(1, rweight)+1)),
-            # in case of -1.-1
-            2)
+                mt.ceil(mt.log10(max(1, bweight//mleaf_weight)+1)),
+                mt.ceil(mt.log10(max(1, rweight)+1)),
+                # in case of -1.-1
+                2)
 
         # show each mroot
         prbyd = None
@@ -1525,12 +1541,13 @@ def main(disk, mroots=None, *,
             # corrupted?
             if not mroot:
                 print('{%s}: %s%s%s' % (
-                    ','.join('%04x' % block
-                        for block in it.chain([mroot.block],
-                            mroot.redund_blocks)),
-                    '\x1b[31m' if color else '',
-                    '(corrupted mroot %s)' % mroot.addr(),
-                    '\x1b[m' if color else ''))
+                        ','.join('%04x' % block
+                            for block in it.chain(
+                                [mroot.block],
+                                mroot.redund_blocks)),
+                        '\x1b[31m' if color else '',
+                        '(corrupted mroot %s)' % mroot.addr(),
+                        '\x1b[m' if color else ''))
                 corrupted = True
                 break
             else:
@@ -1560,12 +1577,13 @@ def main(disk, mroots=None, *,
                 # corrupted?
                 if not mdir:
                     print('{%s}: %s%s%s' % (
-                        ','.join('%04x' % block
-                            for block in it.chain([mdir.block],
-                                mdir.redund_blocks)),
-                        '\x1b[31m' if color else '',
-                        '(corrupted mdir %s)' % mdir.addr(),
-                        '\x1b[m' if color else ''))
+                            ','.join('%04x' % block
+                                for block in it.chain(
+                                    [mdir.block],
+                                    mdir.redund_blocks)),
+                            '\x1b[31m' if color else '',
+                            '(corrupted mdir %s)' % mdir.addr(),
+                            '\x1b[m' if color else ''))
                     corrupted = True
                 else:
                     # show the mdir
@@ -1582,8 +1600,8 @@ def main(disk, mroots=None, *,
                 mbid = -1
                 while True:
                     done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mbid+1,
-                        depth=args.get('depth', mdepth)-mdepth)
+                            f, block_size, mbid+1,
+                            depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
 
@@ -1607,11 +1625,11 @@ def main(disk, mroots=None, *,
                     # corrupted? try to keep printing the tree
                     if not rbyd:
                         print('%11s: %*s%s%s%s' % (
-                            '%04x.%04x' % (rbyd.block, rbyd.trunk),
-                            t_width, '',
-                            '\x1b[31m' if color else '',
-                            '(corrupted rbyd %s)' % rbyd.addr(),
-                            '\x1b[m' if color else ''))
+                                '%04x.%04x' % (rbyd.block, rbyd.trunk),
+                                t_width, '',
+                                '\x1b[31m' if color else '',
+                                '(corrupted rbyd %s)' % rbyd.addr(),
+                                '\x1b[m' if color else ''))
                         prbyd = rbyd
                         corrupted = True
                         continue
@@ -1630,17 +1648,18 @@ def main(disk, mroots=None, *,
 
                         if name is not None:
                             tags = [name] + [(tag, j, d, data)
-                                for tag, j, d, data in tags
-                                if tag & 0x7f00 != TAG_NAME]
+                                    for tag, j, d, data in tags
+                                    if tag & 0x7f00 != TAG_NAME]
 
                     # found an mdir in the tags?
                     mdir__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(((tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag == TAG_MDIR),
-                            None)
+                        mdir__ = next(
+                                ((tag, j, d, data)
+                                    for tag, j, d, data in tags
+                                    if tag == TAG_MDIR),
+                                None)
 
                     # show other btree entries in certain cases
                     if args.get('inner') or not mdir__:
@@ -1657,13 +1676,14 @@ def main(disk, mroots=None, *,
                     # corrupted?
                     if not mdir_:
                         print('{%s}: %*s%s%s%s' % (
-                            ','.join('%04x' % block
-                                for block in it.chain([mdir_.block],
-                                    mdir_.redund_blocks)),
-                            t_width, '',
-                            '\x1b[31m' if color else '',
-                            '(corrupted mdir %s)' % mdir_.addr(),
-                            '\x1b[m' if color else ''))
+                                ','.join('%04x' % block
+                                    for block in it.chain(
+                                        [mdir_.block],
+                                        mdir_.redund_blocks)),
+                                t_width, '',
+                                '\x1b[31m' if color else '',
+                                '(corrupted mdir %s)' % mdir_.addr(),
+                                '\x1b[m' if color else ''))
                         corrupted = True
                     else:
                         # show the mdir
@@ -1680,63 +1700,63 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Debug littlefs's metadata tree.",
-        allow_abbrev=False)
+            description="Debug littlefs's metadata tree.",
+            allow_abbrev=False)
     parser.add_argument(
-        'disk',
-        help="File containing the block device.")
+            'disk',
+            help="File containing the block device.")
     parser.add_argument(
-        'mroots',
-        nargs='*',
-        type=rbydaddr,
-        help="Block address of the mroots. Defaults to 0x{0,1}.")
+            'mroots',
+            nargs='*',
+            type=rbydaddr,
+            help="Block address of the mroots. Defaults to 0x{0,1}.")
     parser.add_argument(
-        '-b', '--block-size',
-        type=bdgeom,
-        help="Block size/geometry in bytes.")
+            '-b', '--block-size',
+            type=bdgeom,
+            help="Block size/geometry in bytes.")
     parser.add_argument(
-        '--block-count',
-        type=lambda x: int(x, 0),
-        help="Block count in blocks.")
+            '--block-count',
+            type=lambda x: int(x, 0),
+            help="Block count in blocks.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-r', '--raw',
-        action='store_true',
-        help="Show the raw data including tag encodings.")
+            '-r', '--raw',
+            action='store_true',
+            help="Show the raw data including tag encodings.")
     parser.add_argument(
-        '-T', '--no-truncate',
-        action='store_true',
-        help="Don't truncate, show the full contents.")
+            '-T', '--no-truncate',
+            action='store_true',
+            help="Don't truncate, show the full contents.")
     parser.add_argument(
-        '-t', '--tree',
-        action='store_true',
-        help="Show the underlying rbyd trees.")
+            '-t', '--tree',
+            action='store_true',
+            help="Show the underlying rbyd trees.")
     parser.add_argument(
-        '-B', '--btree',
-        action='store_true',
-        help="Show the underlying B-trees.")
+            '-B', '--btree',
+            action='store_true',
+            help="Show the underlying B-trees.")
     parser.add_argument(
-        '-R', '--rbyd',
-        action='store_true',
-        help="Show the full underlying rbyd trees.")
+            '-R', '--rbyd',
+            action='store_true',
+            help="Show the full underlying rbyd trees.")
     parser.add_argument(
-        '-i', '--inner',
-        action='store_true',
-        help="Show inner branches.")
+            '-i', '--inner',
+            action='store_true',
+            help="Show inner branches.")
     parser.add_argument(
-        '-z', '--depth',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Depth of tree to show.")
+            '-z', '--depth',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Depth of tree to show.")
     parser.add_argument(
-        '-e', '--error-on-corrupt',
-        action='store_true',
-        help="Error if the filesystem is corrupt.")
+            '-e', '--error-on-corrupt',
+            action='store_true',
+            help="Error if the filesystem is corrupt.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

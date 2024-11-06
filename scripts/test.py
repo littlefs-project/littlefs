@@ -61,13 +61,13 @@ class TestCase:
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
-            config.pop('suite_in', None))
+                config.pop('suite_in', None))
         self.fuzz_ = config.pop('fuzz',
-            config.pop('suite_fuzz', None))
+                config.pop('suite_fuzz', None))
 
         self.internal = bool(self.in_)
         self.reentrant = config.pop('reentrant',
-            config.pop('suite_reentrant', False))
+                config.pop('suite_reentrant', False))
         self.fuzz = bool(self.fuzz_)
 
         # figure out defines and build possible permutations
@@ -109,17 +109,17 @@ class TestCase:
                 vs = []
                 for v_ in csplit(v):
                     m = re.search(r'\brange\b\s*\('
-                        '(?P<start>[^,\s]*)'
-                        '\s*(?:,\s*(?P<stop>[^,\s]*)'
-                        '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
-                        v_)
+                                '(?P<start>[^,\s]*)'
+                                '\s*(?:,\s*(?P<stop>[^,\s]*)'
+                                '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
+                            v_)
                     if m:
                         start = (int(m.group('start'), 0)
-                            if m.group('start') else 0)
+                                if m.group('start') else 0)
                         stop = (int(m.group('stop'), 0)
-                            if m.group('stop') else None)
+                                if m.group('stop') else None)
                         step = (int(m.group('step'), 0)
-                            if m.group('step') else 1)
+                                if m.group('step') else 1)
                         if m.lastindex <= 1:
                             start, stop = 0, start
                         vs.append(range(start, stop, step))
@@ -138,15 +138,15 @@ class TestCase:
             for defines_ in defines:
                 self.defines |= defines_.keys()
                 self.permutations.append({
-                    k: parse_define(v)
-                    for k, v in (suite_defines_ | defines_).items()})
+                        k: parse_define(v)
+                            for k, v in (suite_defines_ | defines_).items()})
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                '\x1b[01;33m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                self.name,
-                k),
+                    '\x1b[01;33m' if args['color'] else '',
+                    '\x1b[m' if args['color'] else '',
+                    self.name,
+                    k),
                 file=sys.stderr)
 
     def __repr__(self):
@@ -155,12 +155,12 @@ class TestCase:
     def __lt__(self, other):
         # sort by suite, lineno, and name
         return ((self.suite, self.lineno, self.name)
-            < (other.suite, other.lineno, other.name))
+                < (other.suite, other.lineno, other.name))
 
     def isin(self, path):
         return (self.in_ is not None
-            and os.path.normpath(self.in_)
-                == os.path.normpath(path))
+                and os.path.normpath(self.in_)
+                    == os.path.normpath(path))
 
 
 class TestSuite:
@@ -182,9 +182,9 @@ class TestSuite:
             code_linenos = []
             for i, line in enumerate(f):
                 match = re.match(
-                    '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
-                        '|' '(?P<code>code\s*=)',
-                    line)
+                        '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
+                            '|' '(?P<code>code\s*=)',
+                        line)
                 if match and match.group('case'):
                     case_linenos.append((i+1, match.group('name')))
                 elif match and match.group('code'):
@@ -198,8 +198,9 @@ class TestSuite:
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
                 code_lineno = min(
-                    (l for l in code_linenos if l >= lineno and l < nlineno),
-                    default=None)
+                        (l for l in code_linenos
+                            if l >= lineno and l < nlineno),
+                        default=None)
                 cases[name]['lineno'] = lineno
                 cases[name]['code_lineno'] = code_lineno
 
@@ -213,9 +214,9 @@ class TestSuite:
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
-                (l for l in code_linenos
-                    if not case_linenos or l < case_linenos[0][0]),
-                default=None)
+                    (l for l in code_linenos
+                        if not case_linenos or l < case_linenos[0][0]),
+                    default=None)
             self.in_ = config.pop('in', None)
             self.fuzz_ = config.pop('fuzz', None)
 
@@ -229,24 +230,25 @@ class TestSuite:
 
             self.cases = []
             for name, case in cases.items():
-                self.cases.append(TestCase(config={
-                    'name': name,
-                    'path': path + (':%d' % case['lineno']
-                        if 'lineno' in case else ''),
-                    'suite': self.name,
-                    'suite_defines': defines,
-                    'suite_in': self.in_,
-                    'suite_reentrant': reentrant,
-                    'suite_fuzz': self.fuzz_,
-                    **case},
-                    args=args))
+                self.cases.append(TestCase(
+                        config={
+                            'name': name,
+                            'path': path + (':%d' % case['lineno']
+                                if 'lineno' in case else ''),
+                            'suite': self.name,
+                            'suite_defines': defines,
+                            'suite_in': self.in_,
+                            'suite_reentrant': reentrant,
+                            'suite_fuzz': self.fuzz_,
+                            **case},
+                        args=args))
 
             # sort for consistency
             self.cases.sort()
 
             # combine per-case defines
             self.defines = set.union(set(), *(
-                set(case.defines) for case in self.cases))
+                    set(case.defines) for case in self.cases))
 
             # combine other per-case things
             self.internal = any(case.internal for case in self.cases)
@@ -255,11 +257,11 @@ class TestSuite:
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                '\x1b[01;33m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                self.name,
-                k),
-                file=sys.stderr)
+                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        self.name,
+                        k),
+                    file=sys.stderr)
 
     def __repr__(self):
         return '<TestSuite %s>' % self.name
@@ -272,8 +274,8 @@ class TestSuite:
 
     def isin(self, path):
         return (self.in_ is not None
-            and os.path.normpath(self.in_)
-                == os.path.normpath(path))
+                and os.path.normpath(self.in_)
+                    == os.path.normpath(path))
 
 
 def compile(test_paths, **args):
@@ -296,10 +298,10 @@ def compile(test_paths, **args):
 
         if len(pending_) == len(pending):
             print('%serror:%s cycle detected in suite ordering: {%s}' % (
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                ', '.join(suite.name for suite in pending.values())),
-                file=sys.stderr)
+                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        ', '.join(suite.name for suite in pending.values())),
+                    file=sys.stderr)
             sys.exit(-1)
 
         pending = pending_
@@ -310,36 +312,36 @@ def compile(test_paths, **args):
     for suite in suites:
         if suite.name in seen:
             print('%swarning:%s conflicting suite %r, %s and %s' % (
-                '\x1b[01;33m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                suite.name,
-                suite.path,
-                seen[suite.name].path),
-                file=sys.stderr)
+                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        suite.name,
+                        suite.path,
+                        seen[suite.name].path),
+                    file=sys.stderr)
         seen[suite.name] = suite
 
         for case in suite.cases:
             # only allow conflicts if a case and its suite share a name
             if case.name in seen and not (
                     isinstance(seen[case.name], TestSuite)
-                    and seen[case.name].cases == [case]):
+                        and seen[case.name].cases == [case]):
                 print('%swarning:%s conflicting case %r, %s and %s' % (
-                    '\x1b[01;33m' if args['color'] else '',
-                    '\x1b[m' if args['color'] else '',
-                    case.name,
-                    case.path,
-                    seen[case.name].path),
-                    file=sys.stderr)
+                            '\x1b[01;33m' if args['color'] else '',
+                            '\x1b[m' if args['color'] else '',
+                            case.name,
+                            case.path,
+                            seen[case.name].path),
+                        file=sys.stderr)
             seen[case.name] = case
 
     # we can only compile one test suite at a time
     if not args.get('source'):
         if len(suites) > 1:
             print('%serror:%s compiling more than one test suite? (%r)' % (
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                test_paths),
-                file=sys.stderr)
+                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        test_paths),
+                    file=sys.stderr)
             sys.exit(-1)
 
         suite = suites[0]
@@ -385,24 +387,22 @@ def compile(test_paths, **args):
                     for i, permutation in enumerate(case.permutations):
                         for k, vs in sorted(permutation.items()):
                             f.writeln('intmax_t __test__%s__%s__%d('
-                                '__attribute__((unused)) void *data, '
-                                'size_t i) {'
-                                % (case.name, k, i))
+                                    '__attribute__((unused)) void *data, '
+                                    'size_t i) {' % (
+                                        case.name, k, i))
                             j = 0
                             for v in vs:
                                 # generate range
                                 if isinstance(v, range):
-                                    f.writeln(
-                                        4*' '+'if (i < %d) '
-                                        'return (i-%d)*%d + %d;'
-                                        % (j+len(v), j, v.step, v.start))
+                                    f.writeln(4*' '+'if (i < %d) '
+                                            'return (i-%d)*%d + %d;' % (
+                                                j+len(v), j, v.step, v.start))
                                     j += len(v)
                                 # translate index to define
                                 else:
-                                    f.writeln(
-                                        4*' '+'if (i == %d) '
-                                        'return %s;'
-                                        % (j, v))
+                                    f.writeln(4*' '+'if (i == %d) '
+                                            'return %s;' % (
+                                                j, v))
                                     j += 1;
 
                             f.writeln(4*' '+'__builtin_unreachable();')
@@ -411,29 +411,30 @@ def compile(test_paths, **args):
 
                     # create case if function
                     if suite.if_ or case.if_:
-                        f.writeln('bool __test__%s__if(void) {'
-                            % (case.name))
+                        f.writeln('bool __test__%s__if(void) {' % (
+                                case.name))
                         for if_ in it.chain(suite.if_, case.if_):
                             f.writeln(4*' '+'if (!(%s)) return false;' % (
-                                'true' if if_ is True
-                                    else 'false' if if_ is False
-                                    else if_))
+                                    'true' if if_ is True
+                                        else 'false' if if_ is False
+                                        else if_))
                         f.writeln(4*' '+'return true;')
                         f.writeln('}')
                         f.writeln()
 
                     # create case run function
                     f.writeln('void __test__%s__run('
-                        '__attribute__((unused)) struct lfs_config *CFG) {'
-                        % (case.name))
+                            '__attribute__((unused)) '
+                            'struct lfs_config *CFG) {' % (
+                                case.name))
                     f.writeln(4*' '+'// test case %s' % case.name)
                     if case.code_lineno is not None:
-                        f.writeln(4*' '+'#line %d "%s"'
-                            % (case.code_lineno, suite.path))
+                        f.writeln(4*' '+'#line %d "%s"' % (
+                                case.code_lineno, suite.path))
                     f.write(case.code)
                     if case.code_lineno is not None:
-                        f.writeln(4*' '+'#line %d "%s"'
-                            % (f.lineno+1, args['output']))
+                        f.writeln(4*' '+'#line %d "%s"' % (
+                                f.lineno+1, args['output']))
                     f.writeln('}')
                     f.writeln()
 
@@ -453,19 +454,19 @@ def compile(test_paths, **args):
                 # write any suite defines
                 if suite.defines:
                     for define in sorted(suite.defines):
-                        f.writeln('__attribute__((weak)) intmax_t %s;'
-                            % define)
+                        f.writeln('__attribute__((weak)) intmax_t %s;' % (
+                                define))
                     f.writeln()
 
                 # write any suite code
                 if suite.code is not None and suite.in_ is None:
                     if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (suite.code_lineno, suite.path))
+                        f.writeln('#line %d "%s"' % (
+                                suite.code_lineno, suite.path))
                     f.write(suite.code)
                     if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (f.lineno+1, args['output']))
+                        f.writeln('#line %d "%s"' % (
+                                f.lineno+1, args['output']))
                     f.writeln()
 
                 # create case functions
@@ -476,15 +477,15 @@ def compile(test_paths, **args):
                         for i, permutation in enumerate(case.permutations):
                             for k, vs in sorted(permutation.items()):
                                 f.writeln('extern intmax_t __test__%s__%s__%d('
-                                    'void *data, size_t i);'
-                                    % (case.name, k, i))
+                                        'void *data, size_t i);' % (
+                                            case.name, k, i))
                         if suite.if_ or case.if_:
                             f.writeln('extern bool __test__%s__if('
-                                'void);'
-                                % (case.name))
+                                    'void);' % (
+                                        case.name))
                         f.writeln('extern void __test__%s__run('
-                            'struct lfs_config *CFG);'
-                            % (case.name))
+                                'struct lfs_config *CFG);' % (
+                                    case.name))
                         f.writeln()
 
                 # write any ifdef epilogues
@@ -494,24 +495,24 @@ def compile(test_paths, **args):
                     f.writeln()
 
                 # create suite struct
-                f.writeln('const struct test_suite __test__%s__suite = {'
-                    % suite.name)
+                f.writeln('const struct test_suite __test__%s__suite = {' % (
+                        suite.name))
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
-                f.writeln(4*' '+'.flags = %s,'
-                    % (' | '.join(filter(None, [
-                        'TEST_INTERNAL' if suite.internal else None,
-                        'TEST_REENTRANT' if suite.reentrant else None,
-                        'TEST_FUZZ' if suite.fuzz else None]))
-                        or 0))
+                f.writeln(4*' '+'.flags = %s,' % (
+                        ' | '.join(filter(None, [
+                                'TEST_INTERNAL' if suite.internal else None,
+                                'TEST_REENTRANT' if suite.reentrant else None,
+                                'TEST_FUZZ' if suite.fuzz else None]))
+                            or 0))
                 for ifdef in suite.ifdef:
                     f.writeln(4*' '+'#ifdef %s' % ifdef)
                 # create suite defines
                 if suite.defines:
                     f.writeln(4*' '+'.defines = (const test_define_t[]){')
                     for k in sorted(suite.defines):
-                        f.writeln(8*' '+'{"%s", &%s, NULL, NULL, 0},'
-                            % (k, k))
+                        f.writeln(8*' '+'{"%s", &%s, NULL, NULL, 0},' % (
+                                k, k))
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
                 for ifdef in suite.ifdef:
@@ -523,41 +524,45 @@ def compile(test_paths, **args):
                         f.writeln(8*' '+'{')
                         f.writeln(12*' '+'.name = "%s",' % case.name)
                         f.writeln(12*' '+'.path = "%s",' % case.path)
-                        f.writeln(12*' '+'.flags = %s,'
-                            % (' | '.join(filter(None, [
-                                'TEST_INTERNAL' if case.internal else None,
-                                'TEST_REENTRANT' if case.reentrant else None,
-                                'TEST_FUZZ' if case.fuzz else None]))
-                                or 0))
+                        f.writeln(12*' '+'.flags = %s,' % (
+                                ' | '.join(filter(None, [
+                                        'TEST_INTERNAL' if case.internal
+                                            else None,
+                                        'TEST_REENTRANT' if case.reentrant
+                                            else None,
+                                        'TEST_FUZZ' if case.fuzz
+                                            else None]))
+                                    or 0))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
                             f.writeln(12*' '+'#ifdef %s' % ifdef)
                         # create case defines
                         if case.defines:
                             f.writeln(12*' '+'.defines'
-                                ' = (const test_define_t*)'
-                                    '(const test_define_t[][%d]){'
-                                % (len(suite.defines)))
+                                    ' = (const test_define_t*)'
+                                    '(const test_define_t[][%d]){' % (
+                                        len(suite.defines)))
                             for i, permutation in enumerate(case.permutations):
                                 f.writeln(16*' '+'{')
                                 for k, vs in sorted(permutation.items()):
                                     f.writeln(20*' '+'[%d] = {'
                                             '"%s", &%s, '
-                                            '__test__%s__%s__%d, NULL, %d},'
-                                        % (sorted(suite.defines).index(k),
-                                            k, k, case.name, k, i,
-                                            sum(len(v)
-                                                if isinstance(v, range)
-                                                else 1
-                                            for v in vs)))
+                                            '__test__%s__%s__%d, '
+                                            'NULL, %d},' % (
+                                                sorted(suite.defines).index(k),
+                                                k, k, case.name, k, i,
+                                                sum(len(v)
+                                                        if isinstance(v, range)
+                                                        else 1
+                                                    for v in vs)))
                                 f.writeln(16*' '+'},')
                             f.writeln(12*' '+'},')
-                            f.writeln(12*' '+'.permutations = %d,'
-                                % len(case.permutations))
+                            f.writeln(12*' '+'.permutations = %d,' % (
+                                    len(case.permutations)))
                         if suite.if_ or case.if_:
-                            f.writeln(12*' '+'.if_ = __test__%s__if,'
-                                % (case.name))
-                        f.writeln(12*' '+'.run = __test__%s__run,'
-                            % (case.name))
+                            f.writeln(12*' '+'.if_ = __test__%s__if,' % (
+                                    case.name))
+                        f.writeln(12*' '+'.run = __test__%s__run,' % (
+                                case.name))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
                             f.writeln(12*' '+'#endif')
                         f.writeln(8*' '+'},')
@@ -576,18 +581,18 @@ def compile(test_paths, **args):
                 # merge all defines we need, otherwise we will run into
                 # redefinition errors
                 defines = ({define
-                        for suite in suites
-                        if suite.isin(args['source'])
-                        for define in suite.defines}
-                    | {define
-                        for suite in suites
-                        for case in suite.cases
-                        if case.isin(args['source'])
-                        for define in case.defines})
+                            for suite in suites
+                            if suite.isin(args['source'])
+                            for define in suite.defines}
+                        | {define
+                            for suite in suites
+                            for case in suite.cases
+                            if case.isin(args['source'])
+                            for define in case.defines})
                 if defines:
                     for define in sorted(defines):
-                        f.writeln('__attribute__((weak)) intmax_t %s;'
-                            % define)
+                        f.writeln('__attribute__((weak)) intmax_t %s;' % (
+                                define))
                     f.writeln()
 
                 # write any internal tests
@@ -601,12 +606,12 @@ def compile(test_paths, **args):
                     # any suite code
                     if suite.isin(args['source']):
                         if suite.code_lineno is not None:
-                            f.writeln('#line %d "%s"'
-                                % (suite.code_lineno, suite.path))
+                            f.writeln('#line %d "%s"' % (
+                                    suite.code_lineno, suite.path))
                         f.write(suite.code)
                         if suite.code_lineno is not None:
-                            f.writeln('#line %d "%s"'
-                                % (f.lineno+1, args['output']))
+                            f.writeln('#line %d "%s"' % (
+                                    f.lineno+1, args['output']))
                         f.writeln()
 
                     # any case functions
@@ -627,7 +632,8 @@ def compile(test_paths, **args):
                 # will be linked
                 for suite in suites:
                     f.writeln('extern const struct test_suite '
-                        '__test__%s__suite;' % suite.name)
+                            '__test__%s__suite;' % (
+                                suite.name))
                 f.writeln()
 
                 f.writeln('__attribute__((weak))')
@@ -652,24 +658,24 @@ def find_runner(runner, id=None, **args):
     # run under valgrind?
     if args.get('valgrind'):
         cmd[:0] = args['valgrind_path'] + [
-            '--leak-check=full',
-            '--track-origins=yes',
-            '--error-exitcode=4',
-            '-q']
+                '--leak-check=full',
+                '--track-origins=yes',
+                '--error-exitcode=4',
+                '-q']
 
     # run under perf?
     if args.get('perf'):
         cmd[:0] = args['perf_script'] + list(filter(None, [
-            '-R',
-            '--perf-freq=%s' % args['perf_freq']
-                if args.get('perf_freq') else None,
-            '--perf-period=%s' % args['perf_period']
-                if args.get('perf_period') else None,
-            '--perf-events=%s' % args['perf_events']
-                if args.get('perf_events') else None,
-            '--perf-path=%s' % args['perf_path']
-                if args.get('perf_path') else None,
-            '-o%s' % args['perf']]))
+                '-R',
+                '--perf-freq=%s' % args['perf_freq']
+                    if args.get('perf_freq') else None,
+                '--perf-period=%s' % args['perf_period']
+                    if args.get('perf_period') else None,
+                '--perf-events=%s' % args['perf_events']
+                    if args.get('perf_events') else None,
+                '--perf-path=%s' % args['perf_path']
+                    if args.get('perf_path') else None,
+                '-o%s' % args['perf']]))
 
     # other context
     if args.get('define_depth'):
@@ -722,15 +728,15 @@ def find_perms(runner, test_ids=[], **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<flags>[^\s]+)'
-            '\s+(?P<filtered>\d+)/(?P<perms>\d+)')
+            '^(?P<case>[^\s]+)'
+                '\s+(?P<flags>[^\s]+)'
+                '\s+(?P<filtered>\d+)/(?P<perms>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -738,8 +744,8 @@ def find_perms(runner, test_ids=[], **args):
             filtered = int(m.group('filtered'))
             perms = int(m.group('perms'))
             expected_case_perms[m.group('case')] = (
-                expected_case_perms.get(m.group('case'), 0)
-                + filtered)
+                    expected_case_perms.get(m.group('case'), 0)
+                        + filtered)
             expected_perms += filtered
             total_perms += perms
     proc.wait()
@@ -754,14 +760,14 @@ def find_perms(runner, test_ids=[], **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+            '^(?P<case>[^\s]+)'
+                '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -783,15 +789,14 @@ def find_perms(runner, test_ids=[], **args):
     expected_suite_perms = co.OrderedDict()
     for case, suite in case_suites.items():
         expected_suite_perms[suite] = (
-            expected_suite_perms.get(suite, 0)
-            + expected_case_perms.get(case, 0))
+                expected_suite_perms.get(suite, 0)
+                    + expected_case_perms.get(case, 0))
 
-    return (
-        case_suites,
-        expected_suite_perms,
-        expected_case_perms,
-        expected_perms,
-        total_perms)
+    return (case_suites,
+            expected_suite_perms,
+            expected_case_perms,
+            expected_perms,
+            total_perms)
 
 def find_path(runner, id, **args):
     runner_ = find_runner(runner, id, **args)
@@ -801,14 +806,14 @@ def find_path(runner, id, **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+            '^(?P<case>[^\s]+)'
+                '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -832,11 +837,11 @@ def find_defines(runner, id, **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     defines = co.OrderedDict()
     pattern = re.compile('^(?P<define>\w+)=(?P<value>.+)')
     for line in proc.stdout:
@@ -864,10 +869,10 @@ def find_ids(runner, test_ids=[], **args):
 
     # lookup suites/cases
     (suite_cases,
-        expected_suite_perms,
-        expected_case_perms,
-        _,
-        _) = find_perms(runner, **args)
+            expected_suite_perms,
+            expected_case_perms,
+            _,
+            _) = find_perms(runner, **args)
 
     # no ids => all ids, before we evaluate globs
     if not test_ids and args.get('by_cases'):
@@ -884,12 +889,12 @@ def find_ids(runner, test_ids=[], **args):
         # resolve globs
         if '*' in name:
             test_ids__.extend(suite
-                for suite in expected_suite_perms.keys()
-                if fnmatch.fnmatch(suite, name))
+                    for suite in expected_suite_perms.keys()
+                    if fnmatch.fnmatch(suite, name))
             if not test_ids__:
                 test_ids__.extend(case_
-                    for case_ in expected_case_perms.keys()
-                    if fnmatch.fnmatch(case_, name))
+                        for case_ in expected_case_perms.keys()
+                        if fnmatch.fnmatch(case_, name))
         # literal suite
         elif name in expected_suite_perms:
             test_ids__.append(id)
@@ -900,10 +905,10 @@ def find_ids(runner, test_ids=[], **args):
         # no suite/case found? error
         if not test_ids__:
             print('%serror:%s no tests match id %r?' % (
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                id),
-                file=sys.stderr)
+                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        id),
+                    file=sys.stderr)
             sys.exit(-1)
 
         test_ids_.extend(test_ids__)
@@ -993,10 +998,10 @@ class TestFailure(Exception):
 def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
     (case_suites,
-        expected_suite_perms,
-        expected_case_perms,
-        expected_perms,
-        total_perms) = find_perms(runner, test_ids, **args)
+            expected_suite_perms,
+            expected_case_perms,
+            expected_perms,
+            total_perms) = find_perms(runner, test_ids, **args)
 
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
@@ -1007,11 +1012,11 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     killed = False
 
     pattern = re.compile('^(?:'
-            '(?P<op>running|finished|skipped|powerloss) '
-                '(?P<id>(?P<case>[^:]+)[^\s]*)'
-            '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
-                ' *(?P<message>.*)'
-        ')$')
+                '(?P<op>running|finished|skipped|powerloss) '
+                    '(?P<id>(?P<case>[^:]+)[^\s]*)'
+                '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
+                    ' *(?P<message>.*)'
+            ')$')
     locals = th.local()
     children = set()
 
@@ -1082,21 +1087,21 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                         if output_:
                             # get defines and write to csv
                             defines = find_defines(
-                                runner, m.group('id'), **args)
+                                    runner, m.group('id'), **args)
                             output_.writerow({
-                                'suite': suite,
-                                'case': case,
-                                **defines,
-                                'passed': '1/1',
-                                'time': '%.6f' % (
-                                    time.time() - last_time)})
+                                    'suite': suite,
+                                    'case': case,
+                                    **defines,
+                                    'passed': '1/1',
+                                    'time': '%.6f' % (
+                                        time.time() - last_time)})
                     elif op == 'skipped':
                         locals.seen_perms += 1
                     elif op == 'assert':
                         last_assert = (
-                            m.group('path'),
-                            int(m.group('lineno')),
-                            m.group('message'))
+                                m.group('path'),
+                                int(m.group('lineno')),
+                                m.group('message'))
                         # go ahead and kill the process, aborting takes a while
                         if args.get('keep_going'):
                             proc.kill()
@@ -1110,10 +1115,10 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
         proc.wait()
         if proc.returncode != 0:
             raise TestFailure(
-                last_id,
-                proc.returncode,
-                list(last_stdout),
-                last_assert)
+                    last_id,
+                    proc.returncode,
+                    list(last_stdout),
+                    last_assert)
 
     def run_job(start=None, step=None):
         nonlocal failed_perms
@@ -1147,10 +1152,10 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                     # get defines and write to csv
                     defines = find_defines(runner, failure.id, **args)
                     output_.writerow({
-                        'suite': suite,
-                        'case': case,
-                        'passed': '0/1',
-                        **defines})
+                            'suite': suite,
+                            'case': case,
+                            'passed': '0/1',
+                            **defines})
 
                 # race condition for multiple failures?
                 if not failures or args.get('keep_going'):
@@ -1181,46 +1186,46 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     if 'jobs' in args:
         for job in range(args['jobs']):
             runners.append(th.Thread(
-                target=run_job, args=(job, args['jobs']),
-                daemon=True))
+                    target=run_job, args=(job, args['jobs']),
+                    daemon=True))
     else:
         runners.append(th.Thread(
-            target=run_job, args=(None, None),
-            daemon=True))
+                target=run_job, args=(None, None),
+                daemon=True))
 
     def print_update(done):
         if (not args.get('verbose')
                 and not args.get('stdout') == '-'
                 and (args['color'] or done)):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
-                '\r\x1b[K' if args['color'] else '',
-                '\x1b[?7l' if not done else '',
-                ('\x1b[32m' if not failed_perms else '\x1b[31m')
-                    if args['color'] else '',
-                name,
-                '\x1b[m' if args['color'] else '',
-                ', '.join(filter(None, [
-                    '%d/%d suites' % (
-                        sum(passed_suite_perms[k] == v
-                            for k, v in expected_suite_perms.items()),
-                        len(expected_suite_perms))
-                        if (not args.get('by_suites')
-                            and not args.get('by_cases')) else None,
-                    '%d/%d cases' % (
-                        sum(passed_case_perms[k] == v
-                            for k, v in expected_case_perms.items()),
-                        len(expected_case_perms))
-                        if not args.get('by_cases') else None,
-                    '%d/%d perms' % (passed_perms, expected_perms),
-                    '%dpls!' % powerlosses
-                        if powerlosses else None,
-                    '%s%d/%d failures%s' % (
-                            '\x1b[31m' if args['color'] else '',
-                            failed_perms,
-                            expected_perms,
-                            '\x1b[m' if args['color'] else '')
-                        if failed_perms else None])),
-                '\x1b[?7h' if not done else '\n'))
+                    '\r\x1b[K' if args['color'] else '',
+                    '\x1b[?7l' if not done else '',
+                    ('\x1b[32m' if not failed_perms else '\x1b[31m')
+                        if args['color'] else '',
+                    name,
+                    '\x1b[m' if args['color'] else '',
+                    ', '.join(filter(None, [
+                        '%d/%d suites' % (
+                                sum(passed_suite_perms[k] == v
+                                    for k, v in expected_suite_perms.items()),
+                                len(expected_suite_perms))
+                            if (not args.get('by_suites')
+                                and not args.get('by_cases')) else None,
+                        '%d/%d cases' % (
+                                sum(passed_case_perms[k] == v
+                                    for k, v in expected_case_perms.items()),
+                                len(expected_case_perms))
+                            if not args.get('by_cases') else None,
+                        '%d/%d perms' % (passed_perms, expected_perms),
+                        '%dpls!' % powerlosses
+                            if powerlosses else None,
+                        '%s%d/%d failures%s' % (
+                                '\x1b[31m' if args['color'] else '',
+                                failed_perms,
+                                expected_perms,
+                                '\x1b[m' if args['color'] else '')
+                            if failed_perms else None])),
+                    '\x1b[?7h' if not done else '\n'))
             sys.stdout.flush()
 
     for r in runners:
@@ -1240,32 +1245,31 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     for r in runners:
         r.join()
 
-    return (
-        expected_perms,
-        passed_perms,
-        failed_perms,
-        powerlosses,
-        failures,
-        killed)
+    return (expected_perms,
+            passed_perms,
+            failed_perms,
+            powerlosses,
+            failures,
+            killed)
 
 
 def run(runner, test_ids=[], **args):
     # query runner for tests
     print('using runner: %s' % ' '.join(
-        shlex.quote(c) for c in find_runner(runner, **args)))
+            shlex.quote(c) for c in find_runner(runner, **args)))
 
     # query ids, perms, etc
     test_ids = find_ids(runner, test_ids, **args)
     (_,
-        expected_suite_perms,
-        expected_case_perms,
-        expected_perms,
-        total_perms) = find_perms(runner, test_ids, **args)
+            expected_suite_perms,
+            expected_case_perms,
+            expected_perms,
+            total_perms) = find_perms(runner, test_ids, **args)
     print('found %d suites, %d cases, %d/%d permutations' % (
-        len(expected_suite_perms),
-        len(expected_case_perms),
-        expected_perms,
-        total_perms))
+            len(expected_suite_perms),
+            len(expected_case_perms),
+            expected_perms,
+            total_perms))
     print()
 
     # automatic job detection?
@@ -1282,8 +1286,8 @@ def run(runner, test_ids=[], **args):
     output = None
     if args.get('output'):
         output = TestOutput(args['output'],
-            ['suite', 'case'],
-            ['passed', 'time'])
+                ['suite', 'case'],
+                ['passed', 'time'])
 
     # measure runtime
     start = time.time()
@@ -1297,18 +1301,18 @@ def run(runner, test_ids=[], **args):
     for by in (test_ids if test_ids else [None]):
         # spawn jobs for stage
         (expected_,
-            passed_,
-            failed_,
-            powerlosses_,
-            failures_,
-            killed) = run_stage(
-                by or 'tests',
-                runner,
-                [by] if by is not None else [],
-                stdout,
-                trace,
-                output,
-                **args)
+                passed_,
+                failed_,
+                powerlosses_,
+                failures_,
+                killed) = run_stage(
+                    by or 'tests',
+                    runner,
+                    [by] if by is not None else [],
+                    stdout,
+                    trace,
+                    output,
+                    **args)
         # collect passes/failures
         expected += expected_
         passed += passed_
@@ -1317,8 +1321,8 @@ def run(runner, test_ids=[], **args):
         # do not store more failures than we need to, otherwise we
         # quickly explode RAM when a common bug fails a bunch of cases
         failures.extend(failures_[:max(
-            args.get('failures', 3) - len(failures),
-            0)])
+                args.get('failures', 3) - len(failures),
+                0)])
         if (failed and not args.get('keep_going')) or killed:
             break
 
@@ -1340,21 +1344,21 @@ def run(runner, test_ids=[], **args):
     # show summary
     print()
     print('%sdone:%s %s' % (
-        ('\x1b[32m' if not failed else '\x1b[31m')
-            if args['color'] else '',
-        '\x1b[m' if args['color'] else '',
-        ', '.join(filter(None, [
-            '%d/%d passed' % (passed, expected),
-            '%d/%d failed' % (failed, expected),
-            '%dpls!' % powerlosses if powerlosses else None,
-            'in %.2fs' % (stop-start)]))))
+            ('\x1b[32m' if not failed else '\x1b[31m')
+                if args['color'] else '',
+            '\x1b[m' if args['color'] else '',
+            ', '.join(filter(None, [
+                '%d/%d passed' % (passed, expected),
+                '%d/%d failed' % (failed, expected),
+                '%dpls!' % powerlosses if powerlosses else None,
+                'in %.2fs' % (stop-start)]))))
     print()
 
     # print each failure
     for failure in failures[:args.get('failures', 3)]:
         assert failure.id is not None, '%s broken? %r' % (
-            ' '.join(shlex.quote(c) for c in find_runner(runner, **args)),
-            failure)
+                ' '.join(shlex.quote(c) for c in find_runner(runner, **args)),
+                failure)
 
         # get some extra info from runner
         path, lineno = find_path(runner, failure.id, **args)
@@ -1362,13 +1366,14 @@ def run(runner, test_ids=[], **args):
 
         # show summary of failure
         print('%s%s:%d:%sfailure:%s %s%s failed' % (
-            '\x1b[01m' if args['color'] else '',
-            path, lineno,
-            '\x1b[01;31m' if args['color'] else '',
-            '\x1b[m' if args['color'] else '',
-            failure.id,
-            ' (%s)' % ', '.join('%s=%s' % (k,v) for k,v in defines.items())
-                if defines else ''))
+                '\x1b[01m' if args['color'] else '',
+                path, lineno,
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                failure.id,
+                ' (%s)' % ', '.join('%s=%s' % (k,v)
+                    for k,v in defines.items())
+                    if defines else ''))
 
         if failure.stdout:
             stdout = failure.stdout
@@ -1380,11 +1385,11 @@ def run(runner, test_ids=[], **args):
         if failure.assert_ is not None:
             path, lineno, message = failure.assert_
             print('%s%s:%d:%sassert:%s %s' % (
-                '\x1b[01m' if args['color'] else '',
-                path, lineno,
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                message))
+                    '\x1b[01m' if args['color'] else '',
+                    path, lineno,
+                    '\x1b[01;31m' if args['color'] else '',
+                    '\x1b[m' if args['color'] else '',
+                    message))
             with open(path) as f:
                 line = next(it.islice(f, lineno-1, None)).strip('\n')
                 print(line)
@@ -1405,57 +1410,57 @@ def run(runner, test_ids=[], **args):
             # can be helpful
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break main',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break main',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'run',
+                    '--args']
         elif args.get('gdb_perm'):
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'run',
+                    '--args']
         elif args.get('gdb_pl') is not None:
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'ignore 1 %d' % args['gdb_pl'],
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'ignore 1 %d' % args['gdb_pl'],
+                    '-ex', 'run',
+                    '--args']
         elif args.get('gdb_pl_before'):
             # figure out how many powerlosses there were
             powerlosses = (
-                sum(1 for _ in re.finditer('[0-9a-f]',
-                    failure.id.split(':', 2)[-1]))
-                if failure.id.count(':') >= 2 else 0)
+                    sum(1 for _ in re.finditer('[0-9a-f]',
+                            failure.id.split(':', 2)[-1]))
+                        if failure.id.count(':') >= 2 else 0)
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'ignore 1 %d' % max(powerlosses-1, 0),
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'ignore 1 %d' % max(powerlosses-1, 0),
+                    '-ex', 'run',
+                    '--args']
         elif args.get('gdb_pl_after'):
             # figure out how many powerlosses there were
             powerlosses = (
-                sum(1 for _ in re.finditer('[0-9a-f]',
-                    failure.id.split(':', 2)[-1]))
-                if failure.id.count(':') >= 2 else 0)
+                    sum(1 for _ in re.finditer('[0-9a-f]',
+                            failure.id.split(':', 2)[-1]))
+                        if failure.id.count(':') >= 2 else 0)
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'ignore 1 %d' % powerlosses,
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'ignore 1 %d' % powerlosses,
+                    '-ex', 'run',
+                    '--args']
         else:
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'run',
+                    '--args']
 
         # exec gdb interactively
         if args.get('verbose'):
@@ -1496,247 +1501,251 @@ if __name__ == "__main__":
     argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
     argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
-        description="Build and run tests.",
-        allow_abbrev=False,
-        conflict_handler='ignore')
+            description="Build and run tests.",
+            allow_abbrev=False,
+            conflict_handler='ignore')
     parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help="Output commands that run behind the scenes.")
+            '-v', '--verbose',
+            action='store_true',
+            help="Output commands that run behind the scenes.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
 
     # test flags
     test_parser = parser.add_argument_group('test options')
     test_parser.add_argument(
-        'test_ids',
-        nargs='*',
-        help="Description of tests to run.")
+            'test_ids',
+            nargs='*',
+            help="Description of tests to run.")
     test_parser.add_argument(
-        '-R', '--runner',
-        type=lambda x: x.split(),
-        default=RUNNER_PATH,
-        help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
+            '-R', '--runner',
+            type=lambda x: x.split(),
+            default=RUNNER_PATH,
+            help="Test runner to use for testing. Defaults to "
+                "%r." % RUNNER_PATH)
     test_parser.add_argument(
-        '-Y', '--summary',
-        action='store_true',
-        help="Show quick summary.")
+            '-Y', '--summary',
+            action='store_true',
+            help="Show quick summary.")
     test_parser.add_argument(
-        '-l', '--list-suites',
-        action='store_true',
-        help="List test suites.")
+            '-l', '--list-suites',
+            action='store_true',
+            help="List test suites.")
     test_parser.add_argument(
-        '-L', '--list-cases',
-        action='store_true',
-        help="List test cases.")
+            '-L', '--list-cases',
+            action='store_true',
+            help="List test cases.")
     test_parser.add_argument(
-        '--list-suite-paths',
-        action='store_true',
-        help="List the path for each test suite.")
+            '--list-suite-paths',
+            action='store_true',
+            help="List the path for each test suite.")
     test_parser.add_argument(
-        '--list-case-paths',
-        action='store_true',
-        help="List the path and line number for each test case.")
+            '--list-case-paths',
+            action='store_true',
+            help="List the path and line number for each test case.")
     test_parser.add_argument(
-        '--list-defines',
-        action='store_true',
-        help="List all defines in this test-runner.")
+            '--list-defines',
+            action='store_true',
+            help="List all defines in this test-runner.")
     test_parser.add_argument(
-        '--list-permutation-defines',
-        action='store_true',
-        help="List explicit defines in this test-runner.")
+            '--list-permutation-defines',
+            action='store_true',
+            help="List explicit defines in this test-runner.")
     test_parser.add_argument(
-        '--list-implicit-defines',
-        action='store_true',
-        help="List implicit defines in this test-runner.")
+            '--list-implicit-defines',
+            action='store_true',
+            help="List implicit defines in this test-runner.")
     test_parser.add_argument(
-        '--list-powerlosses',
-        action='store_true',
-        help="List the available power-loss scenarios.")
+            '--list-powerlosses',
+            action='store_true',
+            help="List the available power-loss scenarios.")
     test_parser.add_argument(
-        '-D', '--define',
-        action='append',
-        help="Override a test define.")
+            '-D', '--define',
+            action='append',
+            help="Override a test define.")
     test_parser.add_argument(
-        '--define-depth',
-        help="How deep to evaluate recursive defines before erroring.")
+            '--define-depth',
+            help="How deep to evaluate recursive defines before erroring.")
     test_parser.add_argument(
-        '-P', '--powerloss',
-        help="Comma-separated list of power-loss scenarios to test.")
+            '-P', '--powerloss',
+            help="Comma-separated list of power-loss scenarios to test.")
     test_parser.add_argument(
-        '-a', '--all',
-        action='store_true',
-        help="Ignore test filters.")
+            '-a', '--all',
+            action='store_true',
+            help="Ignore test filters.")
     test_parser.add_argument(
-        '-d', '--disk',
-        help="Direct block device operations to this file.")
+            '-d', '--disk',
+            help="Direct block device operations to this file.")
     test_parser.add_argument(
-        '-t', '--trace',
-        help="Direct trace output to this file.")
+            '-t', '--trace',
+            help="Direct trace output to this file.")
     test_parser.add_argument(
-        '--trace-backtrace',
-        action='store_true',
-        help="Include a backtrace with every trace statement.")
+            '--trace-backtrace',
+            action='store_true',
+            help="Include a backtrace with every trace statement.")
     test_parser.add_argument(
-        '--trace-period',
-        help="Sample trace output at this period in cycles.")
+            '--trace-period',
+            help="Sample trace output at this period in cycles.")
     test_parser.add_argument(
-        '--trace-freq',
-        help="Sample trace output at this frequency in hz.")
+            '--trace-freq',
+            help="Sample trace output at this frequency in hz.")
     test_parser.add_argument(
-        '-O', '--stdout',
-        help="Direct stdout to this file. Note stderr is already merged here.")
+            '-O', '--stdout',
+            help="Direct stdout to this file. Note stderr is already merged "
+                "here.")
     test_parser.add_argument(
-        '-o', '--output',
-        help="CSV file to store results.")
+            '-o', '--output',
+            help="CSV file to store results.")
     test_parser.add_argument(
-        '--read-sleep',
-        help="Artificial read delay in seconds.")
+            '--read-sleep',
+            help="Artificial read delay in seconds.")
     test_parser.add_argument(
-        '--prog-sleep',
-        help="Artificial prog delay in seconds.")
+            '--prog-sleep',
+            help="Artificial prog delay in seconds.")
     test_parser.add_argument(
-        '--erase-sleep',
-        help="Artificial erase delay in seconds.")
+            '--erase-sleep',
+            help="Artificial erase delay in seconds.")
     test_parser.add_argument(
-        '-j', '--jobs',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Number of parallel runners to run. 0 runs one runner per core.")
+            '-j', '--jobs',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Number of parallel runners to run. 0 runs one runner per "
+                "core.")
     test_parser.add_argument(
-        '-k', '--keep-going',
-        action='store_true',
-        help="Don't stop on first failure.")
+            '-k', '--keep-going',
+            action='store_true',
+            help="Don't stop on first failure.")
     test_parser.add_argument(
-        '-f', '--fail',
-        action='store_true',
-        help="Force a failure.")
+            '-f', '--fail',
+            action='store_true',
+            help="Force a failure.")
     test_parser.add_argument(
-        '-i', '--isolate',
-        action='store_true',
-        help="Run each test permutation in a separate process.")
+            '-i', '--isolate',
+            action='store_true',
+            help="Run each test permutation in a separate process.")
     test_parser.add_argument(
-        '-b', '--by-suites',
-        action='store_true',
-        help="Step through tests by suite.")
+            '-b', '--by-suites',
+            action='store_true',
+            help="Step through tests by suite.")
     test_parser.add_argument(
-        '-B', '--by-cases',
-        action='store_true',
-        help="Step through tests by case.")
+            '-B', '--by-cases',
+            action='store_true',
+            help="Step through tests by case.")
     test_parser.add_argument(
-        '-F', '--failures',
-        type=lambda x: int(x, 0),
-        default=3,
-        help="Show this many test failures. Defaults to 3.")
+            '-F', '--failures',
+            type=lambda x: int(x, 0),
+            default=3,
+            help="Show this many test failures. Defaults to 3.")
     test_parser.add_argument(
-        '-C', '--context',
-        type=lambda x: int(x, 0),
-        default=5,
-        help="Show this many lines of stdout on test failure. "
-            "Defaults to 5.")
+            '-C', '--context',
+            type=lambda x: int(x, 0),
+            default=5,
+            help="Show this many lines of stdout on test failure. "
+                "Defaults to 5.")
     test_parser.add_argument(
-        '--gdb',
-        action='store_true',
-        help="Drop into gdb on test failure.")
+            '--gdb',
+            action='store_true',
+            help="Drop into gdb on test failure.")
     test_parser.add_argument(
-        '--gdb-perm', '--gdb-permutation',
-        action='store_true',
-        help="Drop into gdb on test failure but stop at the beginning "
-            "of the failing test permutation.")
+            '--gdb-perm', '--gdb-permutation',
+            action='store_true',
+            help="Drop into gdb on test failure but stop at the beginning "
+                "of the failing test permutation.")
     test_parser.add_argument(
-        '--gdb-main',
-        action='store_true',
-        help="Drop into gdb on test failure but stop at the beginning "
-            "of main.")
+            '--gdb-main',
+            action='store_true',
+            help="Drop into gdb on test failure but stop at the beginning "
+                "of main.")
     test_parser.add_argument(
-        '--gdb-pl',
-        type=lambda x: int(x, 0),
-        help="Drop into gdb on this specific powerloss.")
+            '--gdb-pl',
+            type=lambda x: int(x, 0),
+            help="Drop into gdb on this specific powerloss.")
     test_parser.add_argument(
-        '--gdb-pl-before',
-        action='store_true',
-        help="Drop into gdb before the powerloss that caused the failure.")
+            '--gdb-pl-before',
+            action='store_true',
+            help="Drop into gdb before the powerloss that caused the failure.")
     test_parser.add_argument(
-        '--gdb-pl-after',
-        action='store_true',
-        help="Drop into gdb after the powerloss that caused the failure.")
+            '--gdb-pl-after',
+            action='store_true',
+            help="Drop into gdb after the powerloss that caused the failure.")
     test_parser.add_argument(
-        '--gdb-path',
-        type=lambda x: x.split(),
-        default=GDB_PATH,
-        help="Path to the gdb executable, may include flags. "
-            "Defaults to %r." % GDB_PATH)
+            '--gdb-path',
+            type=lambda x: x.split(),
+            default=GDB_PATH,
+            help="Path to the gdb executable, may include flags. "
+                "Defaults to %r." % GDB_PATH)
     test_parser.add_argument(
-        '--exec',
-        type=lambda e: e.split(),
-        help="Run under another executable.")
+            '--exec',
+            type=lambda e: e.split(),
+            help="Run under another executable.")
     test_parser.add_argument(
-        '--valgrind',
-        action='store_true',
-        help="Run under Valgrind to find memory errors. Implicitly sets "
-            "--isolate.")
+            '--valgrind',
+            action='store_true',
+            help="Run under Valgrind to find memory errors. Implicitly sets "
+                "--isolate.")
     test_parser.add_argument(
-        '--valgrind-path',
-        type=lambda x: x.split(),
-        default=VALGRIND_PATH,
-        help="Path to the Valgrind executable, may include flags. "
-            "Defaults to %r." % VALGRIND_PATH)
+            '--valgrind-path',
+            type=lambda x: x.split(),
+            default=VALGRIND_PATH,
+            help="Path to the Valgrind executable, may include flags. "
+                "Defaults to %r." % VALGRIND_PATH)
     test_parser.add_argument(
-        '-p', '--perf',
-        help="Run under Linux's perf to sample performance counters, writing "
-            "samples to this file.")
+            '-p', '--perf',
+            help="Run under Linux's perf to sample performance counters, "
+                "writing samples to this file.")
     test_parser.add_argument(
-        '--perf-freq',
-        help="perf sampling frequency. This is passed directly to the perf "
-            "script.")
+            '--perf-freq',
+            help="perf sampling frequency. This is passed directly to the "
+                "perf script.")
     test_parser.add_argument(
-        '--perf-period',
-        help="perf sampling period. This is passed directly to the perf "
-            "script.")
+            '--perf-period',
+            help="perf sampling period. This is passed directly to the perf "
+                "script.")
     test_parser.add_argument(
-        '--perf-events',
-        help="perf events to record. This is passed directly to the perf "
-            "script.")
+            '--perf-events',
+            help="perf events to record. This is passed directly to the perf "
+                "script.")
     test_parser.add_argument(
-        '--perf-script',
-        type=lambda x: x.split(),
-        default=PERF_SCRIPT,
-        help="Path to the perf script to use. Defaults to %r." % PERF_SCRIPT)
+            '--perf-script',
+            type=lambda x: x.split(),
+            default=PERF_SCRIPT,
+            help="Path to the perf script to use. Defaults to "
+                "%r." % PERF_SCRIPT)
     test_parser.add_argument(
-        '--perf-path',
-        type=lambda x: x.split(),
-        help="Path to the perf executable, may include flags. This is passed "
-            "directly to the perf script")
+            '--perf-path',
+            type=lambda x: x.split(),
+            help="Path to the perf executable, may include flags. This is "
+                "passed directly to the perf script")
 
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
     comp_parser.add_argument(
-        'test_paths',
-        nargs='*',
-        help="Set of *.toml files to compile.")
+            'test_paths',
+            nargs='*',
+            help="Set of *.toml files to compile.")
     comp_parser.add_argument(
-        '-c', '--compile',
-        action='store_true',
-        help="Compile a test suite or source file.")
+            '-c', '--compile',
+            action='store_true',
+            help="Compile a test suite or source file.")
     comp_parser.add_argument(
-        '-s', '--source',
-        help="Source file to compile, possibly injecting internal tests.")
+            '-s', '--source',
+            help="Source file to compile, possibly injecting internal tests.")
     comp_parser.add_argument(
-        '--include',
-        default=HEADER_PATH,
-        help="Inject this header file into every compiled test file. "
-            "Defaults to %r." % HEADER_PATH)
+            '--include',
+            default=HEADER_PATH,
+            help="Inject this header file into every compiled test file. "
+                "Defaults to %r." % HEADER_PATH)
     comp_parser.add_argument(
-        '-o', '--output',
-        help="Output file.")
+            '-o', '--output',
+            help="Output file.")
 
     # do the thing
     args = parser.parse_intermixed_args()
     args.test_paths = args.test_ids
     sys.exit(main(**{k: v
-        for k, v in vars(args).items()
-        if v is not None}))
+            for k, v in vars(args).items()
+            if v is not None}))

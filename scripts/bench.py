@@ -60,7 +60,7 @@ class BenchCase:
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
-            config.pop('suite_in', None))
+                config.pop('suite_in', None))
 
         self.internal = bool(self.in_)
 
@@ -103,17 +103,17 @@ class BenchCase:
                 vs = []
                 for v_ in csplit(v):
                     m = re.search(r'\brange\b\s*\('
-                        '(?P<start>[^,\s]*)'
-                        '\s*(?:,\s*(?P<stop>[^,\s]*)'
-                        '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
-                        v_)
+                                '(?P<start>[^,\s]*)'
+                                '\s*(?:,\s*(?P<stop>[^,\s]*)'
+                                '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
+                            v_)
                     if m:
                         start = (int(m.group('start'), 0)
-                            if m.group('start') else 0)
+                                if m.group('start') else 0)
                         stop = (int(m.group('stop'), 0)
-                            if m.group('stop') else None)
+                                if m.group('stop') else None)
                         step = (int(m.group('step'), 0)
-                            if m.group('step') else 1)
+                                if m.group('step') else 1)
                         if m.lastindex <= 1:
                             start, stop = 0, start
                         vs.append(range(start, stop, step))
@@ -132,16 +132,16 @@ class BenchCase:
             for defines_ in defines:
                 self.defines |= defines_.keys()
                 self.permutations.append({
-                    k: parse_define(v)
-                    for k, v in (suite_defines_ | defines_).items()})
+                        k: parse_define(v)
+                            for k, v in (suite_defines_ | defines_).items()})
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                '\x1b[01;33m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                self.name,
-                k),
-                file=sys.stderr)
+                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        self.name,
+                        k),
+                    file=sys.stderr)
 
     def __repr__(self):
         return '<BenchCase %s>' % self.name
@@ -149,12 +149,12 @@ class BenchCase:
     def __lt__(self, other):
         # sort by suite, lineno, and name
         return ((self.suite, self.lineno, self.name)
-            < (other.suite, other.lineno, other.name))
+                < (other.suite, other.lineno, other.name))
 
     def isin(self, path):
         return (self.in_ is not None
-            and os.path.normpath(self.in_)
-                == os.path.normpath(path))
+                and os.path.normpath(self.in_)
+                    == os.path.normpath(path))
 
 
 class BenchSuite:
@@ -176,9 +176,9 @@ class BenchSuite:
             code_linenos = []
             for i, line in enumerate(f):
                 match = re.match(
-                    '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
-                        '|' '(?P<code>code\s*=)',
-                    line)
+                        '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
+                            '|' '(?P<code>code\s*=)',
+                        line)
                 if match and match.group('case'):
                     case_linenos.append((i+1, match.group('name')))
                 elif match and match.group('code'):
@@ -192,8 +192,9 @@ class BenchSuite:
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
                 code_lineno = min(
-                    (l for l in code_linenos if l >= lineno and l < nlineno),
-                    default=None)
+                        (l for l in code_linenos
+                            if l >= lineno and l < nlineno),
+                        default=None)
                 cases[name]['lineno'] = lineno
                 cases[name]['code_lineno'] = code_lineno
 
@@ -207,9 +208,9 @@ class BenchSuite:
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
-                (l for l in code_linenos
-                    if not case_linenos or l < case_linenos[0][0]),
-                default=None)
+                    (l for l in code_linenos
+                        if not case_linenos or l < case_linenos[0][0]),
+                    default=None)
             self.in_ = config.pop('in', None)
 
             self.after = config.pop('after', [])
@@ -221,33 +222,34 @@ class BenchSuite:
 
             self.cases = []
             for name, case in cases.items():
-                self.cases.append(BenchCase(config={
-                    'name': name,
-                    'path': path + (':%d' % case['lineno']
-                        if 'lineno' in case else ''),
-                    'suite': self.name,
-                    'suite_defines': defines,
-                    'suite_in': self.in_,
-                    **case},
-                    args=args))
+                self.cases.append(BenchCase(
+                        config={
+                            'name': name,
+                            'path': path + (':%d' % case['lineno']
+                                if 'lineno' in case else ''),
+                            'suite': self.name,
+                            'suite_defines': defines,
+                            'suite_in': self.in_,
+                            **case},
+                        args=args))
 
             # sort for consistency
             self.cases.sort()
 
             # combine per-case defines
             self.defines = set.union(set(), *(
-                set(case.defines) for case in self.cases))
+                    set(case.defines) for case in self.cases))
 
             # combine other per-case things
             self.internal = any(case.internal for case in self.cases)
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                '\x1b[01;33m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                self.name,
-                k),
-                file=sys.stderr)
+                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        self.name,
+                        k),
+                    file=sys.stderr)
 
     def __repr__(self):
         return '<BenchSuite %s>' % self.name
@@ -260,8 +262,8 @@ class BenchSuite:
 
     def isin(self, path):
         return (self.in_ is not None
-            and os.path.normpath(self.in_)
-                == os.path.normpath(path))
+                and os.path.normpath(self.in_)
+                    == os.path.normpath(path))
 
 
 def compile(bench_paths, **args):
@@ -284,10 +286,10 @@ def compile(bench_paths, **args):
 
         if len(pending_) == len(pending):
             print('%serror:%s cycle detected in suite ordering: {%s}' % (
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                ', '.join(suite.name for suite in pending.values())),
-                file=sys.stderr)
+                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        ', '.join(suite.name for suite in pending.values())),
+                    file=sys.stderr)
             sys.exit(-1)
 
         pending = pending_
@@ -298,36 +300,36 @@ def compile(bench_paths, **args):
     for suite in suites:
         if suite.name in seen:
             print('%swarning:%s conflicting suite %r, %s and %s' % (
-                '\x1b[01;33m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                suite.name,
-                suite.path,
-                seen[suite.name].path),
-                file=sys.stderr)
+                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        suite.name,
+                        suite.path,
+                        seen[suite.name].path),
+                    file=sys.stderr)
         seen[suite.name] = suite
 
         for case in suite.cases:
             # only allow conflicts if a case and its suite share a name
             if case.name in seen and not (
                     isinstance(seen[case.name], BenchSuite)
-                    and seen[case.name].cases == [case]):
+                        and seen[case.name].cases == [case]):
                 print('%swarning:%s conflicting case %r, %s and %s' % (
-                    '\x1b[01;33m' if args['color'] else '',
-                    '\x1b[m' if args['color'] else '',
-                    case.name,
-                    case.path,
-                    seen[case.name].path),
-                    file=sys.stderr)
+                            '\x1b[01;33m' if args['color'] else '',
+                            '\x1b[m' if args['color'] else '',
+                            case.name,
+                            case.path,
+                            seen[case.name].path),
+                        file=sys.stderr)
             seen[case.name] = case
 
     # we can only compile one bench suite at a time
     if not args.get('source'):
         if len(suites) > 1:
             print('%serror:%s compiling more than one bench suite? (%r)' % (
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                bench_paths),
-                file=sys.stderr)
+                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        bench_paths),
+                    file=sys.stderr)
             sys.exit(-1)
 
         suite = suites[0]
@@ -373,24 +375,22 @@ def compile(bench_paths, **args):
                     for i, permutation in enumerate(case.permutations):
                         for k, vs in sorted(permutation.items()):
                             f.writeln('intmax_t __bench__%s__%s__%d('
-                                '__attribute__((unused)) void *data, '
-                                'size_t i) {'
-                                % (case.name, k, i))
+                                    '__attribute__((unused)) void *data, '
+                                    'size_t i) {' % (
+                                        case.name, k, i))
                             j = 0
                             for v in vs:
                                 # generate range
                                 if isinstance(v, range):
-                                    f.writeln(
-                                        4*' '+'if (i < %d) '
-                                        'return (i-%d)*%d + %d;'
-                                        % (j+len(v), j, v.step, v.start))
+                                    f.writeln(4*' '+'if (i < %d) '
+                                            'return (i-%d)*%d + %d;' % (
+                                                j+len(v), j, v.step, v.start))
                                     j += len(v)
                                 # translate index to define
                                 else:
-                                    f.writeln(
-                                        4*' '+'if (i == %d) '
-                                        'return %s;'
-                                        % (j, v))
+                                    f.writeln(4*' '+'if (i == %d) '
+                                            'return %s;' % (
+                                                j, v))
                                     j += 1;
 
                             f.writeln(4*' '+'__builtin_unreachable();')
@@ -399,29 +399,30 @@ def compile(bench_paths, **args):
 
                     # create case if function
                     if suite.if_ or case.if_:
-                        f.writeln('bool __bench__%s__if(void) {'
-                            % (case.name))
+                        f.writeln('bool __bench__%s__if(void) {' % (
+                                case.name))
                         for if_ in it.chain(suite.if_, case.if_):
                             f.writeln(4*' '+'if (!(%s)) return false;' % (
-                                'true' if if_ is True
-                                    else 'false' if if_ is False
-                                    else if_))
+                                    'true' if if_ is True
+                                        else 'false' if if_ is False
+                                        else if_))
                         f.writeln(4*' '+'return true;')
                         f.writeln('}')
                         f.writeln()
 
                     # create case run function
                     f.writeln('void __bench__%s__run('
-                        '__attribute__((unused)) struct lfs_config *CFG) {'
-                        % (case.name))
+                            '__attribute__((unused)) '
+                            'struct lfs_config *CFG) {' % (
+                                case.name))
                     f.writeln(4*' '+'// bench case %s' % case.name)
                     if case.code_lineno is not None:
-                        f.writeln(4*' '+'#line %d "%s"'
-                            % (case.code_lineno, suite.path))
+                        f.writeln(4*' '+'#line %d "%s"' % (
+                                case.code_lineno, suite.path))
                     f.write(case.code)
                     if case.code_lineno is not None:
-                        f.writeln(4*' '+'#line %d "%s"'
-                            % (f.lineno+1, args['output']))
+                        f.writeln(4*' '+'#line %d "%s"' % (
+                                f.lineno+1, args['output']))
                     f.writeln('}')
                     f.writeln()
 
@@ -441,19 +442,19 @@ def compile(bench_paths, **args):
                 # write any suite defines
                 if suite.defines:
                     for define in sorted(suite.defines):
-                        f.writeln('__attribute__((weak)) intmax_t %s;'
-                            % define)
+                        f.writeln('__attribute__((weak)) intmax_t %s;' % (
+                                define))
                     f.writeln()
 
                 # write any suite code
                 if suite.code is not None and suite.in_ is None:
                     if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (suite.code_lineno, suite.path))
+                        f.writeln('#line %d "%s"' % (
+                                suite.code_lineno, suite.path))
                     f.write(suite.code)
                     if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (f.lineno+1, args['output']))
+                        f.writeln('#line %d "%s"' % (
+                                f.lineno+1, args['output']))
                     f.writeln()
 
                 # create case functions
@@ -464,15 +465,15 @@ def compile(bench_paths, **args):
                         for i, permutation in enumerate(case.permutations):
                             for k, vs in sorted(permutation.items()):
                                 f.writeln('extern intmax_t __bench__%s__%s__%d('
-                                    'void *data, size_t i);'
-                                    % (case.name, k, i))
+                                        'void *data, size_t i);' % (
+                                            case.name, k, i))
                         if suite.if_ or case.if_:
                             f.writeln('extern bool __bench__%s__if('
-                                'void);'
-                                % (case.name))
+                                    'void);' % (
+                                        case.name))
                         f.writeln('extern void __bench__%s__run('
-                            'struct lfs_config *CFG);'
-                            % (case.name))
+                                'struct lfs_config *CFG);' % (
+                                    case.name))
                         f.writeln()
 
                 # write any ifdef epilogues
@@ -482,22 +483,22 @@ def compile(bench_paths, **args):
                     f.writeln()
 
                 # create suite struct
-                f.writeln('const struct bench_suite __bench__%s__suite = {'
-                    % suite.name)
+                f.writeln('const struct bench_suite __bench__%s__suite = {' % (
+                        suite.name))
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
-                f.writeln(4*' '+'.flags = %s,'
-                    % (' | '.join(filter(None, [
-                        'BENCH_INTERNAL' if suite.internal else None]))
-                        or 0))
+                f.writeln(4*' '+'.flags = %s,' % (
+                        ' | '.join(filter(None, [
+                                'BENCH_INTERNAL' if suite.internal else None]))
+                            or 0))
                 for ifdef in suite.ifdef:
                     f.writeln(4*' '+'#ifdef %s' % ifdef)
                 # create suite defines
                 if suite.defines:
                     f.writeln(4*' '+'.defines = (const bench_define_t[]){')
                     for k in sorted(suite.defines):
-                        f.writeln(8*' '+'{"%s", &%s, NULL, NULL, 0},'
-                            % (k, k))
+                        f.writeln(8*' '+'{"%s", &%s, NULL, NULL, 0},' % (
+                                k, k))
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
                 for ifdef in suite.ifdef:
@@ -509,39 +510,41 @@ def compile(bench_paths, **args):
                         f.writeln(8*' '+'{')
                         f.writeln(12*' '+'.name = "%s",' % case.name)
                         f.writeln(12*' '+'.path = "%s",' % case.path)
-                        f.writeln(12*' '+'.flags = %s,'
-                            % (' | '.join(filter(None, [
-                                'BENCH_INTERNAL' if suite.internal else None]))
-                                or 0))
+                        f.writeln(12*' '+'.flags = %s,' % (
+                                ' | '.join(filter(None, [
+                                        'BENCH_INTERNAL' if suite.internal
+                                            else None]))
+                                    or 0))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
                             f.writeln(12*' '+'#ifdef %s' % ifdef)
                         # create case defines
                         if case.defines:
                             f.writeln(12*' '+'.defines'
-                                ' = (const bench_define_t*)'
-                                    '(const bench_define_t[][%d]){'
-                                % (len(suite.defines)))
+                                    ' = (const bench_define_t*)'
+                                    '(const bench_define_t[][%d]){' % (
+                                        len(suite.defines)))
                             for i, permutation in enumerate(case.permutations):
                                 f.writeln(16*' '+'{')
                                 for k, vs in sorted(permutation.items()):
                                     f.writeln(20*' '+'[%d] = {'
                                             '"%s", &%s, '
-                                            '__bench__%s__%s__%d, NULL, %d},'
-                                        % (sorted(suite.defines).index(k),
-                                            k, k, case.name, k, i,
-                                            sum(len(v)
-                                                if isinstance(v, range)
-                                                else 1
-                                            for v in vs)))
+                                            '__bench__%s__%s__%d, '
+                                            'NULL, %d},' % (
+                                                sorted(suite.defines).index(k),
+                                                k, k, case.name, k, i,
+                                                sum(len(v)
+                                                        if isinstance(v, range)
+                                                        else 1
+                                                    for v in vs)))
                                 f.writeln(16*' '+'},')
                             f.writeln(12*' '+'},')
-                            f.writeln(12*' '+'.permutations = %d,'
-                                % len(case.permutations))
+                            f.writeln(12*' '+'.permutations = %d,' % (
+                                    len(case.permutations)))
                         if suite.if_ or case.if_:
-                            f.writeln(12*' '+'.if_ = __bench__%s__if,'
-                                % (case.name))
-                        f.writeln(12*' '+'.run = __bench__%s__run,'
-                            % (case.name))
+                            f.writeln(12*' '+'.if_ = __bench__%s__if,' % (
+                                    case.name))
+                        f.writeln(12*' '+'.run = __bench__%s__run,' % (
+                                case.name))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
                             f.writeln(12*' '+'#endif')
                         f.writeln(8*' '+'},')
@@ -560,18 +563,18 @@ def compile(bench_paths, **args):
                 # merge all defines we need, otherwise we will run into
                 # redefinition errors
                 defines = ({define
-                        for suite in suites
-                        if suite.isin(args['source'])
-                        for define in suite.defines}
-                    | {define
-                        for suite in suites
-                        for case in suite.cases
-                        if case.isin(args['source'])
-                        for define in case.defines})
+                            for suite in suites
+                            if suite.isin(args['source'])
+                            for define in suite.defines}
+                        | {define
+                            for suite in suites
+                            for case in suite.cases
+                            if case.isin(args['source'])
+                            for define in case.defines})
                 if defines:
                     for define in sorted(defines):
-                        f.writeln('__attribute__((weak)) intmax_t %s;'
-                            % define)
+                        f.writeln('__attribute__((weak)) intmax_t %s;' % (
+                                define))
                     f.writeln()
 
                 # write any internal benches
@@ -585,12 +588,12 @@ def compile(bench_paths, **args):
                     # any suite code
                     if suite.isin(args['source']):
                         if suite.code_lineno is not None:
-                            f.writeln('#line %d "%s"'
-                                % (suite.code_lineno, suite.path))
+                            f.writeln('#line %d "%s"' % (
+                                    suite.code_lineno, suite.path))
                         f.write(suite.code)
                         if suite.code_lineno is not None:
-                            f.writeln('#line %d "%s"'
-                                % (f.lineno+1, args['output']))
+                            f.writeln('#line %d "%s"' % (
+                                    f.lineno+1, args['output']))
                         f.writeln()
 
                     # any case functions
@@ -611,11 +614,12 @@ def compile(bench_paths, **args):
                 # will be linked
                 for suite in suites:
                     f.writeln('extern const struct bench_suite '
-                        '__bench__%s__suite;' % suite.name)
+                            '__bench__%s__suite;' % (
+                                suite.name))
                 f.writeln()
 
                 f.writeln('__attribute__((weak))')
-                f.writeln('const struct bench_suite *const bench_suites[] = {');
+                f.writeln('const struct bench_suite *const bench_suites[] = {')
                 for suite in suites:
                     f.writeln(4*' '+'&__bench__%s__suite,' % suite.name)
                 if len(suites) == 0:
@@ -636,24 +640,24 @@ def find_runner(runner, id=None, **args):
     # run under valgrind?
     if args.get('valgrind'):
         cmd[:0] = args['valgrind_path'] + [
-            '--leak-check=full',
-            '--track-origins=yes',
-            '--error-exitcode=4',
-            '-q']
+                '--leak-check=full',
+                '--track-origins=yes',
+                '--error-exitcode=4',
+                '-q']
 
     # run under perf?
     if args.get('perf'):
         cmd[:0] = args['perf_script'] + list(filter(None, [
-            '-R',
-            '--perf-freq=%s' % args['perf_freq']
-                if args.get('perf_freq') else None,
-            '--perf-period=%s' % args['perf_period']
-                if args.get('perf_period') else None,
-            '--perf-events=%s' % args['perf_events']
-                if args.get('perf_events') else None,
-            '--perf-path=%s' % args['perf_path']
-                if args.get('perf_path') else None,
-            '-o%s' % args['perf']]))
+                '-R',
+                '--perf-freq=%s' % args['perf_freq']
+                    if args.get('perf_freq') else None,
+                '--perf-period=%s' % args['perf_period']
+                    if args.get('perf_period') else None,
+                '--perf-events=%s' % args['perf_events']
+                    if args.get('perf_events') else None,
+                '--perf-path=%s' % args['perf_path']
+                    if args.get('perf_path') else None,
+                '-o%s' % args['perf']]))
 
     # other context
     if args.get('define_depth'):
@@ -704,15 +708,15 @@ def find_perms(runner, bench_ids=[], **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<flags>[^\s]+)'
-            '\s+(?P<filtered>\d+)/(?P<perms>\d+)')
+            '^(?P<case>[^\s]+)'
+                '\s+(?P<flags>[^\s]+)'
+                '\s+(?P<filtered>\d+)/(?P<perms>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -720,8 +724,8 @@ def find_perms(runner, bench_ids=[], **args):
             filtered = int(m.group('filtered'))
             perms = int(m.group('perms'))
             expected_case_perms[m.group('case')] = (
-                expected_case_perms.get(m.group('case'), 0)
-                + filtered)
+                    expected_case_perms.get(m.group('case'), 0)
+                        + filtered)
             expected_perms += filtered
             total_perms += perms
     proc.wait()
@@ -736,14 +740,14 @@ def find_perms(runner, bench_ids=[], **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+            '^(?P<case>[^\s]+)'
+                '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -765,15 +769,14 @@ def find_perms(runner, bench_ids=[], **args):
     expected_suite_perms = co.OrderedDict()
     for case, suite in case_suites.items():
         expected_suite_perms[suite] = (
-            expected_suite_perms.get(suite, 0)
-            + expected_case_perms.get(case, 0))
+                expected_suite_perms.get(suite, 0)
+                    + expected_case_perms.get(case, 0))
 
-    return (
-        case_suites,
-        expected_suite_perms,
-        expected_case_perms,
-        expected_perms,
-        total_perms)
+    return (case_suites,
+            expected_suite_perms,
+            expected_case_perms,
+            expected_perms,
+            total_perms)
 
 def find_path(runner, id, **args):
     runner_ = find_runner(runner, id, **args)
@@ -783,14 +786,14 @@ def find_path(runner, id, **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+            '^(?P<case>[^\s]+)'
+                '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -814,11 +817,11 @@ def find_defines(runner, id, **args):
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     defines = co.OrderedDict()
     pattern = re.compile('^(?P<define>\w+)=(?P<value>.+)')
     for line in proc.stdout:
@@ -846,10 +849,10 @@ def find_ids(runner, bench_ids=[], **args):
 
     # lookup suites/cases
     (suite_cases,
-        expected_suite_perms,
-        expected_case_perms,
-        _,
-        _) = find_perms(runner, **args)
+            expected_suite_perms,
+            expected_case_perms,
+            _,
+            _) = find_perms(runner, **args)
 
     # no ids => all ids, before we evaluate globs
     if not bench_ids and args.get('by_cases'):
@@ -866,12 +869,12 @@ def find_ids(runner, bench_ids=[], **args):
         # resolve globs
         if '*' in name:
             bench_ids__.extend(suite
-                for suite in expected_suite_perms.keys()
-                if fnmatch.fnmatch(suite, name))
+                    for suite in expected_suite_perms.keys()
+                    if fnmatch.fnmatch(suite, name))
             if not bench_ids__:
                 bench_ids__.extend(case_
-                    for case_ in expected_case_perms.keys()
-                    if fnmatch.fnmatch(case_, name))
+                        for case_ in expected_case_perms.keys()
+                        if fnmatch.fnmatch(case_, name))
         # literal suite
         elif name in expected_suite_perms:
             bench_ids__.append(id)
@@ -882,10 +885,10 @@ def find_ids(runner, bench_ids=[], **args):
         # no suite/case found? error
         if not bench_ids__:
             print('%serror:%s no benches match id %r?' % (
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                id),
-                file=sys.stderr)
+                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[m' if args['color'] else '',
+                        id),
+                    file=sys.stderr)
             sys.exit(-1)
 
         bench_ids_.extend(bench_ids__)
@@ -975,10 +978,10 @@ class BenchFailure(Exception):
 def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
     (case_suites,
-        expected_suite_perms,
-        expected_case_perms,
-        expected_perms,
-        total_perms) = find_perms(runner, bench_ids, **args)
+            expected_suite_perms,
+            expected_case_perms,
+            expected_perms,
+            total_perms) = find_perms(runner, bench_ids, **args)
 
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
@@ -991,18 +994,18 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     killed = False
 
     pattern = re.compile('^(?:'
-            '(?P<op>running|finished|skipped)'
-                ' (?P<id>(?P<case>[^:]+)[^\s]*)'
-            '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
-                ' *(?P<message>.*)'
-            '|' '(?P<op__>benched)'
-                ' (?P<meas>[^\s]+)'
-                ' (?P<iter>\d+)'
-                ' (?P<size>\d+)'
-                '(?: (?P<readed>[\d\.]+))?'
-                '(?: (?P<proged>[\d\.]+))?'
-                '(?: (?P<erased>[\d\.]+))?'
-        ')$')
+                '(?P<op>running|finished|skipped)'
+                    ' (?P<id>(?P<case>[^:]+)[^\s]*)'
+                '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
+                    ' *(?P<message>.*)'
+                '|' '(?P<op__>benched)'
+                    ' (?P<meas>[^\s]+)'
+                    ' (?P<iter>\d+)'
+                    ' (?P<size>\d+)'
+                    '(?: (?P<readed>[\d\.]+))?'
+                    '(?: (?P<proged>[\d\.]+))?'
+                    '(?: (?P<erased>[\d\.]+))?'
+            ')$')
     locals = th.local()
     children = set()
 
@@ -1077,9 +1080,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         locals.seen_perms += 1
                     elif op == 'assert':
                         last_assert = (
-                            m.group('path'),
-                            int(m.group('lineno')),
-                            m.group('message'))
+                                m.group('path'),
+                                int(m.group('lineno')),
+                                m.group('message'))
                         # go ahead and kill the process, aborting takes a while
                         if args.get('keep_going'):
                             proc.kill()
@@ -1103,19 +1106,19 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                             # once per perm
                             if last_defines is None:
                                 last_defines = find_defines(
-                                    runner, last_id, **args)
+                                        runner, last_id, **args)
                             # write measurements immediately, this allows
                             # analysis of partial results
                             output_.writerow({
-                                'suite': last_suite,
-                                'case': last_case,
-                                **last_defines,
-                                'meas': meas,
-                                'iter': iter,
-                                'size': size,
-                                'readed': readed_,
-                                'proged': proged_,
-                                'erased': erased_})
+                                    'suite': last_suite,
+                                    'case': last_case,
+                                    **last_defines,
+                                    'meas': meas,
+                                    'iter': iter,
+                                    'size': size,
+                                    'readed': readed_,
+                                    'proged': proged_,
+                                    'erased': erased_})
                         # keep track of total for summary
                         readed += readed_
                         proged += proged_
@@ -1130,10 +1133,10 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         proc.wait()
         if proc.returncode != 0:
             raise BenchFailure(
-                last_id,
-                proc.returncode,
-                list(last_stdout),
-                last_assert)
+                    last_id,
+                    proc.returncode,
+                    list(last_stdout),
+                    last_assert)
 
     def run_job(start=None, step=None):
         nonlocal failed_perms
@@ -1189,44 +1192,44 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     if 'jobs' in args:
         for job in range(args['jobs']):
             runners.append(th.Thread(
-                target=run_job, args=(job, args['jobs']),
-                daemon=True))
+                    target=run_job, args=(job, args['jobs']),
+                    daemon=True))
     else:
         runners.append(th.Thread(
-            target=run_job, args=(None, None),
-            daemon=True))
+                target=run_job, args=(None, None),
+                daemon=True))
 
     def print_update(done):
         if (not args.get('verbose')
                 and not args.get('stdout') == '-'
                 and (args['color'] or done)):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
-                '\r\x1b[K' if args['color'] else '',
-                '\x1b[?7l' if not done else '',
-                ('\x1b[34m' if not failed_perms else '\x1b[31m')
-                    if args['color'] else '',
-                name,
-                '\x1b[m' if args['color'] else '',
-                ', '.join(filter(None, [
-                    '%d/%d suites' % (
-                        sum(passed_suite_perms[k] == v
-                            for k, v in expected_suite_perms.items()),
-                        len(expected_suite_perms))
-                        if (not args.get('by_suites')
-                            and not args.get('by_cases')) else None,
-                    '%d/%d cases' % (
-                        sum(passed_case_perms[k] == v
-                            for k, v in expected_case_perms.items()),
-                        len(expected_case_perms))
-                        if not args.get('by_cases') else None,
-                    '%d/%d perms' % (passed_perms, expected_perms),
-                    '%s%d/%d failures%s' % (
-                            '\x1b[31m' if args['color'] else '',
-                            failed_perms,
-                            expected_perms,
-                            '\x1b[m' if args['color'] else '')
-                        if failed_perms else None])),
-                '\x1b[?7h' if not done else '\n'))
+                    '\r\x1b[K' if args['color'] else '',
+                    '\x1b[?7l' if not done else '',
+                    ('\x1b[34m' if not failed_perms else '\x1b[31m')
+                        if args['color'] else '',
+                    name,
+                    '\x1b[m' if args['color'] else '',
+                    ', '.join(filter(None, [
+                        '%d/%d suites' % (
+                                sum(passed_suite_perms[k] == v
+                                    for k, v in expected_suite_perms.items()),
+                                len(expected_suite_perms))
+                            if (not args.get('by_suites')
+                                and not args.get('by_cases')) else None,
+                        '%d/%d cases' % (
+                                sum(passed_case_perms[k] == v
+                                    for k, v in expected_case_perms.items()),
+                                len(expected_case_perms))
+                            if not args.get('by_cases') else None,
+                        '%d/%d perms' % (passed_perms, expected_perms),
+                        '%s%d/%d failures%s' % (
+                                '\x1b[31m' if args['color'] else '',
+                                failed_perms,
+                                expected_perms,
+                                '\x1b[m' if args['color'] else '')
+                            if failed_perms else None])),
+                    '\x1b[?7h' if not done else '\n'))
             sys.stdout.flush()
 
     for r in runners:
@@ -1246,34 +1249,33 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     for r in runners:
         r.join()
 
-    return (
-        expected_perms,
-        passed_perms,
-        failed_perms,
-        readed,
-        proged,
-        erased,
-        failures,
-        killed)
+    return (expected_perms,
+            passed_perms,
+            failed_perms,
+            readed,
+            proged,
+            erased,
+            failures,
+            killed)
 
 
 def run(runner, bench_ids=[], **args):
     # query runner for benches
     print('using runner: %s' % ' '.join(
-        shlex.quote(c) for c in find_runner(runner, **args)))
+            shlex.quote(c) for c in find_runner(runner, **args)))
 
     # query ids, perms, etc
     bench_ids = find_ids(runner, bench_ids, **args)
     (_,
-        expected_suite_perms,
-        expected_case_perms,
-        expected_perms,
-        total_perms) = find_perms(runner, bench_ids, **args)
+            expected_suite_perms,
+            expected_case_perms,
+            expected_perms,
+            total_perms) = find_perms(runner, bench_ids, **args)
     print('found %d suites, %d cases, %d/%d permutations' % (
-        len(expected_suite_perms),
-        len(expected_case_perms),
-        expected_perms,
-        total_perms))
+            len(expected_suite_perms),
+            len(expected_case_perms),
+            expected_perms,
+            total_perms))
     print()
 
     # automatic job detection?
@@ -1290,8 +1292,8 @@ def run(runner, bench_ids=[], **args):
     output = None
     if args.get('output'):
         output = BenchOutput(args['output'],
-            ['suite', 'case'],
-            ['meas', 'iter', 'size', 'readed', 'proged', 'erased'])
+                ['suite', 'case'],
+                ['meas', 'iter', 'size', 'readed', 'proged', 'erased'])
 
     # measure runtime
     start = time.time()
@@ -1307,20 +1309,20 @@ def run(runner, bench_ids=[], **args):
     for by in (bench_ids if bench_ids else [None]):
         # spawn jobs for stage
         (expected_,
-            passed_,
-            failed_,
-            readed_,
-            proged_,
-            erased_,
-            failures_,
-            killed) = run_stage(
-                by or 'benches',
-                runner,
-                [by] if by is not None else [],
-                stdout,
-                trace,
-                output,
-                **args)
+                passed_,
+                failed_,
+                readed_,
+                proged_,
+                erased_,
+                failures_,
+                killed) = run_stage(
+                    by or 'benches',
+                    runner,
+                    [by] if by is not None else [],
+                    stdout,
+                    trace,
+                    output,
+                    **args)
         # collect passes/failures
         expected += expected_
         passed += passed_
@@ -1331,8 +1333,8 @@ def run(runner, bench_ids=[], **args):
         # do not store more failures than we need to, otherwise we
         # quickly explode RAM when a common bug fails a bunch of cases
         failures.extend(failures_[:max(
-            args.get('failures', 3) - len(failures),
-            0)])
+                args.get('failures', 3) - len(failures),
+                0)])
         if (failed and not args.get('keep_going')) or killed:
             break
 
@@ -1354,21 +1356,21 @@ def run(runner, bench_ids=[], **args):
     # show summary
     print()
     print('%sdone:%s %s' % (
-        ('\x1b[34m' if not failed else '\x1b[31m')
-            if args['color'] else '',
-        '\x1b[m' if args['color'] else '',
-        ', '.join(filter(None, [
-            '%d readed' % readed,
-            '%d proged' % proged,
-            '%d erased' % erased,
-            'in %.2fs' % (stop-start)]))))
+            ('\x1b[34m' if not failed else '\x1b[31m')
+                if args['color'] else '',
+            '\x1b[m' if args['color'] else '',
+            ', '.join(filter(None, [
+                '%d readed' % readed,
+                '%d proged' % proged,
+                '%d erased' % erased,
+                'in %.2fs' % (stop-start)]))))
     print()
 
     # print each failure
     for failure in failures[:args.get('failures', 3)]:
         assert failure.id is not None, '%s broken? %r' % (
-            ' '.join(shlex.quote(c) for c in find_runner(runner, **args)),
-            failure)
+                ' '.join(shlex.quote(c) for c in find_runner(runner, **args)),
+                failure)
 
         # get some extra info from runner
         path, lineno = find_path(runner, failure.id, **args)
@@ -1376,13 +1378,14 @@ def run(runner, bench_ids=[], **args):
 
         # show summary of failure
         print('%s%s:%d:%sfailure:%s %s%s failed' % (
-            '\x1b[01m' if args['color'] else '',
-            path, lineno,
-            '\x1b[01;31m' if args['color'] else '',
-            '\x1b[m' if args['color'] else '',
-            failure.id,
-            ' (%s)' % ', '.join('%s=%s' % (k,v) for k,v in defines.items())
-                if defines else ''))
+                '\x1b[01m' if args['color'] else '',
+                path, lineno,
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                failure.id,
+                ' (%s)' % ', '.join('%s=%s' % (k,v)
+                    for k,v in defines.items())
+                    if defines else ''))
 
         if failure.stdout:
             stdout = failure.stdout
@@ -1394,11 +1397,11 @@ def run(runner, bench_ids=[], **args):
         if failure.assert_ is not None:
             path, lineno, message = failure.assert_
             print('%s%s:%d:%sassert:%s %s' % (
-                '\x1b[01m' if args['color'] else '',
-                path, lineno,
-                '\x1b[01;31m' if args['color'] else '',
-                '\x1b[m' if args['color'] else '',
-                message))
+                    '\x1b[01m' if args['color'] else '',
+                    path, lineno,
+                    '\x1b[01;31m' if args['color'] else '',
+                    '\x1b[m' if args['color'] else '',
+                    message))
             with open(path) as f:
                 line = next(it.islice(f, lineno-1, None)).strip('\n')
                 print(line)
@@ -1416,23 +1419,23 @@ def run(runner, bench_ids=[], **args):
             # can be helpful
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break main',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break main',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'run',
+                    '--args']
         elif args.get('gdb_perm'):
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'break %s:%d' % (path, lineno),
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'break %s:%d' % (path, lineno),
+                    '-ex', 'run',
+                    '--args']
         else:
             cmd[:0] = args['gdb_path'] + [
-                '-q',
-                '-ex', 'run',
-                '--args']
+                    '-q',
+                    '-ex', 'run',
+                    '--args']
 
         # exec gdb interactively
         if args.get('verbose'):
@@ -1472,228 +1475,232 @@ if __name__ == "__main__":
     argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
     argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
-        description="Build and run benches.",
-        allow_abbrev=False,
-        conflict_handler='ignore')
+            description="Build and run benches.",
+            allow_abbrev=False,
+            conflict_handler='ignore')
     parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help="Output commands that run behind the scenes.")
+            '-v', '--verbose',
+            action='store_true',
+            help="Output commands that run behind the scenes.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
 
     # bench flags
     bench_parser = parser.add_argument_group('bench options')
     bench_parser.add_argument(
-        'bench_ids',
-        nargs='*',
-        help="Description of benches to run.")
+            'bench_ids',
+            nargs='*',
+            help="Description of benches to run.")
     bench_parser.add_argument(
-        '-R', '--runner',
-        type=lambda x: x.split(),
-        default=RUNNER_PATH,
-        help="Bench runner to use for benching. Defaults to %r." % RUNNER_PATH)
+            '-R', '--runner',
+            type=lambda x: x.split(),
+            default=RUNNER_PATH,
+            help="Bench runner to use for benching. Defaults to "
+                "%r." % RUNNER_PATH)
     bench_parser.add_argument(
-        '-Y', '--summary',
-        action='store_true',
-        help="Show quick summary.")
+            '-Y', '--summary',
+            action='store_true',
+            help="Show quick summary.")
     bench_parser.add_argument(
-        '-l', '--list-suites',
-        action='store_true',
-        help="List bench suites.")
+            '-l', '--list-suites',
+            action='store_true',
+            help="List bench suites.")
     bench_parser.add_argument(
-        '-L', '--list-cases',
-        action='store_true',
-        help="List bench cases.")
+            '-L', '--list-cases',
+            action='store_true',
+            help="List bench cases.")
     bench_parser.add_argument(
-        '--list-suite-paths',
-        action='store_true',
-        help="List the path for each bench suite.")
+            '--list-suite-paths',
+            action='store_true',
+            help="List the path for each bench suite.")
     bench_parser.add_argument(
-        '--list-case-paths',
-        action='store_true',
-        help="List the path and line number for each bench case.")
+            '--list-case-paths',
+            action='store_true',
+            help="List the path and line number for each bench case.")
     bench_parser.add_argument(
-        '--list-defines',
-        action='store_true',
-        help="List all defines in this bench-runner.")
+            '--list-defines',
+            action='store_true',
+            help="List all defines in this bench-runner.")
     bench_parser.add_argument(
-        '--list-permutation-defines',
-        action='store_true',
-        help="List explicit defines in this bench-runner.")
+            '--list-permutation-defines',
+            action='store_true',
+            help="List explicit defines in this bench-runner.")
     bench_parser.add_argument(
-        '--list-implicit-defines',
-        action='store_true',
-        help="List implicit defines in this bench-runner.")
+            '--list-implicit-defines',
+            action='store_true',
+            help="List implicit defines in this bench-runner.")
     bench_parser.add_argument(
-        '-D', '--define',
-        action='append',
-        help="Override a bench define.")
+            '-D', '--define',
+            action='append',
+            help="Override a bench define.")
     bench_parser.add_argument(
-        '--define-depth',
-        help="How deep to evaluate recursive defines before erroring.")
+            '--define-depth',
+            help="How deep to evaluate recursive defines before erroring.")
     bench_parser.add_argument(
-        '-a', '--all',
-        action='store_true',
-        help="Ignore bench filters.")
+            '-a', '--all',
+            action='store_true',
+            help="Ignore bench filters.")
     bench_parser.add_argument(
-        '-d', '--disk',
-        help="Direct block device operations to this file.")
+            '-d', '--disk',
+            help="Direct block device operations to this file.")
     bench_parser.add_argument(
-        '-t', '--trace',
-        help="Direct trace output to this file.")
+            '-t', '--trace',
+            help="Direct trace output to this file.")
     bench_parser.add_argument(
-        '--trace-backtrace',
-        action='store_true',
-        help="Include a backtrace with every trace statement.")
+            '--trace-backtrace',
+            action='store_true',
+            help="Include a backtrace with every trace statement.")
     bench_parser.add_argument(
-        '--trace-period',
-        help="Sample trace output at this period in cycles.")
+            '--trace-period',
+            help="Sample trace output at this period in cycles.")
     bench_parser.add_argument(
-        '--trace-freq',
-        help="Sample trace output at this frequency in hz.")
+            '--trace-freq',
+            help="Sample trace output at this frequency in hz.")
     bench_parser.add_argument(
-        '-O', '--stdout',
-        help="Direct stdout to this file. Note stderr is already merged here.")
+            '-O', '--stdout',
+            help="Direct stdout to this file. Note stderr is already merged "
+                "here.")
     bench_parser.add_argument(
-        '-o', '--output',
-        help="CSV file to store results.")
+            '-o', '--output',
+            help="CSV file to store results.")
     bench_parser.add_argument(
-        '--read-sleep',
-        help="Artificial read delay in seconds.")
+            '--read-sleep',
+            help="Artificial read delay in seconds.")
     bench_parser.add_argument(
-        '--prog-sleep',
-        help="Artificial prog delay in seconds.")
+            '--prog-sleep',
+            help="Artificial prog delay in seconds.")
     bench_parser.add_argument(
-        '--erase-sleep',
-        help="Artificial erase delay in seconds.")
+            '--erase-sleep',
+            help="Artificial erase delay in seconds.")
     bench_parser.add_argument(
-        '-j', '--jobs',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Number of parallel runners to run. 0 runs one runner per core.")
+            '-j', '--jobs',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Number of parallel runners to run. 0 runs one runner per "
+                "core.")
     bench_parser.add_argument(
-        '-k', '--keep-going',
-        action='store_true',
-        help="Don't stop on first failure.")
+            '-k', '--keep-going',
+            action='store_true',
+            help="Don't stop on first failure.")
     bench_parser.add_argument(
-        '-f', '--fail',
-        action='store_true',
-        help="Force a failure.")
+            '-f', '--fail',
+            action='store_true',
+            help="Force a failure.")
     bench_parser.add_argument(
-        '-i', '--isolate',
-        action='store_true',
-        help="Run each bench permutation in a separate process.")
+            '-i', '--isolate',
+            action='store_true',
+            help="Run each bench permutation in a separate process.")
     bench_parser.add_argument(
-        '-b', '--by-suites',
-        action='store_true',
-        help="Step through benches by suite.")
+            '-b', '--by-suites',
+            action='store_true',
+            help="Step through benches by suite.")
     bench_parser.add_argument(
-        '-B', '--by-cases',
-        action='store_true',
-        help="Step through benches by case.")
+            '-B', '--by-cases',
+            action='store_true',
+            help="Step through benches by case.")
     bench_parser.add_argument(
-        '-F', '--failures',
-        type=lambda x: int(x, 0),
-        default=3,
-        help="Show this many bench failures. Defaults to 3.")
+            '-F', '--failures',
+            type=lambda x: int(x, 0),
+            default=3,
+            help="Show this many bench failures. Defaults to 3.")
     bench_parser.add_argument(
-        '-C', '--context',
-        type=lambda x: int(x, 0),
-        default=5,
-        help="Show this many lines of stdout on bench failure. "
-            "Defaults to 5.")
+            '-C', '--context',
+            type=lambda x: int(x, 0),
+            default=5,
+            help="Show this many lines of stdout on bench failure. "
+                "Defaults to 5.")
     bench_parser.add_argument(
-        '--gdb',
-        action='store_true',
-        help="Drop into gdb on bench failure.")
+            '--gdb',
+            action='store_true',
+            help="Drop into gdb on bench failure.")
     bench_parser.add_argument(
-        '--gdb-perm', '--gdb-permutation',
-        action='store_true',
-        help="Drop into gdb on bench failure but stop at the beginning "
-            "of the failing bench case.")
+            '--gdb-perm', '--gdb-permutation',
+            action='store_true',
+            help="Drop into gdb on bench failure but stop at the beginning "
+                "of the failing bench case.")
     bench_parser.add_argument(
-        '--gdb-main',
-        action='store_true',
-        help="Drop into gdb on bench failure but stop at the beginning "
-            "of main.")
+            '--gdb-main',
+            action='store_true',
+            help="Drop into gdb on bench failure but stop at the beginning "
+                "of main.")
     bench_parser.add_argument(
-        '--gdb-path',
-        type=lambda x: x.split(),
-        default=GDB_PATH,
-        help="Path to the gdb executable, may include flags. "
-            "Defaults to %r." % GDB_PATH)
+            '--gdb-path',
+            type=lambda x: x.split(),
+            default=GDB_PATH,
+            help="Path to the gdb executable, may include flags. "
+                "Defaults to %r." % GDB_PATH)
     bench_parser.add_argument(
-        '--exec',
-        type=lambda e: e.split(),
-        help="Run under another executable.")
+            '--exec',
+            type=lambda e: e.split(),
+            help="Run under another executable.")
     bench_parser.add_argument(
-        '--valgrind',
-        action='store_true',
-        help="Run under Valgrind to find memory errors. Implicitly sets "
-            "--isolate.")
+            '--valgrind',
+            action='store_true',
+            help="Run under Valgrind to find memory errors. Implicitly sets "
+                "--isolate.")
     bench_parser.add_argument(
-        '--valgrind-path',
-        type=lambda x: x.split(),
-        default=VALGRIND_PATH,
-        help="Path to the Valgrind executable, may include flags. "
-            "Defaults to %r." % VALGRIND_PATH)
+            '--valgrind-path',
+            type=lambda x: x.split(),
+            default=VALGRIND_PATH,
+            help="Path to the Valgrind executable, may include flags. "
+                "Defaults to %r." % VALGRIND_PATH)
     bench_parser.add_argument(
-        '-p', '--perf',
-        help="Run under Linux's perf to sample performance counters, writing "
-            "samples to this file.")
+            '-p', '--perf',
+            help="Run under Linux's perf to sample performance counters, "
+                "writing samples to this file.")
     bench_parser.add_argument(
-        '--perf-freq',
-        help="perf sampling frequency. This is passed directly to the perf "
-            "script.")
+            '--perf-freq',
+            help="perf sampling frequency. This is passed directly to the "
+                "perf script.")
     bench_parser.add_argument(
-        '--perf-period',
-        help="perf sampling period. This is passed directly to the perf "
-            "script.")
+            '--perf-period',
+            help="perf sampling period. This is passed directly to the perf "
+                "script.")
     bench_parser.add_argument(
-        '--perf-events',
-        help="perf events to record. This is passed directly to the perf "
-            "script.")
+            '--perf-events',
+            help="perf events to record. This is passed directly to the perf "
+                "script.")
     bench_parser.add_argument(
-        '--perf-script',
-        type=lambda x: x.split(),
-        default=PERF_SCRIPT,
-        help="Path to the perf script to use. Defaults to %r." % PERF_SCRIPT)
+            '--perf-script',
+            type=lambda x: x.split(),
+            default=PERF_SCRIPT,
+            help="Path to the perf script to use. Defaults to "
+                "%r." % PERF_SCRIPT)
     bench_parser.add_argument(
-        '--perf-path',
-        type=lambda x: x.split(),
-        help="Path to the perf executable, may include flags. This is passed "
-            "directly to the perf script")
+            '--perf-path',
+            type=lambda x: x.split(),
+            help="Path to the perf executable, may include flags. This is "
+                "passed directly to the perf script")
 
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
     comp_parser.add_argument(
-        'bench_paths',
-        nargs='*',
-        help="Set of *.toml files to compile.")
+            'bench_paths',
+            nargs='*',
+            help="Set of *.toml files to compile.")
     comp_parser.add_argument(
-        '-c', '--compile',
-        action='store_true',
-        help="Compile a bench suite or source file.")
+            '-c', '--compile',
+            action='store_true',
+            help="Compile a bench suite or source file.")
     comp_parser.add_argument(
-        '-s', '--source',
-        help="Source file to compile, possibly injecting internal benches.")
+            '-s', '--source',
+            help="Source file to compile, possibly injecting internal benches.")
     comp_parser.add_argument(
-        '--include',
-        default=HEADER_PATH,
-        help="Inject this header file into every compiled bench file. "
-            "Defaults to %r." % HEADER_PATH)
+            '--include',
+            default=HEADER_PATH,
+            help="Inject this header file into every compiled bench file. "
+                "Defaults to %r." % HEADER_PATH)
     comp_parser.add_argument(
-        '-o', '--output',
-        help="Output file.")
+            '-o', '--output',
+            help="Output file.")
 
     # do the thing
     args = parser.parse_intermixed_args()
     args.bench_paths = args.bench_ids
     sys.exit(main(**{k: v
-        for k, v in vars(args).items()
-        if v is not None}))
+            for k, v in vars(args).items()
+            if v is not None}))

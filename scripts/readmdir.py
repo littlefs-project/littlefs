@@ -5,6 +5,7 @@ import binascii
 import sys
 import itertools as it
 
+
 TAG_TYPES = {
     'splice':       (0x700, 0x400),
     'create':       (0x7ff, 0x401),
@@ -104,8 +105,9 @@ class Tag:
         try:
             if ' ' in type:
                 type1, type3 = type.split()
-                return (self.is_(type1) and
-                    (self.type & ~TAG_TYPES[type1][0]) == int(type3, 0))
+                return (self.is_(type1)
+                        and (self.type & ~TAG_TYPES[type1][0])
+                            == int(type3, 0))
 
             return self.type == int(type, 0)
 
@@ -114,9 +116,9 @@ class Tag:
 
     def mkmask(self):
         return Tag(
-            0x700 if self.isunique else 0x7ff,
-            0x3ff if self.isattr else 0,
-            0)
+                0x700 if self.isunique else 0x7ff,
+                0x3ff if self.isattr else 0,
+                0)
 
     def chid(self, nid):
         ntag = Tag(self.type, nid, self.size)
@@ -142,7 +144,7 @@ class Tag:
                 type = reverse_types[mask, self.type & mask]
                 if prefix > 0:
                     return '%s %#x%s' % (
-                        type, self.type & ((1 << prefix)-1), crc_status)
+                            type, self.type & ((1 << prefix)-1), crc_status)
                 else:
                     return '%s%s' % (type, crc_status)
         else:
@@ -226,7 +228,7 @@ class MetadataPair:
                     if fcrcdata:
                         fcrcsize, fcrc = fcrcdata
                         fcrc_ = 0xffffffff ^ binascii.crc32(
-                            block[off:off+fcrcsize])
+                                block[off:off+fcrcsize])
                         if fcrc_ == fcrc:
                             fcrctag.erased = True
                             corrupt = True
@@ -239,8 +241,8 @@ class MetadataPair:
 
         # find active ids
         self.ids = list(it.takewhile(
-            lambda id: Tag('name', id, 0) in self,
-            it.count()))
+                lambda id: Tag('name', id, 0) in self,
+                it.count()))
 
         # find most recent tags
         self.tags = []
@@ -286,16 +288,16 @@ class MetadataPair:
 
         gdiff = 0
         for tag in reversed(self.log):
-            if (gmask.id != 0 and tag.is_('splice') and
-                    tag.id <= gtag.id - gdiff):
+            if (gmask.id != 0 and tag.is_('splice')
+                    and tag.id <= gtag.id - gdiff):
                 if tag.is_('create') and tag.id == gtag.id - gdiff:
                     # creation point
                     break
 
                 gdiff += tag.schunk
 
-            if ((int(gmask) & int(tag)) ==
-                    (int(gmask) & int(gtag.chid(gtag.id - gdiff)))):
+            if ((int(gmask) & int(tag))
+                    == (int(gmask) & int(gtag.chid(gtag.id - gdiff)))):
                 if tag.size == 0x3ff:
                     # deleted
                     break
@@ -306,28 +308,28 @@ class MetadataPair:
 
     def _dump_tags(self, tags, f=sys.stdout, truncate=True):
         f.write("%-8s  %-8s  %-13s %4s %4s" % (
-            'off', 'tag', 'type', 'id', 'len'))
+                'off', 'tag', 'type', 'id', 'len'))
         if truncate:
             f.write('  data (truncated)')
         f.write('\n')
 
         for tag in tags:
             f.write("%08x: %08x  %-14s %3s %4s" % (
-                tag.off, tag,
-                tag.typerepr(), tag.idrepr(), tag.sizerepr()))
+                    tag.off, tag,
+                    tag.typerepr(), tag.idrepr(), tag.sizerepr()))
             if truncate:
                 f.write("  %-23s  %-8s\n" % (
-                    ' '.join('%02x' % c for c in tag.data[:8]),
-                    ''.join(c if c >= ' ' and c <= '~' else '.'
-                        for c in map(chr, tag.data[:8]))))
+                        ' '.join('%02x' % c for c in tag.data[:8]),
+                        ''.join(c if c >= ' ' and c <= '~' else '.'
+                            for c in map(chr, tag.data[:8]))))
             else:
                 f.write("\n")
                 for i in range(0, len(tag.data), 16):
                     f.write("  %08x: %-47s  %-16s\n" % (
-                        tag.off+i,
-                        ' '.join('%02x' % c for c in tag.data[i:i+16]),
-                        ''.join(c if c >= ' ' and c <= '~' else '.'
-                            for c in map(chr, tag.data[i:i+16]))))
+                            tag.off+i,
+                            ' '.join('%02x' % c for c in tag.data[i:i+16]),
+                            ''.join(c if c >= ' ' and c <= '~' else '.'
+                                for c in map(chr, tag.data[i:i+16]))))
 
     def dump_tags(self, f=sys.stdout, truncate=True):
         self._dump_tags(self.tags, f=f, truncate=truncate)
@@ -346,7 +348,7 @@ def main(args):
                 continue
             f.seek(block * args.block_size)
             blocks.append(f.read(args.block_size)
-                .ljust(args.block_size, b'\xff'))
+                    .ljust(args.block_size, b'\xff'))
 
     # find most recent pair
     mdir = MetadataPair(blocks)
@@ -359,15 +361,15 @@ def main(args):
         mdir.tail = None
 
     print("mdir {%s} rev %d%s%s%s" % (
-        ', '.join('%#x' % b
-            for b in [args.block1, args.block2]
-            if b is not None),
-        mdir.rev,
-        ' (was %s)' % ', '.join('%d' % m.rev for m in mdir.pair[1:])
-        if len(mdir.pair) > 1 else '',
-        ' (corrupted!)' if not mdir else '',
-        ' -> {%#x, %#x}' % struct.unpack('<II', mdir.tail.data)
-        if mdir.tail else ''))
+            ', '.join('%#x' % b
+                for b in [args.block1, args.block2]
+                if b is not None),
+            mdir.rev,
+            ' (was %s)' % ', '.join('%d' % m.rev for m in mdir.pair[1:])
+                if len(mdir.pair) > 1 else '',
+            ' (corrupted!)' if not mdir else '',
+            ' -> {%#x, %#x}' % struct.unpack('<II', mdir.tail.data)
+                if mdir.tail else ''))
     if args.all:
         mdir.dump_all(truncate=not args.no_truncate)
     elif args.log:
@@ -377,23 +379,24 @@ def main(args):
 
     return 0 if mdir else 1
 
+
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Dump useful info about metadata pairs in littlefs.")
+            description="Dump useful info about metadata pairs in littlefs.")
     parser.add_argument('disk',
-        help="File representing the block device.")
+            help="File representing the block device.")
     parser.add_argument('block_size', type=lambda x: int(x, 0),
-        help="Size of a block in bytes.")
+            help="Size of a block in bytes.")
     parser.add_argument('block1', type=lambda x: int(x, 0),
-        help="First block address for finding the metadata pair.")
+            help="First block address for finding the metadata pair.")
     parser.add_argument('block2', nargs='?', type=lambda x: int(x, 0),
-        help="Second block address for finding the metadata pair.")
+            help="Second block address for finding the metadata pair.")
     parser.add_argument('-l', '--log', action='store_true',
-        help="Show tags in log.")
+            help="Show tags in log.")
     parser.add_argument('-a', '--all', action='store_true',
-        help="Show all tags in log, included tags in corrupted commits.")
+            help="Show all tags in log, included tags in corrupted commits.")
     parser.add_argument('-T', '--no-truncate', action='store_true',
-        help="Don't truncate large amounts of data.")
+            help="Don't truncate large amounts of data.")
     sys.exit(main(parser.parse_args()))

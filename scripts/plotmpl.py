@@ -25,6 +25,7 @@ import time
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+
 # some nicer colors borrowed from Seaborn
 # note these include a non-opaque alpha
 COLORS = [
@@ -148,8 +149,8 @@ class AutoMultipleLocator(mpl.ticker.MultipleLocator):
             nbins = np.clip(self.axis.get_tick_space(), 1, 9)
 
         # find the best power, use this as our locator's actual base
-        scale = self.base
-            ** (mt.ceil(mt.log((vmax-vmin) / (nbins+1), self.base)))
+        scale = (self.base
+                ** (mt.ceil(mt.log((vmax-vmin) / (nbins+1), self.base))))
         self.set_params(scale)
 
         return super().__call__()
@@ -199,8 +200,8 @@ def collect(csv_paths, renames=[], defines=[]):
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 fields.extend(
-                    k for k in reader.fieldnames
-                    if k not in fields)
+                        k for k in reader.fieldnames
+                            if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -249,7 +250,7 @@ def fold(results, by=None, x=None, y=None, defines=[], labels=None):
                     # filter by 'by'
                     if by and not all(
                             k in r and r[k] == v
-                            for k, v in zip(by, key)):
+                                for k, v in zip(by, key)):
                         continue
 
                     # find xs
@@ -353,9 +354,9 @@ class Grid:
             self_i = 0
             other_i = 0
             self_xweight = (self_xweights[self_i]
-                if self_i < len(self_xweights) else mt.inf)
+                    if self_i < len(self_xweights) else mt.inf)
             other_xweight = (other_xweights[other_i]
-                if other_i < len(other_xweights) else mt.inf)
+                    if other_i < len(other_xweights) else mt.inf)
             while self_i < len(self_xweights) and other_i < len(other_xweights):
                 if other_xweight - self_xweight > 0.0000001:
                     new_xweights.append(self_xweight)
@@ -374,7 +375,7 @@ class Grid:
 
                     self_i += 1
                     self_xweight = (self_xweights[self_i]
-                        if self_i < len(self_xweights) else mt.inf)
+                            if self_i < len(self_xweights) else mt.inf)
                 elif self_xweight - other_xweight > 0.0000001:
                     new_xweights.append(other_xweight)
                     self_xweight -= other_xweight
@@ -392,7 +393,7 @@ class Grid:
 
                     other_i += 1
                     other_xweight = (other_xweights[other_i]
-                        if other_i < len(other_xweights) else mt.inf)
+                            if other_i < len(other_xweights) else mt.inf)
                 else:
                     new_xweights.append(self_xweight)
 
@@ -404,10 +405,10 @@ class Grid:
 
                     self_i += 1
                     self_xweight = (self_xweights[self_i]
-                        if self_i < len(self_xweights) else mt.inf)
+                            if self_i < len(self_xweights) else mt.inf)
                     other_i += 1
                     other_xweight = (other_xweights[other_i]
-                        if other_i < len(other_xweights) else mt.inf)
+                            if other_i < len(other_xweights) else mt.inf)
 
             # squish so ratios are preserved
             self_h = sum(self.yweights)
@@ -423,8 +424,9 @@ class Grid:
 
                 self.xweights = new_xweights
                 self.yweights = self_yweights + other.yweights
-                self.map = self_map | {(x, y+len(self_yweights)): s
-                    for (x, y), s in other_map.items()}
+                self.map = self_map | {
+                        (x, y+len(self_yweights)): s
+                            for (x, y), s in other_map.items()}
             else:
                 for s in self.subplots:
                     s.y += len(other.yweights)
@@ -432,8 +434,9 @@ class Grid:
 
                 self.xweights = new_xweights
                 self.yweights = other.yweights + self_yweights
-                self.map = other_map | {(x, y+len(other.yweights)): s
-                    for (x, y), s in self_map.items()}
+                self.map = other_map | {
+                        (x, y+len(other.yweights)): s
+                            for (x, y), s in self_map.items()}
 
         if dir in ['right', 'left']:
             # first scale the two grids so they line up
@@ -451,9 +454,9 @@ class Grid:
             self_i = 0
             other_i = 0
             self_yweight = (self_yweights[self_i]
-                if self_i < len(self_yweights) else mt.inf)
+                    if self_i < len(self_yweights) else mt.inf)
             other_yweight = (other_yweights[other_i]
-                if other_i < len(other_yweights) else mt.inf)
+                    if other_i < len(other_yweights) else mt.inf)
             while self_i < len(self_yweights) and other_i < len(other_yweights):
                 if other_yweight - self_yweight > 0.0000001:
                     new_yweights.append(self_yweight)
@@ -472,7 +475,7 @@ class Grid:
 
                     self_i += 1
                     self_yweight = (self_yweights[self_i]
-                        if self_i < len(self_yweights) else mt.inf)
+                            if self_i < len(self_yweights) else mt.inf)
                 elif self_yweight - other_yweight > 0.0000001:
                     new_yweights.append(other_yweight)
                     self_yweight -= other_yweight
@@ -490,7 +493,7 @@ class Grid:
 
                     other_i += 1
                     other_yweight = (other_yweights[other_i]
-                        if other_i < len(other_yweights) else mt.inf)
+                            if other_i < len(other_yweights) else mt.inf)
                 else:
                     new_yweights.append(self_yweight)
 
@@ -502,10 +505,10 @@ class Grid:
 
                     self_i += 1
                     self_yweight = (self_yweights[self_i]
-                        if self_i < len(self_yweights) else mt.inf)
+                            if self_i < len(self_yweights) else mt.inf)
                     other_i += 1
                     other_yweight = (other_yweights[other_i]
-                        if other_i < len(other_yweights) else mt.inf)
+                            if other_i < len(other_yweights) else mt.inf)
 
             # squish so ratios are preserved
             self_w = sum(self.xweights)
@@ -521,8 +524,9 @@ class Grid:
 
                 self.xweights = self_xweights + other.xweights
                 self.yweights = new_yweights
-                self.map = self_map | {(x+len(self_xweights), y): s
-                    for (x, y), s in other_map.items()}
+                self.map = self_map | {
+                        (x+len(self_xweights), y): s
+                            for (x, y), s in other_map.items()}
             else:
                 for s in self.subplots:
                     s.x += len(other.xweights)
@@ -530,8 +534,9 @@ class Grid:
 
                 self.xweights = other.xweights + self_xweights
                 self.yweights = new_yweights
-                self.map = other_map | {(x+len(other.xweights), y): s
-                    for (x, y), s in self_map.items()}
+                self.map = other_map | {
+                        (x+len(other.xweights), y): s
+                            for (x, y), s in self_map.items()}
 
 
     def scale(self, width, height):
@@ -546,11 +551,11 @@ class Grid:
 
         for dir, subargs in subplots:
             subgrid = cls.fromargs(
-                width=subargs.pop('width',
-                    0.5 if dir in ['right', 'left'] else width),
-                height=subargs.pop('height',
-                    0.5 if dir in ['above', 'below'] else height),
-                **subargs)
+                    width=subargs.pop('width',
+                        0.5 if dir in ['right', 'left'] else width),
+                    height=subargs.pop('height',
+                        0.5 if dir in ['above', 'below'] else height),
+                    **subargs)
             grid.merge(subgrid, dir)
 
         grid.scale(width, height)
@@ -668,8 +673,8 @@ def main(csv_paths, output, *,
         # fix ggplot when dark
         if ggplot:
             plt.rc('axes',
-                facecolor=foreground_,
-                edgecolor=background_)
+                    facecolor=foreground_,
+                    edgecolor=background_)
             plt.rc('grid', color=background_)
 
     if font is not None:
@@ -677,22 +682,22 @@ def main(csv_paths, output, *,
     plt.rc('font', size=font_size)
     plt.rc('text', color=font_color_)
     plt.rc('figure',
-        titlesize='medium',
-        labelsize='small')
+            titlesize='medium',
+            labelsize='small')
     plt.rc('axes',
-        titlesize='small',
-        labelsize='small',
-        labelcolor=font_color_)
+            titlesize='small',
+            labelsize='small',
+            labelcolor=font_color_)
     if not ggplot:
         plt.rc('axes', edgecolor=font_color_)
     plt.rc('xtick', labelsize='small', color=font_color_)
     plt.rc('ytick', labelsize='small', color=font_color_)
     plt.rc('legend',
-        fontsize='small',
-        fancybox=False,
-        framealpha=None,
-        edgecolor=foreground_,
-        borderaxespad=0)
+            fontsize='small',
+            fancybox=False,
+            framealpha=None,
+            edgecolor=foreground_,
+            borderaxespad=0)
     plt.rc('axes.spines', top=False, right=False)
 
     plt.rc('figure', facecolor=background_, edgecolor=background_)
@@ -723,19 +728,19 @@ def main(csv_paths, output, *,
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
     all_labels = ((label or [])
-        + subplots_get('label', **subplot, subplots=subplots))
+            + subplots_get('label', **subplot, subplots=subplots))
 
     # separate out renames
     all_renames = list(it.chain.from_iterable(
-        ((k, v) for v in vs)
-        for k, vs in it.chain(all_by, all_x, all_y)))
+            ((k, v) for v in vs)
+                for k, vs in it.chain(all_by, all_x, all_y)))
     all_by = [k for k, _ in all_by]
     all_x = [k for k, _ in all_x]
     all_y = [k for k, _ in all_y]
 
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
 
     # first collect results from CSV files
@@ -743,8 +748,7 @@ def main(csv_paths, output, *,
 
     # if y not specified, guess it's anything not in by/defines/x/renames
     if not all_y:
-        all_y = [
-            k for k in fields_
+        all_y = [k for k in fields_
                 if k not in all_by
                     and not any(k == k_ for k_, _ in all_defines)
                     and not any(k == old_k for _, old_k in all_renames)]
@@ -757,42 +761,43 @@ def main(csv_paths, output, *,
     # figure out formats/colors here so that subplot defines don't change
     # them later, that'd be bad
     dataformats_ = {
-        name: formats_[i % len(formats_)]
-        for i, name in enumerate(datasets_.keys())}
+            name: formats_[i % len(formats_)]
+                for i, name in enumerate(datasets_.keys())}
     datacolors_ = {
-        name: colors_[i % len(colors_)]
-        for i, name in enumerate(datasets_.keys())}
+            name: colors_[i % len(colors_)]
+                for i, name in enumerate(datasets_.keys())}
 
     # create a grid of subplots
     grid = Grid.fromargs(**subplot, subplots=subplots)
 
     # create a matplotlib plot
-    fig = plt.figure(figsize=(
-        width/plt.rcParams['figure.dpi'],
-        height/plt.rcParams['figure.dpi']),
-        layout='constrained',
-        # we need a linewidth to keep xkcd mode happy
-        linewidth=8 if xkcd else 0)
+    fig = plt.figure(
+            figsize=(
+                width/plt.rcParams['figure.dpi'],
+                height/plt.rcParams['figure.dpi']),
+            layout='constrained',
+            # we need a linewidth to keep xkcd mode happy
+            linewidth=8 if xkcd else 0)
 
     gs = fig.add_gridspec(
-        grid.height
-            + (1 if legend_above else 0)
-            + (1 if legend_below else 0),
-        grid.width
-            + (1 if legend_right else 0),
-        height_ratios=([0.001] if legend_above else [])
-            + [max(s, 0.01) for s in reversed(grid.yweights)]
-            + ([0.001] if legend_below else []),
-        width_ratios=[max(s, 0.01) for s in grid.xweights]
-            + ([0.001] if legend_right else []))
+            grid.height
+                + (1 if legend_above else 0)
+                + (1 if legend_below else 0),
+            grid.width
+                + (1 if legend_right else 0),
+            height_ratios=([0.001] if legend_above else [])
+                + [max(s, 0.01) for s in reversed(grid.yweights)]
+                + ([0.001] if legend_below else []),
+            width_ratios=[max(s, 0.01) for s in grid.xweights]
+                + ([0.001] if legend_right else []))
 
     # first create axes so that plots can interact with each other
     for s in grid:
         s.ax = fig.add_subplot(gs[
-            grid.height-(s.y+s.yspan) + (1 if legend_above else 0)
-                : grid.height-s.y + (1 if legend_above else 0),
-            s.x
-                : s.x+s.xspan])
+                grid.height-(s.y+s.yspan) + (1 if legend_above else 0)
+                    : grid.height-s.y + (1 if legend_above else 0),
+                s.x
+                    : s.x+s.xspan])
 
     # now plot each subplot
     for s in grid:
@@ -830,18 +835,18 @@ def main(csv_paths, output, *,
 
         # filter by subplot x/y
         subdatasets = co.OrderedDict([(name, dataset)
-            for name, dataset in subdatasets.items()
-            if len(all_x) <= 1 or name[-(1 if len(all_y) <= 1 else 2)] in x_
-            if len(all_y) <= 1 or name[-1] in y_])
+                for name, dataset in subdatasets.items()
+                if len(all_x) <= 1 or name[-(1 if len(all_y) <= 1 else 2)] in x_
+                if len(all_y) <= 1 or name[-1] in y_])
 
         # plot!
         ax = s.ax
         for name, dataset in subdatasets.items():
             dats = sorted((x,y) for x,y in dataset)
             ax.plot([x for x,_ in dats], [y for _,y in dats],
-                dataformats_[name],
-                color=datacolors_[name],
-                label=','.join(name))
+                    dataformats_[name],
+                    color=datacolors_[name],
+                    label=','.join(name))
 
         # axes scaling
         if xlog_:
@@ -852,31 +857,31 @@ def main(csv_paths, output, *,
             ax.yaxis.set_minor_locator(mpl.ticker.NullLocator())
         # axes limits
         ax.set_xlim(
-            xlim_[0] if xlim_[0] is not None
-                else min(it.chain([0], (x
-                    for dataset in subdatasets.values()
-                    for x, y in dataset
-                    if y is not None))),
-            xlim_[1] if xlim_[1] is not None
-                else max(it.chain([0], (x
-                    for r in subdatasets.values()
-                    for x, y in dataset
-                    if y is not None))))
+                xlim_[0] if xlim_[0] is not None
+                    else min(it.chain([0], (x
+                        for dataset in subdatasets.values()
+                        for x, y in dataset
+                        if y is not None))),
+                xlim_[1] if xlim_[1] is not None
+                    else max(it.chain([0], (x
+                        for r in subdatasets.values()
+                        for x, y in dataset
+                        if y is not None))))
         ax.set_ylim(
-            ylim_[0] if ylim_[0] is not None
-                else min(it.chain([0], (y
-                    for dataset in subdatasets.values()
-                    for _, y in dataset
-                    if y is not None))),
-            ylim_[1] if ylim_[1] is not None
-                else max(it.chain([0], (y
-                    for dataset in subdatasets.values()
-                    for _, y in dataset
-                    if y is not None))))
+                ylim_[0] if ylim_[0] is not None
+                    else min(it.chain([0], (y
+                        for dataset in subdatasets.values()
+                        for _, y in dataset
+                        if y is not None))),
+                ylim_[1] if ylim_[1] is not None
+                    else max(it.chain([0], (y
+                        for dataset in subdatasets.values()
+                        for _, y in dataset
+                        if y is not None))))
         # axes ticks
         if x2_:
             ax.xaxis.set_major_formatter(lambda x, pos:
-                si2(x)+(xunits_ if xunits_ else ''))
+                    si2(x)+(xunits_ if xunits_ else ''))
             if xticklabels_ is not None:
                 ax.xaxis.set_ticklabels(xticklabels_)
             if xticks_ is None:
@@ -889,7 +894,7 @@ def main(csv_paths, output, *,
                 ax.xaxis.set_major_locator(mpl.ticker.NullLocator())
         else:
             ax.xaxis.set_major_formatter(lambda x, pos:
-                si(x)+(xunits_ if xunits_ else ''))
+                    si(x)+(xunits_ if xunits_ else ''))
             if xticklabels_ is not None:
                 ax.xaxis.set_ticklabels(xticklabels_)
             if xticks_ is None:
@@ -902,7 +907,7 @@ def main(csv_paths, output, *,
                 ax.xaxis.set_major_locator(mpl.ticker.NullLocator())
         if y2_:
             ax.yaxis.set_major_formatter(lambda x, pos:
-                si2(x)+(yunits_ if yunits_ else ''))
+                    si2(x)+(yunits_ if yunits_ else ''))
             if yticklabels_ is not None:
                 ax.yaxis.set_ticklabels(yticklabels_)
             if yticks_ is None:
@@ -915,7 +920,7 @@ def main(csv_paths, output, *,
                 ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
         else:
             ax.yaxis.set_major_formatter(lambda x, pos:
-                si(x)+(yunits_ if yunits_ else ''))
+                    si(x)+(yunits_ if yunits_ else ''))
             if yticklabels_ is not None:
                 ax.yaxis.set_ticklabels(yticklabels_)
             if yticks_ is None:
@@ -966,11 +971,11 @@ def main(csv_paths, output, *,
         ax = fig.add_subplot(gs[(1 if legend_above else 0):,-1])
         ax.set_axis_off()
         ax.legend(
-            [h for _,h in legend],
-            [l for l,_ in legend],
-            loc='upper left',
-            fancybox=False,
-            borderaxespad=0)
+                [h for _,h in legend],
+                [l for l,_ in legend],
+                loc='upper left',
+                fancybox=False,
+                borderaxespad=0)
 
     if legend_above:
         ax = fig.add_subplot(gs[0, :grid.width])
@@ -988,12 +993,12 @@ def main(csv_paths, output, *,
             legend_ = [l for l in legend_ if l is not None]
 
             legend_ = ax.legend(
-                [h for _,h in legend_],
-                [l for l,_ in legend_],
-                loc='upper center',
-                ncol=ncol,
-                fancybox=False,
-                borderaxespad=0)
+                    [h for _,h in legend_],
+                    [l for l,_ in legend_],
+                    loc='upper center',
+                    ncol=ncol,
+                    fancybox=False,
+                    borderaxespad=0)
 
             if (legend_.get_window_extent().width
                     <= ax.get_window_extent().width):
@@ -1007,8 +1012,8 @@ def main(csv_paths, output, *,
         # works really well actually
         if xlabel:
             ax.set_title(escape(xlabel),
-                size=plt.rcParams['axes.labelsize'],
-                weight=plt.rcParams['axes.labelweight'])
+                    size=plt.rcParams['axes.labelsize'],
+                    weight=plt.rcParams['axes.labelweight'])
 
         # try different column counts until we fit in the axes
         for ncol in reversed(range(1, len(legend)+1)):
@@ -1022,12 +1027,12 @@ def main(csv_paths, output, *,
             legend_ = [l for l in legend_ if l is not None]
 
             legend_ = ax.legend(
-                [h for _,h in legend_],
-                [l for l,_ in legend_],
-                loc='upper center',
-                ncol=ncol,
-                fancybox=False,
-                borderaxespad=0)
+                    [h for _,h in legend_],
+                    [l for l,_ in legend_],
+                    loc='upper center',
+                    ncol=ncol,
+                    fancybox=False,
+                    borderaxespad=0)
 
             if (legend_.get_window_extent().width
                     <= ax.get_window_extent().width):
@@ -1062,9 +1067,9 @@ def main(csv_paths, output, *,
     # some stats
     if not quiet:
         print('updated %s, %s datasets, %s points' % (
-            output,
-            len(datasets_),
-            sum(len(dataset) for dataset in datasets_.values())))
+                output,
+                len(datasets_),
+                sum(len(dataset) for dataset in datasets_.values())))
 
 
 if __name__ == "__main__":
@@ -1072,265 +1077,267 @@ if __name__ == "__main__":
     import argparse
     import re
     parser = argparse.ArgumentParser(
-        description="Plot CSV files with matplotlib.",
-        allow_abbrev=False)
+            description="Plot CSV files with matplotlib.",
+            allow_abbrev=False)
     parser.add_argument(
-        'csv_paths',
-        nargs='*',
-        help="Input *.csv files.")
+            'csv_paths',
+            nargs='*',
+            help="Input *.csv files.")
     output_rule = parser.add_argument(
-        '-o', '--output',
-        required=True,
-        help="Output *.svg/*.png file.")
+            '-o', '--output',
+            required=True,
+            help="Output *.svg/*.png file.")
     parser.add_argument(
-        '--svg',
-        action='store_true',
-        help="Output an svg file. By default this is infered.")
+            '--svg',
+            action='store_true',
+            help="Output an svg file. By default this is infered.")
     parser.add_argument(
-        '--png',
-        action='store_true',
-        help="Output a png file. By default this is infered.")
+            '--png',
+            action='store_true',
+            help="Output a png file. By default this is infered.")
     parser.add_argument(
-        '-q', '--quiet',
-        action='store_true',
-        help="Don't print info.")
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't print info.")
     parser.add_argument(
-        '-b', '--by',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Group by this field. Can rename fields with new_name=old_name.")
+            '-b', '--by',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Group by this field. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-x',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to use for the x-axis. Can rename fields with "
-            "new_name=old_name.")
+            '-x',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to use for the x-axis. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-y',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to use for the y-axis. Can rename fields with "
-            "new_name=old_name.")
+            '-y',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to use for the y-axis. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-D', '--define',
-        type=lambda x: (
-            lambda k, vs: (
-                k.strip(),
-                {v.strip() for v in vs.split(',')})
-            )(*x.split('=', 1)),
-        action='append',
-        help="Only include results where this field is this value. May include "
-            "comma-separated options.")
+            '-D', '--define',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            action='append',
+            help="Only include results where this field is this value. May "
+                "include comma-separated options.")
     parser.add_argument(
-        '-L', '--label',
-        action='append',
-        type=lambda x: (
-            lambda k, vs: (
-                re.sub(r'\\([=\\])', r'\1', k.strip()),
-                tuple(v.strip() for v in vs.split(',')))
-            )(*re.split(r'(?<!\\)=', x, 1)),
-        help="Use this label for a given group, where a group is roughly the "
-            "comma-separated values in the -b/--by, -x, and -y fields. Also "
-            "provides an ordering. Accepts escaped equals.")
+            '-L', '--label',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    re.sub(r'\\([=\\])', r'\1', k.strip()),
+                    tuple(v.strip() for v in vs.split(',')))
+                )(*re.split(r'(?<!\\)=', x, 1)),
+            help="Use this label for a given group, where a group is roughly "
+                "the comma-separated values in the -b/--by, -x, and -y "
+                "fields. Also provides an ordering. Accepts escaped equals.")
     parser.add_argument(
-        '-.', '--points',
-        action='store_true',
-        help="Only draw data points.")
+            '-.', '--points',
+            action='store_true',
+            help="Only draw data points.")
     parser.add_argument(
-        '-!', '--points-and-lines',
-        action='store_true',
-        help="Draw data points and lines.")
+            '-!', '--points-and-lines',
+            action='store_true',
+            help="Draw data points and lines.")
     parser.add_argument(
-        '--colors',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Comma-separated hex colors to use.")
+            '--colors',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Comma-separated hex colors to use.")
     parser.add_argument(
-        '--formats',
-        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-            for x in re.split(r'(?<!\\),', x)],
-        help="Comma-separated matplotlib formats to use. Accepts escaped "
-            "commas.")
+            '--formats',
+            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
+                for x in re.split(r'(?<!\\),', x)],
+            help="Comma-separated matplotlib formats to use. Accepts escaped "
+                "commas.")
     parser.add_argument(
-        '-W', '--width',
-        type=lambda x: int(x, 0),
-        help="Width in pixels. Defaults to %r." % WIDTH)
+            '-W', '--width',
+            type=lambda x: int(x, 0),
+            help="Width in pixels. Defaults to %r." % WIDTH)
     parser.add_argument(
-        '-H', '--height',
-        type=lambda x: int(x, 0),
-        help="Height in pixels. Defaults to %r." % HEIGHT)
+            '-H', '--height',
+            type=lambda x: int(x, 0),
+            help="Height in pixels. Defaults to %r." % HEIGHT)
     parser.add_argument(
-        '-X', '--xlim',
-        type=lambda x: tuple(
-            dat(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Range for the x-axis.")
+            '-X', '--xlim',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the x-axis.")
     parser.add_argument(
-        '-Y', '--ylim',
-        type=lambda x: tuple(
-            dat(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Range for the y-axis.")
+            '-Y', '--ylim',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the y-axis.")
     parser.add_argument(
-        '--xlog',
-        action='store_true',
-        help="Use a logarithmic x-axis.")
+            '--xlog',
+            action='store_true',
+            help="Use a logarithmic x-axis.")
     parser.add_argument(
-        '--ylog',
-        action='store_true',
-        help="Use a logarithmic y-axis.")
+            '--ylog',
+            action='store_true',
+            help="Use a logarithmic y-axis.")
     parser.add_argument(
-        '--x2',
-        action='store_true',
-        help="Use base-2 prefixes for the x-axis.")
+            '--x2',
+            action='store_true',
+            help="Use base-2 prefixes for the x-axis.")
     parser.add_argument(
-        '--y2',
-        action='store_true',
-        help="Use base-2 prefixes for the y-axis.")
+            '--y2',
+            action='store_true',
+            help="Use base-2 prefixes for the y-axis.")
     parser.add_argument(
-        '--xticks',
-        type=lambda x: int(x, 0) if ',' not in x
-            else [dat(x) for x in x.split(',')],
-        help="Ticks for the x-axis. This can be explicit comma-separated "
-            "ticks, the number of ticks, or 0 to disable.")
+            '--xticks',
+            type=lambda x: int(x, 0) if ',' not in x
+                else [dat(x) for x in x.split(',')],
+            help="Ticks for the x-axis. This can be explicit comma-separated "
+                "ticks, the number of ticks, or 0 to disable.")
     parser.add_argument(
-        '--yticks',
-        type=lambda x: int(x, 0) if ',' not in x
-            else [dat(x) for x in x.split(',')],
-        help="Ticks for the y-axis. This can be explicit comma-separated "
-            "ticks, the number of ticks, or 0 to disable.")
+            '--yticks',
+            type=lambda x: int(x, 0) if ',' not in x
+                else [dat(x) for x in x.split(',')],
+            help="Ticks for the y-axis. This can be explicit comma-separated "
+                "ticks, the number of ticks, or 0 to disable.")
     parser.add_argument(
-        '--xunits',
-        help="Units for the x-axis.")
+            '--xunits',
+            help="Units for the x-axis.")
     parser.add_argument(
-        '--yunits',
-        help="Units for the y-axis.")
+            '--yunits',
+            help="Units for the y-axis.")
     parser.add_argument(
-        '--xlabel',
-        help="Add a label to the x-axis.")
+            '--xlabel',
+            help="Add a label to the x-axis.")
     parser.add_argument(
-        '--ylabel',
-        help="Add a label to the y-axis.")
+            '--ylabel',
+            help="Add a label to the y-axis.")
     parser.add_argument(
-        '--xticklabels',
-        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                for x in re.split(r'(?<!\\),', x)]
-            if x.strip() else [],
-        help="Comma separated xticklabels. Accepts escaped commas.")
+            '--xticklabels',
+            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
+                    for x in re.split(r'(?<!\\),', x)]
+                if x.strip() else [],
+            help="Comma separated xticklabels. Accepts escaped commas.")
     parser.add_argument(
-        '--yticklabels',
-        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                for x in re.split(r'(?<!\\),', x)]
-            if x.strip() else [],
-        help="Comma separated yticklabels. Accepts escaped commas.")
+            '--yticklabels',
+            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
+                    for x in re.split(r'(?<!\\),', x)]
+                if x.strip() else [],
+            help="Comma separated yticklabels. Accepts escaped commas.")
     parser.add_argument(
-        '-t', '--title',
-        help="Add a title.")
+            '-t', '--title',
+            help="Add a title.")
     parser.add_argument(
-        '-l', '--legend', '--legend-right',
-        dest='legend_right',
-        action='store_true',
-        help="Place a legend to the right.")
+            '-l', '--legend', '--legend-right',
+            dest='legend_right',
+            action='store_true',
+            help="Place a legend to the right.")
     parser.add_argument(
-        '--legend-above',
-        action='store_true',
-        help="Place a legend above.")
+            '--legend-above',
+            action='store_true',
+            help="Place a legend above.")
     parser.add_argument(
-        '--legend-below',
-        action='store_true',
-        help="Place a legend below.")
+            '--legend-below',
+            action='store_true',
+            help="Place a legend below.")
     parser.add_argument(
-        '--dark',
-        action='store_true',
-        help="Use the dark style.")
+            '--dark',
+            action='store_true',
+            help="Use the dark style.")
     parser.add_argument(
-        '--ggplot',
-        action='store_true',
-        help="Use the ggplot style.")
+            '--ggplot',
+            action='store_true',
+            help="Use the ggplot style.")
     parser.add_argument(
-        '--xkcd',
-        action='store_true',
-        help="Use the xkcd style.")
+            '--xkcd',
+            action='store_true',
+            help="Use the xkcd style.")
     parser.add_argument(
-        '--font',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Font family for matplotlib.")
+            '--font',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Font family for matplotlib.")
     parser.add_argument(
-        '--font-size',
-        help="Font size for matplotlib. Defaults to %r." % FONT_SIZE)
+            '--font-size',
+            help="Font size for matplotlib. Defaults to %r." % FONT_SIZE)
     parser.add_argument(
-        '--font-color',
-        help="Color for the font and other line elements.")
+            '--font-color',
+            help="Color for the font and other line elements.")
     parser.add_argument(
-        '--foreground',
-        help="Foreground color to use.")
+            '--foreground',
+            help="Foreground color to use.")
     parser.add_argument(
-        '--background',
-        help="Background color to use.")
+            '--background',
+            help="Background color to use.")
     class AppendSubplot(argparse.Action):
         @staticmethod
         def parse(value):
             import copy
             subparser = copy.deepcopy(parser)
             next(a for a in subparser._actions
-                if '--output' in a.option_strings).required = False
+                    if '--output' in a.option_strings).required = False
             next(a for a in subparser._actions
-                if '--width' in a.option_strings).type = float
+                    if '--width' in a.option_strings).type = float
             next(a for a in subparser._actions
-                if '--height' in a.option_strings).type = float
+                    if '--height' in a.option_strings).type = float
             return subparser.parse_intermixed_args(shlex.split(value or ""))
         def __call__(self, parser, namespace, value, option):
             if not hasattr(namespace, 'subplots'):
                 namespace.subplots = []
             namespace.subplots.append((
-                option.split('-')[-1],
-                self.__class__.parse(value)))
+                    option.split('-')[-1],
+                    self.__class__.parse(value)))
     parser.add_argument(
-        '--subplot-above',
-        action=AppendSubplot,
-        help="Add subplot above with the same dataset. Takes an arg string to "
-            "control the subplot which supports most (but not all) of the "
-            "parameters listed here. The relative dimensions of the subplot "
-            "can be controlled with -W/-H which now take a percentage.")
+            '--subplot-above',
+            action=AppendSubplot,
+            help="Add subplot above with the same dataset. Takes an arg "
+                "string to control the subplot which supports most (but "
+                "not all) of the parameters listed here. The relative "
+                "dimensions of the subplot can be controlled with -W/-H "
+                "which now take a percentage.")
     parser.add_argument(
-        '--subplot-below',
-        action=AppendSubplot,
-        help="Add subplot below with the same dataset.")
+            '--subplot-below',
+            action=AppendSubplot,
+            help="Add subplot below with the same dataset.")
     parser.add_argument(
-        '--subplot-left',
-        action=AppendSubplot,
-        help="Add subplot left with the same dataset.")
+            '--subplot-left',
+            action=AppendSubplot,
+            help="Add subplot left with the same dataset.")
     parser.add_argument(
-        '--subplot-right',
-        action=AppendSubplot,
-        help="Add subplot right with the same dataset.")
+            '--subplot-right',
+            action=AppendSubplot,
+            help="Add subplot right with the same dataset.")
     parser.add_argument(
-        '--subplot',
-        type=AppendSubplot.parse,
-        help="Add subplot-specific arguments to the main plot.")
+            '--subplot',
+            type=AppendSubplot.parse,
+            help="Add subplot-specific arguments to the main plot.")
 
     def dictify(ns):
         if hasattr(ns, 'subplots'):
             ns.subplots = [(dir, dictify(subplot_ns))
-                for dir, subplot_ns in ns.subplots]
+                    for dir, subplot_ns in ns.subplots]
         if ns.subplot is not None:
             ns.subplot = dictify(ns.subplot)
         return {k: v
-            for k, v in vars(ns).items()
-            if v is not None}
+                for k, v in vars(ns).items()
+                if v is not None}
 
     sys.exit(main(**dictify(parser.parse_intermixed_args())))

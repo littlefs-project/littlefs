@@ -27,8 +27,8 @@ import subprocess as sp
 import tempfile
 import zipfile
 
-# TODO support non-zip perf results?
 
+# TODO support non-zip perf results?
 
 PERF_PATH = ['perf']
 PERF_EVENTS = 'cycles,branch-misses,branches,cache-misses,cache-references'
@@ -121,28 +121,28 @@ class PerfResult(co.namedtuple('PerfResult', [
     _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
     _sort = ['cycles', 'bmisses', 'cmisses', 'branches', 'caches']
     _types = {
-        'cycles': RInt,
-        'bmisses': RInt, 'branches': RInt,
-        'cmisses': RInt, 'caches': RInt}
+            'cycles': RInt,
+            'bmisses': RInt, 'branches': RInt,
+            'cmisses': RInt, 'caches': RInt}
 
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
             cycles=0, bmisses=0, branches=0, cmisses=0, caches=0,
             children=[]):
         return super().__new__(cls, file, function, int(RInt(line)),
-            RInt(cycles),
-            RInt(bmisses), RInt(branches),
-            RInt(cmisses), RInt(caches),
-            children)
+                RInt(cycles),
+                RInt(bmisses), RInt(branches),
+                RInt(cmisses), RInt(caches),
+                children)
 
     def __add__(self, other):
         return PerfResult(self.file, self.function, self.line,
-            self.cycles + other.cycles,
-            self.bmisses + other.bmisses,
-            self.branches + other.branches,
-            self.cmisses + other.cmisses,
-            self.caches + other.caches,
-            self.children + other.children)
+                self.cycles + other.cycles,
+                self.bmisses + other.bmisses,
+                self.branches + other.branches,
+                self.cmisses + other.cmisses,
+                self.caches + other.caches,
+                self.children + other.children)
 
 
 def openio(path, mode='r', buffering=-1):
@@ -168,17 +168,17 @@ def record(command, *,
     with tempfile.NamedTemporaryFile('rb') as f:
         # figure out our perf invocation
         perf = perf_path + list(filter(None, [
-            'record',
-            '-F%s' % perf_freq
-                if perf_freq is not None
-                and perf_period is None else None,
-            '-c%s' % perf_period
-                if perf_period is not None else None,
-            '-B',
-            '-g',
-            '--all-user',
-            '-e%s' % perf_events,
-            '-o%s' % f.name]))
+                'record',
+                '-F%s' % perf_freq
+                    if perf_freq is not None
+                    and perf_period is None else None,
+                '-c%s' % perf_period
+                    if perf_period is not None else None,
+                '-B',
+                '-g',
+                '--all-user',
+                '-e%s' % perf_events,
+                '-o%s' % f.name]))
 
         # run our command
         try:
@@ -237,27 +237,27 @@ def collect_syms_and_lines(obj_path, *,
         objdump_path=None,
         **args):
     symbol_pattern = re.compile(
-        '^(?P<addr>[0-9a-fA-F]+)'
-            '\s+.*'
-            '\s+(?P<size>[0-9a-fA-F]+)'
-            '\s+(?P<name>[^\s]+)\s*$')
-    line_pattern = re.compile(
-        '^\s+(?:'
-            # matches dir/file table
-            '(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
+            '^(?P<addr>[0-9a-fA-F]+)'
                 '\s+.*'
-                '\s+(?P<path>[^\s]+)'
-            # matches line opcodes
-            '|' '\[[^\]]*\]\s+'
-                '(?:'
+                '\s+(?P<size>[0-9a-fA-F]+)'
+                '\s+(?P<name>[^\s]+)\s*$')
+    line_pattern = re.compile(
+            '^\s+(?:'
+                # matches dir/file table
+                '(?P<no>[0-9]+)'
+                    '(?:\s+(?P<dir>[0-9]+))?'
+                    '\s+.*'
+                    '\s+(?P<path>[^\s]+)'
+                # matches line opcodes
+                '|' '\[[^\]]*\]\s+' '(?:'
                     '(?P<op_special>Special)'
                     '|' '(?P<op_copy>Copy)'
                     '|' '(?P<op_end>End of Sequence)'
                     '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
                     '|' 'Line .*?to (?P<op_line>[0-9]+)'
                     '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
-                    '|' '.' ')*'
+                    '|' '.'
+                ')*'
             ')$', re.IGNORECASE)
 
     # figure out symbol addresses and file+line ranges
@@ -267,11 +267,11 @@ def collect_syms_and_lines(obj_path, *,
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     for line in proc.stdout:
         m = symbol_pattern.match(line)
         if m:
@@ -316,11 +316,11 @@ def collect_syms_and_lines(obj_path, *,
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     for line in proc.stdout:
         m = line_pattern.match(line)
         if m:
@@ -332,8 +332,8 @@ def collect_syms_and_lines(obj_path, *,
                 dir = int(m.group('dir'))
                 if dir in dirs:
                     files[int(m.group('no'))] = os.path.join(
-                        dirs[dir],
-                        m.group('path'))
+                            dirs[dir],
+                            m.group('path'))
                 else:
                     files[int(m.group('no'))] = m.group('path')
             else:
@@ -391,26 +391,26 @@ def collect_decompressed(path, *,
         depth=1,
         **args):
     sample_pattern = re.compile(
-        '(?P<comm>\w+)'
-        '\s+(?P<pid>\w+)'
-        '\s+(?P<time>[\w.]+):'
-        '\s*(?P<period>\w+)'
-        '\s+(?P<event>[^:]+):')
+            '(?P<comm>\w+)'
+            '\s+(?P<pid>\w+)'
+            '\s+(?P<time>[\w.]+):'
+            '\s*(?P<period>\w+)'
+            '\s+(?P<event>[^:]+):')
     frame_pattern = re.compile(
-        '\s+(?P<addr>\w+)'
-        '\s+(?P<sym>[^\s\+]+)(?:\+(?P<off>\w+))?'
-        '\s+\((?P<dso>[^\)]+)\)')
+            '\s+(?P<addr>\w+)'
+            '\s+(?P<sym>[^\s\+]+)(?:\+(?P<off>\w+))?'
+            '\s+\((?P<dso>[^\)]+)\)')
     events = {
-        'cycles':           'cycles',
-        'branch-misses':    'bmisses',
-        'branches':         'branches',
-        'cache-misses':     'cmisses',
-        'cache-references': 'caches'}
+            'cycles':           'cycles',
+            'branch-misses':    'bmisses',
+            'branches':         'branches',
+            'cache-misses':     'cmisses',
+            'cache-references': 'caches'}
 
     # note perf_path may contain extra args
     cmd = perf_path + [
-        'script',
-        '-i%s' % path]
+            'script',
+            '-i%s' % path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -468,10 +468,10 @@ def collect_decompressed(path, *,
                 # filter out internal/kernel functions
                 if not everything and (
                         m.group('sym').startswith('__')
-                        or m.group('sym').startswith('0')
-                        or m.group('sym').startswith('-')
-                        or m.group('sym').startswith('[')
-                        or m.group('dso').startswith('/usr/lib')):
+                            or m.group('sym').startswith('0')
+                            or m.group('sym').startswith('-')
+                            or m.group('sym').startswith('[')
+                            or m.group('dso').startswith('/usr/lib')):
                     continue
 
                 dso = m.group('dso')
@@ -481,8 +481,8 @@ def collect_decompressed(path, *,
 
                 # get the syms/lines for the dso, this is cached
                 syms, sym_at, lines, line_at = collect_syms_and_lines(
-                    dso,
-                    **args)
+                        dso,
+                        **args)
 
                 # ASLR is tricky, we have symbols+offsets, but static symbols
                 # means we may have multiple options for each symbol.
@@ -499,16 +499,16 @@ def collect_decompressed(path, *,
                         delta = sym_addr - sym_addr_
                         if delta not in deltas[dso]:
                             deltas[dso][delta] = sum(
-                                abs(a_+delta - a)
-                                for s, (a_, _) in syms_[dso].items()
-                                for a, _ in syms[s])
+                                    abs(a_+delta - a)
+                                        for s, (a_, _) in syms_[dso].items()
+                                        for a, _ in syms[s])
                     for delta in deltas[dso].keys():
                         deltas[dso][delta] += abs(sym_addr_+delta - sym_addr)
                     syms_[dso][sym] = sym_addr_, size
 
                     # guess the best delta
                     delta, _ = min(deltas[dso].items(),
-                        key=lambda x: (x[1], x[0]))
+                            key=lambda x: (x[1], x[0]))
                     addr = addr_ + delta
 
                     # cached?
@@ -530,7 +530,7 @@ def collect_decompressed(path, *,
                         if sources is not None:
                             if not any(
                                     os.path.abspath(file) == os.path.abspath(s)
-                                    for s in sources):
+                                        for s in sources):
                                 at_cache[(dso,addr)] = None
                                 continue
                         else:
@@ -574,8 +574,8 @@ def collect_decompressed(path, *,
         results_ = []
         for name, (r, children) in results.items():
             results_.append(PerfResult(*name,
-                **{events[k]: v for k, v in r.items()},
-                children=to_results(children)))
+                    **{events[k]: v for k, v in r.items()},
+                    children=to_results(children)))
         return results_
 
     return to_results(results)
@@ -616,7 +616,8 @@ def collect(perf_paths, *,
         with mp.Pool(jobs) as p:
             for results_ in p.imap_unordered(
                     starapply,
-                    ((collect_job, (path, i), args) for path, i in records)):
+                    ((collect_job, (path, i), args)
+                        for path, i in records)):
                 results.extend(results_)
     else:
         results = []
@@ -633,7 +634,7 @@ def fold(Result, results, by=None, defines=[]):
     for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
             print("error: could not find field %r?" % k,
-                file=sys.stderr)
+                    file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines
@@ -689,74 +690,78 @@ def table(Result, results, diff_results=None, *,
                 return []
 
             r = max(results_,
-                key=lambda r: tuple(
-                    tuple(
-                        (getattr(r, k),)
-                        if getattr(r, k, None) is not None
-                        else ()
-                        for k in ([k] if k else [
-                            k for k in Result._sort if k in fields])
-                        if k in fields)
-                    for k in it.chain(hot, [None])))
+                    key=lambda r: tuple(
+                        tuple((getattr(r, k),)
+                                    if getattr(r, k, None) is not None
+                                    else ()
+                                for k in (
+                                    [k] if k else [
+                                        k for k in Result._sort
+                                            if k in fields])
+                                if k in fields)
+                            for k in it.chain(hot, [None])))
 
             # found a cycle?
             if tuple(getattr(r, k) for k in Result._by) in seen:
                 return []
 
             return [r._replace(children=[])] + rec_hot(
-                r.children,
-                seen | {tuple(getattr(r, k) for k in Result._by)})
+                    r.children,
+                    seen | {tuple(getattr(r, k) for k in Result._by)})
 
         results = [r._replace(children=rec_hot(r.children)) for r in results]
 
     # organize by name
     table = {
-        ','.join(str(getattr(r, k) or '') for k in by): r
-        for r in results}
+            ','.join(str(getattr(r, k) or '') for k in by): r
+                for r in results}
     diff_table = {
-        ','.join(str(getattr(r, k) or '') for k in by): r
-        for r in diff_results or []}
+            ','.join(str(getattr(r, k) or '') for k in by): r
+                for r in diff_results or []}
     names = [name
-        for name in table.keys() | diff_table.keys()
-        if diff_results is None
-            or all_
-            or any(
-                types[k].ratio(
-                    getattr(table.get(name), k, None),
-                    getattr(diff_table.get(name), k, None))
-                for k in fields)]
+            for name in table.keys() | diff_table.keys()
+            if diff_results is None
+                or all_
+                or any(
+                    types[k].ratio(
+                        getattr(table.get(name), k, None),
+                        getattr(diff_table.get(name), k, None))
+                    for k in fields)]
 
     # sort again, now with diff info, note that python's sort is stable
     names.sort()
     if diff_results is not None:
-        names.sort(key=lambda n: tuple(
-            types[k].ratio(
-                getattr(table.get(n), k, None),
-                getattr(diff_table.get(n), k, None))
-            for k in fields),
-            reverse=True)
+        names.sort(
+                key=lambda n: tuple(
+                    types[k].ratio(
+                            getattr(table.get(n), k, None),
+                            getattr(diff_table.get(n), k, None))
+                        for k in fields),
+                reverse=True)
     if sort:
         for k, reverse in reversed(sort):
             names.sort(
-                key=lambda n: tuple(
-                    (getattr(table[n], k),)
-                    if getattr(table.get(n), k, None) is not None else ()
-                    for k in ([k] if k else [
-                        k for k in Result._sort if k in fields])),
-                reverse=reverse ^ (not k or k in Result._fields))
+                    key=lambda n: tuple(
+                        (getattr(table[n], k),)
+                                if getattr(table.get(n), k, None) is not None
+                                else ()
+                            for k in (
+                                [k] if k else [
+                                    k for k in Result._sort
+                                        if k in fields])),
+                    reverse=reverse ^ (not k or k in Result._fields))
 
 
     # build up our lines
     lines = []
 
     # header
-    header = [
-        '%s%s' % (
-            ','.join(by),
-            ' (%d added, %d removed)' % (
-                    sum(1 for n in table if n not in diff_table),
-                    sum(1 for n in diff_table if n not in table))
-                if diff_results is not None and not percent else '')
+    header = ['%s%s' % (
+                ','.join(by),
+                ' (%d added, %d removed)' % (
+                        sum(1 for n in table if n not in diff_table),
+                        sum(1 for n in diff_table if n not in table))
+                    if diff_results is not None and not percent else '')
             if not summary else '']
     if diff_results is None:
         for k in fields:
@@ -779,43 +784,43 @@ def table(Result, results, diff_results=None, *,
         if diff_results is None:
             for k in fields:
                 entry.append(
-                    (getattr(r, k).table(),
-                        getattr(getattr(r, k), 'notes', lambda: [])())
-                    if getattr(r, k, None) is not None
-                    else types[k].none)
+                        (getattr(r, k).table(),
+                                getattr(getattr(r, k), 'notes', lambda: [])())
+                            if getattr(r, k, None) is not None
+                            else types[k].none)
         elif percent:
             for k in fields:
                 entry.append(
-                    (getattr(r, k).table()
-                            if getattr(r, k, None) is not None
-                            else types[k].none,
-                        (lambda t: ['+∞%'] if t == +mt.inf
-                                else ['-∞%'] if t == -mt.inf
-                                else ['%+.1f%%' % (100*t)])(
-                            types[k].ratio(
-                                getattr(r, k, None),
-                                getattr(diff_r, k, None)))))
+                        (getattr(r, k).table()
+                                if getattr(r, k, None) is not None
+                                else types[k].none,
+                            (lambda t: ['+∞%'] if t == +mt.inf
+                                    else ['-∞%'] if t == -mt.inf
+                                    else ['%+.1f%%' % (100*t)])(
+                                types[k].ratio(
+                                    getattr(r, k, None),
+                                    getattr(diff_r, k, None)))))
         else:
             for k in fields:
                 entry.append(getattr(diff_r, k).table()
-                    if getattr(diff_r, k, None) is not None
-                    else types[k].none)
+                        if getattr(diff_r, k, None) is not None
+                        else types[k].none)
             for k in fields:
                 entry.append(getattr(r, k).table()
-                    if getattr(r, k, None) is not None
-                    else types[k].none)
+                        if getattr(r, k, None) is not None
+                        else types[k].none)
             for k in fields:
                 entry.append(
-                    (types[k].diff(
-                            getattr(r, k, None),
-                            getattr(diff_r, k, None)),
-                        (lambda t: ['+∞%'] if t == +mt.inf
-                                else ['-∞%'] if t == -mt.inf
-                                else ['%+.1f%%' % (100*t)] if t
-                                else [])(
-                            types[k].ratio(
+                        (types[k].diff(
                                 getattr(r, k, None),
-                                getattr(diff_r, k, None)))))
+                                getattr(diff_r, k, None)),
+                            (lambda t: ['+∞%'] if t == +mt.inf
+                                    else ['-∞%'] if t == -mt.inf
+                                    else ['%+.1f%%' % (100*t)] if t
+                                    else [])(
+                                types[k].ratio(
+                                    getattr(r, k, None),
+                                    getattr(diff_r, k, None)))))
         return entry
 
     # recursive entry helper
@@ -824,8 +829,8 @@ def table(Result, results, diff_results=None, *,
         # build the children table at each layer
         results_ = fold(Result, results_, by=by)
         table_ = {
-            ','.join(str(getattr(r, k) or '') for k in by): r
-            for r in results_}
+                ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
         names_ = list(table_.keys())
 
         # sort the children layer
@@ -833,13 +838,16 @@ def table(Result, results, diff_results=None, *,
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(
-                    key=lambda n: tuple(
-                        (getattr(table_[n], k),)
-                        if getattr(table_.get(n), k, None) is not None
-                        else ()
-                        for k in ([k] if k else [
-                            k for k in Result._sort if k in fields])),
-                    reverse=reverse ^ (not k or k in Result._fields))
+                        key=lambda n: tuple(
+                            (getattr(table_[n], k),)
+                                    if getattr(table_.get(n), k, None)
+                                        is not None
+                                    else ()
+                                for k in (
+                                    [k] if k else [
+                                        k for k in Result._sort
+                                            if k in fields])),
+                        reverse=reverse ^ (not k or k in Result._fields))
 
         for i, name in enumerate(names_):
             r = table_[name]
@@ -860,14 +868,13 @@ def table(Result, results, diff_results=None, *,
 
             # recurse?
             if depth_ > 1:
-                recurse(
-                    r.children,
-                    depth_-1,
-                    seen | {name},
-                    (prefixes[2+is_last] + "|-> ",
-                     prefixes[2+is_last] + "'-> ",
-                     prefixes[2+is_last] + "|   ",
-                     prefixes[2+is_last] + "    "))
+                recurse(r.children,
+                        depth_-1,
+                        seen | {name},
+                        (prefixes[2+is_last] + "|-> ",
+                         prefixes[2+is_last] + "'-> ",
+                         prefixes[2+is_last] + "|   ",
+                         prefixes[2+is_last] + "    "))
 
     # entries
     if not summary:
@@ -881,14 +888,13 @@ def table(Result, results, diff_results=None, *,
 
             # recursive entries
             if name in table and depth > 1:
-                recurse(
-                    table[name].children,
-                    depth-1,
-                    {name},
-                    ("|-> ",
-                     "'-> ",
-                     "|   ",
-                     "    "))
+                recurse(table[name].children,
+                        depth-1,
+                        {name},
+                        ("|-> ",
+                         "'-> ",
+                         "|   ",
+                         "    "))
 
     # total
     r = next(iter(fold(Result, results, by=[])), None)
@@ -900,8 +906,8 @@ def table(Result, results, diff_results=None, *,
 
     # homogenize
     lines = [
-        [x if isinstance(x, tuple) else (x, []) for x in line]
-        for line in lines]
+            [x if isinstance(x, tuple) else (x, []) for x in line]
+                for line in lines]
 
     # find the best widths, note that column 0 contains the names and is
     # handled a bit differently
@@ -915,11 +921,11 @@ def table(Result, results, diff_results=None, *,
     # print our table
     for line in lines:
         print('%-*s  %s' % (
-            widths[0], line[0][0],
-            ' '.join('%*s%-*s' % (
-                    widths[i], x[0],
-                    notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
-                for i, x in enumerate(line[1:], 1))))
+                widths[0], line[0][0],
+                ' '.join('%*s%-*s' % (
+                        widths[i], x[0],
+                        notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
+                    for i, x in enumerate(line[1:], 1))))
 
 
 def annotate(Result, results, *,
@@ -961,14 +967,14 @@ def annotate(Result, results, *,
                 if float(getattr(r, tk)) / max_ >= t0:
                     if last is not None and line - last.stop <= args['context']:
                         last = range(
-                            last.start,
-                            line+1+args['context'])
+                                last.start,
+                                line+1+args['context'])
                     else:
                         if last is not None:
                             spans.append((last, func))
                         last = range(
-                            line-args['context'],
-                            line+1+args['context'])
+                                line-args['context'],
+                                line+1+args['context'])
                         func = r.function
             if last is not None:
                 spans.append((last, func))
@@ -984,11 +990,11 @@ def annotate(Result, results, *,
                 if skipped:
                     skipped = False
                     print('%s@@ %s:%d: %s @@%s' % (
-                        '\x1b[36m' if args['color'] else '',
-                        path,
-                        i+1,
-                        next(iter(f for _, f in spans)),
-                        '\x1b[m' if args['color'] else ''))
+                            '\x1b[36m' if args['color'] else '',
+                            path,
+                            i+1,
+                            next(iter(f for _, f in spans)),
+                            '\x1b[m' if args['color'] else ''))
 
                 # build line
                 if line.endswith('\n'):
@@ -997,18 +1003,20 @@ def annotate(Result, results, *,
                 r = table.get(i+1)
                 if r is not None and (
                         float(r.cycles) > 0
-                        if not branches and not caches
-                        else float(r.bmisses) > 0 or float(r.branches) > 0
-                        if branches
-                        else float(r.cmisses) > 0 or float(r.caches) > 0):
+                            if not branches and not caches
+                            else float(r.bmisses) > 0 or float(r.branches) > 0
+                            if branches
+                            else float(r.cmisses) > 0 or float(r.caches) > 0):
                     line = '%-*s // %s' % (
-                        args['width'],
-                        line,
-                        '%s cycles' % r.cycles
-                        if not branches and not caches
-                        else '%s bmisses, %s branches' % (r.bmisses, r.branches)
-                        if branches
-                        else '%s cmisses, %s caches' % (r.cmisses, r.caches))
+                            args['width'],
+                            line,
+                            '%s cycles' % r.cycles
+                                if not branches and not caches
+                                else '%s bmisses, %s branches' % (
+                                    r.bmisses, r.branches)
+                                if branches
+                                else '%s cmisses, %s caches' % (
+                                    r.cmisses, r.caches))
 
                     if args['color']:
                         if float(getattr(r, tk)) / max_ >= t1:
@@ -1058,10 +1066,10 @@ def report(perf_paths, *,
                     continue
                 try:
                     results.append(PerfResult(
-                        **{k: r[k] for k in PerfResult._by
-                            if k in r and r[k].strip()},
-                        **{k: r[k] for k in PerfResult._fields
-                            if k in r and r[k].strip()}))
+                            **{k: r[k] for k in PerfResult._by
+                                if k in r and r[k].strip()},
+                            **{k: r[k] for k in PerfResult._fields
+                                if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -1073,25 +1081,27 @@ def report(perf_paths, *,
     if sort:
         for k, reverse in reversed(sort):
             results.sort(
-                key=lambda r: tuple(
-                    (getattr(r, k),) if getattr(r, k) is not None else ()
-                    for k in ([k] if k else PerfResult._sort)),
-                reverse=reverse ^ (not k or k in PerfResult._fields))
+                    key=lambda r: tuple(
+                        (getattr(r, k),) if getattr(r, k) is not None else ()
+                            for k in ([k] if k else PerfResult._sort)),
+                    reverse=reverse ^ (not k or k in PerfResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
-                (by if by is not None else PerfResult._by)
-                + [k for k in (
-                    fields if fields is not None else PerfResult._fields)])
+                    (by if by is not None else PerfResult._by)
+                        + [k for k in (
+                            fields if fields is not None
+                                else PerfResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k) for k in (
-                        by if by is not None else PerfResult._by)}
-                    | {k: getattr(r, k) for k in (
-                        fields if fields is not None else PerfResult._fields)})
+                        {k: getattr(r, k) for k in (
+                                by if by is not None else PerfResult._by)}
+                            | {k: getattr(r, k) for k in (
+                                fields if fields is not None
+                                    else PerfResult._fields)})
 
     # find previous results?
     if args.get('diff'):
@@ -1109,10 +1119,10 @@ def report(perf_paths, *,
                         continue
                     try:
                         diff_results.append(PerfResult(
-                            **{k: r[k] for k in PerfResult._by
-                                if k in r and r[k].strip()},
-                            **{k: r[k] for k in PerfResult._fields
-                                if k in r and r[k].strip()}))
+                                **{k: r[k] for k in PerfResult._by
+                                    if k in r and r[k].strip()},
+                                **{k: r[k] for k in PerfResult._fields
+                                    if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
@@ -1126,20 +1136,20 @@ def report(perf_paths, *,
         if args.get('annotate') or args.get('threshold'):
             # annotate sources
             annotate(PerfResult, results,
-                branches=branches,
-                caches=caches,
-                **args)
+                    branches=branches,
+                    caches=caches,
+                    **args)
         else:
             # print table
             table(PerfResult, results,
-                diff_results if args.get('diff') else None,
-                by=by if by is not None else ['function'],
-                fields=fields if fields is not None
-                    else ['cycles'] if not branches and not caches
-                    else ['bmisses', 'branches'] if branches
-                    else ['cmisses', 'caches'],
-                sort=sort,
-                **args)
+                    diff_results if args.get('diff') else None,
+                    by=by if by is not None else ['function'],
+                    fields=fields if fields is not None
+                        else ['cycles'] if not branches and not caches
+                        else ['bmisses', 'branches'] if branches
+                        else ['cmisses', 'caches'],
+                    sort=sort,
+                    **args)
 
 
 def main(**args):
@@ -1164,187 +1174,189 @@ if __name__ == "__main__":
     argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
     argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
-        description="Aggregate and report Linux perf results.",
-        allow_abbrev=False,
-        conflict_handler='ignore')
+            description="Aggregate and report Linux perf results.",
+            allow_abbrev=False,
+            conflict_handler='ignore')
     parser.add_argument(
-        'perf_paths',
-        nargs=nargs,
-        help="Input *.perf files.")
+            'perf_paths',
+            nargs=nargs,
+            help="Input *.perf files.")
     parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help="Output commands that run behind the scenes.")
+            '-v', '--verbose',
+            action='store_true',
+            help="Output commands that run behind the scenes.")
     parser.add_argument(
-        '-q', '--quiet',
-        action='store_true',
-        help="Don't show anything, useful with -o.")
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful with -o.")
     parser.add_argument(
-        '-o', '--output',
-        help="Specify CSV file to store results.")
+            '-o', '--output',
+            help="Specify CSV file to store results.")
     parser.add_argument(
-        '-u', '--use',
-        help="Don't parse anything, use this CSV file.")
+            '-u', '--use',
+            help="Don't parse anything, use this CSV file.")
     parser.add_argument(
-        '-d', '--diff',
-        help="Specify CSV file to diff against.")
+            '-d', '--diff',
+            help="Specify CSV file to diff against.")
     parser.add_argument(
-        '-a', '--all',
-        action='store_true',
-        help="Show all, not just the ones that changed.")
+            '-a', '--all',
+            action='store_true',
+            help="Show all, not just the ones that changed.")
     parser.add_argument(
-        '-p', '--percent',
-        action='store_true',
-        help="Only show percentage change, not a full diff.")
+            '-p', '--percent',
+            action='store_true',
+            help="Only show percentage change, not a full diff.")
     parser.add_argument(
-        '-b', '--by',
-        action='append',
-        choices=PerfResult._by,
-        help="Group by this field.")
+            '-b', '--by',
+            action='append',
+            choices=PerfResult._by,
+            help="Group by this field.")
     parser.add_argument(
-        '-f', '--field',
-        dest='fields',
-        action='append',
-        choices=PerfResult._fields,
-        help="Show this field.")
+            '-f', '--field',
+            dest='fields',
+            action='append',
+            choices=PerfResult._fields,
+            help="Show this field.")
     parser.add_argument(
-        '-D', '--define',
-        dest='defines',
-        action='append',
-        type=lambda x: (
-            lambda k, vs: (
-                k.strip(),
-                {v.strip() for v in vs.split(',')})
-            )(*x.split('=', 1)),
-        help="Only include results where this field is this value.")
+            '-D', '--define',
+            dest='defines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Only include results where this field is this value.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.sort is None:
                 namespace.sort = []
             namespace.sort.append((value, True if option == '-S' else False))
     parser.add_argument(
-        '-s', '--sort',
-        nargs='?',
-        action=AppendSort,
-        help="Sort by this field.")
+            '-s', '--sort',
+            nargs='?',
+            action=AppendSort,
+            help="Sort by this field.")
     parser.add_argument(
-        '-S', '--reverse-sort',
-        nargs='?',
-        action=AppendSort,
-        help="Sort by this field, but backwards.")
+            '-S', '--reverse-sort',
+            nargs='?',
+            action=AppendSort,
+            help="Sort by this field, but backwards.")
     parser.add_argument(
-        '-Y', '--summary',
-        action='store_true',
-        help="Only show the total.")
+            '-Y', '--summary',
+            action='store_true',
+            help="Only show the total.")
     parser.add_argument(
-        '-F', '--source',
-        dest='sources',
-        action='append',
-        help="Only consider definitions in this file. Defaults to anything "
-            "in the current directory.")
+            '-F', '--source',
+            dest='sources',
+            action='append',
+            help="Only consider definitions in this file. Defaults to "
+                "anything in the current directory.")
     parser.add_argument(
-        '--everything',
-        action='store_true',
-        help="Include builtin and libc specific symbols.")
+            '--everything',
+            action='store_true',
+            help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--branches',
-        action='store_true',
-        help="Show branches and branch misses.")
+            '--branches',
+            action='store_true',
+            help="Show branches and branch misses.")
     parser.add_argument(
-        '--caches',
-        action='store_true',
-        help="Show cache accesses and cache misses.")
+            '--caches',
+            action='store_true',
+            help="Show cache accesses and cache misses.")
     parser.add_argument(
-        '-g', '--propagate',
-        type=lambda x: int(x, 0),
-        help="Depth to propagate samples up the call-stack. 0 propagates up "
-            "to the entry point, 1 does no propagation. Defaults to 0.")
+            '-g', '--propagate',
+            type=lambda x: int(x, 0),
+            help="Depth to propagate samples up the call-stack. 0 propagates "
+                "up to the entry point, 1 does no propagation. Defaults to 0.")
     parser.add_argument(
-        '-z', '--depth',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Depth of function calls to show. 0 shows all calls unless we "
-            "find a cycle. Defaults to 0.")
+            '-z', '--depth',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Depth of function calls to show. 0 shows all calls unless "
+                "we find a cycle. Defaults to 0.")
     parser.add_argument(
-        '-t', '--hot',
-        nargs='?',
-        action='append',
-        help="Show only the hot path for each function call.")
+            '-t', '--hot',
+            nargs='?',
+            action='append',
+            help="Show only the hot path for each function call.")
     parser.add_argument(
-        '-A', '--annotate',
-        action='store_true',
-        help="Show source files annotated with coverage info.")
+            '-A', '--annotate',
+            action='store_true',
+            help="Show source files annotated with coverage info.")
     parser.add_argument(
-        '-T', '--threshold',
-        nargs='?',
-        type=lambda x: tuple(float(x) for x in x.split(',')),
-        const=THRESHOLD,
-        help="Show lines with samples above this threshold as a percent of "
-            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+            '-T', '--threshold',
+            nargs='?',
+            type=lambda x: tuple(float(x) for x in x.split(',')),
+            const=THRESHOLD,
+            help="Show lines with samples above this threshold as a percent "
+                "of all lines. Defaults to "
+                "%s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
-        '-C', '--context',
-        type=lambda x: int(x, 0),
-        default=3,
-        help="Show n additional lines of context. Defaults to 3.")
+            '-C', '--context',
+            type=lambda x: int(x, 0),
+            default=3,
+            help="Show n additional lines of context. Defaults to 3.")
     parser.add_argument(
-        '-W', '--width',
-        type=lambda x: int(x, 0),
-        default=80,
-        help="Assume source is styled with this many columns. Defaults to 80.")
+            '-W', '--width',
+            type=lambda x: int(x, 0),
+            default=80,
+            help="Assume source is styled with this many columns. Defaults "
+                "to 80.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-j', '--jobs',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Number of processes to use. 0 spawns one process per core.")
+            '-j', '--jobs',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Number of processes to use. 0 spawns one process per core.")
     parser.add_argument(
-        '--perf-path',
-        type=lambda x: x.split(),
-        help="Path to the perf executable, may include flags. "
-            "Defaults to %r." % PERF_PATH)
+            '--perf-path',
+            type=lambda x: x.split(),
+            help="Path to the perf executable, may include flags. "
+                "Defaults to %r." % PERF_PATH)
     parser.add_argument(
-        '--objdump-path',
-        type=lambda x: x.split(),
-        default=OBJDUMP_PATH,
-        help="Path to the objdump executable, may include flags. "
-            "Defaults to %r." % OBJDUMP_PATH)
+            '--objdump-path',
+            type=lambda x: x.split(),
+            default=OBJDUMP_PATH,
+            help="Path to the objdump executable, may include flags. "
+                "Defaults to %r." % OBJDUMP_PATH)
 
     # record flags
     record_parser = parser.add_argument_group('record options')
     record_parser.add_argument(
-        'command',
-        nargs=nargs,
-        help="Command to run.")
+            'command',
+            nargs=nargs,
+            help="Command to run.")
     record_parser.add_argument(
-        '-R', '--record',
-        action='store_true',
-        help="Run a command and aggregate perf measurements.")
+            '-R', '--record',
+            action='store_true',
+            help="Run a command and aggregate perf measurements.")
     record_parser.add_argument(
-        '-o', '--output',
-        help="Output file. Uses flock to synchronize. This is stored as a "
-            "zip-file of multiple perf results.")
+            '-o', '--output',
+            help="Output file. Uses flock to synchronize. This is stored as a "
+                "zip-file of multiple perf results.")
     record_parser.add_argument(
-        '--perf-freq',
-        help="perf sampling frequency. This is passed directly to perf. "
-            "Defaults to %r." % PERF_FREQ)
+            '--perf-freq',
+            help="perf sampling frequency. This is passed directly to perf. "
+                "Defaults to %r." % PERF_FREQ)
     record_parser.add_argument(
-        '--perf-period',
-        help="perf sampling period. This is passed directly to perf.")
+            '--perf-period',
+            help="perf sampling period. This is passed directly to perf.")
     record_parser.add_argument(
-        '--perf-events',
-        help="perf events to record. This is passed directly to perf. "
-            "Defaults to %r." % PERF_EVENTS)
+            '--perf-events',
+            help="perf events to record. This is passed directly to perf. "
+                "Defaults to %r." % PERF_EVENTS)
     record_parser.add_argument(
-        '--perf-path',
-        type=lambda x: x.split(),
-        help="Path to the perf executable, may include flags. "
-            "Defaults to %r." % PERF_PATH)
+            '--perf-path',
+            type=lambda x: x.split(),
+            help="Path to the perf executable, may include flags. "
+                "Defaults to %r." % PERF_PATH)
 
     # avoid intermixed/REMAINDER conflict, see above
     if nargs == argparse.REMAINDER:
@@ -1357,13 +1369,13 @@ if __name__ == "__main__":
     if args.record:
         if not args.command:
             print('error: no command specified?',
-                file=sys.stderr)
+                    file=sys.stderr)
             sys.exit(-1)
         if not args.output:
             print('error: no output file specified?',
-                file=sys.stderr)
+                    file=sys.stderr)
             sys.exit(-1)
 
     sys.exit(main(**{k: v
-        for k, v in vars(args).items()
-        if v is not None}))
+            for k, v in vars(args).items()
+            if v is not None}))

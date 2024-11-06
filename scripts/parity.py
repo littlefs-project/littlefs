@@ -29,17 +29,17 @@ def main(paths, **args):
     # interpret as sequence of hex bytes
     if args.get('hex'):
         print('%01x' % parity(ft.reduce(
-            op.xor,
-            bytes(int(path, 16) for path in paths),
-            0)))
+                op.xor,
+                bytes(int(path, 16) for path in paths),
+                0)))
 
     # interpret as strings
     elif args.get('string'):
         for path in paths:
             print('%01x' % parity(ft.reduce(
-                op.xor,
-                path.encode('utf8'),
-                0)))
+                    op.xor,
+                    path.encode('utf8'),
+                    0)))
 
     # default to interpreting as paths
     else:
@@ -63,24 +63,25 @@ def main(paths, **args):
                 else:
                     print('%01x' % parity(xor))
 
+
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Calculates parity.",
-        allow_abbrev=False)
+            description="Calculates parity.",
+            allow_abbrev=False)
     parser.add_argument(
-        'paths',
-        nargs='*',
-        help="Paths to read. Reads stdin by default.")
+            'paths',
+            nargs='*',
+            help="Paths to read. Reads stdin by default.")
     parser.add_argument(
-        '-x', '--hex',
-        action='store_true',
-        help="Interpret as a sequence of hex bytes.")
+            '-x', '--hex',
+            action='store_true',
+            help="Interpret as a sequence of hex bytes.")
     parser.add_argument(
-        '-s', '--string',
-        action='store_true',
-        help="Interpret as strings.")
+            '-s', '--string',
+            action='store_true',
+            help="Interpret as strings.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

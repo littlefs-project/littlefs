@@ -118,15 +118,15 @@ class PerfBdResult(co.namedtuple('PerfBdResult', [
             readed=0, proged=0, erased=0,
             children=[]):
         return super().__new__(cls, file, function, int(RInt(line)),
-            RInt(readed), RInt(proged), RInt(erased),
-            children)
+                RInt(readed), RInt(proged), RInt(erased),
+                children)
 
     def __add__(self, other):
         return PerfBdResult(self.file, self.function, self.line,
-            self.readed + other.readed,
-            self.proged + other.proged,
-            self.erased + other.erased,
-            self.children + other.children)
+                self.readed + other.readed,
+                self.proged + other.proged,
+                self.erased + other.erased,
+                self.children + other.children)
 
 
 def openio(path, mode='r', buffering=-1):
@@ -143,27 +143,27 @@ def collect_syms_and_lines(obj_path, *,
         objdump_path=None,
         **args):
     symbol_pattern = re.compile(
-        '^(?P<addr>[0-9a-fA-F]+)'
-            '\s+.*'
-            '\s+(?P<size>[0-9a-fA-F]+)'
-            '\s+(?P<name>[^\s]+)\s*$')
-    line_pattern = re.compile(
-        '^\s+(?:'
-            # matches dir/file table
-            '(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
+            '^(?P<addr>[0-9a-fA-F]+)'
                 '\s+.*'
-                '\s+(?P<path>[^\s]+)'
-            # matches line opcodes
-            '|' '\[[^\]]*\]\s+'
-                '(?:'
+                '\s+(?P<size>[0-9a-fA-F]+)'
+                '\s+(?P<name>[^\s]+)\s*$')
+    line_pattern = re.compile(
+            '^\s+(?:'
+                # matches dir/file table
+                '(?P<no>[0-9]+)'
+                    '(?:\s+(?P<dir>[0-9]+))?'
+                    '\s+.*'
+                    '\s+(?P<path>[^\s]+)'
+                # matches line opcodes
+                '|' '\[[^\]]*\]\s+' '(?:'
                     '(?P<op_special>Special)'
                     '|' '(?P<op_copy>Copy)'
                     '|' '(?P<op_end>End of Sequence)'
                     '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
                     '|' 'Line .*?to (?P<op_line>[0-9]+)'
                     '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
-                    '|' '.' ')*'
+                    '|' '.'
+                ')*'
             ')$', re.IGNORECASE)
 
     # figure out symbol addresses
@@ -173,11 +173,11 @@ def collect_syms_and_lines(obj_path, *,
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     for line in proc.stdout:
         m = symbol_pattern.match(line)
         if m:
@@ -222,11 +222,11 @@ def collect_syms_and_lines(obj_path, *,
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=None if args.get('verbose') else sp.DEVNULL,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
     for line in proc.stdout:
         m = line_pattern.match(line)
         if m:
@@ -238,8 +238,8 @@ def collect_syms_and_lines(obj_path, *,
                 dir = int(m.group('dir'))
                 if dir in dirs:
                     files[int(m.group('no'))] = os.path.join(
-                        dirs[dir],
-                        m.group('path'))
+                            dirs[dir],
+                            m.group('path'))
                 else:
                     files[int(m.group('no'))] = m.group('path')
             else:
@@ -296,25 +296,27 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
         depth=1,
         **args):
     trace_pattern = re.compile(
-        '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:\s*(?P<prefix>[^\s]*?bd_)(?:'
-            '(?P<read>read)\('
-                '\s*(?P<read_ctx>\w+)' '\s*,'
-                '\s*(?P<read_block>\w+)' '\s*,'
-                '\s*(?P<read_off>\w+)' '\s*,'
-                '\s*(?P<read_buffer>\w+)' '\s*,'
-                '\s*(?P<read_size>\w+)' '\s*\)'
-            '|' '(?P<prog>prog)\('
-                '\s*(?P<prog_ctx>\w+)' '\s*,'
-                '\s*(?P<prog_block>\w+)' '\s*,'
-                '\s*(?P<prog_off>\w+)' '\s*,'
-                '\s*(?P<prog_buffer>\w+)' '\s*,'
-                '\s*(?P<prog_size>\w+)' '\s*\)'
-            '|' '(?P<erase>erase)\('
-                '\s*(?P<erase_ctx>\w+)' '\s*,'
-                '\s*(?P<erase_block>\w+)'
-                '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)' ')\s*$')
+            '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:\s*'
+                    '(?P<prefix>[^\s]*?bd_)(?:'
+                '(?P<read>read)\('
+                    '\s*(?P<read_ctx>\w+)' '\s*,'
+                    '\s*(?P<read_block>\w+)' '\s*,'
+                    '\s*(?P<read_off>\w+)' '\s*,'
+                    '\s*(?P<read_buffer>\w+)' '\s*,'
+                    '\s*(?P<read_size>\w+)' '\s*\)'
+                '|' '(?P<prog>prog)\('
+                    '\s*(?P<prog_ctx>\w+)' '\s*,'
+                    '\s*(?P<prog_block>\w+)' '\s*,'
+                    '\s*(?P<prog_off>\w+)' '\s*,'
+                    '\s*(?P<prog_buffer>\w+)' '\s*,'
+                    '\s*(?P<prog_size>\w+)' '\s*\)'
+                '|' '(?P<erase>erase)\('
+                    '\s*(?P<erase_ctx>\w+)' '\s*,'
+                    '\s*(?P<erase_block>\w+)'
+                    '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)'
+            ')\s*$')
     frame_pattern = re.compile(
-        '^\s+at (?P<addr>\w+)\s*$')
+            '^\s+at (?P<addr>\w+)\s*$')
 
     # parse all of the trace files for read/prog/erase operations
     last_filtered = False
@@ -338,9 +340,7 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
 
             # ignore filtered sources
             if sources is not None:
-                if not any(
-                        os.path.abspath(file)
-                            == os.path.abspath(s)
+                if not any(os.path.abspath(file) == os.path.abspath(s)
                         for s in sources):
                     return
             else:
@@ -359,10 +359,10 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                 file = os.path.abspath(file)
 
             results[(file, sym, line)] = (
-                last_readed,
-                last_proged,
-                last_erased,
-                {})
+                    last_readed,
+                    last_proged,
+                    last_erased,
+                    {})
         else:
             # tail-recursively propagate measurements
             for i in range(len(last_stack)):
@@ -378,10 +378,10 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                     else:
                         r, p, e, children = 0, 0, 0, {}
                     results_[name] = (
-                        r+last_readed,
-                        p+last_proged,
-                        e+last_erased,
-                        children)
+                            r+last_readed,
+                            p+last_proged,
+                            e+last_erased,
+                            children)
 
                     # recurse
                     results_ = results_[name][-1]
@@ -444,7 +444,7 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                     # of reference
                     if last_delta is None:
                         i = bisect.bisect(lines, (last_file, last_line),
-                            key=lambda x: (x[0], x[1]))
+                                key=lambda x: (x[0], x[1]))
                         if i > 0:
                             last_delta = lines[i-1][2] - addr_
                         else:
@@ -474,9 +474,9 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                         # filter out internal/unknown functions
                         if not everything and (
                                 sym.startswith('__')
-                                or sym.startswith('0')
-                                or sym.startswith('-')
-                                or sym == '_start'):
+                                    or sym.startswith('0')
+                                    or sym.startswith('-')
+                                    or sym == '_start'):
                             at_cache[addr] = None
                             continue
 
@@ -492,9 +492,8 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                         # ignore filtered sources
                         if sources is not None:
                             if not any(
-                                    os.path.abspath(file)
-                                        == os.path.abspath(s)
-                                    for s in sources):
+                                    os.path.abspath(file) == os.path.abspath(s)
+                                        for s in sources):
                                 at_cache[addr] = None
                                 continue
                         else:
@@ -529,8 +528,8 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
         results_ = []
         for name, (r, p, e, children) in results.items():
             results_.append(PerfBdResult(*name,
-                r, p, e,
-                children=to_results(children)))
+                    r, p, e,
+                    children=to_results(children)))
         return results_
 
     return to_results(results)
@@ -573,9 +572,10 @@ def collect(obj_path, trace_paths, *,
         with mp.Pool(jobs) as p:
             for results_ in p.imap_unordered(
                     starapply,
-                    ((collect_job, (path, start, stop,
-                        syms, sym_at, lines, line_at),
-                        args)
+                    ((collect_job,
+                            (path, start, stop,
+                                syms, sym_at, lines, line_at),
+                            args)
                         for path, ranges in zip(trace_paths, trace_ranges)
                         for start, stop in ranges)):
                 results.extend(results_)
@@ -583,9 +583,10 @@ def collect(obj_path, trace_paths, *,
     else:
         results = []
         for path in trace_paths:
-            results.extend(collect_job(path, None, None,
-                syms, sym_at, lines, line_at,
-                **args))
+            results.extend(collect_job(
+                    path, None, None,
+                    syms, sym_at, lines, line_at,
+                    **args))
 
     return results
 
@@ -597,7 +598,7 @@ def fold(Result, results, by=None, defines=[]):
     for k in it.chain(by or [], (k for k, _ in defines)):
         if k not in Result._by and k not in Result._fields:
             print("error: could not find field %r?" % k,
-                file=sys.stderr)
+                    file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines
@@ -653,74 +654,78 @@ def table(Result, results, diff_results=None, *,
                 return []
 
             r = max(results_,
-                key=lambda r: tuple(
-                    tuple(
-                        (getattr(r, k),)
-                        if getattr(r, k, None) is not None
-                        else ()
-                        for k in ([k] if k else [
-                            k for k in Result._sort if k in fields])
-                        if k in fields)
-                    for k in it.chain(hot, [None])))
+                    key=lambda r: tuple(
+                        tuple((getattr(r, k),)
+                                    if getattr(r, k, None) is not None
+                                    else ()
+                                for k in (
+                                    [k] if k else [
+                                        k for k in Result._sort
+                                            if k in fields])
+                                if k in fields)
+                            for k in it.chain(hot, [None])))
 
             # found a cycle?
             if tuple(getattr(r, k) for k in Result._by) in seen:
                 return []
 
             return [r._replace(children=[])] + rec_hot(
-                r.children,
-                seen | {tuple(getattr(r, k) for k in Result._by)})
+                    r.children,
+                    seen | {tuple(getattr(r, k) for k in Result._by)})
 
         results = [r._replace(children=rec_hot(r.children)) for r in results]
 
     # organize by name
     table = {
-        ','.join(str(getattr(r, k) or '') for k in by): r
-        for r in results}
+            ','.join(str(getattr(r, k) or '') for k in by): r
+                for r in results}
     diff_table = {
-        ','.join(str(getattr(r, k) or '') for k in by): r
-        for r in diff_results or []}
+            ','.join(str(getattr(r, k) or '') for k in by): r
+                for r in diff_results or []}
     names = [name
-        for name in table.keys() | diff_table.keys()
-        if diff_results is None
-            or all_
-            or any(
-                types[k].ratio(
-                    getattr(table.get(name), k, None),
-                    getattr(diff_table.get(name), k, None))
-                for k in fields)]
+            for name in table.keys() | diff_table.keys()
+            if diff_results is None
+                or all_
+                or any(
+                    types[k].ratio(
+                        getattr(table.get(name), k, None),
+                        getattr(diff_table.get(name), k, None))
+                    for k in fields)]
 
     # sort again, now with diff info, note that python's sort is stable
     names.sort()
     if diff_results is not None:
-        names.sort(key=lambda n: tuple(
-            types[k].ratio(
-                getattr(table.get(n), k, None),
-                getattr(diff_table.get(n), k, None))
-            for k in fields),
-            reverse=True)
+        names.sort(
+                key=lambda n: tuple(
+                    types[k].ratio(
+                            getattr(table.get(n), k, None),
+                            getattr(diff_table.get(n), k, None))
+                        for k in fields),
+                reverse=True)
     if sort:
         for k, reverse in reversed(sort):
             names.sort(
-                key=lambda n: tuple(
-                    (getattr(table[n], k),)
-                    if getattr(table.get(n), k, None) is not None else ()
-                    for k in ([k] if k else [
-                        k for k in Result._sort if k in fields])),
-                reverse=reverse ^ (not k or k in Result._fields))
+                    key=lambda n: tuple(
+                        (getattr(table[n], k),)
+                                if getattr(table.get(n), k, None) is not None
+                                else ()
+                            for k in (
+                                [k] if k else [
+                                    k for k in Result._sort
+                                        if k in fields])),
+                    reverse=reverse ^ (not k or k in Result._fields))
 
 
     # build up our lines
     lines = []
 
     # header
-    header = [
-        '%s%s' % (
-            ','.join(by),
-            ' (%d added, %d removed)' % (
-                    sum(1 for n in table if n not in diff_table),
-                    sum(1 for n in diff_table if n not in table))
-                if diff_results is not None and not percent else '')
+    header = ['%s%s' % (
+                ','.join(by),
+                ' (%d added, %d removed)' % (
+                        sum(1 for n in table if n not in diff_table),
+                        sum(1 for n in diff_table if n not in table))
+                    if diff_results is not None and not percent else '')
             if not summary else '']
     if diff_results is None:
         for k in fields:
@@ -743,43 +748,43 @@ def table(Result, results, diff_results=None, *,
         if diff_results is None:
             for k in fields:
                 entry.append(
-                    (getattr(r, k).table(),
-                        getattr(getattr(r, k), 'notes', lambda: [])())
-                    if getattr(r, k, None) is not None
-                    else types[k].none)
+                        (getattr(r, k).table(),
+                                getattr(getattr(r, k), 'notes', lambda: [])())
+                            if getattr(r, k, None) is not None
+                            else types[k].none)
         elif percent:
             for k in fields:
                 entry.append(
-                    (getattr(r, k).table()
-                            if getattr(r, k, None) is not None
-                            else types[k].none,
-                        (lambda t: ['+∞%'] if t == +mt.inf
-                                else ['-∞%'] if t == -mt.inf
-                                else ['%+.1f%%' % (100*t)])(
-                            types[k].ratio(
-                                getattr(r, k, None),
-                                getattr(diff_r, k, None)))))
+                        (getattr(r, k).table()
+                                if getattr(r, k, None) is not None
+                                else types[k].none,
+                            (lambda t: ['+∞%'] if t == +mt.inf
+                                    else ['-∞%'] if t == -mt.inf
+                                    else ['%+.1f%%' % (100*t)])(
+                                types[k].ratio(
+                                    getattr(r, k, None),
+                                    getattr(diff_r, k, None)))))
         else:
             for k in fields:
                 entry.append(getattr(diff_r, k).table()
-                    if getattr(diff_r, k, None) is not None
-                    else types[k].none)
+                        if getattr(diff_r, k, None) is not None
+                        else types[k].none)
             for k in fields:
                 entry.append(getattr(r, k).table()
-                    if getattr(r, k, None) is not None
-                    else types[k].none)
+                        if getattr(r, k, None) is not None
+                        else types[k].none)
             for k in fields:
                 entry.append(
-                    (types[k].diff(
-                            getattr(r, k, None),
-                            getattr(diff_r, k, None)),
-                        (lambda t: ['+∞%'] if t == +mt.inf
-                                else ['-∞%'] if t == -mt.inf
-                                else ['%+.1f%%' % (100*t)] if t
-                                else [])(
-                            types[k].ratio(
+                        (types[k].diff(
                                 getattr(r, k, None),
-                                getattr(diff_r, k, None)))))
+                                getattr(diff_r, k, None)),
+                            (lambda t: ['+∞%'] if t == +mt.inf
+                                    else ['-∞%'] if t == -mt.inf
+                                    else ['%+.1f%%' % (100*t)] if t
+                                    else [])(
+                                types[k].ratio(
+                                    getattr(r, k, None),
+                                    getattr(diff_r, k, None)))))
         return entry
 
     # recursive entry helper
@@ -788,8 +793,8 @@ def table(Result, results, diff_results=None, *,
         # build the children table at each layer
         results_ = fold(Result, results_, by=by)
         table_ = {
-            ','.join(str(getattr(r, k) or '') for k in by): r
-            for r in results_}
+                ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
         names_ = list(table_.keys())
 
         # sort the children layer
@@ -797,13 +802,16 @@ def table(Result, results, diff_results=None, *,
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(
-                    key=lambda n: tuple(
-                        (getattr(table_[n], k),)
-                        if getattr(table_.get(n), k, None) is not None
-                        else ()
-                        for k in ([k] if k else [
-                            k for k in Result._sort if k in fields])),
-                    reverse=reverse ^ (not k or k in Result._fields))
+                        key=lambda n: tuple(
+                            (getattr(table_[n], k),)
+                                    if getattr(table_.get(n), k, None)
+                                        is not None
+                                    else ()
+                                for k in (
+                                    [k] if k else [
+                                        k for k in Result._sort
+                                            if k in fields])),
+                        reverse=reverse ^ (not k or k in Result._fields))
 
         for i, name in enumerate(names_):
             r = table_[name]
@@ -824,14 +832,13 @@ def table(Result, results, diff_results=None, *,
 
             # recurse?
             if depth_ > 1:
-                recurse(
-                    r.children,
-                    depth_-1,
-                    seen | {name},
-                    (prefixes[2+is_last] + "|-> ",
-                     prefixes[2+is_last] + "'-> ",
-                     prefixes[2+is_last] + "|   ",
-                     prefixes[2+is_last] + "    "))
+                recurse(r.children,
+                        depth_-1,
+                        seen | {name},
+                        (prefixes[2+is_last] + "|-> ",
+                         prefixes[2+is_last] + "'-> ",
+                         prefixes[2+is_last] + "|   ",
+                         prefixes[2+is_last] + "    "))
 
     # entries
     if not summary:
@@ -845,14 +852,13 @@ def table(Result, results, diff_results=None, *,
 
             # recursive entries
             if name in table and depth > 1:
-                recurse(
-                    table[name].children,
-                    depth-1,
-                    {name},
-                    ("|-> ",
-                     "'-> ",
-                     "|   ",
-                     "    "))
+                recurse(table[name].children,
+                        depth-1,
+                        {name},
+                        ("|-> ",
+                         "'-> ",
+                         "|   ",
+                         "    "))
 
     # total
     r = next(iter(fold(Result, results, by=[])), None)
@@ -864,8 +870,8 @@ def table(Result, results, diff_results=None, *,
 
     # homogenize
     lines = [
-        [x if isinstance(x, tuple) else (x, []) for x in line]
-        for line in lines]
+            [x if isinstance(x, tuple) else (x, []) for x in line]
+                for line in lines]
 
     # find the best widths, note that column 0 contains the names and is
     # handled a bit differently
@@ -879,11 +885,11 @@ def table(Result, results, diff_results=None, *,
     # print our table
     for line in lines:
         print('%-*s  %s' % (
-            widths[0], line[0][0],
-            ' '.join('%*s%-*s' % (
-                    widths[i], x[0],
-                    notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
-                for i, x in enumerate(line[1:], 1))))
+                widths[0], line[0][0],
+                ' '.join('%*s%-*s' % (
+                        widths[i], x[0],
+                        notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
+                    for i, x in enumerate(line[1:], 1))))
 
 
 def annotate(Result, results, *,
@@ -944,14 +950,14 @@ def annotate(Result, results, *,
                         or float(r.erased) / max_erased >= erase_t0):
                     if last is not None and line - last.stop <= args['context']:
                         last = range(
-                            last.start,
-                            line+1+args['context'])
+                                last.start,
+                                line+1+args['context'])
                     else:
                         if last is not None:
                             spans.append((last, func))
                         last = range(
-                            line-args['context'],
-                            line+1+args['context'])
+                                line-args['context'],
+                                line+1+args['context'])
                         func = r.function
             if last is not None:
                 spans.append((last, func))
@@ -967,11 +973,11 @@ def annotate(Result, results, *,
                 if skipped:
                     skipped = False
                     print('%s@@ %s:%d: %s @@%s' % (
-                        '\x1b[36m' if args['color'] else '',
-                        path,
-                        i+1,
-                        next(iter(f for _, f in spans)),
-                        '\x1b[m' if args['color'] else ''))
+                            '\x1b[36m' if args['color'] else '',
+                            path,
+                            i+1,
+                            next(iter(f for _, f in spans)),
+                            '\x1b[m' if args['color'] else ''))
 
                 # build line
                 if line.endswith('\n'):
@@ -980,11 +986,11 @@ def annotate(Result, results, *,
                 if i+1 in table:
                     r = table[i+1]
                     line = '%-*s // %s readed, %s proged, %s erased' % (
-                        args['width'],
-                        line,
-                        r.readed,
-                        r.proged,
-                        r.erased)
+                            args['width'],
+                            line,
+                            r.readed,
+                            r.proged,
+                            r.erased)
 
                     if args['color']:
                         if (float(r.readed) / max_readed >= read_t1
@@ -1036,10 +1042,10 @@ def report(obj_path='', trace_paths=[], *,
                     continue
                 try:
                     results.append(PerfBdResult(
-                        **{k: r[k] for k in PerfBdResult._by
-                            if k in r and r[k].strip()},
-                        **{k: r[k] for k in PerfBdResult._fields
-                            if k in r and r[k].strip()}))
+                            **{k: r[k] for k in PerfBdResult._by
+                                if k in r and r[k].strip()},
+                            **{k: r[k] for k in PerfBdResult._fields
+                                if k in r and r[k].strip()}))
                 except TypeError:
                     pass
 
@@ -1051,25 +1057,27 @@ def report(obj_path='', trace_paths=[], *,
     if sort:
         for k, reverse in reversed(sort):
             results.sort(
-                key=lambda r: tuple(
-                    (getattr(r, k),) if getattr(r, k) is not None else ()
-                    for k in ([k] if k else PerfBdResult._sort)),
-                reverse=reverse ^ (not k or k in PerfBdResult._fields))
+                    key=lambda r: tuple(
+                        (getattr(r, k),) if getattr(r, k) is not None else ()
+                            for k in ([k] if k else PerfBdResult._sort)),
+                    reverse=reverse ^ (not k or k in PerfBdResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
-                (by if by is not None else PerfBdResult._by)
-                + [k for k in (
-                    fields if fields is not None else PerfBdResult._fields)])
+                    (by if by is not None else PerfBdResult._by)
+                        + [k for k in (
+                            fields if fields is not None
+                                else PerfBdResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k) for k in (
-                        by if by is not None else PerfBdResult._by)}
-                    | {k: getattr(r, k) for k in (
-                        fields if fields is not None else PerfBdResult._fields)})
+                        {k: getattr(r, k) for k in (
+                                by if by is not None else PerfBdResult._by)}
+                            | {k: getattr(r, k) for k in (
+                                fields if fields is not None
+                                    else PerfBdResult._fields)})
 
     # find previous results?
     if args.get('diff'):
@@ -1087,10 +1095,10 @@ def report(obj_path='', trace_paths=[], *,
                         continue
                     try:
                         diff_results.append(PerfBdResult(
-                            **{k: r[k] for k in PerfBdResult._by
-                                if k in r and r[k].strip()},
-                            **{k: r[k] for k in PerfBdResult._fields
-                                if k in r and r[k].strip()}))
+                                **{k: r[k] for k in PerfBdResult._by
+                                    if k in r and r[k].strip()},
+                                **{k: r[k] for k in PerfBdResult._fields
+                                    if k in r and r[k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
@@ -1111,11 +1119,11 @@ def report(obj_path='', trace_paths=[], *,
         else:
             # print table
             table(PerfBdResult, results,
-                diff_results if args.get('diff') else None,
-                by=by if by is not None else ['function'],
-                fields=fields,
-                sort=sort,
-                **args)
+                    diff_results if args.get('diff') else None,
+                    by=by if by is not None else ['function'],
+                    fields=fields,
+                    sort=sort,
+                    **args)
 
 
 def main(**args):
@@ -1129,168 +1137,173 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Aggregate and report call-stack propagated "
-            "block-device operations from trace output.",
-        allow_abbrev=False)
+            description="Aggregate and report call-stack propagated "
+                "block-device operations from trace output.",
+            allow_abbrev=False)
     parser.add_argument(
-        'obj_path',
-        nargs='?',
-        help="Input executable for mapping addresses to symbols.")
+            'obj_path',
+            nargs='?',
+            help="Input executable for mapping addresses to symbols.")
     parser.add_argument(
-        'trace_paths',
-        nargs='*',
-        help="Input *.trace files.")
+            'trace_paths',
+            nargs='*',
+            help="Input *.trace files.")
     parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help="Output commands that run behind the scenes.")
+            '-v', '--verbose',
+            action='store_true',
+            help="Output commands that run behind the scenes.")
     parser.add_argument(
-        '-q', '--quiet',
-        action='store_true',
-        help="Don't show anything, useful with -o.")
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful with -o.")
     parser.add_argument(
-        '-o', '--output',
-        help="Specify CSV file to store results.")
+            '-o', '--output',
+            help="Specify CSV file to store results.")
     parser.add_argument(
-        '-u', '--use',
-        help="Don't parse anything, use this CSV file.")
+            '-u', '--use',
+            help="Don't parse anything, use this CSV file.")
     parser.add_argument(
-        '-d', '--diff',
-        help="Specify CSV file to diff against.")
+            '-d', '--diff',
+            help="Specify CSV file to diff against.")
     parser.add_argument(
-        '-a', '--all',
-        action='store_true',
-        help="Show all, not just the ones that changed.")
+            '-a', '--all',
+            action='store_true',
+            help="Show all, not just the ones that changed.")
     parser.add_argument(
-        '-p', '--percent',
-        action='store_true',
-        help="Only show percentage change, not a full diff.")
+            '-p', '--percent',
+            action='store_true',
+            help="Only show percentage change, not a full diff.")
     parser.add_argument(
-        '-b', '--by',
-        action='append',
-        choices=PerfBdResult._by,
-        help="Group by this field.")
+            '-b', '--by',
+            action='append',
+            choices=PerfBdResult._by,
+            help="Group by this field.")
     parser.add_argument(
-        '-f', '--field',
-        dest='fields',
-        action='append',
-        choices=PerfBdResult._fields,
-        help="Show this field.")
+            '-f', '--field',
+            dest='fields',
+            action='append',
+            choices=PerfBdResult._fields,
+            help="Show this field.")
     parser.add_argument(
-        '-D', '--define',
-        dest='defines',
-        action='append',
-        type=lambda x: (
-            lambda k, vs: (
-                k.strip(),
-                {v.strip() for v in vs.split(',')})
-            )(*x.split('=', 1)),
-        help="Only include results where this field is this value.")
+            '-D', '--define',
+            dest='defines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Only include results where this field is this value.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.sort is None:
                 namespace.sort = []
             namespace.sort.append((value, True if option == '-S' else False))
     parser.add_argument(
-        '-s', '--sort',
-        nargs='?',
-        action=AppendSort,
-        help="Sort by this field.")
+            '-s', '--sort',
+            nargs='?',
+            action=AppendSort,
+            help="Sort by this field.")
     parser.add_argument(
-        '-S', '--reverse-sort',
-        nargs='?',
-        action=AppendSort,
-        help="Sort by this field, but backwards.")
+            '-S', '--reverse-sort',
+            nargs='?',
+            action=AppendSort,
+            help="Sort by this field, but backwards.")
     parser.add_argument(
-        '-Y', '--summary',
-        action='store_true',
-        help="Only show the total.")
+            '-Y', '--summary',
+            action='store_true',
+            help="Only show the total.")
     parser.add_argument(
-        '-F', '--source',
-        dest='sources',
-        action='append',
-        help="Only consider definitions in this file. Defaults to anything "
-            "in the current directory.")
+            '-F', '--source',
+            dest='sources',
+            action='append',
+            help="Only consider definitions in this file. Defaults to "
+                "anything in the current directory.")
     parser.add_argument(
-        '--everything',
-        action='store_true',
-        help="Include builtin and libc specific symbols.")
+            '--everything',
+            action='store_true',
+            help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '-g', '--propagate',
-        type=lambda x: int(x, 0),
-        help="Depth to propagate samples up the call-stack. 0 propagates up "
-            "to the entry point, 1 does no propagation. Defaults to 0.")
+            '-g', '--propagate',
+            type=lambda x: int(x, 0),
+            help="Depth to propagate samples up the call-stack. 0 propagates "
+                "up to the entry point, 1 does no propagation. Defaults to 0.")
     parser.add_argument(
-        '-z', '--depth',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Depth of function calls to show. 0 shows all calls unless we "
-            "find a cycle. Defaults to 0.")
+            '-z', '--depth',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Depth of function calls to show. 0 shows all calls unless "
+                "we find a cycle. Defaults to 0.")
     parser.add_argument(
-        '-t', '--hot',
-        nargs='?',
-        action='append',
-        help="Show only the hot path for each function call.")
+            '-t', '--hot',
+            nargs='?',
+            action='append',
+            help="Show only the hot path for each function call.")
     parser.add_argument(
-        '-A', '--annotate',
-        action='store_true',
-        help="Show source files annotated with coverage info.")
+            '-A', '--annotate',
+            action='store_true',
+            help="Show source files annotated with coverage info.")
     parser.add_argument(
-        '-T', '--threshold',
-        nargs='?',
-        type=lambda x: tuple(float(x) for x in x.split(',')),
-        const=THRESHOLD,
-        help="Show lines with any ops above this threshold as a percent of "
-            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+            '-T', '--threshold',
+            nargs='?',
+            type=lambda x: tuple(float(x) for x in x.split(',')),
+            const=THRESHOLD,
+            help="Show lines with any ops above this threshold as a percent "
+                "of all lines. Defaults to "
+                "%s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
-        '--read-threshold',
-        nargs='?',
-        type=lambda x: tuple(float(x) for x in x.split(',')),
-        const=THRESHOLD,
-        help="Show lines with reads above this threshold as a percent of "
-            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+            '--read-threshold',
+            nargs='?',
+            type=lambda x: tuple(float(x) for x in x.split(',')),
+            const=THRESHOLD,
+            help="Show lines with reads above this threshold as a percent "
+                "of all lines. Defaults to "
+                "%s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
-        '--prog-threshold',
-        nargs='?',
-        type=lambda x: tuple(float(x) for x in x.split(',')),
-        const=THRESHOLD,
-        help="Show lines with progs above this threshold as a percent of "
-            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+            '--prog-threshold',
+            nargs='?',
+            type=lambda x: tuple(float(x) for x in x.split(',')),
+            const=THRESHOLD,
+            help="Show lines with progs above this threshold as a percent "
+                "of all lines. Defaults to "
+                "%s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
-        '--erase-threshold',
-        nargs='?',
-        type=lambda x: tuple(float(x) for x in x.split(',')),
-        const=THRESHOLD,
-        help="Show lines with erases above this threshold as a percent of "
-            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+            '--erase-threshold',
+            nargs='?',
+            type=lambda x: tuple(float(x) for x in x.split(',')),
+            const=THRESHOLD,
+            help="Show lines with erases above this threshold as a percent "
+                "of all lines. Defaults to "
+                "%s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
-        '-C', '--context',
-        type=lambda x: int(x, 0),
-        default=3,
-        help="Show n additional lines of context. Defaults to 3.")
+            '-C', '--context',
+            type=lambda x: int(x, 0),
+            default=3,
+            help="Show n additional lines of context. Defaults to 3.")
     parser.add_argument(
-        '-W', '--width',
-        type=lambda x: int(x, 0),
-        default=80,
-        help="Assume source is styled with this many columns. Defaults to 80.")
+            '-W', '--width',
+            type=lambda x: int(x, 0),
+            default=80,
+            help="Assume source is styled with this many columns. Defaults "
+                "to 80.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-j', '--jobs',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Number of processes to use. 0 spawns one process per core.")
+            '-j', '--jobs',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Number of processes to use. 0 spawns one process per core.")
     parser.add_argument(
-        '--objdump-path',
-        type=lambda x: x.split(),
-        default=OBJDUMP_PATH,
-        help="Path to the objdump executable, may include flags. "
-            "Defaults to %r." % OBJDUMP_PATH)
+            '--objdump-path',
+            type=lambda x: x.split(),
+            default=OBJDUMP_PATH,
+            help="Path to the objdump executable, may include flags. "
+                "Defaults to %r." % OBJDUMP_PATH)
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

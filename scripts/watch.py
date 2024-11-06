@@ -49,13 +49,13 @@ else:
 
             # wait for interesting events
             flags = (inotify_simple.flags.ATTRIB
-                | inotify_simple.flags.CREATE
-                | inotify_simple.flags.DELETE
-                | inotify_simple.flags.DELETE_SELF
-                | inotify_simple.flags.MODIFY
-                | inotify_simple.flags.MOVED_FROM
-                | inotify_simple.flags.MOVED_TO
-                | inotify_simple.flags.MOVE_SELF)
+                    | inotify_simple.flags.CREATE
+                    | inotify_simple.flags.DELETE
+                    | inotify_simple.flags.DELETE_SELF
+                    | inotify_simple.flags.MODIFY
+                    | inotify_simple.flags.MOVED_FROM
+                    | inotify_simple.flags.MOVED_TO
+                    | inotify_simple.flags.MOVE_SELF)
 
             # recurse into directories
             for path in paths:
@@ -113,8 +113,8 @@ class RingIO:
         # pad to fill any existing canvas, but truncate to terminal size
         h = shutil.get_terminal_size((80, 5))[1]
         lines.extend('' for _ in range(
-            len(lines),
-            min(RingIO.canvas_lines, h)))
+                len(lines),
+                min(RingIO.canvas_lines, h)))
         while len(lines) > h:
             if self.head:
                 lines.pop()
@@ -154,7 +154,7 @@ def main(command, *,
         exit_on_error=False):
     if not command:
         print('usage: %s [options] command' % sys.argv[0],
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
 
     # if we have keep_open_paths, assume user wanted keep_open
@@ -199,12 +199,12 @@ def main(command, *,
                 if lines:
                     h = lines
                 fcntl.ioctl(spty, termios.TIOCSWINSZ,
-                    struct.pack('HHHH', h, w, 0, 0))
+                        struct.pack('HHHH', h, w, 0, 0))
 
                 proc = sp.Popen(command,
-                    stdout=spty,
-                    stderr=spty,
-                    close_fds=False)
+                        stdout=spty,
+                        stderr=spty,
+                        close_fds=False)
                 os.close(spty)
                 mpty = os.fdopen(mpty, 'r', 1)
 
@@ -261,54 +261,55 @@ if __name__ == "__main__":
     import sys
     import argparse
     parser = argparse.ArgumentParser(
-        description="Traditional watch command, but with higher resolution "
-            "updates and a bit different options/output format.",
-        allow_abbrev=False)
+            description="Traditional watch command, but with higher "
+                "resolution updates and a bit different options/output "
+                "format.",
+            allow_abbrev=False)
     parser.add_argument(
-        'command',
-        nargs=argparse.REMAINDER,
-        help="Command to run.")
+            'command',
+            nargs=argparse.REMAINDER,
+            help="Command to run.")
     parser.add_argument(
-        '-n', '--lines',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Show this many lines of history. 0 uses the terminal height. "
-            "Defaults to 0.")
+            '-n', '--lines',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Show this many lines of history. 0 uses the terminal "
+                "height. Defaults to 0.")
     parser.add_argument(
-        '-^', '--head',
-        action='store_true',
-        help="Show the first n lines.")
+            '-^', '--head',
+            action='store_true',
+            help="Show the first n lines.")
     parser.add_argument(
-        '-z', '--cat',
-        action='store_true',
-        help="Pipe directly to stdout.")
+            '-z', '--cat',
+            action='store_true',
+            help="Pipe directly to stdout.")
     parser.add_argument(
-        '-s', '--sleep',
-        type=float,
-        help="Seconds to sleep between runs. Defaults to 0.1.")
+            '-s', '--sleep',
+            type=float,
+            help="Seconds to sleep between runs. Defaults to 0.1.")
     parser.add_argument(
-        '-k', '--keep-open',
-        action='store_true',
-        help="Try to use inotify to wait for changes.")
+            '-k', '--keep-open',
+            action='store_true',
+            help="Try to use inotify to wait for changes.")
     parser.add_argument(
-        '-K', '--keep-open-path',
-        dest='keep_open_paths',
-        action='append',
-        help="Use this path for inotify. Defaults to guessing. Implies "
-            "--keep-open.")
+            '-K', '--keep-open-path',
+            dest='keep_open_paths',
+            action='append',
+            help="Use this path for inotify. Defaults to guessing. Implies "
+                "--keep-open.")
     parser.add_argument(
-        '-b', '--buffer',
-        action='store_true',
-        help="Wait until command finishes to show the output.")
+            '-b', '--buffer',
+            action='store_true',
+            help="Wait until command finishes to show the output.")
     parser.add_argument(
-        '-i', '--ignore-errors',
-        action='store_true',
-        help="Only show output after successful runs. Implies --buffer.")
+            '-i', '--ignore-errors',
+            action='store_true',
+            help="Only show output after successful runs. Implies --buffer.")
     parser.add_argument(
-        '-e', '--exit-on-error',
-        action='store_true',
-        help="Exit on error.")
+            '-e', '--exit-on-error',
+            action='store_true',
+            help="Exit on error.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_args()).items()
+            if v is not None}))

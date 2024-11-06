@@ -44,14 +44,14 @@ COLORS = [
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
-    '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
-    '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
-    '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
-    '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
-    '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
-    '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
-    '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
-    '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
+        '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
+        '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
+        '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
+        '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
+        '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
+        '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
+        '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
+        '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 CHARS_POINTS_AND_LINES = 'o'
 
 SI_PREFIXES = {
@@ -149,13 +149,13 @@ else:
 
             # wait for interesting events
             flags = (inotify_simple.flags.ATTRIB
-                | inotify_simple.flags.CREATE
-                | inotify_simple.flags.DELETE
-                | inotify_simple.flags.DELETE_SELF
-                | inotify_simple.flags.MODIFY
-                | inotify_simple.flags.MOVED_FROM
-                | inotify_simple.flags.MOVED_TO
-                | inotify_simple.flags.MOVE_SELF)
+                    | inotify_simple.flags.CREATE
+                    | inotify_simple.flags.DELETE
+                    | inotify_simple.flags.DELETE_SELF
+                    | inotify_simple.flags.MODIFY
+                    | inotify_simple.flags.MOVED_FROM
+                    | inotify_simple.flags.MOVED_TO
+                    | inotify_simple.flags.MOVE_SELF)
 
             # recurse into directories
             for path in paths:
@@ -213,8 +213,8 @@ class RingIO:
         # pad to fill any existing canvas, but truncate to terminal size
         h = shutil.get_terminal_size((80, 5))[1]
         lines.extend('' for _ in range(
-            len(lines),
-            min(RingIO.canvas_lines, h)))
+                len(lines),
+                min(RingIO.canvas_lines, h)))
         while len(lines) > h:
             if self.head:
                 lines.pop()
@@ -287,8 +287,8 @@ class Plot:
         # scale if we're printing with dots or braille
         self.width = 2*width if braille else width
         self.height = (4*height if braille
-            else 2*height if dots
-            else height)
+                else 2*height if dots
+                else height)
 
         self.xlim = xlim or (0, width)
         self.ylim = ylim or (0, height)
@@ -304,20 +304,20 @@ class Plot:
         try:
             if self.xlog:
                 x = int(self.width * (
-                    (symlog(x)-symlog(self.xlim[0]))
-                    / (symlog(self.xlim[1])-symlog(self.xlim[0]))))
+                        (symlog(x)-symlog(self.xlim[0]))
+                            / (symlog(self.xlim[1])-symlog(self.xlim[0]))))
             else:
                 x = int(self.width * (
-                    (x-self.xlim[0])
-                    / (self.xlim[1]-self.xlim[0])))
+                        (x-self.xlim[0])
+                            / (self.xlim[1]-self.xlim[0])))
             if self.ylog:
                 y = int(self.height * (
-                    (symlog(y)-symlog(self.ylim[0]))
-                    / (symlog(self.ylim[1])-symlog(self.ylim[0]))))
+                        (symlog(y)-symlog(self.ylim[0]))
+                            / (symlog(self.ylim[1])-symlog(self.ylim[0]))))
             else:
                 y = int(self.height * (
-                    (y-self.ylim[0])
-                    / (self.ylim[1]-self.ylim[0])))
+                        (y-self.ylim[0])
+                            / (self.ylim[1]-self.ylim[0])))
         except ZeroDivisionError:
             x = 0
             y = 0
@@ -378,16 +378,16 @@ class Plot:
             for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
                 if y1 is not None and y2 is not None:
                     self.line(x1, y1, x2, y2,
-                        color=color,
-                        char=line_char)
+                            color=color,
+                            char=line_char)
 
         # draw points
         if char and (not line_char or char is not True):
             for x, y in coords:
                 if y is not None:
                     self.point(x, y,
-                        color=color,
-                        char=char)
+                            color=color,
+                            char=char)
 
     def draw(self, row, *,
             color=False):
@@ -460,8 +460,8 @@ def collect(csv_paths, renames=[], defines=[]):
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 fields.extend(
-                    k for k in reader.fieldnames
-                    if k not in fields)
+                        k for k in reader.fieldnames
+                            if k not in fields)
                 for r in reader:
                     # apply any renames
                     if renames:
@@ -510,7 +510,7 @@ def fold(results, by=None, x=None, y=None, defines=[], labels=None):
                     # filter by 'by'
                     if by and not all(
                             k in r and r[k] == v
-                            for k, v in zip(by, key)):
+                                for k, v in zip(by, key)):
                         continue
 
                     # find xs
@@ -614,9 +614,9 @@ class Grid:
             self_i = 0
             other_i = 0
             self_xweight = (self_xweights[self_i]
-                if self_i < len(self_xweights) else mt.inf)
+                    if self_i < len(self_xweights) else mt.inf)
             other_xweight = (other_xweights[other_i]
-                if other_i < len(other_xweights) else mt.inf)
+                    if other_i < len(other_xweights) else mt.inf)
             while self_i < len(self_xweights) and other_i < len(other_xweights):
                 if other_xweight - self_xweight > 0.0000001:
                     new_xweights.append(self_xweight)
@@ -635,7 +635,7 @@ class Grid:
 
                     self_i += 1
                     self_xweight = (self_xweights[self_i]
-                        if self_i < len(self_xweights) else mt.inf)
+                            if self_i < len(self_xweights) else mt.inf)
                 elif self_xweight - other_xweight > 0.0000001:
                     new_xweights.append(other_xweight)
                     self_xweight -= other_xweight
@@ -653,7 +653,7 @@ class Grid:
 
                     other_i += 1
                     other_xweight = (other_xweights[other_i]
-                        if other_i < len(other_xweights) else mt.inf)
+                            if other_i < len(other_xweights) else mt.inf)
                 else:
                     new_xweights.append(self_xweight)
 
@@ -665,10 +665,10 @@ class Grid:
 
                     self_i += 1
                     self_xweight = (self_xweights[self_i]
-                        if self_i < len(self_xweights) else mt.inf)
+                            if self_i < len(self_xweights) else mt.inf)
                     other_i += 1
                     other_xweight = (other_xweights[other_i]
-                        if other_i < len(other_xweights) else mt.inf)
+                            if other_i < len(other_xweights) else mt.inf)
 
             # squish so ratios are preserved
             self_h = sum(self.yweights)
@@ -684,8 +684,9 @@ class Grid:
 
                 self.xweights = new_xweights
                 self.yweights = self_yweights + other.yweights
-                self.map = self_map | {(x, y+len(self_yweights)): s
-                    for (x, y), s in other_map.items()}
+                self.map = self_map | {
+                        (x, y+len(self_yweights)): s
+                            for (x, y), s in other_map.items()}
             else:
                 for s in self.subplots:
                     s.y += len(other.yweights)
@@ -693,8 +694,9 @@ class Grid:
 
                 self.xweights = new_xweights
                 self.yweights = other.yweights + self_yweights
-                self.map = other_map | {(x, y+len(other.yweights)): s
-                    for (x, y), s in self_map.items()}
+                self.map = other_map | {
+                        (x, y+len(other.yweights)): s
+                            for (x, y), s in self_map.items()}
 
         if dir in ['right', 'left']:
             # first scale the two grids so they line up
@@ -712,9 +714,9 @@ class Grid:
             self_i = 0
             other_i = 0
             self_yweight = (self_yweights[self_i]
-                if self_i < len(self_yweights) else mt.inf)
+                    if self_i < len(self_yweights) else mt.inf)
             other_yweight = (other_yweights[other_i]
-                if other_i < len(other_yweights) else mt.inf)
+                    if other_i < len(other_yweights) else mt.inf)
             while self_i < len(self_yweights) and other_i < len(other_yweights):
                 if other_yweight - self_yweight > 0.0000001:
                     new_yweights.append(self_yweight)
@@ -733,7 +735,7 @@ class Grid:
 
                     self_i += 1
                     self_yweight = (self_yweights[self_i]
-                        if self_i < len(self_yweights) else mt.inf)
+                            if self_i < len(self_yweights) else mt.inf)
                 elif self_yweight - other_yweight > 0.0000001:
                     new_yweights.append(other_yweight)
                     self_yweight -= other_yweight
@@ -751,7 +753,7 @@ class Grid:
 
                     other_i += 1
                     other_yweight = (other_yweights[other_i]
-                        if other_i < len(other_yweights) else mt.inf)
+                            if other_i < len(other_yweights) else mt.inf)
                 else:
                     new_yweights.append(self_yweight)
 
@@ -763,10 +765,10 @@ class Grid:
 
                     self_i += 1
                     self_yweight = (self_yweights[self_i]
-                        if self_i < len(self_yweights) else mt.inf)
+                            if self_i < len(self_yweights) else mt.inf)
                     other_i += 1
                     other_yweight = (other_yweights[other_i]
-                        if other_i < len(other_yweights) else mt.inf)
+                            if other_i < len(other_yweights) else mt.inf)
 
             # squish so ratios are preserved
             self_w = sum(self.xweights)
@@ -782,8 +784,9 @@ class Grid:
 
                 self.xweights = self_xweights + other.xweights
                 self.yweights = new_yweights
-                self.map = self_map | {(x+len(self_xweights), y): s
-                    for (x, y), s in other_map.items()}
+                self.map = self_map | {
+                        (x+len(self_xweights), y): s
+                            for (x, y), s in other_map.items()}
             else:
                 for s in self.subplots:
                     s.x += len(other.xweights)
@@ -791,8 +794,9 @@ class Grid:
 
                 self.xweights = other.xweights + self_xweights
                 self.yweights = new_yweights
-                self.map = other_map | {(x+len(other.xweights), y): s
-                    for (x, y), s in self_map.items()}
+                self.map = other_map | {
+                        (x+len(other.xweights), y): s
+                            for (x, y), s in self_map.items()}
 
 
     def scale(self, width, height):
@@ -807,11 +811,11 @@ class Grid:
 
         for dir, subargs in subplots:
             subgrid = cls.fromargs(
-                width=subargs.pop('width',
-                    0.5 if dir in ['right', 'left'] else width),
-                height=subargs.pop('height',
-                    0.5 if dir in ['above', 'below'] else height),
-                **subargs)
+                    width=subargs.pop('width',
+                        0.5 if dir in ['right', 'left'] else width),
+                    height=subargs.pop('height',
+                        0.5 if dir in ['above', 'below'] else height),
+                    **subargs)
             grid.merge(subgrid, dir)
 
         grid.scale(width, height)
@@ -909,19 +913,19 @@ def main(csv_paths, *,
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
     all_labels = ((label or [])
-        + subplots_get('label', **subplot, subplots=subplots))
+            + subplots_get('label', **subplot, subplots=subplots))
 
     # separate out renames
     all_renames = list(it.chain.from_iterable(
-        ((k, v) for v in vs)
-        for k, vs in it.chain(all_by, all_x, all_y)))
+            ((k, v) for v in vs)
+                for k, vs in it.chain(all_by, all_x, all_y)))
     all_by = [k for k, _ in all_by]
     all_x = [k for k, _ in all_x]
     all_y = [k for k, _ in all_y]
 
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
 
     # create a grid of subplots
@@ -943,11 +947,11 @@ def main(csv_paths, *,
 
         # allow escape codes in sublabels/subtitles
         subtitle = (escape(subtitle).splitlines()
-            if subtitle is not None else [])
+                if subtitle is not None else [])
         xsublabel = (escape(xsublabel).splitlines()
-            if xsublabel is not None else [])
+                if xsublabel is not None else [])
         ysublabel = (escape(ysublabel).splitlines()
-            if ysublabel is not None else [])
+                if ysublabel is not None else [])
 
         # don't allow >2 ticklabels and render single ticklabels only once
         if xticklabels_ is not None:
@@ -977,8 +981,8 @@ def main(csv_paths, *,
             len(s.ylabel) + (1 if s.ylabel else 0) # fit ysublabel
                 + (1 if s.x > 0 else 0),           # space between
             ((5 if s.y2 else 4) + len(s.yunits)    # fit yticklabels
-                if s.yticklabels is None
-                else max((len(t) for t in s.yticklabels), default=0))
+                    if s.yticklabels is None
+                    else max((len(t) for t in s.yticklabels), default=0))
                 + (1 if s.yticklabels != [] else 0),
         )
         s.ymargin = (
@@ -1012,8 +1016,7 @@ def main(csv_paths, *,
         # if y not specified, guess it's anything not in by/defines/x/renames
         all_y_ = all_y
         if not all_y:
-            all_y_ = [
-                k for k in fields_
+            all_y_ = [k for k in fields_
                     if k not in all_by
                         and not any(k == k_ for k_, _ in all_defines)
                         and not any(k == old_k for _, old_k in all_renames)]
@@ -1024,14 +1027,14 @@ def main(csv_paths, *,
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
         datacolors_ = {
-            name: colors_[i % len(colors_)]
-            for i, name in enumerate(datasets_.keys())}
+                name: colors_[i % len(colors_)]
+                    for i, name in enumerate(datasets_.keys())}
         datachars_ = {
-            name: chars_[i % len(chars_)]
-            for i, name in enumerate(datasets_.keys())}
+                name: chars_[i % len(chars_)]
+                    for i, name in enumerate(datasets_.keys())}
         dataline_chars_ = {
-            name: line_chars_[i % len(line_chars_)]
-            for i, name in enumerate(datasets_.keys())}
+                name: line_chars_[i % len(line_chars_)]
+                    for i, name in enumerate(datasets_.keys())}
 
         # build legend?
         legend_width = 0
@@ -1043,13 +1046,14 @@ def main(csv_paths, *,
                 if all_labels and not all_labels_[name]:
                     continue
                 label = '%s%s' % (
-                    '%s ' % datachars_[name]
+                        '%s ' % datachars_[name]
                             if chars is not None
-                        else '%s ' % dataline_chars_[name]
+                            else '%s ' % dataline_chars_[name]
                             if line_chars is not None
-                        else '',
-                    all_labels_[name] if all_labels
-                        else ','.join(name))
+                            else '',
+                        all_labels_[name]
+                            if all_labels
+                            else ','.join(name))
 
                 if label:
                     legend_.append((label, colors_[i % len(colors_)]))
@@ -1069,7 +1073,7 @@ def main(csv_paths, *,
             height_ = height
         else:
             height_ = shutil.get_terminal_size((None,
-                17 + len(title) + len(xlabel)))[1]
+                    17 + len(title) + len(xlabel)))[1]
             # make space for shell prompt
             if not keep_open:
                 height_ -= 1
@@ -1088,11 +1092,13 @@ def main(csv_paths, *,
             legend_cols = len(legend_)
             while True:
                 legend_widths = [
-                    max(len(l) for l, _ in legend_[i::legend_cols])
-                    for i in range(legend_cols)]
+                        max(len(l) for l, _ in legend_[i::legend_cols])
+                            for i in range(legend_cols)]
                 if (legend_cols <= 1
                         or sum(legend_widths)+2*(legend_cols-1)
-                            + max(sum(s.xmargin[:2]) for s in grid if s.x == 0)
+                                + max(sum(s.xmargin[:2])
+                                    for s in grid
+                                    if s.x == 0)
                             <= width_):
                     break
                 legend_cols -= 1
@@ -1101,11 +1107,13 @@ def main(csv_paths, *,
             legend_cols = len(legend_)
             while True:
                 legend_widths = [
-                    max(len(l) for l, _ in legend_[i::legend_cols])
-                    for i in range(legend_cols)]
+                        max(len(l) for l, _ in legend_[i::legend_cols])
+                            for i in range(legend_cols)]
                 if (legend_cols <= 1
                         or sum(legend_widths)+2*(legend_cols-1)
-                            + max(sum(s.xmargin[:2]) for s in grid if s.x == 0)
+                                + max(sum(s.xmargin[:2])
+                                    for s in grid
+                                    if s.x == 0)
                             <= width_):
                     break
                 legend_cols -= 1
@@ -1125,10 +1133,11 @@ def main(csv_paths, *,
         # but that's the best we can do
         for s in grid:
             # fit xunits
-            minwidth = sum(s.xmargin) + max(2,
-                2*((5 if s.x2 else 4)+len(s.xunits))
-                    if s.xticklabels is None
-                    else sum(len(t) for t in s.xticklabels))
+            minwidth = sum(s.xmargin) + max(
+                    2,
+                    2*((5 if s.x2 else 4)+len(s.xunits))
+                        if s.xticklabels is None
+                        else sum(len(t) for t in s.xticklabels))
             # fit yunits
             minheight = sum(s.ymargin) + 2
 
@@ -1165,39 +1174,40 @@ def main(csv_paths, *,
             # data can be constrained by subplot-specific defines,
             # so re-extract for each plot
             subdatasets = fold(results,
-                all_by, all_x, all_y_, define_, all_labels)
+                    all_by, all_x, all_y_, define_, all_labels)
 
             # filter by subplot x/y
             subdatasets = co.OrderedDict([(name, dataset)
-                for name, dataset in subdatasets.items()
-                if len(all_x) <= 1
-                    or name[-(1 if len(all_y_) <= 1 else 2)] in x_
-                if len(all_y_) <= 1 or name[-1] in y_])
+                    for name, dataset in subdatasets.items()
+                    if len(all_x) <= 1
+                        or name[-(1 if len(all_y_) <= 1 else 2)] in x_
+                    if len(all_y_) <= 1
+                        or name[-1] in y_])
 
             # find actual xlim/ylim
             xlim_ = (
-                xlim_[0] if xlim_[0] is not None
-                    else min(it.chain([0], (x
-                        for dataset in subdatasets.values()
-                        for x, y in dataset
-                        if y is not None))),
-                xlim_[1] if xlim_[1] is not None
-                    else max(it.chain([0], (x
-                        for dataset in subdatasets.values()
-                        for x, y in dataset
-                        if y is not None))))
+                    xlim_[0] if xlim_[0] is not None
+                        else min(it.chain([0], (x
+                            for dataset in subdatasets.values()
+                            for x, y in dataset
+                            if y is not None))),
+                    xlim_[1] if xlim_[1] is not None
+                        else max(it.chain([0], (x
+                            for dataset in subdatasets.values()
+                            for x, y in dataset
+                            if y is not None))))
 
             ylim_ = (
-                ylim_[0] if ylim_[0] is not None
-                    else min(it.chain([0], (y
-                        for dataset in subdatasets.values()
-                        for _, y in dataset
-                        if y is not None))),
-                ylim_[1] if ylim_[1] is not None
-                    else max(it.chain([0], (y
-                        for dataset in subdatasets.values()
-                        for _, y in dataset
-                        if y is not None))))
+                    ylim_[0] if ylim_[0] is not None
+                        else min(it.chain([0], (y
+                            for dataset in subdatasets.values()
+                            for _, y in dataset
+                            if y is not None))),
+                    ylim_[1] if ylim_[1] is not None
+                        else max(it.chain([0], (y
+                            for dataset in subdatasets.values()
+                            for _, y in dataset
+                            if y is not None))))
 
             # find actual width/height
             subwidth = sum(widths[s.x:s.x+s.xspan]) - sum(s.xmargin)
@@ -1205,21 +1215,21 @@ def main(csv_paths, *,
 
             # plot!
             plot = Plot(
-                subwidth,
-                subheight,
-                xlim=xlim_,
-                ylim=ylim_,
-                xlog=xlog_,
-                ylog=ylog_,
-                braille=line_chars is None and braille,
-                dots=line_chars is None and not braille)
+                    subwidth,
+                    subheight,
+                    xlim=xlim_,
+                    ylim=ylim_,
+                    xlog=xlog_,
+                    ylog=ylog_,
+                    braille=line_chars is None and braille,
+                    dots=line_chars is None and not braille)
 
             for name, dataset in subdatasets.items():
                 plot.plot(
-                    sorted((x,y) for x,y in dataset),
-                    color=datacolors_[name],
-                    char=datachars_[name],
-                    line_char=dataline_chars_[name])
+                        sorted((x,y) for x,y in dataset),
+                        color=datacolors_[name],
+                        char=datachars_[name],
+                        line_char=dataline_chars_[name])
 
             s.plot = plot
             s.width = subwidth
@@ -1243,34 +1253,34 @@ def main(csv_paths, *,
         # draw title?
         for line in title:
             f.writeln('%*s%s' % (
-                sum(xmargin[:2]), '',
-                line.center(width_-xmargin[1])))
+                    sum(xmargin[:2]), '',
+                    line.center(width_-xmargin[1])))
 
         # draw legend_above?
         if legend_above and legend_:
             for i in range(0, len(legend_), legend_cols):
                 f.writeln('%*s%s' % (
-                    max(sum(xmargin[:2])
-                        + (width_-xmargin[1]
-                            - (sum(legend_widths)+2*(legend_cols-1)))
-                            // 2,
-                        0), '',
-                    '  '.join('%s%s%s' % (
-                        '\x1b[%sm' % legend_[i+j][1] if color else '',
-                        '%-*s' % (legend_widths[j], legend_[i+j][0]),
-                        '\x1b[m' if color else '')
-                        for j in range(min(legend_cols, len(legend_)-i)))))
+                        max(
+                            sum(xmargin[:2])
+                                + (width_-xmargin[1]
+                                    - (sum(legend_widths)+2*(legend_cols-1)))
+                                // 2,
+                            0), '',
+                        '  '.join('%s%s%s' % (
+                                '\x1b[%sm' % legend_[i+j][1] if color else '',
+                                '%-*s' % (legend_widths[j], legend_[i+j][0]),
+                                '\x1b[m' if color else '')
+                            for j in range(min(legend_cols, len(legend_)-i)))))
 
         for row in range(height_):
             # draw ylabel?
-            f.write(
-                '%s ' % ''.join(
-                    ('%*s%s%*s' % (
-                        ymargin[-1], '',
-                        line.center(height_-sum(ymargin)),
-                        ymargin[0], ''))[row]
-                    for line in ylabel)
-                if ylabel else '')
+            f.write('%s ' % ''.join(
+                        ('%*s%s%*s' % (
+                                ymargin[-1], '',
+                                line.center(height_-sum(ymargin)),
+                                ymargin[0], ''))[row]
+                            for line in ylabel)
+                    if ylabel else '')
 
             for x_ in range(grid.width):
                 # figure out the grid x/y position
@@ -1288,42 +1298,42 @@ def main(csv_paths, *,
                     # draw subtitle?
                     if subrow < len(s.title):
                         f.write('%*s%s' % (
-                            sum(s.xmargin[:2]), '',
-                            s.title[subrow].center(s.width)))
+                                sum(s.xmargin[:2]), '',
+                                s.title[subrow].center(s.width)))
                     else:
                         f.write('%*s%*s' % (
-                            sum(s.xmargin[:2]), '',
-                            s.width, ''))
+                                sum(s.xmargin[:2]), '',
+                                s.width, ''))
                 # draw plot?
                 elif subrow-s.ymargin[-1] < s.height:
                     subrow = subrow-s.ymargin[-1]
 
                     # draw ysublabel?
                     f.write('%-*s' % (
-                        s.xmargin[0],
-                        '%s ' % ''.join(
-                                line.center(s.height)[subrow]
-                                for line in s.ylabel)
-                            if s.ylabel else ''))
+                            s.xmargin[0],
+                            '%s ' % ''.join(
+                                    line.center(s.height)[subrow]
+                                    for line in s.ylabel)
+                                if s.ylabel else ''))
 
                     # draw yunits?
                     if subrow == 0 and s.yticklabels != []:
                         f.write('%*s' % (
-                            s.xmargin[1],
-                            ((si2 if s.y2 else si)(s.ylim[1]) + s.yunits
-                                if s.yticklabels is None
-                                else s.yticklabels[1])
-                                + ' '))
+                                s.xmargin[1],
+                                ((si2 if s.y2 else si)(s.ylim[1]) + s.yunits
+                                        if s.yticklabels is None
+                                        else s.yticklabels[1])
+                                    + ' '))
                     elif subrow == s.height-1 and s.yticklabels != []:
                         f.write('%*s' % (
-                            s.xmargin[1],
-                            ((si2 if s.y2 else si)(s.ylim[0]) + s.yunits
-                                if s.yticklabels is None
-                                else s.yticklabels[0])
-                                + ' '))
+                                s.xmargin[1],
+                                ((si2 if s.y2 else si)(s.ylim[0]) + s.yunits
+                                        if s.yticklabels is None
+                                        else s.yticklabels[0])
+                                    + ' '))
                     else:
                         f.write('%*s' % (
-                            s.xmargin[1], ''))
+                                s.xmargin[1], ''))
 
                     # draw plot!
                     f.write(s.plot.draw(subrow, color=color))
@@ -1335,32 +1345,33 @@ def main(csv_paths, *,
                     # draw xunits?
                     if subrow < (1 if s.xticklabels != [] else 0):
                         f.write('%*s%-*s%*s%*s' % (
-                            sum(s.xmargin[:2]), '',
-                            (5 if s.x2 else 4) + len(s.xunits)
-                                if s.xticklabels is None
-                                else len(s.xticklabels[0]),
-                            (si2 if s.x2 else si)(s.xlim[0]) + s.xunits
-                                if s.xticklabels is None
-                                else s.xticklabels[0],
-                            s.width - (2*((5 if s.x2 else 4)+len(s.xunits))
-                                if s.xticklabels is None
-                                else sum(len(t) for t in s.xticklabels)), '',
-                            (5 if s.x2 else 4) + len(s.xunits)
-                                if s.xticklabels is None
-                                else len(s.xticklabels[1]),
-                            (si2 if s.x2 else si)(s.xlim[1]) + s.xunits
-                                if s.xticklabels is None
-                                else s.xticklabels[1]))
+                                sum(s.xmargin[:2]), '',
+                                (5 if s.x2 else 4) + len(s.xunits)
+                                    if s.xticklabels is None
+                                    else len(s.xticklabels[0]),
+                                (si2 if s.x2 else si)(s.xlim[0]) + s.xunits
+                                    if s.xticklabels is None
+                                    else s.xticklabels[0],
+                                s.width - (2*((5 if s.x2 else 4)+len(s.xunits))
+                                    if s.xticklabels is None
+                                    else sum(len(t)
+                                        for t in s.xticklabels)), '',
+                                (5 if s.x2 else 4) + len(s.xunits)
+                                    if s.xticklabels is None
+                                    else len(s.xticklabels[1]),
+                                (si2 if s.x2 else si)(s.xlim[1]) + s.xunits
+                                    if s.xticklabels is None
+                                    else s.xticklabels[1]))
                     # draw xsublabel?
                     elif (subrow < s.ymargin[1]
                             or subrow-s.ymargin[1] >= len(s.xlabel)):
                         f.write('%*s%*s' % (
-                            sum(s.xmargin[:2]), '',
-                            s.width, ''))
+                                sum(s.xmargin[:2]), '',
+                                s.width, ''))
                     else:
                         f.write('%*s%s' % (
-                            sum(s.xmargin[:2]), '',
-                            s.xlabel[subrow-s.ymargin[1]].center(s.width)))
+                                sum(s.xmargin[:2]), '',
+                                s.xlabel[subrow-s.ymargin[1]].center(s.width)))
 
             # draw legend_right?
             if (legend_right and legend_
@@ -1368,34 +1379,33 @@ def main(csv_paths, *,
                     and row-ymargin[-1] < len(legend_)):
                 j = row-ymargin[-1]
                 f.write(' %s%s%s' % (
-                    '\x1b[%sm' % legend_[j][1] if color else '',
-                    legend_[j][0],
-                    '\x1b[m' if color else ''))
+                        '\x1b[%sm' % legend_[j][1] if color else '',
+                        legend_[j][0],
+                        '\x1b[m' if color else ''))
 
             f.writeln()
 
         # draw xlabel?
         for line in xlabel:
             f.writeln('%*s%s' % (
-                sum(xmargin[:2]), '',
-                line.center(width_-xmargin[1])))
+                    sum(xmargin[:2]), '',
+                    line.center(width_-xmargin[1])))
 
         # draw legend below?
         if legend_below and legend_:
             for i in range(0, len(legend_), legend_cols):
                 f.writeln('%*s%s' % (
-                    max(sum(xmargin[:2])
-                        + (width_-xmargin[1]
-                            - (sum(legend_widths)+2*(legend_cols-1)))
-                            // 2,
-                        0), '',
-                    '  '.join('%s%s%s' % (
-                        '\x1b[%sm' % legend_[i+j][1]
-                            if color else '',
-                        '%-*s' % (legend_widths[j], legend_[i+j][0]),
-                        '\x1b[m'
-                            if color else '')
-                        for j in range(min(legend_cols, len(legend_)-i)))))
+                        max(
+                            sum(xmargin[:2])
+                                + (width_-xmargin[1]
+                                    - (sum(legend_widths)+2*(legend_cols-1)))
+                                // 2,
+                            0), '',
+                        '  '.join('%s%s%s' % (
+                                '\x1b[%sm' % legend_[i+j][1] if color else '',
+                                '%-*s' % (legend_widths[j], legend_[i+j][0]),
+                                '\x1b[m' if color else '')
+                            for j in range(min(legend_cols, len(legend_)-i)))))
 
 
     if keep_open:
@@ -1437,241 +1447,243 @@ if __name__ == "__main__":
     import argparse
     import re
     parser = argparse.ArgumentParser(
-        description="Plot CSV files in terminal.",
-        allow_abbrev=False)
+            description="Plot CSV files in terminal.",
+            allow_abbrev=False)
     parser.add_argument(
-        'csv_paths',
-        nargs='*',
-        help="Input *.csv files.")
+            'csv_paths',
+            nargs='*',
+            help="Input *.csv files.")
     parser.add_argument(
-        '-b', '--by',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Group by this field. Can rename fields with new_name=old_name.")
+            '-b', '--by',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Group by this field. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-x',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to use for the x-axis. Can rename fields with "
-            "new_name=old_name.")
+            '-x',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to use for the x-axis. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-y',
-        action='append',
-        type=lambda x: (
-            lambda k, vs=None: (
-                k.strip(),
-                tuple(v.strip() for v in vs.split(','))
-                    if vs is not None else ())
-            )(*x.split('=', 1)),
-        help="Field to use for the y-axis. Can rename fields with "
-            "new_name=old_name.")
+            '-y',
+            action='append',
+            type=lambda x: (
+                lambda k, vs=None: (
+                    k.strip(),
+                    tuple(v.strip() for v in vs.split(','))
+                        if vs is not None else ())
+                )(*x.split('=', 1)),
+            help="Field to use for the y-axis. Can rename fields with "
+                "new_name=old_name.")
     parser.add_argument(
-        '-D', '--define',
-        type=lambda x: (
-            lambda k, vs: (
-                k.strip(),
-                {v.strip() for v in vs.split(',')})
-            )(*x.split('=', 1)),
-        action='append',
-        help="Only include results where this field is this value. May include "
-            "comma-separated options.")
+            '-D', '--define',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            action='append',
+            help="Only include results where this field is this value. May "
+                "include comma-separated options.")
     parser.add_argument(
-        '-L', '--label',
-        action='append',
-        type=lambda x: (
-            lambda k, vs: (
-                re.sub(r'\\([=\\])', r'\1', k.strip()),
-                tuple(v.strip() for v in vs.split(',')))
-            )(*re.split(r'(?<!\\)=', x, 1)),
-        help="Use this label for a given group, where a group is roughly the "
-            "comma-separated values in the -b/--by, -x, and -y fields. Also "
-            "provides an ordering. Accepts escaped equals.")
+            '-L', '--label',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    re.sub(r'\\([=\\])', r'\1', k.strip()),
+                    tuple(v.strip() for v in vs.split(',')))
+                )(*re.split(r'(?<!\\)=', x, 1)),
+            help="Use this label for a given group, where a group is roughly "
+                "the comma-separated values in the -b/--by, -x, and -y "
+                "fields. Also provides an ordering. Accepts escaped equals.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-⣿', '--braille',
-        action='store_true',
-        help="Use 2x4 unicode braille characters. Note that braille characters "
-            "sometimes suffer from inconsistent widths.")
+            '-⣿', '--braille',
+            action='store_true',
+            help="Use 2x4 unicode braille characters. Note that braille "
+                "characters sometimes suffer from inconsistent widths.")
     parser.add_argument(
-        '-.', '--points',
-        action='store_true',
-        help="Only draw data points.")
+            '-.', '--points',
+            action='store_true',
+            help="Only draw data points.")
     parser.add_argument(
-        '-!', '--points-and-lines',
-        action='store_true',
-        help="Draw data points and lines.")
+            '-!', '--points-and-lines',
+            action='store_true',
+            help="Draw data points and lines.")
     parser.add_argument(
-        '--colors',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Comma-separated colors to use.")
+            '--colors',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Comma-separated colors to use.")
     parser.add_argument(
-        '--chars',
-        help="Characters to use for points.")
+            '--chars',
+            help="Characters to use for points.")
     parser.add_argument(
-        '--line-chars',
-        help="Characters to use for lines.")
+            '--line-chars',
+            help="Characters to use for lines.")
     parser.add_argument(
-        '-W', '--width',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Width in columns. 0 uses the terminal width. Defaults to "
-            "min(terminal, 80).")
+            '-W', '--width',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Width in columns. 0 uses the terminal width. Defaults to "
+                "min(terminal, 80).")
     parser.add_argument(
-        '-H', '--height',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Height in rows. 0 uses the terminal height. Defaults to 17.")
+            '-H', '--height',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Height in rows. 0 uses the terminal height. Defaults to 17.")
     parser.add_argument(
-        '-X', '--xlim',
-        type=lambda x: tuple(
-            dat(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Range for the x-axis.")
+            '-X', '--xlim',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the x-axis.")
     parser.add_argument(
-        '-Y', '--ylim',
-        type=lambda x: tuple(
-            dat(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Range for the y-axis.")
+            '-Y', '--ylim',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the y-axis.")
     parser.add_argument(
-        '--xlog',
-        action='store_true',
-        help="Use a logarithmic x-axis.")
+            '--xlog',
+            action='store_true',
+            help="Use a logarithmic x-axis.")
     parser.add_argument(
-        '--ylog',
-        action='store_true',
-        help="Use a logarithmic y-axis.")
+            '--ylog',
+            action='store_true',
+            help="Use a logarithmic y-axis.")
     parser.add_argument(
-        '--x2',
-        action='store_true',
-        help="Use base-2 prefixes for the x-axis.")
+            '--x2',
+            action='store_true',
+            help="Use base-2 prefixes for the x-axis.")
     parser.add_argument(
-        '--y2',
-        action='store_true',
-        help="Use base-2 prefixes for the y-axis.")
+            '--y2',
+            action='store_true',
+            help="Use base-2 prefixes for the y-axis.")
     parser.add_argument(
-        '--xunits',
-        help="Units for the x-axis.")
+            '--xunits',
+            help="Units for the x-axis.")
     parser.add_argument(
-        '--yunits',
-        help="Units for the y-axis.")
+            '--yunits',
+            help="Units for the y-axis.")
     parser.add_argument(
-        '--xlabel',
-        help="Add a label to the x-axis.")
+            '--xlabel',
+            help="Add a label to the x-axis.")
     parser.add_argument(
-        '--ylabel',
-        help="Add a label to the y-axis.")
+            '--ylabel',
+            help="Add a label to the y-axis.")
     parser.add_argument(
-        '--xticklabels',
-        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                for x in re.split(r'(?<!\\),', x)]
-            if x.strip() else [],
-        help="Comma separated xticklabels. Allows '\,' as an "
-            "alternative for a literal ','.")
+            '--xticklabels',
+            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
+                    for x in re.split(r'(?<!\\),', x)]
+                if x.strip() else [],
+            help="Comma separated xticklabels. Allows '\,' as an "
+                "alternative for a literal ','.")
     parser.add_argument(
-        '--yticklabels',
-        type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                for x in re.split(r'(?<!\\),', x)]
-            if x.strip() else [],
-        help="Comma separated yticklabels. Allows '\,' as an "
-            "alternative for a literal ','.")
+            '--yticklabels',
+            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
+                    for x in re.split(r'(?<!\\),', x)]
+                if x.strip() else [],
+            help="Comma separated yticklabels. Allows '\,' as an "
+                "alternative for a literal ','.")
     parser.add_argument(
-        '-t', '--title',
-        help="Add a title.")
+            '-t', '--title',
+            help="Add a title.")
     parser.add_argument(
-        '-l', '--legend', '--legend-right',
-        dest='legend_right',
-        action='store_true',
-        help="Place a legend to the right.")
+            '-l', '--legend', '--legend-right',
+            dest='legend_right',
+            action='store_true',
+            help="Place a legend to the right.")
     parser.add_argument(
-        '--legend-above',
-        action='store_true',
-        help="Place a legend above.")
+            '--legend-above',
+            action='store_true',
+            help="Place a legend above.")
     parser.add_argument(
-        '--legend-below',
-        action='store_true',
-        help="Place a legend below.")
+            '--legend-below',
+            action='store_true',
+            help="Place a legend below.")
     class AppendSubplot(argparse.Action):
         @staticmethod
         def parse(value):
             import copy
             subparser = copy.deepcopy(parser)
             next(a for a in subparser._actions
-                if '--width' in a.option_strings).type = float
+                    if '--width' in a.option_strings).type = float
             next(a for a in subparser._actions
-                if '--height' in a.option_strings).type = float
+                    if '--height' in a.option_strings).type = float
             return subparser.parse_intermixed_args(shlex.split(value or ""))
         def __call__(self, parser, namespace, value, option):
             if not hasattr(namespace, 'subplots'):
                 namespace.subplots = []
             namespace.subplots.append((
-                option.split('-')[-1],
-                self.__class__.parse(value)))
+                    option.split('-')[-1],
+                    self.__class__.parse(value)))
     parser.add_argument(
-        '--subplot-above',
-        action=AppendSubplot,
-        help="Add subplot above with the same dataset. Takes an arg string to "
-            "control the subplot which supports most (but not all) of the "
-            "parameters listed here. The relative dimensions of the subplot "
-            "can be controlled with -W/-H which now take a percentage.")
+            '--subplot-above',
+            action=AppendSubplot,
+            help="Add subplot above with the same dataset. Takes an arg "
+                "string to control the subplot which supports most (but "
+                "not all) of the parameters listed here. The relative "
+                "dimensions of the subplot can be controlled with -W/-H "
+                "which now take a percentage.")
     parser.add_argument(
-        '--subplot-below',
-        action=AppendSubplot,
-        help="Add subplot below with the same dataset.")
+            '--subplot-below',
+            action=AppendSubplot,
+            help="Add subplot below with the same dataset.")
     parser.add_argument(
-        '--subplot-left',
-        action=AppendSubplot,
-        help="Add subplot left with the same dataset.")
+            '--subplot-left',
+            action=AppendSubplot,
+            help="Add subplot left with the same dataset.")
     parser.add_argument(
-        '--subplot-right',
-        action=AppendSubplot,
-        help="Add subplot right with the same dataset.")
+            '--subplot-right',
+            action=AppendSubplot,
+            help="Add subplot right with the same dataset.")
     parser.add_argument(
-        '--subplot',
-        type=AppendSubplot.parse,
-        help="Add subplot-specific arguments to the main plot.")
+            '--subplot',
+            type=AppendSubplot.parse,
+            help="Add subplot-specific arguments to the main plot.")
     parser.add_argument(
-        '-^', '--head',
-        action='store_true',
-        help="Show the first n lines.")
+            '-^', '--head',
+            action='store_true',
+            help="Show the first n lines.")
     parser.add_argument(
-        '-z', '--cat',
-        action='store_true',
-        help="Pipe directly to stdout.")
+            '-z', '--cat',
+            action='store_true',
+            help="Pipe directly to stdout.")
     parser.add_argument(
-        '-k', '--keep-open',
-        action='store_true',
-        help="Continue to open and redraw the CSV files in a loop.")
+            '-k', '--keep-open',
+            action='store_true',
+            help="Continue to open and redraw the CSV files in a loop.")
     parser.add_argument(
-        '-s', '--sleep',
-        type=float,
-        help="Time in seconds to sleep between redraws when running with -k. "
-            "Defaults to 0.01.")
+            '-s', '--sleep',
+            type=float,
+            help="Time in seconds to sleep between redraws when running "
+                "with -k. Defaults to 0.01.")
 
     def dictify(ns):
         if hasattr(ns, 'subplots'):
             ns.subplots = [(dir, dictify(subplot_ns))
-                for dir, subplot_ns in ns.subplots]
+                    for dir, subplot_ns in ns.subplots]
         if ns.subplot is not None:
             ns.subplot = dictify(ns.subplot)
         return {k: v
-            for k, v in vars(ns).items()
-            if v is not None}
+                for k, v in vars(ns).items()
+                if v is not None}
 
     sys.exit(main(**dictify(parser.parse_intermixed_args())))

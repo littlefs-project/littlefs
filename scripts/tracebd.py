@@ -29,14 +29,14 @@ WEAR_COLORS = ['90', '', '', '', '', '', '', '35', '35', '1;31']
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
-    '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
-    '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
-    '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
-    '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
-    '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
-    '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
-    '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
-    '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
+        '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
+        '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
+        '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
+        '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
+        '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
+        '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
+        '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
+        '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
 
 def openio(path, mode='r', buffering=-1):
@@ -156,8 +156,8 @@ class RingIO:
         # pad to fill any existing canvas, but truncate to terminal size
         h = shutil.get_terminal_size((80, 5))[1]
         lines.extend('' for _ in range(
-            len(lines),
-            min(RingIO.canvas_lines, h)))
+                len(lines),
+                min(RingIO.canvas_lines, h)))
         while len(lines) > h:
             if self.head:
                 lines.pop()
@@ -238,8 +238,8 @@ def hilbert_curve(width, height):
             yield from hilbert_(x, y, b_x_, b_y_, a_x_, a_y_)
             yield from hilbert_(x+b_x_, y+b_y_, a_x, a_y, b_x-b_x_, b_y-b_y_)
             yield from hilbert_(
-                x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
-                -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
+                    x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
+                    -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
 
     if width >= height:
         curve = hilbert_(0, 0, +width, 0, 0, +height)
@@ -276,11 +276,11 @@ class Pixel(int):
             proged=False,
             erased=False):
         return super().__new__(cls,
-            state
-            | (wear << 3)
-            | (1 if readed else 0)
-            | (2 if proged else 0)
-            | (4 if erased else 0))
+                state
+                    | (wear << 3)
+                    | (1 if readed else 0)
+                    | (2 if proged else 0)
+                    | (4 if erased else 0))
 
     @property
     def wear(self):
@@ -312,8 +312,8 @@ class Pixel(int):
 
     def __or__(self, other):
         return Pixel(
-            (int(self) | int(other)) & 7,
-            wear=max(self.wear, other.wear))
+                (int(self) | int(other)) & 7,
+                wear=max(self.wear, other.wear))
 
     def worn(self, max_wear, *,
             block_cycles=None,
@@ -363,12 +363,11 @@ class Pixel(int):
         f = [colors[3]]
 
         if wear:
-            w = min(
-                self.worn(
-                    max_wear,
-                    block_cycles=block_cycles,
-                    wear_chars=wear_chars),
-                1)
+            w = min(self.worn(
+                        max_wear,
+                        block_cycles=block_cycles,
+                        wear_chars=wear_chars),
+                    1)
 
             c = wear_chars[int(w * (len(wear_chars)-1))]
             f.append(wear_colors[int(w * (len(wear_colors)-1))])
@@ -390,8 +389,8 @@ class Pixel(int):
         # apply colors
         if f and color:
             c = '%s%s\x1b[m' % (
-                ''.join('\x1b[%sm' % f_ for f_ in f),
-                c)
+                    ''.join('\x1b[%sm' % f_ for f_ in f),
+                    c)
 
         return c
 
@@ -457,25 +456,25 @@ class Bmap:
             block -= self._block_window.start
 
             size = (max(self._off_window.start,
-                    min(self._off_window.stop, off+size))
-                - max(self._off_window.start,
-                    min(self._off_window.stop, off)))
+                        min(self._off_window.stop, off+size))
+                    - max(self._off_window.start,
+                        min(self._off_window.stop, off)))
             off = (max(self._off_window.start,
-                min(self._off_window.stop, off))
-                - self._off_window.start)
+                        min(self._off_window.stop, off))
+                    - self._off_window.start)
             if size == 0:
                 return
 
             # map to our block space
             range_ = range(
-                block*len(self._off_window) + off,
-                block*len(self._off_window) + off+size)
+                    block*len(self._off_window) + off,
+                    block*len(self._off_window) + off+size)
             range_ = range(
-                (range_.start*len(self.pixels)) // self._window,
-                (range_.stop*len(self.pixels)) // self._window)
+                    (range_.start*len(self.pixels)) // self._window,
+                    (range_.stop*len(self.pixels)) // self._window)
             range_ = range(
-                range_.start,
-                max(range_.stop, range_.start+1))
+                    range_.start,
+                    max(range_.stop, range_.start+1))
 
         # apply the op
         for i in range_:
@@ -499,9 +498,9 @@ class Bmap:
             width=None,
             height=None):
         block_size = (block_size if block_size is not None
-            else self.block_size)
+                else self.block_size)
         block_count = (block_count if block_count is not None
-            else self.block_count)
+                else self.block_count)
         width = width if width is not None else self.width
         height = height if height is not None else self.height
 
@@ -519,17 +518,17 @@ class Bmap:
         for x in range(width*height):
             # map into our old bd space
             range_ = range(
-                (x*self._window) // (width*height),
-                ((x+1)*self._window) // (width*height))
+                    (x*self._window) // (width*height),
+                    ((x+1)*self._window) // (width*height))
             range_ = range(
-                range_.start,
-                max(range_.stop, range_.start+1))
+                    range_.start,
+                    max(range_.stop, range_.start+1))
 
             # aggregate state
             pixels.append(ft.reduce(
-                Pixel.__or__,
-                self.pixels[range_.start:range_.stop],
-                Pixel()))
+                    Pixel.__or__,
+                    self.pixels[range_.start:range_.stop],
+                    Pixel()))
             
         self.width = width
         self.height = height
@@ -580,10 +579,10 @@ class Bmap:
                 return None
 
             grid = list(it.chain.from_iterable(
-                # did we resize?
-                it.islice(it.chain(h, it.repeat(Pixel())),
-                    self.width*self.height)
-                for h in self.history))
+                    # did we resize?
+                    it.islice(it.chain(h, it.repeat(Pixel())),
+                            self.width*self.height)
+                        for h in self.history))
             self.history = []
 
         line = []
@@ -603,14 +602,14 @@ class Bmap:
                         byte_p |= 1 << i
 
                 line.append(best_p.draw(
-                    max_wear,
-                    CHARS_BRAILLE[byte_p],
-                    braille=True,
-                    read=read,
-                    prog=prog,
-                    erase=erase,
-                    wear=wear,
-                    **args))
+                        max_wear,
+                        CHARS_BRAILLE[byte_p],
+                        braille=True,
+                        read=read,
+                        prog=prog,
+                        erase=erase,
+                        wear=wear,
+                        **args))
         elif dots:
             # encode into a byte
             for x in range(self.width):
@@ -627,23 +626,23 @@ class Bmap:
                         byte_p |= 1 << i
 
                 line.append(best_p.draw(
-                    max_wear,
-                    CHARS_DOTS[byte_p],
-                    dots=True,
-                    read=read,
-                    prog=prog,
-                    erase=erase,
-                    wear=wear,
-                    **args))
+                        max_wear,
+                        CHARS_DOTS[byte_p],
+                        dots=True,
+                        read=read,
+                        prog=prog,
+                        erase=erase,
+                        wear=wear,
+                        **args))
         else:
             for x in range(self.width):
                 line.append(grid[x + row*self.width].draw(
-                    max_wear,
-                    read=read,
-                    prog=prog,
-                    erase=erase,
-                    wear=wear,
-                    **args))
+                        max_wear,
+                        read=read,
+                        prog=prog,
+                        erase=erase,
+                        wear=wear,
+                        **args))
 
         return ''.join(line)
 
@@ -725,7 +724,7 @@ def main(path='-', *,
 
     if any(isinstance(b, list) and len(b) > 1 for b in block):
         print("error: more than one block address?",
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
     if isinstance(block[0], list):
         block = (block[0][0], *block[1:])
@@ -765,10 +764,10 @@ def main(path='-', *,
 
     # create our block device representation
     bmap = Bmap(
-        block_size=block_size if block_size is not None else 1,
-        block_count=block_count if block_count is not None else 1,
-        block_window=block_window,
-        off_window=off_window)
+            block_size=block_size if block_size is not None else 1,
+            block_count=block_count if block_count is not None else 1,
+            block_window=block_window,
+            off_window=off_window)
 
     def resize():
         nonlocal bmap
@@ -791,12 +790,13 @@ def main(path='-', *,
         # terminal size changed?
         if width_ != bmap.width or height_ != bmap.height:
             bmap.resize(
-                # scale if we're printing with dots or braille
-                width=2*width_ if braille else width_,
-                height=max(1,
-                    4*height_ if braille
-                    else 2*height_ if dots
-                    else height_))
+                    # scale if we're printing with dots or braille
+                    width=2*width_ if braille else width_,
+                    height=max(
+                        1,
+                        4*height_ if braille
+                            else 2*height_ if dots
+                            else height_))
     resize()
 
     # keep track of some extra info
@@ -806,30 +806,32 @@ def main(path='-', *,
 
     # parse a line of trace output
     pattern = re.compile(
-        '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:.*?bd_(?:'
-            '(?P<create>create\w*)\('
-                '(?:'
-                    'block_size=(?P<block_size>\w+)'
-                    '|' 'block_count=(?P<block_count>\w+)'
-                    '|' '.*?' ')*' '\)'
-            '|' '(?P<read>read)\('
-                '\s*(?P<read_ctx>\w+)' '\s*,'
-                '\s*(?P<read_block>\w+)' '\s*,'
-                '\s*(?P<read_off>\w+)' '\s*,'
-                '\s*(?P<read_buffer>\w+)' '\s*,'
-                '\s*(?P<read_size>\w+)' '\s*\)'
-            '|' '(?P<prog>prog)\('
-                '\s*(?P<prog_ctx>\w+)' '\s*,'
-                '\s*(?P<prog_block>\w+)' '\s*,'
-                '\s*(?P<prog_off>\w+)' '\s*,'
-                '\s*(?P<prog_buffer>\w+)' '\s*,'
-                '\s*(?P<prog_size>\w+)' '\s*\)'
-            '|' '(?P<erase>erase)\('
-                '\s*(?P<erase_ctx>\w+)' '\s*,'
-                '\s*(?P<erase_block>\w+)'
-                '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)'
-            '|' '(?P<sync>sync)\('
-                '\s*(?P<sync_ctx>\w+)' '\s*\)' ')\s*$')
+            '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:.*?bd_(?:'
+                '(?P<create>create\w*)\('
+                    '(?:'
+                        'block_size=(?P<block_size>\w+)'
+                        '|' 'block_count=(?P<block_count>\w+)'
+                        '|' '.*?' ')*'
+                    '\)'
+                '|' '(?P<read>read)\('
+                    '\s*(?P<read_ctx>\w+)' '\s*,'
+                    '\s*(?P<read_block>\w+)' '\s*,'
+                    '\s*(?P<read_off>\w+)' '\s*,'
+                    '\s*(?P<read_buffer>\w+)' '\s*,'
+                    '\s*(?P<read_size>\w+)' '\s*\)'
+                '|' '(?P<prog>prog)\('
+                    '\s*(?P<prog_ctx>\w+)' '\s*,'
+                    '\s*(?P<prog_block>\w+)' '\s*,'
+                    '\s*(?P<prog_off>\w+)' '\s*,'
+                    '\s*(?P<prog_buffer>\w+)' '\s*,'
+                    '\s*(?P<prog_size>\w+)' '\s*\)'
+                '|' '(?P<erase>erase)\('
+                    '\s*(?P<erase_ctx>\w+)' '\s*,'
+                    '\s*(?P<erase_block>\w+)'
+                    '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)'
+                '|' '(?P<sync>sync)\('
+                    '\s*(?P<sync_ctx>\w+)' '\s*\)'
+            ')\s*$')
     def parse(line):
         nonlocal bmap
         nonlocal readed
@@ -852,21 +854,21 @@ def main(path='-', *,
 
             if reset:
                 bmap = Bmap(
-                    block_size=block_size_,
-                    block_count=block_count_,
-                    block_window=bmap.block_window,
-                    off_window=bmap.off_window,
-                    width=bmap.width,
-                    height=bmap.height)
+                        block_size=block_size_,
+                        block_count=block_count_,
+                        block_window=bmap.block_window,
+                        off_window=bmap.off_window,
+                        width=bmap.width,
+                        height=bmap.height)
             elif ((block_size is None
                         and block_size_ != bmap.block_size)
                     or (block_count is None
                         and block_count_ != bmap.block_count)):
                 bmap.resize(
-                    block_size=block_size if block_size is not None
-                        else block_size_,
-                    block_count=block_count if block_count is not None
-                        else block_count_)
+                        block_size=block_size if block_size is not None
+                            else block_size_,
+                        block_count=block_count if block_count is not None
+                            else block_count_)
             return True
 
         elif m.group('read') and read:
@@ -877,10 +879,10 @@ def main(path='-', *,
             if ((block_size is None and off+size > bmap.block_size)
                     or (block_count is None and block >= bmap.block_count)):
                 bmap.resize(
-                    block_size=block_size if block_size is not None
-                        else max(off+size, bmap.block_size),
-                    block_count=block_count if block_count is not None
-                        else max(block+1, bmap.block_count))
+                        block_size=block_size if block_size is not None
+                            else max(off+size, bmap.block_size),
+                        block_count=block_count if block_count is not None
+                            else max(block+1, bmap.block_count))
 
             bmap.read(block, off, size)
             readed += size
@@ -894,10 +896,10 @@ def main(path='-', *,
             if ((block_size is None and off+size > bmap.block_size)
                     or (block_count is None and block >= bmap.block_count)):
                 bmap.resize(
-                    block_size=block_size if block_size is not None
-                        else max(off+size, bmap.block_size),
-                    block_count=block_count if block_count is not None
-                        else max(block+1, bmap.block_count))
+                        block_size=block_size if block_size is not None
+                            else max(off+size, bmap.block_size),
+                        block_count=block_count if block_count is not None
+                            else max(block+1, bmap.block_count))
 
             bmap.prog(block, off, size)
             proged += size
@@ -910,10 +912,10 @@ def main(path='-', *,
             if ((block_size is None and size > bmap.block_size)
                     or (block_count is None and block >= bmap.block_count)):
                 bmap.resize(
-                    block_size=block_size if block_size is not None
-                        else max(size, bmap.block_size),
-                    block_count=block_count if block_count is not None
-                        else max(block+1, bmap.block_count))
+                        block_size=block_size if block_size is not None
+                            else max(size, bmap.block_size),
+                        block_count=block_count if block_count is not None
+                            else max(block+1, bmap.block_count))
 
             bmap.erase(block, size)
             erased += size
@@ -936,20 +938,20 @@ def main(path='-', *,
         # don't forget we've scaled this for braille/dots!
         for row in range(
                 mt.ceil(bmap.height/4) if braille
-                else mt.ceil(bmap.height/2) if dots
-                else bmap.height):
+                    else mt.ceil(bmap.height/2) if dots
+                    else bmap.height):
             line = bmap.draw(row,
-                read=read,
-                prog=prog,
-                erase=erase,
-                wear=wear,
-                block_cycles=block_cycles,
-                color=color,
-                dots=dots,
-                braille=braille,
-                hilbert=hilbert,
-                lebesgue=lebesgue,
-                **args)
+                    read=read,
+                    prog=prog,
+                    erase=erase,
+                    wear=wear,
+                    block_cycles=block_cycles,
+                    color=color,
+                    dots=dots,
+                    braille=braille,
+                    hilbert=hilbert,
+                    lebesgue=lebesgue,
+                    **args)
             if line:
                 f.writeln(line)
 
@@ -965,9 +967,9 @@ def main(path='-', *,
             # what we have
             if wear:
                 mean = (sum(p.wear for p in bmap.pixels)
-                    / max(len(bmap.pixels), 1))
+                        / max(len(bmap.pixels), 1))
                 stddev = mt.sqrt(sum((p.wear - mean)**2 for p in bmap.pixels)
-                    / max(len(bmap.pixels), 1))
+                        / max(len(bmap.pixels), 1))
                 worst = max((p.wear for p in bmap.pixels), default=0)
 
             # a bit of a hack here, but this forces our header to always be
@@ -975,17 +977,17 @@ def main(path='-', *,
             if len(f.lines) == 0:
                 f.lines.append('')
             f.lines[0] = 'bd %dx%d%s%s%s%s' % (
-                bmap.block_size, bmap.block_count,
-                ', %6s read' % ('%.1f%%' % (100*readed  / max(total, 1)))
-                    if read else '',
-                ', %6s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
-                    if prog else '',
-                ', %6s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
-                    if erase else '',
-                ', %13s wear' % ('%.1fσ (%.1f%%)' % (
-                    worst / max(stddev, 1),
-                    100*stddev / max(worst, 1)))
-                    if wear else '')
+                    bmap.block_size, bmap.block_count,
+                    ', %6s read' % ('%.1f%%' % (100*readed  / max(total, 1)))
+                        if read else '',
+                    ', %6s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
+                        if prog else '',
+                    ', %6s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
+                        if erase else '',
+                    ', %13s wear' % ('%.1fσ (%.1f%%)' % (
+                            worst / max(stddev, 1),
+                            100*stddev / max(worst, 1)))
+                        if wear else '')
 
         bmap.clear()
         readed = 0
@@ -1040,7 +1042,7 @@ def main(path='-', *,
             time.sleep(sleep or 0.1)
     except FileNotFoundError as e:
         print("error: file not found %r" % path,
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
     except KeyboardInterrupt:
         pass
@@ -1056,145 +1058,147 @@ if __name__ == "__main__":
     import sys
     import argparse
     parser = argparse.ArgumentParser(
-        description="Render operations on block devices based on "
-            "trace output.",
-        allow_abbrev=False)
+            description="Render operations on block devices based on "
+                "trace output.",
+            allow_abbrev=False)
     parser.add_argument(
-        'path',
-        nargs='?',
-        help="Path to read from.")
+            'path',
+            nargs='?',
+            help="Path to read from.")
     parser.add_argument(
-        '-b', '--block-size',
-        type=bdgeom,
-        help="Block size/geometry in bytes.")
+            '-b', '--block-size',
+            type=bdgeom,
+            help="Block size/geometry in bytes.")
     parser.add_argument(
-        '--block-count',
-        type=lambda x: int(x, 0),
-        help="Block count in blocks.")
+            '--block-count',
+            type=lambda x: int(x, 0),
+            help="Block count in blocks.")
     parser.add_argument(
-        '-c', '--block-cycles',
-        type=lambda x: int(x, 0),
-        help="Assumed maximum number of erase cycles when measuring wear.")
+            '-c', '--block-cycles',
+            type=lambda x: int(x, 0),
+            help="Assumed maximum number of erase cycles when measuring "
+                "wear.")
     parser.add_argument(
-        '-@', '--block',
-        nargs='?',
-        type=lambda x: tuple(
-            rbydaddr(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Optional block to show, may be a range.")
+            '-@', '--block',
+            nargs='?',
+            type=lambda x: tuple(
+                rbydaddr(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Optional block to show, may be a range.")
     parser.add_argument(
-        '--off',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show a specific offset, may be a range.")
+            '--off',
+            type=lambda x: tuple(
+                int(x, 0) if x.strip() else None
+                    for x in x.split(',')),
+            help="Show a specific offset, may be a range.")
     parser.add_argument(
-        '--size',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show this many bytes, may be a range.")
+            '--size',
+            type=lambda x: tuple(
+                int(x, 0) if x.strip() else None
+                    for x in x.split(',')),
+            help="Show this many bytes, may be a range.")
     parser.add_argument(
-        '-r', '--read',
-        action='store_true',
-        help="Render reads.")
+            '-r', '--read',
+            action='store_true',
+            help="Render reads.")
     parser.add_argument(
-        '-p', '--prog',
-        action='store_true',
-        help="Render progs.")
+            '-p', '--prog',
+            action='store_true',
+            help="Render progs.")
     parser.add_argument(
-        '-e', '--erase',
-        action='store_true',
-        help="Render erases.")
+            '-e', '--erase',
+            action='store_true',
+            help="Render erases.")
     parser.add_argument(
-        '-w', '--wear',
-        action='store_true',
-        help="Render wear.")
+            '-w', '--wear',
+            action='store_true',
+            help="Render wear.")
     parser.add_argument(
-        '-R', '--reset',
-        action='store_true',
-        help="Reset wear on block device initialization.")
+            '-R', '--reset',
+            action='store_true',
+            help="Reset wear on block device initialization.")
     parser.add_argument(
-        '-N', '--no-header',
-        action='store_true',
-        help="Don't show the header.")
+            '-N', '--no-header',
+            action='store_true',
+            help="Don't show the header.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-:', '--dots',
-        action='store_true',
-        help="Use 1x2 ascii dot characters.")
+            '-:', '--dots',
+            action='store_true',
+            help="Use 1x2 ascii dot characters.")
     parser.add_argument(
-        '-⣿', '--braille',
-        action='store_true',
-        help="Use 2x4 unicode braille characters. Note that braille characters "
-            "sometimes suffer from inconsistent widths.")
+            '-⣿', '--braille',
+            action='store_true',
+            help="Use 2x4 unicode braille characters. Note that braille "
+                "characters sometimes suffer from inconsistent widths.")
     parser.add_argument(
-        '--chars',
-        help="Characters to use for read, prog, erase, noop operations.")
+            '--chars',
+            help="Characters to use for read, prog, erase, noop operations.")
     parser.add_argument(
-        '--wear-chars',
-        help="Characters to use for showing wear.")
+            '--wear-chars',
+            help="Characters to use for showing wear.")
     parser.add_argument(
-        '--colors',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Colors to use for read, prog, erase, noop operations.")
+            '--colors',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Colors to use for read, prog, erase, noop operations.")
     parser.add_argument(
-        '--wear-colors',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Colors to use for showing wear.")
+            '--wear-colors',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Colors to use for showing wear.")
     parser.add_argument(
-        '-W', '--width',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Width in columns. 0 uses the terminal width. Defaults to "
-            "min(terminal, 80).")
+            '-W', '--width',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Width in columns. 0 uses the terminal width. Defaults to "
+                "min(terminal, 80).")
     parser.add_argument(
-        '-H', '--height',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Height in rows. 0 uses the terminal height. Defaults to 1.")
+            '-H', '--height',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Height in rows. 0 uses the terminal height. Defaults to 1.")
     parser.add_argument(
-        '-n', '--lines',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Show this many lines of history. 0 uses the terminal height. "
-            "Defaults to 5.")
+            '-n', '--lines',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Show this many lines of history. 0 uses the terminal "
+                "height. Defaults to 5.")
     parser.add_argument(
-        '-^', '--head',
-        action='store_true',
-        help="Show the first n lines.")
+            '-^', '--head',
+            action='store_true',
+            help="Show the first n lines.")
     parser.add_argument(
-        '-z', '--cat',
-        action='store_true',
-        help="Pipe directly to stdout.")
+            '-z', '--cat',
+            action='store_true',
+            help="Pipe directly to stdout.")
     parser.add_argument(
-        '-U', '--hilbert',
-        action='store_true',
-        help="Render as a space-filling Hilbert curve.")
+            '-U', '--hilbert',
+            action='store_true',
+            help="Render as a space-filling Hilbert curve.")
     parser.add_argument(
-        '-Z', '--lebesgue',
-        action='store_true',
-        help="Render as a space-filling Z-curve.")
+            '-Z', '--lebesgue',
+            action='store_true',
+            help="Render as a space-filling Z-curve.")
     parser.add_argument(
-        '-S', '--coalesce',
-        type=lambda x: int(x, 0),
-        help="Number of operations to coalesce together.")
+            '-S', '--coalesce',
+            type=lambda x: int(x, 0),
+            help="Number of operations to coalesce together.")
     parser.add_argument(
-        '-s', '--sleep',
-        type=float,
-        help="Time in seconds to sleep between reads, coalescing operations.")
+            '-s', '--sleep',
+            type=float,
+            help="Time in seconds to sleep between reads, coalescing "
+                "operations.")
     parser.add_argument(
-        '-k', '--keep-open',
-        action='store_true',
-        help="Reopen the pipe on EOF, useful when multiple "
-            "processes are writing.")
+            '-k', '--keep-open',
+            action='store_true',
+            help="Reopen the pipe on EOF, useful when multiple "
+                "processes are writing.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

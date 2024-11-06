@@ -45,7 +45,7 @@ def main(in_path, out_paths, *, keep_open=False):
                         pass
     except FileNotFoundError as e:
         print("error: file not found %r" % in_path,
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
     except KeyboardInterrupt:
         pass
@@ -55,20 +55,20 @@ if __name__ == "__main__":
     import sys
     import argparse
     parser = argparse.ArgumentParser(
-        description="tee, but for pipes.",
-        allow_abbrev=False)
+            description="tee, but for pipes.",
+            allow_abbrev=False)
     parser.add_argument(
-        'in_path',
-        help="Path to read from.")
+            'in_path',
+            help="Path to read from.")
     parser.add_argument(
-        'out_paths',
-        nargs='+',
-        help="Path to write to.")
+            'out_paths',
+            nargs='+',
+            help="Path to write to.")
     parser.add_argument(
-        '-k', '--keep-open',
-        action='store_true',
-        help="Reopen the pipe on EOF, useful when multiple "
-            "processes are writing.")
+            '-k', '--keep-open',
+            action='store_true',
+            help="Reopen the pipe on EOF, useful when multiple "
+                "processes are writing.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

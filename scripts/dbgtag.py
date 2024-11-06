@@ -121,98 +121,98 @@ def fromleb128(data):
 def tagrepr(tag, w=None, size=None, off=None):
     if (tag & 0x6fff) == TAG_NULL:
         return '%snull%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            ' w%d' % w if w else '',
-            ' %d' % size if size else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                ' w%d' % w if w else '',
+                ' %d' % size if size else '')
     elif (tag & 0x6f00) == TAG_CONFIG:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'magic' if (tag & 0xfff) == TAG_MAGIC
-                else 'version' if (tag & 0xfff) == TAG_VERSION
-                else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
-                else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
-                else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
-                else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
-                else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
-                else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
-                else 'config 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'magic' if (tag & 0xfff) == TAG_MAGIC
+                    else 'version' if (tag & 0xfff) == TAG_VERSION
+                    else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
+                    else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
+                    else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
+                    else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
+                    else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
+                    else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
+                    else 'config 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_GDELTA:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
-                else 'gdelta 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
+                    else 'gdelta 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_NAME:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'name' if (tag & 0xfff) == TAG_NAME
-                else 'reg' if (tag & 0xfff) == TAG_REG
-                else 'dir' if (tag & 0xfff) == TAG_DIR
-                else 'orphan' if (tag & 0xfff) == TAG_ORPHAN
-                else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
-                else 'name 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'name' if (tag & 0xfff) == TAG_NAME
+                    else 'reg' if (tag & 0xfff) == TAG_REG
+                    else 'dir' if (tag & 0xfff) == TAG_DIR
+                    else 'orphan' if (tag & 0xfff) == TAG_ORPHAN
+                    else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
+                    else 'name 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_STRUCT:
         return '%s%s%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            'data' if (tag & 0xfff) == TAG_DATA
-                else 'block' if (tag & 0xfff) == TAG_BLOCK
-                else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
-                else 'btree' if (tag & 0xfff) == TAG_BTREE
-                else 'mroot' if (tag & 0xfff) == TAG_MROOT
-                else 'mdir' if (tag & 0xfff) == TAG_MDIR
-                else 'mtree' if (tag & 0xfff) == TAG_MTREE
-                else 'did' if (tag & 0xfff) == TAG_DID
-                else 'branch' if (tag & 0xfff) == TAG_BRANCH
-                else 'struct 0x%02x' % (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                'data' if (tag & 0xfff) == TAG_DATA
+                    else 'block' if (tag & 0xfff) == TAG_BLOCK
+                    else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
+                    else 'btree' if (tag & 0xfff) == TAG_BTREE
+                    else 'mroot' if (tag & 0xfff) == TAG_MROOT
+                    else 'mdir' if (tag & 0xfff) == TAG_MDIR
+                    else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                    else 'did' if (tag & 0xfff) == TAG_DID
+                    else 'branch' if (tag & 0xfff) == TAG_BRANCH
+                    else 'struct 0x%02x' % (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x6e00) == TAG_ATTR:
         return '%s%sattr 0x%02x%s%s' % (
-            'shrub' if tag & TAG_SHRUB else '',
-            's' if tag & 0x100 else 'u',
-            ((tag & 0x100) >> 1) ^ (tag & 0xff),
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'shrub' if tag & TAG_SHRUB else '',
+                's' if tag & 0x100 else 'u',
+                ((tag & 0x100) >> 1) ^ (tag & 0xff),
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:
         return 'alt%s%s%s%s%s' % (
-            'r' if tag & TAG_R else 'b',
-            'a' if tag & 0x0fff == 0 and tag & TAG_GT
-                else 'n' if tag & 0x0fff == 0
-                else 'gt' if tag & TAG_GT
-                else 'le',
-            ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
-            ' w%d' % w if w is not None else '',
-            ' 0x%x' % (0xffffffff & (off-size))
-                if size and off is not None
-                else ' -%d' % size if size
-                else '')
+                'r' if tag & TAG_R else 'b',
+                'a' if tag & 0x0fff == 0 and tag & TAG_GT
+                    else 'n' if tag & 0x0fff == 0
+                    else 'gt' if tag & TAG_GT
+                    else 'le',
+                ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
+                ' w%d' % w if w is not None else '',
+                ' 0x%x' % (0xffffffff & (off-size))
+                    if size and off is not None
+                    else ' -%d' % size if size
+                    else '')
     elif (tag & 0x7f00) == TAG_CKSUM:
         return 'cksum%s%s%s%s%s' % (
-            'q' if not tag & 0xfc and tag & TAG_Q else '',
-            'p' if not tag & 0xfc and tag & TAG_P else '',
-            ' 0x%02x' % (tag & 0xff) if tag & 0xfc else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                'q' if not tag & 0xfc and tag & TAG_Q else '',
+                'p' if not tag & 0xfc and tag & TAG_P else '',
+                ' 0x%02x' % (tag & 0xff) if tag & 0xfc else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_NOTE:
         return 'note%s%s%s' % (
-            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_ECKSUM:
         return 'ecksum%s%s%s' % (
-            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-            ' w%d' % w if w else '',
-            ' %s' % size if size is not None else '')
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     else:
         return '0x%04x%s%s' % (
-            tag,
-            ' w%d' % w if w is not None else '',
-            ' %d' % size if size is not None else '')
+                tag,
+                ' w%d' % w if w is not None else '',
+                ' %d' % size if size is not None else '')
 
 
 def list_tags():
@@ -221,7 +221,7 @@ def list_tags():
     import re
     tags = []
     tag_pattern = re.compile(
-        '^(?P<name>TAG_[^ ]*) *= *(?P<tag>[^ #]+) *#+ *(?P<comment>.*)$')
+            '^(?P<name>TAG_[^ ]*) *= *(?P<tag>[^ #]+) *#+ *(?P<comment>.*)$')
     for line in inspect.getsourcelines(
             inspect.getmodule(inspect.currentframe()))[0]:
         m = tag_pattern.match(line)
@@ -236,8 +236,8 @@ def list_tags():
     # print
     for n, t, c in tags:
         print('%-*s  %s' % (
-            w[0], 'LFSR_'+n,
-            c))
+                w[0], 'LFSR_'+n,
+                c))
 
 def dbg_tag(data):
     if isinstance(data, int):
@@ -305,12 +305,12 @@ def main(tags, *,
 
                 # blocks may also encode offsets
                 blocks, offs = (
-                    [block[0] if isinstance(block, tuple) else block
-                        for block in blocks],
-                    [off if off is not None
-                            else block[1] if isinstance(block, tuple)
-                            else None
-                        for block in blocks])
+                        [block[0] if isinstance(block, tuple) else block
+                            for block in blocks],
+                        [off if off is not None
+                                else block[1] if isinstance(block, tuple)
+                                else None
+                            for block in blocks])
 
                 # read each tag
                 for block, off in zip(blocks, offs):
@@ -319,40 +319,41 @@ def main(tags, *,
                     data = f.read(2+5+5)
                     dbg_tag(data)
 
+
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Decode littlefs tags.",
-        allow_abbrev=False)
+            description="Decode littlefs tags.",
+            allow_abbrev=False)
     parser.add_argument(
-        'tags',
-        nargs='*',
-        help="Tags to decode.")
+            'tags',
+            nargs='*',
+            help="Tags to decode.")
     parser.add_argument(
-        '-l', '--list',
-        action='store_true',
-        help="List all known tags.")
+            '-l', '--list',
+            action='store_true',
+            help="List all known tags.")
     parser.add_argument(
-        '-x', '--hex',
-        action='store_true',
-        help="Interpret as a sequence of hex bytes.")
+            '-x', '--hex',
+            action='store_true',
+            help="Interpret as a sequence of hex bytes.")
     parser.add_argument(
-        '-s', '--string',
-        action='store_true',
-        help="Interpret as strings.")
+            '-s', '--string',
+            action='store_true',
+            help="Interpret as strings.")
     parser.add_argument(
-        '-b', '--block-size',
-        type=bdgeom,
-        help="Block size/geometry in bytes.")
+            '-b', '--block-size',
+            type=bdgeom,
+            help="Block size/geometry in bytes.")
     parser.add_argument(
-        '--block-count',
-        type=lambda x: int(x, 0),
-        help="Block count in blocks.")
+            '--block-count',
+            type=lambda x: int(x, 0),
+            help="Block count in blocks.")
     parser.add_argument(
-        '--off',
-        type=lambda x: int(x, 0),
-        help="Use this offset.")
+            '--off',
+            type=lambda x: int(x, 0),
+            help="Use this offset.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

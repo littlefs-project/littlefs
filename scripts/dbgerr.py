@@ -37,9 +37,9 @@ def main(errs, *,
         # print
         for n, e, h in ERRS:
             print('%-*s  %-*s  %s' % (
-                w[0], 'LFS_ERR_'+n,
-                w[1], e,
-                h))
+                    w[0], 'LFS_ERR_'+n,
+                    w[1], e,
+                    h))
 
     # find these errors
     else:
@@ -77,20 +77,21 @@ def main(errs, *,
             except KeyError:
                 print('%s ?' % err)
 
+
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Decode littlefs error codes.",
-        allow_abbrev=False)
+            description="Decode littlefs error codes.",
+            allow_abbrev=False)
     parser.add_argument(
-        'errs',
-        nargs='*',
-        help="Error codes or error names to decode.")
+            'errs',
+            nargs='*',
+            help="Error codes or error names to decode.")
     parser.add_argument(
-        '-l', '--list',
-        action='store_true',
-        help="List all known error codes.")
+            '-l', '--list',
+            action='store_true',
+            help="List all known error codes.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

@@ -58,14 +58,14 @@ COLORS = ['33', '34', '32', '90']
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
-    '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
-    '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
-    '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
-    '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
-    '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
-    '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
-    '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
-    '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
+        '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
+        '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
+        '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
+        '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
+        '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
+        '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
+        '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
+        '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
 
 # some ways of block geometry representations
@@ -250,8 +250,8 @@ def hilbert_curve(width, height):
             yield from hilbert_(x, y, b_x_, b_y_, a_x_, a_y_)
             yield from hilbert_(x+b_x_, y+b_y_, a_x, a_y, b_x-b_x_, b_y-b_y_)
             yield from hilbert_(
-                x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
-                -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
+                    x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
+                    -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
 
     if width >= height:
         curve = hilbert_(0, 0, +width, 0, 0, +height)
@@ -293,10 +293,10 @@ class Pixel(int):
             btree=False,
             data=False):
         return super().__new__(cls,
-            state
-            | (1 if mdir  else 0)
-            | (2 if btree else 0)
-            | (4 if data  else 0))
+                state
+                    | (1 if mdir  else 0)
+                    | (2 if btree else 0)
+                    | (4 if data  else 0))
 
     @property
     def is_mdir(self):
@@ -367,8 +367,8 @@ class Pixel(int):
         # apply colors
         if f and color:
             c = '%s%s\x1b[m' % (
-                ''.join('\x1b[%sm' % f_ for f_ in f),
-                c)
+                    ''.join('\x1b[%sm' % f_ for f_ in f),
+                    c)
 
         return c
 
@@ -434,25 +434,25 @@ class Bmap:
             block -= self._block_window.start
 
             size = (max(self._off_window.start,
-                    min(self._off_window.stop, off+size))
-                - max(self._off_window.start,
-                    min(self._off_window.stop, off)))
+                        min(self._off_window.stop, off+size))
+                    - max(self._off_window.start,
+                        min(self._off_window.stop, off)))
             off = (max(self._off_window.start,
-                min(self._off_window.stop, off))
-                - self._off_window.start)
+                        min(self._off_window.stop, off))
+                    - self._off_window.start)
             if size == 0:
                 return
 
             # map to our block space
             range_ = range(
-                block*len(self._off_window) + off,
-                block*len(self._off_window) + off+size)
+                    block*len(self._off_window) + off,
+                    block*len(self._off_window) + off+size)
             range_ = range(
-                (range_.start*len(self.pixels)) // self._window,
-                (range_.stop*len(self.pixels)) // self._window)
+                    (range_.start*len(self.pixels)) // self._window,
+                    (range_.stop*len(self.pixels)) // self._window)
             range_ = range(
-                range_.start,
-                max(range_.stop, range_.start+1))
+                    range_.start,
+                    max(range_.stop, range_.start+1))
 
         # apply the op
         for i in range_:
@@ -476,9 +476,9 @@ class Bmap:
             width=None,
             height=None):
         block_size = (block_size if block_size is not None
-            else self.block_size)
+                else self.block_size)
         block_count = (block_count if block_count is not None
-            else self.block_count)
+                else self.block_count)
         width = width if width is not None else self.width
         height = height if height is not None else self.height
 
@@ -496,17 +496,17 @@ class Bmap:
         for x in range(width*height):
             # map into our old bd space
             range_ = range(
-                (x*self._window) // (width*height),
-                ((x+1)*self._window) // (width*height))
+                    (x*self._window) // (width*height),
+                    ((x+1)*self._window) // (width*height))
             range_ = range(
-                range_.start,
-                max(range_.stop, range_.start+1))
+                    range_.start,
+                    max(range_.stop, range_.start+1))
 
             # aggregate state
             pixels.append(ft.reduce(
-                Pixel.__or__,
-                self.pixels[range_.start:range_.stop],
-                Pixel()))
+                    Pixel.__or__,
+                    self.pixels[range_.start:range_.stop],
+                    Pixel()))
             
         self.width = width
         self.height = height
@@ -552,12 +552,12 @@ class Bmap:
                         byte_p |= 1 << i
 
                 line.append(best_p.draw(
-                    CHARS_BRAILLE[byte_p],
-                    braille=True,
-                    mdirs=mdirs,
-                    btrees=btrees,
-                    datas=datas,
-                    **args))
+                        CHARS_BRAILLE[byte_p],
+                        braille=True,
+                        mdirs=mdirs,
+                        btrees=btrees,
+                        datas=datas,
+                        **args))
         elif dots:
             # encode into a byte
             for x in range(self.width):
@@ -572,19 +572,19 @@ class Bmap:
                         byte_p |= 1 << i
 
                 line.append(best_p.draw(
-                    CHARS_DOTS[byte_p],
-                    dots=True,
-                    mdirs=mdirs,
-                    btrees=btrees,
-                    datas=datas,
-                    **args))
+                        CHARS_DOTS[byte_p],
+                        dots=True,
+                        mdirs=mdirs,
+                        btrees=btrees,
+                        datas=datas,
+                        **args))
         else:
             for x in range(self.width):
                 line.append(grid[x + row*self.width].draw(
-                    mdirs=mdirs,
-                    btrees=btrees,
-                    datas=datas,
-                    **args))
+                        mdirs=mdirs,
+                        btrees=btrees,
+                        datas=datas,
+                        **args))
 
         return ''.join(line)
 
@@ -610,9 +610,9 @@ class Rbyd:
             return '0x%x.%x' % (self.block, self.trunk)
         else:
             return '0x{%x,%s}.%x' % (
-                self.block,
-                ','.join('%x' % block for block in self.redund_blocks),
-                self.trunk)
+                    self.block,
+                    ','.join('%x' % block for block in self.redund_blocks),
+                    self.trunk)
 
     @classmethod
     def fetch(cls, f, block_size, blocks, trunk=None):
@@ -621,21 +621,23 @@ class Rbyd:
 
         if len(blocks) > 1:
             # fetch all blocks
-            rbyds = [cls.fetch(f, block_size, block, trunk) for block in blocks]
+            rbyds = [cls.fetch(f, block_size, block, trunk)
+                    for block in blocks]
             # determine most recent revision
             i = 0
             for i_, rbyd in enumerate(rbyds):
                 # compare with sequence arithmetic
                 if rbyd and (
                         not rbyds[i]
-                        or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
-                        or (rbyd.rev == rbyds[i].rev
-                            and rbyd.trunk > rbyds[i].trunk)):
+                            or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
+                            or (rbyd.rev == rbyds[i].rev
+                                and rbyd.trunk > rbyds[i].trunk)):
                     i = i_
             # keep track of the other blocks
             rbyd = rbyds[i]
-            rbyd.redund_blocks = [rbyds[(i+1+j) % len(rbyds)].block
-                for j in range(len(rbyds)-1)]
+            rbyd.redund_blocks = [
+                    rbyds[(i+1+j) % len(rbyds)].block
+                        for j in range(len(rbyds)-1)]
             return rbyd
         else:
             # block may encode a trunk
@@ -789,7 +791,9 @@ class Rbyd:
 
                 done = not tag_ or (rid_, tag_) < (rid, tag)
 
-                return done, rid_, tag_, w_, j, d, self.data[j+d:j+d+jump], path
+                return (done, rid_, tag_, w_, j, d,
+                        self.data[j+d:j+d+jump],
+                        path)
 
     def __bool__(self):
         return bool(self.trunk)
@@ -834,7 +838,7 @@ class Rbyd:
             w = 0
             for i in it.count():
                 done, rid__, tag, w_, j, d, data, _ = rbyd.lookup(
-                    rid_, tag+0x1)
+                        rid_, tag+0x1)
                 if done or (i != 0 and rid__ != rid_):
                     break
 
@@ -880,14 +884,15 @@ class Rbyd:
 
             # lookup our mbid
             done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                f, block_size, mbid)
+                    f, block_size, mbid)
             if done:
                 return True, -1, 0, None
 
-            mdir = next(((tag, j, d, data)
-                for tag, j, d, data in tags
-                if tag == TAG_MDIR),
-                None)
+            mdir = next(
+                    ((tag, j, d, data)
+                        for tag, j, d, data in tags
+                        if tag == TAG_MDIR),
+                    None)
             if not mdir:
                 return True, -1, 0, None
 
@@ -979,7 +984,7 @@ def main(disk, mroots=None, *,
 
     if any(isinstance(b, list) and len(b) > 1 for b in block):
         print("error: more than one block address?",
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
     if isinstance(block[0], list):
         block = (block[0][0], *block[1:])
@@ -1034,16 +1039,17 @@ def main(disk, mroots=None, *,
 
     # create our block device representation
     bmap = Bmap(
-        block_size=block_size,
-        block_count=block_count,
-        block_window=block_window,
-        off_window=off_window,
-        # scale if we're printing with dots or braille
-        width=2*width_ if braille else width_,
-        height=max(1,
-            4*height_ if braille
-            else 2*height_ if dots
-            else height_))
+            block_size=block_size,
+            block_count=block_count,
+            block_window=block_window,
+            off_window=off_window,
+            # scale if we're printing with dots or braille
+            width=2*width_ if braille else width_,
+            height=max(
+                1,
+                4*height_ if braille
+                    else 2*height_ if dots
+                    else height_))
 
     # keep track of how many blocks are in use
     mdirs_ = 0
@@ -1063,16 +1069,16 @@ def main(disk, mroots=None, *,
             block_size = f.tell()
             block_count = 1
             bmap.resize(
-                block_size=block_size,
-                block_count=block_count)
+                    block_size=block_size,
+                    block_count=block_count)
 
         # if block_count is omitted, derive the block_count from our file size
         if block_count is None:
             f.seek(0, os.SEEK_END)
             block_count = f.tell() // block_size
             bmap.resize(
-                block_size=block_size,
-                block_count=block_count)
+                    block_size=block_size,
+                    block_count=block_count)
 
         #### traverse the filesystem
 
@@ -1090,7 +1096,7 @@ def main(disk, mroots=None, *,
             # mark mroots in our bmap
             for block in mroot.blocks:
                 bmap.mdir(block,
-                    mroot.eoff if args.get('in_use') else block_size)
+                        mroot.eoff if args.get('in_use') else block_size)
                 mdirs_ += 1;
 
             # find any file btrees in our mroot
@@ -1129,7 +1135,8 @@ def main(disk, mroots=None, *,
                     # mark mdir in our bmap
                     for block in mdir.blocks:
                         bmap.mdir(block,
-                            mdir.eoff if args.get('in_use') else block_size)
+                                mdir.eoff if args.get('in_use')
+                                    else block_size)
                         mdirs_ += 1
 
                     # find any file btrees in our mdir
@@ -1153,8 +1160,8 @@ def main(disk, mroots=None, *,
                 ppath = []
                 while True:
                     done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mbid+1,
-                        depth=args.get('depth', mdepth)-mdepth)
+                            f, block_size, mbid+1,
+                            depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
 
@@ -1176,8 +1183,8 @@ def main(disk, mroots=None, *,
                         d, (mid_, w_, rbyd_, rid_, tags_) = x
                         for block in rbyd_.blocks:
                             bmap.btree(block,
-                                rbyd_.eoff if args.get('in_use')
-                                else block_size)
+                                    rbyd_.eoff if args.get('in_use')
+                                        else block_size)
                             btrees_ += 1
                     ppath = path
 
@@ -1190,10 +1197,11 @@ def main(disk, mroots=None, *,
                     mdir__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(((tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag == TAG_MDIR),
-                            None)
+                        mdir__ = next(
+                                ((tag, j, d, data)
+                                    for tag, j, d, data in tags
+                                    if tag == TAG_MDIR),
+                                None)
 
                     if mdir__:
                         # fetch the mdir
@@ -1208,8 +1216,8 @@ def main(disk, mroots=None, *,
                             # mark mdir in our bmap
                             for block in mdir_.blocks:
                                 bmap.mdir(block, 0,
-                                    mdir_.eoff if args.get('in_use')
-                                    else block_size)
+                                        mdir_.eoff if args.get('in_use')
+                                            else block_size)
                                 mdirs_ += 1
 
                             # find any file btrees in our mdir
@@ -1233,8 +1241,8 @@ def main(disk, mroots=None, *,
                     size, block, off = frombptr(data)
                     # mark block in our bmap
                     bmap.data(block,
-                        off if args.get('in_use') else 0,
-                        size if args.get('in_use') else block_size)
+                            off if args.get('in_use') else 0,
+                            size if args.get('in_use') else block_size)
                     datas_ += 1
                     continue
 
@@ -1258,9 +1266,9 @@ def main(disk, mroots=None, *,
                 ppath = []
                 while True:
                     (done, bid, w, rbyd, rid, tags, path
-                        ) = btree.btree_lookup(
-                            f, block_size, bid+1,
-                            depth=args.get('depth', mdepth)-mdepth)
+                            ) = btree.btree_lookup(
+                                f, block_size, bid+1,
+                                depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
 
@@ -1285,8 +1293,8 @@ def main(disk, mroots=None, *,
                             continue
                         for block in rbyd_.blocks:
                             bmap.btree(block,
-                                rbyd_.eoff if args.get('in_use')
-                                else block_size)
+                                    rbyd_.eoff if args.get('in_use')
+                                        else block_size)
                             btrees_ += 1
                     ppath = path
 
@@ -1299,10 +1307,11 @@ def main(disk, mroots=None, *,
                     bptr__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
-                        bptr__ = next(((tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag & 0xfff == TAG_BLOCK),
-                            None)
+                        bptr__ = next(
+                                ((tag, j, d, data)
+                                    for tag, j, d, data in tags
+                                    if tag & 0xfff == TAG_BLOCK),
+                                None)
 
                     if bptr__:
                         # fetch the block
@@ -1311,8 +1320,8 @@ def main(disk, mroots=None, *,
 
                         # mark blocks in our bmap
                         bmap.data(block,
-                            off if args.get('in_use') else 0,
-                            size if args.get('in_use') else block_size)
+                                off if args.get('in_use') else 0,
+                                size if args.get('in_use') else block_size)
                         datas_ += 1
 
     #### actual rendering begins here
@@ -1320,29 +1329,29 @@ def main(disk, mroots=None, *,
     # print some information about the bmap
     if not no_header:
         print('bd %dx%d%s%s%s' % (
-            block_size, block_count,
-            ', %6s mdir' % ('%.1f%%' % (100*mdirs_  / block_count))
-                if mdirs else '',
-            ', %6s btree' % ('%.1f%%' % (100*btrees_ / block_count))
-                if btrees else '',
-            ', %6s data' % ('%.1f%%' % (100*datas_  / block_count))
-                if datas else ''))
+                block_size, block_count,
+                ', %6s mdir' % ('%.1f%%' % (100*mdirs_  / block_count))
+                    if mdirs else '',
+                ', %6s btree' % ('%.1f%%' % (100*btrees_ / block_count))
+                    if btrees else '',
+                ', %6s data' % ('%.1f%%' % (100*datas_  / block_count))
+                    if datas else ''))
 
     # and then print the bmap
     for row in range(
             mt.ceil(bmap.height/4) if braille
-            else mt.ceil(bmap.height/2) if dots
-            else bmap.height):
+                else mt.ceil(bmap.height/2) if dots
+                else bmap.height):
         line = bmap.draw(row,
-            mdirs=mdirs,
-            btrees=btrees,
-            datas=datas,
-            color=color,
-            dots=dots,
-            braille=braille,
-            hilbert=hilbert,
-            lebesgue=lebesgue,
-            **args)
+                mdirs=mdirs,
+                btrees=btrees,
+                datas=datas,
+                color=color,
+                dots=dots,
+                braille=braille,
+                hilbert=hilbert,
+                lebesgue=lebesgue,
+                **args)
         print(line)
 
     if args.get('error_on_corrupt') and corrupted:
@@ -1353,122 +1362,122 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Render currently used blocks in a littlefs image.",
-        allow_abbrev=False)
+            description="Render currently used blocks in a littlefs image.",
+            allow_abbrev=False)
     parser.add_argument(
-        'disk',
-        help="File containing the block device.")
+            'disk',
+            help="File containing the block device.")
     parser.add_argument(
-        'mroots',
-        nargs='*',
-        type=rbydaddr,
-        help="Block address of the mroots. Defaults to 0x{0,1}.")
+            'mroots',
+            nargs='*',
+            type=rbydaddr,
+            help="Block address of the mroots. Defaults to 0x{0,1}.")
     parser.add_argument(
-        '-b', '--block-size',
-        type=bdgeom,
-        help="Block size/geometry in bytes.")
+            '-b', '--block-size',
+            type=bdgeom,
+            help="Block size/geometry in bytes.")
     parser.add_argument(
-        '--block-count',
-        type=lambda x: int(x, 0),
-        help="Block count in blocks.")
+            '--block-count',
+            type=lambda x: int(x, 0),
+            help="Block count in blocks.")
     parser.add_argument(
-        '-@', '--block',
-        nargs='?',
-        type=lambda x: tuple(
-            rbydaddr(x) if x.strip() else None
-            for x in x.split(',')),
-        help="Optional block to show, may be a range.")
+            '-@', '--block',
+            nargs='?',
+            type=lambda x: tuple(
+                rbydaddr(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Optional block to show, may be a range.")
     parser.add_argument(
-        '--off',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show a specific offset, may be a range.")
+            '--off',
+            type=lambda x: tuple(
+                int(x, 0) if x.strip() else None
+                    for x in x.split(',')),
+            help="Show a specific offset, may be a range.")
     parser.add_argument(
-        '--size',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show this many bytes, may be a range.")
+            '--size',
+            type=lambda x: tuple(
+                int(x, 0) if x.strip() else None
+                    for x in x.split(',')),
+            help="Show this many bytes, may be a range.")
     parser.add_argument(
-        '-M', '--mdirs',
-        action='store_true',
-        help="Render mdir blocks.")
+            '-M', '--mdirs',
+            action='store_true',
+            help="Render mdir blocks.")
     parser.add_argument(
-        '-B', '--btrees',
-        action='store_true',
-        help="Render btree blocks.")
+            '-B', '--btrees',
+            action='store_true',
+            help="Render btree blocks.")
     parser.add_argument(
-        '-D', '--datas',
-        action='store_true',
-        help="Render data blocks.")
+            '-D', '--datas',
+            action='store_true',
+            help="Render data blocks.")
     parser.add_argument(
-        '-N', '--no-header',
-        action='store_true',
-        help="Don't show the header.")
+            '-N', '--no-header',
+            action='store_true',
+            help="Don't show the header.")
     parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-:', '--dots',
-        action='store_true',
-        help="Use 1x2 ascii dot characters.")
+            '-:', '--dots',
+            action='store_true',
+            help="Use 1x2 ascii dot characters.")
     parser.add_argument(
-        '-⣿', '--braille',
-        action='store_true',
-        help="Use 2x4 unicode braille characters. Note that braille characters "
-            "sometimes suffer from inconsistent widths.")
+            '-⣿', '--braille',
+            action='store_true',
+            help="Use 2x4 unicode braille characters. Note that braille "
+                "characters sometimes suffer from inconsistent widths.")
     parser.add_argument(
-        '--chars',
-        help="Characters to use for mdir, btree, data, unused blocks.")
+            '--chars',
+            help="Characters to use for mdir, btree, data, unused blocks.")
     parser.add_argument(
-        '--colors',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Colors to use for mdir, btree, data, unused blocks.")
+            '--colors',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Colors to use for mdir, btree, data, unused blocks.")
     parser.add_argument(
-        '-W', '--width',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Width in columns. 0 uses the terminal width. Defaults to "
-            "min(terminal, 80).")
+            '-W', '--width',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Width in columns. 0 uses the terminal width. Defaults to "
+                "min(terminal, 80).")
     parser.add_argument(
-        '-H', '--height',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Height in rows. 0 uses the terminal height. Defaults to 1.")
+            '-H', '--height',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Height in rows. 0 uses the terminal height. Defaults to 1.")
     parser.add_argument(
-        '-n', '--lines',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Show this many lines of history. 0 uses the terminal height. "
-            "Defaults to 5.")
+            '-n', '--lines',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Show this many lines of history. 0 uses the terminal "
+                "height. Defaults to 5.")
     parser.add_argument(
-        '-U', '--hilbert',
-        action='store_true',
-        help="Render as a space-filling Hilbert curve.")
+            '-U', '--hilbert',
+            action='store_true',
+            help="Render as a space-filling Hilbert curve.")
     parser.add_argument(
-        '-Z', '--lebesgue',
-        action='store_true',
-        help="Render as a space-filling Z-curve.")
+            '-Z', '--lebesgue',
+            action='store_true',
+            help="Render as a space-filling Z-curve.")
     parser.add_argument(
-        '-i', '--in-use',
-        action='store_true',
-        help="Show how much of each block is in use.")
+            '-i', '--in-use',
+            action='store_true',
+            help="Show how much of each block is in use.")
     parser.add_argument(
-        '-z', '--depth',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Depth of the filesystem tree to parse.")
+            '-z', '--depth',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Depth of the filesystem tree to parse.")
     parser.add_argument(
-        '-e', '--error-on-corrupt',
-        action='store_true',
-        help="Error if the filesystem is corrupt.")
+            '-e', '--error-on-corrupt',
+            action='store_true',
+            help="Error if the filesystem is corrupt.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

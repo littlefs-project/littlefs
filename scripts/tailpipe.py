@@ -75,8 +75,8 @@ class RingIO:
         # pad to fill any existing canvas, but truncate to terminal size
         h = shutil.get_terminal_size((80, 5))[1]
         lines.extend('' for _ in range(
-            len(lines),
-            min(RingIO.canvas_lines, h)))
+                len(lines),
+                min(RingIO.canvas_lines, h)))
         while len(lines) > h:
             if self.head:
                 lines.pop()
@@ -142,7 +142,7 @@ def main(path='-', *,
             time.sleep(sleep or 0.1)
     except FileNotFoundError as e:
         print("error: file not found %r" % path,
-            file=sys.stderr)
+                file=sys.stderr)
         sys.exit(-1)
     except KeyboardInterrupt:
         pass
@@ -157,32 +157,33 @@ if __name__ == "__main__":
     import sys
     import argparse
     parser = argparse.ArgumentParser(
-        description="Efficiently displays the last n lines of a file/pipe.",
-        allow_abbrev=False)
+            description="Efficiently displays the last n lines of a "
+                "file/pipe.",
+            allow_abbrev=False)
     parser.add_argument(
-        'path',
-        nargs='?',
-        help="Path to read from.")
+            'path',
+            nargs='?',
+            help="Path to read from.")
     parser.add_argument(
-        '-n', '--lines',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        const=0,
-        help="Show this many lines of history. 0 uses the terminal height. "
-            "Defaults to 5.")
+            '-n', '--lines',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Show this many lines of history. 0 uses the terminal "
+                "height. Defaults to 5.")
     parser.add_argument(
-        '-z', '--cat',
-        action='store_true',
-        help="Pipe directly to stdout.")
+            '-z', '--cat',
+            action='store_true',
+            help="Pipe directly to stdout.")
     parser.add_argument(
-        '-s', '--sleep',
-        type=float,
-        help="Seconds to sleep between reads. Defaults to 0.01.")
+            '-s', '--sleep',
+            type=float,
+            help="Seconds to sleep between reads. Defaults to 0.01.")
     parser.add_argument(
-        '-k', '--keep-open',
-        action='store_true',
-        help="Reopen the pipe on EOF, useful when multiple "
-            "processes are writing.")
+            '-k', '--keep-open',
+            action='store_true',
+            help="Reopen the pipe on EOF, useful when multiple "
+                "processes are writing.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

@@ -66,12 +66,12 @@ def rbydaddr(s):
 def xxd(data, width=16):
     for i in range(0, len(data), width):
         yield '%-*s %-*s' % (
-            3*width,
-            ' '.join('%02x' % b for b in data[i:i+width]),
-            width,
-            ''.join(
-                b if b >= ' ' and b <= '~' else '.'
-                for b in map(chr, data[i:i+width])))
+                3*width,
+                ' '.join('%02x' % b for b in data[i:i+width]),
+                width,
+                ''.join(
+                    b if b >= ' ' and b <= '~' else '.'
+                        for b in map(chr, data[i:i+width])))
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -105,19 +105,21 @@ def main(disk, blocks=None, *,
 
         # blocks may also encode offsets
         blocks, offs, size = (
-            [block[0] if isinstance(block, tuple) else block
-                for block in blocks],
-            [off[0] if isinstance(off, tuple)
-                    else off if off is not None
-                    else size[0] if isinstance(size, tuple) and len(size) > 1
-                    else block[1] if isinstance(block, tuple)
-                    else None
-                for block in blocks],
-            size[1] - size[0] if isinstance(size, tuple) and len(size) > 1
-                else size[0] if isinstance(size, tuple)
-                else size if size is not None
-                else off[1] - off[0] if isinstance(off, tuple) and len(off) > 1
-                else block_size)
+                [block[0] if isinstance(block, tuple) else block
+                    for block in blocks],
+                [off[0] if isinstance(off, tuple)
+                        else off if off is not None
+                        else size[0]
+                        if isinstance(size, tuple) and len(size) > 1
+                        else block[1] if isinstance(block, tuple)
+                        else None
+                    for block in blocks],
+                size[1] - size[0] if isinstance(size, tuple) and len(size) > 1
+                    else size[0] if isinstance(size, tuple)
+                    else size if size is not None
+                    else off[1] - off[0]
+                    if isinstance(off, tuple) and len(off) > 1
+                    else block_size)
 
         # cat the blocks
         for block, off in zip(blocks, offs):
@@ -126,40 +128,41 @@ def main(disk, blocks=None, *,
             sys.stdout.buffer.write(data)
         sys.stdout.flush()
 
+
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Cat data from a block device.",
-        allow_abbrev=False)
+            description="Cat data from a block device.",
+            allow_abbrev=False)
     parser.add_argument(
-        'disk',
-        help="File containing the block device.")
+            'disk',
+            help="File containing the block device.")
     parser.add_argument(
-        'blocks',
-        nargs='*',
-        type=rbydaddr,
-        help="Block address.")
+            'blocks',
+            nargs='*',
+            type=rbydaddr,
+            help="Block address.")
     parser.add_argument(
-        '-b', '--block-size',
-        type=bdgeom,
-        help="Block size/geometry in bytes.")
+            '-b', '--block-size',
+            type=bdgeom,
+            help="Block size/geometry in bytes.")
     parser.add_argument(
-        '--block-count',
-        type=lambda x: int(x, 0),
-        help="Block count in blocks.")
+            '--block-count',
+            type=lambda x: int(x, 0),
+            help="Block count in blocks.")
     parser.add_argument(
-        '--off',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show a specific offset, may be a range.")
+            '--off',
+            type=lambda x: tuple(
+                int(x, 0) if x.strip() else None
+                    for x in x.split(',')),
+            help="Show a specific offset, may be a range.")
     parser.add_argument(
-        '-n', '--size',
-        type=lambda x: tuple(
-            int(x, 0) if x.strip() else None
-            for x in x.split(',')),
-        help="Show this many bytes, may be a range.")
+            '-n', '--size',
+            type=lambda x: tuple(
+                int(x, 0) if x.strip() else None
+                    for x in x.split(',')),
+            help="Show this many bytes, may be a range.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))

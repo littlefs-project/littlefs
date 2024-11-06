@@ -13,6 +13,7 @@
 import re
 import sys
 
+
 LIMIT = 16
 
 CMP = {
@@ -133,15 +134,14 @@ def write_header(f, limit=LIMIT):
 
     # write assert macros
     for op, cmp in sorted(CMP.items()):
-        f.writeln("#define __PRETTY_ASSERT_BOOL_%s(lh, rh) do { \\"
-            % cmp.upper())
+        f.writeln("#define __PRETTY_ASSERT_BOOL_%s(lh, rh) do { \\" % (
+                cmp.upper()))
         f.writeln("    bool _lh = !!(lh); \\")
         f.writeln("    bool _rh = !!(rh); \\")
         f.writeln("    if (!(_lh %s _rh)) { \\" % op)
         f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_bool, \"%s\", \\"
-            % cmp)
+        f.writeln("                __pretty_assert_bool, \"%s\", \\" % cmp)
         f.writeln("                &_lh, 0, \\")
         f.writeln("                &_rh, 0); \\")
         f.writeln("        __builtin_trap(); \\")
@@ -149,15 +149,14 @@ def write_header(f, limit=LIMIT):
         f.writeln("} while (0)")
         f.writeln()
     for op, cmp in sorted(CMP.items()):
-        f.writeln("#define __PRETTY_ASSERT_INT_%s(lh, rh) do { \\"
-            % cmp.upper())
+        f.writeln("#define __PRETTY_ASSERT_INT_%s(lh, rh) do { \\" % (
+                cmp.upper()))
         f.writeln("    __typeof__(rh) _lh = lh; \\")
         f.writeln("    __typeof__(rh) _rh = rh; \\")
         f.writeln("    if (!(_lh %s _rh)) { \\" % op)
         f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_int, \"%s\", \\"
-            % cmp)
+        f.writeln("                __pretty_assert_int, \"%s\", \\" % cmp)
         f.writeln("                &(intmax_t){(intmax_t)_lh}, 0, \\")
         f.writeln("                &(intmax_t){(intmax_t)_rh}, 0); \\")
         f.writeln("        __builtin_trap(); \\")
@@ -165,15 +164,14 @@ def write_header(f, limit=LIMIT):
         f.writeln("} while (0)")
         f.writeln()
     for op, cmp in sorted(CMP.items()):
-        f.writeln("#define __PRETTY_ASSERT_MEM_%s(lh, rh, size) do { \\"
-            % cmp.upper())
+        f.writeln("#define __PRETTY_ASSERT_MEM_%s(lh, rh, size) do { \\" % (
+                cmp.upper()))
         f.writeln("    const void *_lh = lh; \\")
         f.writeln("    const void *_rh = rh; \\")
         f.writeln("    if (!(memcmp(_lh, _rh, size) %s 0)) { \\" % op)
         f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_mem, \"%s\", \\"
-            % cmp)
+        f.writeln("                __pretty_assert_mem, \"%s\", \\" % cmp)
         f.writeln("                _lh, size, \\")
         f.writeln("                _rh, size); \\")
         f.writeln("        __builtin_trap(); \\")
@@ -181,15 +179,14 @@ def write_header(f, limit=LIMIT):
         f.writeln("} while (0)")
         f.writeln()
     for op, cmp in sorted(CMP.items()):
-        f.writeln("#define __PRETTY_ASSERT_STR_%s(lh, rh) do { \\"
-            % cmp.upper())
+        f.writeln("#define __PRETTY_ASSERT_STR_%s(lh, rh) do { \\" % (
+                cmp.upper()))
         f.writeln("    const char *_lh = lh; \\")
         f.writeln("    const char *_rh = rh; \\")
         f.writeln("    if (!(strcmp(_lh, _rh) %s 0)) { \\" % op)
         f.writeln("        __pretty_assert_print( \\")
         f.writeln("                __FILE__, __LINE__, \\")
-        f.writeln("                __pretty_assert_str, \"%s\", \\"
-            % cmp)
+        f.writeln("                __pretty_assert_str, \"%s\", \\" % cmp)
         f.writeln("                _lh, strlen(_lh), \\")
         f.writeln("                _rh, strlen(_rh)); \\")
         f.writeln("        __builtin_trap(); \\")
@@ -206,11 +203,11 @@ def write_header(f, limit=LIMIT):
 
 def mkassert(type, cmp, lh, rh, size=None):
     if size is not None:
-        return ("__PRETTY_ASSERT_%s_%s(%s, %s, %s)"
-            % (type.upper(), cmp.upper(), lh, rh, size))
+        return ("__PRETTY_ASSERT_%s_%s(%s, %s, %s)" % (
+                type.upper(), cmp.upper(), lh, rh, size))
     else:
-        return ("__PRETTY_ASSERT_%s_%s(%s, %s)"
-            % (type.upper(), cmp.upper(), lh, rh))
+        return ("__PRETTY_ASSERT_%s_%s(%s, %s)" % (
+                type.upper(), cmp.upper(), lh, rh))
 
 def mkunreachable():
     return "__PRETTY_ASSERT_UNREACHABLE()"
@@ -224,12 +221,12 @@ class ParseFailure(Exception):
 
     def __str__(self):
         return "expected %r, found %s..." % (
-            self.expected, repr(self.found)[:70])
+                self.expected, repr(self.found)[:70])
 
 class Parser:
     def __init__(self, in_f, lexemes=LEXEMES):
         p = '|'.join('(?P<%s>%s)' % (n, '|'.join(l))
-            for n, l in lexemes.items())
+                for n, l in lexemes.items())
         p = re.compile(p, re.DOTALL)
         data = in_f.read()
         tokens = []
@@ -496,54 +493,54 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Preprocessor that makes asserts easier to debug.",
-        allow_abbrev=False)
+            description="Preprocessor that makes asserts easier to debug.",
+            allow_abbrev=False)
     parser.add_argument(
-        'input',
-        help="Input C file.")
+            'input',
+            help="Input C file.")
     parser.add_argument(
-        '-o', '--output',
-        required=True,
-        help="Output C file.")
+            '-o', '--output',
+            required=True,
+            help="Output C file.")
     parser.add_argument(
-        '-p', '--prefix',
-        action='append',
-        help="Additional prefixes for symbols.")
+            '-p', '--prefix',
+            action='append',
+            help="Additional prefixes for symbols.")
     parser.add_argument(
-        '-P', '--prefix-insensitive',
-        action='append',
-        help="Additional prefixes for lower/upper case symbol variants.")
+            '-P', '--prefix-insensitive',
+            action='append',
+            help="Additional prefixes for lower/upper case symbol variants.")
     parser.add_argument(
-        '--assert',
-        dest='assert_',
-        action='append',
-        help="Additional symbols for assert statements.")
+            '--assert',
+            dest='assert_',
+            action='append',
+            help="Additional symbols for assert statements.")
     parser.add_argument(
-        '--unreachable',
-        action='append',
-        help="Additional symbols for unreachable statements.")
+            '--unreachable',
+            action='append',
+            help="Additional symbols for unreachable statements.")
     parser.add_argument(
-        '--memcmp',
-        action='append',
-        help="Additional symbols for memcmp expressions.")
+            '--memcmp',
+            action='append',
+            help="Additional symbols for memcmp expressions.")
     parser.add_argument(
-        '--strcmp',
-        action='append',
-        help="Additional symbols for strcmp expressions.")
+            '--strcmp',
+            action='append',
+            help="Additional symbols for strcmp expressions.")
     parser.add_argument(
-        '-n', '--no-defaults',
-        action='store_true',
-        help="Disable default symbols.")
+            '-n', '--no-defaults',
+            action='store_true',
+            help="Disable default symbols.")
     parser.add_argument(
-        '--no-arrows',
-        action='store_true',
-        help="Disable arrow (=>) expressions.")
+            '--no-arrows',
+            action='store_true',
+            help="Disable arrow (=>) expressions.")
     parser.add_argument(
-        '-l', '--limit',
-        type=lambda x: int(x, 0),
-        default=LIMIT,
-        help="Maximum number of characters to display in strcmp and memcmp. "
-            "Defaults to %r." % LIMIT)
+            '-l', '--limit',
+            type=lambda x: int(x, 0),
+            default=LIMIT,
+            help="Maximum number of characters to display in strcmp and "
+                "memcmp. Defaults to %r." % LIMIT)
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+            for k, v in vars(parser.parse_intermixed_args()).items()
+            if v is not None}))
