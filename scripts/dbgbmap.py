@@ -616,13 +616,13 @@ class Rbyd:
                     self.trunk)
 
     @classmethod
-    def fetch(cls, f, block_size, blocks, trunk=None):
+    def fetch(cls, f, block_size, blocks, trunk=None, cksum=None):
         if isinstance(blocks, int):
             blocks = (blocks,)
 
         if len(blocks) > 1:
             # fetch all blocks
-            rbyds = [cls.fetch(f, block_size, block, trunk)
+            rbyds = [cls.fetch(f, block_size, block, trunk, cksum)
                     for block in blocks]
             # determine most recent revision
             i = 0
@@ -654,9 +654,9 @@ class Rbyd:
 
         # fetch the rbyd
         rev = fromle32(data[0:4])
-        cksum = 0
-        cksum_ = crc32c(data[0:4])
-        cksum__ = cksum_
+        cksum_ = 0
+        cksum__ = crc32c(data[0:4])
+        cksum___ = cksum__
         perturb = False
         eoff = 0
         eoff_ = None
@@ -670,10 +670,10 @@ class Rbyd:
         while j_ < len(data) and (not trunk or eoff <= trunk):
             # read next tag
             v, tag, w, size, d = fromtag(data[j_:])
-            if v != parity(cksum__):
+            if v != parity(cksum___):
                 break
-            cksum__ ^= 0x00000080 if v else 0
-            cksum__ = crc32c(data[j_:j_+d], cksum__)
+            cksum___ ^= 0x00000080 if v else 0
+            cksum___ = crc32c(data[j_:j_+d], cksum___)
             j_ += d
             if not tag & TAG_ALT and j_ + size > len(data):
                 break
@@ -681,22 +681,22 @@ class Rbyd:
             # take care of cksums
             if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
-                    cksum__ = crc32c(data[j_:j_+size], cksum__)
+                    cksum___ = crc32c(data[j_:j_+size], cksum___)
                 # found a cksum?
                 else:
                     # check cksum
-                    cksum___ = fromle32(data[j_:j_+4])
-                    if cksum__ != cksum___:
+                    cksum____ = fromle32(data[j_:j_+4])
+                    if cksum___ != cksum____:
                         break
                     # commit what we have
                     eoff = eoff_ if eoff_ else j_ + size
-                    cksum = cksum_
+                    cksum_ = cksum__
                     trunk_ = trunk__
                     weight = weight_
                     # update perturb bit
                     perturb = tag & TAG_P
                     # revert to data cksum and perturb
-                    cksum__ = cksum_ ^ (0xfca42daf if perturb else 0)
+                    cksum___ = cksum__ ^ (0xfca42daf if perturb else 0)
 
             # evaluate trunks
             if (tag & 0xf000) != TAG_CKSUM:
@@ -720,18 +720,23 @@ class Rbyd:
                             if trunk and j_ + size > trunk:
                                 eoff_ = j_ + size
                                 eoff = eoff_
-                                cksum = cksum_
+                                cksum_ = cksum___ ^ (
+                                        0xfca42daf if perturb else 0)
                                 trunk_ = trunk__
                                 weight = weight_
                         trunk___ = 0
 
                 # update canonical checksum, xoring out any perturb state
-                cksum_ = cksum__ ^ (0xfca42daf if perturb else 0)
+                cksum__ = cksum___ ^ (0xfca42daf if perturb else 0)
 
             if not tag & TAG_ALT:
                 j_ += size
 
-        return cls(block, data, rev, eoff, trunk_, weight, cksum)
+        # cksum mismatch?
+        if cksum is not None and cksum_ != cksum:
+            return cls(block, data, rev, 0, 0, 0, cksum_)
+
+        return cls(block, data, rev, eoff, trunk_, weight, cksum_)
 
     def lookup(self, rid, tag):
         if not self:
@@ -861,7 +866,7 @@ class Rbyd:
                     not depth or depth_ < depth):
                 tag, j, d, data = branch
                 block, trunk, cksum = frombranch(data)
-                rbyd = Rbyd.fetch(f, block_size, block, trunk)
+                rbyd = Rbyd.fetch(f, block_size, block, trunk, cksum)
 
                 # corrupted? bail here so we can keep traversing the tree
                 if not rbyd:
@@ -878,7 +883,7 @@ class Rbyd:
         done, rid, tag, w, j, d, data, _ = self.lookup(-1, TAG_MTREE)
         if not done and rid == -1 and tag == TAG_MTREE:
             w, block, trunk, cksum = frombtree(data)
-            mtree = Rbyd.fetch(f, block_size, block, trunk)
+            mtree = Rbyd.fetch(f, block_size, block, trunk, cksum)
             # corrupted?
             if not mtree:
                 return True, -1, 0, None
@@ -1161,7 +1166,7 @@ def main(disk, mroots=None, *,
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
             if not done and rid == -1 and tag == TAG_MTREE:
                 w, block, trunk, cksum = frombtree(data)
-                mtree = Rbyd.fetch(f, block_size, block, trunk)
+                mtree = Rbyd.fetch(f, block_size, block, trunk, cksum)
 
                 # traverse entries
                 mbid = -1
@@ -1263,7 +1268,7 @@ def main(disk, mroots=None, *,
                 # indirect btree?
                 elif tag == TAG_BTREE:
                     w, block, trunk, cksum = frombtree(data)
-                    btree = Rbyd.fetch(f, block_size, block, trunk)
+                    btree = Rbyd.fetch(f, block_size, block, trunk, cksum)
                     shrub = False
 
                 else:

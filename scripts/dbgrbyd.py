@@ -1003,7 +1003,8 @@ def main(disk, blocks=None, *,
                             if trunk and j_ + size > trunk:
                                 eoff_ = j_ + size
                                 eoff = eoff_
-                                cksum = cksum_
+                                cksum = cksum__ ^ (
+                                        0xfca42daf if perturb else 0)
                                 trunk_ = trunk__
                                 weight = weight_
                         trunk___ = 0
