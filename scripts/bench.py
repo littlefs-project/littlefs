@@ -512,7 +512,7 @@ def compile(bench_paths, **args):
                         f.writeln(12*' '+'.path = "%s",' % case.path)
                         f.writeln(12*' '+'.flags = %s,' % (
                                 ' | '.join(filter(None, [
-                                        'BENCH_INTERNAL' if suite.internal
+                                        'BENCH_INTERNAL' if case.internal
                                             else None]))
                                     or 0))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
