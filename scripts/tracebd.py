@@ -73,10 +73,10 @@ def bdgeom(s):
         return int(s, b)
 
 # parse some rbyd addr encodings
-# 0xa       -> [0xa]
-# 0xa.c     -> [(0xa, 0xc)]
-# 0x{a,b}   -> [0xa, 0xb]
-# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+# 0xa       -> (0xa,)
+# 0xa.c     -> ((0xa, 0xc),)
+# 0x{a,b}   -> (0xa, 0xb)
+# 0x{a,b}.c -> ((0xa, 0xc), (0xb, 0xc))
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -107,7 +107,7 @@ def rbydaddr(s):
         else:
             addr.append(int(s, b))
 
-    return addr
+    return tuple(addr)
 
 
 class RingIO:
@@ -722,13 +722,13 @@ def main(path='-', *,
             off, = size
         size = None
 
-    if any(isinstance(b, list) and len(b) > 1 for b in block):
+    if any(isinstance(b, tuple) and len(b) > 1 for b in block):
         print("error: more than one block address?",
                 file=sys.stderr)
         sys.exit(-1)
-    if isinstance(block[0], list):
+    if isinstance(block[0], tuple):
         block = (block[0][0], *block[1:])
-    if len(block) > 1 and isinstance(block[1], list):
+    if len(block) > 1 and isinstance(block[1], tuple):
         block = (block[0], block[1][0])
     if isinstance(block[0], tuple):
         block, off_ = (block[0][0], *block[1:]), block[0][1]

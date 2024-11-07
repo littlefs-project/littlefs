@@ -85,10 +85,10 @@ def bdgeom(s):
         return int(s, b)
 
 # parse some rbyd addr encodings
-# 0xa       -> [0xa]
-# 0xa.c     -> [(0xa, 0xc)]
-# 0x{a,b}   -> [0xa, 0xb]
-# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+# 0xa       -> (0xa,)
+# 0xa.c     -> ((0xa, 0xc),)
+# 0x{a,b}   -> (0xa, 0xb)
+# 0x{a,b}.c -> ((0xa, 0xc), (0xb, 0xc))
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -119,7 +119,7 @@ def rbydaddr(s):
         else:
             addr.append(int(s, b))
 
-    return addr
+    return tuple(addr)
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -910,7 +910,7 @@ def main(disk, blocks=None, *,
 
     # flatten blocks, default to block 0
     if not blocks:
-        blocks = [[0]]
+        blocks = [(0,)]
     blocks = [block for blocks_ in blocks for block in blocks_]
 
     with open(disk, 'rb') as f:

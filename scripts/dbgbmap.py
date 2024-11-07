@@ -92,10 +92,10 @@ def bdgeom(s):
         return int(s, b)
 
 # parse some rbyd addr encodings
-# 0xa       -> [0xa]
-# 0xa.c     -> [(0xa, 0xc)]
-# 0x{a,b}   -> [0xa, 0xb]
-# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+# 0xa       -> (0xa,)
+# 0xa.c     -> ((0xa, 0xc),)
+# 0x{a,b}   -> (0xa, 0xb)
+# 0x{a,b}.c -> ((0xa, 0xc), (0xb, 0xc))
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -126,7 +126,7 @@ def rbydaddr(s):
         else:
             addr.append(int(s, b))
 
-    return addr
+    return tuple(addr)
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -168,7 +168,7 @@ def frommdir(data):
         block, d_ = fromleb128(data[d:])
         blocks.append(block)
         d += d_
-    return blocks
+    return tuple(blocks)
 
 def fromshrub(data):
     d = 0
@@ -591,33 +591,34 @@ class Bmap:
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, block, data, rev, eoff, trunk, weight, cksum):
-        self.block = block
+    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum):
+        if isinstance(blocks, int):
+            blocks = (blocks,)
+
+        self.blocks = tuple(blocks)
         self.data = data
         self.rev = rev
         self.eoff = eoff
         self.trunk = trunk
         self.weight = weight
         self.cksum = cksum
-        self.redund_blocks = []
 
     @property
-    def blocks(self):
-        return (self.block, *self.redund_blocks)
+    def block(self):
+        return self.blocks[0]
 
     def addr(self):
-        if not self.redund_blocks:
+        if len(self.blocks) == 1:
             return '0x%x.%x' % (self.block, self.trunk)
         else:
-            return '0x{%x,%s}.%x' % (
-                    self.block,
-                    ','.join('%x' % block for block in self.redund_blocks),
+            return '0x{%s}.%x' % (
+                    ','.join('%x' % block for block in self.blocks),
                     self.trunk)
 
     @classmethod
     def fetch(cls, f, block_size, blocks, trunk=None):
         if isinstance(blocks, int):
-            blocks = [blocks]
+            blocks = (blocks,)
 
         if len(blocks) > 1:
             # fetch all blocks
@@ -635,9 +636,9 @@ class Rbyd:
                     i = i_
             # keep track of the other blocks
             rbyd = rbyds[i]
-            rbyd.redund_blocks = [
+            rbyd.blocks += tuple(
                     rbyds[(i+1+j) % len(rbyds)].block
-                        for j in range(len(rbyds)-1)]
+                        for j in range(len(rbyds)-1))
             return rbyd
         else:
             # block may encode a trunk
@@ -982,13 +983,13 @@ def main(disk, mroots=None, *,
             off, = size
         size = None
 
-    if any(isinstance(b, list) and len(b) > 1 for b in block):
+    if any(isinstance(b, tuple) and len(b) > 1 for b in block):
         print("error: more than one block address?",
                 file=sys.stderr)
         sys.exit(-1)
-    if isinstance(block[0], list):
+    if isinstance(block[0], tuple):
         block = (block[0][0], *block[1:])
-    if len(block) > 1 and isinstance(block[1], list):
+    if len(block) > 1 and isinstance(block[1], tuple):
         block = (block[0], block[1][0])
     if isinstance(block[0], tuple):
         block, off_ = (block[0][0], *block[1:]), block[0][1]
@@ -1058,7 +1059,7 @@ def main(disk, mroots=None, *,
 
     # flatten mroots, default to 0x{0,1}
     if not mroots:
-        mroots = [[0,1]]
+        mroots = [(0,1)]
     mroots = [block for mroots_ in mroots for block in mroots_]
 
     # we seek around a bunch, so just keep the disk open
@@ -1087,11 +1088,18 @@ def main(disk, mroots=None, *,
         btrees__ = []
         mroot = Rbyd.fetch(f, block_size, mroots)
         mdepth = 1
+        mseen = set()
         while True:
             # corrupted?
             if not mroot:
                 corrupted = True
                 break
+            # cycle detected
+            elif mroot.blocks in mseen:
+                corrupted = True
+                break
+
+            mseen.add(mroot.blocks)
 
             # mark mroots in our bmap
             for block in mroot.blocks:

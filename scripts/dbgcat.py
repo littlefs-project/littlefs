@@ -27,10 +27,10 @@ def bdgeom(s):
         return int(s, b)
 
 # parse some rbyd addr encodings
-# 0xa       -> [0xa]
-# 0xa.c     -> [(0xa, 0xc)]
-# 0x{a,b}   -> [0xa, 0xb]
-# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+# 0xa       -> (0xa,)
+# 0xa.c     -> ((0xa, 0xc),)
+# 0x{a,b}   -> (0xa, 0xb)
+# 0x{a,b}.c -> ((0xa, 0xc), (0xb, 0xc))
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -61,7 +61,7 @@ def rbydaddr(s):
         else:
             addr.append(int(s, b))
 
-    return addr
+    return tuple(addr)
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):
@@ -94,7 +94,7 @@ def main(disk, blocks=None, *,
 
     # flatten block, default to block 0
     if not blocks:
-        blocks = [[0]]
+        blocks = [(0,)]
     blocks = [block for blocks_ in blocks for block in blocks_]
 
     with open(disk, 'rb') as f:

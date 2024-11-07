@@ -76,10 +76,10 @@ def bdgeom(s):
         return int(s, b)
 
 # parse some rbyd addr encodings
-# 0xa       -> [0xa]
-# 0xa.c     -> [(0xa, 0xc)]
-# 0x{a,b}   -> [0xa, 0xb]
-# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+# 0xa       -> (0xa,)
+# 0xa.c     -> ((0xa, 0xc),)
+# 0x{a,b}   -> (0xa, 0xb)
+# 0x{a,b}.c -> ((0xa, 0xc), (0xb, 0xc))
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -110,7 +110,7 @@ def rbydaddr(s):
         else:
             addr.append(int(s, b))
 
-    return addr
+    return tuple(addr)
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -152,7 +152,7 @@ def frommdir(data):
         block, d_ = fromleb128(data[d:])
         blocks.append(block)
         d += d_
-    return blocks
+    return tuple(blocks)
 
 def fromshrub(data):
     d = 0
@@ -294,29 +294,34 @@ TBranch = co.namedtuple('TBranch', 'a, b, d, c')
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, block, data, rev, eoff, trunk, weight, cksum):
-        self.block = block
+    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum):
+        if isinstance(blocks, int):
+            blocks = (blocks,)
+
+        self.blocks = tuple(blocks)
         self.data = data
         self.rev = rev
         self.eoff = eoff
         self.trunk = trunk
         self.weight = weight
         self.cksum = cksum
-        self.redund_blocks = []
+
+    @property
+    def block(self):
+        return self.blocks[0]
 
     def addr(self):
-        if not self.redund_blocks:
+        if len(self.blocks) == 1:
             return '0x%x.%x' % (self.block, self.trunk)
         else:
-            return '0x{%x,%s}.%x' % (
-                    self.block,
-                    ','.join('%x' % block for block in self.redund_blocks),
+            return '0x{%s}.%x' % (
+                    ','.join('%x' % block for block in self.blocks),
                     self.trunk)
 
     @classmethod
     def fetch(cls, f, block_size, blocks, trunk=None):
         if isinstance(blocks, int):
-            blocks = [blocks]
+            blocks = (blocks,)
 
         if len(blocks) > 1:
             # fetch all blocks
@@ -334,9 +339,9 @@ class Rbyd:
                     i = i_
             # keep track of the other blocks
             rbyd = rbyds[i]
-            rbyd.redund_blocks = [
+            rbyd.blocks += tuple(
                     rbyds[(i+1+j) % len(rbyds)].block
-                        for j in range(len(rbyds)-1)]
+                        for j in range(len(rbyds)-1))
             return rbyd
         else:
             # block may encode a trunk
@@ -1722,7 +1727,7 @@ def main(disk, mroots=None, *,
 
     # flatten mroots, default to 0x{0,1}
     if not mroots:
-        mroots = [[0,1]]
+        mroots = [(0,1)]
     mroots = [block for mroots_ in mroots for block in mroots_]
 
     # we seek around a bunch, so just keep the disk open
@@ -1753,11 +1758,18 @@ def main(disk, mroots=None, *,
 
         mroot = Rbyd.fetch(f, block_size, mroots)
         mdepth = 1
+        mseen = set()
         while True:
             # corrupted?
             if not mroot:
                 corrupted = True
                 break
+            # cycle detected?
+            elif mroot.blocks in mseen:
+                corrupted = True
+                break
+
+            mseen.add(mroot.blocks)
 
             rweight = max(rweight, mroot.weight)
             # yes we get gstate from all mroots
@@ -1932,9 +1944,7 @@ def main(disk, mroots=None, *,
             for i, (repr_, tag, j, data) in enumerate(config.repr()):
                 print('%12s %*s %-*s  %s' % (
                         '{%s}:' % ','.join('%04x' % block
-                            for block in it.chain(
-                                [mroot.block],
-                                mroot.redund_blocks))
+                                for block in mroot.blocks)
                             if i == 0 else '',
                         2*w_width+1, '%d.%d' % (-1, -1)
                             if i == 0 else '',
@@ -1978,9 +1988,7 @@ def main(disk, mroots=None, *,
                         print('%s%12s %*s %-*s  %s%s' % (
                                 '\x1b[90m' if color else '',
                                 '{%s}:' % ','.join('%04x' % block
-                                    for block in it.chain(
-                                        [mdir.block],
-                                        mdir.redund_blocks)),
+                                    for block in mdir.blocks),
                                 2*w_width+1, '%d.%d' % (
                                     mbid//mleaf_weight, -1),
                                 21+w_width, tagrepr(tag, 0, len(data)),
@@ -2075,9 +2083,7 @@ def main(disk, mroots=None, *,
                                         or tag == TAG_ORPHAN)
                                 else '',
                             '{%s}:' % ','.join('%04x' % block
-                                for block in it.chain(
-                                    [mdir.block],
-                                    mdir.redund_blocks))
+                                    for block in mdir.blocks)
                                 if mbid != pmbid else '',
                             2*w_width+1, '%d.%d-%d' % (
                                     mbid//mleaf_weight, rid-(w-1), rid)
