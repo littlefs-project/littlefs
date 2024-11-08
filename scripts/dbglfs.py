@@ -319,14 +319,14 @@ class Rbyd:
                     self.trunk)
 
     @classmethod
-    def fetch(cls, f, block_size, blocks, trunk=None, cksum=None):
-        if isinstance(blocks, int):
-            blocks = (blocks,)
-
-        if len(blocks) > 1:
+    def fetch(cls, f, block_size, block, trunk=None, cksum=None):
+        # multiple blocks?
+        if (not isinstance(block, int)
+                and not isinstance(block, Rbyd)
+                and len(block) > 1):
             # fetch all blocks
             rbyds = [cls.fetch(f, block_size, block, trunk, cksum)
-                    for block in blocks]
+                    for block in block]
             # determine most recent revision
             i = 0
             for i_, rbyd in enumerate(rbyds):
@@ -343,17 +343,27 @@ class Rbyd:
                     rbyds[(i+1+j) % len(rbyds)].block
                         for j in range(len(rbyds)-1))
             return rbyd
+
+        # block may be an rbyd, in which case we inherit the
+        # already-read data
+        #
+        # this helps avoid race conditions with cksums and shrubs
+        if isinstance(block, Rbyd):
+            # inherit the trunk too I guess?
+            if trunk is None:
+                trunk = block.trunk
+            block, data = block.block, block.data
         else:
             # block may encode a trunk
-            block = blocks[0]
+            block = block[0] if not isinstance(block, int) else block
             if isinstance(block, tuple):
                 if trunk is None:
                     trunk = block[1]
                 block = block[0]
 
-        # seek to the block
-        f.seek(block * block_size)
-        data = f.read(block_size)
+            # seek to the block
+            f.seek(block * block_size)
+            data = f.read(block_size)
 
         # fetch the rbyd
         rev = fromle32(data[0:4])
@@ -1321,7 +1331,7 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
     # inlined bshrub?
     elif tag == TAG_BSHRUB:
         weight, trunk = fromshrub(data)
-        btree = Rbyd.fetch(f, block_size, mdir.block, trunk)
+        btree = Rbyd.fetch(f, block_size, mdir, trunk)
         w = weight
     # indirect btree?
     elif tag == TAG_BTREE:
