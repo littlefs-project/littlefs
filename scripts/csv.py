@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 #
-# Script to summarize the outputs of other scripts. Operates on CSV files.
+# Script to manipulate CSV files.
 #
 # Example:
 # ./scripts/code.py lfs.o lfs_util.o -q -o lfs.code.csv
 # ./scripts/data.py lfs.o lfs_util.o -q -o lfs.data.csv
-# ./scripts/summary.py lfs.code.csv lfs.data.csv -q -o lfs.csv
-# ./scripts/summary.py -Y lfs.csv -f code=code_size,data=data_size
+# ./scripts/csv.py lfs.code.csv lfs.data.csv -q -o lfs.csv
+# ./scripts/csv.py -Y lfs.csv -f code=code_size,data=data_size
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+
+# prevent local imports
+__import__('sys').path.pop(0)
 
 import collections as co
 import csv
@@ -739,7 +742,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Summarize measurements in CSV files.",
+            description="Script to manipulate CSV files.",
             allow_abbrev=False)
     parser.add_argument(
             'csv_paths',

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# prevent local imports
+__import__('sys').path.pop(0)
+
 import subprocess as sp
 
 

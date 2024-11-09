@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# prevent local imports
+__import__('sys').path.pop(0)
+
 import bisect
 import collections as co
 import itertools as it

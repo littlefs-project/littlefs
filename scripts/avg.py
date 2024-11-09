@@ -3,6 +3,9 @@
 # Compute averages/etc of benchmark measurements
 #
 
+# prevent local imports
+__import__('sys').path.pop(0)
+
 import collections as co
 import csv
 import itertools as it

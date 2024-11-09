@@ -10,6 +10,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+# prevent local imports
+__import__('sys').path.pop(0)
+
 import collections as co
 import csv
 import itertools as it
