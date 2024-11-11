@@ -44,7 +44,8 @@ class RInt(co.namedtuple('RInt', 'x')):
                     x = -mt.inf
                 else:
                     raise
-        assert isinstance(x, int) or mt.isinf(x), x
+        if not (isinstance(x, int) or mt.isinf(x)):
+            x = int(x)
         return super().__new__(cls, x)
 
     def __str__(self):
@@ -54,6 +55,9 @@ class RInt(co.namedtuple('RInt', 'x')):
             return '-∞'
         else:
             return str(self.x)
+
+    def __bool__(self):
+        return bool(self.x)
 
     def __int__(self):
         assert not mt.isinf(self.x)
@@ -93,6 +97,15 @@ class RInt(co.namedtuple('RInt', 'x')):
         else:
             return (new-old) / old
 
+    def __pos__(self):
+        return self.__class__(+self.x)
+
+    def __neg__(self):
+        return self.__class__(-self.x)
+
+    def __abs__(self):
+        return self.__class__(abs(self.x))
+
     def __add__(self, other):
         return self.__class__(self.x + other.x)
 
@@ -101,6 +114,12 @@ class RInt(co.namedtuple('RInt', 'x')):
 
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
+
+    def __div__(self, other):
+        return self.__class__(self.x // other.x)
+
+    def __mod__(self, other):
+        return self.__class__(self.x % other.x)
 
 # float fields
 class RFloat(co.namedtuple('RFloat', 'x')):
@@ -119,7 +138,8 @@ class RFloat(co.namedtuple('RFloat', 'x')):
                     x = -mt.inf
                 else:
                     raise
-        assert isinstance(x, float), x
+        if not isinstance(x, float):
+            x = float(x)
         return super().__new__(cls, x)
 
     def __str__(self):
@@ -129,6 +149,12 @@ class RFloat(co.namedtuple('RFloat', 'x')):
             return '-∞'
         else:
             return '%.1f' % self.x
+
+    def __bool__(self):
+        return bool(self.x)
+
+    def __int__(self):
+        return int(self.x)
 
     def __float__(self):
         return float(self.x)
@@ -148,9 +174,15 @@ class RFloat(co.namedtuple('RFloat', 'x')):
             return '%+7.1f' % diff
 
     ratio = RInt.ratio
+    __pos__ = RInt.__pos__
+    __neg__ = RInt.__neg__
+    __abs__ = RInt.__abs__
     __add__ = RInt.__add__
     __sub__ = RInt.__sub__
     __mul__ = RInt.__mul__
+
+    def __div__(self, other):
+        return self.__class__(self.x / other.x)
 
 # fractional fields, a/b
 class RFrac(co.namedtuple('RFrac', 'a,b')):
@@ -166,6 +198,12 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
+
+    def __bool__(self):
+        return bool(self.a)
+
+    def __int__(self):
+        return int(self.a)
 
     def __float__(self):
         return float(self.a)
@@ -194,6 +232,15 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
 
+    def __pos__(self):
+        return self.__class__(+self.a, +self.b)
+
+    def __neg__(self):
+        return self.__class__(-self.a, -self.b)
+
+    def __abs__(self):
+        return self.__class__(abs(self.a), abs(self.b))
+
     def __add__(self, other):
         return self.__class__(self.a + other.a, self.b + other.b)
 
@@ -201,7 +248,13 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         return self.__class__(self.a - other.a, self.b - other.b)
 
     def __mul__(self, other):
-        return self.__class__(self.a * other.a, self.b + other.b)
+        return self.__class__(self.a * other.a, self.b * other.b)
+
+    def __div__(self, other):
+        return self.__class__(self.a // other.a, self.b // other.b)
+
+    def __mod__(self, other):
+        return self.__class__(self.a % other.a, self.b % other.b)
 
     def __eq__(self, other):
         self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
@@ -269,8 +322,7 @@ class RGStddev:
 class RExpr:
     # expr parsing/typechecking/etc errors
     class Error(Exception):
-        def __init__(self, reason):
-            self.reason = reason
+        pass
 
     # expr node base class
     class Expr:
@@ -278,21 +330,22 @@ class RExpr:
             for k, v in zip('abcdefghijklmnopqrstuvwxyz', args):
                 setattr(self, k, v)
 
+        def __iter__(self):
+            return (getattr(self, k)
+                    for k in it.takewhile(
+                        lambda k: hasattr(self, k),
+                        'abcdefghijklmnopqrstuvwxyz'))
+
+        def __len__(self):
+            return sum(1 for _ in self)
+
         def __repr__(self):
             return '%s(%s)' % (
                     self.__class__.__name__,
-                    ','.join(
-                        repr(getattr(self, k))
-                        for k in it.takewhile(
-                            lambda k: hasattr(self, k),
-                            'abcdefghijklmnopqrstuvwxyz')))
+                    ','.join(repr(v) for v in self))
 
         def fields(self):
-            return set(it.chain.from_iterable(
-                    getattr(self, k).fields()
-                    for k in it.takewhile(
-                        lambda k: hasattr(self, k),
-                        'abcdefghijklmnopqrstuvwxyz')))
+            return set(it.chain.from_iterable(v.fields() for v in self))
 
         def type(self, types={}):
             return self.a.type(types)
@@ -304,26 +357,6 @@ class RExpr:
             return self.a.eval(fields)
 
     # expr nodes
-
-    # field expr
-    class Field(Expr):
-        def fields(self):
-            return {self.a}
-
-        def type(self, types={}):
-            if self.a not in types:
-                raise RExpr.Error("untyped field? %s" % self.a)
-            return types[self.a]
-
-        def fold(self, types={}):
-            if self.a not in types:
-                raise RExpr.Error("unfoldable field? %s" % self.a)
-            return RSum, types[self.a]
-
-        def eval(self, fields={}):
-            if self.a not in fields:
-                raise RExpr.Error("unknown field? %s" % self.a)
-            return fields[self.a]
 
     # literal exprs
     class StrLit(Expr):
@@ -358,6 +391,26 @@ class RExpr:
 
         def eval(self, fields={}):
             return self.a
+
+    # field expr
+    class Field(Expr):
+        def fields(self):
+            return {self.a}
+
+        def type(self, types={}):
+            if self.a not in types:
+                raise RExpr.Error("untyped field? %s" % self.a)
+            return types[self.a]
+
+        def fold(self, types={}):
+            if self.a not in types:
+                raise RExpr.Error("unfoldable field? %s" % self.a)
+            return RSum, types[self.a]
+
+        def eval(self, fields={}):
+            if self.a not in fields:
+                raise RExpr.Error("unknown field? %s" % self.a)
+            return fields[self.a]
 
     # func expr helper
     def func(name):
@@ -403,71 +456,213 @@ class RExpr:
     @func('sum')
     class Sum(Expr):
         def fold(self, types={}):
-            return RSum, self.a.type(types)
+            if len(self) == 1:
+                return RSum, self.a.type(types)
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RSum()([v.eval(fields) for v in self])
 
     @func('prod')
     class Prod(Expr):
         def fold(self, types={}):
-            return RProd, self.a.type(types)
+            if len(self) == 1:
+                return Prod, self.a.type(types)
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return Prod()([v.eval(fields) for v in self])
 
     @func('min')
     class Min(Expr):
         def fold(self, types={}):
-            return RMin, self.a.type(types)
+            if len(self) == 1:
+                return RMin, self.a.type(types)
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RMin()([v.eval(fields) for v in self])
 
     @func('max')
     class Max(Expr):
         def fold(self, types={}):
-            return RMax, self.a.type(types)
+            if len(self) == 1:
+                return RMax, self.a.type(types)
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RMax()([v.eval(fields) for v in self])
 
     @func('avg')
     class Avg(Expr):
+        def type(self, types={}):
+            if len(self) == 1:
+                return self.a.type(types)
+            else:
+                return RFloat
+
         def fold(self, types={}):
-            return RAvg, RFloat
+            if len(self) == 1:
+                return RAvg, RFloat
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RAvg()([v.eval(fields) for v in self])
 
     @func('stddev')
     class Stddev(Expr):
+        def type(self, types={}):
+            if len(self) == 1:
+                return self.a.type(types)
+            else:
+                return RFloat
+
         def fold(self, types={}):
-            return RStddev, RFloat
+            if len(self) == 1:
+                return RStddev, RFloat
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RStddev()([v.eval(fields) for v in self])
 
     @func('gmean')
     class GMean(Expr):
+        def type(self, types={}):
+            if len(self) == 1:
+                return self.a.type(types)
+            else:
+                return RFloat
+
         def fold(self, types={}):
-            return RGMean, RFloat
+            if len(self) == 1:
+                return RGMean, RFloat
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RGMean()([v.eval(fields) for v in self])
 
     @func('stddev')
     class GStddev(Expr):
+        def type(self, types={}):
+            if len(self) == 1:
+                return self.a.type(types)
+            else:
+                return RFloat
+
         def fold(self, types={}):
-            return RGStddev, RFloat
+            if len(self) == 1:
+                return RGStddev, RFloat
+            else:
+                return self.a.fold(types)
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return self.a.eval(fields)
+            else:
+                return RGStddev()([v.eval(fields) for v in self])
 
     # functions
     @func('ratio')
     class Ratio(Expr):
-        pass
+        def type(self, types={}):
+            return RFloat
+
+        def eval(self, fields={}):
+            v = self.a.eval(fields)
+            return RFloat(float(v.a) / float(v.b))
 
     @func('total')
     class Total(Expr):
-        pass
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            return self.a.eval(fields).b
+
+    @func('abs')
+    class Abs(Expr):
+        def eval(self, fields={}):
+            return abs(self.a.eval(fields))
 
     @func('ceil')
     class Ceil(Expr):
-        pass
+        def type(self, types={}):
+            return RFloat
+
+        def eval(self, fields={}):
+            return RFloat(mt.ceil(float(self.a.eval(fields))))
 
     @func('floor')
     class Floor(Expr):
-        pass
+        def type(self, types={}):
+            return RFloat
+
+        def eval(self, fields={}):
+            return RFloat(mt.floor(float(self.a.eval(fields))))
 
     @func('log')
     class Log(Expr):
-        pass
+        def type(self, types={}):
+            return RFloat
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return RFloat(mt.log(
+                        float(self.a.eval(fields))))
+            else:
+                return RFloat(mt.log(
+                        float(self.a.eval(fields)),
+                        float(self.b.eval(fields))))
 
     @func('pow')
     class Pow(Expr):
-        pass
+        def type(self, types={}):
+            return RFloat
+
+        def eval(self, fields={}):
+            if len(self) == 1:
+                return RFloat(mt.exp(
+                        float(self.a.eval(fields))))
+            else:
+                return RFloat(mt.pow(
+                        float(self.a.eval(fields)),
+                        float(self.b.eval(fields))))
 
     @func('sqrt')
     class Sqrt(Expr):
-        pass
+        def type(self, types={}):
+            return RFloat
+
+        def eval(self, fields={}):
+            return RFloat(mt.sqrt(float(self.a.eval(fields))))
 
     # unary expr helper
     def uop(op):
@@ -487,19 +682,24 @@ class RExpr:
     # unary ops
     @uop('+')
     class Pos(Expr):
-        pass
+        def eval(self, fields={}):
+            return +self.a.eval(fields)
 
     @uop('-')
     class Neg(Expr):
-        pass
-
-    @uop('~')
-    class Not(Expr):
-        pass
+        def eval(self, fields={}):
+            return -self.a.eval(fields)
 
     @uop('!')
-    class Notnot(Expr):
-        pass
+    class Not(Expr):
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            if self.a.eval(fields):
+                return RInt(0)
+            else:
+                return RInt(1)
 
     # binary expr help
     def bop(op, prec):
@@ -528,75 +728,94 @@ class RExpr:
     # binary ops
     @bop('*', 10)
     class Mul(Expr):
-        pass
+        def eval(self, fields={}):
+            return self.a.eval(fields) * self.b.eval(fields)
 
     @bop('/', 10)
     class Div(Expr):
-        pass
+        def eval(self, fields={}):
+            return self.a.eval(fields) / self.b.eval(fields)
 
     @bop('%', 10)
     class Mod(Expr):
-        pass
+        def eval(self, fields={}):
+            return self.a.eval(fields) % self.b.eval(fields)
 
     @bop('+', 9)
     class Add(Expr):
-        pass
+        def eval(self, fields={}):
+            return self.a.eval(fields) + self.b.eval(fields)
 
     @bop('-', 9)
     class Sub(Expr):
-        pass
-
-    @bop('<<', 8)
-    class Shl(Expr):
-        pass
-
-    @bop('>>', 8)
-    class Shr(Expr):
-        pass
-
-    @bop('&', 7)
-    class And(Expr):
-        pass
-
-    @bop('^', 6)
-    class Xor(Expr):
-        pass
-
-    @bop('|', 5)
-    class Or(Expr):
-        pass
+        def eval(self, fields={}):
+            return self.a.eval(fields) - self.b.eval(fields)
 
     @bop('==', 4)
     class Eq(Expr):
-        pass
+        def eval(self, fields={}):
+            if self.a.eval(fields) == self.b.eval(fields):
+                return RInt(1)
+            else:
+                return RInt(0)
 
     @bop('!=', 4)
     class Ne(Expr):
-        pass
+        def eval(self, fields={}):
+            if self.a.eval(fields) != self.b.eval(fields):
+                return RInt(1)
+            else:
+                return RInt(0)
 
     @bop('<', 4)
     class Lt(Expr):
-        pass
+        def eval(self, fields={}):
+            if self.a.eval(fields) < self.b.eval(fields):
+                return RInt(1)
+            else:
+                return RInt(0)
 
     @bop('<=', 4)
     class Le(Expr):
-        pass
+        def eval(self, fields={}):
+            if self.a.eval(fields) <= self.b.eval(fields):
+                return RInt(1)
+            else:
+                return RInt(0)
 
     @bop('>', 4)
     class Gt(Expr):
-        pass
+        def eval(self, fields={}):
+            if self.a.eval(fields) > self.b.eval(fields):
+                return RInt(1)
+            else:
+                return RInt(0)
 
     @bop('>=', 4)
     class Ge(Expr):
-        pass
+        def eval(self, fields={}):
+            if self.a.eval(fields) >= self.b.eval(fields):
+                return RInt(1)
+            else:
+                return RInt(0)
 
     @bop('&&', 3)
-    class Andand(Expr):
-        pass
+    class And(Expr):
+        def eval(self, fields={}):
+            a = self.a.eval(fields)
+            if a:
+                return self.b.eval(fields)
+            else:
+                return a
 
     @bop('||', 2)
     class Oror(Expr):
-        pass
+        def eval(self, fields={}):
+            a = self.a.eval(fields)
+            if a:
+                return a
+            else:
+                return self.b.eval(fields)
 
     # ternary ops
     class Ife(Expr):
@@ -605,6 +824,13 @@ class RExpr:
 
         def fold(self, types={}):
             return self.b.fold(types)
+
+        def eval(self, fields={}):
+            a = self.a.eval(fields)
+            if a:
+                return self.b.eval(fields)
+            else:
+                return self.c.eval(fields)
 
     # parse an expr
     def __init__(self, expr):
@@ -618,6 +844,24 @@ class RExpr:
                 if not tail.startswith(')'):
                     raise RExpr.Error("mismatched parens? %s" % tail)
                 tail = tail[1:].lstrip()
+
+            # strings
+            elif re.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')', expr):
+                m = re.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')', expr)
+                a = RExpr.StrLit(m.group()[1:-1])
+                tail = expr[len(m.group()):].lstrip()
+
+            # floats
+            elif re.match('[+-]?[_0-9]*\.[_0-9eE]', expr):
+                m = re.match('[+-]?[_0-9]*\.[_0-9eE]', expr)
+                a = RExpr.FloatLit(RFloat(m.group()))
+                tail = expr[len(m.group()):].lstrip()
+
+            # ints
+            elif re.match('[+-]?(?:[0-9][bBoOxX]?[_0-9a-fA-F]*|∞|inf)', expr):
+                m = re.match('[+-]?(?:[0-9][bBoOxX]?[_0-9a-fA-F]*|∞|inf)', expr)
+                a = RExpr.IntLit(RInt(m.group()))
+                tail = expr[len(m.group()):].lstrip()
 
             # fields/functions
             elif re.match('[_a-zA-Z][_a-zA-Z0-9]*', expr):
@@ -646,30 +890,12 @@ class RExpr:
                 else:
                     a = RExpr.Field(m.group())
 
-            # strings
-            elif re.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')', expr):
-                m = re.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')', expr)
-                a = RExpr.StrLit(m.group()[1:-1])
-                tail = expr[len(m.group()):].lstrip()
-
-            # floats
-            elif re.match('[+-]?[_0-9]*\.[_0-9eE]', expr):
-                m = re.match('[+-]?[_0-9]*\.[_0-9eE]', expr)
-                a = RExpr.FloatLit(RFloat(m.group()))
-                tail = expr[len(m.group()):].lstrip()
-
-            # ints
-            elif re.match('[+-]?(?:(?:0[bBoOxX])?[_0-9a-fA-F]+|∞|inf)', expr):
-                m = re.match('[+-]?(?:(?:0[bBoOxX])?[_0-9a-fA-F]+|∞|inf)', expr)
-                a = RExpr.IntLit(RInt(m.group()))
-                tail = expr[len(m.group()):].lstrip()
-
             # unary ops
             elif any(expr.startswith(op) for op in RExpr.uops.keys()):
                 # sort by len to avoid ambiguities
                 for op in sorted(RExpr.uops.keys(), reverse=True):
                     if expr.startswith(op):
-                        a, tail = p_expr(expr[len(op):].lstrip(), mt.inf())
+                        a, tail = p_expr(expr[len(op):].lstrip(), mt.inf)
                         a = RExpr.uops[op](a)
                         break
                 else:
@@ -712,10 +938,10 @@ class RExpr:
             if tail:
                 raise RExpr.Error("trailing expr? %s" % tail)
 
-        except RExpr.Error as e:
+        except (RExpr.Error, ValueError) as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
-            print('error: %s' % e.reason,
+            print('error: %s' % e,
                     file=sys.stderr)
             sys.exit(3)
 
@@ -726,7 +952,7 @@ class RExpr:
         except RExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
-            print('error: %s' % e.reason,
+            print('error: %s' % e,
                     file=sys.stderr)
             sys.exit(3)
 
@@ -737,7 +963,7 @@ class RExpr:
         except RExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
-            print('error: %s' % e.reason,
+            print('error: %s' % e,
                     file=sys.stderr)
             sys.exit(3)
 
@@ -748,7 +974,7 @@ class RExpr:
         except RExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
-            print('error: %s' % e.reason,
+            print('error: %s' % e,
                     file=sys.stderr)
             sys.exit(3)
 
@@ -759,7 +985,7 @@ class RExpr:
         except RExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
-            print('error: %s' % e.reason,
+            print('error: %s' % e,
                     file=sys.stderr)
             sys.exit(3)
 
@@ -1299,50 +1525,6 @@ if __name__ == "__main__":
             '-Y', '--summary',
             action='store_true',
             help="Only show the total.")
-    parser.add_argument(
-            '--int',
-            action='append',
-            help="Treat these fields as ints.")
-    parser.add_argument(
-            '--float',
-            action='append',
-            help="Treat these fields as floats.")
-    parser.add_argument(
-            '--frac',
-            action='append',
-            help="Treat these fields as fractions.")
-    parser.add_argument(
-            '--sum',
-            action='append',
-            help="Add these fields (the default).")
-    parser.add_argument(
-            '--prod',
-            action='append',
-            help="Multiply these fields.")
-    parser.add_argument(
-            '--min',
-            action='append',
-            help="Take the minimum of these fields.")
-    parser.add_argument(
-            '--max',
-            action='append',
-            help="Take the maximum of these fields.")
-    parser.add_argument(
-            '--avg', '--mean',
-            action='append',
-            help="Average these fields.")
-    parser.add_argument(
-            '--stddev',
-            action='append',
-            help="Find the standard deviation of these fields.")
-    parser.add_argument(
-            '--gmean',
-            action='append',
-            help="Find the geometric mean of these fields.")
-    parser.add_argument(
-            '--gstddev',
-            action='append',
-            help="Find the geometric standard deviation of these fields.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
