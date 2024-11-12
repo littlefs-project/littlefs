@@ -346,7 +346,10 @@ class RExpr:
             return set(it.chain.from_iterable(v.fields() for v in self))
 
         def type(self, types={}):
-            return self.a.type(types)
+            t = self.a.type(types)
+            if not all(t == v.type(types) for v in it.islice(self, 1, None)):
+                raise RExpr.Error("mismatched types? %r" % self)
+            return t
 
         def fold(self, types={}):
             return self.a.fold(types)
