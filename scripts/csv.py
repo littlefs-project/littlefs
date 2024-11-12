@@ -1117,6 +1117,11 @@ def infer(fields_, results,
                 for k in fields))
     types = {}
     for k in fields__:
+        if k not in fields_:
+            print("error: no field %r?" % k,
+                    file=sys.stderr)
+            sys.exit(2)
+
         for t in [RInt, RFloat, RFrac]:
             for r in results:
                 if k in r and r[k].strip():
@@ -1130,7 +1135,7 @@ def infer(fields_, results,
         else:
             print("error: no type matches field %r?" % k,
                     file=sys.stderr)
-            sys.exit(-1)
+            sys.exit(2)
 
     # typecheck field exprs, note these may reference input fields
     # with the same name
