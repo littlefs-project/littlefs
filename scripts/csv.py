@@ -182,6 +182,8 @@ class RFloat(co.namedtuple('RFloat', 'x')):
     def __div__(self, other):
         return self.__class__(self.x / other.x)
 
+    __mod__ = RInt.__mod__
+
 # fractional fields, a/b
 class RFrac(co.namedtuple('RFrac', 'a,b')):
     __slots__ = ()
