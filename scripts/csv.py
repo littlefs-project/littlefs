@@ -113,7 +113,7 @@ class RInt(co.namedtuple('RInt', 'x')):
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         return self.__class__(self.x // other.x)
 
     def __mod__(self, other):
@@ -206,7 +206,7 @@ class RFloat(co.namedtuple('RFloat', 'x')):
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         return self.__class__(self.x / other.x)
 
     def __mod__(self, other):
@@ -278,7 +278,7 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
     def __mul__(self, other):
         return self.__class__(self.a * other.a, self.b * other.b)
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         return self.__class__(self.a // other.a, self.b // other.b)
 
     def __mod__(self, other):
