@@ -454,7 +454,7 @@ class Plot:
         return ''.join(row_)
 
 
-def collect(csv_paths, renames=[], defines=[]):
+def collect(csv_paths, defines=[]):
     # collect results from CSV files
     fields = []
     results = []
@@ -466,15 +466,6 @@ def collect(csv_paths, renames=[], defines=[]):
                         k for k in reader.fieldnames
                             if k not in fields)
                 for r in reader:
-                    # apply any renames
-                    if renames:
-                        # make a copy so renames can overlap
-                        r_ = {}
-                        for new_k, old_k in renames:
-                            if old_k in r:
-                                r_[new_k] = r[old_k]
-                        r.update(r_)
-
                     # filter by matching defines
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
@@ -918,14 +909,6 @@ def main(csv_paths, *,
     all_labels = ((label or [])
             + subplots_get('label', **subplot, subplots=subplots))
 
-    # separate out renames
-    all_renames = list(it.chain.from_iterable(
-            ((k, v) for v in vs)
-                for k, vs in it.chain(all_by, all_x, all_y)))
-    all_by = [k for k, _ in all_by]
-    all_x = [k for k, _ in all_x]
-    all_y = [k for k, _ in all_y]
-
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
                 file=sys.stderr)
@@ -1014,15 +997,14 @@ def main(csv_paths, *,
         f.writeln = writeln
 
         # first collect results from CSV files
-        fields_, results = collect(csv_paths, all_renames, all_defines)
+        fields_, results = collect(csv_paths, all_defines)
 
-        # if y not specified, guess it's anything not in by/defines/x/renames
+        # if y not specified, guess it's anything not in by/defines/x
         all_y_ = all_y
         if not all_y:
             all_y_ = [k for k in fields_
                     if k not in all_by
-                        and not any(k == k_ for k_, _ in all_defines)
-                        and not any(k == old_k for _, old_k in all_renames)]
+                        and not any(k == k_ for k_, _ in all_defines)]
 
         # then extract the requested datasets
         datasets_ = fold(results, all_by, all_x, all_y_, None, all_labels)
@@ -1160,8 +1142,8 @@ def main(csv_paths, *,
         # create a plot for each subplot
         for s in grid:
             # allow subplot params to override global params
-            x_ = {k for k,_ in (x or []) + s.args.get('x', [])}
-            y_ = {k for k,_ in (y or []) + s.args.get('y', [])}
+            x_ = set((x or []) + s.args.get('x', []))
+            y_ = set((y or []) + s.args.get('y', []))
             define_ = define + s.args.get('define', [])
             xlim_ = s.args.get('xlim', xlim)
             ylim_ = s.args.get('ylim', ylim)
@@ -1459,36 +1441,15 @@ if __name__ == "__main__":
     parser.add_argument(
             '-b', '--by',
             action='append',
-            type=lambda x: (
-                lambda k, vs=None: (
-                    k.strip(),
-                    tuple(v.strip() for v in vs.split(','))
-                        if vs is not None else ())
-                )(*x.split('=', 1)),
-            help="Group by this field. Can rename fields with "
-                "new_name=old_name.")
+            help="Group by this field.")
     parser.add_argument(
             '-x',
             action='append',
-            type=lambda x: (
-                lambda k, vs=None: (
-                    k.strip(),
-                    tuple(v.strip() for v in vs.split(','))
-                        if vs is not None else ())
-                )(*x.split('=', 1)),
-            help="Field to use for the x-axis. Can rename fields with "
-                "new_name=old_name.")
+            help="Field to use for the x-axis.")
     parser.add_argument(
             '-y',
             action='append',
-            type=lambda x: (
-                lambda k, vs=None: (
-                    k.strip(),
-                    tuple(v.strip() for v in vs.split(','))
-                        if vs is not None else ())
-                )(*x.split('=', 1)),
-            help="Field to use for the y-axis. Can rename fields with "
-                "new_name=old_name.")
+            help="Field to use for the y-axis.")
     parser.add_argument(
             '-D', '--define',
             type=lambda x: (

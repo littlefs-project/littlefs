@@ -47,7 +47,7 @@ def dat(x):
     # else give up
     raise ValueError("invalid dat %r" % x)
 
-def collect(csv_paths, renames=[], defines=[]):
+def collect(csv_paths, defines=[]):
     # collect results from CSV files
     fields = []
     results = []
@@ -59,15 +59,6 @@ def collect(csv_paths, renames=[], defines=[]):
                         k for k in reader.fieldnames
                         if k not in fields)
                 for r in reader:
-                    # apply any renames
-                    if renames:
-                        # make a copy so renames can overlap
-                        r_ = {}
-                        for new_k, old_k in renames:
-                            if old_k in r:
-                                r_[new_k] = r[old_k]
-                        r.update(r_)
-
                     # filter by matching defines
                     if not all(k in r and r[k] in vs for k, vs in defines):
                         continue
@@ -91,41 +82,30 @@ def main(csv_paths, output, *,
     if not amor and not per:
         amor = True
 
-    # separate out renames
-    renames = list(it.chain.from_iterable(
-            ((k, v) for v in vs)
-            for k, vs in it.chain(by or [], fields or [])))
-    if by is not None:
-        by = [k for k, _ in by]
-    if fields is not None:
-        fields = [k for k, _ in fields]
-
     if by is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
                 file=sys.stderr)
         sys.exit(-1)
 
     # collect results from csv files
-    fields_, results = collect(csv_paths, renames, defines)
+    fields_, results = collect(csv_paths, defines)
 
     # if by not specified, guess it's anything not in
-    # iter/size/fields/renames/defines
+    # iter/size/fields/defines
     if by is None:
         by = [k for k in fields_
                 if k != iter
                     and k != size
                     and k not in (fields or [])
-                    and not any(k == old_k for _, old_k in renames)
                     and not any(k == k_ for k_, _ in defines)]
 
     # if fields not specified, guess it's anything not in
-    # by/iter/size/renames/defines
+    # by/iter/size/defines
     if fields is None:
         fields = [k for k in fields_
                 if k not in (by or [])
                     and k != iter
                     and k != size
-                    and not any(k == old_k for _, old_k in renames)
                     and not any(k == k_ for k_, _ in defines)]
 
     # add meas to by if it isn't already present
@@ -209,14 +189,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-b', '--by',
             action='append',
-            type=lambda x: (
-                lambda k, vs=None: (
-                    k.strip(),
-                    tuple(v.strip() for v in vs.split(','))
-                        if vs is not None else ())
-                )(*x.split('=', 1)),
-            help="Group by this field. Can rename fields with "
-                "new_name=old_name.")
+            help="Group by this field.")
     parser.add_argument(
             '-m', '--meas',
             help="Optional name of measurement name field. If provided, the "
@@ -232,14 +205,7 @@ if __name__ == "__main__":
             '-f', '--field',
             dest='fields',
             action='append',
-            type=lambda x: (
-                lambda k, vs=None: (
-                    k.strip(),
-                    tuple(v.strip() for v in vs.split(','))
-                        if vs is not None else ())
-                )(*x.split('=', 1)),
-            help="Field to amortize. Can rename fields with "
-                "new_name=old_name.")
+            help="Field to amortize.")
     parser.add_argument(
             '-D', '--define',
             dest='defines',
