@@ -597,7 +597,10 @@ class RExpr:
 
         def eval(self, fields={}):
             v = self.a.eval(fields)
-            return RFloat(float(v.a) / float(v.b))
+            if not float(v.b):
+                return RFloat(1)
+            else:
+                return RFloat(float(v.a) / float(v.b))
 
     @func('total')
     class Total(Expr):
