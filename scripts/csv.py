@@ -450,7 +450,10 @@ class RExpr:
             return RFrac
 
         def eval(self, fields={}):
-            return RFrac(self.a.eval(fields), self.b.eval(fields))
+            if len(self) == 1:
+                return RFrac(self.a.eval(fields))
+            else:
+                return RFrac(self.a.eval(fields), self.b.eval(fields))
 
     # fold exprs
     @func('sum')
@@ -596,7 +599,7 @@ class RExpr:
             return RFloat
 
         def eval(self, fields={}):
-            v = self.a.eval(fields)
+            v = RFrac(self.a.eval(fields))
             if not float(v.b):
                 return RFloat(1)
             else:
@@ -608,7 +611,7 @@ class RExpr:
             return RInt
 
         def eval(self, fields={}):
-            return self.a.eval(fields).b
+            return RFrac(self.a.eval(fields)).b
 
     @func('abs')
     class Abs(Expr):
