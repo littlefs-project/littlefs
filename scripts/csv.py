@@ -1423,7 +1423,7 @@ def main(csv_paths, *,
 
     # find previous results?
     if args.get('diff'):
-        _, diff_results = collect([args['diff']], renames, defines)
+        _, diff_results = collect([args['diff']], defines)
         diff_results_ = []
         for r in diff_results:
             if not any(k in r and r[k].strip()
