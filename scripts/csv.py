@@ -157,8 +157,9 @@ class RFloat(co.namedtuple('RFloat', 'x')):
     def __float__(self):
         return float(self.x)
 
-    none = RInt.none
-    table = RInt.table
+    none = '%7s' % '-'
+    def table(self):
+        return '%7s' % (self,)
 
     def diff(self, other):
         new = self.x if self else 0
@@ -171,18 +172,45 @@ class RFloat(co.namedtuple('RFloat', 'x')):
         else:
             return '%+7.1f' % diff
 
-    ratio = RInt.ratio
-    __pos__ = RInt.__pos__
-    __neg__ = RInt.__neg__
-    __abs__ = RInt.__abs__
-    __add__ = RInt.__add__
-    __sub__ = RInt.__sub__
-    __mul__ = RInt.__mul__
+    def ratio(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        if mt.isinf(new) and mt.isinf(old):
+            return 0.0
+        elif mt.isinf(new):
+            return +mt.inf
+        elif mt.isinf(old):
+            return -mt.inf
+        elif not old and not new:
+            return 0.0
+        elif not old:
+            return +mt.inf
+        else:
+            return (new-old) / old
+
+    def __pos__(self):
+        return self.__class__(+self.x)
+
+    def __neg__(self):
+        return self.__class__(-self.x)
+
+    def __abs__(self):
+        return self.__class__(abs(self.x))
+
+    def __add__(self, other):
+        return self.__class__(self.x + other.x)
+
+    def __sub__(self, other):
+        return self.__class__(self.x - other.x)
+
+    def __mul__(self, other):
+        return self.__class__(self.x * other.x)
 
     def __div__(self, other):
         return self.__class__(self.x / other.x)
 
-    __mod__ = RInt.__mod__
+    def __mod__(self, other):
+        return self.__class__(self.x % other.x)
 
 # fractional fields, a/b
 class RFrac(co.namedtuple('RFrac', 'a,b')):
