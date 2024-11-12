@@ -254,9 +254,8 @@ funcs: $(BUILDDIR)/lfs.code.csv $(BUILDDIR)/lfs.stack.csv
 		<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
 			-fcode=size -q $(SUMMARYFLAGS) -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fstack \
-		--max=stack \
+			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
+		-bfunction -fcode -fstack='max(stack)' \
 		$(SUMMARYFLAGS))
 
 ## Compare function sizes
@@ -269,15 +268,14 @@ funcs-diff: $(OBJ) $(CI)
 			-fcode=size -q $(SUMMARYFLAGS) -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
-			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fstack \
-		--max=stack \
+			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
+		-bfunction -fcode -fstack='max(stack)' \
 		$(SUMMARYFLAGS) -d <(./scripts/csv.py \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
 				-fcode=size -q $(SUMMARYFLAGS) -o-) \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-				-fstack=limit -q $(SUMMARYFLAGS) -o-) \
-			-fcode -fstack \
+				-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
+			-fcode -fstack='max(stack)' \
 			-q $(SUMMARYFLAGS) -o-))
 
 ## Find struct sizes
@@ -350,11 +348,10 @@ summary sizes: \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.data.csv \
 			-fdata=size -q $(SUMMARYFLAGS) -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
 			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fdata -fstack -fstructs \
-		--max=stack \
+		-bfunction -fcode -fdata -fstack='max(stack)' -fstructs \
 		-Y $(SUMMARYFLAGS) \
 		| cut -c 25-)
 
@@ -371,22 +368,21 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 			-fdata=size -q $(SUMMARYFLAGS) -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
-			-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
 			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fdata -fstack -fstructs \
-		--max=stack \
+		-bfunction -fcode -fdata -fstack='max(stack)' -fstructs \
 		-Y -p $(SUMMARYFLAGS) -d <(./scripts/csv.py \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
 				-fcode=size -q $(SUMMARYFLAGS) -o-) \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.data.csv \
 				-fdata=size -q $(SUMMARYFLAGS) -o-) \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-				-fstack=limit -q $(SUMMARYFLAGS) -o-) \
+				-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
 				-fstructs=size -q $(SUMMARYFLAGS) -o-) \
-			-fcode -fdata -fstack -fstructs \
+			-fcode -fdata -fstack='max(stack)' -fstructs \
 			-q $(SUMMARYFLAGS) -o-) \
 		| cut -c 25-)
 
