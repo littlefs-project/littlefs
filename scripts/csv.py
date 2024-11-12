@@ -3,10 +3,8 @@
 # Script to manipulate CSV files.
 #
 # Example:
-# ./scripts/code.py lfs.o lfs_util.o -q -o lfs.code.csv
-# ./scripts/data.py lfs.o lfs_util.o -q -o lfs.data.csv
-# ./scripts/csv.py lfs.code.csv lfs.data.csv -q -o lfs.csv
-# ./scripts/csv.py -Y lfs.csv -f code=code_size,data=data_size
+# ./scripts/csv.py lfs.code.csv lfs.stack.csv \
+#         -bfunction -fcode -fstack='max(stack)'
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -670,6 +668,61 @@ class RExpr:
         def eval(self, fields={}):
             return RFloat(mt.sqrt(float(self.a.eval(fields))))
 
+    @func('isint')
+    class IsInt(Expr):
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            if isinstance(self.a.eval(fields), RInt):
+                return RInt(1)
+            else:
+                return RInt(0)
+
+    @func('isfloat')
+    class IsFloat(Expr):
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            if isinstance(self.a.eval(fields), RFloat):
+                return RInt(1)
+            else:
+                return RInt(0)
+
+    @func('isfrac')
+    class IsFrac(Expr):
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            if isinstance(self.a.eval(fields), RFrac):
+                return RInt(1)
+            else:
+                return RInt(0)
+
+    @func('isinf')
+    class IsInf(Expr):
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            if mt.isinf(self.a.eval(fields)):
+                return RInt(1)
+            else:
+                return RInt(0)
+
+    @func('isnan')
+    class IsNan(Expr):
+        def type(self, types={}):
+            return RInt
+
+        def eval(self, fields={}):
+            if mt.isnan(self.a.eval(fields)):
+                return RInt(1)
+            else:
+                return RInt(0)
+
     # unary expr helper
     def uop(op):
         def uop(f):
@@ -697,7 +750,7 @@ class RExpr:
             return -self.a.eval(fields)
 
     @uop('!')
-    class Not(Expr):
+    class NotNot(Expr):
         def type(self, types={}):
             return RInt
 
@@ -806,7 +859,7 @@ class RExpr:
                 return RInt(0)
 
     @bop('&&', 3)
-    class And(Expr):
+    class AndAnd(Expr):
         def eval(self, fields={}):
             a = self.a.eval(fields)
             if a:
@@ -815,7 +868,7 @@ class RExpr:
                 return a
 
     @bop('||', 2)
-    class Oror(Expr):
+    class OrOr(Expr):
         def eval(self, fields={}):
             a = self.a.eval(fields)
             if a:
@@ -824,7 +877,7 @@ class RExpr:
                 return self.b.eval(fields)
 
     # ternary ops
-    class Ife(Expr):
+    class IfElse(Expr):
         def type(self, types={}):
             return self.b.type(types)
 
@@ -858,8 +911,8 @@ class RExpr:
                 tail = expr[len(m.group()):].lstrip()
 
             # floats
-            elif re.match('[+-]?[_0-9]*\.[_0-9eE]', expr):
-                m = re.match('[+-]?[_0-9]*\.[_0-9eE]', expr)
+            elif re.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)', expr):
+                m = re.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)', expr)
                 a = RExpr.FloatLit(RFloat(m.group()))
                 tail = expr[len(m.group()):].lstrip()
 
@@ -933,7 +986,7 @@ class RExpr:
                     if not tail.startswith(':'):
                         raise RExpr.Error("Mismatched ?:? %s" % tail)
                     c, tail = p_expr(tail[1:].lstrip(), 1)
-                    a = RExpr.Ife(a, b, c)
+                    a = RExpr.IfElse(a, b, c)
 
                 # no tail
                 else:
