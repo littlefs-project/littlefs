@@ -352,8 +352,7 @@ summary sizes: \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
 			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
 		-bfunction -fcode -fdata -fstack='max(stack)' -fstructs \
-		-Y $(SUMMARYFLAGS) \
-		| cut -c 25-)
+		-Y $(SUMMARYFLAGS))
 
 ## Compare compile-time sizes
 .PHONY: summary-diff sizes-diff
@@ -383,8 +382,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 			<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
 				-fstructs=size -q $(SUMMARYFLAGS) -o-) \
 			-fcode -fdata -fstack='max(stack)' -fstructs \
-			-q $(SUMMARYFLAGS) -o-) \
-		| cut -c 25-)
+			-q $(SUMMARYFLAGS) -o-))
 
 ## Build the test-runner
 .PHONY: test-runner build-tests

@@ -579,7 +579,7 @@ def table(Result, results, diff_results=None, *,
 
     # find the best widths, note that column 0 contains the names and is
     # handled a bit differently
-    widths = co.defaultdict(lambda: 7, {0: 23})
+    widths = co.defaultdict(lambda: 7, {0: 7})
     notes = co.defaultdict(lambda: 0)
     for line in lines:
         for i, x in enumerate(line):
