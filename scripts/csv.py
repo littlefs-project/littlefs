@@ -1090,8 +1090,9 @@ def infer(fields_, results,
     # create result class
     def __new__(cls, **r):
         # evaluate types
-        r_ = {k: types[k](v) if k in types else v
-                for k, v in r.items()}
+        r_ = r.copy()
+        for k, t in types.items():
+            r_[k] = t(r[k]) if k in r else t()
         # evaluate exprs
         r__ = r_.copy()
         for k, expr in exprs.items():
