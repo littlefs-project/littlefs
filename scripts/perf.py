@@ -57,7 +57,8 @@ class RInt(co.namedtuple('RInt', 'x')):
                     x = -mt.inf
                 else:
                     raise
-        assert isinstance(x, int) or mt.isinf(x), x
+        if not (isinstance(x, int) or mt.isinf(x)):
+            x = int(x)
         return super().__new__(cls, x)
 
     def __str__(self):
@@ -67,6 +68,9 @@ class RInt(co.namedtuple('RInt', 'x')):
             return '-∞'
         else:
             return str(self.x)
+
+    def __bool__(self):
+        return bool(self.x)
 
     def __int__(self):
         assert not mt.isinf(self.x)
@@ -106,6 +110,15 @@ class RInt(co.namedtuple('RInt', 'x')):
         else:
             return (new-old) / old
 
+    def __pos__(self):
+        return self.__class__(+self.x)
+
+    def __neg__(self):
+        return self.__class__(-self.x)
+
+    def __abs__(self):
+        return self.__class__(abs(self.x))
+
     def __add__(self, other):
         return self.__class__(self.x + other.x)
 
@@ -114,6 +127,12 @@ class RInt(co.namedtuple('RInt', 'x')):
 
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
+
+    def __div__(self, other):
+        return self.__class__(self.x // other.x)
+
+    def __mod__(self, other):
+        return self.__class__(self.x % other.x)
 
 # perf results
 class PerfResult(co.namedtuple('PerfResult', [

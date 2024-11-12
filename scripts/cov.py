@@ -49,7 +49,8 @@ class RInt(co.namedtuple('RInt', 'x')):
                     x = -mt.inf
                 else:
                     raise
-        assert isinstance(x, int) or mt.isinf(x), x
+        if not (isinstance(x, int) or mt.isinf(x)):
+            x = int(x)
         return super().__new__(cls, x)
 
     def __str__(self):
@@ -59,6 +60,9 @@ class RInt(co.namedtuple('RInt', 'x')):
             return '-∞'
         else:
             return str(self.x)
+
+    def __bool__(self):
+        return bool(self.x)
 
     def __int__(self):
         assert not mt.isinf(self.x)
@@ -98,6 +102,15 @@ class RInt(co.namedtuple('RInt', 'x')):
         else:
             return (new-old) / old
 
+    def __pos__(self):
+        return self.__class__(+self.x)
+
+    def __neg__(self):
+        return self.__class__(-self.x)
+
+    def __abs__(self):
+        return self.__class__(abs(self.x))
+
     def __add__(self, other):
         return self.__class__(self.x + other.x)
 
@@ -106,6 +119,12 @@ class RInt(co.namedtuple('RInt', 'x')):
 
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
+
+    def __div__(self, other):
+        return self.__class__(self.x // other.x)
+
+    def __mod__(self, other):
+        return self.__class__(self.x % other.x)
 
 # fractional fields, a/b
 class RFrac(co.namedtuple('RFrac', 'a,b')):
@@ -121,6 +140,12 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
+
+    def __bool__(self):
+        return bool(self.a)
+
+    def __int__(self):
+        return int(self.a)
 
     def __float__(self):
         return float(self.a)
@@ -149,6 +174,15 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
 
+    def __pos__(self):
+        return self.__class__(+self.a, +self.b)
+
+    def __neg__(self):
+        return self.__class__(-self.a, -self.b)
+
+    def __abs__(self):
+        return self.__class__(abs(self.a), abs(self.b))
+
     def __add__(self, other):
         return self.__class__(self.a + other.a, self.b + other.b)
 
@@ -156,7 +190,13 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         return self.__class__(self.a - other.a, self.b - other.b)
 
     def __mul__(self, other):
-        return self.__class__(self.a * other.a, self.b + other.b)
+        return self.__class__(self.a * other.a, self.b * other.b)
+
+    def __div__(self, other):
+        return self.__class__(self.a // other.a, self.b // other.b)
+
+    def __mod__(self, other):
+        return self.__class__(self.a % other.a, self.b % other.b)
 
     def __eq__(self, other):
         self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
