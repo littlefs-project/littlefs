@@ -129,6 +129,11 @@ class RInt(co.namedtuple('RInt', 'x')):
         return self.__class__(self.x * other.x)
 
     def __truediv__(self, other):
+        if not other:
+            if self >= self.__class__(0):
+                return self.__class__(+mt.inf)
+            else:
+                return self.__class__(-mt.inf)
         return self.__class__(self.x // other.x)
 
     def __mod__(self, other):

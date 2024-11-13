@@ -121,6 +121,11 @@ class RInt(co.namedtuple('RInt', 'x')):
         return self.__class__(self.x * other.x)
 
     def __truediv__(self, other):
+        if not other:
+            if self >= self.__class__(0):
+                return self.__class__(+mt.inf)
+            else:
+                return self.__class__(-mt.inf)
         return self.__class__(self.x // other.x)
 
     def __mod__(self, other):
@@ -193,7 +198,7 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         return self.__class__(self.a * other.a, self.b * other.b)
 
     def __truediv__(self, other):
-        return self.__class__(self.a // other.a, self.b // other.b)
+        return self.__class__(self.a / other.a, self.b / other.b)
 
     def __mod__(self, other):
         return self.__class__(self.a % other.a, self.b % other.b)
