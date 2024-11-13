@@ -21,24 +21,18 @@ void bench_trace(const char *fmt, ...);
 
 // BENCH_START/BENCH_STOP macros measure readed/proged/erased bytes
 // through emubd
-void bench_start(const char *meas, uintmax_t iter, uintmax_t size);
-void bench_stop(const char *meas);
+void bench_start(const char *m, uintmax_t n);
+void bench_stop(const char *m);
 
-#define BENCH_START(meas, iter, size) \
-    bench_start(meas, iter, size)
-#define BENCH_STOP(meas) \
-    bench_stop(meas)
+#define BENCH_START(m, n) bench_start(m, n)
+#define BENCH_STOP(m) bench_stop(m)
 
 // BENCH_RESULT/BENCH_FRESULT allow for explicit non-io measurements
-void bench_result(const char *meas, uintmax_t iter, uintmax_t size,
-        uintmax_t result);
-void bench_fresult(const char *meas, uintmax_t iter, uintmax_t size,
-        double result);
+void bench_result(const char *m, uintmax_t n, uintmax_t result);
+void bench_fresult(const char *m, uintmax_t n, double result);
 
-#define BENCH_RESULT(meas, iter, size, result) \
-    bench_result(meas, iter, size, result)
-#define BENCH_FRESULT(meas, iter, size, result) \
-    bench_fresult(meas, iter, size, result)
+#define BENCH_RESULT(m, n, result) bench_result(m, n, result)
+#define BENCH_FRESULT(m, n, result) bench_fresult(m, n, result)
 
 
 // note these are indirectly included in any generated files

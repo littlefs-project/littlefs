@@ -1002,9 +1002,8 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                 '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
                     ' *(?P<message>.*)'
                 '|' '(?P<op__>benched)'
-                    ' (?P<meas>[^\s]+)'
-                    ' (?P<iter>\d+)'
-                    ' (?P<size>\d+)'
+                    ' (?P<m>[^\s]+)'
+                    ' (?P<n>\d+)'
                     '(?: (?P<readed>[\d\.]+))?'
                     '(?: (?P<proged>[\d\.]+))?'
                     '(?: (?P<erased>[\d\.]+))?'
@@ -1038,6 +1037,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_defines = None # fetched on demand
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
+        readed_ = None
+        proged_ = None
+        erased_ = None
         try:
             while True:
                 # parse a line for state changes
@@ -1068,6 +1070,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_defines = None
                         last_stdout.clear()
                         last_assert = None
+                        readed_ = 0
+                        proged_ = 0
+                        erased_ = 0
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1090,9 +1095,8 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         if args.get('keep_going'):
                             proc.kill()
                     elif op == 'benched':
-                        meas = m.group('meas')
-                        iter = int(m.group('iter'))
-                        size = int(m.group('size'))
+                        m_ = m.group('m')
+                        n_ = int(m.group('n'))
                         # parse measurements
                         def dat(v):
                             if v is None:
@@ -1101,9 +1105,13 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                 return float(v)
                             else:
                                 return int(v)
-                        readed_ = dat(m.group('readed'))
-                        proged_ = dat(m.group('proged'))
-                        erased_ = dat(m.group('erased'))
+                        readed__ = dat(m.group('readed'))
+                        proged__ = dat(m.group('proged'))
+                        erased__ = dat(m.group('erased'))
+                        # keep track of cumulative measurements
+                        readed_ += readed__
+                        proged_ += proged__
+                        erased_ += erased__
                         if output_:
                             # fetch defines if needed, only do this at most
                             # once per perm
@@ -1116,16 +1124,18 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     'suite': last_suite,
                                     'case': last_case,
                                     **last_defines,
-                                    'meas': meas,
-                                    'iter': iter,
-                                    'size': size,
-                                    'readed': readed_,
-                                    'proged': proged_,
-                                    'erased': erased_})
+                                    'm': m_,
+                                    'n': n_,
+                                    'readed': readed__,
+                                    'proged': proged__,
+                                    'erased': erased__,
+                                    'creaded': readed_,
+                                    'cproged': proged_,
+                                    'cerased': erased_})
                         # keep track of total for summary
-                        readed += readed_
-                        proged += proged_
-                        erased += erased_
+                        readed += readed__
+                        proged += proged__
+                        erased += erased__
         except KeyboardInterrupt:
             proc.kill()
             raise BenchFailure(last_id, 0, list(last_stdout))
@@ -1296,7 +1306,7 @@ def run(runner, bench_ids=[], **args):
     if args.get('output'):
         output = BenchOutput(args['output'],
                 ['suite', 'case'],
-                ['meas', 'iter', 'size', 'readed', 'proged', 'erased'])
+                ['m', 'n', 'readed', 'proged', 'erased'])
 
     # measure runtime
     start = time.time()
