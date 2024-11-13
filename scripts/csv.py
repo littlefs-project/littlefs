@@ -1600,7 +1600,7 @@ def main(csv_paths, *,
     results = results_
 
     # fold
-    results = fold(Result, results, by=by, defines=defines)
+    results = fold(Result, results, by=by)
 
     # sort, note that python's sort is stable
     results.sort()
@@ -1640,7 +1640,7 @@ def main(csv_paths, *,
         diff_results = diff_results_
 
         # fold
-        diff_results = fold(Result, diff_results, by=by, defines=defines)
+        diff_results = fold(Result, diff_results, by=by)
 
     # print table
     if not args.get('quiet'):
