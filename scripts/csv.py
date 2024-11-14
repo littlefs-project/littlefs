@@ -1400,10 +1400,11 @@ def table(Result, results, diff_results=None, *,
         by=None,
         fields=None,
         sort=None,
-        summary=False,
+        diff=None,
+        percent=None,
         all=False,
-        percent=False,
         compare=None,
+        summary=False,
         **_):
     all_, all = all, __builtins__.all
 
@@ -1436,12 +1437,12 @@ def table(Result, results, diff_results=None, *,
                         for k in fields)]
 
     # find compare entry if there is one
-    if compare is not None:
+    if compare:
         compare_result = table.get(','.join(str(k) for k in compare))
 
     # sort again, now with diff info, note that python's sort is stable
     names.sort()
-    if compare is not None:
+    if compare:
         names.sort(
                 key=lambda n: (
                     table.get(n) == compare_result,
@@ -1451,7 +1452,7 @@ def table(Result, results, diff_results=None, *,
                                 getattr(compare_result, k, None))
                             for k in fields)),
                 reverse=True)
-    if compare is not None:
+    if compare:
         names.sort(
                 key=lambda n: (
                     table.get(n) == compare_result,
@@ -1461,7 +1462,7 @@ def table(Result, results, diff_results=None, *,
                                 getattr(compare_result, k, None))
                             for k in fields)),
                 reverse=True)
-    if diff_results is not None:
+    if diff or percent:
         names.sort(
                 key=lambda n: tuple(
                     types[k].ratio(
@@ -1492,12 +1493,9 @@ def table(Result, results, diff_results=None, *,
                 ' (%d added, %d removed)' % (
                         sum(1 for n in table if n not in diff_table),
                         sum(1 for n in diff_table if n not in table))
-                    if diff_results is not None and not percent else '')
+                    if diff else '')
             if not summary else '']
-    if diff_results is None:
-        for k in fields:
-            header.append(k)
-    elif percent:
+    if not diff:
         for k in fields:
             header.append(k)
     else:
@@ -1514,7 +1512,8 @@ def table(Result, results, diff_results=None, *,
         entry = [name]
         # normal entry?
         if ((compare is None or r == compare_result)
-                and diff_results is None):
+                and not percent
+                and not diff):
             for k in fields:
                 entry.append(
                         (getattr(r, k).table(),
@@ -1522,7 +1521,7 @@ def table(Result, results, diff_results=None, *,
                             if getattr(r, k, None) is not None
                             else types[k].none)
         # compare entry?
-        elif compare is not None and diff_results is None:
+        elif not percent and not diff:
             for k in fields:
                 entry.append(
                         (getattr(r, k).table()
@@ -1535,7 +1534,7 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(compare_result, k, None)))))
         # percent entry?
-        elif diff_results is not None and percent:
+        elif not diff:
             for k in fields:
                 entry.append(
                         (getattr(r, k).table()
@@ -1548,7 +1547,7 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
         # diff entry?
-        elif diff_results is not None:
+        else:
             for k in fields:
                 entry.append(getattr(diff_r, k).table()
                         if getattr(diff_r, k, None) is not None
@@ -1572,7 +1571,7 @@ def table(Result, results, diff_results=None, *,
         return entry
 
     # entries
-    if not summary or compare:
+    if (not summary) or compare:
         for name in names:
             r = table.get(name)
             if diff_results is None:
@@ -1582,7 +1581,7 @@ def table(Result, results, diff_results=None, *,
             lines.append(table_entry(name, r, diff_r))
 
     # total, unless we're comparing
-    if not (compare is not None and diff_results is None):
+    if not (compare and not percent and not diff):
         r = next(iter(fold(Result, results, by=[])), None)
         if diff_results is None:
             diff_r = None
@@ -1688,8 +1687,11 @@ def main(csv_paths, *,
                             for k in Result._by + Result._fields})
 
     # find previous results?
-    if args.get('diff'):
-        _, diff_results = collect([args['diff']], defines)
+    diff_results = None
+    if args.get('diff') or args.get('percent'):
+        _, diff_results = collect(
+                [args.get('diff') or args.get('percent')],
+                defines)
         diff_results_ = []
         for r in diff_results:
             if not any(k in r and r[k].strip()
@@ -1708,8 +1710,7 @@ def main(csv_paths, *,
 
     # print table
     if not args.get('quiet'):
-        table(Result, results,
-                diff_results if args.get('diff') else None,
+        table(Result, results, diff_results,
                 by=by,
                 fields=fields,
                 sort=sort,
@@ -1744,17 +1745,21 @@ if __name__ == "__main__":
             '-d', '--diff',
             help="Specify CSV file to diff against.")
     parser.add_argument(
+            '-p', '--percent',
+            help="Specify CSV file to diff against, but only show precentage "
+                "change, not a full diff.")
+    parser.add_argument(
             '-a', '--all',
             action='store_true',
             help="Show all, not just the ones that changed.")
     parser.add_argument(
-            '-p', '--percent',
-            action='store_true',
-            help="Only show percentage change, not a full diff.")
-    parser.add_argument(
             '-c', '--compare',
             type=lambda x: tuple(v.strip() for v in x.split(',')),
             help="Compare results to the row matching this by pattern.")
+    parser.add_argument(
+            '-Y', '--summary',
+            action='store_true',
+            help="Only show the total.")
     parser.add_argument(
             '-b', '--by',
             action='append',
@@ -1814,10 +1819,6 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             help="Sort by this field, but backwards. Can include an expression "
                 "of the form field=expr.")
-    parser.add_argument(
-            '-Y', '--summary',
-            action='store_true',
-            help="Only show the total.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
