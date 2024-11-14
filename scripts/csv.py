@@ -1225,7 +1225,8 @@ def infer(fields_, results,
         by=None,
         fields=None,
         exprs=[],
-        defines=[]):
+        defines=[],
+        sort=None):
     # we only really care about the last expr for each field
     exprs = {k: expr for k, expr in exprs}
 
@@ -1250,6 +1251,11 @@ def infer(fields_, results,
     # deduplicate by/fields
     by = list(co.OrderedDict.fromkeys(by).keys())
     fields = list(co.OrderedDict.fromkeys(fields).keys())
+
+    # make sure sort fields are included
+    if sort is not None:
+        by.extend(k for k, reverse in sort
+                if k not in by and k not in fields)
 
     # find best type for all fields used by field exprs
     fields__ = set(it.chain.from_iterable(
@@ -1568,12 +1574,17 @@ def main(csv_paths, *,
 
     # separate out exprs
     exprs = [(k, v)
-            for k, v in it.chain(by or [], fields or [])
+            for k, v in it.chain(
+                by or [],
+                fields or [],
+                ((k, v) for (k, v), reverse in sort or []))
             if v is not None]
     if by is not None:
         by = [k for k, _ in by]
     if fields is not None:
         fields = [k for k, _ in fields]
+    if sort is not None:
+        sort = [(k, reverse) for (k, v), reverse in sort]
 
     if by is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
@@ -1592,7 +1603,8 @@ def main(csv_paths, *,
             by=by,
             fields=fields,
             exprs=exprs,
-            defines=defines)
+            defines=defines,
+            sort=sort)
     results_ = []
     for r in results:
         results_.append(Result(**{
@@ -1728,12 +1740,24 @@ if __name__ == "__main__":
             '-s', '--sort',
             nargs='?',
             action=AppendSort,
-            help="Sort by this field.")
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    RExpr(v) if v is not None else None)
+                )(*x.split('=', 1)),
+            help="Sort by this field. Can include an expression of the form "
+                "field=expr.")
     parser.add_argument(
             '-S', '--reverse-sort',
             nargs='?',
             action=AppendSort,
-            help="Sort by this field, but backwards.")
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    RExpr(v) if v is not None else None)
+                )(*x.split('=', 1)),
+            help="Sort by this field, but backwards. Can include an expression "
+                "of the form field=expr.")
     parser.add_argument(
             '-Y', '--summary',
             action='store_true',
