@@ -936,7 +936,7 @@ def table(Result, results, diff_results=None, *,
                          prefixes[2+is_last] + "    "))
 
     # entries
-    if not summary:
+    if not summary or compare:
         for name in names:
             r = table.get(name)
             if diff_results is None:
@@ -956,7 +956,7 @@ def table(Result, results, diff_results=None, *,
                          "    "))
 
     # total, unless we're comparing
-    if summary or not (compare is not None and diff_results is None):
+    if not (compare is not None and diff_results is None):
         r = next(iter(fold(Result, results, by=[])), None)
         if diff_results is None:
             diff_r = None

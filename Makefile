@@ -344,13 +344,13 @@ summary sizes: \
 		$(BUILDDIR)/lfs.structs.csv
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
-			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+			-fcode=size -q -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.data.csv \
-			-fdata=size -q $(SUMMARYFLAGS) -o-) \
+			-fdata=size -q -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
+			-fstack='max(limit)' -q -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
-			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
+			-fstructs=size -q -o-) \
 		-bfunction -fcode -fdata -fstack='max(stack)' -fstructs \
 		-Y $(SUMMARYFLAGS))
 
@@ -360,29 +360,32 @@ summary-diff sizes-diff: SHELL=/bin/bash
 summary-diff sizes-diff: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py \
-			<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
-			-fcode=size -q $(SUMMARYFLAGS) -o-) \
-		<(./scripts/csv.py \
-			<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
-			-fdata=size -q $(SUMMARYFLAGS) -o-) \
-		<(./scripts/csv.py \
-			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
-			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
-		<(./scripts/csv.py \
-			<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
-			-fstructs=size -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fdata -fstack='max(stack)' -fstructs \
-		-Y -p $(SUMMARYFLAGS) -d <(./scripts/csv.py \
-			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
-				-fcode=size -q $(SUMMARYFLAGS) -o-) \
-			<(./scripts/csv.py $(BUILDDIR)/lfs.data.csv \
-				-fdata=size -q $(SUMMARYFLAGS) -o-) \
-			<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-				-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
-			<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
-				-fstructs=size -q $(SUMMARYFLAGS) -o-) \
+			<(./scripts/csv.py \
+				<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
+				-fcode=size -q -o-) \
+			<(./scripts/csv.py \
+				<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
+				-fdata=size -q -o-) \
+			<(./scripts/csv.py \
+				<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
+				-fstack='max(limit)' -q -o-) \
+			<(./scripts/csv.py \
+				<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
+				-fstructs=size -q -o-) \
 			-fcode -fdata -fstack='max(stack)' -fstructs \
-			-q $(SUMMARYFLAGS) -o-))
+			-bbuild='"AFTER"' -q -o-) \
+		<(./scripts/csv.py \
+			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
+				-fcode=size -q -o-) \
+			<(./scripts/csv.py $(BUILDDIR)/lfs.data.csv \
+				-fdata=size -q -o-) \
+			<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
+				-fstack='max(limit)' -q -o-) \
+			<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
+				-fstructs=size -q -o-) \
+			-fcode -fdata -fstack='max(stack)' -fstructs \
+			-bbuild='"BEFORE"' -q -o-) \
+		-bbuild -cBEFORE -Y $(SUMMARYFLAGS))
 
 ## Build the test-runner
 .PHONY: test-runner build-tests
