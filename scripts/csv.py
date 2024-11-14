@@ -878,7 +878,12 @@ class RExpr:
     class Add(Expr):
         """Addition"""
         def eval(self, fields={}):
-            return self.a.eval(fields) + self.b.eval(fields)
+            a = self.a.eval(fields)
+            b = self.b.eval(fields)
+            if isinstance(a, str) or isinstance(b, str):
+                return str(a) + str(b)
+            else:
+                return a + b
 
     @bop('-', 9)
     class Sub(Expr):
