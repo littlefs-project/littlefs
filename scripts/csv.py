@@ -989,7 +989,11 @@ class RExpr:
     class IfElse(Expr):
         """b if a is non-zero, otherwise c"""
         def type(self, types={}):
-            return self.b.type(types)
+            t = self.b.type(types)
+            u = self.c.type(types)
+            if t != u:
+                raise RExpr.Error("mismatched types? %r" % self)
+            return t
 
         def fold(self, types={}):
             return self.b.fold(types)
