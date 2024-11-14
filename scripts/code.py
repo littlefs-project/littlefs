@@ -378,6 +378,7 @@ def table(Result, results, diff_results=None, *,
         summary=False,
         all=False,
         percent=False,
+        compare=None,
         **_):
     all_, all = all, __builtins__.all
 
@@ -409,8 +410,22 @@ def table(Result, results, diff_results=None, *,
                             getattr(diff_table.get(name), k, None))
                         for k in fields)]
 
+    # find compare entry if there is one
+    if compare is not None:
+        compare_result = table.get(','.join(str(k) for k in compare))
+
     # sort again, now with diff info, note that python's sort is stable
     names.sort()
+    if compare is not None:
+        names.sort(
+                key=lambda n: (
+                    table.get(n) == compare_result,
+                    tuple(
+                        types[k].ratio(
+                                getattr(table.get(n), k, None),
+                                getattr(compare_result, k, None))
+                            for k in fields)),
+                reverse=True)
     if diff_results is not None:
         names.sort(
                 key=lambda n: tuple(
@@ -462,14 +477,30 @@ def table(Result, results, diff_results=None, *,
     # entry helper
     def table_entry(name, r, diff_r=None):
         entry = [name]
-        if diff_results is None:
+        # normal entry?
+        if ((compare is None or r == compare_result)
+                and diff_results is None):
             for k in fields:
                 entry.append(
                         (getattr(r, k).table(),
                                 getattr(getattr(r, k), 'notes', lambda: [])())
                             if getattr(r, k, None) is not None
                             else types[k].none)
-        elif percent:
+        # compare entry?
+        elif compare is not None and diff_results is None:
+            for k in fields:
+                entry.append(
+                        (getattr(r, k).table()
+                                if getattr(r, k, None) is not None
+                                else types[k].none,
+                            (lambda t: ['+∞%'] if t == +mt.inf
+                                    else ['-∞%'] if t == -mt.inf
+                                    else ['%+.1f%%' % (100*t)])(
+                                types[k].ratio(
+                                    getattr(r, k, None),
+                                    getattr(compare_result, k, None)))))
+        # percent entry?
+        elif diff_results is not None and percent:
             for k in fields:
                 entry.append(
                         (getattr(r, k).table()
@@ -481,7 +512,8 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
-        else:
+        # diff entry?
+        elif diff_results is not None:
             for k in fields:
                 entry.append(getattr(diff_r, k).table()
                         if getattr(diff_r, k, None) is not None
@@ -514,13 +546,14 @@ def table(Result, results, diff_results=None, *,
                 diff_r = diff_table.get(name)
             lines.append(table_entry(name, r, diff_r))
 
-    # total
-    r = next(iter(fold(Result, results, by=[])), None)
-    if diff_results is None:
-        diff_r = None
-    else:
-        diff_r = next(iter(fold(Result, diff_results, by=[])), None)
-    lines.append(table_entry('TOTAL', r, diff_r))
+    # total, unless we're comparing
+    if summary or not (compare is not None and diff_results is None):
+        r = next(iter(fold(Result, results, by=[])), None)
+        if diff_results is None:
+            diff_r = None
+        else:
+            diff_r = next(iter(fold(Result, diff_results, by=[])), None)
+        lines.append(table_entry('TOTAL', r, diff_r))
 
     # homogenize
     lines = [
@@ -679,6 +712,10 @@ if __name__ == "__main__":
             '-p', '--percent',
             action='store_true',
             help="Only show percentage change, not a full diff.")
+    parser.add_argument(
+            '-c', '--compare',
+            type=lambda x: tuple(v.strip() for v in x.split(',')),
+            help="Compare results to the row matching this by pattern.")
     parser.add_argument(
             '-b', '--by',
             action='append',
