@@ -17,6 +17,7 @@ import csv
 import errno
 import fnmatch
 import itertools as it
+import functools as ft
 import math as mt
 import os
 import pty
@@ -47,6 +48,24 @@ def openio(path, mode='r', buffering=-1):
             return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
+
+# a define range
+class DRange:
+    def __init__(self, start, stop=None, step=None):
+        if stop is None:
+            start, stop = None, start
+        self.start = start if start is not None else '0'
+        self.stop = stop
+        self.step = step if step is not None else '1'
+
+    def len(self):
+        return '(((%s)-1-(%s))/(%s) + 1)' % (
+                self.stop, self.start, self.step)
+
+    def next(self, i):
+        return '((%s)*(%s) + (%s))' % (
+                i, self.step, self.start)
+
 
 class TestCase:
     # create a TestCase object from a config
@@ -111,21 +130,10 @@ class TestCase:
                 # the runner itself.
                 vs = []
                 for v_ in csplit(v):
-                    m = re.search(r'\brange\b\s*\('
-                                '(?P<start>[^,\s]*)'
-                                '\s*(?:,\s*(?P<stop>[^,\s]*)'
-                                '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
-                            v_)
+                    m = re.match(r'^\s*range\b\s*\((?P<range>.*)\)\s*$', v_)
                     if m:
-                        start = (int(m.group('start'), 0)
-                                if m.group('start') else 0)
-                        stop = (int(m.group('stop'), 0)
-                                if m.group('stop') else None)
-                        step = (int(m.group('step'), 0)
-                                if m.group('step') else 1)
-                        if m.lastindex <= 1:
-                            start, stop = 0, start
-                        vs.append(range(start, stop, step))
+                        vs.append(DRange(*[
+                                s.strip() for s in csplit(m.group('range'))]))
                     else:
                         vs.append(v_)
                 return vs
@@ -396,17 +404,21 @@ def compile(test_paths, **args):
                             j = 0
                             for v in vs:
                                 # generate range
-                                if isinstance(v, range):
-                                    f.writeln(4*' '+'if (i < %d) '
-                                            'return (i-%d)*%d + %d;' % (
-                                                j+len(v), j, v.step, v.start))
-                                    j += len(v)
+                                if isinstance(v, DRange):
+                                    f.writeln(4*' '+'if (i < %s + (%s)) '
+                                            'return %s;' % (
+                                                j, v.len(),
+                                                v.next('i-(%s)' % j)))
+                                    j = '%s + %s' % (j, v.len())
                                 # translate index to define
                                 else:
-                                    f.writeln(4*' '+'if (i == %d) '
+                                    f.writeln(4*' '+'if (i == %s) '
                                             'return %s;' % (
                                                 j, v))
-                                    j += 1;
+                                    if isinstance(j, str):
+                                        j += ' + 1'
+                                    else:
+                                        j += 1;
 
                             f.writeln(4*' '+'__builtin_unreachable();')
                             f.writeln('}')
@@ -550,13 +562,22 @@ def compile(test_paths, **args):
                                     f.writeln(20*' '+'[%d] = {'
                                             '"%s", &%s, '
                                             '__test__%s__%s__%d, '
-                                            'NULL, %d},' % (
+                                            'NULL, %s},' % (
                                                 sorted(suite.defines).index(k),
                                                 k, k, case.name, k, i,
-                                                sum(len(v)
-                                                        if isinstance(v, range)
-                                                        else 1
-                                                    for v in vs)))
+                                                ft.reduce(
+                                                    lambda x, y:
+                                                        '%s + %s' % (x, y)
+                                                            if isinstance(
+                                                                    x, str)
+                                                                or isinstance(
+                                                                    y, str)
+                                                            else x + y,
+                                                    (v.len()
+                                                            if isinstance(
+                                                                v, DRange)
+                                                            else 1
+                                                        for v in vs))))
                                 f.writeln(16*' '+'},')
                             f.writeln(12*' '+'},')
                             f.writeln(12*' '+'.permutations = %d,' % (
