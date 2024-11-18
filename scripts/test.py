@@ -1207,7 +1207,8 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                 daemon=True))
 
     def print_update(done):
-        if (not args.get('verbose')
+        if (not args.get('quiet')
+                and not args.get('verbose')
                 and not args.get('stdout') == '-'
                 and (args['color'] or done)):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
@@ -1268,8 +1269,9 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
 
 def run(runner, test_ids=[], **args):
     # query runner for tests
-    print('using runner: %s' % ' '.join(
-            shlex.quote(c) for c in find_runner(runner, **args)))
+    if not args.get('quiet'):
+        print('using runner: %s' % ' '.join(
+                shlex.quote(c) for c in find_runner(runner, **args)))
 
     # query ids, perms, etc
     test_ids = find_ids(runner, test_ids, **args)
@@ -1278,12 +1280,13 @@ def run(runner, test_ids=[], **args):
             expected_case_perms,
             expected_perms,
             total_perms) = find_perms(runner, test_ids, **args)
-    print('found %d suites, %d cases, %d/%d permutations' % (
-            len(expected_suite_perms),
-            len(expected_case_perms),
-            expected_perms,
-            total_perms))
-    print()
+    if not args.get('quiet'):
+        print('found %d suites, %d cases, %d/%d permutations' % (
+                len(expected_suite_perms),
+                len(expected_case_perms),
+                expected_perms,
+                total_perms))
+        print()
 
     # automatic job detection?
     if args.get('jobs') == 0:
@@ -1355,17 +1358,18 @@ def run(runner, test_ids=[], **args):
         output.close()
 
     # show summary
-    print()
-    print('%sdone:%s %s' % (
-            ('\x1b[32m' if not failed else '\x1b[31m')
-                if args['color'] else '',
-            '\x1b[m' if args['color'] else '',
-            ', '.join(filter(None, [
-                '%d/%d passed' % (passed, expected),
-                '%d/%d failed' % (failed, expected),
-                '%dpls!' % powerlosses if powerlosses else None,
-                'in %.2fs' % (stop-start)]))))
-    print()
+    if not args.get('quiet'):
+        print()
+        print('%sdone:%s %s' % (
+                ('\x1b[32m' if not failed else '\x1b[31m')
+                    if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                ', '.join(filter(None, [
+                    '%d/%d passed' % (passed, expected),
+                    '%d/%d failed' % (failed, expected),
+                    '%dpls!' % powerlosses if powerlosses else None,
+                    'in %.2fs' % (stop-start)]))))
+        print()
 
     # print each failure
     for failure in failures[:args.get('failures', 3)]:
@@ -1521,6 +1525,10 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Show nothing except for test failures.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
