@@ -54,17 +54,18 @@ class DRange:
     def __init__(self, start, stop=None, step=None):
         if stop is None:
             start, stop = None, start
-        self.start = start if start is not None else '0'
+        self.start = start if start is not None else 0
         self.stop = stop
-        self.step = step if step is not None else '1'
+        self.step = step if step is not None else 1
 
-    def len(self):
-        return '(((%s)-1-(%s))/(%s) + 1)' % (
-                self.stop, self.start, self.step)
+    def __len__(self):
+        if self.step > 0:
+            return (self.stop-1 - self.start) // self.step + 1
+        else:
+            return (self.start-1 - self.stop) // -self.step + 1
 
     def next(self, i):
-        return '((%s)*(%s) + (%s))' % (
-                i, self.step, self.start)
+        return '(%s)*%d + %d' % (i, self.step, self.start)
 
 
 class TestCase:
@@ -130,10 +131,10 @@ class TestCase:
                 # the runner itself.
                 vs = []
                 for v_ in csplit(v):
-                    m = re.match(r'^\s*range\b\s*\((?P<range>.*)\)\s*$', v_)
+                    m = re.match(r'^\s*range\s*\((.*)\)\s*$', v_)
                     if m:
                         vs.append(DRange(*[
-                                s.strip() for s in csplit(m.group('range'))]))
+                                int(a, 0) for a in csplit(m.group(1))]))
                     else:
                         vs.append(v_)
                 return vs
@@ -405,20 +406,16 @@ def compile(test_paths, **args):
                             for v in vs:
                                 # generate range
                                 if isinstance(v, DRange):
-                                    f.writeln(4*' '+'if (i < %s + (%s)) '
+                                    f.writeln(4*' '+'if (i < %d) '
                                             'return %s;' % (
-                                                j, v.len(),
-                                                v.next('i-(%s)' % j)))
-                                    j = '%s + %s' % (j, v.len())
+                                                j+len(v), v.next('i-%d' % j)))
+                                    j += len(v)
                                 # translate index to define
                                 else:
-                                    f.writeln(4*' '+'if (i == %s) '
+                                    f.writeln(4*' '+'if (i == %d) '
                                             'return %s;' % (
                                                 j, v))
-                                    if isinstance(j, str):
-                                        j += ' + 1'
-                                    else:
-                                        j += 1;
+                                    j += 1
 
                             f.writeln(4*' '+'__builtin_unreachable();')
                             f.writeln('}')
@@ -562,22 +559,14 @@ def compile(test_paths, **args):
                                     f.writeln(20*' '+'[%d] = {'
                                             '"%s", &%s, '
                                             '__test__%s__%s__%d, '
-                                            'NULL, %s},' % (
+                                            'NULL, %d},' % (
                                                 sorted(suite.defines).index(k),
                                                 k, k, case.name, k, i,
-                                                ft.reduce(
-                                                    lambda x, y:
-                                                        '%s + %s' % (x, y)
-                                                            if isinstance(
-                                                                    x, str)
-                                                                or isinstance(
-                                                                    y, str)
-                                                            else x + y,
-                                                    (v.len()
-                                                            if isinstance(
-                                                                v, DRange)
-                                                            else 1
-                                                        for v in vs))))
+                                                sum(len(v)
+                                                        if isinstance(
+                                                            v, DRange)
+                                                        else 1
+                                                    for v in vs)))
                                 f.writeln(16*' '+'},')
                             f.writeln(12*' '+'},')
                             f.writeln(12*' '+'.permutations = %d,' % (
