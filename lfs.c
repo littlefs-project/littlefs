@@ -282,6 +282,21 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
 
 
 /// Small type-level utilities ///
+
+// some operations on paths
+static inline lfs_size_t lfs_path_namelen(const char *path) {
+    return strcspn(path, "/");
+}
+
+static inline bool lfs_path_islast(const char *path) {
+    lfs_size_t namelen = lfs_path_namelen(path);
+    return path[namelen + strspn(path + namelen, "/")] == '\0';
+}
+
+static inline bool lfs_path_isdir(const char *path) {
+    return path[lfs_path_namelen(path)] != '\0';
+}
+
 // operations on block pairs
 static inline void lfs_pair_swap(lfs_block_t pair[2]) {
     lfs_block_t t = pair[0];
@@ -1461,13 +1476,16 @@ static int lfs_dir_find_match(void *data,
     return LFS_CMP_EQ;
 }
 
+// lfs_dir_find tries to set path and id even if file is not found
+//
+// returns:
+// - 0                  if file is found
+// - LFS_ERR_NOENT      if file or parent is not found
+// - LFS_ERR_NOTDIR     if parent is not a dir
 static lfs_stag_t lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
         const char **path, uint16_t *id) {
     // we reduce path to a single name if we can find it
     const char *name = *path;
-    if (id) {
-        *id = 0x3ff;
-    }
 
     // default to root dir
     lfs_stag_t tag = LFS_MKTAG(LFS_TYPE_DIR, 0x3ff, 0);
@@ -1476,8 +1494,10 @@ static lfs_stag_t lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
 
     while (true) {
 nextname:
-        // skip slashes
-        name += strspn(name, "/");
+        // skip slashes if we're a directory
+        if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
+            name += strspn(name, "/");
+        }
         lfs_size_t namelen = strcspn(name, "/");
 
         // skip '.' and root '..'
@@ -1519,7 +1539,7 @@ nextname:
         // update what we've found so far
         *path = name;
 
-        // only continue if we hit a directory
+        // only continue if we're a directory
         if (lfs_tag_type3(tag) != LFS_TYPE_DIR) {
             return LFS_ERR_NOTDIR;
         }
@@ -1539,8 +1559,7 @@ nextname:
             tag = lfs_dir_fetchmatch(lfs, dir, dir->tail,
                     LFS_MKTAG(0x780, 0, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, namelen),
-                     // are we last name?
-                    (strchr(name, '/') == NULL) ? id : NULL,
+                    id,
                     lfs_dir_find_match, &(struct lfs_dir_find_match){
                         lfs, name, namelen});
             if (tag < 0) {
@@ -2603,12 +2622,12 @@ static int lfs_mkdir_(lfs_t *lfs, const char *path) {
     cwd.next = lfs->mlist;
     uint16_t id;
     err = lfs_dir_find(lfs, &cwd.m, &path, &id);
-    if (!(err == LFS_ERR_NOENT && id != 0x3ff)) {
+    if (!(err == LFS_ERR_NOENT && lfs_path_islast(path))) {
         return (err < 0) ? err : LFS_ERR_EXIST;
     }
 
     // check that name fits
-    lfs_size_t nlen = strlen(path);
+    lfs_size_t nlen = lfs_path_namelen(path);
     if (nlen > lfs->name_max) {
         return LFS_ERR_NAMETOOLONG;
     }
@@ -3057,7 +3076,7 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
 
     // allocate entry for file if it doesn't exist
     lfs_stag_t tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
-    if (tag < 0 && !(tag == LFS_ERR_NOENT && file->id != 0x3ff)) {
+    if (tag < 0 && !(tag == LFS_ERR_NOENT && lfs_path_islast(path))) {
         err = tag;
         goto cleanup;
     }
@@ -3077,8 +3096,14 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
             goto cleanup;
         }
 
+        // don't allow trailing slashes
+        if (lfs_path_isdir(path)) {
+            err = LFS_ERR_ISDIR;
+            goto cleanup;
+        }
+
         // check that name fits
-        lfs_size_t nlen = strlen(path);
+        lfs_size_t nlen = lfs_path_namelen(path);
         if (nlen > lfs->name_max) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
@@ -3842,6 +3867,12 @@ static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info) {
         return (int)tag;
     }
 
+    // only allow trailing slashes on dirs
+    if (strchr(path, '/') != NULL
+            && lfs_tag_type3(tag) != LFS_TYPE_DIR) {
+        return LFS_ERR_NOTDIR;
+    }
+
     return lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
 }
 
@@ -3944,7 +3975,7 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
     uint16_t newid;
     lfs_stag_t prevtag = lfs_dir_find(lfs, &newcwd, &newpath, &newid);
     if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
-            !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
+            !(prevtag == LFS_ERR_NOENT && lfs_path_islast(newpath))) {
         return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
     }
 
@@ -3955,8 +3986,14 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
     struct lfs_mlist prevdir;
     prevdir.next = lfs->mlist;
     if (prevtag == LFS_ERR_NOENT) {
+        // if we're a file, don't allow trailing slashes
+        if (lfs_path_isdir(newpath)
+                && lfs_tag_type3(oldtag) != LFS_TYPE_DIR) {
+            return LFS_ERR_NOTDIR;
+        }
+
         // check that name fits
-        lfs_size_t nlen = strlen(newpath);
+        lfs_size_t nlen = lfs_path_namelen(newpath);
         if (nlen > lfs->name_max) {
             return LFS_ERR_NAMETOOLONG;
         }
@@ -4016,7 +4053,8 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
             {LFS_MKTAG_IF(prevtag != LFS_ERR_NOENT,
                 LFS_TYPE_DELETE, newid, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0), NULL},
-            {LFS_MKTAG(lfs_tag_type3(oldtag), newid, strlen(newpath)), newpath},
+            {LFS_MKTAG(lfs_tag_type3(oldtag),
+                newid, lfs_path_namelen(newpath)), newpath},
             {LFS_MKTAG(LFS_FROM_MOVE, newid, lfs_tag_id(oldtag)), &oldcwd},
             {LFS_MKTAG_IF(samepair,
                 LFS_TYPE_DELETE, newoldid, 0), NULL}));
