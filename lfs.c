@@ -1500,11 +1500,15 @@ nextname:
         }
         lfs_size_t namelen = strcspn(name, "/");
 
-        // skip '.' and root '..'
-        if ((namelen == 1 && memcmp(name, ".", 1) == 0) ||
-            (namelen == 2 && memcmp(name, "..", 2) == 0)) {
+        // skip '.'
+        if (namelen == 1 && memcmp(name, ".", 1) == 0) {
             name += namelen;
             goto nextname;
+        }
+
+        // error on unmatched '..', trying to go above root?
+        if (namelen == 2 && memcmp(name, "..", 2) == 0) {
+            return LFS_ERR_INVAL;
         }
 
         // skip if matched by '..' in name
