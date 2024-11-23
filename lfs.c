@@ -1522,7 +1522,9 @@ nextname:
                 break;
             }
 
-            if (sufflen == 2 && memcmp(suffix, "..", 2) == 0) {
+            if (sufflen == 1 && memcmp(suffix, ".", 1) == 0) {
+                // noop
+            } else if (sufflen == 2 && memcmp(suffix, "..", 2) == 0) {
                 depth -= 1;
                 if (depth == 0) {
                     name = suffix + sufflen;

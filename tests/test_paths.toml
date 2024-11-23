@@ -1846,6 +1846,198 @@ code = '''
 '''
 
 # dot dot dot path tests
+[cases.test_paths_dot_dotdots]
+defines.DIR = [false, true]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+
+    // create paths
+    lfs_mkdir(&lfs, "no") => 0;
+    lfs_mkdir(&lfs, "no/no") => 0;
+    lfs_mkdir(&lfs, "coffee") => 0;
+    lfs_mkdir(&lfs, "coffee/no") => 0;
+    if (DIR) {
+        lfs_mkdir(&lfs, "/coffee/drip") => 0;
+        lfs_mkdir(&lfs, "/no/./../coffee/coldbrew") => 0;
+        lfs_mkdir(&lfs, "/coffee/no/./../turkish") => 0;
+        lfs_mkdir(&lfs, "/no/no/./.././../coffee/tubruk") => 0;
+        lfs_mkdir(&lfs, "/no/no/./.././../coffee/no/./../vietnamese") => 0;
+        lfs_mkdir(&lfs, "/no/no/./.././../no/no/./.././../coffee/thai") => 0;
+    } else {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "/coffee/drip",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/./../coffee/coldbrew",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/coffee/no/./../turkish",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../coffee/tubruk",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../coffee/no/./../vietnamese",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../no/no/./.././../coffee/thai",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+
+    // stat paths
+    struct lfs_info info;
+    lfs_stat(&lfs, "/no/no/./.././../no/no/./.././../coffee/drip", &info) => 0;
+    assert(strcmp(info.name, "drip") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/no/no/./.././../coffee/no/./../coldbrew", &info) => 0;
+    assert(strcmp(info.name, "coldbrew") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/no/no/./.././../coffee/turkish", &info) => 0;
+    assert(strcmp(info.name, "turkish") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/coffee/no/./../tubruk", &info) => 0;
+    assert(strcmp(info.name, "tubruk") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/no/./../coffee/vietnamese", &info) => 0;
+    assert(strcmp(info.name, "vietnamese") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/coffee/thai", &info) => 0;
+    assert(strcmp(info.name, "thai") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+
+    // file open paths, only works on files!
+    if (DIR) {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "/coffee/drip",
+                LFS_O_RDONLY) => LFS_ERR_ISDIR;
+        lfs_file_open(&lfs, &file, "/no/./../coffee/coldbrew",
+                LFS_O_RDONLY) => LFS_ERR_ISDIR;
+        lfs_file_open(&lfs, &file, "/coffee/no/./../turkish",
+                LFS_O_RDONLY) => LFS_ERR_ISDIR;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../coffee/tubruk",
+                LFS_O_RDONLY) => LFS_ERR_ISDIR;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../coffee/no/./../vietnamese",
+                LFS_O_RDONLY) => LFS_ERR_ISDIR;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../no/no/./.././../coffee/thai",
+                LFS_O_RDONLY) => LFS_ERR_ISDIR;
+    } else {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "/coffee/drip",
+                LFS_O_RDONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/./../coffee/coldbrew",
+                LFS_O_RDONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/coffee/no/./../turkish",
+                LFS_O_RDONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../coffee/tubruk",
+                LFS_O_RDONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../coffee/no/./../vietnamese",
+                LFS_O_RDONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_file_open(&lfs, &file, "/no/no/./.././../no/no/./.././../coffee/thai",
+                LFS_O_RDONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+
+    // dir open paths, only works on dirs!
+    if (DIR) {
+        lfs_dir_t dir;
+        lfs_dir_open(&lfs, &dir, "/coffee/drip") => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_dir_open(&lfs, &dir, "/no/./../coffee/coldbrew") => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_dir_open(&lfs, &dir, "/coffee/no/./../turkish") => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_dir_open(&lfs, &dir, "/no/no/./.././../coffee/tubruk") => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_dir_open(&lfs, &dir, "/no/no/./.././../coffee/no/./../vietnamese") => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_dir_open(&lfs, &dir, "/no/no/./.././../no/no/./.././../coffee/thai") => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+    } else {
+        lfs_dir_t dir;
+        lfs_dir_open(&lfs, &dir, "/coffee/drip") => LFS_ERR_NOTDIR;
+        lfs_dir_open(&lfs, &dir, "/no/./../coffee/coldbrew") => LFS_ERR_NOTDIR;
+        lfs_dir_open(&lfs, &dir, "/coffee/no/./../turkish") => LFS_ERR_NOTDIR;
+        lfs_dir_open(&lfs, &dir, "/no/no/./.././../coffee/tubruk") => LFS_ERR_NOTDIR;
+        lfs_dir_open(&lfs, &dir, "/no/no/./.././../coffee/no/./../vietnamese") => LFS_ERR_NOTDIR;
+        lfs_dir_open(&lfs, &dir, "/no/no/./.././../no/no/./.././../coffee/thai") => LFS_ERR_NOTDIR;
+    }
+
+    // rename paths
+    lfs_mkdir(&lfs, "espresso") => 0;
+    lfs_rename(&lfs,
+            "/no/no/./.././../no/no/./.././../coffee/drip",
+            "/espresso/espresso") => 0;
+    lfs_rename(&lfs,
+            "/no/no/./.././../coffee/no/./../coldbrew",
+            "/no/./../espresso/americano") => 0;
+    lfs_rename(&lfs,
+            "/no/no/./.././../coffee/turkish",
+            "/espresso/no/./../macchiato") => 0;
+    lfs_rename(&lfs,
+            "/coffee/no/./../tubruk",
+            "/no/no/./.././../espresso/latte") => 0;
+    lfs_rename(&lfs,
+            "/no/./../coffee/vietnamese",
+            "/no/no/./.././../espresso/no/./../cappuccino") => 0;
+    lfs_rename(&lfs,
+            "/coffee/thai",
+            "/no/no/./.././../no/no/./.././../espresso/mocha") => 0;
+
+    // stat paths
+    lfs_stat(&lfs, "/no/no/./.././../no/no/./.././../espresso/espresso", &info) => 0;
+    assert(strcmp(info.name, "espresso") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/no/no/./.././../espresso/no/./../americano", &info) => 0;
+    assert(strcmp(info.name, "americano") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/no/no/./.././../espresso/macchiato", &info) => 0;
+    assert(strcmp(info.name, "macchiato") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/espresso/no/./../latte", &info) => 0;
+    assert(strcmp(info.name, "latte") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/no/./../espresso/cappuccino", &info) => 0;
+    assert(strcmp(info.name, "cappuccino") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+    lfs_stat(&lfs, "/espresso/mocha", &info) => 0;
+    assert(strcmp(info.name, "mocha") == 0);
+    assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
+
+    lfs_stat(&lfs, "/no/no/./.././../no/no/./.././../coffee/drip", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/no/no/./.././../coffee/no/./../coldbrew", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/no/no/./.././../coffee/turkish", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/coffee/no/./../tubruk", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/no/./../coffee/vietnamese", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/coffee/thai", &info) => LFS_ERR_NOENT;
+
+    // remove paths
+    lfs_remove(&lfs, "/espresso/espresso") => 0;
+    lfs_remove(&lfs, "/no/./../espresso/americano") => 0;
+    lfs_remove(&lfs, "/espresso/no/./../macchiato") => 0;
+    lfs_remove(&lfs, "/no/no/./.././../espresso/latte") => 0;
+    lfs_remove(&lfs, "/no/no/./.././../espresso/no/./../cappuccino") => 0;
+    lfs_remove(&lfs, "/no/no/./.././../no/no/./.././../espresso/mocha") => 0;
+
+    // stat paths
+    lfs_stat(&lfs, "/no/no/./.././../no/no/./.././../espresso/espresso", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/no/no/./.././../espresso/no/./../americano", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/no/no/./.././../espresso/macchiato", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/espresso/no/./../latte", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/no/./../espresso/cappuccino", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "/espresso/mocha", &info) => LFS_ERR_NOENT;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+# dot dot dot path tests
 [cases.test_paths_dotdotdots]
 defines.DIR = [false, true]
 code = '''
