@@ -3216,6 +3216,58 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# test an empty path, this should error
+[cases.test_paths_empty]
+defines.DIR = [false, true]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_info info;
+
+    // create empty, this should error
+    if (DIR) {
+        lfs_mkdir(&lfs, "") => LFS_ERR_INVAL;
+    } else {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "",
+                LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_INVAL;
+    }
+
+    // stat empty
+    lfs_stat(&lfs, "", &info) => LFS_ERR_INVAL;
+
+    // file open empty, only works on files!
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "",
+            LFS_O_RDONLY) => LFS_ERR_INVAL;
+
+    // dir open empty, only works on dirs!
+    lfs_dir_t dir;
+    lfs_dir_open(&lfs, &dir, "") => LFS_ERR_INVAL;
+    lfs_dir_close(&lfs, &dir) => 0;
+
+    // rename empty, this should error
+    lfs_rename(&lfs, "", "coffee") => LFS_ERR_INVAL;
+
+    lfs_mkdir(&lfs, "coffee") => 0;
+    lfs_rename(&lfs, "coffee", "") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "coffee") => 0;
+
+    lfs_rename(&lfs, "", "") => LFS_ERR_INVAL;
+
+    // stat empty
+    lfs_stat(&lfs, "", &info) => LFS_ERR_INVAL;
+
+    // remove empty, this should error
+    lfs_remove(&lfs, "") => LFS_ERR_INVAL;
+
+    // stat empty
+    lfs_stat(&lfs, "", &info) => LFS_ERR_INVAL;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
 # root operations
 #
 # POSIX deviations:
@@ -3294,7 +3346,6 @@ code = '''
     // create root, this should error
     if (DIR) {
         lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
-        lfs_mkdir(&lfs, "") => LFS_ERR_EXIST;
         lfs_mkdir(&lfs, ".") => LFS_ERR_EXIST;
         lfs_mkdir(&lfs, "./") => LFS_ERR_EXIST;
         lfs_mkdir(&lfs, "/.") => LFS_ERR_EXIST;
@@ -3302,8 +3353,6 @@ code = '''
     } else {
         lfs_file_t file;
         lfs_file_open(&lfs, &file, "/",
-                LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
-        lfs_file_open(&lfs, &file, "",
                 LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
         lfs_file_open(&lfs, &file, ".",
                 LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_ISDIR;
@@ -3317,9 +3366,6 @@ code = '''
 
     // stat root
     lfs_stat(&lfs, "/", &info) => 0;
-    assert(strcmp(info.name, "/") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    lfs_stat(&lfs, "", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfs_stat(&lfs, ".", &info) => 0;
@@ -3339,8 +3385,6 @@ code = '''
     lfs_file_t file;
     lfs_file_open(&lfs, &file, "/",
             LFS_O_RDONLY) => LFS_ERR_ISDIR;
-    lfs_file_open(&lfs, &file, "",
-            LFS_O_RDONLY) => LFS_ERR_ISDIR;
     lfs_file_open(&lfs, &file, ".",
             LFS_O_RDONLY) => LFS_ERR_ISDIR;
     lfs_file_open(&lfs, &file, "./",
@@ -3354,8 +3398,6 @@ code = '''
     lfs_dir_t dir;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_close(&lfs, &dir) => 0;
-    lfs_dir_open(&lfs, &dir, "") => 0;
-    lfs_dir_close(&lfs, &dir) => 0;
     lfs_dir_open(&lfs, &dir, ".") => 0;
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_dir_open(&lfs, &dir, "./") => 0;
@@ -3367,7 +3409,6 @@ code = '''
 
     // rename root, this should error
     lfs_rename(&lfs, "/", "coffee") => LFS_ERR_INVAL;
-    lfs_rename(&lfs, "", "coffee") => LFS_ERR_INVAL;
     lfs_rename(&lfs, ".", "coffee") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "./", "coffee") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "/.", "coffee") => LFS_ERR_INVAL;
@@ -3375,7 +3416,6 @@ code = '''
 
     lfs_mkdir(&lfs, "coffee") => 0;
     lfs_rename(&lfs, "coffee", "/") => LFS_ERR_INVAL;
-    lfs_rename(&lfs, "coffee", "") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "coffee", ".") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "coffee", "./") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "coffee", "/.") => LFS_ERR_INVAL;
@@ -3383,7 +3423,6 @@ code = '''
     lfs_remove(&lfs, "coffee") => 0;
 
     lfs_rename(&lfs, "/", "/") => LFS_ERR_INVAL;
-    lfs_rename(&lfs, "", "") => LFS_ERR_INVAL;
     lfs_rename(&lfs, ".", ".") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "..", "..") => LFS_ERR_INVAL;
     lfs_rename(&lfs, "./", "./") => LFS_ERR_INVAL;
@@ -3392,9 +3431,6 @@ code = '''
 
     // stat root
     lfs_stat(&lfs, "/", &info) => 0;
-    assert(strcmp(info.name, "/") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    lfs_stat(&lfs, "", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfs_stat(&lfs, ".", &info) => 0;
@@ -3412,7 +3448,6 @@ code = '''
 
     // remove root, this should error
     lfs_remove(&lfs, "/") => LFS_ERR_INVAL;
-    lfs_remove(&lfs, "") => LFS_ERR_INVAL;
     lfs_remove(&lfs, ".") => LFS_ERR_INVAL;
     lfs_remove(&lfs, "./") => LFS_ERR_INVAL;
     lfs_remove(&lfs, "/.") => LFS_ERR_INVAL;
@@ -3420,9 +3455,6 @@ code = '''
 
     // stat root
     lfs_stat(&lfs, "/", &info) => 0;
-    assert(strcmp(info.name, "/") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    lfs_stat(&lfs, "", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfs_stat(&lfs, ".", &info) => 0;

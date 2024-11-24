@@ -1492,6 +1492,11 @@ static lfs_stag_t lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
     dir->tail[0] = lfs->root[0];
     dir->tail[1] = lfs->root[1];
 
+    // empty paths are not allowed
+    if (*name == '\0') {
+        return LFS_ERR_INVAL;
+    }
+
     while (true) {
 nextname:
         // skip slashes if we're a directory
@@ -1538,7 +1543,7 @@ nextname:
         }
 
         // found path
-        if (name[0] == '\0') {
+        if (*name == '\0') {
             return tag;
         }
 
