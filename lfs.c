@@ -3109,7 +3109,7 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
 
         // don't allow trailing slashes
         if (lfs_path_isdir(path)) {
-            err = LFS_ERR_ISDIR;
+            err = LFS_ERR_NOTDIR;
             goto cleanup;
         }
 
