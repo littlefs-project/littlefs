@@ -30,21 +30,21 @@ jobs:
           fetch-depth: 0
 
       # try to get results from tests
-      - uses: dawidd6/action-download-artifact@v2
+      - uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
           workflow: ${{github.event.workflow_run.name}}
           run_id: ${{github.event.workflow_run.id}}
           name: sizes
           path: sizes
-      - uses: dawidd6/action-download-artifact@v2
+      - uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
           workflow: ${{github.event.workflow_run.name}}
           run_id: ${{github.event.workflow_run.id}}
           name: cov
           path: cov
-      - uses: dawidd6/action-download-artifact@v2
+      - uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:
           workflow: ${{github.event.workflow_run.name}}
