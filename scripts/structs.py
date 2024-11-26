@@ -128,22 +128,23 @@ class RInt(co.namedtuple('RInt', 'x')):
 # struct size results
 class StructResult(co.namedtuple('StructResult', [
         'file', 'struct',
-        'size',
+        'size', 'align',
         'children'])):
     _by = ['file', 'struct']
-    _fields = ['size']
-    _sort = ['size']
-    _types = {'size': RInt}
+    _fields = ['size', 'align']
+    _sort = ['size', 'align']
+    _types = {'size': RInt, 'align': RInt}
 
     __slots__ = ()
-    def __new__(cls, file='', struct='', size=0, children=[]):
+    def __new__(cls, file='', struct='', size=0, align=0, children=[]):
         return super().__new__(cls, file, struct,
-                RInt(size),
+                RInt(size), RInt(align),
                 children or [])
 
     def __add__(self, other):
         return StructResult(self.file, self.struct,
                 self.size + other.size,
+                max(self.align, other.align),
                 self.children + other.children)
 
 
@@ -235,6 +236,14 @@ def collect_dwarf_info(obj_path, filter=None, *,
 
         def __contains__(self, k):
             return k in self.ats
+
+        def __repr__(self):
+            return '%s(%d, 0x%x, %r, %r)' % (
+                    self.__class__.__name__,
+                    self.level,
+                    self.off,
+                    self.tag,
+                    self.ats)
 
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
@@ -357,6 +366,28 @@ def collect(obj_paths, *,
                     assert False
             size = sizeof(entry)
 
+            # find alignment, recursing if necessary
+            #
+            # Dwarf doesn't seem to give us this info, so we infer it from
+            # the size of children pointer/base types. This is _usually_
+            # correct.
+            def alignof(entry):
+                # pointer/base type? assume this size == alignment
+                if entry.tag in {
+                        'DW_TAG_pointer_type',
+                        'DW_TAG_base_type'}:
+                    return int(entry['DW_AT_byte_size'])
+                # indirect type?
+                elif 'DW_AT_type' in entry:
+                    type = int(entry['DW_AT_type'].strip('<>'), 0)
+                    return alignof(info[type])
+                # struct/union probably
+                elif entry.children:
+                    return max(alignof(child) for child in entry.children)
+                else:
+                    assert False
+            align = alignof(entry)
+
             # find children, recursing if necessary
             def childrenof(entry):
                 # pointer? these end up recursive but the underlying
@@ -367,12 +398,14 @@ def collect(obj_paths, *,
                 elif 'DW_AT_type' in entry:
                     type = int(entry['DW_AT_type'].strip('<>'), 0)
                     return childrenof(info[type])
+                # struct/union probably
                 else:
                     children = []
                     for child in entry.children:
                         name = child['DW_AT_name'].split(':')[-1].strip()
                         size = sizeof(child)
-                        children.append(StructResult(file, name, size,
+                        align = alignof(child)
+                        children.append(StructResult(file, name, size, align,
                                 childrenof(child)))
                     return children
             children = childrenof(entry)
@@ -380,10 +413,10 @@ def collect(obj_paths, *,
             # typdefs exist in a separate namespace, so we need to track
             # these separately
             if entry.tag == 'DW_TAG_typedef':
-                typedefs[no] = StructResult(file, name, size, children)
+                typedefs[no] = StructResult(file, name, size, align, children)
                 typedefed.add(int(entry['DW_AT_type'].strip('<>'), 0))
             else:
-                types[no] = StructResult(file, name, size, children)
+                types[no] = StructResult(file, name, size, align, children)
 
         # let typedefs take priority
         results.extend(typedefs.values())
