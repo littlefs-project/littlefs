@@ -380,6 +380,9 @@ def table(Result, results, diff_results=None, *,
         all=False,
         compare=None,
         summary=False,
+        depth=1,
+        hot=None,
+        detect_cycles=True,
         **_):
     all_, all = all, __builtins__.all
 
@@ -393,6 +396,35 @@ def table(Result, results, diff_results=None, *,
     results = fold(Result, results, by=by)
     if diff_results is not None:
         diff_results = fold(Result, diff_results, by=by)
+
+    # reduce children to hot paths?
+    if hot:
+        def rec_hot(results_, seen=set()):
+            if not results_:
+                return []
+
+            r = max(results_,
+                    key=lambda r: tuple(
+                        tuple((getattr(r, k),)
+                                    if getattr(r, k, None) is not None
+                                    else ()
+                                for k in (
+                                    [k] if k else [
+                                        k for k in Result._sort
+                                            if k in fields])
+                                if k in fields)
+                            for k in it.chain(hot, [None])))
+
+            # found a cycle?
+            if (detect_cycles
+                    and tuple(getattr(r, k) for k in Result._by) in seen):
+                return []
+
+            return [r._replace(children=[])] + rec_hot(
+                    r.children,
+                    seen | {tuple(getattr(r, k) for k in Result._by)})
+
+        results = [r._replace(children=rec_hot(r.children)) for r in results]
 
     # organize by name
     table = {
@@ -535,6 +567,59 @@ def table(Result, results, diff_results=None, *,
                                     getattr(diff_r, k, None)))))
         return entry
 
+    # recursive entry helper, only used by some scripts
+    def recurse(results_, depth_, seen=set(),
+            prefixes=('', '', '', '')):
+        # build the children table at each layer
+        results_ = fold(Result, results_, by=by)
+        table_ = {
+                ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+        names_ = list(table_.keys())
+
+        # sort the children layer
+        names_.sort()
+        if sort:
+            for k, reverse in reversed(sort):
+                names_.sort(
+                        key=lambda n: tuple(
+                            (getattr(table_[n], k),)
+                                    if getattr(table_.get(n), k, None)
+                                        is not None
+                                    else ()
+                                for k in (
+                                    [k] if k else [
+                                        k for k in Result._sort
+                                            if k in fields])),
+                        reverse=reverse ^ (not k or k in Result._fields))
+
+        for i, name in enumerate(names_):
+            r = table_[name]
+            is_last = (i == len(names_)-1)
+
+            line = table_entry(name, r)
+            line = [x if isinstance(x, tuple) else (x, []) for x in line]
+            # add prefixes
+            line[0] = (prefixes[0+is_last] + line[0][0], line[0][1])
+            # add cycle detection
+            if detect_cycles and name in seen:
+                line[-1] = (line[-1][0], line[-1][1] + ['cycle detected'])
+            lines.append(line)
+
+            # found a cycle?
+            if detect_cycles and name in seen:
+                continue
+
+            # recurse?
+            if depth_ > 1:
+                recurse(r.children,
+                        depth_-1,
+                        seen | {name},
+                        (prefixes[2+is_last] + "|-> ",
+                         prefixes[2+is_last] + "'-> ",
+                         prefixes[2+is_last] + "|   ",
+                         prefixes[2+is_last] + "    "))
+
     # entries
     if (not summary) or compare:
         for name in names:
@@ -544,6 +629,16 @@ def table(Result, results, diff_results=None, *,
             else:
                 diff_r = diff_table.get(name)
             lines.append(table_entry(name, r, diff_r))
+
+            # recursive entries
+            if name in table and depth > 1:
+                recurse(table[name].children,
+                        depth-1,
+                        {name},
+                        ("|-> ",
+                         "'-> ",
+                         "|   ",
+                         "    "))
 
     # total, unless we're comparing
     if not (compare and not percent and not diff):

@@ -660,8 +660,9 @@ def table(Result, results, diff_results=None, *,
         all=False,
         compare=None,
         summary=False,
-        depth=None,
+        depth=1,
         hot=None,
+        detect_cycles=True,
         **_):
     all_, all = all, __builtins__.all
 
@@ -695,7 +696,8 @@ def table(Result, results, diff_results=None, *,
                             for k in it.chain(hot, [None])))
 
             # found a cycle?
-            if tuple(getattr(r, k) for k in Result._by) in seen:
+            if (detect_cycles
+                    and tuple(getattr(r, k) for k in Result._by) in seen):
                 return []
 
             return [r._replace(children=[])] + rec_hot(
@@ -717,9 +719,9 @@ def table(Result, results, diff_results=None, *,
                 or all_
                 or any(
                     types[k].ratio(
-                        getattr(table.get(name), k, None),
-                        getattr(diff_table.get(name), k, None))
-                    for k in fields)]
+                            getattr(table.get(name), k, None),
+                            getattr(diff_table.get(name), k, None))
+                        for k in fields)]
 
     # find compare entry if there is one
     if compare:
@@ -845,7 +847,7 @@ def table(Result, results, diff_results=None, *,
                                     getattr(diff_r, k, None)))))
         return entry
 
-    # recursive entry helper
+    # recursive entry helper, only used by some scripts
     def recurse(results_, depth_, seen=set(),
             prefixes=('', '', '', '')):
         # build the children table at each layer
@@ -880,12 +882,12 @@ def table(Result, results, diff_results=None, *,
             # add prefixes
             line[0] = (prefixes[0+is_last] + line[0][0], line[0][1])
             # add cycle detection
-            if name in seen:
+            if detect_cycles and name in seen:
                 line[-1] = (line[-1][0], line[-1][1] + ['cycle detected'])
             lines.append(line)
 
             # found a cycle?
-            if name in seen:
+            if detect_cycles and name in seen:
                 continue
 
             # recurse?

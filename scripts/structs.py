@@ -469,8 +469,9 @@ def table(Result, results, diff_results=None, *,
         all=False,
         compare=None,
         summary=False,
-        depth=None,
+        depth=1,
         hot=None,
+        detect_cycles=True,
         **_):
     all_, all = all, __builtins__.all
 
@@ -504,12 +505,13 @@ def table(Result, results, diff_results=None, *,
                             for k in it.chain(hot, [None])))
 
             # found a cycle?
-            if id(r) in seen:
+            if (detect_cycles
+                    and tuple(getattr(r, k) for k in Result._by) in seen):
                 return []
 
             return [r._replace(children=[])] + rec_hot(
                     r.children,
-                    seen | {id(r)})
+                    seen | {tuple(getattr(r, k) for k in Result._by)})
 
         results = [r._replace(children=rec_hot(r.children)) for r in results]
 
@@ -654,7 +656,7 @@ def table(Result, results, diff_results=None, *,
                                     getattr(diff_r, k, None)))))
         return entry
 
-    # recursive entry helper
+    # recursive entry helper, only used by some scripts
     def recurse(results_, depth_, seen=set(),
             prefixes=('', '', '', '')):
         # build the children table at each layer
@@ -689,19 +691,19 @@ def table(Result, results, diff_results=None, *,
             # add prefixes
             line[0] = (prefixes[0+is_last] + line[0][0], line[0][1])
             # add cycle detection
-            if id(r) in seen:
+            if detect_cycles and name in seen:
                 line[-1] = (line[-1][0], line[-1][1] + ['cycle detected'])
             lines.append(line)
 
             # found a cycle?
-            if id(r) in seen:
+            if detect_cycles and name in seen:
                 continue
 
             # recurse?
             if depth_ > 1:
                 recurse(r.children,
                         depth_-1,
-                        seen | {id(r)},
+                        seen | {name},
                         (prefixes[2+is_last] + "|-> ",
                          prefixes[2+is_last] + "'-> ",
                          prefixes[2+is_last] + "|   ",
@@ -721,7 +723,7 @@ def table(Result, results, diff_results=None, *,
             if name in table and depth > 1:
                 recurse(table[name].children,
                         depth-1,
-                        {id(r)},
+                        {name},
                         ("|-> ",
                          "'-> ",
                          "|   ",
@@ -863,6 +865,7 @@ def main(obj_paths, *,
                 by=by if by is not None else ['struct'],
                 fields=fields,
                 sort=sort,
+                detect_cycles=False,
                 **args)
 
 
