@@ -159,181 +159,252 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def collect(obj_paths, *,
+def collect_dwarf_files(obj_path, *,
+        objdump_path=OBJDUMP_PATH,
+        **args):
+    line_pattern = re.compile(
+            '^\s*(?P<no>[0-9]+)'
+                '(?:\s+(?P<dir>[0-9]+))?'
+                '.*\s+(?P<path>[^\s]+)\s*$')
+
+    # find source paths
+    dirs = {}
+    files = {}
+    # note objdump-path may contain extra args
+    cmd = objdump_path + ['--dwarf=rawline', obj_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    for line in proc.stdout:
+        # note that files contain references to dirs, which we
+        # dereference as soon as we see them as each file table
+        # follows a dir table
+        m = line_pattern.match(line)
+        if m:
+            if not m.group('dir'):
+                # found a directory entry
+                dirs[int(m.group('no'))] = m.group('path')
+            else:
+                # found a file entry
+                dir = int(m.group('dir'))
+                if dir in dirs:
+                    files[int(m.group('no'))] = os.path.join(
+                            dirs[dir],
+                            m.group('path'))
+                else:
+                    files[int(m.group('no'))] = m.group('path')
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stderr.write(line)
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    # simplify paths
+    files_ = {}
+    for no, file in files.items():
+        if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(file)]) == os.getcwd():
+            files_[no] = os.path.relpath(file)
+        else:
+            files_[no] = os.path.abspath(file)
+    files = files_
+
+    return files
+
+def collect_dwarf_info(obj_path, filter=None, *,
+        objdump_path=OBJDUMP_PATH,
+        **args):
+    filter_, filter = filter, __builtins__.filter
+
+    # each dwarf entry can have attrs and children entries
+    class DwarfEntry:
+        def __init__(self, level, off, tag, ats={}, children=[]):
+            self.level = level
+            self.off = off
+            self.tag = tag
+            self.ats = ats or {}
+            self.children = children or []
+
+        def __getitem__(self, k):
+            return self.ats[k]
+
+        def __contains__(self, k):
+            return k in self.ats
+
+        def __repr__(self):
+            return '%s(%d, 0x%x, %r, %r)' % (
+                    self.__class__.__name__,
+                    self.level,
+                    self.off,
+                    self.tag,
+                    self.ats)
+
+    info_pattern = re.compile(
+            '^\s*(?:<(?P<level>[^>]*)>'
+                    '\s*<(?P<off>[^>]*)>'
+                    '.*\(\s*(?P<tag>[^)]*?)\s*\)'
+                '|\s*<(?P<off_>[^>]*)>'
+                    '\s*(?P<at>[^>:]*?)'
+                    '\s*:(?P<v>.*))\s*$')
+
+    # collect dwarf entries
+    entries = co.OrderedDict()
+    entry = None
+    levels = {}
+    # note objdump-path may contain extra args
+    cmd = objdump_path + ['--dwarf=info', obj_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    for line in proc.stdout:
+        # state machine here to find dwarf entries
+        m = info_pattern.match(line)
+        if m:
+            if m.group('tag'):
+                entry = DwarfEntry(
+                    level=int(m.group('level'), 0),
+                    off=int(m.group('off'), 16),
+                    tag=m.group('tag').strip(),
+                )
+                # keep track of top-level entries
+                if (entry.level == 1 and (
+                        # unless this entry is filtered
+                        filter_ is None or entry.tag in filter_)):
+                    entries[entry.off] = entry
+                # store entry in parent
+                levels[entry.level] = entry
+                if entry.level-1 in levels:
+                    levels[entry.level-1].children.append(entry)
+            elif m.group('at'):
+                if entry:
+                    entry.ats[m.group('at').strip()] = (
+                            m.group('v').strip())
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stderr.write(line)
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return entries
+
+def collect_sizes(obj_path, *,
         nm_path=NM_PATH,
         nm_types=NM_TYPES,
-        objdump_path=OBJDUMP_PATH,
-        sources=None,
         everything=False,
         **args):
     size_pattern = re.compile(
             '^(?P<size>[0-9a-fA-F]+)'
-                + ' (?P<type>[%s])' % re.escape(nm_types)
-                + ' (?P<func>.+?)$')
-    line_pattern = re.compile(
-            '^\s+(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
-                '\s+.*'
-                '\s+(?P<path>[^\s]+)$')
-    info_pattern = re.compile(
-            '^(?:.*(?P<tag>DW_TAG_[a-z_]+).*'
-                '|.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
-                '|.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*)$')
+                + '\s+(?P<type>[%s])' % re.escape(nm_types)
+                + '\s+(?P<func>[^\s]+)\s*$')
 
+    # find sizes
+    sizes = {}
+    # note nm-path may contain extra args
+    cmd = nm_path + ['--size-sort', obj_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    for line in proc.stdout:
+        m = size_pattern.match(line)
+        if m:
+            func = m.group('func')
+            size = int(m.group('size'), 16)
+            sizes[func] = size
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stderr.write(line)
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return sizes
+
+def collect(obj_paths, *,
+        sources=None,
+        everything=False,
+        **args):
     results = []
-    for path in obj_paths:
+    for obj_path in obj_paths:
         # guess the source, if we have debug-info we'll replace this later
-        file = re.sub('(\.o)?$', '.c', path, 1)
+        file = re.sub('(\.o)?$', '.c', obj_path, 1)
 
-        # find symbol sizes
-        results_ = []
-        # note nm-path may contain extra args
-        cmd = nm_path + ['--size-sort', path]
-        if args.get('verbose'):
-            print(' '.join(shlex.quote(c) for c in cmd))
-        proc = sp.Popen(cmd,
-                stdout=sp.PIPE,
-                stderr=None if args.get('verbose') else sp.DEVNULL,
-                universal_newlines=True,
-                errors='replace',
-                close_fds=False)
-        for line in proc.stdout:
-            m = size_pattern.match(line)
-            if m:
-                func = m.group('func')
-                # discard internal functions
-                if not everything and func.startswith('__'):
-                    continue
-                results_.append(CodeResult(
-                        file, func,
-                        int(m.group('size'), 16)))
-        proc.wait()
-        if proc.returncode != 0:
-            if not args.get('verbose'):
-                for line in proc.stderr:
-                    sys.stderr.write(line)
-            sys.exit(-1)
-
+        # find sizes
+        sizes = collect_sizes(obj_path, everything=everything, **args)
 
         # try to figure out the source file if we have debug-info
-        dirs = {}
-        files = {}
-        # note objdump-path may contain extra args
-        cmd = objdump_path + ['--dwarf=rawline', path]
-        if args.get('verbose'):
-            print(' '.join(shlex.quote(c) for c in cmd))
-        proc = sp.Popen(cmd,
-                stdout=sp.PIPE,
-                stderr=None if args.get('verbose') else sp.DEVNULL,
-                universal_newlines=True,
-                errors='replace',
-                close_fds=False)
-        for line in proc.stdout:
-            # note that files contain references to dirs, which we
-            # dereference as soon as we see them as each file table follows a
-            # dir table
-            m = line_pattern.match(line)
-            if m:
-                if not m.group('dir'):
-                    # found a directory entry
-                    dirs[int(m.group('no'))] = m.group('path')
-                else:
-                    # found a file entry
-                    dir = int(m.group('dir'))
-                    if dir in dirs:
-                        files[int(m.group('no'))] = os.path.join(
-                                dirs[dir],
-                                m.group('path'))
-                    else:
-                        files[int(m.group('no'))] = m.group('path')
-        proc.wait()
-        if proc.returncode != 0:
-            if not args.get('verbose'):
-                for line in proc.stderr:
-                    sys.stderr.write(line)
-            # do nothing on error, we don't need objdump to work, source files
-            # may just be inaccurate
-            pass
-
         defs = {}
-        is_func = False
-        f_name = None
-        f_file = None
-        def append():
-            # ignore non-functions and unnamed files
-            if is_func and f_name:
-                defs[f_name] = files.get(f_file, '?')
-        # note objdump-path may contain extra args
-        cmd = objdump_path + ['--dwarf=info', path]
-        if args.get('verbose'):
-            print(' '.join(shlex.quote(c) for c in cmd))
-        proc = sp.Popen(cmd,
-                stdout=sp.PIPE,
-                stderr=None if args.get('verbose') else sp.DEVNULL,
-                universal_newlines=True,
-                errors='replace',
-                close_fds=False)
-        for line in proc.stdout:
-            # state machine here to find definitions
-            m = info_pattern.match(line)
-            if m:
-                if m.group('tag'):
-                    append()
-                    is_func = (m.group('tag') == 'DW_TAG_subprogram')
-                    f_name = None
-                    f_file = None
-                elif m.group('name'):
-                    f_name = m.group('name')
-                elif m.group('file'):
-                    f_file = int(m.group('file'))
-        # don't forget the last function
-        append()
-        proc.wait()
-        if proc.returncode != 0:
-            if not args.get('verbose'):
-                for line in proc.stderr:
-                    sys.stderr.write(line)
-            # do nothing on error, we don't need objdump to work, source files
-            # may just be inaccurate
+        try:
+            files = collect_dwarf_files(obj_path, **args)
+            info = collect_dwarf_info(obj_path,
+                    filter={'DW_TAG_subprogram', 'DW_TAG_variable'},
+                    **args)
+
+            for no, entry in info.items():
+                # skip funcs with no name or no file
+                if ('DW_AT_name' not in entry
+                        or 'DW_AT_decl_file' not in entry):
+                    continue
+                name_ = entry['DW_AT_name'].split(':')[-1].strip()
+                file_ = files.get(int(entry['DW_AT_decl_file']), '?')
+                defs[name_] = file_
+
+        except sp.CalledProcessError:
+            # do nothing on error, we don't need objdump to work, source
+            # files may just be inaccurate
             pass
 
-        for r in results_:
+        # map function sizes to debug symbols
+        for func, size in sizes.items():
+            # discard internal functions
+            if not everything and func.startswith('__'):
+                continue
+
             # find best matching debug symbol, this may be slightly different
             # due to optimizations
             if defs:
                 # exact match? avoid difflib if we can for speed
-                if r.function in defs:
-                    file = defs[r.function]
+                if func in defs:
+                    file_ = defs[func]
                 else:
-                    _, file = max(
+                    _, file_ = max(
                             defs.items(),
                             key=lambda d: difflib.SequenceMatcher(None,
                                 d[0],
-                                r.function, False).ratio())
+                                func, False).ratio())
             else:
-                file = r.file
+                file_ = file
 
             # ignore filtered sources
             if sources is not None:
-                if not any(os.path.abspath(file) == os.path.abspath(s)
+                if not any(os.path.abspath(file_) == os.path.abspath(s)
                         for s in sources):
                     continue
             else:
                 # default to only cwd
                 if not everything and not os.path.commonpath([
                         os.getcwd(),
-                        os.path.abspath(file)]) == os.getcwd():
+                        os.path.abspath(file_)]) == os.getcwd():
                     continue
 
-            # simplify path
-            if os.path.commonpath([
-                    os.getcwd(),
-                    os.path.abspath(file)]) == os.getcwd():
-                file = os.path.relpath(file)
-            else:
-                file = os.path.abspath(file)
-
-            results.append(r._replace(file=file))
+            results.append(CodeResult(file_, func, size))
 
     return results
 
