@@ -232,7 +232,7 @@ def record(command, *,
     return err
 
 
-# try to only process each dso onceS
+# try to only process each dso once
 #
 # note this only caches with the non-keyword arguments
 def multiprocessing_cache(f):
@@ -260,34 +260,16 @@ def multiprocessing_cache(f):
     return multiprocessing_cache
 
 @multiprocessing_cache
-def collect_syms_and_lines(obj_path, *,
+def collect_syms(obj_path, *,
         objdump_path=None,
         **args):
     symbol_pattern = re.compile(
             '^(?P<addr>[0-9a-fA-F]+)'
-                '\s+.*'
+                '.*'
                 '\s+(?P<size>[0-9a-fA-F]+)'
                 '\s+(?P<name>[^\s]+)\s*$')
-    line_pattern = re.compile(
-            '^\s+(?:'
-                # matches dir/file table
-                '(?P<no>[0-9]+)'
-                    '(?:\s+(?P<dir>[0-9]+))?'
-                    '\s+.*'
-                    '\s+(?P<path>[^\s]+)'
-                # matches line opcodes
-                '|' '\[[^\]]*\]\s+' '(?:'
-                    '(?P<op_special>Special)'
-                    '|' '(?P<op_copy>Copy)'
-                    '|' '(?P<op_end>End of Sequence)'
-                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
-                    '|' 'Line .*?to (?P<op_line>[0-9]+)'
-                    '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
-                    '|' '.'
-                ')*'
-            ')$', re.IGNORECASE)
 
-    # figure out symbol addresses and file+line ranges
+    # figure out symbol addresses
     syms = {}
     sym_at = []
     cmd = objdump_path + ['-t', obj_path]
@@ -318,8 +300,7 @@ def collect_syms_and_lines(obj_path, *,
         if not args.get('verbose'):
             for line in proc.stderr:
                 sys.stderr.write(line)
-        # assume no debug-info on failure
-        pass
+        raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # sort and keep largest/first when duplicates
     sym_at.sort(key=lambda x: (x[0], -x[2], x[1]))
@@ -328,6 +309,30 @@ def collect_syms_and_lines(obj_path, *,
         if len(sym_at_) == 0 or sym_at_[-1][0] != addr:
             sym_at_.append((addr, name, size))
     sym_at = sym_at_
+
+    return syms, sym_at
+
+@multiprocessing_cache
+def collect_dwarf_lines(obj_path, *,
+        objdump_path=None,
+        **args):
+    line_pattern = re.compile(
+            '^\s*(?:'
+                # matches dir/file table
+                '(?P<no>[0-9]+)'
+                    '(?:\s+(?P<dir>[0-9]+))?'
+                    '.*\s+(?P<path>[^\s]+)'
+                # matches line opcodes
+                '|' '\[[^\]]*\]\s+' '(?:'
+                    '(?P<op_special>Special)'
+                    '|' '(?P<op_copy>Copy)'
+                    '|' '(?P<op_end>End of Sequence)'
+                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
+                    '|' 'Line .*?to (?P<op_line>[0-9]+)'
+                    '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
+                    '|' '.'
+                ')*'
+            ')\s*$', re.IGNORECASE)
 
     # state machine for dwarf line numbers, note that objdump's
     # decodedline seems to have issues with multiple dir/file
@@ -388,8 +393,7 @@ def collect_syms_and_lines(obj_path, *,
         if not args.get('verbose'):
             for line in proc.stderr:
                 sys.stderr.write(line)
-        # assume no debug-info on failure
-        pass
+        raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # sort and keep first when duplicates
     lines.sort()
@@ -407,7 +411,7 @@ def collect_syms_and_lines(obj_path, *,
             line_at_.append((addr, file, line))
     line_at = line_at_
 
-    return syms, sym_at, lines, line_at
+    return lines, line_at
 
 
 def collect_decompressed(path, *,
@@ -507,9 +511,8 @@ def collect_decompressed(path, *,
                 addr_ = int(m.group('addr'), 16)
 
                 # get the syms/lines for the dso, this is cached
-                syms, sym_at, lines, line_at = collect_syms_and_lines(
-                        dso,
-                        **args)
+                syms, sym_at = collect_syms(dso, **args)
+                lines, line_at = collect_dwarf_lines(dso, **args)
 
                 # ASLR is tricky, we have symbols+offsets, but static symbols
                 # means we may have multiple options for each symbol.
@@ -594,7 +597,7 @@ def collect_decompressed(path, *,
         if not args.get('verbose'):
             for line in proc.stderr:
                 sys.stderr.write(line)
-        sys.exit(-1)
+        raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # rearrange results into result type
     def to_results(results):

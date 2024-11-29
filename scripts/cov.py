@@ -262,34 +262,41 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def collect(gcda_paths, *,
+def collect_cov(gcda_path, *,
         gcov_path=GCOV_PATH,
+        **args):
+    # get coverage info through gcov's json output
+    # note, gcov-path may contain extra args
+    cmd = GCOV_PATH + ['-b', '-t', '--json-format', gcda_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=None if args.get('verbose') else sp.DEVNULL,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    cov = json.load(proc.stdout)
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stderr.write(line)
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return cov
+
+def collect(gcda_paths, *,
         sources=None,
         everything=False,
         **args):
     results = []
-    for path in gcda_paths:
-        # get coverage info through gcov's json output
-        # note, gcov-path may contain extra args
-        cmd = GCOV_PATH + ['-b', '-t', '--json-format', path]
-        if args.get('verbose'):
-            print(' '.join(shlex.quote(c) for c in cmd))
-        proc = sp.Popen(cmd,
-                stdout=sp.PIPE,
-                stderr=None if args.get('verbose') else sp.DEVNULL,
-                universal_newlines=True,
-                errors='replace',
-                close_fds=False)
-        data = json.load(proc.stdout)
-        proc.wait()
-        if proc.returncode != 0:
-            if not args.get('verbose'):
-                for line in proc.stderr:
-                    sys.stderr.write(line)
-            sys.exit(-1)
+    for gcda_path in gcda_paths:
+        # find coverage info
+        cov = collect_cov(gcda_path, **args)
 
         # collect line/branch coverage
-        for file in data['files']:
+        for file in cov['files']:
             # ignore filtered sources
             if sources is not None:
                 if not any(os.path.abspath(file['file']) == os.path.abspath(s)

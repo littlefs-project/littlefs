@@ -166,32 +166,14 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def collect_syms_and_lines(obj_path, *,
+def collect_syms(obj_path, *,
         objdump_path=None,
         **args):
     symbol_pattern = re.compile(
             '^(?P<addr>[0-9a-fA-F]+)'
-                '\s+.*'
+                '.*'
                 '\s+(?P<size>[0-9a-fA-F]+)'
                 '\s+(?P<name>[^\s]+)\s*$')
-    line_pattern = re.compile(
-            '^\s+(?:'
-                # matches dir/file table
-                '(?P<no>[0-9]+)'
-                    '(?:\s+(?P<dir>[0-9]+))?'
-                    '\s+.*'
-                    '\s+(?P<path>[^\s]+)'
-                # matches line opcodes
-                '|' '\[[^\]]*\]\s+' '(?:'
-                    '(?P<op_special>Special)'
-                    '|' '(?P<op_copy>Copy)'
-                    '|' '(?P<op_end>End of Sequence)'
-                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
-                    '|' 'Line .*?to (?P<op_line>[0-9]+)'
-                    '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
-                    '|' '.'
-                ')*'
-            ')$', re.IGNORECASE)
 
     # figure out symbol addresses
     syms = {}
@@ -224,8 +206,7 @@ def collect_syms_and_lines(obj_path, *,
         if not args.get('verbose'):
             for line in proc.stderr:
                 sys.stderr.write(line)
-        # assume no debug-info on failure
-        pass
+        raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # sort and keep largest/first when duplicates
     sym_at.sort(key=lambda x: (x[0], -x[2], x[1]))
@@ -234,6 +215,29 @@ def collect_syms_and_lines(obj_path, *,
         if len(sym_at_) == 0 or sym_at_[-1][0] != addr:
             sym_at_.append((addr, name, size))
     sym_at = sym_at_
+
+    return syms, sym_at
+
+def collect_dwarf_lines(obj_path, *,
+        objdump_path=None,
+        **args):
+    line_pattern = re.compile(
+            '^\s*(?:'
+                # matches dir/file table
+                '(?P<no>[0-9]+)'
+                    '(?:\s+(?P<dir>[0-9]+))?'
+                    '.*\s+(?P<path>[^\s]+)'
+                # matches line opcodes
+                '|' '\[[^\]]*\]\s+' '(?:'
+                    '(?P<op_special>Special)'
+                    '|' '(?P<op_copy>Copy)'
+                    '|' '(?P<op_end>End of Sequence)'
+                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
+                    '|' 'Line .*?to (?P<op_line>[0-9]+)'
+                    '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
+                    '|' '.'
+                ')*'
+            ')\s*$', re.IGNORECASE)
 
     # state machine for dwarf line numbers, note that objdump's
     # decodedline seems to have issues with multiple dir/file
@@ -294,8 +298,7 @@ def collect_syms_and_lines(obj_path, *,
         if not args.get('verbose'):
             for line in proc.stderr:
                 sys.stderr.write(line)
-        # assume no debug-info on failure
-        pass
+        raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # sort and keep first when duplicates
     lines.sort()
@@ -313,7 +316,7 @@ def collect_syms_and_lines(obj_path, *,
             line_at_.append((addr, file, line))
     line_at = line_at_
 
-    return syms, sym_at, lines, line_at
+    return lines, line_at
 
 
 def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
@@ -573,7 +576,8 @@ def collect(obj_path, trace_paths, *,
         jobs = len(os.sched_getaffinity(0))
 
     # find sym/line info to reverse ASLR
-    syms, sym_at, lines, line_at = collect_syms_and_lines(obj_path, **args)
+    syms, sym_at = collect_syms(obj_path, **args)
+    lines, line_at = collect_dwarf_lines(obj_path, **args)
 
     if jobs is not None:
         # try to split up files so that even single files can be processed
