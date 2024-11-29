@@ -175,7 +175,6 @@ def collect_dwarf_files(obj_path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -199,9 +198,6 @@ def collect_dwarf_files(obj_path, *,
                     files[int(m.group('no'))] = m.group('path')
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # simplify paths
@@ -263,7 +259,6 @@ def collect_dwarf_info(obj_path, filter=None, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -292,9 +287,6 @@ def collect_dwarf_info(obj_path, filter=None, *,
                             m.group('v').strip())
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     return entries

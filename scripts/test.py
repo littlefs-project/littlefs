@@ -742,7 +742,6 @@ def find_perms(runner, test_ids=[], **args):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -763,9 +762,6 @@ def find_perms(runner, test_ids=[], **args):
             total_perms += perms
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         sys.exit(-1)
 
     # get which suite each case belongs to via paths
@@ -774,7 +770,6 @@ def find_perms(runner, test_ids=[], **args):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -793,9 +788,6 @@ def find_perms(runner, test_ids=[], **args):
             case_suites[m.group('case')] = suite
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         sys.exit(-1)
 
     # figure out expected suite perms
@@ -820,7 +812,6 @@ def find_path(runner, id, **args):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -836,9 +827,6 @@ def find_path(runner, id, **args):
             path = (path_, lineno)
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         sys.exit(-1)
 
     return path
@@ -851,7 +839,6 @@ def find_defines(runner, id, **args):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -865,9 +852,6 @@ def find_defines(runner, id, **args):
             defines[define] = value
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         sys.exit(-1)
 
     return defines

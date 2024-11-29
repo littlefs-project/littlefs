@@ -272,16 +272,12 @@ def collect_cov(gcda_path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
     cov = json.load(proc.stdout)
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     return cov

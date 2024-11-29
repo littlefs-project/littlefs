@@ -183,7 +183,6 @@ def collect_syms(obj_path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -203,9 +202,6 @@ def collect_syms(obj_path, *,
             sym_at.append((addr, name, size))
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # sort and keep largest/first when duplicates
@@ -254,7 +250,6 @@ def collect_dwarf_lines(obj_path, *,
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
             stdout=sp.PIPE,
-            stderr=None if args.get('verbose') else sp.DEVNULL,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
@@ -295,9 +290,6 @@ def collect_dwarf_lines(obj_path, *,
                     op_addr = 0
     proc.wait()
     if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stderr.write(line)
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # sort and keep first when duplicates
