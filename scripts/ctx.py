@@ -923,8 +923,7 @@ def table(Result, results, diff_results=None, *,
                     for r in results_}
         names_ = list(table_.keys())
 
-        # sort the children layer
-        names_.sort()
+        # only sort the children layer if explicitly requested
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(
