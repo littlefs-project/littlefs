@@ -368,7 +368,13 @@ def collect_dwarf_info(obj_path, filter=None, *,
         @ft.cached_property
         def name(self):
             if 'DW_AT_name' in self:
-                return self['DW_AT_name'].split(':')[-1].strip()
+                name = self['DW_AT_name'].split(':')[-1].strip()
+                # prefix with struct/union
+                if self.tag == 'DW_TAG_structure_type':
+                    name = 'struct ' + name
+                elif self.tag == 'DW_TAG_union_type':
+                    name = 'union ' + name
+                return name
             else:
                 return None
 
