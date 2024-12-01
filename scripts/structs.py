@@ -136,7 +136,8 @@ class StructResult(co.namedtuple('StructResult', [
     _types = {'size': RInt, 'align': RInt}
 
     __slots__ = ()
-    def __new__(cls, file='', struct='', size=0, align=0, children=None):
+    def __new__(cls, file='', struct='', size=0, align=0,
+            children=None):
         return super().__new__(cls, file, struct,
                 RInt(size), RInt(align),
                 children if children is not None else [])
@@ -161,28 +162,6 @@ def openio(path, mode='r', buffering=-1):
 def collect_dwarf_files(obj_path, *,
         objdump_path=OBJDUMP_PATH,
         **args):
-    class FileInfo:
-        def __init__(self, files):
-            self.files = files
-
-        def get(self, k, d=None):
-            return self.files.get(k, d)
-
-        def __getitem__(self, k):
-            v = self.get(k)
-            if v is None:
-                raise KeyError(k)
-            return v
-
-        def __contains__(self, k):
-            return self.get(k) is not None
-
-        def __len__(self):
-            return len(self.files)
-
-        def __iter__(self):
-            return (v for k, v in self.files.items())
-
     line_pattern = re.compile(
             '^\s*(?P<no>[0-9]+)'
                 '(?:\s+(?P<dir>[0-9]+))?'
@@ -223,7 +202,7 @@ def collect_dwarf_files(obj_path, *,
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # simplify paths
-    files_ = {}
+    files_ = co.OrderedDict()
     for no, file in files.items():
         if os.path.commonpath([
                     os.getcwd(),
@@ -233,103 +212,103 @@ def collect_dwarf_files(obj_path, *,
             files_[no] = os.path.abspath(file)
     files = files_
 
-    return FileInfo(files)
+    return files
+
+# each dwarf entry can have attrs and children entries
+class DwarfEntry:
+    def __init__(self, level, off, tag, ats={}, children=[]):
+        self.level = level
+        self.off = off
+        self.tag = tag
+        self.ats = ats or {}
+        self.children = children or []
+
+    def get(self, k, d=None):
+        return self.ats.get(k, d)
+
+    def __getitem__(self, k):
+        return self.ats[k]
+
+    def __contains__(self, k):
+        return k in self.ats
+
+    def __repr__(self):
+        return '%s(%d, 0x%x, %r, %r)' % (
+                self.__class__.__name__,
+                self.level,
+                self.off,
+                self.tag,
+                self.ats)
+
+    @ft.cached_property
+    def name(self):
+        if 'DW_AT_name' in self:
+            name = self['DW_AT_name'].split(':')[-1].strip()
+            # prefix with struct/union
+            if self.tag == 'DW_TAG_structure_type':
+                name = 'struct ' + name
+            elif self.tag == 'DW_TAG_union_type':
+                name = 'union ' + name
+            elif self.tag == 'DW_TAG_enumeration_type':
+                name = 'enum ' + name
+            return name
+        else:
+            return None
+
+# a collection of dwarf entries
+class DwarfInfo:
+    def __init__(self, entries):
+        self.entries = entries
+
+    def get(self, k, d=None):
+        # allow lookup by both offset and dwarf name
+        if not isinstance(k, str):
+            return self.entries.get(k, d)
+
+        else:
+            import difflib
+
+            # organize entries by name
+            if not hasattr(self, '_by_name'):
+                self._by_name = {}
+                for entry in self.entries.values():
+                    if entry.name is not None:
+                        self._by_name[entry.name] = entry
+
+            # exact match? avoid difflib if we can for speed
+            if k in self._by_name:
+                return self._by_name[k]
+            # find the best matching dwarf entry with difflib
+            #
+            # this can be different from the actual symbol because
+            # of optimization passes
+            else:
+                name, entry = max(
+                        self._by_name.items(),
+                        key=lambda entry: difflib.SequenceMatcher(
+                            None, entry[0], k, False).ratio(),
+                        default=(None, None))
+                return entry
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __len__(self):
+        return len(self.entries)
+
+    def __iter__(self):
+        return (v for k, v in self.entries.items())
 
 def collect_dwarf_info(obj_path, filter=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     filter_, filter = filter, __builtins__.filter
-
-    # each dwarf entry can have attrs and children entries
-    class DwarfEntry:
-        def __init__(self, level, off, tag, ats={}, children=[]):
-            self.level = level
-            self.off = off
-            self.tag = tag
-            self.ats = ats or {}
-            self.children = children or []
-
-        def get(self, k, d=None):
-            return self.ats.get(k, d)
-
-        def __getitem__(self, k):
-            return self.ats[k]
-
-        def __contains__(self, k):
-            return k in self.ats
-
-        def __repr__(self):
-            return '%s(%d, 0x%x, %r, %r)' % (
-                    self.__class__.__name__,
-                    self.level,
-                    self.off,
-                    self.tag,
-                    self.ats)
-
-        @ft.cached_property
-        def name(self):
-            if 'DW_AT_name' in self:
-                name = self['DW_AT_name'].split(':')[-1].strip()
-                # prefix with struct/union
-                if self.tag == 'DW_TAG_structure_type':
-                    name = 'struct ' + name
-                elif self.tag == 'DW_TAG_union_type':
-                    name = 'union ' + name
-                elif self.tag == 'DW_TAG_enumeration_type':
-                    name = 'enum ' + name
-                return name
-            else:
-                return None
-
-    # a collection of dwarf entries
-    class DwarfInfo:
-        def __init__(self, entries):
-            self.entries = entries
-
-        def get(self, k, d=None):
-            # allow lookup by both offset and dwarf name
-            if not isinstance(k, str):
-                return self.entries.get(k, d)
-
-            else:
-                import difflib
-
-                # organize entries by name
-                if not hasattr(self, '_by_name'):
-                    self._by_name = {}
-                    for entry in self.entries.values():
-                        if entry.name is not None:
-                            self._by_name[entry.name] = entry
-
-                # exact match? avoid difflib if we can for speed
-                if k in self._by_name:
-                    return self._by_name[k]
-                # find the best matching dwarf entry with difflib
-                #
-                # this can be different from the actual symbol because
-                # of optimization passes
-                else:
-                    name, entry = max(
-                            self._by_name.items(),
-                            key=lambda entry: difflib.SequenceMatcher(
-                                None, entry[0], k, False).ratio(),
-                            default=(None, None))
-                    return entry
-
-        def __getitem__(self, k):
-            v = self.get(k)
-            if v is None:
-                raise KeyError(k)
-            return v
-
-        def __contains__(self, k):
-            return self.get(k) is not None
-
-        def __len__(self):
-            return len(self.entries)
-
-        def __iter__(self):
-            return (v for k, v in self.entries.items())
 
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
@@ -797,7 +776,8 @@ def table(Result, results, diff_results=None, *,
                     for r in results_}
         names_ = list(table_.keys())
 
-        # only sort the children layer if explicitly requested
+        # sort the children layer
+        names_.sort()
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(

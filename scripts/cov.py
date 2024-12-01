@@ -578,6 +578,9 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+        # append any notes
+        if hasattr(r, 'notes'):
+            entry[-1][1].extend(r.notes)
         return entry
 
     # recursive entry helper, only used by some scripts

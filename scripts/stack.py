@@ -129,12 +129,11 @@ class StackResult(co.namedtuple('StackResult', [
     _types = {'frame': RInt, 'limit': RInt}
 
     __slots__ = ()
-    def __new__(cls, file='', function='',
-            frame=0, limit=0,
-            children=[]):
+    def __new__(cls, file='', function='', frame=0, limit=0,
+            children=None):
         return super().__new__(cls, file, function,
                 RInt(frame), RInt(limit),
-                children)
+                children if children is not None else [])
 
     def __add__(self, other):
         return StackResult(self.file, self.function,
@@ -527,6 +526,9 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+        # append any notes
+        if hasattr(r, 'notes'):
+            entry[-1][1].extend(r.notes)
         return entry
 
     # recursive entry helper, only used by some scripts

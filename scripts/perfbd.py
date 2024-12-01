@@ -143,10 +143,10 @@ class PerfBdResult(co.namedtuple('PerfBdResult', [
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
             readed=0, proged=0, erased=0,
-            children=[]):
+            children=None):
         return super().__new__(cls, file, function, int(RInt(line)),
                 RInt(readed), RInt(proged), RInt(erased),
-                children)
+                children if children is not None else [])
 
     def __add__(self, other):
         return PerfBdResult(self.file, self.function, self.line,
@@ -166,18 +166,75 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def collect_syms(obj_path, *,
-        objdump_path=None,
+class SymInfo:
+    def __init__(self, syms):
+        self.syms = syms
+
+    def get(self, k, d=None):
+        # allow lookup by both symbol and address
+        if isinstance(k, str):
+            # organize by symbol, note multiple symbols can share a name
+            if not hasattr(self, '_by_sym'):
+                by_sym = {}
+                for sym, addr, size in self.syms:
+                    if sym not in by_sym:
+                        by_sym[sym] = []
+                    if (addr, size) not in by_sym[sym]:
+                        by_sym[sym].append((addr, size))
+                self._by_sym = by_sym
+            return self._by_sym.get(k, d)
+
+        else:
+            import bisect
+
+            # organize by address
+            if not hasattr(self, '_by_addr'):
+                # sort and keep largest/first when duplicates
+                syms = self.syms.copy()
+                syms.sort(key=lambda x: (x[1], -x[2], x[0]))
+
+                by_addr = []
+                for name, addr, size in syms:
+                    if (len(by_addr) == 0
+                            or by_addr[-1][0] != addr):
+                        by_addr.append((name, addr, size))
+                self._by_addr = by_addr
+
+            # find sym by range
+            i = bisect.bisect(self._by_addr, k,
+                    key=lambda x: x[1])
+            # check that we're actually in this sym's size
+            if i > 0 and k < self._by_addr[i-1][1]+self._by_addr[i-1][2]:
+                return self._by_addr[i-1][0]
+            else:
+                return d
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __len__(self):
+        return len(self.syms)
+
+    def __iter__(self):
+        return iter(self.syms)
+
+def collect_syms(obj_path, global_only=False, *,
+        objdump_path=OBJDUMP_PATH,
         **args):
     symbol_pattern = re.compile(
             '^(?P<addr>[0-9a-fA-F]+)'
-                '.*'
+                ' (?P<scope>.).*'
                 '\s+(?P<size>[0-9a-fA-F]+)'
                 '\s+(?P<name>[^\s]+)\s*$')
 
-    # figure out symbol addresses
-    syms = {}
-    sym_at = []
+    # find symbol addresses and sizes
+    syms = []
     cmd = objdump_path + ['-t', obj_path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -190,32 +247,101 @@ def collect_syms(obj_path, *,
         m = symbol_pattern.match(line)
         if m:
             name = m.group('name')
+            scope = m.group('scope')
             addr = int(m.group('addr'), 16)
             size = int(m.group('size'), 16)
+            # skip non-globals?
+            # l => local
+            # g => global
+            # u => unique global
+            #   => neither
+            # ! => local + global
+            if global_only and scope in 'l ':
+                continue
             # ignore zero-sized symbols
             if not size:
                 continue
             # note multiple symbols can share a name
-            if name not in syms:
-                syms[name] = set()
-            syms[name].add((addr, size))
-            sym_at.append((addr, name, size))
+            syms.append((name, addr, size))
     proc.wait()
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
-    # sort and keep largest/first when duplicates
-    sym_at.sort(key=lambda x: (x[0], -x[2], x[1]))
-    sym_at_ = []
-    for addr, name, size in sym_at:
-        if len(sym_at_) == 0 or sym_at_[-1][0] != addr:
-            sym_at_.append((addr, name, size))
-    sym_at = sym_at_
+    return SymInfo(syms)
 
-    return syms, sym_at
+class LineInfo:
+    def __init__(self, lines):
+        self.lines = lines
+
+    def get(self, k, d=None):
+        # allow lookup by both address and file+line tuple
+        if not isinstance(k, tuple):
+            import bisect
+
+            # organize by address
+            if not hasattr(self, '_by_addr'):
+                # sort and keep first when duplicates
+                lines = self.lines.copy()
+                lines.sort(key=lambda x: (x[2], x[0], x[1]))
+
+                by_addr = []
+                for file, line, addr in lines:
+                    if (len(by_addr) == 0
+                            or by_addr[-1][2] != addr):
+                        by_addr.append((file, line, addr))
+                self._by_addr = by_addr
+
+            # find file+line by addr
+            i = bisect.bisect(self._by_addr, k,
+                    key=lambda x: x[2])
+            if i > 0:
+                return self._by_addr[i-1][0], self._by_addr[i-1][1]
+            else:
+                return d
+
+        else:
+            import bisect
+
+            # organize by file+line
+            if not hasattr(self, '_by_line'):
+                # sort and keep first when duplicates
+                lines = self.lines.copy()
+                lines.sort()
+
+                by_line = []
+                for file, line, addr in lines:
+                    if (len(by_line) == 0
+                            or by_line[-1][0] != file
+                            or by_line[-1][1] != line):
+                        by_line.append((file, line, addr))
+                self._by_line = by_line
+
+            # find addr by file+line tuple
+            i = bisect.bisect(self._by_line, k,
+                    key=lambda x: (x[0], x[1]))
+            # make sure file at least matches!
+            if i > 0 and self._by_line[i-1][0] == k[0]:
+                return self._by_line[i-1][2]
+            else:
+                return d
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __len__(self):
+        return len(self.lines)
+
+    def __iter__(self):
+        return iter(self.lines)
 
 def collect_dwarf_lines(obj_path, *,
-        objdump_path=None,
+        objdump_path=OBJDUMP_PATH,
         **args):
     line_pattern = re.compile(
             '^\s*(?:'
@@ -239,9 +365,8 @@ def collect_dwarf_lines(obj_path, *,
     # decodedline seems to have issues with multiple dir/file
     # tables, which is why we need this
     lines = []
-    line_at = []
-    dirs = {}
-    files = {}
+    dirs = co.OrderedDict()
+    files = co.OrderedDict()
     op_file = 1
     op_line = 1
     op_addr = 0
@@ -282,7 +407,6 @@ def collect_dwarf_lines(obj_path, *,
                         or m.group('op_end')):
                     file = os.path.abspath(files.get(op_file, '?'))
                     lines.append((file, op_line, op_addr))
-                    line_at.append((op_addr, file, op_line))
 
                 if m.group('op_end'):
                     op_file = 1
@@ -292,26 +416,10 @@ def collect_dwarf_lines(obj_path, *,
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
-    # sort and keep first when duplicates
-    lines.sort()
-    lines_ = []
-    for file, line, addr in lines:
-        if len(lines_) == 0 or lines_[-1][0] != file or lines[-1][1] != line:
-            lines_.append((file, line, addr))
-    lines = lines_
-
-    # sort and keep first when duplicates
-    line_at.sort()
-    line_at_ = []
-    for addr, file, line in line_at:
-        if len(line_at_) == 0 or line_at_[-1][0] != addr:
-            line_at_.append((addr, file, line))
-    line_at = line_at_
-
-    return lines, line_at
+    return LineInfo(lines)
 
 
-def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
+def collect_job(path, start, stop, syms, lines, *,
         sources=None,
         everything=False,
         propagate=0,
@@ -465,10 +573,9 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                     # the first stack frame, so we can use that as a point
                     # of reference
                     if last_delta is None:
-                        i = bisect.bisect(lines, (last_file, last_line),
-                                key=lambda x: (x[0], x[1]))
-                        if i > 0:
-                            last_delta = lines[i-1][2] - addr_
+                        addr__ = lines.get((last_file, last_line))
+                        if addr__ is not None:
+                            last_delta = addr__ - addr_
                         else:
                             # can't reverse ASLR, give up on backtrace
                             commit()
@@ -486,11 +593,8 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                         file, sym, line = cached
                     else:
                         # find sym
-                        i = bisect.bisect(sym_at, addr, key=lambda x: x[0])
-                        # check that we're actually in the sym's size
-                        if i > 0 and addr < sym_at[i-1][0] + sym_at[i-1][2]:
-                            _, sym, _ = sym_at[i-1]
-                        else:
+                        sym = syms.get(addr)
+                        if sym is None:
                             sym = hex(addr)
 
                         # filter out internal/unknown functions
@@ -503,9 +607,9 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                             continue
 
                         # find file+line
-                        i = bisect.bisect(line_at, addr, key=lambda x: x[0])
-                        if i > 0:
-                            _, file, line = line_at[i-1]
+                        line_ = lines.get(addr)
+                        if line_ is not None:
+                            file, line = line_
                         elif len(last_stack) == 0:
                             file, line = last_file, last_line
                         else:
@@ -568,8 +672,8 @@ def collect(obj_path, trace_paths, *,
         jobs = len(os.sched_getaffinity(0))
 
     # find sym/line info to reverse ASLR
-    syms, sym_at = collect_syms(obj_path, **args)
-    lines, line_at = collect_dwarf_lines(obj_path, **args)
+    syms = collect_syms(obj_path, **args)
+    lines = collect_dwarf_lines(obj_path, **args)
 
     if jobs is not None:
         # try to split up files so that even single files can be processed
@@ -596,8 +700,7 @@ def collect(obj_path, trace_paths, *,
             for results_ in p.imap_unordered(
                     starapply,
                     ((collect_job,
-                            (path, start, stop,
-                                syms, sym_at, lines, line_at),
+                            (path, start, stop, syms, lines),
                             args)
                         for path, ranges in zip(trace_paths, trace_ranges)
                         for start, stop in ranges)):
@@ -607,8 +710,7 @@ def collect(obj_path, trace_paths, *,
         results = []
         for path in trace_paths:
             results.extend(collect_job(
-                    path, None, None,
-                    syms, sym_at, lines, line_at,
+                    path, None, None, syms, lines,
                     **args))
 
     return results
@@ -841,6 +943,9 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+        # append any notes
+        if hasattr(r, 'notes'):
+            entry[-1][1].extend(r.notes)
         return entry
 
     # recursive entry helper, only used by some scripts

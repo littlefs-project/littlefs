@@ -17,8 +17,8 @@ __import__('sys').path.pop(0)
 
 import collections as co
 import csv
-import difflib
 import itertools as it
+import functools as ft
 import math as mt
 import os
 import re
@@ -168,8 +168,8 @@ def collect_dwarf_files(obj_path, *,
                 '.*\s+(?P<path>[^\s]+)\s*$')
 
     # find source paths
-    dirs = {}
-    files = {}
+    dirs = co.OrderedDict()
+    files = co.OrderedDict()
     # note objdump-path may contain extra args
     cmd = objdump_path + ['--dwarf=rawline', obj_path]
     if args.get('verbose'):
@@ -202,7 +202,7 @@ def collect_dwarf_files(obj_path, *,
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # simplify paths
-    files_ = {}
+    files_ = co.OrderedDict()
     for no, file in files.items():
         if os.path.commonpath([
                     os.getcwd(),
@@ -214,33 +214,101 @@ def collect_dwarf_files(obj_path, *,
 
     return files
 
+# each dwarf entry can have attrs and children entries
+class DwarfEntry:
+    def __init__(self, level, off, tag, ats={}, children=[]):
+        self.level = level
+        self.off = off
+        self.tag = tag
+        self.ats = ats or {}
+        self.children = children or []
+
+    def get(self, k, d=None):
+        return self.ats.get(k, d)
+
+    def __getitem__(self, k):
+        return self.ats[k]
+
+    def __contains__(self, k):
+        return k in self.ats
+
+    def __repr__(self):
+        return '%s(%d, 0x%x, %r, %r)' % (
+                self.__class__.__name__,
+                self.level,
+                self.off,
+                self.tag,
+                self.ats)
+
+    @ft.cached_property
+    def name(self):
+        if 'DW_AT_name' in self:
+            name = self['DW_AT_name'].split(':')[-1].strip()
+            # prefix with struct/union/enum
+            if self.tag == 'DW_TAG_structure_type':
+                name = 'struct ' + name
+            elif self.tag == 'DW_TAG_union_type':
+                name = 'union ' + name
+            elif self.tag == 'DW_TAG_enumeration_type':
+                name = 'enum ' + name
+            return name
+        else:
+            return None
+
+# a collection of dwarf entries
+class DwarfInfo:
+    def __init__(self, entries):
+        self.entries = entries
+
+    def get(self, k, d=None):
+        # allow lookup by both offset and dwarf name
+        if not isinstance(k, str):
+            return self.entries.get(k, d)
+
+        else:
+            import difflib
+
+            # organize entries by name
+            if not hasattr(self, '_by_name'):
+                self._by_name = {}
+                for entry in self.entries.values():
+                    if entry.name is not None:
+                        self._by_name[entry.name] = entry
+
+            # exact match? avoid difflib if we can for speed
+            if k in self._by_name:
+                return self._by_name[k]
+            # find the best matching dwarf entry with difflib
+            #
+            # this can be different from the actual symbol because
+            # of optimization passes
+            else:
+                name, entry = max(
+                        self._by_name.items(),
+                        key=lambda entry: difflib.SequenceMatcher(
+                            None, entry[0], k, False).ratio(),
+                        default=(None, None))
+                return entry
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __len__(self):
+        return len(self.entries)
+
+    def __iter__(self):
+        return (v for k, v in self.entries.items())
+
 def collect_dwarf_info(obj_path, filter=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     filter_, filter = filter, __builtins__.filter
-
-    # each dwarf entry can have attrs and children entries
-    class DwarfEntry:
-        def __init__(self, level, off, tag, ats={}, children=[]):
-            self.level = level
-            self.off = off
-            self.tag = tag
-            self.ats = ats or {}
-            self.children = children or []
-
-        def __getitem__(self, k):
-            return self.ats[k]
-
-        def __contains__(self, k):
-            return k in self.ats
-
-        def __repr__(self):
-            return '%s(%d, 0x%x, %r, %r)' % (
-                    self.__class__.__name__,
-                    self.level,
-                    self.off,
-                    self.tag,
-                    self.ats)
 
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
@@ -251,7 +319,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                     '\s*:(?P<v>.*))\s*$')
 
     # collect dwarf entries
-    entries = co.OrderedDict()
+    info = co.OrderedDict()
     entry = None
     levels = {}
     # note objdump-path may contain extra args
@@ -277,7 +345,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                 if (entry.level == 1 and (
                         # unless this entry is filtered
                         filter_ is None or entry.tag in filter_)):
-                    entries[entry.off] = entry
+                    info[entry.off] = entry
                 # store entry in parent
                 levels[entry.level] = entry
                 if entry.level-1 in levels:
@@ -290,7 +358,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
-    return entries
+    return DwarfInfo(info)
 
 def collect_sizes(obj_path, *,
         nm_path=NM_PATH,
@@ -331,33 +399,21 @@ def collect(obj_paths, *,
         **args):
     results = []
     for obj_path in obj_paths:
-        # guess the source, if we have debug-info we'll replace this later
-        file = re.sub('(\.o)?$', '.c', obj_path, 1)
-
         # find sizes
         sizes = collect_sizes(obj_path, everything=everything, **args)
 
         # try to figure out the source file if we have debug-info
-        defs = {}
         try:
             files = collect_dwarf_files(obj_path, **args)
             info = collect_dwarf_info(obj_path,
                     filter={'DW_TAG_subprogram', 'DW_TAG_variable'},
                     **args)
 
-            for no, entry in info.items():
-                # skip funcs with no name or no file
-                if ('DW_AT_name' not in entry
-                        or 'DW_AT_decl_file' not in entry):
-                    continue
-                name_ = entry['DW_AT_name'].split(':')[-1].strip()
-                file_ = files.get(int(entry['DW_AT_decl_file']), '?')
-                defs[name_] = file_
-
         except sp.CalledProcessError:
             # do nothing on error, we don't need objdump to work, source
             # files may just be inaccurate
-            pass
+            files = {}
+            info = {}
 
         # map function sizes to debug symbols
         for func, size in sizes.items():
@@ -365,34 +421,28 @@ def collect(obj_paths, *,
             if not everything and func.startswith('__'):
                 continue
 
-            # find best matching debug symbol, this may be slightly different
+            # find best matching dwarf entry, this may be slightly different
             # due to optimizations
-            if defs:
-                # exact match? avoid difflib if we can for speed
-                if func in defs:
-                    file_ = defs[func]
-                else:
-                    _, file_ = max(
-                            defs.items(),
-                            key=lambda d: difflib.SequenceMatcher(None,
-                                d[0],
-                                func, False).ratio())
+            entry = info.get(func)
+
+            if entry is not None and 'DW_AT_decl_file' in entry:
+                file = files.get(int(entry['DW_AT_decl_file']), '?')
             else:
-                file_ = file
+                file = re.sub('(\.o)?$', '.c', obj_path, 1)
 
             # ignore filtered sources
             if sources is not None:
-                if not any(os.path.abspath(file_) == os.path.abspath(s)
+                if not any(os.path.abspath(file) == os.path.abspath(s)
                         for s in sources):
                     continue
             else:
                 # default to only cwd
                 if not everything and not os.path.commonpath([
                         os.getcwd(),
-                        os.path.abspath(file_)]) == os.getcwd():
+                        os.path.abspath(file)]) == os.getcwd():
                     continue
 
-            results.append(DataResult(file_, func, size))
+            results.append(CodeResult(file, func, size))
 
     return results
 
@@ -624,6 +674,9 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+        # append any notes
+        if hasattr(r, 'notes'):
+            entry[-1][1].extend(r.notes)
         return entry
 
     # recursive entry helper, only used by some scripts
