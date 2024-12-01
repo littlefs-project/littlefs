@@ -369,11 +369,13 @@ def collect_dwarf_info(obj_path, filter=None, *,
         def name(self):
             if 'DW_AT_name' in self:
                 name = self['DW_AT_name'].split(':')[-1].strip()
-                # prefix with struct/union
+                # prefix with struct/union/enum
                 if self.tag == 'DW_TAG_structure_type':
                     name = 'struct ' + name
                 elif self.tag == 'DW_TAG_union_type':
                     name = 'union ' + name
+                elif self.tag == 'DW_TAG_enumeration_type':
+                    name = 'enum ' + name
                 return name
             else:
                 return None

@@ -14,8 +14,8 @@ __import__('sys').path.pop(0)
 
 import collections as co
 import csv
-import difflib
 import itertools as it
+import functools as ft
 import math as mt
 import os
 import re
@@ -136,10 +136,10 @@ class StructResult(co.namedtuple('StructResult', [
     _types = {'size': RInt, 'align': RInt}
 
     __slots__ = ()
-    def __new__(cls, file='', struct='', size=0, align=0, children=[]):
+    def __new__(cls, file='', struct='', size=0, align=0, children=None):
         return super().__new__(cls, file, struct,
                 RInt(size), RInt(align),
-                children or [])
+                children if children is not None else [])
 
     def __add__(self, other):
         return StructResult(self.file, self.struct,
@@ -161,14 +161,36 @@ def openio(path, mode='r', buffering=-1):
 def collect_dwarf_files(obj_path, *,
         objdump_path=OBJDUMP_PATH,
         **args):
+    class FileInfo:
+        def __init__(self, files):
+            self.files = files
+
+        def get(self, k, d=None):
+            return self.files.get(k, d)
+
+        def __getitem__(self, k):
+            v = self.get(k)
+            if v is None:
+                raise KeyError(k)
+            return v
+
+        def __contains__(self, k):
+            return self.get(k) is not None
+
+        def __len__(self):
+            return len(self.files)
+
+        def __iter__(self):
+            return (v for k, v in self.files.items())
+
     line_pattern = re.compile(
             '^\s*(?P<no>[0-9]+)'
                 '(?:\s+(?P<dir>[0-9]+))?'
                 '.*\s+(?P<path>[^\s]+)\s*$')
 
     # find source paths
-    dirs = {}
-    files = {}
+    dirs = co.OrderedDict()
+    files = co.OrderedDict()
     # note objdump-path may contain extra args
     cmd = objdump_path + ['--dwarf=rawline', obj_path]
     if args.get('verbose'):
@@ -211,7 +233,7 @@ def collect_dwarf_files(obj_path, *,
             files_[no] = os.path.abspath(file)
     files = files_
 
-    return files
+    return FileInfo(files)
 
 def collect_dwarf_info(obj_path, filter=None, *,
         objdump_path=OBJDUMP_PATH,
@@ -227,6 +249,9 @@ def collect_dwarf_info(obj_path, filter=None, *,
             self.ats = ats or {}
             self.children = children or []
 
+        def get(self, k, d=None):
+            return self.ats.get(k, d)
+
         def __getitem__(self, k):
             return self.ats[k]
 
@@ -241,6 +266,71 @@ def collect_dwarf_info(obj_path, filter=None, *,
                     self.tag,
                     self.ats)
 
+        @ft.cached_property
+        def name(self):
+            if 'DW_AT_name' in self:
+                name = self['DW_AT_name'].split(':')[-1].strip()
+                # prefix with struct/union
+                if self.tag == 'DW_TAG_structure_type':
+                    name = 'struct ' + name
+                elif self.tag == 'DW_TAG_union_type':
+                    name = 'union ' + name
+                elif self.tag == 'DW_TAG_enumeration_type':
+                    name = 'enum ' + name
+                return name
+            else:
+                return None
+
+    # a collection of dwarf entries
+    class DwarfInfo:
+        def __init__(self, entries):
+            self.entries = entries
+
+        def get(self, k, d=None):
+            # allow lookup by both offset and dwarf name
+            if not isinstance(k, str):
+                return self.entries.get(k, d)
+
+            else:
+                import difflib
+
+                # organize entries by name
+                if not hasattr(self, '_by_name'):
+                    self._by_name = {}
+                    for entry in self.entries.values():
+                        if entry.name is not None:
+                            self._by_name[entry.name] = entry
+
+                # exact match? avoid difflib if we can for speed
+                if k in self._by_name:
+                    return self._by_name[k]
+                # find the best matching dwarf entry with difflib
+                #
+                # this can be different from the actual symbol because
+                # of optimization passes
+                else:
+                    name, entry = max(
+                            self._by_name.items(),
+                            key=lambda entry: difflib.SequenceMatcher(
+                                None, entry[0], k, False).ratio(),
+                            default=(None, None))
+                    return entry
+
+        def __getitem__(self, k):
+            v = self.get(k)
+            if v is None:
+                raise KeyError(k)
+            return v
+
+        def __contains__(self, k):
+            return self.get(k) is not None
+
+        def __len__(self):
+            return len(self.entries)
+
+        def __iter__(self):
+            return (v for k, v in self.entries.items())
+
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
                     '\s*<(?P<off>[^>]*)>'
@@ -250,7 +340,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                     '\s*:(?P<v>.*))\s*$')
 
     # collect dwarf entries
-    entries = co.OrderedDict()
+    info = co.OrderedDict()
     entry = None
     levels = {}
     # note objdump-path may contain extra args
@@ -276,7 +366,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                 if (entry.level == 1 and (
                         # unless this entry is filtered
                         filter_ is None or entry.tag in filter_)):
-                    entries[entry.off] = entry
+                    info[entry.off] = entry
                 # store entry in parent
                 levels[entry.level] = entry
                 if entry.level-1 in levels:
@@ -289,12 +379,11 @@ def collect_dwarf_info(obj_path, filter=None, *,
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
-    return entries
+    return DwarfInfo(info)
 
 def collect(obj_paths, *,
         sources=None,
         everything=False,
-        internal=False,
         **args):
     results = []
     for obj_path in obj_paths:
@@ -304,21 +393,126 @@ def collect(obj_paths, *,
         # find dwarf info
         info = collect_dwarf_info(obj_path, **args)
 
-        # collect structs and other types
-        typedefs = {}
-        typedefed = set()
-        types = {}
-        for no, entry in info.items():
-            # skip non-types
-            if entry.tag not in {
-                    'DW_TAG_typedef',
+        # recursive+cached size finder
+        def sizeof(entry):
+            # cached?
+            if not hasattr(sizeof, 'cache'):
+                sizeof.cache = {}
+            if entry.off in sizeof.cache:
+                return sizeof.cache[entry.off]
+
+            # explicit size?
+            if 'DW_AT_byte_size' in entry:
+                size = int(entry['DW_AT_byte_size'])
+            # array? multiply by size
+            elif entry.tag == 'DW_TAG_array_type':
+                type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
+                size = sizeof(type)
+                for child in entry.children:
+                    if child.tag == 'DW_TAG_subrange_type':
+                        size *= int(child['DW_AT_upper_bound']) + 1
+            # indirect type?
+            elif 'DW_AT_type' in entry:
+                type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
+                size = sizeof(type)
+            else:
+                assert False, "Unknown dwarf entry? %r" % entry.tag
+
+            sizeof.cache[entry.off] = size
+            return size
+
+        # recursive+cached alignment finder
+        #
+        # Dwarf doesn't seem to give us this info, so we infer it from
+        # the size of children pointer/base types. This is _usually_
+        # correct.
+        def alignof(entry):
+            # cached?
+            if not hasattr(alignof, 'cache'):
+                alignof.cache = {}
+            if entry.off in alignof.cache:
+                return alignof.cache[entry.off]
+
+            # pointer? base type? assume this size == alignment
+            if entry.tag in {
+                    'DW_TAG_pointer_type',
+                    'DW_TAG_base_type'}:
+                align = int(entry['DW_AT_byte_size'])
+            # struct? union? take max alignment of children
+            elif entry.tag in {
                     'DW_TAG_structure_type',
-                    'DW_TAG_union_type',
-                    'DW_TAG_enumeration_type'}:
+                    'DW_TAG_union_type'}:
+                align = max(alignof(child) for child in entry.children)
+            # indirect type?
+            elif 'DW_AT_type' in entry:
+                type = int(entry['DW_AT_type'].strip('<>'), 0)
+                align = alignof(info[type])
+            else:
+                assert False, "Unknown dwarf entry? %r" % entry.tag
+
+            alignof.cache[entry.off] = align
+            return align
+
+        # recursive+cached children finder
+        def childrenof(entry):
+            # cached?
+            if not hasattr(childrenof, 'cache'):
+                childrenof.cache = {}
+            if entry.off in childrenof.cache:
+                return childrenof.cache[entry.off]
+
+            # pointer? base type?
+            if entry.tag in {
+                    'DW_TAG_pointer_type',
+                    'DW_TAG_base_type'}:
+                children = []
+            # struct? union?
+            elif entry.tag in {
+                    'DW_TAG_structure_type',
+                    'DW_TAG_union_type'}:
+                children = []
+                for child in entry.children:
+                    name_ = child.name
+                    size_ = sizeof(child)
+                    align_ = alignof(child)
+                    children_ = childrenof(child)
+                    children.append(StructResult(
+                            file, name_, size_, align_, children_))
+            # indirect type?
+            elif 'DW_AT_type' in entry:
+                type = int(entry['DW_AT_type'].strip('<>'), 0)
+                children = childrenof(info[type])
+            else:
+                assert False, "Unknown dwarf entry? %r" % entry.tag
+
+            childrenof.cache[entry.off] = children
+            return children
+
+        # collect structs and other types
+        typedefs = co.OrderedDict()
+        typedefed = set()
+        types = co.OrderedDict()
+        for entry in info:
+            # skip non-types and types with no name
+            if (entry.tag not in {
+                        'DW_TAG_typedef',
+                        'DW_TAG_structure_type',
+                        'DW_TAG_union_type',
+                        'DW_TAG_enumeration_type'}
+                    or entry.name is None):
                 continue
 
+            # discard internal types
+            if not everything and entry.name.startswith('__'):
+                continue
+
+            # if we have no file guess from obj path
+            if 'DW_AT_decl_file' in entry:
+                file = files.get(int(entry['DW_AT_decl_file']), '?')
+            else:
+                file = re.sub('(\.o)?$', '.c', obj_path, 1)
+
             # ignore filtered sources
-            file = files.get(int(entry['DW_AT_decl_file']), '?')
             if sources is not None:
                 if not any(os.path.abspath(file) == os.path.abspath(s)
                         for s in sources):
@@ -330,91 +524,33 @@ def collect(obj_paths, *,
                         os.path.abspath(file)]) == os.getcwd()):
                     continue
 
-                # limit to .h files unless --internal
-                if not internal and not file.endswith('.h'):
-                    continue
-
-            # skip types with no names
-            if 'DW_AT_name' not in entry:
-                continue
-            name = entry['DW_AT_name'].split(':')[-1].strip()
+            # find name
+            name = entry.name
 
             # find the size of a type, recursing if necessary
-            def sizeof(entry):
-                # explicit size?
-                if 'DW_AT_byte_size' in entry:
-                    return int(entry['DW_AT_byte_size'])
-                # indirect type?
-                elif 'DW_AT_type' in entry:
-                    type = int(entry['DW_AT_type'].strip('<>'), 0)
-                    size = sizeof(info[type])
-                    # wait are we an array?
-                    if entry.tag == 'DW_TAG_array_type':
-                        for child in entry.children:
-                            if child.tag == 'DW_TAG_subrange_type':
-                                size *= int(child['DW_AT_upper_bound']) + 1
-                    return size
-                else:
-                    assert False
             size = sizeof(entry)
 
             # find alignment, recursing if necessary
-            #
-            # Dwarf doesn't seem to give us this info, so we infer it from
-            # the size of children pointer/base types. This is _usually_
-            # correct.
-            def alignof(entry):
-                # pointer/base type? assume this size == alignment
-                if entry.tag in {
-                        'DW_TAG_pointer_type',
-                        'DW_TAG_base_type'}:
-                    return int(entry['DW_AT_byte_size'])
-                # indirect type?
-                elif 'DW_AT_type' in entry:
-                    type = int(entry['DW_AT_type'].strip('<>'), 0)
-                    return alignof(info[type])
-                # struct/union probably
-                elif entry.children:
-                    return max(alignof(child) for child in entry.children)
-                else:
-                    assert False
             align = alignof(entry)
 
             # find children, recursing if necessary
-            def childrenof(entry):
-                # pointer? these end up recursive but the underlying
-                # type doesn't really matter here
-                if entry.tag == 'DW_TAG_pointer_type':
-                    return []
-                # indirect type?
-                elif 'DW_AT_type' in entry:
-                    type = int(entry['DW_AT_type'].strip('<>'), 0)
-                    return childrenof(info[type])
-                # struct/union probably
-                else:
-                    children = []
-                    for child in entry.children:
-                        name = child['DW_AT_name'].split(':')[-1].strip()
-                        size = sizeof(child)
-                        align = alignof(child)
-                        children.append(StructResult(file, name, size, align,
-                                childrenof(child)))
-                    return children
             children = childrenof(entry)
 
             # typdefs exist in a separate namespace, so we need to track
             # these separately
             if entry.tag == 'DW_TAG_typedef':
-                typedefs[no] = StructResult(file, name, size, align, children)
+                typedefs[entry.off] = StructResult(
+                        file, name, size, align, children)
                 typedefed.add(int(entry['DW_AT_type'].strip('<>'), 0))
             else:
-                types[no] = StructResult(file, name, size, align, children)
+                types[entry.off] = StructResult(
+                        file, name, size, align, children)
 
         # let typedefs take priority
         results.extend(typedefs.values())
         results.extend(type
-                for no, type in types.items()
-                if no not in typedefed)
+                for off, type in types.items()
+                if off not in typedefed)
 
     return results
 
@@ -646,6 +782,9 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+        # append any notes
+        if hasattr(r, 'notes'):
+            entry[-1][1].extend(r.notes)
         return entry
 
     # recursive entry helper, only used by some scripts
@@ -658,8 +797,7 @@ def table(Result, results, diff_results=None, *,
                     for r in results_}
         names_ = list(table_.keys())
 
-        # sort the children layer
-        names_.sort()
+        # only sort the children layer if explicitly requested
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(
@@ -950,10 +1088,6 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
-    parser.add_argument(
-            '--internal',
-            action='store_true',
-            help="Also show structs in .c files.")
     parser.add_argument(
             '-z', '--depth',
             nargs='?',
