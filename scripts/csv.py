@@ -1264,7 +1264,7 @@ def infer(fields_, results,
     # make sure sort fields are included
     if sort is not None:
         by.extend(k for k, reverse in sort
-                if k not in by and k not in fields)
+                if k and k not in by and k not in fields)
 
     # find best type for all fields used by field exprs
     fields__ = set(it.chain.from_iterable(
@@ -1891,6 +1891,7 @@ if __name__ == "__main__":
                     k.strip(),
                     RExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
+            const=(None, None),
             help="Sort by this field. Can include an expression of the form "
                 "field=expr.")
     parser.add_argument(
@@ -1902,6 +1903,7 @@ if __name__ == "__main__":
                     k.strip(),
                     RExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
+            const=(None, None),
             help="Sort by this field, but backwards. Can include an expression "
                 "of the form field=expr.")
     sys.exit(main(**{k: v
