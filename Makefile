@@ -106,6 +106,7 @@ ifdef VERBOSE
 CODEFLAGS    += -v
 DATAFLAGS    += -v
 STACKFLAGS   += -v
+CTXFLAGS 	 += -v
 STRUCTSFLAGS += -v
 COVFLAGS     += -v
 PERFFLAGS    += -v
@@ -121,6 +122,7 @@ endif
 ifneq ($(OBJDUMP),objdump)
 CODEFLAGS    += --objdump-path="$(OBJDUMP)"
 DATAFLAGS    += --objdump-path="$(OBJDUMP)"
+CTXFLAGS	 += --objdump-path="$(OBJDUMP)"
 STRUCTSFLAGS += --objdump-path="$(OBJDUMP)"
 PERFFLAGS    += --objdump-path="$(OBJDUMP)"
 PERFBDFLAGS  += --objdump-path="$(OBJDUMP)"
@@ -245,17 +247,33 @@ stack: $(CI) $(BUILDDIR)/lfs.stack.csv
 stack-diff: $(CI)
 	./scripts/stack.py $^ $(STACKFLAGS) -d $(BUILDDIR)/lfs.stack.csv
 
+## Find the per-function context
+.PHONY: ctx
+ctx: CTXFLAGS+=-S
+ctx: $(OBJ) $(BUILDDIR)/lfs.ctx.csv
+	./scripts/ctx.py $(OBJ) $(CTXFLAGS)
+
+## Compare per-function context
+.PHONY: ctx-diff
+ctx-diff: $(CI)
+	./scripts/ctx.py $^ $(CTXFLAGS) -d $(BUILDDIR)/lfs.ctx.csv
+
 ## Find function sizes
 .PHONY: funcs
 funcs: SUMMARYFLAGS+=-S
 funcs: SHELL=/bin/bash
-funcs: $(BUILDDIR)/lfs.code.csv $(BUILDDIR)/lfs.stack.csv
+funcs: \
+		$(BUILDDIR)/lfs.code.csv \
+		$(BUILDDIR)/lfs.stack.csv \
+		$(BUILDDIR)/lfs.ctx.csv
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
-			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+			-fcode=size -q -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fstack='max(stack)' \
+			-fstack='max(limit)' -q -o-) \
+		<(./scripts/csv.py $(BUILDDIR)/lfs.ctx.csv \
+			-fctx='max(size)' -q -o-) \
+		-bfunction -fcode -fstack='max(stack)' -fctx='max(ctx)' \
 		$(SUMMARYFLAGS))
 
 ## Compare function sizes
@@ -265,18 +283,23 @@ funcs-diff: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py \
 			<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
-			-fcode=size -q $(SUMMARYFLAGS) -o-) \
+			-fcode=size -q -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
-			-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
-		-bfunction -fcode -fstack='max(stack)' \
+			-fstack='max(limit)' -q -o-) \
+		<(./scripts/csv.py \
+			<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
+			-fctx='max(size)' -q -o-) \
+		-bfunction -fcode -fstack='max(stack)' -fctx='max(ctx)' \
 		$(SUMMARYFLAGS) -d <(./scripts/csv.py \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
-				-fcode=size -q $(SUMMARYFLAGS) -o-) \
+				-fcode=size -q -o-) \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
-				-fstack='max(limit)' -q $(SUMMARYFLAGS) -o-) \
-			-fcode -fstack='max(stack)' \
-			-q $(SUMMARYFLAGS) -o-))
+				-fstack='max(limit)' -q -o-) \
+			<(./scripts/csv.py $(BUILDDIR)/lfs.ctx.csv \
+				-fctx='max(size)' -q -o-) \
+			-fcode -fstack='max(stack)' -fctx='max(ctx)' \
+			-q -o-))
 
 ## Find struct sizes
 .PHONY: structs
@@ -341,7 +364,7 @@ summary sizes: \
 		$(BUILDDIR)/lfs.code.csv \
 		$(BUILDDIR)/lfs.data.csv \
 		$(BUILDDIR)/lfs.stack.csv \
-		$(BUILDDIR)/lfs.structs.csv
+		$(BUILDDIR)/lfs.ctx.csv
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
 			-fcode=size -q -o-) \
@@ -349,9 +372,9 @@ summary sizes: \
 			-fdata=size -q -o-) \
 		<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
 			-fstack='max(limit)' -q -o-) \
-		<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
-			-fstructs=size -q -o-) \
-		-bfunction -fcode -fdata -fstack='max(stack)' -fstructs \
+		<(./scripts/csv.py $(BUILDDIR)/lfs.ctx.csv \
+			-fctx='max(size)' -q -o-) \
+		-bfunction -fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
 		-Y $(SUMMARYFLAGS))
 
 ## Compare compile-time sizes
@@ -370,9 +393,9 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 				<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
 				-fstack='max(limit)' -q -o-) \
 			<(./scripts/csv.py \
-				<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
-				-fstructs=size -q -o-) \
-			-fcode -fdata -fstack='max(stack)' -fstructs \
+				<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
+				-fctx='max(size)' -q -o-) \
+			-fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
 			-bbuild='"AFTER"' -q -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
@@ -381,9 +404,9 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 				-fdata=size -q -o-) \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.stack.csv \
 				-fstack='max(limit)' -q -o-) \
-			<(./scripts/csv.py $(BUILDDIR)/lfs.structs.csv \
-				-fstructs=size -q -o-) \
-			-fcode -fdata -fstack='max(stack)' -fstructs \
+			<(./scripts/csv.py $(BUILDDIR)/lfs.ctx.csv \
+				-fctx='max(size)' -q -o-) \
+			-fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
 			-bbuild='"BEFORE"' -q -o-) \
 		-bbuild -cBEFORE -Y $(SUMMARYFLAGS))
 
@@ -492,6 +515,9 @@ $(BUILDDIR)/lfs.data.csv: $(OBJ)
 $(BUILDDIR)/lfs.stack.csv: $(CI)
 	./scripts/stack.py $^ -q $(STACKFLAGS) -o $@
 
+$(BUILDDIR)/lfs.ctx.csv: $(OBJ)
+	./scripts/ctx.py $^ -q $(CTXFLAGS) -o $@
+
 $(BUILDDIR)/lfs.structs.csv: $(OBJ)
 	./scripts/structs.py $^ -q $(STRUCTSFLAGS) -o $@
 
@@ -556,6 +582,7 @@ clean:
 	rm -f $(BUILDDIR)/lfs.code.csv
 	rm -f $(BUILDDIR)/lfs.data.csv
 	rm -f $(BUILDDIR)/lfs.stack.csv
+	rm -f $(BUILDDIR)/lfs.ctx.csv
 	rm -f $(BUILDDIR)/lfs.structs.csv
 	rm -f $(BUILDDIR)/lfs.cov.csv
 	rm -f $(BUILDDIR)/lfs.perf.csv
