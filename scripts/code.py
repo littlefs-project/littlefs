@@ -769,11 +769,12 @@ def table(Result, results, diff_results=None, *,
     # find the best widths, note that column 0 contains the names and is
     # handled a bit differently
     widths = co.defaultdict(lambda: 7, {0: 7})
-    notes = co.defaultdict(lambda: 0)
+    nwidths = co.defaultdict(lambda: 0)
     for line in lines:
         for i, x in enumerate(line):
             widths[i] = max(widths[i], ((len(x[0])+1+4-1)//4)*4-1)
-            notes[i] = max(notes[i], 1+2*len(x[1])+sum(len(n) for n in x[1]))
+            if i != len(line)-1:
+                nwidths[i] = max(nwidths[i], 1+sum(2+len(n) for n in x[1]))
 
     # print our table
     for line in lines:
@@ -781,7 +782,7 @@ def table(Result, results, diff_results=None, *,
                 widths[0], line[0][0],
                 ' '.join('%*s%-*s' % (
                         widths[i], x[0],
-                        notes[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
+                        nwidths[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
                     for i, x in enumerate(line[1:], 1))))
 
 
