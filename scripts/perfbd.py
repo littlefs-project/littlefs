@@ -775,34 +775,69 @@ def table(Result, results, diff_results=None, *,
     if diff_results is not None:
         diff_results = fold(Result, diff_results, by=by)
 
-    # reduce children to hot paths?
+    # reduce children to hot paths? only used by some scripts
     if hot:
-        def rec_hot(results_, seen=set()):
-            if not results_:
-                return []
+        # subclass to reintroduce __dict__
+        class HotResult(Result):
+            i = None
+            children = None
+            notes = None
+            def __new__(cls, r, i=None, children=None, notes=None):
+                self = HotResult._make(r)
+                self.i = i
+                self.children = children if children is not None else []
+                self.notes = notes if notes is not None else []
+                if hasattr(r, 'notes'):
+                    self.notes.extend(r.notes)
+                return self
 
-            r = max(results_,
-                    key=lambda r: tuple(
-                        tuple((getattr(r, k),)
-                                    if getattr(r, k, None) is not None
-                                    else ()
-                                for k in (
-                                    [k] if k else [
-                                        k for k in Result._sort
-                                            if k in fields])
-                                if k in fields)
-                            for k in it.chain(hot, [None])))
+            def __add__(self, other):
+                return HotResult(
+                        Result.__add__(self, other),
+                        self.i if other.i is None
+                            else other.i if self.i is None
+                            else min(self.i, other.i),
+                        self.children + other.children,
+                        self.notes + other.notes)
 
-            # found a cycle?
-            if (detect_cycles
-                    and tuple(getattr(r, k) for k in Result._by) in seen):
-                return []
+        def hot_(results_, depth_):
+            hot_ = []
+            def recurse(results_, depth_, seen=set()):
+                nonlocal hot_
+                if not results_:
+                    return
 
-            return [r._replace(children=[])] + rec_hot(
-                    r.children,
-                    seen | {tuple(getattr(r, k) for k in Result._by)})
+                # find the hottest result
+                r = max(results_,
+                        key=lambda r: tuple(
+                            tuple((getattr(r, k),)
+                                        if getattr(r, k, None) is not None
+                                        else ()
+                                    for k in (
+                                        [k] if k else [
+                                            k for k in Result._sort
+                                                if k in fields])
+                                    if k in fields)
+                                for k in it.chain(hot, [None])))
+                hot_.append(HotResult(r, i=len(hot_)))
 
-        results = [r._replace(children=rec_hot(r.children)) for r in results]
+                # found a cycle?
+                if (detect_cycles
+                        and tuple(getattr(r, k) for k in Result._by) in seen):
+                    hot_[-1].notes.append('cycle detected')
+                    return
+
+                # recurse?
+                if depth_ > 1:
+                    recurse(r.children,
+                            depth_-1,
+                            seen | {tuple(getattr(r, k) for k in Result._by)})
+
+            recurse(results_, depth_)
+            return hot_
+
+        results = [r._replace(children=hot_(r.children, depth-1))
+                for r in results]
 
     # organize by name
     table = {
@@ -959,7 +994,7 @@ def table(Result, results, diff_results=None, *,
         names_ = list(table_.keys())
 
         # sort the children layer
-        names_.sort()
+        names_.sort(key=lambda n: (getattr(table_[n], 'i', None), n))
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(
