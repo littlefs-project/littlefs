@@ -26,9 +26,8 @@ import shlex
 import subprocess as sp
 
 
-NM_PATH = ['nm']
-NM_TYPES = 'dDbB'
 OBJDUMP_PATH = ['objdump']
+SECTIONS = ['.data', '.bss']
 
 
 # integer fields
@@ -158,6 +157,116 @@ def openio(path, mode='r', buffering=-1):
             return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
+
+class SymInfo:
+    def __init__(self, syms):
+        self.syms = syms
+
+    def get(self, k, d=None):
+        # allow lookup by both symbol and address
+        if isinstance(k, str):
+            # organize by symbol, note multiple symbols can share a name
+            if not hasattr(self, '_by_sym'):
+                by_sym = {}
+                for sym, addr, size in self.syms:
+                    if sym not in by_sym:
+                        by_sym[sym] = []
+                    if (addr, size) not in by_sym[sym]:
+                        by_sym[sym].append((addr, size))
+                self._by_sym = by_sym
+            return self._by_sym.get(k, d)
+
+        else:
+            import bisect
+
+            # organize by address
+            if not hasattr(self, '_by_addr'):
+                # sort and keep largest/first when duplicates
+                syms = self.syms.copy()
+                syms.sort(key=lambda x: (x[1], -x[2], x[0]))
+
+                by_addr = []
+                for name, addr, size in syms:
+                    if (len(by_addr) == 0
+                            or by_addr[-1][0] != addr):
+                        by_addr.append((name, addr, size))
+                self._by_addr = by_addr
+
+            # find sym by range
+            i = bisect.bisect(self._by_addr, k,
+                    key=lambda x: x[1])
+            # check that we're actually in this sym's size
+            if i > 0 and k < self._by_addr[i-1][1]+self._by_addr[i-1][2]:
+                return self._by_addr[i-1][0]
+            else:
+                return d
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __len__(self):
+        return len(self.syms)
+
+    def __iter__(self):
+        return iter(self.syms)
+
+def collect_syms(obj_path, sections=None, global_=False, *,
+        objdump_path=OBJDUMP_PATH,
+        **args):
+    symbol_pattern = re.compile(
+            '^(?P<addr>[0-9a-fA-F]+)'
+                ' (?P<scope>.).*'
+                '\s+(?P<section>[^\s]+)'
+                '\s+(?P<size>[0-9a-fA-F]+)'
+                '\s+(?P<name>[^\s]+)\s*$')
+
+    # find symbol addresses and sizes
+    syms = []
+    cmd = objdump_path + ['-t', obj_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    for line in proc.stdout:
+        m = symbol_pattern.match(line)
+        if m:
+            name = m.group('name')
+            scope = m.group('scope')
+            section = m.group('section')
+            addr = int(m.group('addr'), 16)
+            size = int(m.group('size'), 16)
+            # skip non-globals?
+            # l => local
+            # g => global
+            # u => unique global
+            #   => neither
+            # ! => local + global
+            if global_ and scope in 'l ':
+                continue
+            # filter by section? note we accept prefixes
+            if (sections is not None
+                    and not any(section.startswith(prefix)
+                        for prefix in sections)):
+                continue
+            # skip zero sized symbols
+            if not size:
+                continue
+            # note multiple symbols can share a name
+            syms.append((name, addr, size))
+    proc.wait()
+    if proc.returncode != 0:
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return SymInfo(syms)
 
 def collect_dwarf_files(obj_path, *,
         objdump_path=OBJDUMP_PATH,
@@ -305,11 +414,9 @@ class DwarfInfo:
     def __iter__(self):
         return (v for k, v in self.entries.items())
 
-def collect_dwarf_info(obj_path, filter=None, *,
+def collect_dwarf_info(obj_path, tags=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
-    filter_, filter = filter, __builtins__.filter
-
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
                     '\s*<(?P<off>[^>]*)>'
@@ -344,7 +451,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                 # keep track of top-level entries
                 if (entry.level == 1 and (
                         # unless this entry is filtered
-                        filter_ is None or entry.tag in filter_)):
+                        tags is None or entry.tag in tags)):
                     info[entry.off] = entry
                 # store entry in parent
                 levels[entry.level] = entry
@@ -360,71 +467,36 @@ def collect_dwarf_info(obj_path, filter=None, *,
 
     return DwarfInfo(info)
 
-def collect_sizes(obj_path, *,
-        nm_path=NM_PATH,
-        nm_types=NM_TYPES,
-        everything=False,
-        **args):
-    size_pattern = re.compile(
-            '^(?P<size>[0-9a-fA-F]+)'
-                + '\s+(?P<type>[%s])' % re.escape(nm_types)
-                + '\s+(?P<func>[^\s]+)\s*$')
-
-    # find sizes
-    sizes = {}
-    # note nm-path may contain extra args
-    cmd = nm_path + ['--size-sort', obj_path]
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-            stdout=sp.PIPE,
-            universal_newlines=True,
-            errors='replace',
-            close_fds=False)
-    for line in proc.stdout:
-        m = size_pattern.match(line)
-        if m:
-            func = m.group('func')
-            size = int(m.group('size'), 16)
-            sizes[func] = size
-    proc.wait()
-    if proc.returncode != 0:
-        raise sp.CalledProcessError(proc.returncode, proc.args)
-
-    return sizes
-
 def collect(obj_paths, *,
         sources=None,
         everything=False,
         **args):
     results = []
     for obj_path in obj_paths:
-        # find sizes
-        sizes = collect_sizes(obj_path, everything=everything, **args)
+        # find relevant symbols and sizes
+        syms = collect_syms(obj_path,
+                sections=SECTIONS,
+                **args)
 
-        # try to figure out the source file if we have debug-info
-        try:
-            files = collect_dwarf_files(obj_path, **args)
-            info = collect_dwarf_info(obj_path,
-                    filter={'DW_TAG_subprogram', 'DW_TAG_variable'},
-                    **args)
+        # find source paths
+        files = collect_dwarf_files(obj_path, **args)
 
-        except sp.CalledProcessError:
-            # do nothing on error, we don't need objdump to work, source
-            # files may just be inaccurate
-            files = {}
-            info = {}
+        # find dwarf info
+        info = collect_dwarf_info(obj_path,
+                tags={'DW_TAG_subprogram', 'DW_TAG_variable'},
+                **args)
 
         # map function sizes to debug symbols
-        for func, size in sizes.items():
+        for sym, _, size in syms:
             # discard internal functions
-            if not everything and func.startswith('__'):
+            if not everything and sym.startswith('__'):
                 continue
 
             # find best matching dwarf entry, this may be slightly different
             # due to optimizations
-            entry = info.get(func)
+            entry = info.get(sym)
 
+            # if we have no file guess from obj path
             if entry is not None and 'DW_AT_decl_file' in entry:
                 file = files.get(int(entry['DW_AT_decl_file']), '?')
             else:
@@ -442,7 +514,7 @@ def collect(obj_paths, *,
                         os.path.abspath(file)]) == os.getcwd():
                     continue
 
-            results.append(CodeResult(file, func, size))
+            results.append(DataResult(file, sym, size))
 
     return results
 
@@ -1010,18 +1082,6 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
-    parser.add_argument(
-            '--nm-types',
-            default=NM_TYPES,
-            help="Type of symbols to report, this uses the same "
-                "single-character type-names emitted by nm. Defaults to "
-                "%r." % NM_TYPES)
-    parser.add_argument(
-            '--nm-path',
-            type=lambda x: x.split(),
-            default=NM_PATH,
-            help="Path to the nm executable, may include flags. "
-                "Defaults to %r." % NM_PATH)
     parser.add_argument(
             '--objdump-path',
             type=lambda x: x.split(),

@@ -319,12 +319,13 @@ class SymInfo:
         return iter(self.syms)
 
 @multiprocessing_cache
-def collect_syms(obj_path, global_only=False, *,
+def collect_syms(obj_path, sections=None, global_=False, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     symbol_pattern = re.compile(
             '^(?P<addr>[0-9a-fA-F]+)'
                 ' (?P<scope>.).*'
+                '\s+(?P<section>[^\s]+)'
                 '\s+(?P<size>[0-9a-fA-F]+)'
                 '\s+(?P<name>[^\s]+)\s*$')
 
@@ -343,6 +344,7 @@ def collect_syms(obj_path, global_only=False, *,
         if m:
             name = m.group('name')
             scope = m.group('scope')
+            section = m.group('section')
             addr = int(m.group('addr'), 16)
             size = int(m.group('size'), 16)
             # skip non-globals?
@@ -351,9 +353,14 @@ def collect_syms(obj_path, global_only=False, *,
             # u => unique global
             #   => neither
             # ! => local + global
-            if global_only and scope in 'l ':
+            if global_ and scope in 'l ':
                 continue
-            # ignore zero-sized symbols
+            # filter by section? note we accept prefixes
+            if (sections is not None
+                    and not any(section.startswith(prefix)
+                        for prefix in sections)):
+                continue
+            # skip zero sized symbols
             if not size:
                 continue
             # note multiple symbols can share a name
@@ -611,7 +618,9 @@ def collect_decompressed(path, *,
                 addr_ = int(m.group('addr'), 16)
 
                 # get the syms/lines for the dso, this is cached
-                syms = collect_syms(dso, **args)
+                syms = collect_syms(dso,
+                        sections=['.text'],
+                        **args)
                 lines = collect_dwarf_lines(dso, **args)
 
                 # ASLR is tricky, we have symbols+offsets, but static symbols

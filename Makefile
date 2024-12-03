@@ -64,7 +64,6 @@ CC            ?= gcc
 AR            ?= ar
 SIZE          ?= size
 CTAGS         ?= ctags
-NM            ?= nm
 OBJDUMP       ?= objdump
 VALGRIND      ?= valgrind
 GDB           ?= gdb
@@ -115,10 +114,6 @@ endif
 # forward -j flag
 PERFFLAGS   += $(filter -j%,$(MAKEFLAGS))
 PERFBDFLAGS += $(filter -j%,$(MAKEFLAGS))
-ifneq ($(NM),nm)
-CODEFLAGS += --nm-path="$(NM)"
-DATAFLAGS += --nm-path="$(NM)"
-endif
 ifneq ($(OBJDUMP),objdump)
 CODEFLAGS    += --objdump-path="$(OBJDUMP)"
 DATAFLAGS    += --objdump-path="$(OBJDUMP)"

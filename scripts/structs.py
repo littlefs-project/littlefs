@@ -311,11 +311,9 @@ class DwarfInfo:
     def __iter__(self):
         return (v for k, v in self.entries.items())
 
-def collect_dwarf_info(obj_path, filter=None, *,
+def collect_dwarf_info(obj_path, tags=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
-    filter_, filter = filter, __builtins__.filter
-
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
                     '\s*<(?P<off>[^>]*)>'
@@ -350,7 +348,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                 # keep track of top-level entries
                 if (entry.level == 1 and (
                         # unless this entry is filtered
-                        filter_ is None or entry.tag in filter_)):
+                        tags is None or entry.tag in tags)):
                     info[entry.off] = entry
                 # store entry in parent
                 levels[entry.level] = entry

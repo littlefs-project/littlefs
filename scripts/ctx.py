@@ -225,12 +225,13 @@ class SymInfo:
     def __iter__(self):
         return iter(self.syms)
 
-def collect_syms(obj_path, global_only=False, *,
+def collect_syms(obj_path, sections=None, global_=False, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     symbol_pattern = re.compile(
             '^(?P<addr>[0-9a-fA-F]+)'
                 ' (?P<scope>.).*'
+                '\s+(?P<section>[^\s]+)'
                 '\s+(?P<size>[0-9a-fA-F]+)'
                 '\s+(?P<name>[^\s]+)\s*$')
 
@@ -249,6 +250,7 @@ def collect_syms(obj_path, global_only=False, *,
         if m:
             name = m.group('name')
             scope = m.group('scope')
+            section = m.group('section')
             addr = int(m.group('addr'), 16)
             size = int(m.group('size'), 16)
             # skip non-globals?
@@ -257,9 +259,14 @@ def collect_syms(obj_path, global_only=False, *,
             # u => unique global
             #   => neither
             # ! => local + global
-            if global_only and scope in 'l ':
+            if global_ and scope in 'l ':
                 continue
-            # ignore zero-sized symbols
+            # filter by section? note we accept prefixes
+            if (sections is not None
+                    and not any(section.startswith(prefix)
+                        for prefix in sections)):
+                continue
+            # skip zero sized symbols
             if not size:
                 continue
             # note multiple symbols can share a name
@@ -416,11 +423,9 @@ class DwarfInfo:
     def __iter__(self):
         return (v for k, v in self.entries.items())
 
-def collect_dwarf_info(obj_path, filter=None, *,
+def collect_dwarf_info(obj_path, tags=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
-    filter_, filter = filter, __builtins__.filter
-
     info_pattern = re.compile(
             '^\s*(?:<(?P<level>[^>]*)>'
                     '\s*<(?P<off>[^>]*)>'
@@ -455,7 +460,7 @@ def collect_dwarf_info(obj_path, filter=None, *,
                 # keep track of top-level entries
                 if (entry.level == 1 and (
                         # unless this entry is filtered
-                        filter_ is None or entry.tag in filter_)):
+                        tags is None or entry.tag in tags)):
                     info[entry.off] = entry
                 # store entry in parent
                 levels[entry.level] = entry
@@ -478,7 +483,10 @@ def collect(obj_paths, *,
     results = []
     for obj_path in obj_paths:
         # find global symbols
-        syms = collect_syms(obj_path, global_only=not everything, **args)
+        syms = collect_syms(obj_path,
+                sections=['.text'],
+                global_=not everything,
+                **args)
 
         # find source paths
         files = collect_dwarf_files(obj_path, **args)
