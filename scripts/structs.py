@@ -134,6 +134,8 @@ class StructResult(co.namedtuple('StructResult', [
     _fields = ['size', 'align']
     _sort = ['size', 'align']
     _types = {'size': RInt, 'align': RInt}
+    _i = 'i'
+    _children = 'children'
 
     __slots__ = ()
     def __new__(cls, file='', struct='', size=0, align=0,
@@ -604,29 +606,32 @@ def table(Result, results, diff_results=None, *,
     # reduce children to hot paths? only used by some scripts
     if hot:
         # subclass to reintroduce __dict__
-        class HotResult(Result):
-            i = None
-            children = None
-            notes = None
+        Result_ = Result
+        class HotResult(Result_):
+            _i = '_hot_i'
+            _children = '_hot_children'
+            _notes = '_hot_notes'
+
             def __new__(cls, r, i=None, children=None, notes=None):
                 self = HotResult._make(r)
-                self.i = i
-                self.children = children if children is not None else []
-                self.notes = notes if notes is not None else []
-                if hasattr(r, 'notes'):
-                    self.notes.extend(r.notes)
+                self._hot_i = i
+                self._hot_children = children if children is not None else []
+                self._hot_notes = notes if notes is not None else []
+                if hasattr(Result_, '_notes'):
+                    self._hot_notes.extend(getattr(r, r._notes))
                 return self
 
             def __add__(self, other):
                 return HotResult(
-                        Result.__add__(self, other),
-                        self.i if other.i is None
-                            else other.i if self.i is None
-                            else min(self.i, other.i),
-                        self.children + other.children,
-                        self.notes + other.notes)
+                        Result_.__add__(self, other),
+                        self._hot_i if other._hot_i is None
+                            else other._hot_i if self._hot_i is None
+                            else min(self._hot_i, other._hot_i),
+                        self._hot_children + other._hot_children,
+                        self._hot_notes + other._hot_notes)
 
-        def hot_(results_, depth_):
+        results_ = []
+        for r in results:
             hot_ = []
             def recurse(results_, depth_, seen=set()):
                 nonlocal hot_
@@ -650,20 +655,20 @@ def table(Result, results, diff_results=None, *,
                 # found a cycle?
                 if (detect_cycles
                         and tuple(getattr(r, k) for k in Result._by) in seen):
-                    hot_[-1].notes.append('cycle detected')
+                    hot_[-1]._hot_notes.append('cycle detected')
                     return
 
                 # recurse?
                 if depth_ > 1:
-                    recurse(r.children,
+                    recurse(getattr(r, Result._children),
                             depth_-1,
                             seen | {tuple(getattr(r, k) for k in Result._by)})
 
-            recurse(results_, depth_)
-            return hot_
+            recurse(getattr(r, Result._children), depth-1)
+            results_.append(HotResult(r, children=hot_))
 
-        results = [r._replace(children=hot_(r.children, depth-1))
-                for r in results]
+        Result = HotResult
+        results = results_
 
     # organize by name
     table = {
@@ -805,8 +810,8 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
         # append any notes
-        if hasattr(r, 'notes'):
-            entry[-1][1].extend(r.notes)
+        if hasattr(Result, '_notes'):
+            entry[-1][1].extend(getattr(r, Result._notes))
         return entry
 
     # recursive entry helper, only used by some scripts
@@ -820,7 +825,9 @@ def table(Result, results, diff_results=None, *,
         names_ = list(table_.keys())
 
         # sort the children layer
-        names_.sort(key=lambda n: (getattr(table_[n], 'i', None), n))
+        names_.sort()
+        if hasattr(Result, '_i'):
+            names_.sort(key=lambda n: getattr(table_[n], Result._i))
         if sort:
             for k, reverse in reversed(sort):
                 names_.sort(
@@ -854,7 +861,7 @@ def table(Result, results, diff_results=None, *,
 
             # recurse?
             if depth_ > 1:
-                recurse(r.children,
+                recurse(getattr(r, Result._children),
                         depth_-1,
                         seen | {name},
                         (prefixes[2+is_last] + "|-> ",
@@ -874,7 +881,7 @@ def table(Result, results, diff_results=None, *,
 
             # recursive entries
             if name in table and depth > 1:
-                recurse(table[name].children,
+                recurse(getattr(table[name], Result._children),
                         depth-1,
                         {name},
                         ("|-> ",
