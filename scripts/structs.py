@@ -272,8 +272,6 @@ class DwarfInfo:
             return self.entries.get(k, d)
 
         else:
-            import difflib
-
             # organize entries by name
             if not hasattr(self, '_by_name'):
                 self._by_name = {}
@@ -281,20 +279,24 @@ class DwarfInfo:
                     if entry.name is not None:
                         self._by_name[entry.name] = entry
 
-            # exact match? avoid difflib if we can for speed
+            # exact match? do a quick lookup
             if k in self._by_name:
                 return self._by_name[k]
-            # find the best matching dwarf entry with difflib
+            # find the best matching dwarf entry with a simple
+            # heuristic
             #
             # this can be different from the actual symbol because
             # of optimization passes
             else:
-                name, entry = max(
-                        self._by_name.items(),
-                        key=lambda entry: difflib.SequenceMatcher(
-                            None, entry[0], k, False).ratio(),
-                        default=(None, None))
-                return entry
+                def key(entry):
+                    i = k.find(entry.name)
+                    if i == -1:
+                        return None
+                    return (i, len(k)-(i+len(entry.name)), k)
+                return min(
+                        filter(key, self._by_name.values()),
+                        key=key,
+                        default=d)
 
     def __getitem__(self, k):
         v = self.get(k)
