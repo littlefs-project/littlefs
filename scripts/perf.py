@@ -447,22 +447,21 @@ def collect_dwarf_lines(obj_path, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     line_pattern = re.compile(
-            '^\s*(?:'
-                # matches dir/file table
-                '(?P<no>[0-9]+)'
+            # matches dir/file table
+            '^\s*(?P<no>[0-9]+)'
                     '(?:\s+(?P<dir>[0-9]+))?'
-                    '.*\s+(?P<path>[^\s]+)'
+                    '.*\s+(?P<path>[^\s]+)\s*$'
                 # matches line opcodes
-                '|' '\[[^\]]*\]\s+' '(?:'
-                    '(?P<op_special>Special)'
-                    '|' '(?P<op_copy>Copy)'
-                    '|' '(?P<op_end>End of Sequence)'
-                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
-                    '|' 'Line .*?to (?P<op_line>[0-9]+)'
-                    '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
-                    '|' '.'
-                ')*'
-            ')\s*$', re.IGNORECASE)
+                '|' '^\s*\[[^\]]*\]' '(?:'
+                    '\s+(?P<op_special>Special)'
+                        '|' '\s+(?P<op_copy>Copy)'
+                        '|' '\s+(?P<op_end>End of Sequence)'
+                        '|' '\s+File.*?to.*?(?P<op_file>[0-9]+)'
+                        '|' '\s+Line.*?to.*?(?P<op_line>[0-9]+)'
+                        '|' '\s+(?:Address|PC)'
+                            '\s+.*?to.*?(?P<op_addr>[0xX0-9a-fA-F]+)'
+                        '|' '\s+[^\s]+' ')+\s*$',
+            re.IGNORECASE)
 
     # state machine for dwarf line numbers, note that objdump's
     # decodedline seems to have issues with multiple dir/file

@@ -317,12 +317,12 @@ def collect_dwarf_info(obj_path, tags=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     info_pattern = re.compile(
-            '^\s*(?:<(?P<level>[^>]*)>'
+            '^\s*<(?P<level>[^>]*)>'
                     '\s*<(?P<off>[^>]*)>'
-                    '.*\(\s*(?P<tag>[^)]*?)\s*\)'
-                '|\s*<(?P<off_>[^>]*)>'
+                    '.*\(\s*(?P<tag>[^)]*?)\s*\)\s*$'
+                '|' '^\s*<(?P<off_>[^>]*)>'
                     '\s*(?P<at>[^>:]*?)'
-                    '\s*:(?P<v>.*))\s*$')
+                    '\s*:(?P<v>.*)\s*$')
 
     # collect dwarf entries
     info = co.OrderedDict()
