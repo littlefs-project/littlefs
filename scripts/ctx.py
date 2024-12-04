@@ -237,7 +237,7 @@ def collect_syms(obj_path, sections=None, global_=False, *,
 
     # find symbol addresses and sizes
     syms = []
-    cmd = objdump_path + ['-t', obj_path]
+    cmd = objdump_path + ['--syms', obj_path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
