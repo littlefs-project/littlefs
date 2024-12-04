@@ -552,12 +552,22 @@ def collect(obj_paths, *,
             # function pointer?
             elif entry.tag == 'DW_TAG_subroutine_type':
                 size = 0
-            # probably a modifier
-            elif 'DW_AT_type' in entry:
+            # a modifier?
+            elif (entry.tag in {
+                        'DW_TAG_typedef',
+                        'DW_TAG_array_type',
+                        'DW_TAG_enumeration_type',
+                        'DW_TAG_formal_parameter',
+                        'DW_TAG_member',
+                        'DW_TAG_const_type',
+                        'DW_TAG_volatile_type',
+                        'DW_TAG_restrict_type'}
+                    and 'DW_AT_type' in entry):
                 type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
                 size = sizeof(type, seen | {entry.off})
             # void?
-            elif 'DW_AT_byte_size' not in entry:
+            elif ('DW_AT_type' not in entry
+                    and 'DW_AT_byte_size' not in entry):
                 size = 0
             else:
                 assert False, "Unknown dwarf entry? %r" % entry.tag
@@ -616,13 +626,23 @@ def collect(obj_paths, *,
                     'DW_TAG_base_type',
                     'DW_TAG_subroutine_type'}:
                 children, notes = [], []
-            # probably a modifier
-            elif 'DW_AT_type' in entry:
+            # a modifier?
+            elif (entry.tag in {
+                        'DW_TAG_typedef',
+                        'DW_TAG_array_type',
+                        'DW_TAG_enumeration_type',
+                        'DW_TAG_formal_parameter',
+                        'DW_TAG_member',
+                        'DW_TAG_const_type',
+                        'DW_TAG_volatile_type',
+                        'DW_TAG_restrict_type'}
+                    and 'DW_AT_type' in entry):
                 type = int(entry['DW_AT_type'].strip('<>'), 0)
                 children, notes = childrenof(
                         info[type], seen | {entry.off})
             # void?
-            elif 'DW_AT_byte_size' not in entry:
+            elif ('DW_AT_type' not in entry
+                    and 'DW_AT_byte_size' not in entry):
                 children, notes = [], []
             else:
                 assert False, "Unknown dwarf entry? %r" % entry.tag

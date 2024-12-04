@@ -397,7 +397,13 @@ def collect(obj_paths, *,
                     if child.tag == 'DW_TAG_subrange_type':
                         size *= int(child['DW_AT_upper_bound']) + 1
             # indirect type?
-            elif 'DW_AT_type' in entry:
+            elif entry.tag in {
+                    'DW_TAG_typedef',
+                    'DW_TAG_enumeration_type',
+                    'DW_TAG_member',
+                    'DW_TAG_const_type',
+                    'DW_TAG_volatile_type',
+                    'DW_TAG_restrict_type'}:
                 type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
                 size = sizeof(type)
             else:
@@ -429,7 +435,14 @@ def collect(obj_paths, *,
                     'DW_TAG_union_type'}:
                 align = max(alignof(child) for child in entry.children)
             # indirect type?
-            elif 'DW_AT_type' in entry:
+            elif entry.tag in {
+                    'DW_TAG_typedef',
+                    'DW_TAG_array_type',
+                    'DW_TAG_enumeration_type',
+                    'DW_TAG_member',
+                    'DW_TAG_const_type',
+                    'DW_TAG_volatile_type',
+                    'DW_TAG_restrict_type'}:
                 type = int(entry['DW_AT_type'].strip('<>'), 0)
                 align = alignof(info[type])
             else:
@@ -466,7 +479,14 @@ def collect(obj_paths, *,
                             i=child.off,
                             children=children_))
             # indirect type?
-            elif 'DW_AT_type' in entry:
+            elif entry.tag in {
+                    'DW_TAG_typedef',
+                    'DW_TAG_array_type',
+                    'DW_TAG_enumeration_type',
+                    'DW_TAG_member',
+                    'DW_TAG_const_type',
+                    'DW_TAG_volatile_type',
+                    'DW_TAG_restrict_type'}:
                 type = int(entry['DW_AT_type'].strip('<>'), 0)
                 children = childrenof(info[type])
             else:
