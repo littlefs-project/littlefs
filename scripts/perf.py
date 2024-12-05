@@ -397,6 +397,18 @@ def collect_syms(obj_path, global_=False, sections=None, *,
 
     return SymInfo(syms)
 
+class Line(co.namedtuple('Line', ['file', 'line', 'addr'])):
+    __slots__ = ()
+    def __new__(cls, file, line, addr):
+        return super().__new__(cls, file, line, addr)
+
+    def __repr__(self):
+        return '%s(%r, %r, 0x%x)' % (
+                self.__class__.__name__,
+                self.file,
+                self.line,
+                self.addr)
+
 class LineInfo:
     def __init__(self, lines):
         self.lines = lines
@@ -410,20 +422,20 @@ class LineInfo:
             if not hasattr(self, '_by_addr'):
                 # sort and keep first when duplicates
                 lines = self.lines.copy()
-                lines.sort(key=lambda x: (x[2], x[0], x[1]))
+                lines.sort(key=lambda x: (x.addr, x.file, x.line))
 
                 by_addr = []
-                for file, line, addr in lines:
+                for line in lines:
                     if (len(by_addr) == 0
-                            or by_addr[-1][2] != addr):
-                        by_addr.append((file, line, addr))
+                            or by_addr[-1].addr != line.addr):
+                        by_addr.append(line)
                 self._by_addr = by_addr
 
             # find file+line by addr
             i = bisect.bisect(self._by_addr, k,
-                    key=lambda x: x[2])
+                    key=lambda x: x.addr)
             if i > 0:
-                return self._by_addr[i-1][0], self._by_addr[i-1][1]
+                return self._by_addr[i-1]
             else:
                 return d
 
@@ -437,19 +449,19 @@ class LineInfo:
                 lines.sort()
 
                 by_line = []
-                for file, line, addr in lines:
+                for line in lines:
                     if (len(by_line) == 0
-                            or by_line[-1][0] != file
-                            or by_line[-1][1] != line):
-                        by_line.append((file, line, addr))
+                            or by_line[-1].file != line.file
+                            or by_line[-1].line != line.line):
+                        by_line.append(line)
                 self._by_line = by_line
 
             # find addr by file+line tuple
             i = bisect.bisect(self._by_line, k,
-                    key=lambda x: (x[0], x[1]))
+                    key=lambda x: (x.file, x.line))
             # make sure file at least matches!
-            if i > 0 and self._by_line[i-1][0] == k[0]:
-                return self._by_line[i-1][2]
+            if i > 0 and self._by_line[i-1].file == k[0]:
+                return self._by_line[i-1]
             else:
                 return d
 
@@ -534,7 +546,7 @@ def collect_dwarf_lines(obj_path, *,
                         or m.group('op_copy')
                         or m.group('op_end')):
                     file = os.path.abspath(files.get(op_file, '?'))
-                    lines.append((file, op_line, op_addr))
+                    lines.append(Line(file, op_line, op_addr))
 
                 if m.group('op_end'):
                     op_file = 1
@@ -686,7 +698,7 @@ def collect_decompressed(path, *,
                         # find file+line
                         line_ = lines.get(addr)
                         if line_ is not None:
-                            file, line = line_
+                            file, line = line_.file, line_.line
                         else:
                             file, line = re.sub('(\.o)?$', '.c', dso, 1), 0
 
