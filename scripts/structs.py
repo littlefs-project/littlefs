@@ -347,10 +347,8 @@ def collect_dwarf_info(obj_path, tags=None, *,
                     off=int(m.group('off'), 16),
                     tag=m.group('tag').strip(),
                 )
-                # keep track of top-level entries
-                if (entry.level == 1 and (
-                        # unless this entry is filtered
-                        tags is None or entry.tag in tags)):
+                # keep track of unfiltered entries
+                if tags is None or entry.tag in tags:
                     info[entry.off] = entry
                 # store entry in parent
                 levels[entry.level] = entry
