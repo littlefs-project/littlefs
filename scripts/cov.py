@@ -53,6 +53,9 @@ class RInt(co.namedtuple('RInt', 'x')):
             x = int(x)
         return super().__new__(cls, x)
 
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.x)
+
     def __str__(self):
         if self.x == mt.inf:
             return '∞'
@@ -142,6 +145,9 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         if b is None:
             b = a
         return super().__new__(cls, RInt(a), RInt(b))
+
+    def __repr__(self):
+        return '%s(%r, %r)' % (self.__class__.__name__, self.a.x, self.b.x)
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)

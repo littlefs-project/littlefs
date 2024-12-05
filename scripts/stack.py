@@ -42,6 +42,9 @@ class RInt(co.namedtuple('RInt', 'x')):
             x = int(x)
         return super().__new__(cls, x)
 
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.x)
+
     def __str__(self):
         if self.x == mt.inf:
             return '∞'
