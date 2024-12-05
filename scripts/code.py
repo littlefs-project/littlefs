@@ -158,6 +158,21 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
+class Sym(co.namedtuple('Sym', [
+        'name', 'global_', 'section', 'addr', 'size'])):
+    __slots__ = ()
+    def __new__(cls, name, global_, section, addr, size):
+        return super().__new__(cls, name, global_, section, addr, size)
+
+    def __repr__(self):
+        return '%s(%r, %r, %r, 0x%x, 0x%x)' % (
+                self.__class__.__name__,
+                self.name,
+                self.global_,
+                self.section,
+                self.addr,
+                self.size)
+
 class SymInfo:
     def __init__(self, syms):
         self.syms = syms
@@ -168,12 +183,13 @@ class SymInfo:
             # organize by symbol, note multiple symbols can share a name
             if not hasattr(self, '_by_sym'):
                 by_sym = {}
-                for sym, addr, size in self.syms:
-                    if sym not in by_sym:
-                        by_sym[sym] = []
-                    if (addr, size) not in by_sym[sym]:
-                        by_sym[sym].append((addr, size))
+                for sym in self.syms:
+                    if sym.name not in by_sym:
+                        by_sym[sym.name] = []
+                    if sym not in by_sym[sym.name]:
+                        by_sym[sym.name].append(sym)
                 self._by_sym = by_sym
+
             return self._by_sym.get(k, d)
 
         else:
@@ -183,21 +199,21 @@ class SymInfo:
             if not hasattr(self, '_by_addr'):
                 # sort and keep largest/first when duplicates
                 syms = self.syms.copy()
-                syms.sort(key=lambda x: (x[1], -x[2], x[0]))
+                syms.sort(key=lambda x: (x.addr, -x.size))
 
                 by_addr = []
-                for name, addr, size in syms:
+                for sym in syms:
                     if (len(by_addr) == 0
-                            or by_addr[-1][0] != addr):
-                        by_addr.append((name, addr, size))
+                            or by_addr[-1].addr != sym.addr):
+                        by_addr.append(sym)
                 self._by_addr = by_addr
 
             # find sym by range
             i = bisect.bisect(self._by_addr, k,
-                    key=lambda x: x[1])
+                    key=lambda x: x.addr)
             # check that we're actually in this sym's size
-            if i > 0 and k < self._by_addr[i-1][1]+self._by_addr[i-1][2]:
-                return self._by_addr[i-1][0]
+            if i > 0 and k < self._by_addr[i-1].addr+self._by_addr[i-1].size:
+                return self._by_addr[i-1]
             else:
                 return d
 
@@ -216,7 +232,16 @@ class SymInfo:
     def __iter__(self):
         return iter(self.syms)
 
-def collect_syms(obj_path, sections=None, global_=False, *,
+    def globals(self):
+        return SymInfo([sym for sym in self.syms
+                if sym.global_])
+
+    def section(self, section):
+        return SymInfo([sym for sym in self.syms
+                # note we accept prefixes
+                if s.startswith(section)])
+
+def collect_syms(obj_path, global_=False, sections=None, *,
         objdump_path=OBJDUMP_PATH,
         **args):
     symbol_pattern = re.compile(
@@ -250,7 +275,8 @@ def collect_syms(obj_path, sections=None, global_=False, *,
             # u => unique global
             #   => neither
             # ! => local + global
-            if global_ and scope in 'l ':
+            global__ = scope not in 'l '
+            if global_ and not global__:
                 continue
             # filter by section? note we accept prefixes
             if (sections is not None
@@ -261,7 +287,7 @@ def collect_syms(obj_path, sections=None, global_=False, *,
             if not size:
                 continue
             # note multiple symbols can share a name
-            syms.append((name, addr, size))
+            syms.append(Sym(name, global__, section, addr, size))
     proc.wait()
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
@@ -487,14 +513,14 @@ def collect(obj_paths, *,
                 **args)
 
         # map function sizes to debug symbols
-        for sym, _, size in syms:
+        for sym in syms:
             # discard internal functions
-            if not everything and sym.startswith('__'):
+            if not everything and sym.name.startswith('__'):
                 continue
 
             # find best matching dwarf entry, this may be slightly different
             # due to optimizations
-            entry = info.get(sym)
+            entry = info.get(sym.name)
 
             # if we have no file guess from obj path
             if entry is not None and 'DW_AT_decl_file' in entry:
@@ -514,7 +540,7 @@ def collect(obj_paths, *,
                         os.path.abspath(file)]) == os.getcwd():
                     continue
 
-            results.append(CodeResult(file, sym, size))
+            results.append(CodeResult(file, sym.name, sym.size))
 
     return results
 
