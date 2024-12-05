@@ -402,6 +402,19 @@ class DwarfEntry:
         else:
             return None
 
+    def info(self, tags=None):
+        # recursively flatten children
+        def flatten(entry):
+            for child in entry.children:
+                # filter if requested
+                if tags is None or child.tag in tags:
+                    yield child
+
+                yield from flatten(child)
+
+        return DwarfInfo(co.OrderedDict(
+                (child.off, child) for child in flatten(self)))
+
 # a collection of dwarf entries
 class DwarfInfo:
     def __init__(self, entries):
@@ -452,7 +465,7 @@ class DwarfInfo:
         return len(self.entries)
 
     def __iter__(self):
-        return (v for k, v in self.entries.items())
+        return iter(self.entries.values())
 
 def collect_dwarf_info(obj_path, tags=None, *,
         objdump_path=OBJDUMP_PATH,
