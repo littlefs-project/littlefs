@@ -264,6 +264,24 @@ class DwarfEntry:
         else:
             return None
 
+    @ft.cached_property
+    def addr(self):
+        if (self.tag == 'DW_TAG_subprogram'
+                and 'DW_AT_low_pc' in self):
+            return int(self['DW_AT_low_pc'], 0)
+        else:
+            return None
+
+    @ft.cached_property
+    def size(self):
+        if (self.tag == 'DW_TAG_subprogram'
+                and 'DW_AT_high_pc' in self):
+            # this looks wrong, but high_pc does store the size,
+            # for whatever reason
+            return int(self['DW_AT_high_pc'], 0)
+        else:
+            return None
+
     def info(self, tags=None):
         # recursively flatten children
         def flatten(entry):
@@ -283,9 +301,41 @@ class DwarfInfo:
         self.entries = entries
 
     def get(self, k, d=None):
-        # allow lookup by both offset and dwarf name
-        if not isinstance(k, str):
+        # allow lookup by offset, symbol, or dwarf name
+        if not isinstance(k, str) and not hasattr(k, 'addr'):
             return self.entries.get(k, d)
+
+        elif hasattr(k, 'addr'):
+            import bisect
+
+            # organize by address
+            if not hasattr(self, '_by_addr'):
+                # sort and keep largest/first when duplicates
+                entries = [entry
+                        for entry in self.entries.values()
+                        if entry.addr is not None
+                            and entry.size is not None]
+                entries.sort(key=lambda x: (x.addr, -x.size))
+
+                by_addr = []
+                for entry in entries:
+                    if (len(by_addr) == 0
+                            or by_addr[-1].addr != entry.addr):
+                        by_addr.append(entry)
+                self._by_addr = by_addr
+
+            # find entry by range
+            i = bisect.bisect(self._by_addr, k.addr,
+                    key=lambda x: x.addr)
+            # check that we're actually in this entry's size
+            if (i > 0
+                    and k.addr
+                        < self._by_addr[i-1].addr
+                            + self._by_addr[i-1].size):
+                return self._by_addr[i-1]
+            else:
+                # fallback to lookup by name
+                return self.get(k.name, d)
 
         else:
             # organize entries by name
