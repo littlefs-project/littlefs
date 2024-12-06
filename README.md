@@ -251,6 +251,12 @@ License Identifiers that are here available: http://spdx.org/licenses/
   filesystem over USB. Allows mounting littlefs on a host PC without additional
   drivers.
 
+- [ramcrc32bd] - An example block device using littlefs's 32-bit CRC for
+  error-correction.
+
+- [ramrsbd] - An example block device using Reed-Solomon codes for
+  error-correction.
+
 - [Mbed OS] - The easiest way to get started with littlefs is to jump into Mbed
   which already has block device drivers for most forms of embedded storage.
   littlefs is available in Mbed OS as the [LittleFileSystem] class.
@@ -281,6 +287,8 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [mklfs]: https://github.com/whitecatboard/Lua-RTOS-ESP32/tree/master/components/mklfs/src
 [mklittlefs]: https://github.com/earlephilhower/mklittlefs
 [pico-littlefs-usb]: https://github.com/oyama/pico-littlefs-usb
+[ramcrc32bd]: https://github.com/geky/ramcrc32bd
+[ramrsbd]: https://github.com/geky/ramrsbd
 [Mbed OS]: https://github.com/armmbed/mbed-os
 [LittleFileSystem]: https://os.mbed.com/docs/mbed-os/latest/apis/littlefilesystem.html
 [SPIFFS]: https://github.com/pellepl/spiffs
