@@ -378,6 +378,18 @@ def collect_dwarf_info(obj_path, tags=None, *,
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
+    # resolve abstract origins
+    for entry in info.values():
+        if 'DW_AT_abstract_origin' in entry:
+            off = int(entry['DW_AT_abstract_origin'].strip('<>'), 0)
+            origin = info[off]
+            assert 'DW_AT_abstract_origin' not in origin, (
+                    "Recursive abstract origin?")
+
+            for k, v in origin.ats.items():
+                if k not in entry.ats:
+                    entry.ats[k] = v
+
     return DwarfInfo(info)
 
 def collect(obj_paths, *,
