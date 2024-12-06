@@ -3664,22 +3664,16 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
 static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
     // find new pos
+    //
+    // fortunately for us, littlefs is limited to 31-bit file sizes, so we
+    // don't have to worry too much about integer overflow
     lfs_off_t npos = file->pos;
     if (whence == LFS_SEEK_SET) {
         npos = off;
     } else if (whence == LFS_SEEK_CUR) {
-        if ((lfs_soff_t)file->pos + off < 0) {
-            return LFS_ERR_INVAL;
-        } else {
-            npos = file->pos + off;
-        }
+        npos = file->pos + (lfs_off_t)off;
     } else if (whence == LFS_SEEK_END) {
-        lfs_soff_t res = lfs_file_size_(lfs, file) + off;
-        if (res < 0) {
-            return LFS_ERR_INVAL;
-        } else {
-            npos = res;
-        }
+        npos = (lfs_off_t)lfs_file_size_(lfs, file) + (lfs_off_t)off;
     }
 
     if (npos > lfs->file_max) {
