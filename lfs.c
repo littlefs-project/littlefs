@@ -2128,13 +2128,14 @@ static int lfs_dir_splittingcompact(lfs_t *lfs, lfs_mdir_t *dir,
             // And we cap at half a block to avoid degenerate cases with
             // nearly-full metadata blocks.
             //
+            lfs_size_t metadata_max = (lfs->cfg->metadata_max)
+                    ? lfs->cfg->metadata_max
+                    : lfs->cfg->block_size;
             if (end - split < 0xff
                     && size <= lfs_min(
-                        lfs->cfg->block_size - 40,
+                        metadata_max - 40,
                         lfs_alignup(
-                            (lfs->cfg->metadata_max
-                                ? lfs->cfg->metadata_max
-                                : lfs->cfg->block_size)/2,
+                            metadata_max/2,
                             lfs->cfg->prog_size))) {
                 break;
             }
@@ -4202,6 +4203,15 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
             || lfs->cfg->compact_thresh >= lfs->cfg->block_size/2);
     LFS_ASSERT(lfs->cfg->compact_thresh == (lfs_size_t)-1
             || lfs->cfg->compact_thresh <= lfs->cfg->block_size);
+
+    // check that metadata_max is a multiple of read_size and prog_size,
+    // and a factor of the block_size
+    LFS_ASSERT(!lfs->cfg->metadata_max
+            || lfs->cfg->metadata_max % lfs->cfg->read_size == 0);
+    LFS_ASSERT(!lfs->cfg->metadata_max
+            || lfs->cfg->metadata_max % lfs->cfg->prog_size == 0);
+    LFS_ASSERT(!lfs->cfg->metadata_max
+            || lfs->cfg->block_size % lfs->cfg->metadata_max == 0);
 
     // setup read cache
     if (lfs->cfg->read_buffer) {
