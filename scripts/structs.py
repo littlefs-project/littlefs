@@ -906,8 +906,13 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
         # append any notes
-        if hasattr(Result, '_notes'):
-            entry[-1][1].extend(getattr(r, Result._notes))
+        if hasattr(Result, '_notes') and r is not None:
+            notes = getattr(r, Result._notes)
+            if isinstance(entry[-1], tuple):
+                entry[-1] = (entry[-1][0], entry[-1][1] + notes)
+            else:
+                entry[-1] = (entry[-1], notes)
+
         return entry
 
     # recursive entry helper, only used by some scripts

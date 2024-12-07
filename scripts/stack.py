@@ -153,7 +153,8 @@ class StackResult(co.namedtuple('StackResult', [
                 self.frame + other.frame,
                 max(self.limit, other.limit),
                 self.children + other.children,
-                self.notes + other.notes)
+                list(co.OrderedDict.fromkeys(it.chain(
+                        self.notes, other.notes)).keys()))
 
 
 def openio(path, mode='r', buffering=-1):
@@ -873,7 +874,7 @@ def collect(obj_paths, *,
     def limitof(func, seen=set()):
         # found a cycle? stop here
         if id(func) in seen:
-            return 0, 0
+            return 0, mt.inf
         # cached?
         if not hasattr(limitof, 'cache'):
             limitof.cache = {}
@@ -903,7 +904,7 @@ def collect(obj_paths, *,
     def childrenof(func, seen=set()):
         # found a cycle? stop here
         if id(func) in seen:
-            return [], ['cycle detected']
+            return [], ['cycle detected'], True
         # cached?
         if not hasattr(childrenof, 'cache'):
             childrenof.cache = {}
@@ -912,17 +913,20 @@ def collect(obj_paths, *,
 
         # find children recursively
         children = []
+        dirty = False
         for addr, callee in func['calls']:
             file_ = callee['file']
             name_ = callee['sym'].name
             frame_, limit_ = limitof(callee, seen | {id(func)})
-            children_, notes_ = childrenof(callee, seen | {id(func)})
+            children_, notes_, dirty_ = childrenof(callee, seen | {id(func)})
+            dirty = dirty or dirty_
             children.append(StackResult(file_, name_, frame_, limit_,
                     children=children_,
                     notes=notes_))
 
-        childrenof.cache[id(func)] = children, []
-        return children, []
+        if not dirty:
+            childrenof.cache[id(func)] = children, [], dirty
+        return children, [], dirty
 
     # build results
     results = []
@@ -930,7 +934,7 @@ def collect(obj_paths, *,
         file = func['file']
         name = func['sym'].name
         frame, limit = limitof(func)
-        children, notes = childrenof(func)
+        children, notes, _ = childrenof(func)
 
         results.append(StackResult(file, name, frame, limit,
                 children=children,
@@ -1205,8 +1209,13 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
         # append any notes
-        if hasattr(Result, '_notes'):
-            entry[-1][1].extend(getattr(r, Result._notes))
+        if hasattr(Result, '_notes') and r is not None:
+            notes = getattr(r, Result._notes)
+            if isinstance(entry[-1], tuple):
+                entry[-1] = (entry[-1][0], entry[-1][1] + notes)
+            else:
+                entry[-1] = (entry[-1], notes)
+
         return entry
 
     # recursive entry helper, only used by some scripts
@@ -1419,6 +1428,7 @@ def main(obj_paths,
                 by=by if by is not None else ['function'],
                 fields=fields,
                 sort=sort,
+                detect_cycles=False,
                 **args)
 
     # error on recursion

@@ -157,7 +157,8 @@ class CtxResult(co.namedtuple('CtxResult', [
                         else other.i if self.i is None
                         else min(self.i, other.i),
                 self.children + other.children,
-                self.notes + other.notes)
+                list(co.OrderedDict.fromkeys(it.chain(
+                        self.notes, other.notes)).keys()))
 
 
 def openio(path, mode='r', buffering=-1):
@@ -681,7 +682,7 @@ def collect(obj_paths, *,
         def childrenof(entry, seen=set()):
             # found a cycle? stop here
             if entry.off in seen:
-                return [], ['cycle detected']
+                return [], ['cycle detected'], True
             # cached?
             if not hasattr(childrenof, 'cache'):
                 childrenof.cache = {}
@@ -690,7 +691,7 @@ def collect(obj_paths, *,
 
             # pointer? deref and include size
             if entry.tag == 'DW_TAG_pointer_type':
-                children, notes = [], []
+                children, notes, dirty = [], [], False
                 if 'DW_AT_type' in entry:
                     type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
                     # skip modifiers to try to find name
@@ -702,8 +703,9 @@ def collect(obj_paths, *,
                             and type.tag != 'DW_TAG_subroutine_type'):
                         name_ = type.name
                         size_ = sizeof(type, seen | {entry.off})
-                        children_, notes_ = childrenof(
+                        children_, notes_, dirty_ = childrenof(
                                 type, seen | {entry.off})
+                        dirty = dirty or dirty_
                         children.append(CtxResult(file, name_, size_,
                                 children=children_,
                                 notes=notes_))
@@ -711,14 +713,15 @@ def collect(obj_paths, *,
             elif entry.tag in {
                     'DW_TAG_structure_type',
                     'DW_TAG_union_type'}:
-                children, notes = [], []
+                children, notes, dirty = [], [], False
                 for child in entry.children:
                     if child.tag != 'DW_TAG_member':
                         continue
                     name_ = child.name
                     size_ = sizeof(child, seen | {entry.off})
-                    children_, notes_ = childrenof(
+                    children_, notes_, dirty_ = childrenof(
                             child, seen | {entry.off})
+                    dirty = dirty or dirty_
                     children.append(CtxResult(file, name_, size_,
                             i=child.off,
                             children=children_,
@@ -727,7 +730,7 @@ def collect(obj_paths, *,
             elif entry.tag in {
                     'DW_TAG_base_type',
                     'DW_TAG_subroutine_type'}:
-                children, notes = [], []
+                children, notes, dirty = [], [], False
             # a modifier?
             elif (entry.tag in {
                         'DW_TAG_typedef',
@@ -740,17 +743,18 @@ def collect(obj_paths, *,
                         'DW_TAG_restrict_type'}
                     and 'DW_AT_type' in entry):
                 type = int(entry['DW_AT_type'].strip('<>'), 0)
-                children, notes = childrenof(
+                children, notes, dirty = childrenof(
                         info[type], seen | {entry.off})
             # void?
             elif ('DW_AT_type' not in entry
                     and 'DW_AT_byte_size' not in entry):
-                children, notes = [], []
+                children, notes = [], [], False
             else:
                 assert False, "Unknown dwarf entry? %r" % entry.tag
 
-            childrenof.cache[entry.off] = children, notes
-            return children, notes
+            if not dirty:
+                childrenof.cache[entry.off] = children, notes, dirty
+            return children, notes, dirty
 
         # find each function's context
         for sym in syms:
@@ -796,7 +800,7 @@ def collect(obj_paths, *,
                 size_ = sizeof(param)
 
                 # find children, recursing if necessary
-                children_, notes_ = childrenof(param)
+                children_, notes_, _ = childrenof(param)
 
                 params.append(CtxResult(file, name_, size_,
                         i=param.off,
@@ -1078,8 +1082,13 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
         # append any notes
-        if hasattr(Result, '_notes'):
-            entry[-1][1].extend(getattr(r, Result._notes))
+        if hasattr(Result, '_notes') and r is not None:
+            notes = getattr(r, Result._notes)
+            if isinstance(entry[-1], tuple):
+                entry[-1] = (entry[-1][0], entry[-1][1] + notes)
+            else:
+                entry[-1] = (entry[-1], notes)
+
         return entry
 
     # recursive entry helper, only used by some scripts
