@@ -403,7 +403,7 @@ class DwarfEntry:
     def addr(self):
         if (self.tag == 'DW_TAG_subprogram'
                 and 'DW_AT_low_pc' in self):
-            return int(self['DW_AT_low_pc'], 0)
+            return int(self['DW_AT_low_pc'].split(':')[-1], 16)
         else:
             return None
 
@@ -413,7 +413,7 @@ class DwarfEntry:
                 and 'DW_AT_high_pc' in self):
             # this looks wrong, but high_pc does store the size,
             # for whatever reason
-            return int(self['DW_AT_high_pc'], 0)
+            return int(self['DW_AT_high_pc'].split(':')[-1], 16)
         else:
             return None
 
@@ -843,7 +843,8 @@ def collect(obj_paths, *,
                 # we change this to the last byte in the call
                 # instruction, which is a bit weird, but should at least
                 # map to the right stack frame
-                addr = int(call['DW_AT_call_return_pc'], 0) - 1
+                addr = (int(call['DW_AT_call_return_pc'].split(':')[-1], 16)
+                        - 1)
                 off = int(call['DW_AT_call_origin'].strip('<>'), 0)
 
                 # callee in locals?
@@ -852,10 +853,7 @@ def collect(obj_paths, *,
                 else:
                     # if not, just keep track of the symbol and try to link
                     # during the global pass
-                    callee = info[off]
-                    if callee.name is None:
-                        continue
-                    callee = callee.name
+                    callee = info[off].name
 
                 caller['calls'].append((addr, callee))
 
