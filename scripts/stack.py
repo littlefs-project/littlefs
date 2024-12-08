@@ -21,6 +21,7 @@ import math as mt
 import os
 import re
 import subprocess as sp
+import bisect
 
 
 OBJDUMP_PATH = ['objdump']
@@ -577,7 +578,7 @@ def collect_dwarf_info(obj_path, tags=None, *,
 
     return DwarfInfo(info)
 
-class Frame(co.namedtuple('Sym', ['addr', 'frame'])):
+class Frame(co.namedtuple('Frame', ['addr', 'frame'])):
     __slots__ = ()
     def __new__(cls, addr, frame):
         return super().__new__(cls, addr, frame)
@@ -751,12 +752,236 @@ def collect_dwarf_frames(obj_path, tags=None, *,
             elif op in {
                     'DW_CFA_nop',
                     'DW_CFA_offset',
-                    'DW_CFA_restore'}:
+                    'DW_CFA_restore',
+                    'DW_CFA_def_cfa_register'}:
                 pass
             else:
                 assert False, "Unknown frame op? %r" % op
 
     return FrameInfo(frames)
+
+class Loc(co.namedtuple('Loc', ['addr', 'size', 'ops'])):
+    __slots__ = ()
+    def __new__(cls, addr, size, ops):
+        return super().__new__(cls, addr, size, ops)
+
+    def __repr__(self):
+        return '%s(0x%x, 0x%x, %r)' % (
+                self.__class__.__name__,
+                self.addr,
+                self.size,
+                self.ops)
+
+class LocList:
+    def __init__(self, off, locs):
+        self.off = off
+        self.locs = locs
+
+    def get(self, k, d=None):
+        import bisect
+
+        # organize by address
+        if not hasattr(self, '_by_addr'):
+            # sort and keep largest/first when duplicates
+            locs = self.locs.copy()
+            locs.sort(key=lambda x: (x.addr, -x.size))
+
+            by_addr = []
+            for loc in locs:
+                if (len(by_addr) == 0
+                        or by_addr[-1].addr != loc.addr):
+                    by_addr.append(loc)
+            self._by_addr = by_addr
+
+        # find loc by range
+        i = bisect.bisect(self._by_addr, k,
+                key=lambda x: x.addr)
+        # check that we're actually in this loc's size
+        if i > 0 and k < self._by_addr[i-1].addr+self._by_addr[i-1].size:
+            return self._by_addr[i-1]
+        else:
+            return d
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __len__(self):
+        return len(self.locs)
+
+    def __iter__(self):
+        return iter(self.locs)
+
+def collect_dwarf_locs(obj_path, tags=None, *,
+        objdump_path=OBJDUMP_PATH,
+        **args):
+    loc_pattern = re.compile(
+            '^\s*(?P<begin_off>[0-9a-fA-F]+)'
+                    '\s+(?P<begin_start>v?[0-9a-fA-F]+)'
+                    '\s+(?P<begin_stop>v?[0-9a-fA-F]+)'
+                    '\s+views.*$'
+                '|' '^\s*(?P<end_off>[0-9a-fA-F]+)'
+                    '\s+<End of list>\s*$'
+                '|' '^\s*(?P<loc_start>[0-9a-fA-F]+)'
+                    '\s+(?P<loc_stop>[0-9a-fA-F]+)'
+                    '\s+\((?P<loc_ops>.+)\)\s*$',
+            re.IGNORECASE)
+
+    # collect location lists
+    locs = co.OrderedDict()
+    list_off = None
+    list_locs = None
+    # note objdump-path may contain extra args
+    cmd = objdump_path + ['--dwarf=loc', obj_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    for line in proc.stdout:
+        # find localtion lists
+        m = loc_pattern.match(line)
+        if m:
+            # start of list?
+            if m.group('begin_off'):
+                # these occur between every entry, so ignore after
+                # the first one
+                if list_off is None:
+                    list_off = int(m.group('begin_off'), 16)
+                    list_locs = []
+            # end of list?
+            elif m.group('end_off'):
+                assert list_off is not None
+                locs[list_off] = LocList(list_off, list_locs)
+                list_off = None
+                list_locs = None
+            # found a loc?
+            elif m.group('loc_start'):
+                assert list_off is not None
+                start = int(m.group('loc_start'), 16)
+                stop = int(m.group('loc_stop'), 16)
+                ops = [op.strip() for op in m.group('loc_ops').split(';')]
+                list_locs.append(Loc(start, stop-start, ops))
+            else:
+                assert False
+    proc.wait()
+    if proc.returncode != 0:
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return locs
+
+# we basically need a small linker here
+class Func(co.namedtuple('Func', ['file', 'sym', 'entry',
+        'frames', 'calls'])):
+    __slots__ = ()
+    def __new__(cls, file, sym, entry, frames=None, calls=None):
+        return super().__new__(cls, file, sym, entry,
+                frames if frames is not None else FuncFrameInfo(),
+                calls if calls is not None else co.OrderedDict())
+
+    def __repr__(self):
+        return '<%s %s>' % (
+                self.__class__.__name__,
+                self.sym.name)
+
+class FuncFrame(co.namedtuple('FuncFrame', ['addr', 'size', 'frame'])):
+    __slots__ = ()
+    def __new__(cls, addr, size, frame):
+        return super().__new__(cls, addr, size, frame)
+
+    def __repr__(self):
+        return '%s(0x%x, 0x%x, %d)' % (
+                self.__class__.__name__,
+                self.addr,
+                self.size,
+                self.frame)
+
+class FuncFrameInfo:
+    def __init__(self, frames=None):
+        self.frames = frames if frames is not None else []
+
+    def get(self, k, d=None):
+        # find frame by address
+        i = bisect.bisect(self.frames, k,
+                key=lambda x: x.addr)
+        # check that we're actually in this frame's size
+        if i > 0 and k < self.frames[i-1].addr+self.frames[i-1].size:
+            return self.frames[i-1]
+        else:
+            return d
+
+    def set(self, k, v):
+        # always operate on ranges
+        if not isinstance(k, slice):
+            k = slice(k, 1)
+
+        # insert frame, merging frames to find max frames
+        frames_ = []
+        for f in it.chain(
+                (f for f in self.frames if f.addr < k.start),
+                [FuncFrame(k.start, k.stop-k.start, v)],
+                (f for f in self.frames if f.addr >= k.start)):
+            g = frames_[-1] if frames_ else None
+
+            # new frame?
+            if g is None or f.addr > g.addr+g.size:
+                frames_.append(f)
+            # merge with previous frame?
+            elif f.frame == g.frame:
+                frames_[-1] = FuncFrame(
+                        g.addr,
+                        max(g.size, (f.addr+f.size) - g.addr),
+                        g.frame)
+            # previous frame wins?
+            elif f.frame < g.frame:
+                # slice new frame?
+                if (f.addr+f.size > g.addr+g.size):
+                    frames_.append(FuncFrame(
+                            g.addr+g.size,
+                            f.addr+f.size - (g.addr+g.size),
+                            f.frame))
+            # new frame wins?
+            elif f.frame > g.frame:
+                # slice previous frame
+                frames_[-1] = FuncFrame(
+                        g.addr,
+                        f.addr - g.addr,
+                        g.frame)
+                # append new frame
+                frames_.append(f)
+                # slice previous frame tail?
+                if (f.addr+f.size < g.addr+g.size):
+                    frames_.append(FuncFrame(
+                            f.addr+f.size,
+                            (g.addr+g.size) - (f.addr+f.size),
+                            g.frame))
+
+        self.frames = frames_
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+    def __contains__(self, k):
+        return self.get(k) is not None
+
+    def __setitem__(self, k, v):
+        return self.set(k, v)
+
+    def __len__(self):
+        return len(self.frames)
+
+    def __iter__(self):
+        return iter(self.frames)
 
 def collect(obj_paths, *,
         sources=None,
@@ -764,6 +989,7 @@ def collect(obj_paths, *,
         **args):
     funcs = []
     globals = co.OrderedDict()
+    incomplete = False
     for obj_path in obj_paths:
         # find relevant symbols
         syms = collect_syms(obj_path,
@@ -780,6 +1006,9 @@ def collect(obj_paths, *,
 
         # find frame info
         frames = collect_dwarf_frames(obj_path, **args)
+
+        # find location info
+        locs = collect_dwarf_locs(obj_path, **args)
 
         # find the max stack frame for each function
         locals = co.OrderedDict()
@@ -810,14 +1039,64 @@ def collect(obj_paths, *,
                         os.path.abspath(file)]) == os.getcwd():
                     continue
 
-            # find the stack frames for each function
-            frames_ = frames[sym.addr:sym.addr+sym.size]
+            # build our func
+            func = Func(file, sym, entry)
 
-            func = {'file': file,
-                    'sym': sym,
-                    'entry': entry,
-                    'frames': frames_,
-                    'calls': []}
+            # find the relevant stack frames
+            if entry is not None:
+                # base frame
+                func.frames[sym.addr:sym.addr+sym.size] = max(
+                        (frame.frame
+                            for frame in frames[sym.addr:sym.addr+sym.size]),
+                        default=0)
+
+                for var in entry.info():
+                    # find stack usage of relevant variables
+                    if var.tag in {
+                            'DW_TAG_variable',
+                            'DW_TAG_formal_parameter',
+                            'DW_TAG_call_site_parameter'}:
+                        # ignore vars with no location, these are usually
+                        # globals or synthetic variables
+                        if 'DW_AT_location' not in var:
+                            continue
+
+                        m = re.match(
+                                '^\s*(?P<list>[0xX0-9a-fA-F]+)'
+                                        '\s*\(.*\)\s*$'
+                                    '|' '^.*?\((?P<ops>.*)\)\s*$',
+                                var['DW_AT_location'])
+                        if m.group('ops'):
+                            # TODO use range of lexical_block
+                            locs_ = [Loc(sym.addr, sym.size,
+                                    [m.group('ops').strip()])]
+                        elif m.group('list'):
+                            locs_ = locs[int(m.group('list'), 0)]
+                        else:
+                            assert False, "Unknown loc? %r" % (
+                                    var['DW_AT_location'])
+
+                        for loc in locs_:
+                            frame = frames[loc.addr]
+                            for op in loc.ops:
+                                if op.startswith('DW_OP_fbreg'):
+                                    off = int(op.split(':')[-1].strip(), 0)
+                                    func.frames[loc.addr:loc.addr+loc.size] = (
+                                            frame.frame - off)
+                    # ignore these
+                    elif var.tag in {
+                            'DW_TAG_lexical_block',
+                            'DW_TAG_inlined_subroutine',
+                            'DW_TAG_call_site',
+                            'DW_TAG_label',
+                            'DW_TAG_structure_type',
+                            'DW_TAG_union_type',
+                            'DW_TAG_member'}:
+                        pass
+                    else:
+                        assert False, "Unknown frame tag? %r" % var.tag
+
+            # keep track of funcs
             funcs.append(func)
 
             # keep track of locals/globals
@@ -827,11 +1106,22 @@ def collect(obj_paths, *,
                 locals[entry.off] = func
 
         # link local function calls via dwarf entries
-        for caller in locals.values():
-            if not caller['entry']:
+        for func in locals.values():
+            if not func.entry:
                 continue
 
-            for call in caller['entry'].info(
+            if ((args.get('warn_on_incomplete')
+                        or args.get('error_on_incomplete'))
+                    and 'DW_AT_call_all_calls' not in func.entry):
+                print('%s: incomplete call info in %s '
+                        '(DW_AT_call_all_calls missing)' % (
+                            'error' if args.get('error_on_incomplete')
+                                else 'warning',
+                            func.sym.name),
+                        file=sys.stderr)
+                incomplete = True
+
+            for call in func.entry.info(
                     tags={'DW_TAG_call_site'}):
                 if ('DW_AT_call_return_pc' not in call
                         or 'DW_AT_call_origin' not in call):
@@ -849,24 +1139,24 @@ def collect(obj_paths, *,
 
                 # callee in locals?
                 if off in locals:
-                    callee = locals[off]
+                    func.calls[addr] = locals[off]
                 else:
                     # if not, just keep track of the symbol and try to link
                     # during the global pass
-                    callee = info[off].name
+                    func.calls[addr] = info[off].name
 
-                caller['calls'].append((addr, callee))
+    # error on incomplete calls after printing all relevant functions
+    if args.get('error_on_incomplete') and incomplete:
+        sys.exit(3)
 
     # link global function calls via symbol
-    for caller in funcs:
-        calls_ = []
-        for addr, callee in caller['calls']:
+    for func in funcs:
+        for addr, callee in func.calls.copy().items():
             if isinstance(callee, str):
                 if callee in globals:
-                    calls_.append((addr, globals[callee]))
-            else:
-                calls_.append((addr, callee))
-        caller['calls'] = calls_
+                    func.calls[addr] = globals[callee]
+                else:
+                    del func.calls[addr]
 
     # recursive+cached limit finder
     def limitof(func, seen=set()):
@@ -880,16 +1170,20 @@ def collect(obj_paths, *,
             return limitof.cache[id(func)]
 
         # find max stack frame
-        frame = max((frame.frame for frame in func['frames']), default=0)
+        frame = max((frame.frame for frame in func.frames), default=0)
 
         # find stack limit recursively
         limit = frame
-        for addr, callee in func['calls']:
+        for addr, callee in func.calls.items():
             if args.get('no_shrinkwrap'):
                 frame_ = frame
             else:
                 # use stack frame at call site
-                frame_ = func['frames'][addr].frame
+                frame_ = func.frames.get(addr)
+                if frame_ is not None:
+                    frame_ = frame_.frame
+                else:
+                    frame_ = 0
 
             _, limit_ = limitof(callee, seen | {id(func)})
 
@@ -912,9 +1206,9 @@ def collect(obj_paths, *,
         # find children recursively
         children = []
         dirty = False
-        for addr, callee in func['calls']:
-            file_ = callee['file']
-            name_ = callee['sym'].name
+        for addr, callee in func.calls.items():
+            file_ = callee.file
+            name_ = callee.sym.name
             frame_, limit_ = limitof(callee, seen | {id(func)})
             children_, notes_, dirty_ = childrenof(callee, seen | {id(func)})
             dirty = dirty or dirty_
@@ -929,8 +1223,8 @@ def collect(obj_paths, *,
     # build results
     results = []
     for func in funcs:
-        file = func['file']
-        name = func['sym'].name
+        file = func.file
+        name = func.sym.name
         frame, limit = limitof(func)
         children, notes, _ = childrenof(func)
 
@@ -1545,6 +1839,14 @@ if __name__ == "__main__":
             '-e', '--error-on-recursion',
             action='store_true',
             help="Error if any functions are recursive.")
+    parser.add_argument(
+            '--warn-on-incomplete',
+            action='store_true',
+            help="Warn if callgraph may be incomplete.")
+    parser.add_argument(
+            '--error-on-incomplete',
+            action='store_true',
+            help="Error if callgraph may be incomplete.")
     parser.add_argument(
             '--objdump-path',
             type=lambda x: x.split(),
