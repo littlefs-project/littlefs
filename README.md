@@ -132,7 +132,7 @@ If your storage caches writes, make sure that the provided `sync` function
 flushes all the data to memory and ensures that the next read fetches the data
 from memory, otherwise data integrity can not be guaranteed. If the `write`
 function does not perform caching, and therefore each `read` or `write` call
-hits the memory, the `sync` function can simply return 0.
+hits the memory, the `sync` function can be `NULL` or simply return 0.
 
 ## Design
 

@@ -217,8 +217,10 @@ static int lfs_bd_sync(lfs_t *lfs,
         return err;
     }
 
-    err = lfs->cfg->sync(lfs->cfg);
-    LFS_ASSERT(err <= 0);
+    if (lfs->cfg->sync != NULL) {
+        err = lfs->cfg->sync(lfs->cfg);
+        LFS_ASSERT(err <= 0);
+    }
     return err;
 }
 #endif

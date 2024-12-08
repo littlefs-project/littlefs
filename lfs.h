@@ -178,6 +178,7 @@ struct lfs_config {
 
     // Sync the state of the underlying block device. Negative error codes
     // are propagated to the user.
+    // May be NULL if the write does not perform caching.
     int (*sync)(const struct lfs_config *c);
 
 #ifdef LFS_THREADSAFE
