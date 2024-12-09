@@ -273,7 +273,6 @@ jobs:
             }' | tee status/$(basename $f .csv).json
           done
       - name: upload-status-sizes
-        if: ${{matrix.arch == 'x86_64'}}
         uses: actions/upload-artifact@v4
         with:
           name: status-sizes-${{matrix.arch}}
