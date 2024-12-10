@@ -146,15 +146,14 @@ class StackResult(co.namedtuple('StackResult', [
         return super().__new__(cls, file, function,
                 RInt(frame), RInt(limit),
                 children if children is not None else [],
-                notes if notes is not None else [])
+                notes if notes is not None else set())
 
     def __add__(self, other):
         return StackResult(self.file, self.function,
                 self.frame + other.frame,
                 max(self.limit, other.limit),
                 self.children + other.children,
-                list(co.OrderedDict.fromkeys(it.chain(
-                        self.notes, other.notes)).keys()))
+                self.notes | other.notes)
 
 
 def openio(path, mode='r', buffering=-1):
@@ -768,7 +767,7 @@ def collect(obj_paths, ci_paths, *,
     def childrenof(node, seen=set()):
         # found a cycle? stop here
         if node.name in seen:
-            return [], ['cycle detected'], True
+            return [], {'cycle detected'}, True
         # cached?
         if not hasattr(childrenof, 'cache'):
             childrenof.cache = {}
@@ -791,8 +790,8 @@ def collect(obj_paths, ci_paths, *,
             dirty = dirty or dirty_
 
         if not dirty:
-            childrenof.cache[node.name] = children, [], dirty
-        return children, [], dirty
+            childrenof.cache[node.name] = children, set(), dirty
+        return children, set(), dirty
 
     results = []
     for obj_path in obj_paths:
@@ -935,9 +934,9 @@ def table(Result, results, diff_results=None, *,
                 self = HotResult._make(r)
                 self._hot_i = i
                 self._hot_children = children if children is not None else []
-                self._hot_notes = notes if notes is not None else []
+                self._hot_notes = notes if notes is not None else set()
                 if hasattr(Result_, '_notes'):
-                    self._hot_notes.extend(getattr(r, r._notes))
+                    self._hot_notes.update(getattr(r, r._notes))
                 return self
 
             def __add__(self, other):
@@ -947,7 +946,7 @@ def table(Result, results, diff_results=None, *,
                             else other._hot_i if self._hot_i is None
                             else min(self._hot_i, other._hot_i),
                         self._hot_children + other._hot_children,
-                        self._hot_notes + other._hot_notes)
+                        self._hot_notes | other._hot_notes)
 
         results_ = []
         for r in results:
@@ -974,7 +973,7 @@ def table(Result, results, diff_results=None, *,
                 # found a cycle?
                 if (detect_cycles
                         and tuple(getattr(r, k) for k in Result._by) in seen):
-                    hot_[-1]._hot_notes.append('cycle detected')
+                    hot_[-1]._hot_notes.add('cycle detected')
                     return
 
                 # recurse?
@@ -1130,7 +1129,7 @@ def table(Result, results, diff_results=None, *,
                                     getattr(diff_r, k, None)))))
         # append any notes
         if hasattr(Result, '_notes') and r is not None:
-            notes = getattr(r, Result._notes)
+            notes = sorted(getattr(r, Result._notes))
             if isinstance(entry[-1], tuple):
                 entry[-1] = (entry[-1][0], entry[-1][1] + notes)
             else:
