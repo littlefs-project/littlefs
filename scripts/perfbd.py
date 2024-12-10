@@ -817,7 +817,6 @@ def table(Result, results, diff_results=None, *,
         summary=False,
         depth=1,
         hot=None,
-        detect_cycles=True,
         **_):
     all_, all = all, __builtins__.all
 
@@ -839,15 +838,11 @@ def table(Result, results, diff_results=None, *,
         class HotResult(Result_):
             _i = '_hot_i'
             _children = '_hot_children'
-            _notes = '_hot_notes'
 
             def __new__(cls, r, i=None, children=None, notes=None):
                 self = HotResult._make(r)
                 self._hot_i = i
                 self._hot_children = children if children is not None else []
-                self._hot_notes = notes if notes is not None else set()
-                if hasattr(Result_, '_notes'):
-                    self._hot_notes.update(getattr(r, r._notes))
                 return self
 
             def __add__(self, other):
@@ -856,13 +851,12 @@ def table(Result, results, diff_results=None, *,
                         self._hot_i if other._hot_i is None
                             else other._hot_i if self._hot_i is None
                             else min(self._hot_i, other._hot_i),
-                        self._hot_children + other._hot_children,
-                        self._hot_notes | other._hot_notes)
+                        self._hot_children + other._hot_children)
 
         results_ = []
         for r in results:
             hot_ = []
-            def recurse(results_, depth_, seen=set()):
+            def recurse(results_, depth_):
                 nonlocal hot_
                 if not results_:
                     return
@@ -881,17 +875,10 @@ def table(Result, results, diff_results=None, *,
                                 for k in it.chain(hot, [None])))
                 hot_.append(HotResult(r, i=len(hot_)))
 
-                # found a cycle?
-                if (detect_cycles
-                        and tuple(getattr(r, k) for k in Result._by) in seen):
-                    hot_[-1]._hot_notes.add('cycle detected')
-                    return
-
                 # recurse?
                 if depth_ > 1:
                     recurse(getattr(r, Result._children),
-                            depth_-1,
-                            seen | {tuple(getattr(r, k) for k in Result._by)})
+                            depth_-1)
 
             recurse(getattr(r, Result._children), depth-1)
             results_.append(HotResult(r, children=hot_))
@@ -1049,7 +1036,7 @@ def table(Result, results, diff_results=None, *,
         return entry
 
     # recursive entry helper, only used by some scripts
-    def recurse(results_, depth_, seen=set(),
+    def recurse(results_, depth_,
             prefixes=('', '', '', '')):
         # build the children table at each layer
         results_ = fold(Result, results_, by=by)
@@ -1084,20 +1071,12 @@ def table(Result, results, diff_results=None, *,
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
             # add prefixes
             line[0] = (prefixes[0+is_last] + line[0][0], line[0][1])
-            # add cycle detection
-            if detect_cycles and name in seen:
-                line[-1] = (line[-1][0], line[-1][1] + ['cycle detected'])
             lines.append(line)
-
-            # found a cycle?
-            if detect_cycles and name in seen:
-                continue
 
             # recurse?
             if depth_ > 1:
                 recurse(getattr(r, Result._children),
                         depth_-1,
-                        seen | {name},
                         (prefixes[2+is_last] + "|-> ",
                          prefixes[2+is_last] + "'-> ",
                          prefixes[2+is_last] + "|   ",
@@ -1117,7 +1096,6 @@ def table(Result, results, diff_results=None, *,
             if name in table and depth > 1:
                 recurse(getattr(table[name], Result._children),
                         depth-1,
-                        {name},
                         ("|-> ",
                          "'-> ",
                          "|   ",
