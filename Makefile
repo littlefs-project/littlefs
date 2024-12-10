@@ -22,6 +22,7 @@ SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
 DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
 ASM  := $(SRC:%.c=$(BUILDDIR)/%.s)
+CI   := $(SRC:%.c=$(BUILDDIR)/%.ci)
 GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
@@ -34,6 +35,7 @@ TEST_C     := $(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
 TEST_A     := $(TEST_C:%.t.c=%.t.a.c)
 TEST_OBJ   := $(TEST_A:%.t.a.c=%.t.a.o)
 TEST_DEP   := $(TEST_A:%.t.a.c=%.t.a.d)
+TEST_CI    := $(TEST_A:%.t.a.c=%.t.a.ci)
 TEST_GCNO  := $(TEST_A:%.t.a.c=%.t.a.gcno)
 TEST_GCDA  := $(TEST_A:%.t.a.c=%.t.a.gcda)
 TEST_PERF  := $(TEST_RUNNER:%=%.perf)
@@ -50,6 +52,7 @@ BENCH_C     := $(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \
 BENCH_A     := $(BENCH_C:%.b.c=%.b.a.c)
 BENCH_OBJ   := $(BENCH_A:%.b.a.c=%.b.a.o)
 BENCH_DEP   := $(BENCH_A:%.b.a.c=%.b.a.d)
+BENCH_CI    := $(BENCH_A:%.b.a.c=%.b.a.ci)
 BENCH_GCNO  := $(BENCH_A:%.b.a.c=%.b.a.gcno)
 BENCH_GCDA  := $(BENCH_A:%.b.a.c=%.b.a.gcda)
 BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
@@ -67,6 +70,7 @@ GDB           ?= gdb
 PERF          ?= perf
 PRETTYASSERTS ?= ./scripts/prettyasserts.py
 
+CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
@@ -101,7 +105,7 @@ ifdef VERBOSE
 CODEFLAGS    += -v
 DATAFLAGS    += -v
 STACKFLAGS   += -v
-CTXFLAGS 	 += -v
+CTXFLAGS     += -v
 STRUCTSFLAGS += -v
 COVFLAGS     += -v
 PERFFLAGS    += -v
@@ -113,8 +117,8 @@ PERFBDFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifneq ($(OBJDUMP),objdump)
 CODEFLAGS    += --objdump-path="$(OBJDUMP)"
 DATAFLAGS    += --objdump-path="$(OBJDUMP)"
-STACKFLAGS	 += --objdump-path="$(OBJDUMP)"
-CTXFLAGS	 += --objdump-path="$(OBJDUMP)"
+STACKFLAGS   += --objdump-path="$(OBJDUMP)"
+CTXFLAGS     += --objdump-path="$(OBJDUMP)"
 STRUCTSFLAGS += --objdump-path="$(OBJDUMP)"
 PERFFLAGS    += --objdump-path="$(OBJDUMP)"
 PERFBDFLAGS  += --objdump-path="$(OBJDUMP)"
@@ -231,12 +235,12 @@ data-diff: $(OBJ)
 ## Find the per-function stack usage
 .PHONY: stack
 stack: STACKFLAGS+=-S
-stack: $(OBJ) $(BUILDDIR)/lfs.stack.csv
-	./scripts/stack.py $(OBJ) $(STACKFLAGS)
+stack: $(OBJ) $(CI) $(BUILDDIR)/lfs.stack.csv
+	./scripts/stack.py $(OBJ) $(CI) $(STACKFLAGS)
 
 ## Compare per-function stack usage
 .PHONY: stack-diff
-stack-diff: $(OBJ)
+stack-diff: $(OBJ) $(CI)
 	./scripts/stack.py $^ $(STACKFLAGS) -d $(BUILDDIR)/lfs.stack.csv
 
 ## Find the per-function context
@@ -247,7 +251,7 @@ ctx: $(OBJ) $(BUILDDIR)/lfs.ctx.csv
 
 ## Compare per-function context
 .PHONY: ctx-diff
-ctx-diff: $(OBJ)
+ctx-diff: $(CI)
 	./scripts/ctx.py $^ $(CTXFLAGS) -d $(BUILDDIR)/lfs.ctx.csv
 
 ## Find function sizes
@@ -271,16 +275,16 @@ funcs: \
 ## Compare function sizes
 .PHONY: funcs-diff
 funcs-diff: SHELL=/bin/bash
-funcs-diff: $(OBJ)
+funcs-diff: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py \
-			<(./scripts/code.py $^ -q $(CODEFLAGS) -o-) \
+			<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
 			-fcode=size -q -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/stack.py $^ -q $(STACKFLAGS) -o-) \
 			-fstack='max(limit)' -q -o-) \
 		<(./scripts/csv.py \
-			<(./scripts/ctx.py $^ -q $(CTXFLAGS) -o-) \
+			<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
 			-fctx='max(size)' -q -o-) \
 		-bfunction -fcode -fstack='max(stack)' -fctx='max(ctx)' \
 		$(SUMMARYFLAGS) -d <(./scripts/csv.py \
@@ -372,20 +376,20 @@ summary sizes: \
 ## Compare compile-time sizes
 .PHONY: summary-diff sizes-diff
 summary-diff sizes-diff: SHELL=/bin/bash
-summary-diff sizes-diff: $(OBJ)
+summary-diff sizes-diff: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py \
 			<(./scripts/csv.py \
-				<(./scripts/code.py $^ -q $(CODEFLAGS) -o-) \
+				<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
 				-fcode=size -q -o-) \
 			<(./scripts/csv.py \
-				<(./scripts/data.py $^ -q $(DATAFLAGS) -o-) \
+				<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
 				-fdata=size -q -o-) \
 			<(./scripts/csv.py \
 				<(./scripts/stack.py $^ -q $(STACKFLAGS) -o-) \
 				-fstack='max(limit)' -q -o-) \
 			<(./scripts/csv.py \
-				<(./scripts/ctx.py $^ -q $(CTXFLAGS) -o-) \
+				<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
 				-fctx='max(size)' -q -o-) \
 			-fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
 			-bbuild='"AFTER"' -q -o-) \
@@ -504,7 +508,7 @@ $(BUILDDIR)/lfs.code.csv: $(OBJ)
 $(BUILDDIR)/lfs.data.csv: $(OBJ)
 	./scripts/data.py $^ -q $(DATAFLAGS) -o $@
 
-$(BUILDDIR)/lfs.stack.csv: $(OBJ)
+$(BUILDDIR)/lfs.stack.csv: $(OBJ) $(CI)
 	./scripts/stack.py $^ -q $(STACKFLAGS) -o $@
 
 $(BUILDDIR)/lfs.ctx.csv: $(OBJ)
@@ -540,7 +544,9 @@ $(BUILDDIR)/runners/test_runner: $(TEST_OBJ)
 $(BUILDDIR)/runners/bench_runner: $(BENCH_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
-$(BUILDDIR)/%.o: %.c
+# our main build rule generates .o, .d, and .ci files, the latter
+# used for stack analysis
+$(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $(BUILDDIR)/$*.o
 
 $(BUILDDIR)/%.s: %.c
@@ -582,11 +588,13 @@ clean:
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
+	rm -f $(CI)
 	rm -f $(TEST_RUNNER)
 	rm -f $(TEST_A)
 	rm -f $(TEST_C)
 	rm -f $(TEST_OBJ)
 	rm -f $(TEST_DEP)
+	rm -f $(TEST_CI)
 	rm -f $(TEST_GCNO)
 	rm -f $(TEST_GCDA)
 	rm -f $(TEST_PERF)
@@ -597,6 +605,7 @@ clean:
 	rm -f $(BENCH_C)
 	rm -f $(BENCH_OBJ)
 	rm -f $(BENCH_DEP)
+	rm -f $(BENCH_CI)
 	rm -f $(BENCH_GCNO)
 	rm -f $(BENCH_GCDA)
 	rm -f $(BENCH_PERF)

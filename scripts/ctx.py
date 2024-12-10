@@ -705,10 +705,10 @@ def collect(obj_paths, *,
                         size_ = sizeof(type, seen | {entry.off})
                         children_, notes_, dirty_ = childrenof(
                                 type, seen | {entry.off})
-                        dirty = dirty or dirty_
                         children.append(CtxResult(file, name_, size_,
                                 children=children_,
                                 notes=notes_))
+                        dirty = dirty or dirty_
             # struct? union?
             elif entry.tag in {
                     'DW_TAG_structure_type',
@@ -721,11 +721,11 @@ def collect(obj_paths, *,
                     size_ = sizeof(child, seen | {entry.off})
                     children_, notes_, dirty_ = childrenof(
                             child, seen | {entry.off})
-                    dirty = dirty or dirty_
                     children.append(CtxResult(file, name_, size_,
                             i=child.off,
                             children=children_,
                             notes=notes_))
+                    dirty = dirty or dirty_
             # base type? function pointer?
             elif entry.tag in {
                     'DW_TAG_base_type',
