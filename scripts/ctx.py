@@ -583,6 +583,7 @@ def collect_dwarf_info(obj_path, tags=None, *,
 def collect(obj_paths, *,
         sources=None,
         everything=False,
+        depth=1,
         **args):
     results = []
     for obj_path in obj_paths:
@@ -678,10 +679,13 @@ def collect(obj_paths, *,
             return size
 
         # recursive+cached children finder
-        def childrenof(entry, seen=set()):
+        def childrenof(entry, depth, seen=set()):
             # found a cycle? stop here
             if entry.off in seen:
                 return [], {'cycle detected'}, True
+            # stop here?
+            if depth < 1:
+                return [], set(), False
             # cached?
             if not hasattr(childrenof, 'cache'):
                 childrenof.cache = {}
@@ -708,7 +712,7 @@ def collect(obj_paths, *,
                         name_ = type.name
                         size_ = sizeof(type, seen | {entry.off})
                         children_, notes_, dirty_ = childrenof(
-                                type, seen | {entry.off})
+                                type, depth-1, seen | {entry.off})
                         children.append(CtxResult(file_, name_, size_,
                                 children=children_,
                                 notes=notes_))
@@ -729,7 +733,7 @@ def collect(obj_paths, *,
                     name_ = child.name
                     size_ = sizeof(child, seen | {entry.off})
                     children_, notes_, dirty_ = childrenof(
-                            child, seen | {entry.off})
+                            child, depth-1, seen | {entry.off})
                     children.append(CtxResult(file_, name_, size_,
                             i=child.off,
                             children=children_,
@@ -753,7 +757,7 @@ def collect(obj_paths, *,
                     and 'DW_AT_type' in entry):
                 type = int(entry['DW_AT_type'].strip('<>'), 0)
                 children, notes, dirty = childrenof(
-                        info[type], seen | {entry.off})
+                        info[type], depth, seen | {entry.off})
             # void?
             elif ('DW_AT_type' not in entry
                     and 'DW_AT_byte_size' not in entry):
@@ -815,7 +819,7 @@ def collect(obj_paths, *,
                 size_ = sizeof(param)
 
                 # find children, recursing if necessary
-                children_, notes_, _ = childrenof(param)
+                children_, notes_, _ = childrenof(param, depth-2)
 
                 params.append(CtxResult(file_, name_, size_,
                         i=param.off,

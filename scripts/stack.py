@@ -718,6 +718,7 @@ def collect_callgraph(ci_path,
 def collect(obj_paths, ci_paths, *,
         sources=None,
         everything=False,
+        depth=1,
         **args):
     # parse the callgraphs
     cg = {}
@@ -764,10 +765,13 @@ def collect(obj_paths, ci_paths, *,
         return frame + limit
 
     # recursive+cached children finder
-    def childrenof(node, seen=set()):
+    def childrenof(node, depth, seen=set()):
         # found a cycle? stop here
         if node.name in seen:
             return [], {'cycle detected'}, True
+        # stop here?
+        if depth < 1:
+            return [], set(), False
         # cached?
         if not hasattr(childrenof, 'cache'):
             childrenof.cache = {}
@@ -783,7 +787,8 @@ def collect(obj_paths, ci_paths, *,
             name_ = node_.name.split(':', 1)[-1]
             frame_ = frameof(node_)
             limit_ = limitof(node_, seen | {node.name})
-            children_, notes_, dirty_ = childrenof(node_, seen | {node.name})
+            children_, notes_, dirty_ = childrenof(
+                    node_, depth-1, seen | {node.name})
             children.append(StackResult(file_, name_, frame_, limit_,
                     children=children_,
                     notes=notes_))
@@ -854,7 +859,7 @@ def collect(obj_paths, ci_paths, *,
             name = sym.name
             frame = frameof(node)
             limit = limitof(node)
-            children, notes, _ = childrenof(node)
+            children, notes, _ = childrenof(node, depth-1)
             results.append(StackResult(file, name, frame, limit,
                     children=children,
                     notes=notes))
