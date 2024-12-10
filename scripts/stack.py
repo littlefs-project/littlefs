@@ -633,16 +633,17 @@ class Parser:
                     self.data[self.i:self.i+32]))
 
 class CGNode(co.namedtuple('CGNode', [
-        'name', 'size', 'qualifiers', 'calls'])):
+        'name', 'file', 'size', 'qualifiers', 'calls'])):
     __slots__ = ()
-    def __new__(cls, name, size, qualifiers, calls=None):
-        return super().__new__(cls, name, size, qualifiers,
+    def __new__(cls, name, file, size, qualifiers, calls=None):
+        return super().__new__(cls, name, file, size, qualifiers,
                 calls if calls is not None else set())
 
     def __repr__(self):
-        return '%s(%r, %r, %r, %r)' % (
+        return '%s(%r, %r, %r, %r, %r)' % (
                 self.__class__.__name__,
                 self.name,
+                self.file,
                 self.size,
                 self.qualifiers,
                 self.calls)
@@ -699,13 +700,15 @@ def collect_callgraph(ci_path,
 
         cg_ = {}
         for node in cg['graph'][0].get('node') or []:
-            m = re.search('([0-9]+) bytes \((.*)\)', node['label'][0])
-            if not m:
-                continue
             name = cg_key(node['title'][0])
+            label = node['label'][0].split('\\n')
+            if len(label) < 3:
+                continue
+            file = cg_key(label[1]+':').split(':', 1)[0]
+            m = re.match('([0-9]+) bytes \((.*)\)', label[2])
             size = int(m.group(1))
             qualifiers = [q.strip() for q in m.group(2).split(',')]
-            cg_[name] = CGNode(name, size, qualifiers)
+            cg_[name] = CGNode(name, file, size, qualifiers)
 
         for edge in cg['graph'][0].get('edge') or []:
             cg_[cg_key(edge['sourcename'][0])].calls.add(
@@ -777,12 +780,12 @@ def collect(obj_paths, ci_paths, *,
             if call not in cg:
                 continue
             node_ = cg[call]
+            file_ = node_.file
             name_ = node_.name.split(':', 1)[-1]
             frame_ = frameof(node_)
             limit_ = limitof(node_, seen | {node.name})
             children_, notes_, dirty_ = childrenof(node_, seen | {node.name})
-            # TODO this file is a hack... how do we find the correct file?
-            children.append(StackResult(file, name_, frame_, limit_,
+            children.append(StackResult(file_, name_, frame_, limit_,
                     children=children_,
                     notes=notes_))
             dirty = dirty or dirty_

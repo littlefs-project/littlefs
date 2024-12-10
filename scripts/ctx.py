@@ -701,11 +701,16 @@ def collect(obj_paths, *,
                         type = info[int(type['DW_AT_type'].strip('<>'), 0)]
                     if (type.name is not None
                             and type.tag != 'DW_TAG_subroutine_type'):
+                        # if we have no file guess from obj path
+                        if 'DW_AT_decl_file' in type:
+                            file_ = files.get(int(type['DW_AT_decl_file']), '?')
+                        else:
+                            file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
                         name_ = type.name
                         size_ = sizeof(type, seen | {entry.off})
                         children_, notes_, dirty_ = childrenof(
                                 type, seen | {entry.off})
-                        children.append(CtxResult(file, name_, size_,
+                        children.append(CtxResult(file_, name_, size_,
                                 children=children_,
                                 notes=notes_))
                         dirty = dirty or dirty_
@@ -717,11 +722,16 @@ def collect(obj_paths, *,
                 for child in entry.children:
                     if child.tag != 'DW_TAG_member':
                         continue
+                    # if we have no file guess from obj path
+                    if 'DW_AT_decl_file' in child:
+                        file_ = files.get(int(child['DW_AT_decl_file']), '?')
+                    else:
+                        file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
                     name_ = child.name
                     size_ = sizeof(child, seen | {entry.off})
                     children_, notes_, dirty_ = childrenof(
                             child, seen | {entry.off})
-                    children.append(CtxResult(file, name_, size_,
+                    children.append(CtxResult(file_, name_, size_,
                             i=child.off,
                             children=children_,
                             notes=notes_))
@@ -793,6 +803,12 @@ def collect(obj_paths, *,
                 if param.tag != 'DW_TAG_formal_parameter':
                     continue
 
+                # if we have no file guess from obj path
+                if 'DW_AT_decl_file' in param:
+                    file_ = files.get(int(param['DW_AT_decl_file']), '?')
+                else:
+                    file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
+
                 # find name, if there is one
                 name_ = param.name if param.name is not None else '(unnamed)'
 
@@ -802,7 +818,7 @@ def collect(obj_paths, *,
                 # find children, recursing if necessary
                 children_, notes_, _ = childrenof(param)
 
-                params.append(CtxResult(file, name_, size_,
+                params.append(CtxResult(file_, name_, size_,
                         i=param.off,
                         children=children_,
                         notes=notes_))

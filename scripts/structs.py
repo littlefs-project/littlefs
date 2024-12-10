@@ -546,12 +546,17 @@ def collect(obj_paths, *,
                     'DW_TAG_union_type'}:
                 children = []
                 for child in entry.children:
+                    # if we have no file guess from obj path
+                    if 'DW_AT_decl_file' in child:
+                        file_ = files.get(int(child['DW_AT_decl_file']), '?')
+                    else:
+                        file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
                     name_ = child.name
                     size_ = sizeof(child)
                     align_ = alignof(child)
                     children_ = childrenof(child)
                     children.append(StructResult(
-                            file, name_, size_, align_,
+                            file_, name_, size_, align_,
                             i=child.off,
                             children=children_))
             # indirect type?
