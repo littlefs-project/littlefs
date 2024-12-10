@@ -4217,6 +4217,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // which littlefs currently does not support
     LFS_ASSERT((bool)0x80000000);
 
+    // check that the required io functions are provided
+    LFS_ASSERT(lfs->cfg->read != NULL);
+#ifndef LFS_READONLY
+    LFS_ASSERT(lfs->cfg->prog != NULL);
+    LFS_ASSERT(lfs->cfg->erase != NULL);
+    LFS_ASSERT(lfs->cfg->sync != NULL);
+#endif
+
     // validate that the lfs-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
     LFS_ASSERT(lfs->cfg->read_size != 0);
