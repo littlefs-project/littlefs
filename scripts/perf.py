@@ -1310,7 +1310,15 @@ def report(perf_paths, *,
 
     # find sizes
     if not args.get('use', None):
+        # not enough info?
+        if not perf_paths:
+            print("error: no *.perf files?",
+                    file=sys.stderr)
+            sys.exit(1)
+
+        # collect info
         results = collect(perf_paths, **args)
+
     else:
         results = []
         with openio(args['use']) as f:

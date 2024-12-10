@@ -1015,7 +1015,15 @@ def main(obj_paths, *,
         **args):
     # find sizes
     if not args.get('use', None):
+        # not enough info?
+        if not obj_paths:
+            print("error: no *.o files?",
+                    file=sys.stderr)
+            sys.exit(1)
+
+        # collect info
         results = collect(obj_paths, **args)
+
     else:
         results = []
         with openio(args['use']) as f:

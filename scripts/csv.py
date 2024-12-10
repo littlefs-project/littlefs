@@ -1789,7 +1789,13 @@ def main(csv_paths, *,
     if args.get('use'):
         csv_paths = csv_paths + [args['use']]
 
-    # find CSV files
+    # not enough info?
+    if not csv_paths:
+        print("error: no *.csv files?",
+                file=sys.stderr)
+        sys.exit(1)
+
+    # collect info
     fields_, results = collect(csv_paths, defines)
 
     # homogenize

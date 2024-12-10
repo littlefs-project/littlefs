@@ -833,7 +833,15 @@ def main(gcda_paths, *,
 
     # find sizes
     if not args.get('use', None):
+        # not enough info?
+        if not gcda_paths:
+            print("error: no *.gcda files?",
+                    file=sys.stderr)
+            sys.exit(1)
+
+        # collect info
         results = collect(gcda_paths, **args)
+
     else:
         results = []
         with openio(args['use']) as f:

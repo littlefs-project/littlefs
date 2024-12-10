@@ -1383,15 +1383,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description="Find stack usage at the function level.",
             allow_abbrev=False)
+    class AppendPath(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if getattr(namespace, 'paths', None) is None:
+                namespace.paths = []
+            if value is None:
+                pass
+            elif isinstance(value, str):
+                namespace.paths.append(value)
+            else:
+                namespace.paths.extend(value)
     parser.add_argument(
-            'paths',
-            metavar='obj_paths',
+            'obj_paths',
             nargs='*',
+            action=AppendPath,
             help="Input *.o files.")
     parser.add_argument(
-            'paths_',
-            metavar='ci_paths',
+            'ci_paths',
             nargs='*',
+            action=AppendPath,
             help="Input *.ci files.")
     parser.add_argument(
             '-v', '--verbose',

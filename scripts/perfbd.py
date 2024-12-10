@@ -170,6 +170,11 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
+def iself(path):
+    # check for an elf file's magic string (\x7fELF)
+    with open(path, 'rb') as f:
+        return f.read(4) == b'\x7fELF'
+
 class Sym(co.namedtuple('Sym', [
         'name', 'global_', 'section', 'addr', 'size'])):
     __slots__ = ()
@@ -714,7 +719,7 @@ def starapply(args):
     f, args, kwargs = args
     return f(*args, **kwargs)
 
-def collect(obj_path, trace_paths, *,
+def collect(elf_path, trace_paths, *,
         jobs=None,
         **args):
     # automatic job detection?
@@ -722,10 +727,10 @@ def collect(obj_path, trace_paths, *,
         jobs = len(os.sched_getaffinity(0))
 
     # find sym/line info to reverse ASLR
-    syms = collect_syms(obj_path,
+    syms = collect_syms(elf_path,
             sections=['.text'],
             **args)
-    lines = collect_dwarf_lines(obj_path, **args)
+    lines = collect_dwarf_lines(elf_path, **args)
 
     if jobs is not None:
         # try to split up files so that even single files can be processed
@@ -1265,7 +1270,7 @@ def annotate(Result, results, *,
                 print(line)
 
 
-def report(obj_path='', trace_paths=[], *,
+def report(paths, *,
         by=None,
         fields=None,
         defines=[],
@@ -1287,7 +1292,32 @@ def report(obj_path='', trace_paths=[], *,
 
     # find sizes
     if not args.get('use', None):
-        results = collect(obj_path, trace_paths, **args)
+        # figure out paths
+        elf_paths = []
+        trace_paths = []
+        for path in paths:
+            if iself(path):
+                elf_paths.append(path)
+            else:
+                trace_paths.append(path)
+        # not enough info?
+        if not elf_paths:
+            print("error: no elf file?",
+                    file=sys.stderr)
+            sys.exit(1)
+        if not trace_paths:
+            print("error: no *.trace files?",
+                    file=sys.stderr)
+            sys.exit(1)
+        # too much info?
+        if len(elf_paths) != 1:
+            print("error: multiple elf files?",
+                    file=sys.stderr)
+            sys.exit(1)
+
+        # collect info
+        results = collect(elf_paths[0], trace_paths, **args)
+
     else:
         results = []
         with openio(args['use']) as f:
@@ -1400,13 +1430,25 @@ if __name__ == "__main__":
             description="Aggregate and report call-stack propagated "
                 "block-device operations from trace output.",
             allow_abbrev=False)
+    class AppendPath(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if getattr(namespace, 'paths', None) is None:
+                namespace.paths = []
+            if value is None:
+                pass
+            elif isinstance(value, str):
+                namespace.paths.append(value)
+            else:
+                namespace.paths.extend(value)
     parser.add_argument(
-            'obj_path',
+            'elf_path',
             nargs='?',
+            action=AppendPath,
             help="Input executable for mapping addresses to symbols.")
     parser.add_argument(
             'trace_paths',
             nargs='*',
+            action=AppendPath,
             help="Input *.trace files.")
     parser.add_argument(
             '-v', '--verbose',
