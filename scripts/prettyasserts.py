@@ -86,6 +86,13 @@ def write_header(f, limit=LIMIT):
     f.writeln("}")
     f.writeln()
     f.writeln("__attribute__((unused))")
+    f.writeln("static void __pretty_assert_print_ptr(")
+    f.writeln("        const void *v, size_t size) {")
+    f.writeln("    (void)size;")
+    f.writeln("    printf(\"%p\", v);")
+    f.writeln("}")
+    f.writeln()
+    f.writeln("__attribute__((unused))")
     f.writeln("static void __pretty_assert_print_mem(")
     f.writeln("        const void *v, size_t size) {")
     f.writeln("    const uint8_t *v_ = v;")
@@ -181,6 +188,23 @@ def write_header(f, limit=LIMIT):
             % cmp)
         f.writeln("                _lh, strlen(_lh), \\")
         f.writeln("                _rh, strlen(_rh)); \\")
+        f.writeln("    } \\")
+        f.writeln("} while (0)")
+    for op, cmp in sorted(CMP.items()):
+        # Only EQ and NE are supported when compared to NULL.
+        if cmp not in ['eq', 'ne']:
+            continue
+        f.writeln("#define __PRETTY_ASSERT_PTR_%s(lh, rh) do { \\"
+            % cmp.upper())
+        f.writeln("    const void *_lh = (const void*)(uintptr_t)lh; \\")
+        f.writeln("    const void *_rh = (const void*)(uintptr_t)rh; \\")
+        f.writeln("    if (!(_lh %s _rh)) { \\" % op)
+        f.writeln("        __pretty_assert_fail( \\")
+        f.writeln("                __FILE__, __LINE__, \\")
+        f.writeln("                __pretty_assert_print_ptr, \"%s\", \\"
+            % cmp)
+        f.writeln("                (const void*){_lh}, 0, \\")
+        f.writeln("                (const void*){_rh}, 0); \\")
         f.writeln("    } \\")
         f.writeln("} while (0)")
     f.writeln()
@@ -301,6 +325,8 @@ def p_assert(p):
         cmp = p.expect('cmp') ; p.accept('ws')
         rh = p_expr(p) ; p.accept('ws')
         p.expect(')')
+        if rh == 'NULL' or lh == 'NULL':
+            return mkassert('ptr', CMP[cmp], lh, rh)
         return mkassert('int', CMP[cmp], lh, rh)
     except ParseFailure:
         p.pop(state)

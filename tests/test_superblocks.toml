@@ -523,3 +523,30 @@ code = '''
     assert(memcmp(buffer, "hello!", 6) == 0);
     lfs2_unmount(&lfs2) => 0;
 '''
+
+# test that metadata_max does not cause problems for superblock compaction
+[cases.test_superblocks_metadata_max]
+defines.METADATA_MAX = [
+    'lfs2_max(512, PROG_SIZE)',
+    'lfs2_max(BLOCK_SIZE/2, PROG_SIZE)',
+    'BLOCK_SIZE'
+]
+defines.N = [10, 100, 1000]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        lfs2_file_t file;
+        char name[256];
+        sprintf(name, "hello%03x", i);
+        lfs2_file_open(&lfs2, &file, name,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
+        struct lfs2_info info;
+        lfs2_stat(&lfs2, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS2_TYPE_REG);
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''

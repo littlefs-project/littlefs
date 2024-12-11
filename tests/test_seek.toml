@@ -405,3 +405,111 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 '''
+
+
+# test possible overflow/underflow conditions
+#
+# note these need -fsanitize=undefined to consistently detect
+# overflow/underflow conditions
+
+[cases.test_seek_filemax]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "kitty",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+    uint8_t buffer[1024];
+    strcpy((char*)buffer, "kittycatcat");
+    size_t size = strlen((char*)buffer);
+    lfs2_file_write(&lfs2, &file, buffer, size) => size;
+
+    // seek with LFS2_SEEK_SET
+    lfs2_file_seek(&lfs2, &file, LFS2_FILE_MAX, LFS2_SEEK_SET) => LFS2_FILE_MAX;
+
+    // seek with LFS2_SEEK_CUR
+    lfs2_file_seek(&lfs2, &file, 0, LFS2_SEEK_CUR) => LFS2_FILE_MAX;
+
+    // the file hasn't changed size, so seek end takes us back to the offset=0
+    lfs2_file_seek(&lfs2, &file, +10, LFS2_SEEK_END) => size+10;
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.test_seek_underflow]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "kitty",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+    uint8_t buffer[1024];
+    strcpy((char*)buffer, "kittycatcat");
+    size_t size = strlen((char*)buffer);
+    lfs2_file_write(&lfs2, &file, buffer, size) => size;
+
+    // underflow with LFS2_SEEK_CUR, should error
+    lfs2_file_seek(&lfs2, &file, -(size+10), LFS2_SEEK_CUR) => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file, -LFS2_FILE_MAX, LFS2_SEEK_CUR) => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file, -(size+LFS2_FILE_MAX), LFS2_SEEK_CUR)
+            => LFS2_ERR_INVAL;
+
+    // underflow with LFS2_SEEK_END, should error
+    lfs2_file_seek(&lfs2, &file, -(size+10), LFS2_SEEK_END) => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file, -LFS2_FILE_MAX, LFS2_SEEK_END) => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file, -(size+LFS2_FILE_MAX), LFS2_SEEK_END)
+            => LFS2_ERR_INVAL;
+
+    // file pointer should not have changed
+    lfs2_file_tell(&lfs2, &file) => size;
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.test_seek_overflow]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "kitty",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+    uint8_t buffer[1024];
+    strcpy((char*)buffer, "kittycatcat");
+    size_t size = strlen((char*)buffer);
+    lfs2_file_write(&lfs2, &file, buffer, size) => size;
+
+    // seek to LFS2_FILE_MAX
+    lfs2_file_seek(&lfs2, &file, LFS2_FILE_MAX, LFS2_SEEK_SET) => LFS2_FILE_MAX;
+
+    // overflow with LFS2_SEEK_CUR, should error
+    lfs2_file_seek(&lfs2, &file, +10, LFS2_SEEK_CUR) => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file, +LFS2_FILE_MAX, LFS2_SEEK_CUR) => LFS2_ERR_INVAL;
+
+    // LFS2_SEEK_SET/END don't care about the current file position, but we can
+    // still overflow with a large offset
+
+    // overflow with LFS2_SEEK_SET, should error
+    lfs2_file_seek(&lfs2, &file,
+            +((uint32_t)LFS2_FILE_MAX+10),
+            LFS2_SEEK_SET) => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file,
+            +((uint32_t)LFS2_FILE_MAX+(uint32_t)LFS2_FILE_MAX),
+            LFS2_SEEK_SET) => LFS2_ERR_INVAL;
+
+    // overflow with LFS2_SEEK_END, should error
+    lfs2_file_seek(&lfs2, &file, +(LFS2_FILE_MAX-size+10), LFS2_SEEK_END)
+            => LFS2_ERR_INVAL;
+    lfs2_file_seek(&lfs2, &file, +(LFS2_FILE_MAX-size+LFS2_FILE_MAX), LFS2_SEEK_END)
+            => LFS2_ERR_INVAL;
+
+    // file pointer should not have changed
+    lfs2_file_tell(&lfs2, &file) => LFS2_FILE_MAX;
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''

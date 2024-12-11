@@ -96,12 +96,13 @@ intmax_t bench_define(size_t define);
 #define CACHE_SIZE_i         6
 #define LOOKAHEAD_SIZE_i     7
 #define COMPACT_THRESH_i     8
-#define INLINE_MAX_i         9
-#define BLOCK_CYCLES_i       10
-#define ERASE_VALUE_i        11
-#define ERASE_CYCLES_i       12
-#define BADBLOCK_BEHAVIOR_i  13
-#define POWERLOSS_BEHAVIOR_i 14
+#define METADATA_MAX_i       9
+#define INLINE_MAX_i         10
+#define BLOCK_CYCLES_i       11
+#define ERASE_VALUE_i        12
+#define ERASE_CYCLES_i       13
+#define BADBLOCK_BEHAVIOR_i  14
+#define POWERLOSS_BEHAVIOR_i 15
 
 #define READ_SIZE           bench_define(READ_SIZE_i)
 #define PROG_SIZE           bench_define(PROG_SIZE_i)
@@ -112,6 +113,7 @@ intmax_t bench_define(size_t define);
 #define CACHE_SIZE          bench_define(CACHE_SIZE_i)
 #define LOOKAHEAD_SIZE      bench_define(LOOKAHEAD_SIZE_i)
 #define COMPACT_THRESH      bench_define(COMPACT_THRESH_i)
+#define METADATA_MAX        bench_define(METADATA_MAX_i)
 #define INLINE_MAX          bench_define(INLINE_MAX_i)
 #define BLOCK_CYCLES        bench_define(BLOCK_CYCLES_i)
 #define ERASE_VALUE         bench_define(ERASE_VALUE_i)
@@ -129,6 +131,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(CACHE_SIZE,         lfs2_max(64,lfs2_max(READ_SIZE,PROG_SIZE))) \
     BENCH_DEF(LOOKAHEAD_SIZE,     16) \
     BENCH_DEF(COMPACT_THRESH,     0) \
+    BENCH_DEF(METADATA_MAX,       0) \
     BENCH_DEF(INLINE_MAX,         0) \
     BENCH_DEF(BLOCK_CYCLES,       -1) \
     BENCH_DEF(ERASE_VALUE,        0xff) \
@@ -137,7 +140,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(POWERLOSS_BEHAVIOR, LFS2_EMUBD_POWERLOSS_NOOP)
 
 #define BENCH_GEOMETRY_DEFINE_COUNT 4
-#define BENCH_IMPLICIT_DEFINE_COUNT 15
+#define BENCH_IMPLICIT_DEFINE_COUNT 16
 
 
 #endif
