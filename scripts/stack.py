@@ -598,6 +598,12 @@ class Parser:
                 self.__class__.__name__,
                 self.data[self.i:self.i+32])
 
+    def __str__(self):
+        return self.data[self.i:]
+
+    def __len__(self):
+        return len(self.data) - self.i
+
     def __bool__(self):
         return self.i != len(self.data)
 

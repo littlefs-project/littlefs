@@ -365,6 +365,62 @@ class RGStddev:
                     if gmean else mt.inf)
 
 
+# a simple general-purpose parser class
+#
+# basically just because memoryview doesn't support strs
+class Parser:
+    def __init__(self, data, ws='\s*', ws_flags=0):
+        self.data = data.lstrip()
+        self.i = 0
+        self.m = None
+        # also consume whitespace
+        self.ws = re.compile(ws, ws_flags)
+        self.i = self.ws.match(self.data, self.i).end()
+
+    def __repr__(self):
+        return '%s(%r...)' % (
+                self.__class__.__name__,
+                self.data[self.i:self.i+32])
+
+    def __str__(self):
+        return self.data[self.i:]
+
+    def __len__(self):
+        return len(self.data) - self.i
+
+    def __bool__(self):
+        return self.i != len(self.data)
+
+    def match(self, pattern, flags=0):
+        # compile so we can use the pos arg, this is still cached
+        self.m = re.compile(pattern, flags).match(self.data, self.i)
+        return self.m
+
+    def group(self, *groups):
+        return self.m.group(*groups)
+
+    def chomp(self, *groups):
+        g = self.group(*groups)
+        self.i = self.m.end()
+        # also consume whitespace
+        self.i = self.ws.match(self.data, self.i).end()
+        return g
+
+    class Error(Exception):
+        pass
+
+    def chompmatch(self, pattern, flags=0, *groups):
+        if not self.match(pattern, flags):
+            raise Parser.Error(
+                    "expected %r, found %r..." % (
+                        pattern, self.data[self.i:self.i+32]))
+        return self.chomp(*groups)
+
+    def unexpected(self):
+        raise Parser.Error(
+                "unexpected %r..." % (
+                    self.data[self.i:self.i+32]))
+
 # a lazily-evaluated field expression
 class RExpr:
     # expr parsing/typechecking/etc errors
@@ -1042,65 +1098,58 @@ class RExpr:
         self.expr = expr.strip()
 
         # parse the expression into a tree
-        def p_expr(expr, prec=0):
+        def p_expr(p, prec=0):
             # parens
-            if expr.startswith('('):
-                a, tail = p_expr(expr[1:].lstrip())
-                if not tail.startswith(')'):
-                    raise RExpr.Error("mismatched parens? %s" % tail)
-                tail = tail[1:].lstrip()
+            if p.match('\('):
+                p.chomp()
+                a = p_expr(p)
+                if not p.match('\)'):
+                    raise RExpr.Error("mismatched parens? %s" % p)
+                p.chomp()
 
             # strings
-            elif re.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')', expr):
-                m = re.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')', expr)
-                a = RExpr.StrLit(m.group()[1:-1])
-                tail = expr[len(m.group()):].lstrip()
+            elif p.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')'):
+                a = RExpr.StrLit(p.chomp()[1:-1])
 
             # floats
-            elif re.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)', expr):
-                m = re.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)', expr)
-                a = RExpr.FloatLit(RFloat(m.group()))
-                tail = expr[len(m.group()):].lstrip()
+            elif p.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)'):
+                a = RExpr.FloatLit(RFloat(p.chomp()))
 
             # ints
-            elif re.match('[+-]?(?:[0-9][bBoOxX]?[_0-9a-fA-F]*|∞|inf)', expr):
-                m = re.match('[+-]?(?:[0-9][bBoOxX]?[_0-9a-fA-F]*|∞|inf)', expr)
-                a = RExpr.IntLit(RInt(m.group()))
-                tail = expr[len(m.group()):].lstrip()
+            elif p.match('[+-]?(?:[0-9][bBoOxX]?[_0-9a-fA-F]*|∞|inf)'):
+                a = RExpr.IntLit(RInt(p.chomp()))
 
             # fields/functions
-            elif re.match('[_a-zA-Z][_a-zA-Z0-9]*', expr):
-                m = re.match('[_a-zA-Z][_a-zA-Z0-9]*', expr)
-                tail = expr[len(m.group()):].lstrip()
+            elif p.match('[_a-zA-Z][_a-zA-Z0-9]*'):
+                a = p.chomp()
 
-                if tail.startswith('('):
-                    tail = tail[1:].lstrip()
-                    if m.group() not in RExpr.funcs:
-                        raise RExpr.Error("unknown function? %s" % m.group())
+                if p.match('\('):
+                    p.chomp()
+                    if a not in RExpr.funcs:
+                        raise RExpr.Error("unknown function? %s" % a)
                     args = []
                     while True:
-                        a, tail = p_expr(tail)
-                        args.append(a)
-                        if tail.startswith(','):
-                            tail = tail[1:].lstrip()
+                        b = p_expr(p)
+                        args.append(b)
+                        if p.match(','):
+                            p.chomp()
                             continue
                         else:
-                            if not tail.startswith(')'):
-                                raise RExpr.Error(
-                                        "mismatched parens? %s" % tail)
-                            a = RExpr.funcs[m.group()](*args)
-                            tail = tail[1:].lstrip()
+                            if not p.match('\)'):
+                                raise RExpr.Error("mismatched parens? %s" % p)
+                            p.chomp()
+                            a = RExpr.funcs[a](*args)
                             break
-
                 else:
-                    a = RExpr.Field(m.group())
+                    a = RExpr.Field(a)
 
             # unary ops
-            elif any(expr.startswith(op) for op in RExpr.uops.keys()):
+            elif any(p.match(re.escape(op)) for op in RExpr.uops.keys()):
                 # sort by len to avoid ambiguities
                 for op in sorted(RExpr.uops.keys(), reverse=True):
-                    if expr.startswith(op):
-                        a, tail = p_expr(expr[len(op):].lstrip(), mt.inf)
+                    if p.match(re.escape(op)):
+                        p.chomp()
+                        a = p_expr(p, mt.inf)
                         a = RExpr.uops[op](a)
                         break
                 else:
@@ -1108,39 +1157,40 @@ class RExpr:
 
             # unknown expr?
             else:
-                raise RExpr.Error("unknown expr? %s" % expr)
+                raise RExpr.Error("unknown expr? %s" % p)
 
             # parse tail
             while True:
                 # binary ops
-                if any(tail.startswith(op) and prec < RExpr.bprecs[op]
+                if any(p.match(re.escape(op))
+                            and prec < RExpr.bprecs[op]
                         for op in RExpr.bops.keys()):
                     # sort by len to avoid ambiguities
                     for op in sorted(RExpr.bops.keys(), reverse=True):
-                        if tail.startswith(op) and prec < RExpr.bprecs[op]:
-                            b, tail = p_expr(
-                                    tail[len(op):].lstrip(),
-                                    RExpr.bprecs[op])
+                        if (p.match(re.escape(op))
+                                and prec < RExpr.bprecs[op]):
+                            p.chomp()
+                            b = p_expr(p, RExpr.bprecs[op])
                             a = RExpr.bops[op](a, b)
                             break
                     else:
                         assert False
 
                 # ternary ops, these are intentionally right associative
-                elif any(tail.startswith(op[0]) and prec <= RExpr.tprecs[op]
+                elif any(p.match(re.escape(op[0]))
+                            and prec <= RExpr.tprecs[op]
                         for op in RExpr.tops.keys()):
                     # sort by len to avoid ambiguities
                     for op in sorted(RExpr.tops.keys(), reverse=True):
-                        if tail.startswith(op[0]) and prec <= RExpr.tprecs[op]:
-                            b, tail = p_expr(
-                                    tail[len(op[0]):].lstrip(),
-                                    RExpr.tprecs[op])
-                            if not tail.startswith(op[1]):
+                        if (p.match(re.escape(op[0]))
+                                and prec <= RExpr.tprecs[op]):
+                            p.chomp()
+                            b = p_expr(p, RExpr.tprecs[op])
+                            if not p.match(re.escape(op[1])):
                                 raise RExpr.Error(
                                         'mismatched ternary op? %s %s' % op)
-                            c, tail = p_expr(
-                                    tail[len(op[1]):].lstrip(),
-                                    RExpr.tprecs[op])
+                            p.chomp()
+                            c = p_expr(p, RExpr.tprecs[op])
                             a = RExpr.tops[op](a, b, c)
                             break
                     else:
@@ -1148,12 +1198,13 @@ class RExpr:
 
                 # no tail
                 else:
-                    return a, tail
+                    return a
 
         try:
-            self.tree, tail = p_expr(self.expr)
-            if tail:
-                raise RExpr.Error("trailing expr? %s" % tail)
+            p = Parser(self.expr)
+            self.tree = p_expr(p)
+            if p:
+                raise RExpr.Error("trailing expr? %s" % p)
 
         except (RExpr.Error, ValueError) as e:
             print('error: in expr: %s' % self.expr,
