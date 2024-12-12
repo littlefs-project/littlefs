@@ -238,6 +238,9 @@ class SymInfo:
     def __contains__(self, k):
         return self.get(k) is not None
 
+    def __bool__(self):
+        return bool(self.syms)
+
     def __len__(self):
         return len(self.syms)
 
@@ -306,61 +309,6 @@ def collect_syms(obj_path, global_=False, sections=None, *,
 
     return SymInfo(syms)
 
-def collect_dwarf_files(obj_path, *,
-        objdump_path=OBJDUMP_PATH,
-        **args):
-    line_pattern = re.compile(
-            '^\s*(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
-                '.*\s+(?P<path>[^\s]+)\s*$')
-
-    # find source paths
-    dirs = co.OrderedDict()
-    files = co.OrderedDict()
-    # note objdump-path may contain extra args
-    cmd = objdump_path + ['--dwarf=rawline', obj_path]
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-            stdout=sp.PIPE,
-            universal_newlines=True,
-            errors='replace',
-            close_fds=False)
-    for line in proc.stdout:
-        # note that files contain references to dirs, which we
-        # dereference as soon as we see them as each file table
-        # follows a dir table
-        m = line_pattern.match(line)
-        if m:
-            if not m.group('dir'):
-                # found a directory entry
-                dirs[int(m.group('no'))] = m.group('path')
-            else:
-                # found a file entry
-                dir = int(m.group('dir'))
-                if dir in dirs:
-                    files[int(m.group('no'))] = os.path.join(
-                            dirs[dir],
-                            m.group('path'))
-                else:
-                    files[int(m.group('no'))] = m.group('path')
-    proc.wait()
-    if proc.returncode != 0:
-        raise sp.CalledProcessError(proc.returncode, proc.args)
-
-    # simplify paths
-    files_ = co.OrderedDict()
-    for no, file in files.items():
-        if os.path.commonpath([
-                    os.getcwd(),
-                    os.path.abspath(file)]) == os.getcwd():
-            files_[no] = os.path.relpath(file)
-        else:
-            files_[no] = os.path.abspath(file)
-    files = files_
-
-    return files
-
 # each dwarf entry can have attrs and children entries
 class DwarfEntry:
     def __init__(self, level, off, tag, ats={}, children=[]):
@@ -402,78 +350,15 @@ class DwarfEntry:
         else:
             return None
 
-    @ft.cached_property
-    def addr(self):
-        if (self.tag == 'DW_TAG_subprogram'
-                and 'DW_AT_low_pc' in self):
-            return int(self['DW_AT_low_pc'], 0)
-        else:
-            return None
-
-    @ft.cached_property
-    def size(self):
-        if (self.tag == 'DW_TAG_subprogram'
-                and 'DW_AT_high_pc' in self):
-            # this looks wrong, but high_pc does store the size,
-            # for whatever reason
-            return int(self['DW_AT_high_pc'], 0)
-        else:
-            return None
-
-    def info(self, tags=None):
-        # recursively flatten children
-        def flatten(entry):
-            for child in entry.children:
-                # filter if requested
-                if tags is None or child.tag in tags:
-                    yield child
-
-                yield from flatten(child)
-
-        return DwarfInfo(co.OrderedDict(
-                (child.off, child) for child in flatten(self)))
-
 # a collection of dwarf entries
 class DwarfInfo:
     def __init__(self, entries):
         self.entries = entries
 
     def get(self, k, d=None):
-        # allow lookup by offset, symbol, or dwarf name
-        if not isinstance(k, str) and not hasattr(k, 'addr'):
+        # allow lookup by offset or dwarf name
+        if not isinstance(k, str):
             return self.entries.get(k, d)
-
-        elif hasattr(k, 'addr'):
-            import bisect
-
-            # organize by address
-            if not hasattr(self, '_by_addr'):
-                # sort and keep largest/first when duplicates
-                entries = [entry
-                        for entry in self.entries.values()
-                        if entry.addr is not None
-                            and entry.size is not None]
-                entries.sort(key=lambda x: (x.addr, -x.size))
-
-                by_addr = []
-                for entry in entries:
-                    if (len(by_addr) == 0
-                            or by_addr[-1].addr != entry.addr):
-                        by_addr.append(entry)
-                self._by_addr = by_addr
-
-            # find entry by range
-            i = bisect.bisect(self._by_addr, k.addr,
-                    key=lambda x: x.addr)
-            # check that we're actually in this entry's size
-            if (i > 0
-                    and k.addr
-                        < self._by_addr[i-1].addr
-                            + self._by_addr[i-1].size):
-                return self._by_addr[i-1]
-            else:
-                # fallback to lookup by name
-                return self.get(k.name, d)
 
         else:
             # organize entries by name
@@ -510,6 +395,9 @@ class DwarfInfo:
 
     def __contains__(self, k):
         return self.get(k) is not None
+
+    def __bool__(self):
+        return bool(self.entries)
 
     def __len__(self):
         return len(self.entries)
@@ -566,22 +454,9 @@ def collect_dwarf_info(obj_path, tags=None, *,
     if proc.returncode != 0:
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
-    # resolve abstract origins
-    for entry in info.values():
-        if 'DW_AT_abstract_origin' in entry:
-            off = int(entry['DW_AT_abstract_origin'].strip('<>'), 0)
-            origin = info[off]
-            assert 'DW_AT_abstract_origin' not in origin, (
-                    "Recursive abstract origin?")
-
-            for k, v in origin.ats.items():
-                if k not in entry.ats:
-                    entry.ats[k] = v
-
     return DwarfInfo(info)
 
 def collect(obj_paths, *,
-        sources=None,
         everything=False,
         depth=1,
         **args):
@@ -593,11 +468,29 @@ def collect(obj_paths, *,
                 global_=not everything,
                 **args)
 
-        # find source paths
-        files = collect_dwarf_files(obj_path, **args)
-
         # find dwarf info
         info = collect_dwarf_info(obj_path, **args)
+
+        # find source file from dwarf info
+        for entry in info:
+            if (entry.tag == 'DW_TAG_compile_unit'
+                    and 'DW_AT_name' in entry
+                    and 'DW_AT_comp_dir' in entry):
+                file = os.path.join(
+                        entry['DW_AT_comp_dir'].split(':')[-1].strip(),
+                        entry['DW_AT_name'].split(':')[-1].strip())
+                break
+        else:
+            # guess from obj path
+            file = re.sub('(\.o)?$', '.c', obj_path, 1)
+
+        # simplify path
+        if os.path.commonpath([
+                os.getcwd(),
+                os.path.abspath(file)]) == os.getcwd():
+            file = os.path.relpath(file)
+        else:
+            file = os.path.abspath(file)
 
         # recursive+cached size finder
         def sizeof(entry, seen=set()):
@@ -704,16 +597,11 @@ def collect(obj_paths, *,
                         type = info[int(type['DW_AT_type'].strip('<>'), 0)]
                     if (type.name is not None
                             and type.tag != 'DW_TAG_subroutine_type'):
-                        # if we have no file guess from obj path
-                        if 'DW_AT_decl_file' in type:
-                            file_ = files.get(int(type['DW_AT_decl_file']), '?')
-                        else:
-                            file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
                         name_ = type.name
                         size_ = sizeof(type, seen | {entry.off})
                         children_, notes_, dirty_ = childrenof(
                                 type, depth-1, seen | {entry.off})
-                        children.append(CtxResult(file_, name_, size_,
+                        children.append(CtxResult(file, name_, size_,
                                 children=children_,
                                 notes=notes_))
                         dirty = dirty or dirty_
@@ -725,16 +613,11 @@ def collect(obj_paths, *,
                 for child in entry.children:
                     if child.tag != 'DW_TAG_member':
                         continue
-                    # if we have no file guess from obj path
-                    if 'DW_AT_decl_file' in child:
-                        file_ = files.get(int(child['DW_AT_decl_file']), '?')
-                    else:
-                        file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
                     name_ = child.name
                     size_ = sizeof(child, seen | {entry.off})
                     children_, notes_, dirty_ = childrenof(
                             child, depth-1, seen | {entry.off})
-                    children.append(CtxResult(file_, name_, size_,
+                    children.append(CtxResult(file, name_, size_,
                             i=child.off,
                             children=children_,
                             notes=notes_))
@@ -776,41 +659,17 @@ def collect(obj_paths, *,
                 continue
 
             # find best matching dwarf entry
-            entry = info.get(sym)
+            entry = info.get(sym.name)
 
             # skip non-functions
             if entry is None or entry.tag != 'DW_TAG_subprogram':
                 continue
-
-            # if we have no file guess from obj path
-            if 'DW_AT_decl_file' in entry:
-                file = files.get(int(entry['DW_AT_decl_file']), '?')
-            else:
-                file = re.sub('(\.o)?$', '.c', obj_path, 1)
-
-            # ignore filtered sources
-            if sources is not None:
-                if not any(os.path.abspath(file) == os.path.abspath(s)
-                        for s in sources):
-                    continue
-            else:
-                # default to only cwd
-                if (not everything and not os.path.commonpath([
-                        os.getcwd(),
-                        os.path.abspath(file)]) == os.getcwd()):
-                    continue
 
             # find all parameters
             params = []
             for param in entry.children:
                 if param.tag != 'DW_TAG_formal_parameter':
                     continue
-
-                # if we have no file guess from obj path
-                if 'DW_AT_decl_file' in param:
-                    file_ = files.get(int(param['DW_AT_decl_file']), '?')
-                else:
-                    file_ = re.sub('(\.o)?$', '.c', obj_path, 1)
 
                 # find name, if there is one
                 name_ = param.name if param.name is not None else '(unnamed)'
@@ -821,7 +680,7 @@ def collect(obj_paths, *,
                 # find children, recursing if necessary
                 children_, notes_, _ = childrenof(param, depth-2)
 
-                params.append(CtxResult(file_, name_, size_,
+                params.append(CtxResult(file, name_, size_,
                         i=param.off,
                         children=children_,
                         notes=notes_))
@@ -1390,12 +1249,6 @@ if __name__ == "__main__":
             nargs='?',
             action=AppendSort,
             help="Sort by this field, but backwards.")
-    parser.add_argument(
-            '-F', '--source',
-            dest='sources',
-            action='append',
-            help="Only consider definitions in this file. Defaults to "
-                "anything in the current directory.")
     parser.add_argument(
             '--everything',
             action='store_true',

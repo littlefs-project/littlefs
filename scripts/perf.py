@@ -331,6 +331,9 @@ class SymInfo:
     def __contains__(self, k):
         return self.get(k) is not None
 
+    def __bool__(self):
+        return bool(self.syms)
+
     def __len__(self):
         return len(self.syms)
 
@@ -476,6 +479,9 @@ class LineInfo:
 
     def __contains__(self, k):
         return self.get(k) is not None
+
+    def __bool__(self):
+        return bool(self.lines)
 
     def __len__(self):
         return len(self.lines)

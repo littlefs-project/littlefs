@@ -322,9 +322,8 @@ def collect(gcda_paths, *,
             for func in file['functions']:
                 func_name = func.get('name', '(inlined)')
                 # discard internal functions (this includes injected test cases)
-                if not everything:
-                    if func_name.startswith('__'):
-                        continue
+                if not everything and func_name.startswith('__'):
+                    continue
 
                 # go ahead and add functions, later folding will merge this if
                 # there are other hits on this line
@@ -338,9 +337,8 @@ def collect(gcda_paths, *,
             for line in file['lines']:
                 func_name = line.get('function_name', '(inlined)')
                 # discard internal function (this includes injected test cases)
-                if not everything:
-                    if func_name.startswith('__'):
-                        continue
+                if not everything and func_name.startswith('__'):
+                    continue
 
                 # go ahead and add lines, later folding will merge this if
                 # there are other hits on this line

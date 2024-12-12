@@ -235,12 +235,12 @@ data-diff: $(OBJ)
 ## Find the per-function stack usage
 .PHONY: stack
 stack: STACKFLAGS+=-S
-stack: $(OBJ) $(CI) $(BUILDDIR)/lfs.stack.csv
-	./scripts/stack.py $(OBJ) $(CI) $(STACKFLAGS)
+stack: $(CI) $(BUILDDIR)/lfs.stack.csv
+	./scripts/stack.py $(CI) $(STACKFLAGS)
 
 ## Compare per-function stack usage
 .PHONY: stack-diff
-stack-diff: $(OBJ) $(CI)
+stack-diff: $(CI)
 	./scripts/stack.py $^ $(STACKFLAGS) -d $(BUILDDIR)/lfs.stack.csv
 
 ## Find the per-function context
@@ -281,7 +281,7 @@ funcs-diff: $(OBJ) $(CI)
 			<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
 			-fcode=size -q -o-) \
 		<(./scripts/csv.py \
-			<(./scripts/stack.py $^ -q $(STACKFLAGS) -o-) \
+			<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
 			-fstack='max(limit)' -q -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
@@ -386,7 +386,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 				<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
 				-fdata=size -q -o-) \
 			<(./scripts/csv.py \
-				<(./scripts/stack.py $^ -q $(STACKFLAGS) -o-) \
+				<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
 				-fstack='max(limit)' -q -o-) \
 			<(./scripts/csv.py \
 				<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
@@ -508,7 +508,7 @@ $(BUILDDIR)/lfs.code.csv: $(OBJ)
 $(BUILDDIR)/lfs.data.csv: $(OBJ)
 	./scripts/data.py $^ -q $(DATAFLAGS) -o $@
 
-$(BUILDDIR)/lfs.stack.csv: $(OBJ) $(CI)
+$(BUILDDIR)/lfs.stack.csv: $(CI)
 	./scripts/stack.py $^ -q $(STACKFLAGS) -o $@
 
 $(BUILDDIR)/lfs.ctx.csv: $(OBJ)

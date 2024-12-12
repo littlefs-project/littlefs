@@ -166,421 +166,6 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def iself(path):
-    # check for an elf file's magic string (\x7fELF)
-    with open(path, 'rb') as f:
-        return f.read(4) == b'\x7fELF'
-
-class Sym(co.namedtuple('Sym', [
-        'name', 'global_', 'section', 'addr', 'size'])):
-    __slots__ = ()
-    def __new__(cls, name, global_, section, addr, size):
-        return super().__new__(cls, name, global_, section, addr, size)
-
-    def __repr__(self):
-        return '%s(%r, %r, %r, 0x%x, 0x%x)' % (
-                self.__class__.__name__,
-                self.name,
-                self.global_,
-                self.section,
-                self.addr,
-                self.size)
-
-class SymInfo:
-    def __init__(self, syms):
-        self.syms = syms
-
-    def get(self, k, d=None):
-        # allow lookup by both symbol and address
-        if isinstance(k, str):
-            # organize by symbol, note multiple symbols can share a name
-            if not hasattr(self, '_by_sym'):
-                by_sym = {}
-                for sym in self.syms:
-                    if sym.name not in by_sym:
-                        by_sym[sym.name] = []
-                    if sym not in by_sym[sym.name]:
-                        by_sym[sym.name].append(sym)
-                self._by_sym = by_sym
-
-            return self._by_sym.get(k, d)
-
-        else:
-            import bisect
-
-            # organize by address
-            if not hasattr(self, '_by_addr'):
-                # sort and keep largest/first when duplicates
-                syms = self.syms.copy()
-                syms.sort(key=lambda x: (x.addr, -x.size))
-
-                by_addr = []
-                for sym in syms:
-                    if (len(by_addr) == 0
-                            or by_addr[-1].addr != sym.addr):
-                        by_addr.append(sym)
-                self._by_addr = by_addr
-
-            # find sym by range
-            i = bisect.bisect(self._by_addr, k,
-                    key=lambda x: x.addr)
-            # check that we're actually in this sym's size
-            if i > 0 and k < self._by_addr[i-1].addr+self._by_addr[i-1].size:
-                return self._by_addr[i-1]
-            else:
-                return d
-
-    def __getitem__(self, k):
-        v = self.get(k)
-        if v is None:
-            raise KeyError(k)
-        return v
-
-    def __contains__(self, k):
-        return self.get(k) is not None
-
-    def __len__(self):
-        return len(self.syms)
-
-    def __iter__(self):
-        return iter(self.syms)
-
-    def globals(self):
-        return SymInfo([sym for sym in self.syms
-                if sym.global_])
-
-    def section(self, section):
-        return SymInfo([sym for sym in self.syms
-                # note we accept prefixes
-                if s.startswith(section)])
-
-def collect_syms(obj_path, global_=False, sections=None, *,
-        objdump_path=OBJDUMP_PATH,
-        **args):
-    symbol_pattern = re.compile(
-            '^(?P<addr>[0-9a-fA-F]+)'
-                ' (?P<scope>.).*'
-                '\s+(?P<section>[^\s]+)'
-                '\s+(?P<size>[0-9a-fA-F]+)'
-                '\s+(?P<name>[^\s]+)\s*$')
-
-    # find symbol addresses and sizes
-    syms = []
-    cmd = objdump_path + ['--syms', obj_path]
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-            stdout=sp.PIPE,
-            universal_newlines=True,
-            errors='replace',
-            close_fds=False)
-    for line in proc.stdout:
-        m = symbol_pattern.match(line)
-        if m:
-            name = m.group('name')
-            scope = m.group('scope')
-            section = m.group('section')
-            addr = int(m.group('addr'), 16)
-            size = int(m.group('size'), 16)
-            # skip non-globals?
-            # l => local
-            # g => global
-            # u => unique global
-            #   => neither
-            # ! => local + global
-            global__ = scope not in 'l '
-            if global_ and not global__:
-                continue
-            # filter by section? note we accept prefixes
-            if (sections is not None
-                    and not any(section.startswith(prefix)
-                        for prefix in sections)):
-                continue
-            # skip zero sized symbols
-            if not size:
-                continue
-            # note multiple symbols can share a name
-            syms.append(Sym(name, global__, section, addr, size))
-    proc.wait()
-    if proc.returncode != 0:
-        raise sp.CalledProcessError(proc.returncode, proc.args)
-
-    return SymInfo(syms)
-
-def collect_dwarf_files(obj_path, *,
-        objdump_path=OBJDUMP_PATH,
-        **args):
-    line_pattern = re.compile(
-            '^\s*(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
-                '.*\s+(?P<path>[^\s]+)\s*$')
-
-    # find source paths
-    dirs = co.OrderedDict()
-    files = co.OrderedDict()
-    # note objdump-path may contain extra args
-    cmd = objdump_path + ['--dwarf=rawline', obj_path]
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-            stdout=sp.PIPE,
-            universal_newlines=True,
-            errors='replace',
-            close_fds=False)
-    for line in proc.stdout:
-        # note that files contain references to dirs, which we
-        # dereference as soon as we see them as each file table
-        # follows a dir table
-        m = line_pattern.match(line)
-        if m:
-            if not m.group('dir'):
-                # found a directory entry
-                dirs[int(m.group('no'))] = m.group('path')
-            else:
-                # found a file entry
-                dir = int(m.group('dir'))
-                if dir in dirs:
-                    files[int(m.group('no'))] = os.path.join(
-                            dirs[dir],
-                            m.group('path'))
-                else:
-                    files[int(m.group('no'))] = m.group('path')
-    proc.wait()
-    if proc.returncode != 0:
-        raise sp.CalledProcessError(proc.returncode, proc.args)
-
-    # simplify paths
-    files_ = co.OrderedDict()
-    for no, file in files.items():
-        if os.path.commonpath([
-                    os.getcwd(),
-                    os.path.abspath(file)]) == os.getcwd():
-            files_[no] = os.path.relpath(file)
-        else:
-            files_[no] = os.path.abspath(file)
-    files = files_
-
-    return files
-
-# each dwarf entry can have attrs and children entries
-class DwarfEntry:
-    def __init__(self, level, off, tag, ats={}, children=[]):
-        self.level = level
-        self.off = off
-        self.tag = tag
-        self.ats = ats or {}
-        self.children = children or []
-
-    def get(self, k, d=None):
-        return self.ats.get(k, d)
-
-    def __getitem__(self, k):
-        return self.ats[k]
-
-    def __contains__(self, k):
-        return k in self.ats
-
-    def __repr__(self):
-        return '%s(%d, 0x%x, %r, %r)' % (
-                self.__class__.__name__,
-                self.level,
-                self.off,
-                self.tag,
-                self.ats)
-
-    @ft.cached_property
-    def name(self):
-        if 'DW_AT_name' in self:
-            name = self['DW_AT_name'].split(':')[-1].strip()
-            # prefix with struct/union/enum
-            if self.tag == 'DW_TAG_structure_type':
-                name = 'struct ' + name
-            elif self.tag == 'DW_TAG_union_type':
-                name = 'union ' + name
-            elif self.tag == 'DW_TAG_enumeration_type':
-                name = 'enum ' + name
-            return name
-        else:
-            return None
-
-    @ft.cached_property
-    def addr(self):
-        if (self.tag == 'DW_TAG_subprogram'
-                and 'DW_AT_low_pc' in self):
-            return int(self['DW_AT_low_pc'], 0)
-        else:
-            return None
-
-    @ft.cached_property
-    def size(self):
-        if (self.tag == 'DW_TAG_subprogram'
-                and 'DW_AT_high_pc' in self):
-            # this looks wrong, but high_pc does store the size,
-            # for whatever reason
-            return int(self['DW_AT_high_pc'], 0)
-        else:
-            return None
-
-    def info(self, tags=None):
-        # recursively flatten children
-        def flatten(entry):
-            for child in entry.children:
-                # filter if requested
-                if tags is None or child.tag in tags:
-                    yield child
-
-                yield from flatten(child)
-
-        return DwarfInfo(co.OrderedDict(
-                (child.off, child) for child in flatten(self)))
-
-# a collection of dwarf entries
-class DwarfInfo:
-    def __init__(self, entries):
-        self.entries = entries
-
-    def get(self, k, d=None):
-        # allow lookup by offset, symbol, or dwarf name
-        if not isinstance(k, str) and not hasattr(k, 'addr'):
-            return self.entries.get(k, d)
-
-        elif hasattr(k, 'addr'):
-            import bisect
-
-            # organize by address
-            if not hasattr(self, '_by_addr'):
-                # sort and keep largest/first when duplicates
-                entries = [entry
-                        for entry in self.entries.values()
-                        if entry.addr is not None
-                            and entry.size is not None]
-                entries.sort(key=lambda x: (x.addr, -x.size))
-
-                by_addr = []
-                for entry in entries:
-                    if (len(by_addr) == 0
-                            or by_addr[-1].addr != entry.addr):
-                        by_addr.append(entry)
-                self._by_addr = by_addr
-
-            # find entry by range
-            i = bisect.bisect(self._by_addr, k.addr,
-                    key=lambda x: x.addr)
-            # check that we're actually in this entry's size
-            if (i > 0
-                    and k.addr
-                        < self._by_addr[i-1].addr
-                            + self._by_addr[i-1].size):
-                return self._by_addr[i-1]
-            else:
-                # fallback to lookup by name
-                return self.get(k.name, d)
-
-        else:
-            # organize entries by name
-            if not hasattr(self, '_by_name'):
-                self._by_name = {}
-                for entry in self.entries.values():
-                    if entry.name is not None:
-                        self._by_name[entry.name] = entry
-
-            # exact match? do a quick lookup
-            if k in self._by_name:
-                return self._by_name[k]
-            # find the best matching dwarf entry with a simple
-            # heuristic
-            #
-            # this can be different from the actual symbol because
-            # of optimization passes
-            else:
-                def key(entry):
-                    i = entry.name.find(k)
-                    if i == -1:
-                        return None
-                    return (i, len(entry.name)-(i+len(k)), entry.name)
-                return min(
-                        filter(key, self._by_name.values()),
-                        key=key,
-                        default=d)
-
-    def __getitem__(self, k):
-        v = self.get(k)
-        if v is None:
-            raise KeyError(k)
-        return v
-
-    def __contains__(self, k):
-        return self.get(k) is not None
-
-    def __len__(self):
-        return len(self.entries)
-
-    def __iter__(self):
-        return iter(self.entries.values())
-
-def collect_dwarf_info(obj_path, tags=None, *,
-        objdump_path=OBJDUMP_PATH,
-        **args):
-    info_pattern = re.compile(
-            '^\s*<(?P<level>[^>]*)>'
-                    '\s*<(?P<off>[^>]*)>'
-                    '.*\(\s*(?P<tag>[^)]*?)\s*\)\s*$'
-                '|' '^\s*<(?P<off_>[^>]*)>'
-                    '\s*(?P<at>[^>:]*?)'
-                    '\s*:(?P<v>.*)\s*$')
-
-    # collect dwarf entries
-    info = co.OrderedDict()
-    entry = None
-    levels = {}
-    # note objdump-path may contain extra args
-    cmd = objdump_path + ['--dwarf=info', obj_path]
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-            stdout=sp.PIPE,
-            universal_newlines=True,
-            errors='replace',
-            close_fds=False)
-    for line in proc.stdout:
-        # state machine here to find dwarf entries
-        m = info_pattern.match(line)
-        if m:
-            if m.group('tag'):
-                entry = DwarfEntry(
-                    level=int(m.group('level'), 0),
-                    off=int(m.group('off'), 16),
-                    tag=m.group('tag').strip(),
-                )
-                # keep track of unfiltered entries
-                if tags is None or entry.tag in tags:
-                    info[entry.off] = entry
-                # store entry in parent
-                levels[entry.level] = entry
-                if entry.level-1 in levels:
-                    levels[entry.level-1].children.append(entry)
-            elif m.group('at'):
-                if entry:
-                    entry.ats[m.group('at').strip()] = (
-                            m.group('v').strip())
-    proc.wait()
-    if proc.returncode != 0:
-        raise sp.CalledProcessError(proc.returncode, proc.args)
-
-    # resolve abstract origins
-    for entry in info.values():
-        if 'DW_AT_abstract_origin' in entry:
-            off = int(entry['DW_AT_abstract_origin'].strip('<>'), 0)
-            origin = info[off]
-            assert 'DW_AT_abstract_origin' not in origin, (
-                    "Recursive abstract origin?")
-
-            for k, v in origin.ats.items():
-                if k not in entry.ats:
-                    entry.ats[k] = v
-
-    return DwarfInfo(info)
-
 # a simple general-purpose parser class
 #
 # basically just because memoryview doesn't support strs
@@ -693,36 +278,24 @@ def collect_callgraph(ci_path,
             p.unexpected()
 
         # convert to something a bit more useful
-        def cg_key(k):
-            # map relative paths to try to keep cwd agnostic
-            if ':' not in k:
-                return k
-            else:
-                file, function = k.split(':', 1)
-                if not os.path.isabs(file):
-                    file = re.sub('(\.ci)?$', '.c', ci_path, 1)
-                return ':'.join([file, function])
-
         cg_ = {}
         for node in cg['graph'][0].get('node') or []:
-            name = cg_key(node['title'][0])
+            name = node['title'][0]
             label = node['label'][0].split('\\n')
             if len(label) < 3:
                 continue
-            file = cg_key(label[1]+':').split(':', 1)[0]
+            file = label[1].split(':', 1)[0]
             m = re.match('([0-9]+) bytes \((.*)\)', label[2])
             size = int(m.group(1))
             qualifiers = [q.strip() for q in m.group(2).split(',')]
             cg_[name] = CGNode(name, file, size, qualifiers)
 
         for edge in cg['graph'][0].get('edge') or []:
-            cg_[cg_key(edge['sourcename'][0])].calls.add(
-                    cg_key(edge['targetname'][0]))
+            cg_[edge['sourcename'][0]].calls.add(edge['targetname'][0])
 
         return cg_
 
-def collect(obj_paths, ci_paths, *,
-        sources=None,
+def collect(ci_paths, *,
         everything=False,
         depth=1,
         **args):
@@ -730,6 +303,30 @@ def collect(obj_paths, ci_paths, *,
     cg = {}
     for ci_path in ci_paths:
         cg.update(collect_callgraph(ci_path))
+
+    # cached function/file finder
+    def nameof(node):
+        # cached?
+        if not hasattr(nameof, 'cache'):
+            nameof.cache = {}
+        if node.name in nameof.cache:
+            return nameof.cache[node.name]
+
+        # find name and file, note static functions are prefixed
+        # with the file path
+        name = node.name.split(':', 1)[-1]
+        file = node.file
+
+        # simplify path
+        if os.path.commonpath([
+                os.getcwd(),
+                os.path.abspath(file)]) == os.getcwd():
+            file = os.path.relpath(file)
+        else:
+            file = os.path.abspath(file)
+
+        nameof.cache[node.name] = name, file
+        return name, file
 
     # cached frame finder
     def frameof(node):
@@ -789,8 +386,7 @@ def collect(obj_paths, ci_paths, *,
             if call not in cg:
                 continue
             node_ = cg[call]
-            file_ = node_.file
-            name_ = node_.name.split(':', 1)[-1]
+            name_, file_ = nameof(node_)
             frame_ = frameof(node_)
             limit_ = limitof(node_, seen | {node.name})
             children_, notes_, dirty_ = childrenof(
@@ -804,71 +400,23 @@ def collect(obj_paths, ci_paths, *,
             childrenof.cache[node.name] = children, set(), dirty
         return children, set(), dirty
 
+    # find function sizes
     results = []
-    for obj_path in obj_paths:
-        # find relevant symbols and sizes
-        syms = collect_syms(obj_path,
-                sections=['.text'],
-                **args)
+    for node in cg.values():
+        # find name and file
+        name, file = nameof(node)
 
-        # find source paths
-        files = collect_dwarf_files(obj_path, **args)
+        # discard internal functions
+        if not everything and name.startswith('__'):
+            continue
 
-        # find dwarf info
-        info = collect_dwarf_info(obj_path,
-                tags={'DW_TAG_subprogram', 'DW_TAG_variable'},
-                **args)
-
-        # map function sizes to debug symbols
-        for sym in syms:
-            # discard internal functions
-            if not everything and sym.name.startswith('__'):
-                continue
-
-            # find best matching dwarf entry, this may be slightly different
-            # due to optimizations
-            entry = info.get(sym)
-
-            # if we have no file guess from obj path
-            if entry is not None and 'DW_AT_decl_file' in entry:
-                file = files.get(int(entry['DW_AT_decl_file']), '?')
-            else:
-                file = re.sub('(\.o)?$', '.c', obj_path, 1)
-
-            # ignore filtered sources
-            if sources is not None:
-                if not any(os.path.abspath(file) == os.path.abspath(s)
-                        for s in sources):
-                    continue
-            else:
-                # default to only cwd
-                if not everything and not os.path.commonpath([
-                        os.getcwd(),
-                        os.path.abspath(file)]) == os.getcwd():
-                    continue
-
-            # find relevant callgraph node, this is either function if
-            # global, or file:function if static
-            if sym.name in cg:
-                node = cg[sym.name]
-            else:
-                name = ':'.join([
-                        re.sub('(\.o)?$', '.c', obj_path, 1),
-                        sym.name])
-                if name in cg:
-                    node = cg[name]
-                else:
-                    print('warning: no callgraph node found for %s' % name,
-                            file=sys.stderr)
-
-            # build result
-            name = sym.name
-            frame = frameof(node)
-            limit = limitof(node)
-            children, notes, _ = childrenof(node, depth-1)
-            results.append(StackResult(file, name, frame, limit,
-                    children=children,
-                    notes=notes))
+        # build result
+        frame = frameof(node)
+        limit = limitof(node)
+        children, notes, _ = childrenof(node, depth-1)
+        results.append(StackResult(file, name, frame, limit,
+                children=children,
+                notes=notes))
 
     return results
 
@@ -1235,7 +783,7 @@ def table(Result, results, diff_results=None, *,
                     for i, x in enumerate(line[1:], 1))))
 
 
-def main(paths,
+def main(ci_paths,
         by=None,
         fields=None,
         defines=[],
@@ -1249,26 +797,14 @@ def main(paths,
 
     # find sizes
     if not args.get('use', None):
-        # figure out paths
-        obj_paths = []
-        ci_paths = []
-        for path in paths:
-            if iself(path):
-                obj_paths.append(path)
-            else:
-                ci_paths.append(path)
         # not enough info?
-        if not obj_paths:
-            print("error: no *.o files?",
-                    file=sys.stderr)
-            sys.exit(1)
         if not ci_paths:
             print("error: no *.ci files?",
                     file=sys.stderr)
             sys.exit(1)
 
         # collect info
-        results = collect(obj_paths, ci_paths, **args)
+        results = collect(ci_paths, **args)
 
     else:
         results = []
@@ -1370,25 +906,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description="Find stack usage at the function level.",
             allow_abbrev=False)
-    class AppendPath(argparse.Action):
-        def __call__(self, parser, namespace, value, option):
-            if getattr(namespace, 'paths', None) is None:
-                namespace.paths = []
-            if value is None:
-                pass
-            elif isinstance(value, str):
-                namespace.paths.append(value)
-            else:
-                namespace.paths.extend(value)
-    parser.add_argument(
-            'obj_paths',
-            nargs='*',
-            action=AppendPath,
-            help="Input *.o files.")
     parser.add_argument(
             'ci_paths',
             nargs='*',
-            action=AppendPath,
             help="Input *.ci files.")
     parser.add_argument(
             '-v', '--verbose',
@@ -1459,12 +979,6 @@ if __name__ == "__main__":
             nargs='?',
             action=AppendSort,
             help="Sort by this field, but backwards.")
-    parser.add_argument(
-            '-F', '--source',
-            dest='sources',
-            action='append',
-            help="Only consider definitions in this file. Defaults to "
-                "anything in the current directory.")
     parser.add_argument(
             '--everything',
             action='store_true',
