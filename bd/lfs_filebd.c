@@ -141,6 +141,7 @@ int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
 
     // erase is a noop
     (void)block;
+    (void)bd;
 
     LFS_FILEBD_TRACE("lfs_filebd_erase -> %d", 0);
     return 0;
