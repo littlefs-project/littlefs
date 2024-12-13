@@ -370,7 +370,7 @@ class RGStddev:
 # basically just because memoryview doesn't support strs
 class Parser:
     def __init__(self, data, ws='\s*', ws_flags=0):
-        self.data = data.lstrip()
+        self.data = data
         self.i = 0
         self.m = None
         # also consume whitespace
@@ -378,9 +378,10 @@ class Parser:
         self.i = self.ws.match(self.data, self.i).end()
 
     def __repr__(self):
-        return '%s(%r...)' % (
-                self.__class__.__name__,
-                self.data[self.i:self.i+32])
+        if len(self.data) - self.i <= 32:
+            return repr(self.data[self.i:])
+        else:
+            return "%s..." % repr(self.data[self.i:self.i+32])[:32]
 
     def __str__(self):
         return self.data[self.i:]
@@ -411,15 +412,36 @@ class Parser:
 
     def chompmatch(self, pattern, flags=0, *groups):
         if not self.match(pattern, flags):
-            raise Parser.Error(
-                    "expected %r, found %r..." % (
-                        pattern, self.data[self.i:self.i+32]))
+            raise Parser.Error("expected %r, found %r" % (pattern, self))
         return self.chomp(*groups)
 
     def unexpected(self):
-        raise Parser.Error(
-                "unexpected %r..." % (
-                    self.data[self.i:self.i+32]))
+        raise Parser.Error("unexpected %r" % self)
+
+    def lookahead(self):
+        # push state on the stack
+        if not hasattr(self, 'stack'):
+            self.stack = []
+        self.stack.append((self.i, self.m))
+        return self
+
+    def consume(self):
+        # pop and use new state
+        self.stack.pop()
+
+    def discard(self):
+        # pop and discard new state
+        self.i, self.m = self.stack.pop()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, et, ev, tb):
+        # keep new state if no exception occured
+        if et is None:
+            self.consume()
+        else:
+            self.discard()
 
 # a lazily-evaluated field expression
 class RExpr:
