@@ -1,0 +1,17 @@
+{
+  "name": "littlefs",
+  "description": "A little fail-safe filesystem designed for microcontrollers",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/littlefs-project/littlefs"
+  },
+  "homepage": "https://github.com/littlefs-project/littlefs",
+  "license": "BSD-3-Clause",
+  "platforms": "*",
+  "frameworks": "*",
+  "build": {
+    "srcDir": ".",
+    "srcFilter": "+<*> -<benches> -<bd> -<tests> -<runners> -<scripts>",
+    "unflags": "-Wshadow"
+  }
+}
