@@ -820,6 +820,10 @@ def table(Result, results, diff_results=None, *,
         percent=None,
         all=False,
         compare=None,
+        no_header=False,
+        small_header=False,
+        no_total=False,
+        small_table=False,
         summary=False,
         depth=1,
         hot=None,
@@ -918,7 +922,10 @@ def table(Result, results, diff_results=None, *,
     if compare:
         names.sort(
                 key=lambda n: (
+                    # move compare entry to the top, note this can be
+                    # overridden by explicitly sorting by fields
                     table.get(n) == compare_result,
+                    # sort by ratio if comparing
                     tuple(
                         types[k].ratio(
                                 getattr(table.get(n), k, None),
@@ -927,6 +934,7 @@ def table(Result, results, diff_results=None, *,
                 reverse=True)
     if diff or percent:
         names.sort(
+                # sort by ratio if diffing
                 key=lambda n: tuple(
                     types[k].ratio(
                             getattr(table.get(n), k, None),
@@ -951,24 +959,26 @@ def table(Result, results, diff_results=None, *,
     lines = []
 
     # header
-    header = ['%s%s' % (
-                ','.join(by),
-                ' (%d added, %d removed)' % (
-                        sum(1 for n in table if n not in diff_table),
-                        sum(1 for n in diff_table if n not in table))
-                    if diff else '')
-            if not summary else '']
-    if not diff:
-        for k in fields:
-            header.append(k)
-    else:
-        for k in fields:
-            header.append('o'+k)
-        for k in fields:
-            header.append('n'+k)
-        for k in fields:
-            header.append('d'+k)
-    lines.append(header)
+    if not no_header:
+        header = ['%s%s' % (
+                    ','.join(by),
+                    ' (%d added, %d removed)' % (
+                            sum(1 for n in table if n not in diff_table),
+                            sum(1 for n in diff_table if n not in table))
+                        if diff else '')
+                if not small_header and not small_table and not summary
+                    else '']
+        if not diff:
+            for k in fields:
+                header.append(k)
+        else:
+            for k in fields:
+                header.append('o'+k)
+            for k in fields:
+                header.append('n'+k)
+            for k in fields:
+                header.append('d'+k)
+        lines.append(header)
 
     # entry helper
     def table_entry(name, r, diff_r=None):
@@ -1089,7 +1099,7 @@ def table(Result, results, diff_results=None, *,
                          prefixes[2+is_last] + "    "))
 
     # entries
-    if (not summary) or compare:
+    if not summary:
         for name in names:
             r = table.get(name)
             if diff_results is None:
@@ -1107,8 +1117,8 @@ def table(Result, results, diff_results=None, *,
                          "|   ",
                          "    "))
 
-    # total, unless we're comparing
-    if not (compare and not percent and not diff):
+    # total
+    if not no_total and not (small_table and not summary):
         r = next(iter(fold(Result, results, by=[])), None)
         if diff_results is None:
             diff_r = None
@@ -1464,10 +1474,6 @@ if __name__ == "__main__":
             type=lambda x: tuple(v.strip() for v in x.split(',')),
             help="Compare results to the row matching this by pattern.")
     parser.add_argument(
-            '-Y', '--summary',
-            action='store_true',
-            help="Only show the total.")
-    parser.add_argument(
             '-b', '--by',
             action='append',
             choices=PerfBdResult._by,
@@ -1503,6 +1509,26 @@ if __name__ == "__main__":
             nargs='?',
             action=AppendSort,
             help="Sort by this field, but backwards.")
+    parser.add_argument(
+            '--no-header',
+            action='store_true',
+            help="Don't show the header.")
+    parser.add_argument(
+            '--small-header',
+            action='store_true',
+            help="Don't show by field names.")
+    parser.add_argument(
+            '--no-total',
+            action='store_true',
+            help="Don't show the total.")
+    parser.add_argument(
+            '-Q', '--small-table',
+            action='store_true',
+            help="Equivalent to --small-header + --no-total.")
+    parser.add_argument(
+            '-Y', '--summary',
+            action='store_true',
+            help="Only show the total.")
     parser.add_argument(
             '-F', '--source',
             dest='sources',
