@@ -25,7 +25,6 @@ enum {
     LFS_CMP_GT = 2,
 };
 
-
 /// Caching block device operations ///
 
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
@@ -2891,7 +2890,7 @@ static int lfs_ctz_find(lfs_t *lfs,
 static int lfs_ctz_extend(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache,
         lfs_block_t head, lfs_size_t size,
-        lfs_block_t *block, lfs_off_t *off) {
+        lfs_block_t *block, lfs_off_t *off, bool validate) {
     while (true) {
         // go ahead and grab a block
         lfs_block_t nblock;
@@ -2931,7 +2930,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
                     }
 
                     err = lfs_bd_prog(lfs,
-                            pcache, rcache, true,
+                            pcache, rcache, validate,
                             nblock, i, &data, 1);
                     if (err) {
                         if (err == LFS_ERR_CORRUPT) {
@@ -2952,7 +2951,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
             lfs_block_t nhead = head;
             for (lfs_off_t i = 0; i < skips; i++) {
                 nhead = lfs_tole32(nhead);
-                err = lfs_bd_prog(lfs, pcache, rcache, true,
+                err = lfs_bd_prog(lfs, pcache, rcache, validate,
                         nblock, 4*i, &nhead, 4);
                 nhead = lfs_fromle32(nhead);
                 if (err) {
@@ -3228,6 +3227,7 @@ static int lfs_file_close_(lfs_t *lfs, lfs_file_t *file) {
 
 #ifndef LFS_READONLY
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+
     while (true) {
         // just relocate what exists into new block
         lfs_block_t nblock;
@@ -3531,11 +3531,11 @@ static lfs_ssize_t lfs_file_read_(lfs_t *lfs, lfs_file_t *file,
     return lfs_file_flushedread(lfs, file, buffer, size);
 }
 
-
 #ifndef LFS_READONLY
 static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
+    bool validate = !(file->flags & LFS_F_WRUNCHECKED);
     lfs_size_t nsize = size;
 
     if ((file->flags & LFS_F_INLINE) &&
@@ -3571,7 +3571,7 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
                 lfs_alloc_ckpoint(lfs);
                 int err = lfs_ctz_extend(lfs, &file->cache, &lfs->rcache,
                         file->block, file->pos,
-                        &file->block, &file->off);
+                        &file->block, &file->off, validate);
                 if (err) {
                     file->flags |= LFS_F_ERRED;
                     return err;
@@ -3587,7 +3587,7 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
         // program as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->off);
         while (true) {
-            int err = lfs_bd_prog(lfs, &file->cache, &lfs->rcache, true,
+            int err = lfs_bd_prog(lfs, &file->cache, &lfs->rcache, validate,
                     file->block, file->off, data, diff);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
