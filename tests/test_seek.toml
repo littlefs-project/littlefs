@@ -137,6 +137,130 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# boundary seek and reads
+[cases.test_seek_boundary_read]
+defines.COUNT = 132
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "kitty",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
+    size_t size = strlen("kittycatcat");
+    uint8_t buffer[1024];
+    memcpy(buffer, "kittycatcat", size);
+    for (int j = 0; j < COUNT; j++) {
+        lfs_file_write(&lfs, &file, buffer, size);
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "kitty", LFS_O_RDONLY) => 0;
+
+    size = strlen("kittycatcat");
+    const lfs_soff_t offsets[] = {
+        512,
+        1024-4,
+        512+1,
+        1024-4+1,
+        512-1,
+        1024-4-1,
+
+        512-strlen("kittycatcat"),
+        1024-4-strlen("kittycatcat"),
+        512-strlen("kittycatcat")+1,
+        1024-4-strlen("kittycatcat")+1,
+        512-strlen("kittycatcat")-1,
+        1024-4-strlen("kittycatcat")-1,
+
+        strlen("kittycatcat")*(COUNT-2)-1,
+    };
+
+    for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++) {
+        lfs_soff_t off = offsets[i];
+        // read @ offset
+        lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[off % strlen("kittycatcat")],
+                size) => 0;
+        // read after
+        lfs_file_seek(&lfs, &file, off+strlen("kittycatcat")+1, LFS_SEEK_SET)
+                => off+strlen("kittycatcat")+1;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[(off+1) % strlen("kittycatcat")],
+                size) => 0;
+        // read before
+        lfs_file_seek(&lfs, &file, off-strlen("kittycatcat")-1, LFS_SEEK_SET)
+                => off-strlen("kittycatcat")-1;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[(off-1) % strlen("kittycatcat")],
+                size) => 0;
+
+        // read @ 0
+        lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer, "kittycatcat", size) => 0;
+
+        // read @ offset
+        lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[off % strlen("kittycatcat")],
+                size) => 0;
+        // read after
+        lfs_file_seek(&lfs, &file, off+strlen("kittycatcat")+1, LFS_SEEK_SET)
+                => off+strlen("kittycatcat")+1;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[(off+1) % strlen("kittycatcat")],
+                size) => 0;
+        // read before
+        lfs_file_seek(&lfs, &file, off-strlen("kittycatcat")-1, LFS_SEEK_SET)
+                => off-strlen("kittycatcat")-1;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[(off-1) % strlen("kittycatcat")],
+                size) => 0;
+
+        // sync
+        lfs_file_sync(&lfs, &file) => 0;
+
+        // read @ 0
+        lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer, "kittycatcat", size) => 0;
+
+        // read @ offset
+        lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[off % strlen("kittycatcat")],
+                size) => 0;
+        // read after
+        lfs_file_seek(&lfs, &file, off+strlen("kittycatcat")+1, LFS_SEEK_SET)
+                => off+strlen("kittycatcat")+1;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[(off+1) % strlen("kittycatcat")],
+                size) => 0;
+        // read before
+        lfs_file_seek(&lfs, &file, off-strlen("kittycatcat")-1, LFS_SEEK_SET)
+                => off-strlen("kittycatcat")-1;
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer,
+                &"kittycatcatkittycatcat"[(off-1) % strlen("kittycatcat")],
+                size) => 0;
+    }
+
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
 # boundary seek and writes
 [cases.test_seek_boundary_write]
 defines.COUNT = 132
@@ -160,31 +284,54 @@ code = '''
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDWR) => 0;
 
     size = strlen("hedgehoghog");
-    const lfs_soff_t offsets[] = {512, 1020, 513, 1021, 511, 1019, 1441};
+    const lfs_soff_t offsets[] = {
+        512,
+        1024-4,
+        512+1,
+        1024-4+1,
+        512-1,
+        1024-4-1,
+
+        512-strlen("kittycatcat"),
+        1024-4-strlen("kittycatcat"),
+        512-strlen("kittycatcat")+1,
+        1024-4-strlen("kittycatcat")+1,
+        512-strlen("kittycatcat")-1,
+        1024-4-strlen("kittycatcat")-1,
+
+        strlen("kittycatcat")*(COUNT-2)-1,
+    };
 
     for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++) {
         lfs_soff_t off = offsets[i];
+        // write @ offset
         memcpy(buffer, "hedgehoghog", size);
         lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
         lfs_file_write(&lfs, &file, buffer, size) => size;
+
+        // read @ offset
         lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "hedgehoghog", size) => 0;
 
+        // read @ 0
         lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "kittycatcat", size) => 0;
 
+        // read @ offset
         lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "hedgehoghog", size) => 0;
 
         lfs_file_sync(&lfs, &file) => 0;
 
+        // read @ 0
         lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "kittycatcat", size) => 0;
 
+        // read @ offset
         lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "hedgehoghog", size) => 0;
