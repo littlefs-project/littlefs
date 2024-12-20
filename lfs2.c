@@ -3725,13 +3725,8 @@ static lfs2_soff_t lfs2_file_seek_(lfs2_t *lfs2, lfs2_file_t *file,
 
     // if we're only reading and our new offset is still in the file's cache
     // we can avoid flushing and needing to reread the data
-    if (
-#ifndef LFS2_READONLY
-        !(file->flags & LFS2_F_WRITING)
-#else
-        true
-#endif
-            ) {
+    if ((file->flags & LFS2_F_READING)
+            && file->off != lfs2->cfg->block_size) {
         int oindex = lfs2_ctz_index(lfs2, &(lfs2_off_t){file->pos});
         lfs2_off_t noff = npos;
         int nindex = lfs2_ctz_index(lfs2, &noff);
