@@ -925,17 +925,15 @@ code = '''
 
     // change a file's type to something unknown
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
     lfsr_mdir_t mdir;
     lfsr_did_t did;
-    const char *name;
-    lfs_size_t name_size;
-    lfsr_mtree_pathlookup(&lfs, "b",
-            &mdir, NULL,
-            &did, &name, &name_size) => LFS_ERR_EXIST;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_NAME(
                 LFSR_TAG_SUB | (LFSR_TAG_NAME + 0x13), 0,
-                did, name, name_size))) => 0;
+                did, path, lfsr_path_namelen(path)))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail

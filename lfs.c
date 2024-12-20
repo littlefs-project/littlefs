@@ -1351,6 +1351,7 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
 //    return sizeof(tag) + lfs_tag_size(tag + lfs_tag_isdelete(tag));
 //}
 
+/// lfsr_tag_t stuff ///
 
 // 16-bit metadata tags
 enum lfsr_tag {
@@ -9496,69 +9497,95 @@ enum {
     LFSR_DID_ROOT = 0,
 };
 
-// lookup full paths in our mtree
+// some operations on paths
+static inline lfs_size_t lfsr_path_namelen(const char *path) {
+    return lfs_strcspn(path, "/");
+}
+
+static inline bool lfsr_path_islast(const char *path) {
+    lfs_size_t name_len = lfsr_path_namelen(path);
+    return path[name_len + lfs_strspn(path + name_len, "/")] == '\0';
+}
+
+static inline bool lfsr_path_isdir(const char *path) {
+    return path[lfsr_path_namelen(path)] != '\0';
+}
+
+// lookup a full path in our mtree, updating the path as we descend
 //
-// note the errors here are a bit weird, because paths can have some weird
-// corner-cases during lookup, and we want to report all the different
-// conditions:
+// the errors get a bit subtle here, and rely on what ends up in the
+// path/mdir:
+// - 0                                      => file found
+// - 0, lfsr_path_isdir(path)               => dir found
+// - 0, mdir.mid=-1                         => root found
+// - LFS_ERR_NOENT, lfsr_path_islast(path)  => file not found
+// - LFS_ERR_NOENT, !lfsr_path_islast(path) => parent not found
+// - LFS_ERR_NOTDIR                         => parent not a dir
 //
-// - 0      => path is valid, file NOT found
-// - EXIST  => path is valid, file found
-// - INVAL  => path is valid, but points to root
-// - NOENT  => path is NOT valid, intermediate dir missing
-// - NOTDIR => path is NOT valid, intermediate dir is not a dir
+// if not found, mdir_/did_ will at least be set up with what should be
+// the parent
 //
-// if not found, mdir_/did_/name_ will at least be set up
-// with what should be the parent
-static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
-        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_,
-        lfsr_did_t *did_, const char **name_, lfs_size_t *name_size_) {
+static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
+        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_did_t *did_) {
     // setup root
     lfsr_mdir_t mdir = lfs->mroot;
     lfsr_tag_t tag = LFSR_TAG_DIR;
     lfsr_did_t did = LFSR_DID_ROOT;
     
     // we reduce path to a single name if we can find it
-    const char *name = path;
-    lfs_size_t name_size = 0;
-    while (true) {
-        // skip slashes
-        path += lfs_strspn(path, "/");
-        lfs_size_t name_size__ = lfs_strcspn(path, "/");
+    const char *path_ = *path;
 
-        // skip '.' and root '..'
-        if ((name_size__ == 1 && lfs_memcmp(path, ".", 1) == 0)
-                || (name_size__ == 2 && lfs_memcmp(path, "..", 2) == 0)) {
-            path += name_size__;
+    // empty paths are not allowed
+    if (path_[0] == '\0') {
+        return LFS_ERR_INVAL;
+    }
+
+    while (true) {
+        // skip slashes if we're a directory
+        if (tag == LFSR_TAG_DIR) {
+            path_ += lfs_strspn(path_, "/");
+        }
+        lfs_size_t name_len = lfs_strcspn(path_, "/");
+
+        // skip '.'
+        if (name_len == 1 && lfs_memcmp(path_, ".", 1) == 0) {
+            path_ += name_len;
             goto next;
         }
 
+        // error on unmatched '..', trying to go above root, eh?
+        if (name_len == 2 && lfs_memcmp(path_, "..", 2) == 0) {
+            return LFS_ERR_INVAL;
+        }
+
         // skip if matched by '..' in name
-        const char *suffix = path + name_size__;
-        lfs_size_t suffix_size;
+        const char *suffix = path_ + name_len;
+        lfs_size_t suffix_len;
         int depth = 1;
         while (true) {
             suffix += lfs_strspn(suffix, "/");
-            suffix_size = lfs_strcspn(suffix, "/");
-            if (suffix_size == 0) {
+            suffix_len = lfs_strcspn(suffix, "/");
+            if (suffix_len == 0) {
                 break;
             }
 
-            if (suffix_size == 2 && lfs_memcmp(suffix, "..", 2) == 0) {
+            if (suffix_len == 1 && lfs_memcmp(suffix, ".", 1) == 0) {
+                // noop
+            } else if (suffix_len == 2 && lfs_memcmp(suffix, "..", 2) == 0) {
                 depth -= 1;
                 if (depth == 0) {
-                    path = suffix + suffix_size;
+                    path_ = suffix + suffix_len;
                     goto next;
                 }
             } else {
                 depth += 1;
             }
 
-            suffix += suffix_size;
+            suffix += suffix_len;
         }
 
         // found end of path, we must be done parsing our path now
-        if (path[0] == '\0') {
+        if (path_[0] == '\0') {
             if (mdir_) {
                 *mdir_ = mdir;
             }
@@ -9568,22 +9595,8 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             if (did_) {
                 *did_ = did;
             }
-            if (name_) {
-                *name_ = name;
-            }
-            if (name_size_) {
-                *name_size_ = name_size;
-            }
-            // the root dir doesn't have an mdir really, so it's always
-            // a special case
-            return (mdir.mid == -1)
-                    ? LFS_ERR_INVAL
-                    : LFS_ERR_EXIST;
+            return 0;
         }
-
-        // found another name
-        name = path;
-        name_size = name_size__;
 
         // only continue if we hit a directory
         if (tag != LFSR_TAG_DIR) {
@@ -9607,34 +9620,32 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             }
         }
 
+        // update path as we parse
+        *path = path_;
+
         // lookup up this name in the mtree
-        int err = lfsr_mtree_namelookup(lfs, did, name, name_size,
+        int err = lfsr_mtree_namelookup(lfs, did, path_, name_len,
                 &mdir, &tag, NULL);
-        if (err) {
-            // report where to insert if we are the last name in our path
-            if (err == LFS_ERR_NOENT && lfs_strchr(name, '/') == NULL) {
-                if (mdir_) {
-                    *mdir_ = mdir;
-                }
-                if (tag_) {
-                    *tag_ = tag;
-                }
-                if (did_) {
-                    *did_ = did;
-                }
-                if (name_) {
-                    *name_ = name;
-                }
-                if (name_size_) {
-                    *name_size_ = name_size;
-                }
-                return 0;
-            }
+        if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
+        // keep track of where to insert if we can't find path
+        if (err == LFS_ERR_NOENT) {
+            if (mdir_) {
+                *mdir_ = mdir;
+            }
+            if (tag_) {
+                *tag_ = tag;
+            }
+            if (did_) {
+                *did_ = did;
+            }
+            return LFS_ERR_NOENT;
+        }
+
         // go on to next name
-        path += name_size;
+        path_ += name_len;
     next:;
     }
 }
@@ -10357,26 +10368,24 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // lookup our parent
+    const char *path_ = path;
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
     lfsr_did_t did;
-    const char *name;
-    lfs_size_t name_size;
-    err = lfsr_mtree_pathlookup(lfs, path,
-            &mdir, &tag,
-            &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL) {
+    err = lfsr_mtree_pathlookup(lfs, &path_,
+            &mdir, &tag, &did);
+    if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path_))) {
         return err;
     }
-    // already exists? note orphans don't really exist
-    bool exists = (bool)err;
+    // already exists? orphans don't really exist
+    bool exists = (err != LFS_ERR_NOENT);
     if (exists && tag != LFSR_TAG_ORPHAN) {
         return LFS_ERR_EXIST;
     }
 
     // check that name fits
-    if (name_size > lfs->name_limit) {
+    lfs_size_t name_len = lfsr_path_namelen(path_);
+    if (name_len > lfs->name_limit) {
         return LFS_ERR_NAMETOOLONG;
     }
 
@@ -10472,7 +10481,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
-    err = lfsr_mtree_namelookup(lfs, did, name, name_size,
+    err = lfsr_mtree_namelookup(lfs, did, path_, name_len,
             &mdir, NULL, NULL);
     if (err && err != LFS_ERR_NOENT) {
         return err;
@@ -10486,7 +10495,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_NAME(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
-                did, name, name_size),
+                did, path_, name_len),
             LFSR_RATTR(LFSR_TAG_DID, 0, LFSR_DATA_LEB128(did_))));
     if (err) {
         return err;
@@ -10579,17 +10588,19 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
     lfsr_did_t did;
-    const char *name;
-    lfs_size_t name_size;
-    err = lfsr_mtree_pathlookup(lfs, path,
-            &mdir, &tag,
-            &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST) {
+    err = lfsr_mtree_pathlookup(lfs, &path,
+            &mdir, &tag, &did);
+    if (err) {
         return err;
     }
-    // doesn't exist? note orphans don't really exist
-    if (!err || tag == LFSR_TAG_ORPHAN) {
+    // orphans don't really exist
+    if (tag == LFSR_TAG_ORPHAN) {
         return LFS_ERR_NOENT;
+    }
+
+    // trying to remove the root dir?
+    if (mdir.mid == -1) {
+        return LFS_ERR_INVAL;
     }
 
     // if we're removing a directory, we need to also remove the
@@ -10629,7 +10640,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             (zombie)
                 ? LFSR_RATTR_NAME(
                     LFSR_TAG_SUP | LFSR_TAG_ORPHAN, 0,
-                    did, name, name_size)
+                    did, path, lfsr_path_namelen(path))
                 : LFSR_RATTR(
                     LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
     if (err) {
@@ -10696,41 +10707,53 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     lfsr_mdir_t old_mdir;
     lfsr_tag_t old_tag;
     lfsr_did_t old_did;
-    err = lfsr_mtree_pathlookup(lfs, old_path,
-            &old_mdir, &old_tag,
-            &old_did, NULL, NULL);
-    if (err && err != LFS_ERR_EXIST) {
+    err = lfsr_mtree_pathlookup(lfs, &old_path,
+            &old_mdir, &old_tag, &old_did);
+    if (err) {
         return err;
     }
-    // doesn't exist? note orphans don't really exist
-    if (!err || old_tag == LFSR_TAG_ORPHAN) {
+    // orphans don't really exist
+    if (old_tag == LFSR_TAG_ORPHAN) {
         return LFS_ERR_NOENT;
+    }
+
+    // trying to rename the root?
+    if (old_mdir.mid == -1) {
+        return LFS_ERR_INVAL;
     }
 
     // lookup new entry
     lfsr_mdir_t new_mdir;
     lfsr_tag_t new_tag;
     lfsr_did_t new_did;
-    const char *new_name;
-    lfs_size_t new_name_size;
-    err = lfsr_mtree_pathlookup(lfs, new_path,
-            &new_mdir, &new_tag,
-            &new_did, &new_name, &new_name_size);
-    if (err && err != LFS_ERR_EXIST) {
+    err = lfsr_mtree_pathlookup(lfs, &new_path,
+            &new_mdir, &new_tag, &new_did);
+    if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(new_path))) {
         return err;
     }
     // already exists?
-    bool exists = (err == LFS_ERR_EXIST);
-    lfsr_did_t new_did_ = 0;
+    bool exists = (err != LFS_ERR_NOENT);
 
     // there are a few cases we need to watch out for
+    lfs_size_t new_name_len = lfsr_path_namelen(new_path);
+    lfsr_did_t new_did_ = 0;
     if (!exists) {
+        // if we're a file, don't allow trailing slashes
+        if (old_tag != LFSR_TAG_DIR && lfsr_path_isdir(new_path)) {
+              return LFS_ERR_NOTDIR;
+        }
+
         // check that name fits
-        if (new_name_size > lfs->name_limit) {
+        if (new_name_len > lfs->name_limit) {
             return LFS_ERR_NAMETOOLONG;
         }
 
     } else {
+        // trying to rename the root?
+        if (new_mdir.mid == -1) {
+            return LFS_ERR_INVAL;
+        }
+
         // renaming different types is an error
         //
         // unless we found a orphan, these don't really exist
@@ -10740,7 +10763,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                     : LFS_ERR_NOTDIR;
         }
 
-        // TODO is it? is this check necessary?
         // renaming to ourself is a noop
         if (old_mdir.mid == new_mdir.mid) {
             return 0;
@@ -10780,7 +10802,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_RATTRS(
             LFSR_RATTR_NAME(
                 LFSR_TAG_SUP | old_tag, (!exists) ? +1 : 0,
-                new_did, new_name, new_name_size),
+                new_did, new_path, new_name_len),
             LFSR_RATTR_MOVE(LFSR_TAG_MOVE, 0, &old_mdir)));
     if (err) {
         return err;
@@ -10897,22 +10919,18 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     // lookup our entry
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
-    const char *name;
-    lfs_size_t name_size;
-    int err = lfsr_mtree_pathlookup(lfs, path,
-            &mdir, &tag,
-            NULL, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL) {
+    int err = lfsr_mtree_pathlookup(lfs, &path,
+            &mdir, &tag, NULL);
+    if (err) {
         return err;
     }
-    // doesn't exist? note orphans don't really exist
-    if (!err || tag == LFSR_TAG_ORPHAN) {
+    // orphans don't really exist
+    if (tag == LFSR_TAG_ORPHAN) {
         return LFS_ERR_NOENT;
     }
 
     // special case for root
-    if (err == LFS_ERR_INVAL) {
+    if (mdir.mid == -1) {
         lfs_strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
         info->size = 0;
@@ -10921,7 +10939,7 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 
     // fill out our info struct
     return lfsr_stat_(lfs, &mdir,
-            tag, LFSR_DATA_BUF(name, name_size),
+            tag, LFSR_DATA_BUF(path, lfsr_path_namelen(path)),
             info);
 }
 
@@ -10938,20 +10956,18 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     // lookup our directory
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
-    int err = lfsr_mtree_pathlookup(lfs, path,
-            &mdir, &tag,
-            NULL, NULL, NULL);
-    if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL) {
+    int err = lfsr_mtree_pathlookup(lfs, &path,
+            &mdir, &tag, NULL);
+    if (err) {
         return err;
     }
-    // doesn't exist? note orphans don't really exist
-    if (!err || tag == LFSR_TAG_ORPHAN) {
+    // orphans don't really exist
+    if (tag == LFSR_TAG_ORPHAN) {
         return LFS_ERR_NOENT;
     }
 
     // read our did from the mdir, unless we're root
-    if (err == LFS_ERR_INVAL) {
+    if (mdir.mid == -1) {
         dir->did = 0;
 
     } else {
@@ -11156,14 +11172,13 @@ static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
         lfsr_mdir_t *mdir_, lfsr_data_t *data_) {
     // lookup our entry
     lfsr_tag_t tag;
-    int err = lfsr_mtree_pathlookup(lfs, path,
-            mdir_, &tag, NULL, NULL, NULL);
-    if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL) {
+    int err = lfsr_mtree_pathlookup(lfs, &path,
+            mdir_, &tag, NULL);
+    if (err) {
         return err;
     }
-    // doesn't exist? note orphans don't really exist
-    if (!err || tag == LFSR_TAG_ORPHAN) {
+    // orphans don't really exist
+    if (tag == LFSR_TAG_ORPHAN) {
         return LFS_ERR_NOENT;
     }
 
@@ -11534,36 +11549,38 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     // lookup our parent
     lfsr_tag_t tag;
     lfsr_did_t did;
-    const char *name;
-    lfs_size_t name_size;
-    int err = lfsr_mtree_pathlookup(lfs, path,
-            &file->o.o.mdir, &tag,
-            &did, &name, &name_size);
-    if (err && err != LFS_ERR_EXIST
-            && err != LFS_ERR_INVAL) {
+    int err = lfsr_mtree_pathlookup(lfs, &path,
+            &file->o.o.mdir, &tag, &did);
+    if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path))) {
         return err;
     }
 
     // creating a new entry?
-    if (!err || tag == LFSR_TAG_ORPHAN) {
+    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_ORPHAN) {
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
         LFS_ASSERT(!lfsr_o_isrdonly(flags));
 
+        // we're a file, don't allow trailing slashes
+        if (lfsr_path_isdir(path)) {
+            return LFS_ERR_NOTDIR;
+        }
+
         // check that name fits
-        if (name_size > lfs->name_limit) {
+        lfs_size_t name_len = lfsr_path_namelen(path);
+        if (name_len > lfs->name_limit) {
             return LFS_ERR_NAMETOOLONG;
         }
 
         // create an orphan entry if we don't have one, this reserves the
         // mid until first sync
-        if (!err) {
+        if (err == LFS_ERR_NOENT) {
             lfs_alloc_ckpoint(lfs);
             err = lfsr_mdir_commit(lfs, &file->o.o.mdir, LFSR_RATTRS(
                     LFSR_RATTR_NAME(
                         LFSR_TAG_ORPHAN, +1,
-                        did, name, name_size)));
+                        did, path, name_len)));
             if (err) {
                 return err;
             }
