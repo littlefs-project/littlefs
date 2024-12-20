@@ -2154,7 +2154,7 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
 }
 
 static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
-        lfsr_did_t did, const char *name, lfs_size_t name_size) {
+        lfsr_did_t did, const char *name, lfs_size_t name_len) {
     // first compare the did
     lfsr_did_t did_;
     int err = lfsr_data_readleb128(lfs, &data, &did_);
@@ -2169,7 +2169,7 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
     }
 
     // then compare the actual name
-    return lfsr_data_cmp(lfs, data, name, name_size);
+    return lfsr_data_cmp(lfs, data, name, name_len);
 }
 
 static int lfsr_bd_progdata(lfs_t *lfs,
@@ -2375,17 +2375,17 @@ static inline lfs_size_t lfsr_rattr_size(lfsr_rattr_t rattr) {
 // full lfsr_data_t
 typedef struct lfsr_data_name {
     lfsr_data_t did_data;
-    lfs_size_t name_size;
+    lfs_size_t name_len;
     const uint8_t *name;
 } lfsr_data_name_t;
 
-#define LFSR_RATTR_NAME(_tag, _weight, _did, _name, _name_size) \
+#define LFSR_RATTR_NAME(_tag, _weight, _did, _name, _name_len) \
     LFSR_RATTR_CAT_( \
         _tag, \
         _weight, \
         ((lfsr_data_t*)&(lfsr_data_name_t){ \
             .did_data=LFSR_DATA_LEB128(_did), \
-            .name_size=_name_size, \
+            .name_len=_name_len, \
             .name=(const void*)(_name)}), \
         2)
 
@@ -5004,7 +5004,7 @@ static int lfsr_rbyd_appendshrub(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 // binary search an rbyd for a name, leaving the rid_/tag_/weight_/data_
 // with the best matching name if not found
 static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfsr_did_t did, const char *name, lfs_size_t name_size,
+        lfsr_did_t did, const char *name, lfs_size_t name_len,
         lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfsr_data_t *data_) {
     // empty rbyd? leave it up to upper layers to handle this
@@ -5037,7 +5037,7 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // compare names
         } else {
-            cmp = lfsr_data_namecmp(lfs, data__, did, name, name_size);
+            cmp = lfsr_data_namecmp(lfs, data__, did, name, name_len);
             if (cmp < 0) {
                 return cmp;
             }
@@ -6098,7 +6098,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
 // lookup in a btree by name
 static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_did_t did, const char *name, lfs_size_t name_size,
+        lfsr_did_t did, const char *name, lfs_size_t name_len,
         lfsr_bid_t *bid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     // an empty tree?
@@ -6114,7 +6114,7 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_srid_t rid__;
         lfsr_rid_t weight__;
         lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &branch,
-                did, name, name_size,
+                did, name, name_len,
                 &rid__, NULL, &weight__, NULL);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
@@ -9381,7 +9381,7 @@ static int lfsr_mdir_compact(lfs_t *lfs, lfsr_mdir_t *mdir) {
 //
 // if not found, rid will be the best place to insert
 static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfsr_did_t did, const char *name, lfs_size_t name_size,
+        lfsr_did_t did, const char *name, lfs_size_t name_len,
         lfsr_smid_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // default to mid_ = 0, this blanket assignment is the only way to
     // keep GCC happy
@@ -9397,7 +9397,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
     lfsr_srid_t rid;
     lfsr_tag_t tag;
     lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &mdir->rbyd,
-            did, name, name_size,
+            did, name, name_len,
             &rid, &tag, NULL, data_);
     if (cmp < 0) {
         LFS_ASSERT(cmp != LFS_ERR_NOENT);
@@ -9433,7 +9433,7 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 //
 // if not found, rid will be the best place to insert
 static int lfsr_mtree_namelookup(lfs_t *lfs,
-        lfsr_did_t did, const char *name, lfs_size_t name_size,
+        lfsr_did_t did, const char *name, lfs_size_t name_len,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // do we only have mroot?
     lfsr_mdir_t mdir;
@@ -9456,7 +9456,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
         lfsr_bid_t weight;
         lfsr_data_t data;
         lfs_scmp_t cmp = lfsr_btree_namelookup(lfs, &lfs->mtree.u.btree,
-                did, name, name_size,
+                did, name, name_len,
                 &bid, &tag, &weight, &data);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
@@ -9476,7 +9476,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     // and finally lookup name in our mdir
     lfsr_smid_t mid;
     int err = lfsr_mdir_namelookup(lfs, &mdir,
-            did, name, name_size,
+            did, name, name_len,
             &mid, tag_, data_);
     if (err && err != LFS_ERR_NOENT) {
         return err;
@@ -10876,12 +10876,12 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
     // read the file name
     LFS_ASSERT(lfsr_data_size(name) <= LFS_NAME_MAX);
-    lfs_ssize_t name_size = lfsr_data_read(lfs, &name,
+    lfs_ssize_t name_len = lfsr_data_read(lfs, &name,
             info->name, LFS_NAME_MAX);
-    if (name_size < 0) {
-        return name_size;
+    if (name_len < 0) {
+        return name_len;
     }
-    info->name[name_size] = '\0';
+    info->name[name_len] = '\0';
 
     // get file size if we're a regular file, this gets a bit messy
     // because of the different file representations
