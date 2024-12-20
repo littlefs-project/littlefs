@@ -9525,7 +9525,7 @@ static inline bool lfsr_path_isdir(const char *path) {
 // if not found, mdir_/did_ will at least be set up with what should be
 // the parent
 //
-static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
+static int lfsr_mtree_pathlookup_(lfs_t *lfs, const char **path,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_did_t *did_) {
     // setup root
     lfsr_mdir_t mdir = lfs->mroot;
@@ -9648,6 +9648,26 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
         path_ += name_len;
     next:;
     }
+}
+
+// path lookup while ignoring orphans
+static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
+        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_did_t *did_) {
+    lfsr_tag_t tag;
+    int err = lfsr_mtree_pathlookup_(lfs, path,
+            mdir_, &tag, did_);
+    if (err) {
+        return err;
+    }
+
+    if (tag == LFSR_TAG_ORPHAN) {
+        return LFS_ERR_NOENT;
+    }
+
+    if (tag_) {
+        *tag_ = tag;
+    }
+    return 0;
 }
 
 
@@ -10372,7 +10392,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
     lfsr_did_t did;
-    err = lfsr_mtree_pathlookup(lfs, &path_,
+    err = lfsr_mtree_pathlookup_(lfs, &path_,
             &mdir, &tag, &did);
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path_))) {
         return err;
@@ -10593,10 +10613,6 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
-        return LFS_ERR_NOENT;
-    }
 
     // trying to remove the root dir?
     if (mdir.mid == -1) {
@@ -10712,10 +10728,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (old_tag == LFSR_TAG_ORPHAN) {
-        return LFS_ERR_NOENT;
-    }
 
     // trying to rename the root?
     if (old_mdir.mid == -1) {
@@ -10726,7 +10738,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     lfsr_mdir_t new_mdir;
     lfsr_tag_t new_tag;
     lfsr_did_t new_did;
-    err = lfsr_mtree_pathlookup(lfs, &new_path,
+    err = lfsr_mtree_pathlookup_(lfs, &new_path,
             &new_mdir, &new_tag, &new_did);
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(new_path))) {
         return err;
@@ -10924,10 +10936,6 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
-        return LFS_ERR_NOENT;
-    }
 
     // special case for root
     if (mdir.mid == -1) {
@@ -10960,10 +10968,6 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
             &mdir, &tag, NULL);
     if (err) {
         return err;
-    }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
-        return LFS_ERR_NOENT;
     }
 
     // read our did from the mdir, unless we're root
@@ -11176,10 +11180,6 @@ static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
             mdir_, &tag, NULL);
     if (err) {
         return err;
-    }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
-        return LFS_ERR_NOENT;
     }
 
     // lookup our attr
@@ -11549,7 +11549,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     // lookup our parent
     lfsr_tag_t tag;
     lfsr_did_t did;
-    int err = lfsr_mtree_pathlookup(lfs, &path,
+    int err = lfsr_mtree_pathlookup_(lfs, &path,
             &file->o.o.mdir, &tag, &did);
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path))) {
         return err;
