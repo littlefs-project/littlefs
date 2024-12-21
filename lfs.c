@@ -10368,13 +10368,12 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // lookup our parent
-    const char *path_ = path;
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
     lfsr_did_t did;
-    err = lfsr_mtree_pathlookup(lfs, &path_,
+    err = lfsr_mtree_pathlookup(lfs, &path,
             &mdir, &tag, &did);
-    if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path_))) {
+    if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path))) {
         return err;
     }
     // already exists? orphans don't really exist
@@ -10384,14 +10383,22 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // check that name fits
-    lfs_size_t name_len = lfsr_path_namelen(path_);
+    lfs_size_t name_len = lfsr_path_namelen(path);
     if (name_len > lfs->name_limit) {
         return LFS_ERR_NAMETOOLONG;
     }
 
-    // Our directory needs an arbitrary directory-id. To find one with
-    // hopefully few collisions, we checksum our full path, but this is
-    // arbitrary.
+    // find an arbitrary directory-id (did)
+    //
+    // This could be anything, but we want to have few collisions while
+    // also being deterministic. Here we use the checksum of the
+    // filename xored with the parent's did.
+    //
+    //   did = parent_did xor crc32c(name)
+    //
+    // We use crc32c here not because it is a good hash function, but
+    // because it is convenient. The did doesn't need to be reproducible
+    // so this isn't a compatibility concern.
     //
     // We also truncate to make better use of our leb128 encoding. This is
     // somewhat arbitrary, but if we truncate too much we risk increasing
@@ -10439,9 +10446,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
                     + lfs_nlog2(lfs->cfg->block_size/32),
                 31)
             ) - 1;
-    lfsr_did_t did_ = lfs_crc32c(0, path, lfs_strlen(path)) & dmask;
+    lfsr_did_t did_ = (did ^ lfs_crc32c(0, path, name_len)) & dmask;
 
-    // Check if we have a collision. If we do, search for the next
+    // check if we have a collision, if we do, search for the next
     // available did
     while (true) {
         err = lfsr_mtree_namelookup(lfs, did_, NULL, 0,
@@ -10481,7 +10488,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
-    err = lfsr_mtree_namelookup(lfs, did, path_, name_len,
+    err = lfsr_mtree_namelookup(lfs, did, path, name_len,
             &mdir, NULL, NULL);
     if (err && err != LFS_ERR_NOENT) {
         return err;
@@ -10495,7 +10502,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_NAME(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
-                did, path_, name_len),
+                did, path, name_len),
             LFSR_RATTR(LFSR_TAG_DID, 0, LFSR_DATA_LEB128(did_))));
     if (err) {
         return err;
