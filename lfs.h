@@ -656,6 +656,13 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+// Get the attribute of a file
+//
+// Retrieves the value of the attribute specified by `type` for the given `file`.
+// Copies up to `size` bytes into `buffer`. Returns 0 on success, or a negative
+// error code (e.g., LFS_ERR_NOATTR if not found).
+lfs_ssize_t lfs_file_getattr(lfs_t *lfs, lfs_file_t *file,
+        uint8_t type, void *buffer, lfs_size_t size);
 
 /// Directory operations ///
 
