@@ -1468,8 +1468,8 @@ static int lfs_dir_find_match(void *data,
     }
 
     // only equal if our size is still the same
-    if (name->size != lfs_tag_size(tag)) {
-        return (name->size < lfs_tag_size(tag)) ? LFS_CMP_LT : LFS_CMP_GT;
+    if (lfs_tag_size(tag) != name->size) {
+        return (lfs_tag_size(tag) < name->size) ? LFS_CMP_LT : LFS_CMP_GT;
     }
 
     // found a match!
