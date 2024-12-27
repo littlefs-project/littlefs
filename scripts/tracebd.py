@@ -10,7 +10,8 @@
 #
 
 # prevent local imports
-__import__('sys').path.pop(0)
+if __name__ == "__main__":
+    __import__('sys').path.pop(0)
 
 import collections as co
 import functools as ft
