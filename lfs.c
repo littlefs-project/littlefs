@@ -1378,7 +1378,7 @@ enum lfsr_tag {
     LFSR_TAG_REG            = 0x0201,
     LFSR_TAG_DIR            = 0x0202,
     LFSR_TAG_BOOKMARK       = 0x0204,
-    LFSR_TAG_ORPHAN         = 0x0205,
+    LFSR_TAG_STICKYNOTE     = 0x0205,
 
     // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
@@ -1490,7 +1490,7 @@ static inline bool lfsr_tag_isunknown(lfsr_tag_t tag) {
     return tag != LFSR_TAG_REG
             && tag != LFSR_TAG_DIR
             && tag != LFSR_TAG_BOOKMARK
-            && tag != LFSR_TAG_ORPHAN;
+            && tag != LFSR_TAG_STICKYNOTE;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
@@ -7701,14 +7701,15 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         return LFS_ERR_NOENT;
     }
 
-    // intercept pending grms here and pretend they're orphaned files
+    // intercept pending grms here and pretend they're orphaned
+    // stickynotes
     //
-    // fortunately pending grms/orphaned files have roughly the same
-    // semantics, and it's easier to manage the implied mid gap in
+    // fortunately pending grms/orphaned stickynotes have roughly the
+    // same semantics, and it's easier to manage the implied mid gap in
     // higher-levels
     if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME
             && lfsr_grm_ismidrm(lfs, mdir->mid)) {
-        tag__ = LFSR_TAG_ORPHAN;
+        tag__ = LFSR_TAG_STICKYNOTE;
     }
 
     if (tag_) {
@@ -9411,13 +9412,14 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
             mdir->mid,
             (cmp < LFS_CMP_EQ) ? rid+1 : rid);
 
-    // intercept pending grms here and pretend they're orphaned files
+    // intercept pending grms here and pretend they're orphaned
+    // stickynotes
     //
-    // fortunately pending grms/orphaned files have roughly the same
-    // semantics, and it's easier to manage the implied mid gap in
+    // fortunately pending grms/orphaned stickynotes have roughly the
+    // same semantics, and it's easier to manage the implied mid gap in
     // higher-levels
     if (lfsr_grm_ismidrm(lfs, mid)) {
-        tag = LFSR_TAG_ORPHAN;
+        tag = LFSR_TAG_STICKYNOTE;
     }
 
     if (mid_) {
@@ -9600,7 +9602,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
 
         // only continue if we hit a directory
         if (tag != LFSR_TAG_DIR) {
-            return (tag == LFSR_TAG_ORPHAN)
+            return (tag == LFSR_TAG_STICKYNOTE)
                     ? LFS_ERR_NOENT
                     : LFS_ERR_NOTDIR;
         }
@@ -10376,9 +10378,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path))) {
         return err;
     }
-    // already exists? orphans don't really exist
+    // already exists? stickynotes don't really exist
     bool exists = (err != LFS_ERR_NOENT);
-    if (exists && tag != LFSR_TAG_ORPHAN) {
+    if (exists && tag != LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_EXIST;
     }
 
@@ -10600,8 +10602,8 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
+    // stickynotes don't really exist
+    if (tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
 
@@ -10640,13 +10642,13 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     // remove the metadata entry
     lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-            // create an orphan if zombied
+            // create a stickynote if zombied
             //
             // we use a create+delete here to also clear any rats
             // and trim the entry size
             (zombie)
                 ? LFSR_RAT_NAME(
-                    LFSR_TAG_SUP | LFSR_TAG_ORPHAN, 0,
+                    LFSR_TAG_SUP | LFSR_TAG_STICKYNOTE, 0,
                     did, path, lfsr_path_namelen(path))
                 : LFSR_RAT(
                     LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
@@ -10719,8 +10721,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (old_tag == LFSR_TAG_ORPHAN) {
+    // stickynotes don't really exist
+    if (old_tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
 
@@ -10763,8 +10765,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
         // renaming different types is an error
         //
-        // unless we found a orphan, these don't really exist
-        if (old_tag != new_tag && new_tag != LFSR_TAG_ORPHAN) {
+        // unless we found a stickynote, these don't really exist
+        if (old_tag != new_tag && new_tag != LFSR_TAG_STICKYNOTE) {
             return (new_tag == LFSR_TAG_DIR)
                     ? LFS_ERR_ISDIR
                     : LFS_ERR_NOTDIR;
@@ -10931,8 +10933,8 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
+    // stickynotes don't really exist
+    if (tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
 
@@ -10968,8 +10970,8 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
+    // stickynotes don't really exist
+    if (tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
 
@@ -11071,8 +11073,8 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
             return LFS_ERR_NOENT;
         }
 
-        // skip orphans, we pretend these don't exist
-        if (tag == LFSR_TAG_ORPHAN) {
+        // skip stickynotes, we pretend these don't exist
+        if (tag == LFSR_TAG_STICKYNOTE) {
             dir->o.mdir.mid += 1;
             dir->pos += 1;
             continue;
@@ -11184,8 +11186,8 @@ static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
     if (err) {
         return err;
     }
-    // orphans don't really exist
-    if (tag == LFSR_TAG_ORPHAN) {
+    // stickynotes don't really exist
+    if (tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
 
@@ -11563,7 +11565,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // creating a new entry?
-    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_ORPHAN) {
+    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_STICKYNOTE) {
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
@@ -11580,13 +11582,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return LFS_ERR_NAMETOOLONG;
         }
 
-        // create an orphan entry if we don't have one, this reserves the
+        // create a stickynote entry if we don't have one, this reserves the
         // mid until first sync
         if (err == LFS_ERR_NOENT) {
             lfs_alloc_ckpoint(lfs);
             err = lfsr_mdir_commit(lfs, &file->o.o.mdir, LFSR_RATS(
                     LFSR_RAT_NAME(
-                        LFSR_TAG_ORPHAN, +1,
+                        LFSR_TAG_STICKYNOTE, +1,
                         did, path, name_len)));
             if (err) {
                 return err;
@@ -13029,10 +13031,10 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
     // not created yet? need to convert orphan to normal file
     if (lfsr_o_isorphan(file->o.o.flags)) {
-        err = lfsr_mdir_lookup(lfs, &file->o.o.mdir, LFSR_TAG_ORPHAN,
+        err = lfsr_mdir_lookup(lfs, &file->o.o.mdir, LFSR_TAG_STICKYNOTE,
                 &name_data);
         if (err) {
-            // orphan flag but no orphan tag?
+            // orphan flag but no stickynote tag?
             LFS_ASSERT(err != LFS_ERR_NOENT);
             goto failed;
         }
@@ -14348,8 +14350,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 return err;
             }
 
-            // check for any orphaned files, note we only need this if
-            // filesystem will be writable
+            // check for any orphaned stickynotes, note we only need
+            // this if filesystem will be writable
             if (!lfsr_m_isrdonly(lfs->flags)) {
                 for (lfs_size_t rid = 0;
                         rid < mdir->rbyd.weight;
@@ -14365,9 +14367,9 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     // name 0 should be reserved
                     LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
 
-                    // found an orphaned file?
-                    if (tag == LFSR_TAG_ORPHAN) {
-                        LFS_DEBUG("Found orphan "
+                    // found an orphaned stickynote?
+                    if (tag == LFSR_TAG_STICKYNOTE) {
+                        LFS_DEBUG("Found orphaned stickynote "
                                 "%"PRId32".%"PRId32,
                                 lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
                                 rid);
@@ -14787,8 +14789,8 @@ static int lfsr_fs_fixorphans_(lfs_t *lfs, lfsr_mdir_t *mdir) {
             continue;
         }
 
-        // is this mid marked as an orphan?
-        err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_ORPHAN,
+        // is this mid marked as a stickynote?
+        err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_STICKYNOTE,
                 NULL);
         if (err) {
             if (err == LFS_ERR_NOENT) {
@@ -14798,8 +14800,8 @@ static int lfsr_fs_fixorphans_(lfs_t *lfs, lfsr_mdir_t *mdir) {
             goto failed;
         }
 
-        // we found an orphaned file, remove
-        LFS_DEBUG("Fixing orphan %"PRId32".%"PRId32,
+        // we found an orphaned stickynote, remove
+        LFS_DEBUG("Fixing orphaned stickynote %"PRId32".%"PRId32,
                 lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
                 lfsr_mid_rid(lfs, mdir->mid));
 
@@ -14864,10 +14866,10 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
         }
     }
 
-    // fix orphaned files
+    // fix orphaned stickynotes
     //
-    // this must happen after fixgrm, since removing orphaned files risks
-    // outdating the grm
+    // this must happen after fixgrm, since removing orphaned
+    // stickynotes risks outdating the grm
     //
     if (lfsr_i_hasorphans(lfs->flags)) {
         LFS_DEBUG("Fixing orphans...");

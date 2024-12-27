@@ -121,7 +121,7 @@ enum lfs_type {
 
     // internally used types, don't use these
     LFS_TYPE_BOOKMARK   = 4,
-    LFS_TYPE_ORPHAN     = 5,
+    LFS_TYPE_STICKYNOTE = 5,
     LFS_TYPE_TRAVERSAL  = 9,
 };
 

@@ -29,7 +29,7 @@ TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
 TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
 TAG_DIR         = 0x0202    #  0x0202  v--- --1- ---- --1-
 TAG_BOOKMARK    = 0x0204    #  0x0204  v--- --1- ---- -1--
-TAG_ORPHAN      = 0x0205    #  0x0205  v--- --1- ---- -1-1
+TAG_STICKYNOTE  = 0x0205    #  0x0205  v--- --1- ---- -1-1
 TAG_STRUCT      = 0x0300    ## 0x03tt  v--- --11 -ttt tttt
 TAG_DATA        = 0x0300    #  0x0300  v--- --11 ---- ----
 TAG_BLOCK       = 0x0304    #  0x0304  v--- --11 ---- -1rr
@@ -229,8 +229,8 @@ def tagrepr(tag, w=None, size=None, off=None):
                 'name' if (tag & 0xfff) == TAG_NAME
                     else 'reg' if (tag & 0xfff) == TAG_REG
                     else 'dir' if (tag & 0xfff) == TAG_DIR
-                    else 'orphan' if (tag & 0xfff) == TAG_ORPHAN
                     else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
+                    else 'stickynote' if (tag & 0xfff) == TAG_STICKYNOTE
                     else 'name 0x%02x' % (tag & 0xff),
                 ' w%d' % w if w else '',
                 ' %s' % size if size is not None else '')
@@ -1251,7 +1251,7 @@ class GState:
             yield grepr(tag, data), tag, data
 
 def frepr(mdir, rid, tag):
-    if tag == TAG_REG or tag == TAG_ORPHAN:
+    if tag == TAG_REG or tag == TAG_STICKYNOTE:
         size = 0
         structs = []
         # inlined data?
@@ -1278,7 +1278,7 @@ def frepr(mdir, rid, tag):
             size = max(size, weight)
             structs.append('btree 0x%x.%x' % (block, trunk))
         return '%s %s' % (
-                'orphan' if tag == TAG_ORPHAN else 'reg',
+                'stickynote' if tag == TAG_STICKYNOTE else 'reg',
                 ', '.join(it.chain(['%d' % size], structs)))
 
     elif tag == TAG_DIR:
@@ -2046,8 +2046,8 @@ def main(disk, mroots=None, *,
                         # skip bookmarks
                         if tag == TAG_BOOKMARK:
                             continue
-                        # skip orphans
-                        if tag == TAG_ORPHAN:
+                        # skip stickynotes
+                        if tag == TAG_STICKYNOTE:
                             continue
                         # skip grmed entries
                         if (max(mbid-max(mw-1, 0), 0), rid) in gstate.grm:
@@ -2099,7 +2099,7 @@ def main(disk, mroots=None, *,
                                 else '\x1b[90m'
                                     if color and (grmed
                                         or tag == TAG_BOOKMARK
-                                        or tag == TAG_ORPHAN)
+                                        or tag == TAG_STICKYNOTE)
                                 else '',
                             '{%s}:' % ','.join('%04x' % block
                                     for block in mdir.blocks)
@@ -2119,7 +2119,7 @@ def main(disk, mroots=None, *,
                                     notes
                                         or grmed
                                         or tag == TAG_BOOKMARK
-                                        or tag == TAG_ORPHAN)
+                                        or tag == TAG_STICKYNOTE)
                                 else ''))
                     pmbid = mbid
 
@@ -2156,7 +2156,7 @@ def main(disk, mroots=None, *,
                                             line))
 
                     # print file contents?
-                    if ((tag == TAG_REG or tag == TAG_ORPHAN)
+                    if ((tag == TAG_REG or tag == TAG_STICKYNOTE)
                             and args.get('structs')):
                         # inlined sprout?
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
