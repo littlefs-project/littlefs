@@ -515,8 +515,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_RM | LFSR_TAG_MAGIC, 0,
                 LFSR_DATA_NULL()))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -539,8 +539,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_MAGIC, 0,
                 LFSR_DATA_BUF("lottlefs", 8)))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -563,8 +563,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_VERSION, 0,
                 LFSR_DATA_BUF(((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR+1,
@@ -589,8 +589,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_VERSION, 0,
                 LFSR_DATA_BUF(((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR,
@@ -616,8 +616,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_DATA_RCOMPAT(
                     LFSR_RCOMPAT_COMPAT
@@ -643,8 +643,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_DATA_WCOMPAT(
                     LFSR_WCOMPAT_COMPAT
@@ -673,8 +673,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_OCOMPAT, 0,
                 LFSR_DATA_OCOMPAT(
                     LFSR_OCOMPAT_COMPAT
@@ -701,8 +701,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT),
                 LFSR_DATA_BUF("\x00\x00\x00\x00\x80", 5)))) => 0;
@@ -725,8 +725,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_DATA_WCOMPAT(LFSR_WCOMPAT_COMPAT),
                 LFSR_DATA_BUF("\x00\x00\x00\x00\x80", 5)))) => 0;
@@ -752,8 +752,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
                 LFSR_TAG_OCOMPAT, 0,
                 LFSR_DATA_OCOMPAT(LFSR_OCOMPAT_COMPAT),
                 LFSR_DATA_BUF("\x00\x00\x00\x00\x80", 5)))) => 0;
@@ -780,8 +780,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_GEOMETRY, 0,
                 LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
                     INC_BLOCK_SIZE,
@@ -807,8 +807,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_GEOMETRY, 0,
                 LFSR_DATA_GEOMETRY((&(lfsr_geometry_t){
                     BLOCK_SIZE,
@@ -834,8 +834,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_NAMELIMIT, 0,
                 LFSR_DATA_LLEB128(INC_NAME_LIMIT)))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -858,8 +858,8 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
                 LFSR_TAG_FILELIMIT, 0,
                 // it's a bit difficult to test this since file limit
                 // is usually our integer limit, but we can force a
@@ -884,8 +884,8 @@ code = '''
 
     // create an unknown config
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT(
                 LFSR_TAG_CONFIG + 0x13, 0,
                 LFSR_DATA_BUF("oh no!", strlen("oh no!"))))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -930,8 +930,8 @@ code = '''
     lfsr_did_t did;
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
+            LFSR_RAT_NAME(
                 LFSR_TAG_SUB | (LFSR_TAG_NAME + 0x13), 0,
                 did, path, lfsr_path_namelen(path)))) => 0;
     lfsr_unmount(&lfs) => 0;
