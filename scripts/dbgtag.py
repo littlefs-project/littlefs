@@ -262,7 +262,8 @@ def main(tags, *,
         block_count=None,
         off=None,
         **args):
-    list_, list = list, __builtins__.list
+    import builtins
+    list_, list = list, builtins.list
 
     # list all known tags
     if list_:

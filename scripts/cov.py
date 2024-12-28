@@ -405,7 +405,8 @@ def table(Result, results, diff_results=None, *,
         depth=1,
         hot=None,
         **_):
-    all_, all = all, __builtins__.all
+    import builtins
+    all_, all = all, builtins.all
 
     if by is None:
         by = Result._by
