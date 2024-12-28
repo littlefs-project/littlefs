@@ -22,6 +22,7 @@ import os
 import re
 import shlex
 import subprocess as sp
+import sys
 
 
 OBJDUMP_PATH = ['objdump']

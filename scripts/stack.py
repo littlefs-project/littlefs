@@ -22,6 +22,7 @@ import math as mt
 import os
 import re
 import subprocess as sp
+import sys
 
 
 OBJDUMP_PATH = ['objdump']

@@ -28,6 +28,7 @@ import re
 import shlex
 import shutil
 import subprocess as sp
+import sys
 import tempfile
 import zipfile
 
