@@ -1689,8 +1689,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# orphan files should zero attributes
-[cases.test_attrs_fattr_orphan]
+# uncreat files should zero attributes
+[cases.test_attrs_fattr_uncreat]
 defines.MODE = ['LFS_A_RDWR']
 defines.MUTSIZE = [false, true]
 code = '''

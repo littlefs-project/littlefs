@@ -3,7 +3,7 @@ after = ['test_fwrite', 'test_fsync']
 
 
 # Some specific tests
-[cases.test_forphans_create]
+[cases.test_forphans_uncreat]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -214,7 +214,7 @@ code = '''
     lfsr_unmount(&lfs_) => 0;
 '''
 
-[cases.test_forphans_create_pl]
+[cases.test_forphans_uncreat_pl]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -291,7 +291,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_create_many_pl]
+[cases.test_forphans_uncreat_many_pl]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -378,7 +378,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_create_sync_wr]
+[cases.test_forphans_uncreat_sync_wr]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -585,7 +585,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_create_sync_rw]
+[cases.test_forphans_uncreat_sync_rw]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -786,7 +786,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_create_desync_wdwr]
+[cases.test_forphans_uncreat_desync_wdwr]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -4635,8 +4635,8 @@ code = '''
 
     uint32_t prng = 42;
 
-    // create some unrelated files to make sure cleaning up orphans doesn't
-    // break other filesystem things
+    // create some unrelated files to make sure cleaning up orphans
+    // doesn't break other filesystem things
     uint32_t bookend_prngs[2] = {0, 0};
     if (BOOKENDS & 0x1) {
         lfsr_file_t file;
@@ -4754,7 +4754,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_cleanup_opened]
+[cases.test_forphans_cleanup_open]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -4776,8 +4776,10 @@ code = '''
 
     uint32_t prng = 42;
 
-    // create some unrelated files to make sure cleaning up orphans doesn't
-    // break other filesystem things
+    // create some unrelated opened files to make sure cleaning up
+    // orphans doesn't break other filesystem things
+    //
+    // note we leave these open in this test
     lfsr_file_t bookend_files[2];
     uint32_t bookend_prngs[2] = {0, 0};
     if (BOOKENDS & 0x1) {
@@ -4904,7 +4906,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_cleanup_orphaned]
+[cases.test_forphans_cleanup_uncreat]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -4926,8 +4928,10 @@ code = '''
 
     uint32_t prng = 42;
 
-    // create some unrelated files to make sure cleaning up orphans doesn't
-    // break other filesystem things
+    // create some unrelated uncreat files to make sure cleaning up
+    // orphans doesn't break other filesystem things
+    //
+    // note we leave these uncreated in this test
     lfsr_file_t bookend_files[2];
     uint32_t bookend_prngs[2] = {0, 0};
     if (BOOKENDS & 0x1) {
@@ -7347,8 +7351,8 @@ code = '''
 
 
 
-# fuzz tests involving many orphans + zombies, this gets a bit crazy
-[cases.test_forphans_orphanzombie_fuzz]
+# fuzz tests involving many uncreats + zombies, this gets a bit crazy
+[cases.test_forphans_uz_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than files to encourage file rewrites
 defines.OPS = '2*N'
@@ -7376,7 +7380,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -7399,17 +7403,17 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -7417,7 +7421,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
             sim_file_count++;
@@ -7429,7 +7433,7 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -7475,7 +7479,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }
@@ -7686,8 +7690,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# fuzz tests involving many orphans + zombies + dirs, this gets a bit crazy
-[cases.test_forphans_orphanzombiedir_fuzz]
+# fuzz tests involving many uncreats + zombies + dirs, this gets a bit crazy
+[cases.test_forphans_uzd_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than files to encourage file rewrites
 defines.OPS = '2*N'
@@ -7716,7 +7720,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -7739,20 +7743,20 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -7760,7 +7764,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
             sim_file_count++;
@@ -7772,7 +7776,7 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -7821,7 +7825,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }

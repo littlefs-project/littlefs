@@ -2539,8 +2539,8 @@ corrupt_mounted:;
     printf("survived %d block errors! (%d)\n", (int)(i/PERIOD), i);
 '''
 
-# fuzz errors with orphans, zombies, etc
-[cases.test_ck_spam_oz_fuzz]
+# fuzz errors with uncreats, zombies, etc
+[cases.test_ck_spam_uz_fuzz]
 defines.BADBLOCK = -1
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
@@ -2587,7 +2587,7 @@ code = '''
     uint32_t badblocks[BLOCK_COUNT];
     TEST_PERMUTATION(TEST_PRNG(&prng), badblocks, BLOCK_COUNT);
 
-    // test with orphans, zombies, etc
+    // test with uncreats, zombies, etc
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
@@ -2611,7 +2611,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -2661,17 +2661,17 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -2679,7 +2679,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
 
@@ -2695,7 +2695,7 @@ code = '''
             sim_file_count++;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -2746,7 +2746,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }
@@ -2979,8 +2979,8 @@ corrupt_mounted:;
     printf("survived %d block errors!\n", (int)(i/PERIOD));
 '''
 
-# fuzz errors with orphans, zombies, dirs, etc
-[cases.test_ck_spam_ozd_fuzz]
+# fuzz errors with uncreats, zombies, dirs, etc
+[cases.test_ck_spam_uzd_fuzz]
 # TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
 # METHOD=1 => ckfetches
@@ -3026,7 +3026,7 @@ code = '''
     uint32_t badblocks[BLOCK_COUNT];
     TEST_PERMUTATION(TEST_PRNG(&prng), badblocks, BLOCK_COUNT);
 
-    // test with orphans, zombies, dirs, etc
+    // test with uncreats, zombies, dirs, etc
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
@@ -3051,7 +3051,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -3101,20 +3101,20 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -3122,7 +3122,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
 
@@ -3138,7 +3138,7 @@ code = '''
             sim_file_count++;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -3192,7 +3192,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }

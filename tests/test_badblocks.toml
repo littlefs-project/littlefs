@@ -960,8 +960,8 @@ code = '''
     }
 '''
 
-# badblocks with orphans, zombies, etc
-[cases.test_badblocks_every_spam_oz_fuzz]
+# badblocks with uncreats, zombies, etc
+[cases.test_badblocks_every_spam_uz_fuzz]
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -999,7 +999,7 @@ code = '''
         // mark our badblock as bad
         lfs_emubd_markbad(CFG, badblock) => 0;
 
-        // test with orphans, zombies, etc
+        // test with uncreats, zombies, etc
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
@@ -1017,7 +1017,7 @@ code = '''
 
         typedef struct sim_file {
             lfs_size_t x;
-            bool orphan;
+            bool uncreat;
             bool zombie;
             uint32_t prng;
             lfsr_file_t file;
@@ -1040,17 +1040,17 @@ code = '''
                 lfs_size_t x = TEST_PRNG(&prng) % N;
 
                 // already exists?
-                bool orphan = true;
+                bool uncreat = true;
                 uint32_t wprng = 0;
                 for (lfs_size_t j = 0; j < sim_size; j++) {
                     if (sim[j] == x) {
-                        orphan = false;
+                        uncreat = false;
                         wprng = sim_prngs[j];
                         break;
                     }
                 }
                 // choose a random seed if we don't exist
-                if (orphan) {
+                if (uncreat) {
                     wprng = TEST_PRNG(&prng);
                 }
 
@@ -1058,7 +1058,7 @@ code = '''
                 lfs_size_t j = sim_file_count;
                 sim_files[j] = malloc(sizeof(sim_file_t));
                 sim_files[j]->x = x;
-                sim_files[j]->orphan = orphan;
+                sim_files[j]->uncreat = uncreat;
                 sim_files[j]->zombie = false;
                 sim_files[j]->prng = wprng;
                 sim_file_count++;
@@ -1070,7 +1070,7 @@ code = '''
                         LFS_O_RDWR | LFS_O_CREAT) => 0;
 
                 // write some initial data if we don't exist
-                if (orphan) {
+                if (uncreat) {
                     uint8_t wbuf[SIZE];
                     for (lfs_size_t k = 0; k < SIZE; k++) {
                         wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -1117,7 +1117,7 @@ code = '''
                     // update related sim files
                     for (lfs_size_t k = 0; k < sim_file_count; k++) {
                         if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                            sim_files[k]->orphan = false;
+                            sim_files[k]->uncreat = false;
                             sim_files[k]->prng = wprng;
                         }
                     }
@@ -1331,8 +1331,8 @@ code = '''
     }
 '''
 
-# badblocks with orphans, zombies, dirs, etc
-[cases.test_badblocks_every_spam_ozd_fuzz]
+# badblocks with uncreats, zombies, dirs, etc
+[cases.test_badblocks_every_spam_uzd_fuzz]
 defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -1370,7 +1370,7 @@ code = '''
         // mark our badblock as bad
         lfs_emubd_markbad(CFG, badblock) => 0;
 
-        // test with orphans, zombies, dirs, etc
+        // test with uncreats, zombies, dirs, etc
         lfs_t lfs;
         lfsr_format(&lfs,
                 LFS_F_RDWR
@@ -1389,7 +1389,7 @@ code = '''
 
         typedef struct sim_file {
             lfs_size_t x;
-            bool orphan;
+            bool uncreat;
             bool zombie;
             uint32_t prng;
             lfsr_file_t file;
@@ -1412,20 +1412,20 @@ code = '''
                 lfs_size_t x = TEST_PRNG(&prng) % N;
 
                 // already exists?
-                bool orphan = true;
+                bool uncreat = true;
                 uint32_t wprng = 0;
                 for (lfs_size_t j = 0; j < sim_size; j++) {
                     if (sim[j] == x) {
                         if (sim_isdirs[j]) {
                             goto nonsense;
                         }
-                        orphan = false;
+                        uncreat = false;
                         wprng = sim_prngs[j];
                         break;
                     }
                 }
                 // choose a random seed if we don't exist
-                if (orphan) {
+                if (uncreat) {
                     wprng = TEST_PRNG(&prng);
                 }
 
@@ -1433,7 +1433,7 @@ code = '''
                 lfs_size_t j = sim_file_count;
                 sim_files[j] = malloc(sizeof(sim_file_t));
                 sim_files[j]->x = x;
-                sim_files[j]->orphan = orphan;
+                sim_files[j]->uncreat = uncreat;
                 sim_files[j]->zombie = false;
                 sim_files[j]->prng = wprng;
                 sim_file_count++;
@@ -1445,7 +1445,7 @@ code = '''
                         LFS_O_RDWR | LFS_O_CREAT) => 0;
 
                 // write some initial data if we don't exist
-                if (orphan) {
+                if (uncreat) {
                     uint8_t wbuf[SIZE];
                     for (lfs_size_t k = 0; k < SIZE; k++) {
                         wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -1495,7 +1495,7 @@ code = '''
                     // update related sim files
                     for (lfs_size_t k = 0; k < sim_file_count; k++) {
                         if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                            sim_files[k]->orphan = false;
+                            sim_files[k]->uncreat = false;
                             sim_files[k]->prng = wprng;
                         }
                     }
@@ -2735,8 +2735,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# badblocks with orphans, zombies, etc
-[cases.test_badblocks_region_spam_oz_fuzz]
+# badblocks with uncreats, zombies, etc
+[cases.test_badblocks_region_spam_uz_fuzz]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
@@ -2779,7 +2779,7 @@ code = '''
         }
     }
 
-    // test with orphans, zombies, etc
+    // test with uncreats, zombies, etc
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
@@ -2797,7 +2797,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -2820,17 +2820,17 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -2838,7 +2838,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
             sim_file_count++;
@@ -2850,7 +2850,7 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -2896,7 +2896,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }
@@ -3107,8 +3107,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# badblocks with orphans, zombies, dirs, etc
-[cases.test_badblocks_region_spam_ozd_fuzz]
+# badblocks with uncreats, zombies, dirs, etc
+[cases.test_badblocks_region_spam_uzd_fuzz]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
@@ -3151,7 +3151,7 @@ code = '''
         }
     }
 
-    // test with orphans, zombies, dirs, etc
+    // test with uncreats, zombies, dirs, etc
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
@@ -3170,7 +3170,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -3193,20 +3193,20 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -3214,7 +3214,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
             sim_file_count++;
@@ -3226,7 +3226,7 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -3275,7 +3275,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }
@@ -4507,8 +4507,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# badblocks with orphans, zombies, etc
-[cases.test_badblocks_alternating_spam_oz_fuzz]
+# badblocks with uncreats, zombies, etc
+[cases.test_badblocks_alternating_spam_uz_fuzz]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
@@ -4551,7 +4551,7 @@ code = '''
         }
     }
 
-    // test with orphans, zombies, etc
+    // test with uncreats, zombies, etc
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
@@ -4569,7 +4569,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -4592,17 +4592,17 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -4610,7 +4610,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
             sim_file_count++;
@@ -4622,7 +4622,7 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -4668,7 +4668,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }
@@ -4879,8 +4879,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# badblocks with orphans, zombies, dirs, etc
-[cases.test_badblocks_alternating_spam_ozd_fuzz]
+# badblocks with uncreats, zombies, dirs, etc
+[cases.test_badblocks_alternating_spam_uzd_fuzz]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
     'LFS_EMUBD_BADBLOCK_ERASEERROR',
@@ -4923,7 +4923,7 @@ code = '''
         }
     }
 
-    // test with orphans, zombies, dirs, etc
+    // test with uncreats, zombies, dirs, etc
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
@@ -4942,7 +4942,7 @@ code = '''
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool orphan;
+        bool uncreat;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -4965,20 +4965,20 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool orphan = true;
+            bool uncreat = true;
             uint32_t wprng = 0;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    orphan = false;
+                    uncreat = false;
                     wprng = sim_prngs[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 wprng = TEST_PRNG(&prng);
             }
 
@@ -4986,7 +4986,7 @@ code = '''
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
             sim_files[j]->x = x;
-            sim_files[j]->orphan = orphan;
+            sim_files[j]->uncreat = uncreat;
             sim_files[j]->zombie = false;
             sim_files[j]->prng = wprng;
             sim_file_count++;
@@ -4998,7 +4998,7 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (orphan) {
+            if (uncreat) {
                 uint8_t wbuf[SIZE];
                 for (lfs_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
@@ -5047,7 +5047,7 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->orphan = false;
+                        sim_files[k]->uncreat = false;
                         sim_files[k]->prng = wprng;
                     }
                 }
