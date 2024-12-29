@@ -7151,8 +7151,8 @@ static inline bool lfsr_o_isunsync(uint32_t flags) {
     return flags & LFS_O_UNSYNC;
 }
 
-static inline bool lfsr_o_isorphan(uint32_t flags) {
-    return flags & LFS_O_ORPHAN;
+static inline bool lfsr_o_isuncreat(uint32_t flags) {
+    return flags & LFS_O_UNCREAT;
 }
 
 static inline bool lfsr_o_iszombie(uint32_t flags) {
@@ -10512,11 +10512,11 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // update in-device state
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        // mark any clobbered orphans as zombied
+        // mark any clobbered uncreats as zombied
         if (exists
                 && lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == mdir.mid) {
-            o->flags = (o->flags & ~LFS_O_ORPHAN)
+            o->flags = (o->flags & ~LFS_O_UNCREAT)
                     | LFS_O_ZOMBIE
                     | LFS_O_UNSYNC
                     | LFS_O_DESYNC;
@@ -10658,11 +10658,11 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
     // update in-device state
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        // mark any clobbered orphans as zombied orphans
+        // mark any clobbered uncreats as zombied
         if (zombie
                 && lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == mdir.mid) {
-            o->flags |= LFS_O_ORPHAN
+            o->flags |= LFS_O_UNCREAT
                     | LFS_O_ZOMBIE
                     | LFS_O_UNSYNC
                     | LFS_O_DESYNC;
@@ -10819,11 +10819,11 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
     // update in-device state
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        // mark any clobbered orphans as zombied
+        // mark any clobbered uncreats as zombied
         if (exists
                 && lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == new_mdir.mid) {
-            o->flags = (o->flags & ~LFS_O_ORPHAN)
+            o->flags = (o->flags & ~LFS_O_UNCREAT)
                     | LFS_O_ZOMBIE
                     | LFS_O_UNSYNC
                     | LFS_O_DESYNC;
@@ -11379,8 +11379,8 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // mark as flushed
     file->o.o.flags &= ~LFS_O_UNFLUSH;
 
-    // don't bother reading disk if we're an orphan or truncating
-    if (!lfsr_o_isorphan(file->o.o.flags) && !trunc) {
+    // don't bother reading disk if we're not created or truncating
+    if (!lfsr_o_isuncreat(file->o.o.flags) && !trunc) {
         // lookup the file struct, if there is one
         lfsr_tag_t tag;
         lfsr_data_t data;
@@ -11457,8 +11457,8 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
             continue;
         }
 
-        // don't bother reading disk if we're an orphan
-        if (lfsr_o_isorphan(file->o.o.flags)) {
+        // don't bother reading disk if we're not created yet
+        if (lfsr_o_isuncreat(file->o.o.flags)) {
             if (file->cfg->attrs[i].size) {
                 *file->cfg->attrs[i].size = LFS_ERR_NOATTR;
             }
@@ -11604,9 +11604,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             }
         }
 
-        // mark as unsynced and orphaned, we need to convert to reg file
+        // mark as uncreated and unsynced, we need to convert to reg file
         // on first sync
-        file->o.o.flags |= LFS_O_UNSYNC | LFS_O_ORPHAN;
+        file->o.o.flags |= LFS_O_UNCREAT | LFS_O_UNSYNC;
 
     } else {
         // wanted to create a new entry?
@@ -11675,7 +11675,7 @@ static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
     // are we orphaning a file?
     //
     // make sure we check _after_ removing ourselves
-    if (lfsr_o_isorphan(file->o.o.flags)
+    if (lfsr_o_isuncreat(file->o.o.flags)
             && !lfsr_omdir_ismidopen(lfs, file->o.o.mdir.mid)) {
         // this gets a bit messy, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
@@ -13019,8 +13019,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // small files must be inlined entirely in our buffer
     LFS_ASSERT(!lfsr_o_isunflush(file->o.o.flags)
             || file->buffer.size <= lfsr_file_inlinesize(lfs, file));
-    // orphaned files must be unsynced
-    LFS_ASSERT(!lfsr_o_isorphan(file->o.o.flags)
+    // uncreated files must be unsynced
+    LFS_ASSERT(!lfsr_o_isuncreat(file->o.o.flags)
             || lfsr_o_isunsync(file->o.o.flags));
 
     // build a commit of any pending file metadata
@@ -13029,8 +13029,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     lfsr_data_t name_data;
     uint8_t buf[LFSR_BTREE_DSIZE];
 
-    // not created yet? need to convert orphan to normal file
-    if (lfsr_o_isorphan(file->o.o.flags)) {
+    // not created yet? need to convert to normal file
+    if (lfsr_o_isuncreat(file->o.o.flags)) {
         err = lfsr_mdir_lookup(lfs, &file->o.o.mdir, LFSR_TAG_STICKYNOTE,
                 &name_data);
         if (err) {
@@ -13143,7 +13143,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 && o != &file->o.o) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
             // notify all files of creation
-            file_->o.o.flags &= ~LFS_O_ORPHAN;
+            file_->o.o.flags &= ~LFS_O_UNCREAT;
 
             // mark desynced files an unsynced
             if (lfsr_o_isdesync(file_->o.o.flags)) {
@@ -13207,7 +13207,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->o.o.flags &= ~(LFS_O_UNSYNC | LFS_O_ORPHAN | LFS_O_DESYNC);
+    file->o.o.flags &= ~(LFS_O_UNSYNC | LFS_O_UNCREAT | LFS_O_DESYNC);
     return 0;
 
 failed:;

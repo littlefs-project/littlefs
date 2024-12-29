@@ -143,7 +143,7 @@ enum lfs_type {
 #define LFS_O_TYPE      0xff000000  // The file's type
 #define LFS_O_UNFLUSH   0x00100000  // File's data does not match disk
 #define LFS_O_UNSYNC    0x00200000  // File's metadata does not match disk
-#define LFS_O_ORPHAN    0x00400000  // File does not exist
+#define LFS_O_UNCREAT   0x00400000  // File does not exist yet
 #define LFS_O_ZOMBIE    0x00800000  // File has been removed
 
 // File seek flags
