@@ -1269,7 +1269,7 @@ code = '''
                 sprintf(path, "cat%03x", x);
                 lfsr_file_t file;
                 lfsr_file_open(&lfs, &file, path,
-                        LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
                 lfsr_file_write(&lfs, &file, "miao", strlen("miao"))
                         => strlen("miao");
                 lfsr_file_close(&lfs, &file) => 0;
@@ -1312,7 +1312,7 @@ code = '''
                     sprintf(path, "cat%03x", x);
                     lfsr_file_t file;
                     lfsr_file_open(&lfs, &file, path,
-                            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
                     lfsr_file_write(&lfs, &file, "nyan", strlen("nyan"))
                             => strlen("nyan");
                     lfsr_file_close(&lfs, &file) => 0;
@@ -2930,7 +2930,7 @@ code = '''
 '''
 
 # test that attr broadcasts do _not_ update wronly attrs
-[cases.test_attrs_fattr_wronly_broadcast]
+[cases.test_attrs_fattr_wronly_no_receive]
 defines.MODE = ['LFS_A_RDWR']
 defines.MUTSIZE = [true]
 code = '''
@@ -3121,7 +3121,7 @@ code = '''
 '''
 
 # test that attr broadcasts do _not_ broadcast rdonly attrs
-[cases.test_attrs_fattr_rdonly_broadcast]
+[cases.test_attrs_fattr_rdonly_no_broadcast]
 defines.MODE = ['LFS_A_RDWR']
 defines.MUTSIZE = [true]
 code = '''
@@ -3272,8 +3272,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test that desync files do not recieve attr broadcasts
-[cases.test_attrs_fattr_desync_broadcast]
+# test that desync files do _not_ receive attr broadcasts
+[cases.test_attrs_fattr_desync_no_receive]
 defines.MODE = ['LFS_A_RDWR']
 defines.MUTSIZE = [false, true]
 code = '''
@@ -3462,7 +3462,7 @@ code = '''
 '''
 
 # test that resync files will reread attrs
-[cases.test_attrs_fattr_resync_broadcast]
+[cases.test_attrs_fattr_resync_receive]
 defines.MODE = ['LFS_A_RDWR']
 defines.MUTSIZE = [false, true]
 code = '''
@@ -3611,8 +3611,8 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test that zombie files error correctly
-[cases.test_attrs_fattr_zombie_broadcast]
+# test that zombie files do _not_ broadcast attrs
+[cases.test_attrs_fattr_zombie_no_broadcast]
 defines.MODE = ['LFS_A_RDWR']
 defines.MUTSIZE = [false, true]
 code = '''
@@ -3735,6 +3735,253 @@ code = '''
                 assert(c_size[i] == strlen(c));
             }
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        }
+    }
+
+    for (lfs_size_t i = 0; i < 3; i++) {
+        lfsr_file_close(&lfs, &file[i]) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that zombie files do _not_ receive attr broadcasts
+[cases.test_attrs_fattr_zombie_no_receive]
+defines.MODE = ['LFS_A_RDWR']
+defines.MUTSIZE = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "meow", strlen("meow")) => strlen("meow");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfsr_setattr(&lfs, "cat", 'a', a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfsr_setattr(&lfs, "cat", 'b', b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfsr_setattr(&lfs, "cat", 'c', c, strlen(c)) => 0;
+
+    // open a couple files with these attrs
+    uint8_t a_buf[3][256];
+    lfs_ssize_t a_size[3];
+    uint8_t b_buf[3][256];
+    lfs_ssize_t b_size[3];
+    uint8_t c_buf[3][256];
+    lfs_ssize_t c_size[3];
+    struct lfs_attr attrs[3][3];
+    struct lfs_file_config filecfg[3];
+    lfsr_file_t file[3];
+    for (lfs_size_t i = 0; i < 3; i++) {
+        attrs[i][0] = (struct lfs_attr){
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf[i],
+            .buffer_size = sizeof(a_buf[i]),
+            .size = (MUTSIZE) ? &a_size[i] : NULL,
+        };
+        attrs[i][1] = (struct lfs_attr){
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf[i],
+            .buffer_size = sizeof(b_buf[i]),
+            .size = (MUTSIZE) ? &b_size[i] : NULL,
+        };
+        attrs[i][2] = (struct lfs_attr){
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf[i],
+            .buffer_size = sizeof(c_buf[i]),
+            .size = (MUTSIZE) ? &c_size[i] : NULL,
+        };
+        filecfg[i] = (struct lfs_file_config){
+            .attrs = attrs[i],
+            .attr_count = 3,
+        };
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // remove the file
+    lfsr_remove(&lfs, "cat") => 0;
+
+    // recreate the file
+    lfsr_file_open(&lfs, &file_, "cat", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file_, "miao", strlen("miao")) => strlen("miao");
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    lfsr_setattr(&lfs, "cat", 'a', a_, strlen(a_)) => 0;
+    const char *b_ = "Three slash four cup butter or margarine.";
+    lfsr_setattr(&lfs, "cat", 'b', b_, strlen(b_)) => 0;
+    const char *c_ = "One and two third cups granulated sugar.";
+    lfsr_setattr(&lfs, "cat", 'c', c_, strlen(c_)) => 0;
+
+    // make sure no attrs were broadcasted to our zombies
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a));
+        }
+        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b));
+        }
+        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c));
+        }
+        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+    }
+
+    // reopen a couple files with these attrs
+    for (lfs_size_t i = 0; i < 3; i++) {
+        // leave one file a zombie
+        if (i == 0) {
+            continue;
+        }
+
+        lfsr_file_close(&lfs, &file[i]) => 0;
+        lfsr_file_opencfg(&lfs, &file[i], "cat", MODE, &filecfg[i]) => 0;
+
+        // did we read the attrs correctly?
+        if (MUTSIZE) {
+            assert(a_size[i] == strlen(a_));
+        }
+        assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+        if (MUTSIZE) {
+            assert(b_size[i] == strlen(b_));
+        }
+        assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+        if (MUTSIZE) {
+            assert(c_size[i] == strlen(c_));
+        }
+        assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+    }
+
+    // update another file's attrs
+    const char *a__ = "Two cups all-purpose flower.";
+    const char *b__ = "Dont forget garnishes such as:";
+    const char *c__ = "Fish-shaped crackers.";
+    memcpy(a_buf[2], a__, strlen(a__));
+    memcpy(b_buf[2], b__, strlen(b__));
+    memcpy(c_buf[2], c__, strlen(c__));
+    a_size[2] = strlen(a__);
+    b_size[2] = strlen(b__);
+    c_size[2] = strlen(c__);
+
+    // write and sync our file to write the attrs out to disk
+    lfsr_file_write(&lfs, &file[2], "nyan", strlen("nyan")) => strlen("nyan");
+    lfsr_file_sync(&lfs, &file[2]) => 0;
+
+    // were attrs broadcasted to the other files? but not our zombie file?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a__));
+            }
+            assert(memcmp(a_buf[i], a__, strlen(a__)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b__));
+            }
+            assert(memcmp(b_buf[i], b__, strlen(b__)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c__));
+            }
+            assert(memcmp(c_buf[i], c__, strlen(c__)) == 0);
+        }
+    }
+
+    // update attrs with setattr
+    const char *a___ = "Fish-shaped candies.";
+    lfsr_setattr(&lfs, "cat", 'a', a___, strlen(a___)) => 0;
+    const char *b___ = "Fish-shaped solid waste.";
+    lfsr_setattr(&lfs, "cat", 'b', b___, strlen(b___)) => 0;
+    const char *c___ = "Fish-shaped dirt.";
+    lfsr_setattr(&lfs, "cat", 'c', c___, strlen(c___)) => 0;
+
+    // were attrs broadcasted to the other files? but not our zombie file?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i == 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a));
+            }
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b));
+            }
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c));
+            }
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a___));
+            }
+            assert(memcmp(a_buf[i], a___, strlen(a___)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b___));
+            }
+            assert(memcmp(b_buf[i], b___, strlen(b___)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c___));
+            }
+            assert(memcmp(c_buf[i], c___, strlen(c___)) == 0);
+        }
+    }
+
+    // attempting to sync the zombie file should error
+    lfsr_file_sync(&lfs, &file[0]) => LFS_ERR_NOENT;
+
+    // attempting to resync the zombie file should error
+    lfsr_file_resync(&lfs, &file[0]) => LFS_ERR_NOENT;
+
+    // other file unaffected?
+    for (lfs_size_t i = 0; i < 3; i++) {
+        if (i != 0) {
+            if (MUTSIZE) {
+                assert(a_size[i] == strlen(a___));
+            }
+            assert(memcmp(a_buf[i], a___, strlen(a___)) == 0);
+            if (MUTSIZE) {
+                assert(b_size[i] == strlen(b___));
+            }
+            assert(memcmp(b_buf[i], b___, strlen(b___)) == 0);
+            if (MUTSIZE) {
+                assert(c_size[i] == strlen(c___));
+            }
+            assert(memcmp(c_buf[i], c___, strlen(c___)) == 0);
         }
     }
 
@@ -4133,6 +4380,225 @@ code = '''
         for (lfs_size_t y = 0; y < M; y++) {
             lfsr_file_close(&lfs, &file[x][y]) => 0;
         }
+    }
+    free(sim_prngs);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fuzz file-attached attrs mixed with file moves and removes
+[cases.test_attrs_fattr_mvrm_fuzz_fuzz]
+defines.N = 64
+defines.M = 4
+defines.SIZE = 4
+defines.OPS = '4*N*M'
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint8_t a_buf[N][M][SIZE];
+    lfs_ssize_t a_size[N][M];
+    struct lfs_attr attrs[N][M];
+    struct lfs_file_config filecfg[N];
+    lfsr_file_t file[N];
+
+    // create N files
+    for (lfs_size_t x = 0; x < N; x++) {
+        char path[256];
+        sprintf(path, "cat%03x", x);
+        for (lfs_size_t a = 0; a < M; a++) {
+            attrs[x][a] = (struct lfs_attr){
+                .type = a,
+                .flags = LFS_A_RDWR,
+                .buffer = a_buf[x][a],
+                .buffer_size = SIZE,
+                .size = &a_size[x][a],
+            };
+        }
+        filecfg[x] = (struct lfs_file_config){
+            .attrs = attrs[x],
+            .attr_count = M,
+        };
+
+        lfsr_file_opencfg(&lfs, &file[x], path,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL,
+                &filecfg[x]) => 0;
+        lfsr_file_write(&lfs, &file[x], "meow", strlen("meow"))
+                => strlen("meow");
+        lfsr_file_sync(&lfs, &file[x]) => 0;
+    }
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*M*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*M*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 4;
+
+        // create an attr?
+        if (op == 0) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // update the attr
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            memcpy(a_buf[x][a], wbuf, SIZE);
+            a_size[x][a] = SIZE;
+            lfsr_file_sync(&lfs, &file[x]) => 0;
+
+            // update our sim
+            sim_prngs[x*M+a] = wprng;
+
+        // remove an attr?
+        } else if (op == 1) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            // choose an attr
+            uint8_t a = TEST_PRNG(&prng) % M;
+
+            // remove the attr
+            a_size[x][a] = LFS_ERR_NOATTR;
+            lfsr_file_sync(&lfs, &file[x]) => 0;
+
+            // update our sim
+            sim_prngs[x*M+a] = 0;
+
+        // remove a file?
+        } else if (op == 2) {
+            // choose a file
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            char path[256];
+            sprintf(path, "cat%03x", x);
+
+            // remove the file
+            lfsr_remove(&lfs, path) => 0;
+
+            // check that remove had no affect on open attrs
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    assert(a_size[x][a] == SIZE);
+                    uint32_t wprng_ = sim_prngs[x*M+a];
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t i = 0; i < SIZE; i++) {
+                        wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                    }
+                    assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
+                } else {
+                    assert(a_size[x][a] == LFS_ERR_NOATTR);
+                }
+            }
+
+            // but recreate the file so we always have something to
+            // attach attrs to
+            lfsr_file_close(&lfs, &file[x]) => 0;
+            sprintf(path, "cat%03x", x);
+            lfsr_file_opencfg(&lfs, &file[x], path,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL,
+                    &filecfg[x]) => 0;
+            lfsr_file_write(&lfs, &file[x], "miao", strlen("miao"))
+                    => strlen("miao");
+            lfsr_file_sync(&lfs, &file[x]) => 0;
+
+            // update our sim
+            memset(&sim_prngs[x*M], 0, M*sizeof(uint32_t));
+
+        // rename a file?
+        } else if (op == 3) {
+            // choose two files
+            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs_size_t y = TEST_PRNG(&prng) % N;
+            char path[256];
+            char path_[256];
+            sprintf(path, "cat%03x", x);
+            sprintf(path_, "cat%03x", y);
+
+            // rename the file
+            lfsr_rename(&lfs, path, path_) => 0;
+
+            // check that rename had no affect on open attrs
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[x*M+a]) {
+                    assert(a_size[x][a] == SIZE);
+                    uint32_t wprng_ = sim_prngs[x*M+a];
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t i = 0; i < SIZE; i++) {
+                        wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                    }
+                    assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
+                } else {
+                    assert(a_size[x][a] == LFS_ERR_NOATTR);
+                }
+            }
+            for (uint16_t a = 0; a < M; a++) {
+                if (sim_prngs[y*M+a]) {
+                    assert(a_size[y][a] == SIZE);
+                    uint32_t wprng_ = sim_prngs[y*M+a];
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t i = 0; i < SIZE; i++) {
+                        wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                    }
+                    assert(memcmp(a_buf[y][a], wbuf, SIZE) == 0);
+                } else {
+                    assert(a_size[y][a] == LFS_ERR_NOATTR);
+                }
+            }
+
+            if (x != y) {
+                // but recreate the file so we always have something to
+                // attach attrs to
+                lfsr_file_close(&lfs, &file[y]) => 0;
+                sprintf(path, "cat%03x", y);
+                lfsr_file_opencfg(&lfs, &file[y], path,
+                        LFS_O_WRONLY,
+                        &filecfg[y]) => 0;
+                lfsr_file_close(&lfs, &file[x]) => 0;
+                sprintf(path, "cat%03x", x);
+                lfsr_file_opencfg(&lfs, &file[x], path,
+                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL,
+                        &filecfg[x]) => 0;
+                lfsr_file_write(&lfs, &file[x], "nyan", strlen("nyan"))
+                        => strlen("nyan");
+                lfsr_file_sync(&lfs, &file[x]) => 0;
+
+                // update our sim
+                memcpy(&sim_prngs[y*M], &sim_prngs[x*M], M*sizeof(uint32_t));
+                memset(&sim_prngs[x*M], 0, M*sizeof(uint32_t));
+            }
+        }
+    }
+
+    // check attrs on all file handles
+    for (lfs_size_t x = 0; x < N; x++) {
+        for (uint16_t a = 0; a < M; a++) {
+            if (sim_prngs[x*M+a]) {
+                assert(a_size[x][a] == SIZE);
+                uint32_t wprng_ = sim_prngs[x*M+a];
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t i = 0; i < SIZE; i++) {
+                    wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
+            } else {
+                assert(a_size[x][a] == LFS_ERR_NOATTR);
+            }
+        }
+    }
+
+    // clean up sim/lfs
+    for (lfs_size_t x = 0; x < N; x++) {
+        lfsr_file_close(&lfs, &file[x]) => 0;
     }
     free(sim_prngs);
     lfsr_unmount(&lfs) => 0;
