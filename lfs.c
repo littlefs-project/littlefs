@@ -9523,6 +9523,7 @@ static inline bool lfsr_path_isdir(const char *path) {
 // - LFS_ERR_NOENT, lfsr_path_islast(path)  => file not found
 // - LFS_ERR_NOENT, !lfsr_path_islast(path) => parent not found
 // - LFS_ERR_NOTDIR                         => parent not a dir
+// - LFS_ERR_NOTSUP                         => parent of unknown type
 //
 // if not found, mdir_/did_ will at least be set up with what should be
 // the parent
@@ -9603,8 +9604,10 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
         // only continue if we hit a directory
         if (tag != LFSR_TAG_DIR) {
             return (tag == LFSR_TAG_STICKYNOTE)
-                    ? LFS_ERR_NOENT
-                    : LFS_ERR_NOTDIR;
+                        ? LFS_ERR_NOENT
+                    : (lfsr_tag_isunknown(tag))
+                        ? LFS_ERR_NOTSUP
+                        : LFS_ERR_NOTDIR;
         }
 
         // read the next did from the mdir if this is not the root
@@ -10606,6 +10609,10 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     if (tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
+    // we can't remove unknown types or else we may leak resources
+    if (lfsr_tag_isunknown(tag)) {
+        return LFS_ERR_NOTSUP;
+    }
 
     // trying to remove the root dir?
     if (mdir.mid == -1) {
@@ -10725,6 +10732,10 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     if (old_tag == LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOENT;
     }
+    // we can't rename unknown types or else we may leak resources
+    if (lfsr_tag_isunknown(old_tag)) {
+        return LFS_ERR_NOTSUP;
+    }
 
     // trying to rename the root?
     if (old_mdir.mid == -1) {
@@ -10739,6 +10750,10 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             &new_mdir, &new_tag, &new_did);
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(new_path))) {
         return err;
+    }
+    // we can't rename unknown types or else we may leak resources
+    if (lfsr_tag_isunknown(new_tag)) {
+        return LFS_ERR_NOTSUP;
     }
     // already exists?
     bool exists = (err != LFS_ERR_NOENT);
@@ -11616,7 +11631,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // wrong type?
         if (tag != LFSR_TAG_REG) {
-            return LFS_ERR_ISDIR;
+            return (tag == LFSR_TAG_DIR)
+                    ? LFS_ERR_ISDIR
+                    : LFS_ERR_NOTSUP;
         }
     }
 
