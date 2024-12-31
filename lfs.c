@@ -1486,13 +1486,6 @@ static inline bool lfsr_tag_q(lfsr_tag_t tag) {
     return tag & LFSR_TAG_Q;
 }
 
-static inline bool lfsr_tag_isunknown(lfsr_tag_t tag) {
-    return tag != LFSR_TAG_REG
-            && tag != LFSR_TAG_DIR
-            && tag != LFSR_TAG_BOOKMARK
-            && tag != LFSR_TAG_STICKYNOTE;
-}
-
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
     return tag & LFSR_TAG_INTERNAL;
 }
@@ -9605,9 +9598,9 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
         if (tag != LFSR_TAG_DIR) {
             return (tag == LFSR_TAG_STICKYNOTE)
                         ? LFS_ERR_NOENT
-                    : (lfsr_tag_isunknown(tag))
-                        ? LFS_ERR_NOTSUP
-                        : LFS_ERR_NOTDIR;
+                    : (tag == LFSR_TAG_REG)
+                        ? LFS_ERR_NOTDIR
+                        : LFS_ERR_NOTSUP;
         }
 
         // read the next did from the mdir if this is not the root
@@ -10610,7 +10603,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         return LFS_ERR_NOENT;
     }
     // we can't remove unknown types or else we may leak resources
-    if (lfsr_tag_isunknown(tag)) {
+    if (tag != LFSR_TAG_REG && tag != LFSR_TAG_DIR) {
         return LFS_ERR_NOTSUP;
     }
 
@@ -10733,7 +10726,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         return LFS_ERR_NOENT;
     }
     // we can't rename unknown types or else we may leak resources
-    if (lfsr_tag_isunknown(old_tag)) {
+    if (old_tag != LFSR_TAG_REG && old_tag != LFSR_TAG_DIR) {
         return LFS_ERR_NOTSUP;
     }
 
@@ -10750,10 +10743,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             &new_mdir, &new_tag, &new_did);
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(new_path))) {
         return err;
-    }
-    // we can't rename unknown types or else we may leak resources
-    if (lfsr_tag_isunknown(new_tag)) {
-        return LFS_ERR_NOTSUP;
     }
     // already exists?
     bool exists = (err != LFS_ERR_NOENT);
@@ -10783,8 +10772,10 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         // unless we found a stickynote, these don't really exist
         if (old_tag != new_tag && new_tag != LFSR_TAG_STICKYNOTE) {
             return (new_tag == LFSR_TAG_DIR)
-                    ? LFS_ERR_ISDIR
-                    : LFS_ERR_NOTDIR;
+                        ? LFS_ERR_ISDIR
+                    : (new_tag == LFSR_TAG_REG)
+                        ? LFS_ERR_NOTDIR
+                        : LFS_ERR_NOTSUP;
         }
 
         // renaming to ourself is a noop
