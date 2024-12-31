@@ -68,6 +68,7 @@ code = '''
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, -1) : 0)
                 | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_I_CKCKSUMS, -1) : 0)
+                | ((!MKCONSISTENT) ? LFS_I_INCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
 
@@ -126,7 +127,8 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_CANLOOKAHEAD
+            LFS_I_INCONSISTENT
+                | LFS_I_CANLOOKAHEAD
                 | LFS_I_UNCOMPACTED));
     lfsr_unmount(&lfs) => 0;
 
@@ -138,7 +140,9 @@ code = '''
                 | ((CKDATA) ? LFS_M_CKDATA : 0),
             CFG) => 0;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags == LFS_I_UNCOMPACTED);
+    assert(fsinfo.flags == (
+            LFS_I_INCONSISTENT
+                | LFS_I_UNCOMPACTED));
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -189,7 +193,8 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_CANLOOKAHEAD
+            LFS_I_INCONSISTENT
+                | LFS_I_CANLOOKAHEAD
                 | LFS_I_UNCOMPACTED));
     lfsr_unmount(&lfs) => 0;
 
@@ -202,7 +207,9 @@ code = '''
                 | ((CKDATA) ? LFS_M_CKDATA : 0),
             CFG) => 0;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags == ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0));
+    assert(fsinfo.flags == (
+            LFS_I_INCONSISTENT
+                | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
 
     // mdir should have been compacted
     lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
@@ -280,7 +287,7 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
+            LFS_I_INCONSISTENT
                 | LFS_I_CANLOOKAHEAD
                 | LFS_I_UNCOMPACTED));
     lfsr_unmount(&lfs) => 0;
@@ -895,51 +902,3 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
 '''
 
-# test what happens if we find an unknown file type
-[cases.test_mount_incompat_unknown_type]
-in = 'lfs.c'
-code = '''
-    // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-
-    // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
-            "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
-            "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
-            "hi c!", strlen("hi c!")) => strlen("hi c!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
-
-    // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
-            &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
-                LFSR_TAG_SUB | (LFSR_TAG_NAME + 0x13), 0,
-                did, path, lfsr_path_namelen(path)))) => 0;
-    lfsr_unmount(&lfs) => 0;
-
-    // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-
-    // but we _can_ mount readonly
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
-'''

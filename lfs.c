@@ -7257,8 +7257,8 @@ static inline bool lfsr_m_issync(uint32_t flags) {
 }
 
 // internal fs flags
-static inline bool lfsr_i_hasorphans(uint32_t flags) {
-    return flags & LFS_I_HASORPHANS;
+static inline bool lfsr_i_isuntidy(uint32_t flags) {
+    return flags & LFS_I_UNTIDY;
 }
 
 static inline bool lfsr_i_isuncompacted(uint32_t flags) {
@@ -7271,7 +7271,7 @@ static inline bool lfsr_i_isuncompacted(uint32_t flags) {
 static inline uint8_t lfsr_grm_count(const lfs_t *lfs);
 
 static bool lfsr_fs_isinconsistent(const lfs_t *lfs) {
-    return lfsr_grm_count(lfs) > 0 || lfsr_i_hasorphans(lfs->flags);
+    return lfsr_grm_count(lfs) > 0 || lfsr_i_isuntidy(lfs->flags);
 }
 
 static bool lfsr_fs_canlookahead(const lfs_t *lfs) {
@@ -10048,7 +10048,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 }
 
 // needed in lfsr_mtree_gc
-static int lfsr_fs_fixorphans_(lfs_t *lfs, lfsr_mdir_t *mdir);
+static int lfsr_fs_mktidy_(lfs_t *lfs, lfsr_mdir_t *mdir);
 static void lfs_alloc_ckpoint(lfs_t *lfs);
 static void lfs_alloc_markfree(lfs_t *lfs);
 
@@ -10079,10 +10079,10 @@ dropped:;
 
     // mkconsistencing mdirs?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
-            && lfsr_i_hasorphans(lfs->flags)
+            && lfsr_i_isuntidy(lfs->flags)
             && tag == LFSR_TAG_MDIR) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
-        err = lfsr_fs_fixorphans_(lfs, mdir);
+        err = lfsr_fs_mktidy_(lfs, mdir);
         if (err) {
             goto failed;
         }
@@ -10156,7 +10156,7 @@ eot:;
     // was mkconsistent successful?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_HASORPHANS;
+        lfs->flags &= ~LFS_I_UNTIDY;
     }
 
     // was compaction successful? note we may need multiple passes if
@@ -11685,9 +11685,9 @@ static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
         if (lfsr_grm_count(lfs) < 2) {
             lfsr_grm_push(lfs, file->o.o.mdir.mid);
 
-        // fallback to just marking the filesystem as orphaned
+        // fallback to just marking the filesystem as untidy
         } else {
-            lfs->flags |= LFS_I_HASORPHANS;
+            lfs->flags |= LFS_I_UNTIDY;
         }
     }
 }
@@ -13697,6 +13697,8 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
 
     // setup flags
     lfs->flags = flags
+            // assume we may contain orphans until proven otherwise
+            | LFS_I_UNTIDY
             // default to assuming we need compaction somewhere, worst case
             // this just makes lfsr_fs_gc read more than is strictly needed
             | LFS_I_UNCOMPACTED;
@@ -14350,43 +14352,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 return err;
             }
 
-            // check for any orphaned stickynotes, note we only need
-            // this if filesystem will be writable
-            if (!lfsr_m_isrdonly(lfs->flags)) {
-                for (lfs_size_t rid = 0;
-                        rid < mdir->rbyd.weight;
-                        rid++) {
-                    lfsr_tag_t tag;
-                    err = lfsr_rbyd_sublookup(lfs, &mdir->rbyd,
-                            rid, LFSR_TAG_NAME,
-                            &tag, NULL);
-                    if (err) {
-                        LFS_ASSERT(err != LFS_ERR_NOENT);
-                        return err;
-                    }
-                    // name 0 should be reserved
-                    LFS_ASSERT(tag != (LFSR_TAG_NAME + 0));
-
-                    // found an orphaned stickynote?
-                    if (tag == LFSR_TAG_STICKYNOTE) {
-                        LFS_DEBUG("Found orphaned stickynote "
-                                "%"PRId32".%"PRId32,
-                                lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
-                                rid);
-                        lfs->flags |= LFS_I_HASORPHANS;
-
-                    // found an unknown file type?
-                    } else if (lfsr_tag_isunknown(tag)) {
-                        LFS_WARN("Found unknown file type "
-                                "%"PRId32".%"PRId32" 0x%"PRIx16,
-                                lfsr_mid_bid(lfs, mdir->mid) >> lfs->mdir_bits,
-                                rid,
-                                lfsr_tag_subtype(tag));
-                        return LFS_ERR_NOTSUP;
-                    }
-                }
-            }
-
         // found an mtree inner-node?
         } else if (tag == LFSR_TAG_BRANCH) {
             lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
@@ -14775,7 +14740,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
     return 0;
 }
 
-static int lfsr_fs_fixorphans_(lfs_t *lfs, lfsr_mdir_t *mdir) {
+static int lfsr_fs_mktidy_(lfs_t *lfs, lfsr_mdir_t *mdir) {
     // save the current mid
     lfsr_mid_t mid = mdir->mid;
 
@@ -14823,7 +14788,7 @@ failed:;
     return err;
 }
 
-static int lfsr_fs_fixorphans(lfs_t *lfs) {
+static int lfsr_fs_mktidy(lfs_t *lfs) {
     // LFS_T_MKCONSISTENT really just removes orphans
     lfsr_traversal_t t = LFSR_TRAVERSAL(
             LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
@@ -14871,10 +14836,8 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // this must happen after fixgrm, since removing orphaned
     // stickynotes risks outdating the grm
     //
-    if (lfsr_i_hasorphans(lfs->flags)) {
-        LFS_DEBUG("Fixing orphans...");
-
-        int err = lfsr_fs_fixorphans(lfs);
+    if (lfsr_i_isuntidy(lfs->flags)) {
+        int err = lfsr_fs_mktidy(lfs);
         if (err) {
             return err;
         }
@@ -14951,7 +14914,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
     // do we have any pending work?
     uint32_t pending = flags & (
             (lfs->flags & (
-                    LFS_I_HASORPHANS
+                    LFS_I_UNTIDY
                         | LFS_I_UNCOMPACTED))
                 | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                 | LFS_GC_CKMETA
@@ -15016,7 +14979,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
             // clear any pending flags we make progress on
             pending &= (
                     (lfs->flags & (
-                            LFS_I_HASORPHANS
+                            LFS_I_UNTIDY
                                 | LFS_I_UNCOMPACTED))
                         | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
                         // only consider our filesystem checked if we

@@ -4701,7 +4701,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_I_HASORPHANS));
+    assert(!(lfs.flags & LFS_I_UNTIDY));
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -4837,7 +4837,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_I_HASORPHANS));
+    assert(!(lfs.flags & LFS_I_UNTIDY));
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -4987,7 +4987,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs.grm.mids[0] == -1);
     assert(lfs.grm.mids[1] == -1);
-    assert(!(lfs.flags & LFS_I_HASORPHANS));
+    assert(!(lfs.flags & LFS_I_UNTIDY));
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
