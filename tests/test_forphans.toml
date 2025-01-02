@@ -468,7 +468,7 @@ code = '''
     // but we should still recieve sync broadcasts on sync/close
     lfsr_file_t file__;
     lfsr_file_open(&lfs, &file__, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
 
     // mkconsistent should have no effect
     if (MKCONSISTENT) {
@@ -609,7 +609,7 @@ code = '''
     // open a second reference
     lfsr_file_t file__;
     lfsr_file_open(&lfs, &file__, "batman",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
 
     // mkconsistent should have no effect
     if (MKCONSISTENT) {
@@ -814,7 +814,7 @@ code = '''
     // and a third for checking sync broadcasts
     lfsr_file_t file___;
     lfsr_file_open(&lfs, &file___, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
 
     // mkconsistent should have no effect
     if (MKCONSISTENT) {
@@ -1275,7 +1275,7 @@ code = '''
     // and a third for checking sync broadcasts
     lfsr_file_t file___;
     lfsr_file_open(&lfs, &file___, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
 
     // mkconsistent should have no effect
     if (MKCONSISTENT) {

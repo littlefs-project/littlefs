@@ -7329,6 +7329,22 @@ static bool lfsr_omdir_ismidopen(lfs_t *lfs, lfsr_smid_t mid) {
     return false;
 }
 
+// like lfsr_omdir_ismidopen but ignores zombies/desynced files
+static bool lfsr_omdir_ismidalive(lfs_t *lfs, lfsr_smid_t mid) {
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        // we really only care about regular open files here, all
+        // others are either transient (dirs) or fake (orphans)
+        if (lfsr_o_type(o->flags) == LFS_TYPE_REG
+                && o->mdir.mid == mid
+                && !lfsr_o_iszombie(o->flags)
+                && !lfsr_o_isdesync(o->flags)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // traversal invalidation things
 
 // needed in lfsr_omdir_clobber
@@ -10744,7 +10760,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(new_path))) {
         return err;
     }
-    // already exists?
     bool exists = (err != LFS_ERR_NOENT);
 
     // there are a few cases we need to watch out for
@@ -11569,9 +11584,10 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path))) {
         return err;
     }
+    bool exists = err != LFS_ERR_NOENT;
 
     // creating a new entry?
-    if (err == LFS_ERR_NOENT || tag == LFSR_TAG_STICKYNOTE) {
+    if (!exists || tag == LFSR_TAG_STICKYNOTE) {
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
@@ -11582,15 +11598,27 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return LFS_ERR_NOTDIR;
         }
 
-        // check that name fits
-        lfs_size_t name_len = lfsr_path_namelen(path);
-        if (name_len > lfs->name_limit) {
-            return LFS_ERR_NAMETOOLONG;
+        // if we're EXCL and we found a stickynote, check if the file
+        // is open and not zombied/desynced
+        //
+        // we error here even though the file isn't created yet so
+        // EXCL only lets one create through (ignoring desync+sync
+        // shenanigans)
+        if (exists
+                && lfsr_o_isexcl(flags)
+                && lfsr_omdir_ismidalive(lfs, file->o.o.mdir.mid)) {
+            return LFS_ERR_EXIST;
         }
 
         // create a stickynote entry if we don't have one, this reserves the
         // mid until first sync
-        if (err == LFS_ERR_NOENT) {
+        if (!exists) {
+            // check that name fits
+            lfs_size_t name_len = lfsr_path_namelen(path);
+            if (name_len > lfs->name_limit) {
+                return LFS_ERR_NAMETOOLONG;
+            }
+
             lfs_alloc_ckpoint(lfs);
             err = lfsr_mdir_commit(lfs, &file->o.o.mdir, LFSR_RATS(
                     LFSR_RAT_NAME(
