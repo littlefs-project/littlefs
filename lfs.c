@@ -7316,28 +7316,14 @@ static void lfsr_omdir_close(lfs_t *lfs, lfsr_omdir_t *o) {
 }
 
 // check if a given mid is open
-static bool lfsr_omdir_ismidopen(lfs_t *lfs, lfsr_smid_t mid) {
-    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        // we really only care about regular open files here, all
-        // others are either transient (dirs) or fake (orphans)
-        if (lfsr_o_type(o->flags) == LFS_TYPE_REG
-                && o->mdir.mid == mid) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-// like lfsr_omdir_ismidopen but ignores zombies/desynced files
-static bool lfsr_omdir_ismidalive(lfs_t *lfs, lfsr_smid_t mid) {
+static bool lfsr_omdir_ismidopen(lfs_t *lfs, lfsr_smid_t mid, uint32_t mask) {
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // we really only care about regular open files here, all
         // others are either transient (dirs) or fake (orphans)
         if (lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == mid
-                && !lfsr_o_iszombie(o->flags)
-                && !lfsr_o_isdesync(o->flags)) {
+                // allow caller to ignore files with specific flags
+                && !(o->flags & ~mask)) {
             return true;
         }
     }
@@ -10653,7 +10639,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // are we removing an opened file?
-    bool zombie = lfsr_omdir_ismidopen(lfs, mdir.mid);
+    bool zombie = lfsr_omdir_ismidopen(lfs, mdir.mid, -1);
 
     // remove the metadata entry
     lfs_alloc_ckpoint(lfs);
@@ -11606,7 +11592,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // shenanigans)
         if (exists
                 && lfsr_o_isexcl(flags)
-                && lfsr_omdir_ismidalive(lfs, file->o.o.mdir.mid)) {
+                && lfsr_omdir_ismidopen(lfs, file->o.o.mdir.mid,
+                    ~(LFS_O_ZOMBIE | LFS_O_DESYNC))) {
             return LFS_ERR_EXIST;
         }
 
@@ -11712,7 +11699,7 @@ static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
     //
     // make sure we check _after_ removing ourselves
     if (lfsr_o_isuncreat(file->o.o.flags)
-            && !lfsr_omdir_ismidopen(lfs, file->o.o.mdir.mid)) {
+            && !lfsr_omdir_ismidopen(lfs, file->o.o.mdir.mid, -1)) {
         // this gets a bit messy, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
         // a few tricks
@@ -14785,7 +14772,7 @@ static int lfsr_fs_mktidy_(lfs_t *lfs, lfsr_mdir_t *mdir) {
     int err;
     while (lfsr_mid_rid(lfs, mdir->mid) < (lfsr_srid_t)mdir->rbyd.weight) {
         // is this mid open? well we're not an orphan then, skip
-        if (lfsr_omdir_ismidopen(lfs, mdir->mid)) {
+        if (lfsr_omdir_ismidopen(lfs, mdir->mid, -1)) {
             mdir->mid += 1;
             continue;
         }
