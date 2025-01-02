@@ -1120,6 +1120,400 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+[cases.test_forphans_uncreat_open]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // create a new file over the uncreat
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // our uncreat should have been overwritten
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_excl]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // attempt to create a new file over the uncreat
+    //
+    // counterintuitively, we _do_ error on an attempt to create an excl
+    // file when there is an uncreat, even though the file doesn't exist
+    // yet
+    //
+    // otherwise it's easy to create the same file twice with excl,
+    // which isn't very useful and confusing for users
+    //
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => LFS_ERR_EXIST;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the excl file had no effect
+    if (CLOSE == 1) {
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+        lfsr_file_close(&lfs, &file_) => 0;
+    } else {
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    }
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_desync_open]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a desynced uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // create a new file over the uncreat
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_desync_excl]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a desynced uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // create a new file over the uncreat
+    //
+    // while it's still possible for the desynced uncreat to create the
+    // file by explicitly calling lfsr_file_sync, for the most part we
+    // treat desynced files like zombies and allow excl creates
+    //
+    // this makes lfsr_file_sync/resync roughly the same as opening the
+    // file after the excl create succeeds, and if you're using desynced
+    // files you should probably be aware of littlefs's snapshot model
+    // anyways
+    //
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
 [cases.test_forphans_orphan]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -1807,6 +2201,109 @@ code = '''
     }
 
     // create a new file over the orphan
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_orphan_excl]
+defines.ORPHANS = [1, 2, 3, 100]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
+defines.REMOUNT = [0, 1, 2]
+defines.MKCONSISTENT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create neighboring orphaned files
+    //
+    // more orphans requires different techniques for cleaning up orphans
+    lfsr_file_t orphans[ORPHANS-1];
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        char name[256];
+        sprintf(name, "aatman%03x", i);
+        lfsr_file_open(&lfs, &orphans[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfsr_file_write(&lfs, &orphans[i],
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+
+    // create an orphaned file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    lfsr_file_write(&lfs, &file,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // close all orphans at once, or else the open calls would just
+    // clean up each orphans
+    for (lfs_size_t i = 0; i < ORPHANS-1; i++) {
+        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // create a new file over the zombie
+    //
+    // orphaned files will never exist again, so LFS_O_EXCL should not
+    // fail here
+    //
     lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
@@ -3566,6 +4063,122 @@ code = '''
     // create a new file over the zombie
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (CLOSE <= 1 && REMOUNT <= 1) {
+        if (POSTHUMOUS) {
+            lfsr_file_write(&lfs, &zombie,
+                    "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                    => strlen("WoOoOoOoOoO");
+        }
+
+        // we should still be able to read our zombie
+        lfsr_file_rewind(&lfs, &zombie) => 0;
+        uint8_t rbuf[256];
+        lfsr_file_read(&lfs, &zombie, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+        if (CLOSE == 1) {
+            lfsr_file_close(&lfs, &zombie) => 0;
+        }
+        if (REMOUNT == 1) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the new file is readable
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("catman!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &zombie) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_zombie_excl]
+defines.POSTHUMOUS = [false, true]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+# CLOSE=2 => close before op
+defines.CLOSE = [0, 1, 2]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+# REMOUNT=2 => remount before op
+defines.REMOUNT = [0, 1, 2]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a zombie
+    lfsr_file_t zombie;
+    lfsr_file_open(&lfs, &zombie, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    if (!POSTHUMOUS) {
+        lfsr_file_write(&lfs, &zombie,
+                "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+                => strlen("WoOoOoOoOoO");
+    }
+    lfsr_file_sync(&lfs, &zombie) => 0;
+    lfsr_remove(&lfs, "batman") => 0;
+
+    if (CLOSE == 2) {
+        lfsr_file_close(&lfs, &zombie) => 0;
+    }
+    if (REMOUNT == 2) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // create a new file over the zombie
+    //
+    // zombie files will never exist again, so LFS_O_EXCL should not
+    // fail here
+    //
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
             => strlen("catman!");
@@ -4931,7 +5544,7 @@ code = '''
     // create some unrelated uncreat files to make sure cleaning up
     // orphans doesn't break other filesystem things
     //
-    // note we leave these uncreated in this test
+    // note we leave these uncreated + open in this test
     lfsr_file_t bookend_files[2];
     uint32_t bookend_prngs[2] = {0, 0};
     if (BOOKENDS & 0x1) {
@@ -5045,6 +5658,141 @@ code = '''
             lfsr_file_read(&lfs, &bookend_files[1], rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
         }
+    }
+
+    if (BOOKENDS & 0x1) {
+        lfsr_file_close(&lfs, &bookend_files[0]);
+    }
+    if (BOOKENDS & 0x2) {
+        lfsr_file_close(&lfs, &bookend_files[1]);
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_cleanup_zombie]
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# <=2 => grm-able
+#  >2 => requires orphans
+defines.N = [0, 1, 2, 3, 10, 100]
+defines.BOOKENDS = [0x0, 0x1, 0x2, 0x3]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create some unrelated zombie files to make sure cleaning up
+    // orphans doesn't break other filesystem things
+    //
+    // note we leave these zombied + open in this test
+    lfsr_file_t bookend_files[2];
+    uint32_t bookend_prngs[2] = {0, 0};
+    if (BOOKENDS & 0x1) {
+        lfsr_file_open(&lfs, &bookend_files[0], "aatman",
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        bookend_prngs[0] = TEST_PRNG(&prng);
+        uint32_t prng_ = bookend_prngs[0];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        lfsr_file_write(&lfs, &bookend_files[0], wbuf, SIZE) => SIZE;
+        lfsr_file_sync(&lfs, &bookend_files[0]) => 0;
+
+        lfsr_remove(&lfs, "aatman") => 0;
+    }
+
+    if (BOOKENDS & 0x2) {
+        lfsr_file_open(&lfs, &bookend_files[1], "catman",
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        bookend_prngs[1] = TEST_PRNG(&prng);
+        uint32_t prng_ = bookend_prngs[1];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        lfsr_file_write(&lfs, &bookend_files[1], wbuf, SIZE) => SIZE;
+        lfsr_file_sync(&lfs, &bookend_files[1]) => 0;
+
+        lfsr_remove(&lfs, "catman") => 0;
+    }
+
+    // create this many orphaned files
+    //
+    // anytime we close a not-yet-created desync file, we create an
+    // orphan, but note we need these to be different files, and we need
+    // to close them after all open calls, otherwise we just end up with
+    // one orphan (littlefs is eager to clean up orphans)
+    //
+    lfsr_file_t files[N];
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "batman%03x", i);
+        lfsr_file_open(&lfs, &files[i], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+    }
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_close(&lfs, &files[i]) => 0;
+    }
+
+    // calling lfsr_fs_mkconsistent should clean things up
+    lfsr_fs_mkconsistent(&lfs) => 0;
+
+    // we should have cleaned up all grms/orphans
+    assert(lfs.grm.mids[0] == -1);
+    assert(lfs.grm.mids[1] == -1);
+    assert(!(lfs.flags & LFS_I_UNTIDY));
+
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
+
+    // double check the actual disk state, it's easy for littlefs to
+    // lie here
+    assert(lfsr_mtree_weight(&lfs)
+            <= ((1+lfs_popc(BOOKENDS)) << lfs.mdir_bits));
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
+
+    // check that other files are unaffected
+    if (BOOKENDS & 0x1) {
+        lfsr_file_rewind(&lfs, &bookend_files[0]) => 0;
+        uint32_t prng_ = bookend_prngs[0];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &bookend_files[0], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    if (BOOKENDS & 0x2) {
+        lfsr_file_rewind(&lfs, &bookend_files[1]) => 0;
+        uint32_t prng_ = bookend_prngs[1];
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+        }
+        uint8_t rbuf[SIZE];
+        lfsr_file_read(&lfs, &bookend_files[1], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
     if (BOOKENDS & 0x1) {
