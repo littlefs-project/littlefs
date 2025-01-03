@@ -169,7 +169,7 @@ enum lfs_type {
 #define LFS_F_CKPARITY  0x00400000  // Check tag parity bits on reads
 #endif
 #ifdef LFS_CKCKSUMS
-#define LFS_F_CKCKSUMS  0x00800000  // Check checksums on reads (expensive!)
+#define LFS_F_CKCKSUMS  0x00800000  // Check data checksums on reads
 #endif
 
 #define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -192,7 +192,7 @@ enum lfs_type {
 #define LFS_M_CKPARITY  0x00400000  // Check tag parity bits on reads
 #endif
 #ifdef LFS_CKCKSUMS
-#define LFS_M_CKCKSUMS  0x00800000  // Check checksums on reads (expensive!)
+#define LFS_M_CKCKSUMS  0x00800000  // Check data checksums on reads
 #endif
 
 #define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -808,11 +808,11 @@ typedef struct lfsr_grm {
     lfsr_smid_t mids[2];
 } lfsr_grm_t;
 
-#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
+#ifdef LFS_CKPARITY
 typedef struct lfsr_tailck {
     lfs_block_t ckblock;
+    // sign(ckoff) => tail parity
     lfs_size_t ckoff;
-    uint32_t cksum;
 } lfsr_tailck_t;
 #endif
 
@@ -848,7 +848,7 @@ typedef struct lfs {
         uint8_t *buffer;
     } pcache;
 
-    #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
+    #ifdef LFS_CKPARITY
     lfsr_tailck_t tailck;
     #endif
 
