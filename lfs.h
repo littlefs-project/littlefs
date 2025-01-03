@@ -166,7 +166,7 @@ enum lfs_type {
 #define LFS_F_CKFETCHES 0x00200000  // Check block checksums before first use
 #endif
 #ifdef LFS_CKPARITY
-#define LFS_F_CKPARITY  0x00400000  // Check tag parity bits on reads
+#define LFS_F_CKPARITY  0x00400000  // Check metadata tag parity bits
 #endif
 #ifdef LFS_CKCKSUMS
 #define LFS_F_CKCKSUMS  0x00800000  // Check data checksums on reads
@@ -189,7 +189,7 @@ enum lfs_type {
 #define LFS_M_CKFETCHES 0x00200000  // Check block checksums before first use
 #endif
 #ifdef LFS_CKPARITY
-#define LFS_M_CKPARITY  0x00400000  // Check tag parity bits on reads
+#define LFS_M_CKPARITY  0x00400000  // Check metadata tag parity bits
 #endif
 #ifdef LFS_CKCKSUMS
 #define LFS_M_CKCKSUMS  0x00800000  // Check data checksums on reads
@@ -609,17 +609,13 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
-#if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
+#ifdef LFS_CKCKSUMS
 // context for validating data
 typedef struct lfsr_ck {
-    // sign(cksize)=0 => cksum check
-    // sign(cksize)=1 => parity check
+    // cksize=0 => no checksum
+    // cksize>0 => yes checksum
     lfs_size_t cksize;
-    union {
-        // sign(ckoff) => parity
-        lfs_size_t ckoff;
-        uint32_t cksum;
-    } u;
+    uint32_t cksum;
 } lfsr_ck_t;
 #endif
 
@@ -633,7 +629,7 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
-            #if defined(LFS_CKPARITY) || defined(LFS_CKCKSUMS)
+            #ifdef LFS_CKCKSUMS
             lfsr_ck_t ck;
             #endif
         } disk;
@@ -666,7 +662,7 @@ typedef lfsr_data_t lfsr_sprout_t;
 
 typedef struct lfsr_bptr {
     lfsr_data_t data;
-    #ifndef LFS_CKPARITY
+    #ifndef LFS_CKCKSUMS
     lfs_size_t cksize;
     uint32_t cksum;
     #endif
