@@ -156,10 +156,10 @@ extern "C"
 #define LFS_IFDEF_CKPARITY(a, b) (b)
 #endif
 
-#ifdef LFS_CKCKSUMS
-#define LFS_IFDEF_CKCKSUMS(a, b) (a)
+#ifdef LFS_CKDATACKSUMS
+#define LFS_IFDEF_CKDATACKSUMS(a, b) (a)
 #else
-#define LFS_IFDEF_CKCKSUMS(a, b) (b)
+#define LFS_IFDEF_CKDATACKSUMS(a, b) (b)
 #endif
 
 

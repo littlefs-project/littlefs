@@ -168,8 +168,9 @@ enum lfs_type {
 #ifdef LFS_CKPARITY
 #define LFS_F_CKPARITY  0x00400000  // Check metadata tag parity bits
 #endif
-#ifdef LFS_CKCKSUMS
-#define LFS_F_CKCKSUMS  0x00800000  // Check data checksums on reads
+#ifdef LFS_CKDATACKSUMS
+#define LFS_F_CKDATACKSUMS \
+                        0x08000000  // Check data checksums on reads
 #endif
 
 #define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -191,8 +192,9 @@ enum lfs_type {
 #ifdef LFS_CKPARITY
 #define LFS_M_CKPARITY  0x00400000  // Check metadata tag parity bits
 #endif
-#ifdef LFS_CKCKSUMS
-#define LFS_M_CKCKSUMS  0x00800000  // Check data checksums on reads
+#ifdef LFS_CKDATACKSUMS
+#define LFS_M_CKDATACKSUMS \
+                        0x08000000  // Check data checksums on reads
 #endif
 
 #define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
@@ -204,20 +206,21 @@ enum lfs_type {
 #define LFS_M_CKDATA    0x00020000  // Check metadata + data checksums
 
 // Filesystem info flags
-#define LFS_I_RDONLY    0x00000001  // Filesystem mounted read only
-#define LFS_I_FLUSH     0x00000040  // Filesystem mounted with LFS_M_FLUSH
-#define LFS_I_SYNC      0x00000080  // Filesystem mounted with LFS_M_SYNC
+#define LFS_I_RDONLY    0x00000001  // Mounted read only
+#define LFS_I_FLUSH     0x00000040  // Mounted with LFS_M_FLUSH
+#define LFS_I_SYNC      0x00000080  // Mounted with LFS_M_SYNC
 #ifdef LFS_CKPROGS
-#define LFS_I_CKPROGS   0x00100000  // Filesystem mounted with LFS_M_CKPROGS
+#define LFS_I_CKPROGS   0x00100000  // Mounted with LFS_M_CKPROGS
 #endif
 #ifdef LFS_CKFETCHES
-#define LFS_I_CKFETCHES 0x00200000  // Filesystem mounted with LFS_M_CKFETCHES
+#define LFS_I_CKFETCHES 0x00200000  // Mounted with LFS_M_CKFETCHES
 #endif
 #ifdef LFS_CKPARITY
-#define LFS_I_CKPARITY  0x00400000  // Filesystem mounted with LFS_M_CKPARITY
+#define LFS_I_CKPARITY  0x00400000  // Mounted with LFS_M_CKPARITY
 #endif
-#ifdef LFS_CKCKSUMS
-#define LFS_I_CKCKSUMS  0x00800000  // Filesystem mounted with LFS_M_CKCKSUMS
+#ifdef LFS_CKDATACKSUMS
+#define LFS_I_CKDATACKSUMS \
+                        0x08000000  // Mounted with LFS_M_CKDATACKSUMS
 #endif
 
 #define LFS_I_INCONSISTENT \
@@ -609,7 +612,7 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
-#ifdef LFS_CKCKSUMS
+#ifdef LFS_CKDATACKSUMS
 // context for validating data
 typedef struct lfsr_ck {
     // cksize=0 => no checksum
@@ -629,7 +632,7 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
-            #ifdef LFS_CKCKSUMS
+            #ifdef LFS_CKDATACKSUMS
             lfsr_ck_t ck;
             #endif
         } disk;
@@ -662,7 +665,7 @@ typedef lfsr_data_t lfsr_sprout_t;
 
 typedef struct lfsr_bptr {
     lfsr_data_t data;
-    #ifndef LFS_CKCKSUMS
+    #ifndef LFS_CKDATACKSUMS
     lfs_size_t cksize;
     uint32_t cksum;
     #endif

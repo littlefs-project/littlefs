@@ -1346,10 +1346,10 @@ code = '''
 
 
 
-# Some simple ckcksums tests
+# Some simple ckdatacksums tests
 
 # test every single-bit error in a file's data block
-[cases.test_ck_ckcksums_data]
+[cases.test_ck_ckdatacksums_data]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGFLIP',
@@ -1357,7 +1357,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
-ifdef = 'LFS_CKCKSUMS'
+ifdef = 'LFS_CKDATACKSUMS'
 code = '''
     // first we need to figure out where the data block will actually
     // end up, fortunately our block randomization is intentionally
@@ -1365,8 +1365,8 @@ code = '''
 
     // format
     lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKCKSUMS, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKCKSUMS, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKDATACKSUMS, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATACKSUMS, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -1416,8 +1416,8 @@ code = '''
 
         // format
         lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKCKSUMS, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKCKSUMS, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKDATACKSUMS, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATACKSUMS, CFG) => 0;
 
         {
             // create a file
@@ -1445,7 +1445,9 @@ code = '''
                 // remount?
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKCKSUMS, CFG) => 0;
+                    lfsr_mount(&lfs,
+                            LFS_M_RDWR | LFS_M_CKDATACKSUMS,
+                            CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -1495,7 +1497,7 @@ code = '''
 # METHOD=0 => ckprogs
 # METHOD=1 => ckfetches
 # METHOD=2 => ckparity
-# METHOD=3 => ckcksums
+# METHOD=3 => ckdatacksums
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
@@ -1503,7 +1505,7 @@ defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKFETCHES = 'METHOD == 1'
 defines.CKPARITY  = 'METHOD == 2'
-defines.CKCKSUMS  = 'METHOD == 3'
+defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 'range(10)'
 fuzz = 'SEED'
@@ -1511,7 +1513,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
 ]
 code = '''
     // seed our block device with our seed so we have different error
@@ -1533,14 +1535,18 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -1561,7 +1567,7 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckcksums?
+            // ckprogs? ckparity? ckdatacksums?
             if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
@@ -1684,8 +1690,8 @@ code = '''
                         | ((CKPARITY)
                             ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
                             : 0)
-                        | ((CKCKSUMS)
-                            ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1)
+                        | ((CKDATACKSUMS)
+                            ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
                             : 0),
                     CFG) => 0;
         }
@@ -1744,7 +1750,7 @@ corrupt_mounted:;
 # METHOD=0 => ckprogs
 # METHOD=1 => ckfetches
 # METHOD=2 => ckparity
-# METHOD=3 => ckcksums
+# METHOD=3 => ckdatacksums
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
@@ -1752,7 +1758,7 @@ defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKFETCHES = 'METHOD == 1'
 defines.CKPARITY  = 'METHOD == 2'
-defines.CKCKSUMS  = 'METHOD == 3'
+defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1769,7 +1775,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -1792,14 +1798,18 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -1821,7 +1831,7 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckcksums?
+            // ckprogs? ckparity? ckdatacksums?
             if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
@@ -1990,8 +2000,8 @@ code = '''
                         | ((CKPARITY)
                             ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
                             : 0)
-                        | ((CKCKSUMS)
-                            ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1)
+                        | ((CKDATACKSUMS)
+                            ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
                             : 0),
                     CFG) => 0;
         }
@@ -2065,7 +2075,7 @@ corrupt_mounted:;
 # METHOD=0 => ckprogs
 # METHOD=1 => ckfetches
 # METHOD=2 => ckparity
-# METHOD=3 => ckcksums
+# METHOD=3 => ckdatacksums
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
@@ -2073,7 +2083,7 @@ defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKFETCHES = 'METHOD == 1'
 defines.CKPARITY  = 'METHOD == 2'
-defines.CKCKSUMS  = 'METHOD == 3'
+defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -2095,7 +2105,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -2120,14 +2130,18 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
 
     // create a file
@@ -2171,7 +2185,7 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckcksums?
+            // ckprogs? ckparity? ckdatacksums?
             if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
@@ -2240,8 +2254,8 @@ code = '''
                         | ((CKPARITY)
                             ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
                             : 0)
-                        | ((CKCKSUMS)
-                            ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1)
+                        | ((CKDATACKSUMS)
+                            ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
                             : 0),
                     CFG) => 0;
         }
@@ -2301,7 +2315,7 @@ defines.BADBLOCK = -1
 # METHOD=0 => ckprogs
 # METHOD=1 => ckfetches
 # METHOD=2 => ckparity
-# METHOD=3 => ckcksums
+# METHOD=3 => ckdatacksums
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
@@ -2309,7 +2323,7 @@ defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKFETCHES = 'METHOD == 1'
 defines.CKPARITY  = 'METHOD == 2'
-defines.CKCKSUMS  = 'METHOD == 3'
+defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -2326,7 +2340,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -2349,14 +2363,18 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -2388,7 +2406,7 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckcksums?
+            // ckprogs? ckparity? ckdatacksums?
             if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;
@@ -2740,7 +2758,7 @@ corrupt_mounted:;
 # METHOD=0 => ckprogs
 # METHOD=1 => ckfetches
 # METHOD=2 => ckparity
-# METHOD=3 => ckcksums
+# METHOD=3 => ckdatacksums
 defines.METHOD = [0]
 defines.PERIOD = 10
 defines.PROTECTED_MROOTANCHOR = [false, true]
@@ -2748,7 +2766,7 @@ defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 defines.CKPROGS   = 'METHOD == 0'
 defines.CKFETCHES = 'METHOD == 1'
 defines.CKPARITY  = 'METHOD == 2'
-defines.CKCKSUMS  = 'METHOD == 3'
+defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -2765,7 +2783,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -2788,14 +2806,18 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1) : 0),
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                    : 0),
             CFG) => 0;
 
     // set up a simulation to compare against
@@ -2828,7 +2850,7 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckcksums?
+            // ckprogs? ckparity? ckdatacksums?
             if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
                 // mark our badblock as bad
                 lfs_emubd_markbad(CFG, badblock) => 0;

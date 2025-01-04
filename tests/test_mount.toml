@@ -20,7 +20,7 @@ defines.SYNC = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKPARITY = [false, true]
-defines.CKCKSUMS = [false, true]
+defines.CKDATACKSUMS = [false, true]
 defines.MTREEONLY = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
@@ -31,7 +31,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     '!RDONLY || !COMPACT',
@@ -48,7 +48,9 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_M_CKCKSUMS, -1) : 0)
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                    : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
                 | ((MKCONSISTENT) ? LFS_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
@@ -67,7 +69,9 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_I_CKCKSUMS, -1) : 0)
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, -1)
+                    : 0)
                 | ((!MKCONSISTENT) ? LFS_I_INCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
@@ -82,7 +86,7 @@ code = '''
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKPARITY = [false, true]
-defines.CKCKSUMS = [false, true]
+defines.CKDATACKSUMS = [false, true]
 defines.MTREEONLY = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -91,7 +95,7 @@ if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKCKSUMS(true, !CKCKSUMS)',
+    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '!MTREEONLY || !CKDATA',
 ]
 code = '''
@@ -101,7 +105,9 @@ code = '''
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKCKSUMS) ? LFS_IFDEF_CKCKSUMS(LFS_F_CKCKSUMS, -1) : 0)
+                | ((CKDATACKSUMS)
+                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                    : 0)
                 | ((MTREEONLY) ? LFS_M_MTREEONLY : 0)
                 | ((COMPACT) ? LFS_M_COMPACT : 0)
                 | ((CKMETA) ? LFS_M_CKMETA : 0)
