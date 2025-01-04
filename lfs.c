@@ -2021,9 +2021,9 @@ typedef struct lfsr_rat {
     lfsr_tag_t tag;
     int16_t count;
     lfsr_srid_t weight;
-    // sign(size)=0 => single in-RAM buffer
-    // sign(size)=1 => multiple concatenated datas
-    // special tags => other things
+    // sign(count)=0 => single in-RAM buffer
+    // sign(count)=1 => multiple concatenated datas
+    // special tags  => other things
     const void *cat;
 } lfsr_rat_t;
 
@@ -2071,51 +2071,7 @@ static inline lfsr_rat_t lfsr_rat(
     (const lfsr_rat_t[]){__VA_ARGS__}, \
     sizeof((const lfsr_rat_t[]){__VA_ARGS__}) / sizeof(lfsr_rat_t)
 
-// cat helpers
-static inline lfs_size_t lfsr_cat_size(const void *cat, int16_t count) {
-    // this gets a bit complicated for concatenated data
-    if (count >= 0) {
-        return count;
-
-    } else {
-        const lfsr_data_t *datas = cat;
-        lfs_size_t data_count = -count;
-        lfs_size_t size = 0;
-        for (lfs_size_t i = 0; i < data_count; i++) {
-            size += lfsr_data_size(datas[i]);
-        }
-        return size;
-    }
-}
-
-// cat <-> bd interactions
-static int lfsr_bd_progcat(lfs_t *lfs,
-        lfs_block_t block, lfs_size_t off,
-        const void *cat, int16_t count,
-        uint32_t *cksum, bool align) {
-    // direct buffer?
-    if (count >= 0) {
-        return lfsr_bd_prog(lfs, block, off, cat, count,
-                cksum, align);
-
-    // indirect concatenated data?
-    } else {
-        const lfsr_data_t *datas = cat;
-        lfs_size_t data_count = -count;
-        for (lfs_size_t i = 0; i < data_count; i++) {
-            int err = lfsr_bd_progdata(lfs, block, off, datas[i],
-                    cksum, align);
-            if (err) {
-                return err;
-            }
-
-            off += lfsr_data_size(datas[i]);
-        }
-        return 0;
-    }
-}
-
-// other rat helpers
+// rat helpers
 static inline bool lfsr_rat_isnoop(lfsr_rat_t rat) {
     // noop rats must have zero weight
     LFS_ASSERT(rat.tag || rat.weight == 0);
@@ -2136,7 +2092,21 @@ static inline lfsr_srid_t lfsr_rat_nextrid(lfsr_rat_t rat,
 }
 
 static inline lfs_size_t lfsr_rat_size(lfsr_rat_t rat) {
-    return lfsr_cat_size(rat.cat, rat.count);
+    // note this does not include the tag size
+
+    // this gets a bit complicated for concatenated data
+    if (rat.count >= 0) {
+        return rat.count;
+
+    } else {
+        const lfsr_data_t *datas = rat.cat;
+        lfs_size_t data_count = -rat.count;
+        lfs_size_t size = 0;
+        for (lfs_size_t i = 0; i < data_count; i++) {
+            size += lfsr_data_size(datas[i]);
+        }
+        return size;
+    }
 }
 
 // special rats - here be hacks
@@ -3206,23 +3176,48 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        const void *cat, int16_t count) {
+static int lfsr_rbyd_appendrat_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_rat_t rat) {
     // do we fit?
-    if (lfsr_rbyd_eoff(rbyd) + lfsr_cat_size(cat, count)
+    lfs_size_t size = lfsr_rat_size(rat);
+    if (lfsr_rbyd_eoff(rbyd) + LFSR_TAG_DSIZE + size
             > lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
     }
 
-    int err = lfsr_bd_progcat(lfs,
-            rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
-            cat, count,
-            &rbyd->cksum, false);
+    // append tag
+    int err = lfsr_rbyd_appendtag(lfs, rbyd,
+            rat.tag, rat.weight, size);
     if (err) {
         return err;
     }
 
-    rbyd->eoff += lfsr_cat_size(cat, count);
+    // direct buffer?
+    if (rat.count >= 0) {
+        err = lfsr_bd_prog(lfs,
+                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), rat.cat, rat.count,
+                &rbyd->cksum, false);
+        if (err) {
+            return err;
+        }
+
+        rbyd->eoff += rat.count;
+
+    // indirect concatenated data?
+    } else {
+        const lfsr_data_t *datas = rat.cat;
+        lfs_size_t data_count = -rat.count;
+        for (lfs_size_t i = 0; i < data_count; i++) {
+            err = lfsr_bd_progdata(lfs,
+                    rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), datas[i],
+                    &rbyd->cksum, false);
+            if (err) {
+                return err;
+            }
+
+            rbyd->eoff += lfsr_data_size(datas[i]);
+        }
+    }
 
     #ifdef LFS_CKPARITY
     // keep track of most recent parity
@@ -3233,22 +3228,6 @@ static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 ) << (8*sizeof(lfs_size_t)-1))
             | lfsr_rbyd_eoff(rbyd);
     #endif
-
-    return 0;
-}
-
-static int lfsr_rbyd_appendrat_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_rat_t rat) {
-    int err = lfsr_rbyd_appendtag(lfs, rbyd,
-            rat.tag, rat.weight, lfsr_rat_size(rat));
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_rbyd_appendcat(lfs, rbyd, rat.cat, rat.count);
-    if (err) {
-        return err;
-    }
 
     return 0;
 }
