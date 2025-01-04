@@ -612,16 +612,6 @@ typedef struct lfsr_omdir {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
-#ifdef LFS_CKDATACKSUMS
-// context for validating data
-typedef struct lfsr_ck {
-    // cksize=0 => no checksum
-    // cksize>0 => yes checksum
-    lfs_size_t cksize;
-    uint32_t cksum;
-} lfsr_ck_t;
-#endif
-
 // either an on-disk or in-device data pointer
 typedef struct lfsr_data {
     // sign(size)=0 => in-RAM buffer
@@ -632,8 +622,12 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
+            // optional context for validating data
             #ifdef LFS_CKDATACKSUMS
-            lfsr_ck_t ck;
+            // cksize==0 => no checksum
+            // cksize!=0 => yes checksum
+            lfs_size_t cksize;
+            uint32_t cksum;
             #endif
         } disk;
     } u;
