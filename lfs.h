@@ -805,11 +805,11 @@ typedef struct lfsr_grm {
 } lfsr_grm_t;
 
 #ifdef LFS_CKPARITY
-typedef struct lfsr_tailck {
-    lfs_block_t ckblock;
-    // sign(ckoff) => tail parity
-    lfs_size_t ckoff;
-} lfsr_tailck_t;
+typedef struct lfsr_tailp {
+    lfs_block_t block;
+    // sign(off) => tail parity
+    lfs_size_t off;
+} lfsr_tailp_t;
 #endif
 
 // The littlefs filesystem type
@@ -845,7 +845,7 @@ typedef struct lfs {
     } pcache;
 
     #ifdef LFS_CKPARITY
-    lfsr_tailck_t tailck;
+    lfsr_tailp_t tailp;
     #endif
 
     struct lfs_lookahead {

@@ -725,24 +725,24 @@ static inline bool lfsr_ck_iscksum(lfsr_ck_t ck) {
 #endif
 
 
-// lfsr_tailck_t stuff
+// lfsr_tailp_t stuff
 //
-// tailck tracks the most recent trunk's parity so we can parity-check
+// tailp tracks the most recent trunk's parity so we can parity-check
 // if it hasn't been written to disk yet
 
 #ifdef LFS_CKPARITY
-#define LFSR_TAILCK_PARITY 0x80000000
+#define LFSR_TAILP_PARITY 0x80000000
 #endif
 
 #ifdef LFS_CKPARITY
-static inline bool lfsr_tailck_parity(const lfsr_tailck_t *tailck) {
-    return tailck->ckoff & LFSR_TAILCK_PARITY;
+static inline bool lfsr_tailp_parity(const lfsr_tailp_t *tailp) {
+    return tailp->off & LFSR_TAILP_PARITY;
 }
 #endif
 
 #ifdef LFS_CKPARITY
-static inline lfs_size_t lfsr_tailck_ckoff(const lfsr_tailck_t *tailck) {
-    return tailck->ckoff & ~LFSR_TAILCK_PARITY;
+static inline lfs_size_t lfsr_tailp_off(const lfsr_tailp_t *tailp) {
+    return tailp->off & ~LFSR_TAILP_PARITY;
 }
 #endif
 
@@ -1674,14 +1674,14 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         //
         // unless we're in the middle of building a commit, where things get
         // tricky... to avoid problems with not-yet-written parity bits
-        // tailck tracks the most recent trunk's parity
+        // tailp tracks the most recent trunk's parity
         //
 
-        // parity in in tailck?
+        // parity in in tailp?
         bool parity;
-        if (block == lfs->tailck.ckblock
-                && off+d_ == lfsr_tailck_ckoff(&lfs->tailck)) {
-            parity = lfsr_tailck_parity(&lfs->tailck);
+        if (block == lfs->tailp.block
+                && off+d_ == lfsr_tailp_off(&lfs->tailp)) {
+            parity = lfsr_tailp_parity(&lfs->tailp);
 
         // parity on disk?
         } else {
@@ -3268,8 +3268,8 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     #ifdef LFS_CKPARITY
     // keep track of most recent parity
-    lfs->tailck.ckblock = rbyd->blocks[0];
-    lfs->tailck.ckoff
+    lfs->tailp.block = rbyd->blocks[0];
+    lfs->tailp.off
             = ((lfs_size_t)(
                     lfs_parity(rbyd->cksum) ^ lfsr_rbyd_isperturb(rbyd)
                 ) << (8*sizeof(lfs_size_t)-1))
@@ -3299,8 +3299,8 @@ static int lfsr_rbyd_appendcat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     #ifdef LFS_CKPARITY
     // keep track of most recent parity
-    lfs->tailck.ckblock = rbyd->blocks[0];
-    lfs->tailck.ckoff
+    lfs->tailp.block = rbyd->blocks[0];
+    lfs->tailp.off
             = ((lfs_size_t)(
                     lfs_parity(rbyd->cksum) ^ lfsr_rbyd_isperturb(rbyd)
                 ) << (8*sizeof(lfs_size_t)-1))
@@ -13300,9 +13300,9 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     }
 
     #ifdef LFS_CKPARITY
-    // setup tailck, nothing should actually check off=0
-    lfs->tailck.ckblock = 0;
-    lfs->tailck.ckoff = 0;
+    // setup tailp, nothing should actually check off=0
+    lfs->tailp.block = 0;
+    lfs->tailp.off = 0;
     #endif
 
     // setup lookahead buffer, note mount finishes initializing this after
