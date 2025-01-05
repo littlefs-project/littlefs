@@ -1650,7 +1650,6 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 /// lfsr_data_t stuff ///
 
 #define LFSR_DATA_ONDISK 0x80000000
-#define LFSR_DATA_ISIMM  0x40000000
 
 #define LFSR_DATA_NULL() \
     ((lfsr_data_t){ \
@@ -1661,15 +1660,6 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     ((lfsr_data_t){ \
         .size=_size, \
         .u.buffer=(const void*)(_buffer)})
-
-#define LFSR_DATA_IMM(_buffer, _size) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromimm(_buffer, _size)}.d)
-
-#define LFSR_DATA_LEB128(_word) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word)}.d)
-
-#define LFSR_DATA_LLEB128(_word) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word)}.d)
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
     ((lfsr_data_t){ \
@@ -1693,68 +1683,19 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.disk.off=_off})
 #endif
 
-// these can't really be macros, so these get a bit hacky
-static inline lfsr_data_t lfsr_data_fromimm(
-        const void *buffer, lfs_size_t size) {
-    // inlined-data limited to 8 bytes
-    LFS_ASSERT(size <= 8);
-
-    lfsr_data_t data;
-    memcpy(data.u.imm, buffer, size);
-    data.size = LFSR_DATA_ISIMM | size;
-    return data;
-}
-
-#define LFSR_LEB128_DSIZE  5
-
-static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word) {
-    // leb128s should not exceed 31-bits
-    LFS_ASSERT(word <= 0x7fffffff);
-
-    lfsr_data_t data;
-    lfs_ssize_t d = lfs_toleb128(word, data.u.imm, LFSR_LEB128_DSIZE);
-    if (d < 0) {
-        LFS_UNREACHABLE();
-    }
-    data.size = LFSR_DATA_ISIMM | d;
-    return data;
-}
-
-#define LFSR_LLEB128_DSIZE 4
-
-static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word) {
-    // little-leb128s should not exceed 28-bits
-    LFS_ASSERT(word <= 0x0fffffff);
-
-    lfsr_data_t data;
-    lfs_ssize_t d = lfs_toleb128(word, data.u.imm, LFSR_LLEB128_DSIZE);
-    if (d < 0) {
-        LFS_UNREACHABLE();
-    }
-    data.size = LFSR_DATA_ISIMM | d;
-    return data;
-}
-
 // data helpers
 static inline bool lfsr_data_ondisk(lfsr_data_t data) {
     return data.size & LFSR_DATA_ONDISK;
 }
 
 static inline bool lfsr_data_isbuf(lfsr_data_t data) {
-    return (data.size & (LFSR_DATA_ONDISK | LFSR_DATA_ISIMM))
-            == 0;
-}
-
-static inline bool lfsr_data_isimm(lfsr_data_t data) {
-    return (data.size & (LFSR_DATA_ONDISK | LFSR_DATA_ISIMM))
-            == LFSR_DATA_ISIMM;
+    return !(data.size & LFSR_DATA_ONDISK);
 }
 
 static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
-    return data.size & ~(LFSR_DATA_ONDISK | LFSR_DATA_ISIMM);
+    return data.size & ~LFSR_DATA_ONDISK;
 }
 
-// fancier data functions
 static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
         lfs_ssize_t off, lfs_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
@@ -1771,18 +1712,10 @@ static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
         data.u.disk.off += off_;
         data.size = LFSR_DATA_ONDISK | size_;
 
-    // inlined?
-    } else if (lfsr_data_isimm(data)) {
-        memmove(data.u.imm, data.u.imm + off_, size_);
-        data.size = LFSR_DATA_ISIMM | size_;
-
     // buffer?
-    } else if (lfsr_data_isbuf(data)) {
+    } else {
         data.u.buffer += off_;
         data.size = size_;
-
-    } else {
-        LFS_UNREACHABLE();
     }
 
     return data;
@@ -1856,10 +1789,6 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
                 return err;
             }
         }
-
-    // inlined?
-    } else if (lfsr_data_isimm(*data)) {
-        lfs_memcpy(buffer, data->u.imm, d);
 
     // buffer?
     } else {
@@ -1968,26 +1897,14 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
             }
         }
 
-    // inlined?
-    } else if (lfsr_data_isimm(data)) {
-        int cmp = lfs_memcmp(data.u.imm, buffer, d);
-        if (cmp < 0) {
-            return LFS_CMP_LT;
-        } else if (cmp > 0) {
-            return LFS_CMP_GT;
-        }
-
     // buffer?
-    } else if (lfsr_data_isbuf(data)) {
+    } else {
         int cmp = lfs_memcmp(data.u.buffer, buffer, d);
         if (cmp < 0) {
             return LFS_CMP_LT;
         } else if (cmp > 0) {
             return LFS_CMP_GT;
         }
-
-    } else {
-        LFS_UNREACHABLE();
     }
 
     // if data is equal, check for size mismatch
@@ -2050,29 +1967,62 @@ static int lfsr_bd_progdata(lfs_t *lfs,
             }
         }
 
-    // inlined?
-    } else if (lfsr_data_isimm(data)) {
-        int err = lfsr_bd_prog(lfs, block, off,
-                data.u.imm, lfsr_data_size(data),
-                cksum, align);
-        if (err) {
-            return err;
-        }
-
     // buffer?
-    } else if (lfsr_data_isbuf(data)) {
+    } else {
         int err = lfsr_bd_prog(lfs, block, off,
-                data.u.buffer, lfsr_data_size(data),
+                data.u.buffer, data.size,
                 cksum, align);
         if (err) {
             return err;
         }
-
-    } else {
-        LFS_UNREACHABLE();
     }
 
     return 0;
+}
+
+// we can also treat leb128/lleb128 encoding has a high-level operation,
+// which is useful for building rats
+
+#define LFSR_LEB128_DSIZE  5
+
+#define LFSR_DATA_LEB128_(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word, _buffer)}.d)
+
+#define LFSR_DATA_LEB128(_word) \
+    LFSR_DATA_LEB128_(_word, (uint8_t[LFSR_LEB128_DSIZE]){0})
+
+static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
+        uint8_t buffer[static LFSR_LEB128_DSIZE]) {
+    // leb128s should not exceed 31-bits
+    LFS_ASSERT(word <= 0x7fffffff);
+
+    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+#define LFSR_LLEB128_DSIZE 4
+
+#define LFSR_DATA_LLEB128_(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word, _buffer)}.d)
+
+#define LFSR_DATA_LLEB128(_word) \
+    LFSR_DATA_LLEB128_(_word, (uint8_t[LFSR_LLEB128_DSIZE]){0})
+
+static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
+        uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
+    // little-leb128s should not exceed 28-bits
+    LFS_ASSERT(word <= 0x0fffffff);
+
+    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
+    return LFSR_DATA_BUF(buffer, d);
 }
 
 
@@ -13481,7 +13431,7 @@ static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
 // little-endian, truncated bits must be assumed zero
 
 #define LFSR_DATA_COMPAT(_compat) \
-    LFSR_DATA_IMM(((uint8_t[]){ \
+    LFSR_DATA_BUF(((uint8_t[]){ \
         (((_compat) >> 0) & 0xff), \
         (((_compat) >> 8) & 0xff)}), 2)
 
