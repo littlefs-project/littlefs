@@ -614,11 +614,14 @@ typedef struct lfsr_omdir {
 
 // either an on-disk or in-device data pointer
 typedef struct lfsr_data {
-    // sign(size)=0 => in-RAM buffer
-    // sign(size)=1 => on-disk reference
+    // the top bits of size indicate the exact encoding:
+    // top2(size)=0b00 => in-RAM buffer
+    // top2(size)=0b01 => inlined data
+    // top2(size)=0b1x => on-disk reference
     lfs_size_t size;
     union {
         const uint8_t *buffer;
+        uint8_t imm[8];
         struct {
             lfs_block_t block;
             lfs_size_t off;
