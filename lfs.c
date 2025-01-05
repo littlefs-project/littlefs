@@ -13451,20 +13451,20 @@ static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
 //
 // little-endian, truncated bits must be assumed zero
 
-#define LFSR_DATA_RCOMPAT(_rcompat) \
+#define LFSR_DATA_COMPAT(_compat) \
     LFSR_DATA_BUF(((uint8_t[]){ \
-        (((_rcompat) >> 0) & 0xff), \
-        (((_rcompat) >> 8) & 0xff)}), 2)
+        (((_compat) >> 0) & 0xff), \
+        (((_compat) >> 8) & 0xff)}), 2)
 
-static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_rcompat_t *rcompat) {
-    // allow truncated rcompat flags
+static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
+        uint16_t *compat) {
+    // allow truncated compat flags
     uint8_t buf[2] = {0};
     lfs_ssize_t d = lfsr_data_read(lfs, data, buf, 2);
     if (d < 0) {
         return d;
     }
-    *rcompat = lfs_fromle16_(buf);
+    *compat = lfs_fromle16_(buf);
 
     // if any out-of-range flags are set, set the internal overflow bit,
     // this is a compromise in correctness and and compat-flag complexity
@@ -13478,7 +13478,7 @@ static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
         }
 
         if (b != 0x00) {
-            *rcompat |= LFSR_RCOMPAT_OVERFLOW;
+            *compat |= 0x8000;
             break;
         }
     }
@@ -13487,18 +13487,25 @@ static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
 }
 
 // all the compat parsing is basically the same, so try to reuse code
-#define LFSR_DATA_WCOMPAT(_wcompat) LFSR_DATA_RCOMPAT(_wcompat)
+#define LFSR_DATA_RCOMPAT(_rcompat) LFSR_DATA_COMPAT(_rcompat)
 
-static int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_wcompat_t *wcompat) {
-    return lfsr_data_readrcompat(lfs, data, wcompat);
+static inline int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_rcompat_t *rcompat) {
+    return lfsr_data_readcompat(lfs, data, rcompat);
 }
 
-#define LFSR_DATA_OCOMPAT(_ocompat) LFSR_DATA_RCOMPAT(_ocompat)
+#define LFSR_DATA_WCOMPAT(_wcompat) LFSR_DATA_COMPAT(_wcompat)
 
-static int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
+static inline int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_wcompat_t *wcompat) {
+    return lfsr_data_readcompat(lfs, data, wcompat);
+}
+
+#define LFSR_DATA_OCOMPAT(_ocompat) LFSR_DATA_COMPAT(_ocompat)
+
+static inline int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ocompat_t *ocompat) {
-    return lfsr_data_readrcompat(lfs, data, ocompat);
+    return lfsr_data_readcompat(lfs, data, ocompat);
 }
 
 
