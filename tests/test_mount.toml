@@ -703,6 +703,8 @@ code = '''
 
 # these are just a bit harder to detect
 [cases.test_mount_incompat_rcompat_overflow]
+defines.OVERFLOW = 72
+defines.FLAG = 'range(72)'
 in = 'lfs.c'
 code = '''
     // create a superblock
@@ -713,12 +715,16 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
+    uint8_t overflow[OVERFLOW];
+    memset(overflow, 0, sizeof(overflow));
+    overflow[FLAG / 8] |= 1 << (FLAG % 8);
+
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT),
-                LFSR_DATA_BUF("\x00\x00\x00\x00\x80", 5)))) => 0;
+                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
@@ -727,22 +733,31 @@ code = '''
 '''
 
 [cases.test_mount_incompat_wcompat_overflow]
+defines.OVERFLOW = 72
+defines.FLAG = 'range(72)'
 in = 'lfs.c'
 code = '''
     // create a superblock
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
 
+    uint8_t flags[9] = {0};
+    flags[FLAG / 8] |= 1 << (FLAG % 8);
+
     // set a really far wcompat flag
     //
     // note we're messing around with internals to do this! this
     // is not a user API
+    uint8_t overflow[OVERFLOW];
+    memset(overflow, 0, sizeof(overflow));
+    overflow[FLAG / 8] |= 1 << (FLAG % 8);
+
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_DATA_WCOMPAT(LFSR_WCOMPAT_COMPAT),
-                LFSR_DATA_BUF("\x00\x00\x00\x00\x80", 5)))) => 0;
+                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
@@ -754,6 +769,8 @@ code = '''
 '''
 
 [cases.test_mount_incompat_ocompat_overflow]
+defines.OVERFLOW = 72
+defines.FLAG = 'range(72)'
 in = 'lfs.c'
 code = '''
     // create a superblock
@@ -764,15 +781,113 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
+    uint8_t overflow[OVERFLOW];
+    memset(overflow, 0, sizeof(overflow));
+    overflow[FLAG / 8] |= 1 << (FLAG % 8);
+
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_OCOMPAT, 0,
                 LFSR_DATA_OCOMPAT(LFSR_OCOMPAT_COMPAT),
-                LFSR_DATA_BUF("\x00\x00\x00\x00\x80", 5)))) => 0;
+                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should _not_ fail, ocompat should always be ignored
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# but just appending zeros is _not_ an error
+[cases.test_mount_incompat_rcompat_padding]
+defines.OVERFLOW = 72
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // set a really far rcompat flag
+    //
+    // note we're messing around with internals to do this! this
+    // is not a user API
+    uint8_t overflow[OVERFLOW];
+    memset(overflow, 0, sizeof(overflow));
+
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
+                LFSR_TAG_RCOMPAT, 0,
+                LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT),
+                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount should _not_ fail, extra zeros should be ignored
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_wcompat_padding]
+defines.OVERFLOW = 72
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    uint8_t flags[9] = {0};
+    flags[FLAG / 8] |= 1 << (FLAG % 8);
+
+    // set a really far wcompat flag
+    //
+    // note we're messing around with internals to do this! this
+    // is not a user API
+    uint8_t overflow[OVERFLOW];
+    memset(overflow, 0, sizeof(overflow));
+
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
+                LFSR_TAG_WCOMPAT, 0,
+                LFSR_DATA_WCOMPAT(LFSR_WCOMPAT_COMPAT),
+                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount should _not_ fail, extra zeros should be ignored
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_ocompat_padding]
+defines.OVERFLOW = 72
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // set a really far ocompat flag
+    //
+    // note we're messing around with internals to do this! this
+    // is not a user API
+    uint8_t overflow[OVERFLOW];
+    memset(overflow, 0, sizeof(overflow));
+
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
+            LFSR_RAT_CAT(
+                LFSR_TAG_OCOMPAT, 0,
+                LFSR_DATA_OCOMPAT(LFSR_OCOMPAT_COMPAT),
+                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount should _not_ fail, extra zeros should be ignored
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
     lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;

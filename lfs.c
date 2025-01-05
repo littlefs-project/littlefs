@@ -13471,16 +13471,16 @@ static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
     //
     // we don't really care about performance here
     while (lfsr_data_size(*data) > 0) {
-        lfs_scmp_t cmp = lfsr_data_cmp(lfs, *data, (uint8_t[]){0}, 1);
-        if (cmp < 0) {
-            return cmp;
+        uint8_t b;
+        lfs_ssize_t d = lfsr_data_read(lfs, data, &b, 1);
+        if (d < 0) {
+            return d;
         }
 
-        if (cmp != LFS_CMP_EQ) {
+        if (b != 0x00) {
             *rcompat |= LFSR_RCOMPAT_OVERFLOW;
+            break;
         }
-
-        *data = LFSR_DATA_SLICE(*data, d, -1);
     }
 
     return 0;
