@@ -1696,6 +1696,7 @@ static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
     return data.size & ~LFSR_DATA_ONDISK;
 }
 
+// data slicing
 static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
         lfs_ssize_t off, lfs_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
@@ -1743,6 +1744,57 @@ static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
 
 #define LFSR_DATA_FRUNCATE(_data, _size) \
     ((struct {lfsr_data_t d;}){lfsr_data_fromfruncate(_data, _size)}.d)
+
+
+// macros for le32/leb128/lleb128 encoding, these are useful for
+// building rats
+
+#define LFSR_LE32_DSIZE 4
+
+#define LFSR_DATA_LE32(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromle32(_word, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromle32(uint32_t word,
+        uint8_t buffer[static LFSR_LE32_DSIZE]) {
+    lfs_tole32_(word, buffer);
+    return LFSR_DATA_BUF(buffer, LFSR_LE32_DSIZE);
+}
+
+#define LFSR_LEB128_DSIZE  5
+
+#define LFSR_DATA_LEB128(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
+        uint8_t buffer[static LFSR_LEB128_DSIZE]) {
+    // leb128s should not exceed 31-bits
+    LFS_ASSERT(word <= 0x7fffffff);
+
+    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+#define LFSR_LLEB128_DSIZE 4
+
+#define LFSR_DATA_LLEB128(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
+        uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
+    // little-leb128s should not exceed 28-bits
+    LFS_ASSERT(word <= 0x0fffffff);
+
+    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
+    return LFSR_DATA_BUF(buffer, d);
+}
 
 
 // data <-> bd interactions
@@ -1980,51 +2032,6 @@ static int lfsr_bd_progdata(lfs_t *lfs,
     return 0;
 }
 
-// we can also treat leb128/lleb128 encoding has a high-level operation,
-// which is useful for building rats
-
-#define LFSR_LEB128_DSIZE  5
-
-#define LFSR_DATA_LEB128_(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word, _buffer)}.d)
-
-#define LFSR_DATA_LEB128(_word) \
-    LFSR_DATA_LEB128_(_word, (uint8_t[LFSR_LEB128_DSIZE]){0})
-
-static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
-        uint8_t buffer[static LFSR_LEB128_DSIZE]) {
-    // leb128s should not exceed 31-bits
-    LFS_ASSERT(word <= 0x7fffffff);
-
-    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
-    if (d < 0) {
-        LFS_UNREACHABLE();
-    }
-
-    return LFSR_DATA_BUF(buffer, d);
-}
-
-#define LFSR_LLEB128_DSIZE 4
-
-#define LFSR_DATA_LLEB128_(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word, _buffer)}.d)
-
-#define LFSR_DATA_LLEB128(_word) \
-    LFSR_DATA_LLEB128_(_word, (uint8_t[LFSR_LLEB128_DSIZE]){0})
-
-static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
-        uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
-    // little-leb128s should not exceed 28-bits
-    LFS_ASSERT(word <= 0x0fffffff);
-
-    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
-    if (d < 0) {
-        LFS_UNREACHABLE();
-    }
-
-    return LFSR_DATA_BUF(buffer, d);
-}
-
 
 // operations on attribute lists
 
@@ -2135,7 +2142,8 @@ typedef struct lfsr_data_name {
         _tag, \
         _weight, \
         ((lfsr_data_t*)&(lfsr_data_name_t){ \
-            .did_data=LFSR_DATA_LEB128(_did), \
+            .did_data=LFSR_DATA_LEB128( \
+                _did, (uint8_t[LFSR_LEB128_DSIZE]){0}), \
             .name_len=_name_len, \
             .name=(const void*)(_name)}), \
         2)
@@ -9942,8 +9950,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     // commit our bookmark and a grm to self-remove in case of powerloss
     lfs_alloc_ckpoint(lfs);
+    uint8_t did_buf[LFSR_LEB128_DSIZE];
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-            LFSR_RAT(LFSR_TAG_BOOKMARK, +1, LFSR_DATA_LEB128(did_))));
+            LFSR_RAT(LFSR_TAG_BOOKMARK, +1, LFSR_DATA_LEB128(did_, did_buf))));
     if (err) {
         return err;
     }
@@ -9966,7 +9975,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             LFSR_RAT_NAME(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
                 did, path, name_len),
-            LFSR_RAT(LFSR_TAG_DID, 0, LFSR_DATA_LEB128(did_))));
+            LFSR_RAT(LFSR_TAG_DID, 0, LFSR_DATA_LEB128(did_, did_buf))));
     if (err) {
         return err;
     }
@@ -13430,10 +13439,16 @@ static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
 //
 // little-endian, truncated bits must be assumed zero
 
-#define LFSR_DATA_COMPAT(_compat) \
-    LFSR_DATA_BUF(((uint8_t[]){ \
-        (((_compat) >> 0) & 0xff), \
-        (((_compat) >> 8) & 0xff)}), 2)
+#define LFSR_COMPAT_DSIZE 2
+
+#define LFSR_DATA_COMPAT(_compat, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromcompat(_compat, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromcompat(uint16_t compat,
+        uint8_t buffer[static LFSR_COMPAT_DSIZE]) {
+    lfs_tole16_(compat, buffer);
+    return LFSR_DATA_BUF(buffer, LFSR_COMPAT_DSIZE);
+}
 
 static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
         uint16_t *compat) {
@@ -13466,21 +13481,31 @@ static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
 }
 
 // all the compat parsing is basically the same, so try to reuse code
-#define LFSR_DATA_RCOMPAT(_rcompat) LFSR_DATA_COMPAT(_rcompat)
+
+#define LFSR_RCOMPAT_DSIZE LFSR_COMPAT_DSIZE
+
+#define LFSR_DATA_RCOMPAT(_rcompat, _buffer) \
+        LFSR_DATA_COMPAT(_rcompat, _buffer)
 
 static inline int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_rcompat_t *rcompat) {
     return lfsr_data_readcompat(lfs, data, rcompat);
 }
 
-#define LFSR_DATA_WCOMPAT(_wcompat) LFSR_DATA_COMPAT(_wcompat)
+#define LFSR_WCOMPAT_DSIZE LFSR_COMPAT_DSIZE
+
+#define LFSR_DATA_WCOMPAT(_wcompat, _buffer) \
+        LFSR_DATA_COMPAT(_wcompat, _buffer)
 
 static inline int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_wcompat_t *wcompat) {
     return lfsr_data_readcompat(lfs, data, wcompat);
 }
 
-#define LFSR_DATA_OCOMPAT(_ocompat) LFSR_DATA_COMPAT(_ocompat)
+#define LFSR_OCOMPAT_DSIZE LFSR_COMPAT_DSIZE
+
+#define LFSR_DATA_OCOMPAT(_ocompat, _buffer) \
+        LFSR_DATA_COMPAT(_ocompat, _buffer)
 
 static inline int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ocompat_t *ocompat) {
@@ -13995,7 +14020,11 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // - our magic string, "littlefs"
         // - any format-time configuration
         // - the root's bookmark tag, which reserves did = 0 for the root
+        uint8_t rcompat_buf[LFSR_RCOMPAT_DSIZE];
         uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
+        uint8_t name_limit_buf[LFSR_LLEB128_DSIZE];
+        uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
+        uint8_t bookmark_buf[LFSR_LEB128_DSIZE];
         err = lfsr_rbyd_commit(lfs, &rbyd, -1, LFSR_RATS(
                 LFSR_RAT(
                     LFSR_TAG_MAGIC, 0,
@@ -14007,7 +14036,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
                         LFS_DISK_VERSION_MINOR}), 2)),
                 LFSR_RAT(
                     LFSR_TAG_RCOMPAT, 0,
-                    LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT)),
+                    LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT, rcompat_buf)),
                 LFSR_RAT(
                     LFSR_TAG_GEOMETRY, 0,
                     LFSR_DATA_GEOMETRY(
@@ -14017,13 +14046,13 @@ static int lfsr_formatinited(lfs_t *lfs) {
                         geometry_buf)),
                 LFSR_RAT(
                     LFSR_TAG_NAMELIMIT, 0,
-                    LFSR_DATA_LLEB128(lfs->name_limit)),
+                    LFSR_DATA_LLEB128(lfs->name_limit, name_limit_buf)),
                 LFSR_RAT(
                     LFSR_TAG_FILELIMIT, 0,
-                    LFSR_DATA_LEB128(lfs->file_limit)),
+                    LFSR_DATA_LEB128(lfs->file_limit, file_limit_buf)),
                 LFSR_RAT(
                     LFSR_TAG_BOOKMARK, +1,
-                    LFSR_DATA_LEB128(0))));
+                    LFSR_DATA_LEB128(0, bookmark_buf))));
         if (err) {
             return err;
         }
