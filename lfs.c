@@ -1696,7 +1696,7 @@ static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
     return data.size & ~LFSR_DATA_ONDISK;
 }
 
-static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
+static lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
         lfs_ssize_t off, lfs_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
     // here to treat -1 as unbounded
@@ -1721,17 +1721,28 @@ static lfsr_data_t lfsr_data_slice(lfsr_data_t data,
     return data;
 }
 
-static lfsr_data_t lfsr_data_truncate(lfsr_data_t data, lfs_size_t size) {
-    return lfsr_data_slice(data, -1, size);
+#define LFSR_DATA_SLICE(_data, _off, _size) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromslice(_data, _off, _size)}.d)
+
+static inline lfsr_data_t lfsr_data_fromtruncate(lfsr_data_t data,
+        lfs_size_t size) {
+    return LFSR_DATA_SLICE(data, -1, size);
 }
 
-static lfsr_data_t lfsr_data_fruncate(lfsr_data_t data, lfs_size_t size) {
-    return lfsr_data_slice(data,
+#define LFSR_DATA_TRUNCATE(_data, _size) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromtruncate(_data, _size)}.d)
+
+static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
+        lfs_size_t size) {
+    return LFSR_DATA_SLICE(data,
             lfsr_data_size(data) - lfs_min(
                 size,
                 lfsr_data_size(data)),
             -1);
 }
+
+#define LFSR_DATA_FRUNCATE(_data, _size) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromfruncate(_data, _size)}.d)
 
 
 // data <-> bd interactions
@@ -1784,7 +1795,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
         lfs_memcpy(buffer, data->u.buffer, d);
     }
 
-    *data = lfsr_data_slice(*data, d, -1);
+    *data = LFSR_DATA_SLICE(*data, d, -1);
     return d;
 }
 
@@ -1828,7 +1839,7 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
         return LFS_ERR_CORRUPT;
     }
 
-    *data = lfsr_data_slice(*data, d, -1);
+    *data = LFSR_DATA_SLICE(*data, d, -1);
     return 0;
 }
 
@@ -11254,7 +11265,7 @@ static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
                 size,
                 lfsr_data_size(bptr.data)
                     - (pos_ - (bid-(weight-1))));
-        lfsr_data_t slice = lfsr_data_slice(bptr.data,
+        lfsr_data_t slice = LFSR_DATA_SLICE(bptr.data,
                 pos_ - (bid-(weight-1)),
                 d);
         d = lfsr_data_read(lfs, &slice,
@@ -11507,10 +11518,10 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         #endif
 
         // note, an entry can be both a left and right sibling
-        lfsr_data_t left_slice_ = lfsr_data_slice(bptr_.data,
+        lfsr_data_t left_slice_ = LFSR_DATA_SLICE(bptr_.data,
                 -1,
                 pos - (bid-(weight_-1)));
-        lfsr_data_t right_slice_ = lfsr_data_slice(bptr_.data,
+        lfsr_data_t right_slice_ = LFSR_DATA_SLICE(bptr_.data,
                 pos+weight - (bid-(weight_-1)),
                 -1);
 
@@ -11519,7 +11530,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         while (tag_ == LFSR_TAG_BLOCK
                 && lfsr_data_size(left_slice_) > lfs->cfg->fragment_size
                 && lfsr_data_size(left_slice_) < lfs->cfg->crystal_thresh) {
-            bptr_.data = lfsr_data_slice(bptr_.data,
+            bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     lfs->cfg->fragment_size,
                     -1);
             
@@ -11527,7 +11538,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_RAT_CAT(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(weight_ - lfs->cfg->fragment_size),
-                        lfsr_data_truncate(left_slice_,
+                        LFSR_DATA_TRUNCATE(left_slice_,
                                 lfs->cfg->fragment_size)),
                     LFSR_RAT(
                         LFSR_TAG_BLOCK,
@@ -11538,7 +11549,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             }
 
             weight_ -= lfs->cfg->fragment_size;
-            left_slice_ = lfsr_data_slice(bptr_.data,
+            left_slice_ = LFSR_DATA_SLICE(bptr_.data,
                     -1,
                     pos - (bid-(weight_-1)));
         }
@@ -11548,7 +11559,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         while (tag_ == LFSR_TAG_BLOCK
                 && lfsr_data_size(right_slice_) > lfs->cfg->fragment_size
                 && lfsr_data_size(right_slice_) < lfs->cfg->crystal_thresh) {
-            bptr_.data = lfsr_data_slice(bptr_.data,
+            bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     -1,
                     lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
 
@@ -11560,7 +11571,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_RAT_CAT(
                         LFSR_TAG_DATA,
                             +(weight_ - lfsr_data_size(bptr_.data)),
-                        lfsr_data_fruncate(right_slice_,
+                        LFSR_DATA_FRUNCATE(right_slice_,
                             lfs->cfg->fragment_size))));
             if (err) {
                 return err;
@@ -11568,7 +11579,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
             bid -= (weight_-lfsr_data_size(bptr_.data));
             weight_ -= (weight_-lfsr_data_size(bptr_.data));
-            right_slice_ = lfsr_data_slice(bptr_.data,
+            right_slice_ = LFSR_DATA_SLICE(bptr_.data,
                     pos+weight - (bid-(weight_-1)),
                     -1);
         }
@@ -12001,7 +12012,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                                 - (pos_ - (bid_-(weight_-1))));
                     err = lfsr_bd_progdata(lfs, bptr.data.u.disk.block,
                             lfsr_bptr_cksize(&bptr),
-                            lfsr_data_slice(bptr_.data,
+                            LFSR_DATA_SLICE(bptr_.data,
                                 pos_ - (bid_-(weight_-1)),
                                 d_),
                             LFS_IFDEF_CKDATACKSUMS(
@@ -12153,7 +12164,7 @@ fragment:;
             if (bid-(weight-1) + lfsr_data_size(bptr.data) >= fragment_start
                     && fragment_end - (bid-(weight-1))
                         <= lfs->cfg->fragment_size) {
-                datas[data_count++] = lfsr_data_truncate(bptr.data,
+                datas[data_count++] = LFSR_DATA_TRUNCATE(bptr.data,
                         fragment_start - (bid-(weight-1)));
 
                 fragment_start = bid-(weight-1);
@@ -12202,7 +12213,7 @@ fragment:;
                     && bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_start
                         <= lfs->cfg->fragment_size) {
-                datas[data_count++] = lfsr_data_fruncate(bptr.data,
+                datas[data_count++] = LFSR_DATA_FRUNCATE(bptr.data,
                         bid-(weight-1) + lfsr_data_size(bptr.data)
                             - fragment_end);
 
@@ -13469,7 +13480,7 @@ static int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
             *rcompat |= LFSR_RCOMPAT_OVERFLOW;
         }
 
-        *data = lfsr_data_slice(*data, d, -1);
+        *data = LFSR_DATA_SLICE(*data, d, -1);
     }
 
     return 0;
