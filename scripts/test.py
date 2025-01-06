@@ -30,7 +30,11 @@ import subprocess as sp
 import sys
 import threading as th
 import time
-import toml
+
+try:
+    import tomllib as toml
+except ModuleNotFoundError:
+    import tomli as toml
 
 
 RUNNER_PATH = ['./runners/test_runner']
@@ -188,7 +192,7 @@ class TestSuite:
         # load toml file and parse test cases
         with open(self.path) as f:
             # load tests
-            config = toml.load(f)
+            config = toml.load(f.buffer)
 
             # find line numbers
             f.seek(0)
