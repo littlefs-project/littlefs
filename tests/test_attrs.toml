@@ -490,6 +490,8 @@ defines.FILETYPE = [0, 1, 2]
 defines.M = 40
 defines.SIZE = 4
 defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS_GC_COMPACT'
+defines.GC_STEPS = -1
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
@@ -527,7 +529,7 @@ code = '''
 
     // try compacting?
     if (COMPACT) {
-        lfsr_fs_gc(&lfs, -1, LFS_GC_COMPACT) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -567,6 +569,8 @@ defines.N = 64
 defines.M = 4
 defines.SIZE = 4
 defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS_GC_COMPACT'
+defines.GC_STEPS = -1
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
@@ -605,7 +609,7 @@ code = '''
 
     // try compacting?
     if (COMPACT) {
-        lfsr_fs_gc(&lfs, -1, LFS_GC_COMPACT) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -4067,6 +4071,8 @@ defines.N = 64
 defines.M = 4
 defines.SIZE = 4
 defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS_GC_COMPACT'
+defines.GC_STEPS = -1
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
@@ -4105,7 +4111,7 @@ code = '''
 
     // try compacting?
     if (COMPACT) {
-        lfsr_fs_gc(&lfs, -1, LFS_GC_COMPACT) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {

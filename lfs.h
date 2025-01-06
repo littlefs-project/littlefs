@@ -352,6 +352,24 @@ struct lfs_config {
     // can track 8 blocks.
     lfs_size_t lookahead_size;
 
+    // Flags indicating what gc work to do during lfsr_gc calls.
+    //
+    // Defaults to LFS_GC_MKCONSISTENT + LFS_GC_LOOKAHEAD +
+    // LFS_GC_COMPACT when zero.
+    uint32_t gc_flags;
+
+    // Number of gc steps to perform in each call to lfsr_gc, with each
+    // step being ~1 block of work.
+    //
+    // More steps per call will make more progress if interleaved with
+    // other filesystem operations, but may also introduce more latency.
+    // steps=1 will do the minimum amount of work to make progress, and
+    // steps=-1 will not return until all pending janitorial work has
+    // been completed.
+    //
+    // Defaults to steps=1 when zero.
+    lfs_soff_t gc_steps;
+
     // Threshold for metadata compaction during gc in bytes. Metadata logs
     // that exceed this threshold will be compacted during gc operations.
     // Defaults to ~88% block_size when zero, though this default may change
@@ -862,7 +880,11 @@ typedef struct lfs {
     uint8_t grm_d[LFSR_GRM_DSIZE];
 
     // TODO allow compile time opt-out to reclaim RAM
-    lfsr_traversal_t gc;
+    struct {
+        uint32_t flags;
+        lfs_soff_t steps;
+        lfsr_traversal_t t;
+    } gc;
 } lfs_t;
 
 
@@ -1229,6 +1251,42 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 
 
+/// Incremental gc operations ///
+
+#ifndef LFS_READONLY
+// Perform any janitorial work that may be pending.
+//
+// The exact janitorial work depends on the configured flags and steps.
+//
+// Calling this function is not required, but may allow the offloading of
+// expensive janitorial work to a less time-critical code path.
+//
+// Returns a negative error code on failure.
+int lfsr_gc(lfs_t *lfs);
+#endif
+
+#ifndef LFS_READONLY
+// Sets the gc flags.
+//
+// Returns a negative error code on failure.
+int lfsr_gc_setflags(lfs_t *lfs, uint32_t flags);
+#endif
+
+#ifndef LFS_READONLY
+// Sets the number of gc steps per lfsr_gc call, with each step being
+// ~1 block of work.
+//
+// More steps per call will make more progress if interleaved with
+// other filesystem operations, but may also introduce more latency.
+// steps=1 will do the minimum amount of work to make progress, and
+// steps=-1 will not return until all pending janitorial work has
+// been completed.
+//
+// Returns a negative error code on failure.
+int lfsr_gc_setsteps(lfs_t *lfs, lfs_soff_t steps);
+#endif
+
+
 /// Filesystem-level filesystem operations
 
 // Find on-disk info about the filesystem
@@ -1281,25 +1339,6 @@ int lfsr_fs_ckmeta(lfs_t *lfs);
 // Returns LFS_ERR_CORRUPT if a checksum mismatch is found, or a negative
 // error code on failure.
 int lfsr_fs_ckdata(lfs_t *lfs);
-#endif
-
-#ifndef LFS_READONLY
-// Perform any janitorial work that may be pending.
-//
-// The exact janitorial work depends on the provided flags.
-//
-// The steps parameter controls how many gc steps to progress before
-// returning, with each gc step being ~1 block of work. More steps per call
-// will make more progress if interleaved with other filesystem writes, but
-// may also introduce more latency. steps=1 will do the minimum amount of
-// work to make progress, and steps=-1 will not return until all pending
-// janitorial work has been completed.
-//
-// Calling this function is not required, but may allow the offloading of
-// expensive janitorial work to a less time-critical code path.
-//
-// Returns a negative error code on failure.
-int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags);
 #endif
 
 #ifndef LFS_READONLY

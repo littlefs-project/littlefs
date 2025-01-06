@@ -1,14 +1,19 @@
 # Test GC things
 
-# most of the GC logic is tested in test_traversal, we just test a few
-# GC-specific things here
+# most of the GC logic is tested in test_traversal, we just test
+# GC-API specific things here
 after = ['test_traversal']
 
 # test that lookahead can make progress in isolation
 [cases.test_gc_lookahead_progress]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_LOOKAHEAD
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -39,17 +44,14 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC until we make progress
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_LOOKAHEAD
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS_I_CANLOOKAHEAD)) {
@@ -67,11 +69,143 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test that lookahead dirtying still works with the GC API
-[cases.test_gc_lookahead_mutation]
-defines.GC_STEPS = 1
+# test that we can change flags after mount
+[cases.test_gc_setflags]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
+
+    // change flags
+    lfsr_gc_setflags(&lfs, GC_FLAGS | LFS_GC_LOOKAHEAD) => 0;
+
+    // run GC until we make progress
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfsr_gc(&lfs) => 0;
+
+        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS_I_CANLOOKAHEAD)) {
+            break;
+        }
+    }
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we can change steps after mount
+[cases.test_gc_setsteps]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_LOOKAHEAD
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = 1
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs_fsinfo fsinfo;
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
+
+    // change steps
+    lfsr_gc_setsteps(&lfs, -1) => 0;
+
+    // run GC
+    lfsr_gc(&lfs) => 0;
+
+    // we should have made progress
+    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS_I_CANLOOKAHEAD));
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that lookahead dirtying still works with the GC API
+[cases.test_gc_lookahead_mutation]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_LOOKAHEAD
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -104,14 +238,11 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            LFS_GC_LOOKAHEAD
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // mutate the filesystem
     lfsr_file_open(&lfs, &file, "spider",
@@ -123,11 +254,8 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_LOOKAHEAD
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -146,9 +274,12 @@ code = '''
 
 # test that adding flags doesn't break lookahead
 [cases.test_gc_lookahead_add_flags]
-defines.GC_STEPS = 1
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -181,20 +312,17 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // change flags and run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_LOOKAHEAD
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    lfsr_gc_setflags(&lfs, GC_FLAGS | LFS_GC_LOOKAHEAD) => 0;
+
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -213,9 +341,13 @@ code = '''
 
 # test that removing flags invalidates lookahead
 [cases.test_gc_lookahead_remove_flags]
-defines.GC_STEPS = 1
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_LOOKAHEAD
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -248,20 +380,17 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            LFS_GC_LOOKAHEAD
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // change flags and run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    lfsr_gc_setflags(&lfs, GC_FLAGS & ~LFS_GC_LOOKAHEAD) => 0;
+
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -281,10 +410,18 @@ code = '''
 
 # test that compact can make progress in isolation
 [cases.test_gc_compact_progress]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_COMPACT
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -293,8 +430,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-# set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -322,18 +457,14 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_UNCOMPACTED);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC until we make progress
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_COMPACT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS_I_UNCOMPACTED)) {
@@ -366,10 +497,17 @@ code = '''
 
 # test that compact dirtying still works with the GC API
 [cases.test_gc_compact_mutation]
-defines.GC_STEPS = 1
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_COMPACT
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -378,8 +516,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-# set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
 code = '''
@@ -409,27 +545,19 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_UNCOMPACTED);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_COMPACT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
 
         // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.o.o) {
+        if (lfs.omdirs != &lfs.gc.t.o.o) {
             break;
         }
     }
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            LFS_GC_COMPACT
-                | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // mutate the filesystem
     lfsr_file_rewind(&lfs, &file) => 0;
@@ -440,12 +568,8 @@ code = '''
     lfsr_file_sync(&lfs, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_COMPACT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -474,10 +598,16 @@ code = '''
 
 # test that adding flags doesn't break compact
 [cases.test_gc_compact_add_flags]
-defines.GC_STEPS = 1
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -486,8 +616,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-# set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
 code = '''
@@ -517,33 +645,25 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_UNCOMPACTED);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
 
         // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.o.o) {
+        if (lfs.omdirs != &lfs.gc.t.o.o) {
             break;
         }
     }
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // change flags and run GC until our traversal is done (twice for compact)
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_COMPACT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    lfsr_gc_setflags(&lfs, GC_FLAGS | LFS_GC_COMPACT) => 0;
+
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -572,10 +692,17 @@ code = '''
 
 # test that removing flags invalidates compact
 [cases.test_gc_compact_remove_flags]
-defines.GC_STEPS = 1
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_COMPACT
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
     '2*FILE_BUFFER_SIZE',
@@ -584,8 +711,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-# set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
 code = '''
@@ -615,34 +740,25 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_UNCOMPACTED);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_COMPACT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
 
         // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.o.o) {
+        if (lfs.omdirs != &lfs.gc.t.o.o) {
             break;
         }
     }
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            LFS_GC_COMPACT
-                | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // change flags and run GC until our traversal is done (twice for compact)
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    lfsr_gc_setflags(&lfs, GC_FLAGS & ~LFS_GC_COMPACT) => 0;
+
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -672,11 +788,18 @@ code = '''
 
 # test that mkconsistent can make progress in isolation
 [cases.test_gc_mkconsistent_progress]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_MKCONSISTENT
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
@@ -731,19 +854,14 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC until we make progress
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_MKCONSISTENT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS_I_INCONSISTENT)) {
@@ -835,7 +953,7 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // call lfsr_fs_mkconsistent
     lfsr_fs_mkconsistent(&lfs) => 0;
@@ -873,11 +991,17 @@ code = '''
 
 # test that mkconsistent dirtying still works with the GC API
 [cases.test_gc_mkconsistent_mutation]
-defines.GC_STEPS = 1
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_MKCONSISTENT
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
 defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
@@ -925,14 +1049,9 @@ code = '''
     }
 
     // run GC one step
-    assert(lfs.omdirs != &lfs.gc.o.o);
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            LFS_GC_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // create the rest of the orphans after GC has started
     for (lfs_size_t i = 0; i < ORPHANS; i++) {
@@ -951,13 +1070,8 @@ code = '''
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_MKCONSISTENT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -993,11 +1107,16 @@ code = '''
 
 # test that adding flags doesn't break mkconsistent
 [cases.test_gc_mkconsistent_add_flags]
-defines.GC_STEPS = 1
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
 defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
@@ -1055,24 +1174,17 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // change flags and run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                LFS_GC_MKCONSISTENT
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    lfsr_gc_setflags(&lfs, GC_FLAGS | LFS_GC_MKCONSISTENT) => 0;
+
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -1108,11 +1220,17 @@ code = '''
 
 # test that removing flags invalidates mkconsistent
 [cases.test_gc_mkconsistent_remove_flags]
-defines.GC_STEPS = 1
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS_GC_MKCONSISTENT
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
 defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
@@ -1169,24 +1287,17 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
-    assert(lfs.omdirs != &lfs.gc.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs, GC_STEPS,
-            LFS_GC_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
-    assert(lfs.omdirs == &lfs.gc.o.o);
+    lfsr_gc(&lfs) => 0;
+    assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // change flags and run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.o.o) {
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+    lfsr_gc_setflags(&lfs, GC_FLAGS & ~LFS_GC_MKCONSISTENT) => 0;
+
+    while (lfs.omdirs == &lfs.gc.t.o.o) {
+        lfsr_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -1225,6 +1336,7 @@ code = '''
 #
 # these are tested more thoroughly in test_ck
 [cases.test_gc_ckmeta]
+defines.GC_FLAGS = 'LFS_GC_CKMETA'
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -1304,12 +1416,12 @@ code = '''
         }
 
     clobbered:;
-        // running lfsr_fs_gc should eventually find the clobbered block
+        // running lfsr_gc should eventually find the clobbered block
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_fs_gc(&lfs, GC_STEPS, LFS_GC_CKMETA);
+            int err = lfsr_gc(&lfs);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
@@ -1323,6 +1435,7 @@ done:;
 '''
 
 [cases.test_gc_ckdata]
+defines.GC_FLAGS = 'LFS_GC_CKDATA'
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -1403,14 +1516,14 @@ code = '''
         }
 
     clobbered:;
-        // running lfsr_fs_gc should eventually find the clobbered block
+        // running lfsr_gc should eventually find the clobbered block
         //
         // note LFS_GC_CKDATA implies LFS_GC_CKMETA
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_fs_gc(&lfs, GC_STEPS, LFS_GC_CKDATA);
+            int err = lfsr_gc(&lfs);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
@@ -1603,13 +1716,20 @@ done:;
 
 # pseudo-fuzz test that dirtying still works with the GC API
 [cases.test_gc_mutation]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
@@ -1649,12 +1769,7 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     // check the file contents
@@ -1669,13 +1784,20 @@ code = '''
 
 # pseudo-fuzz test that adding/removing flags doesn't break anything
 [cases.test_gc_changing_flags]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
@@ -1715,16 +1837,11 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // choose a new subset of flags every cycle
-        uint32_t flags = (
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)
-                ) & TEST_PRNG(&prng);
+        uint32_t flags = GC_FLAGS & TEST_PRNG(&prng);
+        lfsr_gc_setflags(&lfs, flags) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS, flags) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     // check the file contents
@@ -1743,12 +1860,19 @@ code = '''
 #
 
 [cases.test_gc_spam_dir_many]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
@@ -1766,12 +1890,7 @@ code = '''
         assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -1838,12 +1957,19 @@ code = '''
 '''
 
 [cases.test_gc_spam_dir_fuzz]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
@@ -1944,12 +2070,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -2004,12 +2125,19 @@ code = '''
 '''
 
 [cases.test_gc_spam_file_many]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -2047,12 +2175,7 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -2093,12 +2216,19 @@ code = '''
 '''
 
 [cases.test_gc_spam_file_fuzz]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -2246,12 +2376,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -2321,12 +2446,19 @@ code = '''
 '''
 
 [cases.test_gc_spam_fwrite_fuzz]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.OPS = 20
@@ -2410,12 +2542,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     lfsr_file_close(&lfs, &file) => 0;
@@ -2469,12 +2596,19 @@ code = '''
 '''
 
 [cases.test_gc_spam_uz_fuzz]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -2740,12 +2874,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     // check that disk matches our simulation
@@ -2825,12 +2954,19 @@ code = '''
 '''
 
 [cases.test_gc_spam_uzd_fuzz]
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -3158,12 +3294,7 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs, GC_STEPS,
-                ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-                    | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-                    | ((COMPACT) ? LFS_GC_COMPACT : 0)
-                    | ((CKMETA) ? LFS_GC_CKMETA : 0)
-                    | ((CKDATA) ? LFS_GC_CKDATA : 0)) => 0;
+        lfsr_gc(&lfs) => 0;
     }
 
     // check that disk matches our simulation

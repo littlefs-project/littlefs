@@ -114,6 +114,8 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                 ) \
     BENCH_DEFINE(FILE_BUFFER_SIZE,   16                                     ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
+    BENCH_DEFINE(GC_FLAGS,           0                                      ) \
+    BENCH_DEFINE(GC_STEPS,           0                                      ) \
     BENCH_DEFINE(GC_COMPACT_THRESH,  0                                      ) \
     BENCH_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                           ) \
     BENCH_DEFINE(SHRUB_SIZE,         INLINE_SIZE                            ) \
@@ -143,6 +145,8 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     .pcache_size        = PCACHE_SIZE,          \
     .file_buffer_size   = FILE_BUFFER_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
+    .gc_flags           = GC_FLAGS,             \
+    .gc_steps           = GC_STEPS,             \
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \
