@@ -14726,21 +14726,10 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t) {
 
 static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
     (void)lfs;
+
     // reset traversal
-    t->o.o.flags = lfsr_t_settstate(
-            t->o.o.flags & ~(LFS_T_DIRTY | LFS_T_MUTATED),
-            LFSR_TSTATE_MROOTANCHOR);
-    t->o.o.mdir.mid = -1;
-    t->o.o.mdir.rbyd.weight = 0;
-    t->o.o.mdir.rbyd.blocks[0] = -1;
-    t->o.o.mdir.rbyd.blocks[1] = -1;
-    t->o.bshrub.u.bshrub.weight = 0;
-    t->o.bshrub.u.bshrub.blocks[0] = -1;
-    t->ot = NULL;
-    t->u.mtortoise.blocks[0] = 0;
-    t->u.mtortoise.blocks[1] = 0;
-    t->u.mtortoise.step = 0;
-    t->u.mtortoise.power = 0;
+    lfsr_traversal_init(t,
+            t->o.o.flags & ~(LFS_T_DIRTY | LFS_T_MUTATED | LFS_T_TSTATE));
 
     // and clear any pending blocks
     t->blocks[0] = -1;
