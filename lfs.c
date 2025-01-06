@@ -4580,7 +4580,11 @@ static lfs_scmp_t lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
 /// B-tree operations ///
 
-#define LFSR_BTREE_NULL() ((lfsr_btree_t){.weight=0, .trunk=0})
+// create an empty btree
+static void lfsr_btree_init(lfsr_btree_t *btree) {
+    btree->weight = 0;
+    btree->trunk = 0;
+}
 
 // convenience operations
 static inline int lfsr_btree_cmp(
@@ -5007,8 +5011,8 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t parent = {.trunk=0, .weight=0};
         lfsr_srid_t pid = 0;
         // are we root?
-        if (rbyd_.blocks[0] == btree->blocks[0]
-                || !lfsr_rbyd_trunk(&rbyd_)) {
+        if (!lfsr_rbyd_trunk(&rbyd_)
+                || rbyd_.blocks[0] == btree->blocks[0]) {
             // new root? shrub root? yield the final root commit to
             // higher-level btree/bshrub logic
             if (!lfsr_rbyd_trunk(&rbyd_)
@@ -5633,11 +5637,11 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
 // note this is different from iteration, iteration should use
 // lfsr_btree_lookupnext, traversal includes inner btree nodes
 
-#define LFSR_BTRAVERSAL() \
-    ((lfsr_btraversal_t){ \
-        .bid=0, \
-        .branch=NULL, \
-        .rid=0})
+static void lfsr_btraversal_init(lfsr_btraversal_t *bt) {
+    bt->bid = 0;
+    bt->branch = NULL;
+    bt->rid = 0;
+}
 
 static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_btraversal_t *bt,
@@ -5751,8 +5755,10 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
 
 #define LFSR_BSHRUB_ISBNULLORBSPROUTORBPTR 0x80000000
 
-#define LFSR_BSHRUB_BNULL() \
-        ((lfsr_bshrub_t){.u.size=(LFSR_BSHRUB_ISBNULLORBSPROUTORBPTR | 0)})
+// create an empty bshrub
+static void lfsr_bshrub_init(lfsr_bshrub_t *bshrub) {
+    bshrub->u.size = LFSR_BSHRUB_ISBNULLORBSPROUTORBPTR | 0;
+}
 
 static inline bool lfsr_bshrub_isbnull(const lfsr_bshrub_t *bshrub) {
     return (lfs_size_t)bshrub->u.size
@@ -5876,13 +5882,14 @@ static int lfsr_sprout_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
 
 // shrub things
 
-#define LFSR_SHRUB_NULL(_block) \
-    ((lfsr_shrub_t){ \
-        .weight=0, \
-        .blocks[0]=_block, \
-        .trunk=LFSR_RBYD_ISSHRUB | 0, \
-        /* force estimate recalculation */ \
-        .estimate=-1})
+// create an empty shrub
+static void lfsr_shrub_init(lfsr_shrub_t *shrub, lfs_block_t block) {
+    shrub->weight = 0;
+    shrub->blocks[0] = block;
+    shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
+    // force estimate recalculation
+    shrub->estimate = -1;
+}
 
 // helper functions
 static inline bool lfsr_shrub_isshrub(const lfsr_shrub_t *shrub) {
@@ -7241,13 +7248,19 @@ static int lfsr_mdir_suplookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
 #define LFSR_MTREE_ISMPTR 0x80000000
 
-#define LFSR_MTREE_NULL() ((lfsr_mtree_t){ \
-    .u.weight=(LFSR_MTREE_ISMPTR | 0)})
+// create an empty mtree
+static void lfsr_mtree_init(lfsr_mtree_t *mtree) {
+    mtree->u.weight = LFSR_MTREE_ISMPTR | 0;
+}
 
-#define LFSR_MTREE_MPTR(_block0, _block1, _weight) ((lfsr_mtree_t){ \
-    .u.mptr.weight=(LFSR_MTREE_ISMPTR | (_weight)), \
-    .u.mptr.blocks[0]=_block0, \
-    .u.mptr.blocks[1]=_block1})
+// create an mtree with a single mdir
+static void lfsr_mtree_frommptr(lfsr_mtree_t *mtree,
+        const lfs_block_t mptr[static 2],
+        lfsr_mid_t weight) {
+    mtree->u.mptr.weight = LFSR_MTREE_ISMPTR | weight;
+    mtree->u.mptr.blocks[0] = mptr[0];
+    mtree->u.mptr.blocks[1] = mptr[1];
+}
 
 static inline bool lfsr_mtree_isnull(const lfsr_mtree_t *mtree) {
     return mtree->u.weight == (LFSR_MTREE_ISMPTR | 0);
@@ -8396,7 +8409,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // new mtree?
         if (lfsr_mtree_ismptr(&lfs->mtree)) {
-            mtree_.u.btree = LFSR_BTREE_NULL();
+            lfsr_btree_init(&mtree_.u.btree);
 
             uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_.u.btree,
@@ -8491,9 +8504,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     relocated:;
         // new mtree?
         if (lfsr_mtree_ismptr(&lfs->mtree)) {
-            mtree_ = LFSR_MTREE_MPTR(
-                    mdir_[0].rbyd.blocks[0],
-                    mdir_[0].rbyd.blocks[1],
+            lfsr_mtree_frommptr(&mtree_,
+                    mdir_[0].rbyd.blocks,
                     1 << lfs->mdir_bits);
 
         } else {
@@ -9128,19 +9140,22 @@ enum {
     LFSR_TSTATE_DONE        = 8,
 };
 
-#define LFSR_TRAVERSAL(_flags) \
-    ((lfsr_traversal_t){ \
-        .o.o.flags \
-            = (LFS_TYPE_TRAVERSAL << 24) \
-            | (LFSR_TSTATE_MROOTANCHOR << 4) \
-            | (_flags), \
-        .o.o.mdir.mid=-1, \
-        .o.o.mdir.rbyd.blocks={-1,-1}, \
-        .o.bshrub.u.bshrub.blocks={-1}, \
-        .ot=NULL, \
-        .u.mtortoise.blocks={0, 0}, \
-        .u.mtortoise.step=0, \
-        .u.mtortoise.power=0})
+static void lfsr_traversal_init(lfsr_traversal_t *t, uint32_t flags) {
+    t->o.o.flags = (LFS_TYPE_TRAVERSAL << 24)
+            | (LFSR_TSTATE_MROOTANCHOR << 4)
+            | flags;
+    t->o.o.mdir.mid = -1;
+    t->o.o.mdir.rbyd.weight = 0;
+    t->o.o.mdir.rbyd.blocks[0] = -1;
+    t->o.o.mdir.rbyd.blocks[1] = -1;
+    t->o.bshrub.u.bshrub.weight = 0;
+    t->o.bshrub.u.bshrub.blocks[0] = -1;
+    t->ot = NULL;
+    t->u.mtortoise.blocks[0] = -1;
+    t->u.mtortoise.blocks[1] = -1;
+    t->u.mtortoise.step = 0;
+    t->u.mtortoise.power = 0;
+}
 
 // low-level traversal _only_ finds blocks
 static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
@@ -9261,7 +9276,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 }
 
                 // transition to traversing the mtree
-                t->u.bt = LFSR_BTRAVERSAL();
+                lfsr_btraversal_init(&t->u.bt);
                 t->o.o.flags = lfsr_t_settstate(t->o.o.flags,
                         LFSR_TSTATE_MTREE);
                 continue;
@@ -9350,7 +9365,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             }
 
             // start traversing
-            t->u.bt = LFSR_BTRAVERSAL();
+            lfsr_btraversal_init(&t->u.bt);
             t->o.o.flags = lfsr_t_settstate(t->o.o.flags,
                     LFSR_TSTATE_BTREE);
             continue;
@@ -9383,7 +9398,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             // start traversing the file
             const lfsr_file_t *file = (const lfsr_file_t*)t->ot;
             t->o.bshrub = file->o.bshrub;
-            t->u.bt = LFSR_BTRAVERSAL();
+            lfsr_btraversal_init(&t->u.bt);
             t->o.o.flags = lfsr_t_settstate(t->o.o.flags,
                     LFSR_TSTATE_OBTREE);
             continue;
@@ -9793,7 +9808,8 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
         // traverse the filesystem, building up knowledge of what blocks are
         // in-use in the next lookahead window
         //
-        lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_LOOKAHEAD);
+        lfsr_traversal_t t;
+        lfsr_traversal_init(&t, LFS_T_LOOKAHEAD);
         while (true) {
             lfsr_tag_t tag;
             lfsr_bptr_t bptr;
@@ -10840,7 +10856,7 @@ static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
 
 static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // default data state
-    file->o.bshrub = LFSR_BSHRUB_BNULL();
+    lfsr_bshrub_init(&file->o.bshrub);
     // discard the current buffer
     file->buffer.pos = 0;
     file->buffer.size = 0;
@@ -10913,7 +10929,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
 
         // small files remain perpetually unflushed
         file->o.o.flags |= LFS_O_UNFLUSH;
-        file->o.bshrub = LFSR_BSHRUB_BNULL();
+        lfsr_bshrub_init(&file->o.bshrub);
         file->buffer.pos = 0;
         file->buffer.size = size;
     }
@@ -11436,7 +11452,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_DATA_BPTR(&file->o.bshrub.u.bptr, left.buf));
         }
 
-        file->o.bshrub.u.bshrub = LFSR_SHRUB_NULL(
+        lfsr_shrub_init(&file->o.bshrub.u.bshrub,
                 file->o.o.mdir.rbyd.blocks[0]);
 
         if (rat_count > 0) {
@@ -12822,7 +12838,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // small files remain perpetually unflushed
         file->o.o.flags |= LFS_O_UNFLUSH;
-        file->o.bshrub = LFSR_BSHRUB_BNULL();
+        lfsr_bshrub_init(&file->o.bshrub);
         file->buffer.pos = 0;
         file->buffer.size = size_;
 
@@ -12944,7 +12960,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
 
         // small files remain perpetually unflushed
         file->o.o.flags |= LFS_O_UNFLUSH;
-        file->o.bshrub = LFSR_BSHRUB_BNULL();
+        lfsr_bshrub_init(&file->o.bshrub);
         file->buffer.pos = 0;
         file->buffer.size = size_;
 
@@ -13022,7 +13038,8 @@ static int lfsr_file_traverse(lfs_t *lfs, const lfsr_file_t *file,
 static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
         uint32_t flags) {
     // traverse the file's btree
-    lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+    lfsr_btraversal_t bt;
+    lfsr_btraversal_init(&bt);
     while (true) {
         lfsr_tag_t tag;
         lfsr_bptr_t bptr;
@@ -13746,14 +13763,15 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // default to no mtree, this is allowed and implies all files are inlined
     // in the mroot
-    lfs->mtree = LFSR_MTREE_NULL();
+    lfsr_mtree_init(&lfs->mtree);
 
     // traverse the mtree rooted at mroot 0x{1,0}
     //
     // we do validate btree inner nodes here, how can we trust our
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
-    lfsr_traversal_t t = LFSR_TRAVERSAL(LFS_T_MTREEONLY | LFS_T_CKMETA);
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t, LFS_T_MTREEONLY | LFS_T_CKMETA);
     while (true) {
         lfsr_tag_t tag;
         lfsr_bptr_t bptr;
@@ -13813,10 +13831,9 @@ static int lfsr_mountinited(lfs_t *lfs) {
             } else {
                 // found a direct mdir? keep track of this
                 if (lfsr_mtree_isnull(&lfs->mtree)) {
-                    lfs->mtree = LFSR_MTREE_MPTR(
-                            mdir->rbyd.blocks[0],
-                            mdir->rbyd.blocks[1],
-                            (1 << lfs->mdir_bits));
+                    lfsr_mtree_frommptr(&lfs->mtree,
+                            mdir->rbyd.blocks,
+                            1 << lfs->mdir_bits);
                 }
             }
 
@@ -14157,7 +14174,8 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
 
 lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
     lfs_size_t count = 0;
-    lfsr_traversal_t t = LFSR_TRAVERSAL(0);
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t, 0);
     while (true) {
         lfsr_tag_t tag;
         int err = lfsr_mtree_traverse(lfs, &t,
@@ -14275,8 +14293,8 @@ failed:;
 
 static int lfsr_fs_mktidy(lfs_t *lfs) {
     // LFS_T_MKCONSISTENT really just removes orphans
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
-            LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t, LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
     while (true) {
         int err = lfsr_mtree_gc(lfs, &t,
                 NULL, NULL);
@@ -14334,7 +14352,8 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
 // filesystem check functions
 static int lfsr_fs_ck(lfs_t *lfs, uint32_t flags) {
     // we leave this up to lfsr_mtree_traverse
-    lfsr_traversal_t t = LFSR_TRAVERSAL(flags);
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t, flags);;
     while (true) {
         int err = lfsr_mtree_traverse(lfs, &t,
                 NULL, NULL);
@@ -14411,7 +14430,7 @@ int lfsr_fs_gc(lfs_t *lfs, lfs_soff_t steps, uint32_t flags) {
 
         // start a new traversal?
         if (!lfsr_omdir_isopen(lfs, &lfs->gc.o.o)) {
-            lfs->gc = LFSR_TRAVERSAL(pending);
+            lfsr_traversal_init(&lfs->gc, pending);
             lfsr_omdir_open(lfs, &lfs->gc.o.o);
         }
 

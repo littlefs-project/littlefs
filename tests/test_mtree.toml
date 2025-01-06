@@ -3362,7 +3362,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -3478,7 +3479,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -3616,7 +3618,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -3775,7 +3778,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -3918,7 +3922,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -4039,7 +4044,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -4202,7 +4208,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY
                 | ((CKMETA) ? LFS_T_CKMETA : 0));
     for (lfs_block_t i = 0;; i++) {
@@ -4332,7 +4339,8 @@ code = '''
                     mptr_buf)))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
-    lfsr_traversal_t t = LFSR_TRAVERSAL(
+    lfsr_traversal_t t;
+    lfsr_traversal_init(&t,
             LFS_T_MTREEONLY | LFS_T_CKMETA);
     for (lfs_block_t i = 0;; i++) {
         // assert that we detect the cycle in a reasonable number of iterations

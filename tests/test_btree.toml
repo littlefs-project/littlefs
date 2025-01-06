@@ -20,7 +20,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create an empty tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -51,7 +52,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -92,7 +94,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -141,7 +144,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("b", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
@@ -191,7 +195,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -249,7 +254,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("c", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
@@ -310,7 +316,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
@@ -360,7 +367,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
@@ -412,7 +420,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     //
@@ -494,7 +503,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATS(
@@ -562,7 +572,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     //
@@ -697,7 +708,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     // update the tree
@@ -742,7 +754,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -800,7 +813,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -872,7 +886,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
                 LFSR_RAT(
@@ -929,7 +944,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
                 LFSR_RAT(
@@ -1015,7 +1031,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATS(
                 LFSR_RAT(
@@ -1088,7 +1105,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATS(
                 LFSR_RAT(
@@ -1231,7 +1249,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     // pop!
@@ -1287,7 +1306,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -1359,7 +1379,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -1431,7 +1452,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("a", 1)))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATS(
@@ -1522,7 +1544,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
                 LFSR_RAT(
@@ -1601,7 +1624,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
                 LFSR_RAT(
@@ -1683,7 +1707,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
                 LFSR_RAT(
@@ -1771,7 +1796,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i*W, LFSR_RATS(
                 LFSR_RAT(
@@ -1877,7 +1903,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     //
@@ -2027,7 +2054,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_DATA, +1,
@@ -2086,7 +2114,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("_", 1)))) => 0;
 
@@ -2175,7 +2204,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_DATA, +W,
@@ -2235,7 +2265,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT(LFSR_TAG_DATA, +W, LFSR_DATA_BUF("_", 1)))) => 0;
 
@@ -2411,7 +2442,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // force it to split
 
@@ -2478,7 +2510,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // force it to split
 
@@ -2548,7 +2581,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // force it to split
 
@@ -2611,7 +2645,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // force it to split
 
@@ -2691,7 +2726,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     //
@@ -2797,7 +2833,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     //
@@ -2963,7 +3000,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a zero-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -2996,7 +3034,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a single-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +1,
@@ -3048,7 +3087,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +1,
@@ -3114,7 +3154,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +1,
@@ -3194,7 +3235,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a two-entry tree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +1,
@@ -3275,7 +3317,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     char name[3] = {
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
@@ -3348,7 +3391,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +1,
@@ -3462,7 +3506,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     char name[3] = {
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
     };
@@ -3536,7 +3581,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +W,
@@ -3692,7 +3738,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +1,
@@ -3849,7 +3896,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATS(
             LFSR_RAT_NAME(
                 LFSR_TAG_NAME, +W,
@@ -4054,7 +4102,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a tree with N elements
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
     lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_commit(&lfs, &btree, i, LFSR_RATS(
@@ -4092,7 +4141,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+    lfsr_btraversal_t bt;
+    lfsr_btraversal_init(&bt);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i <= 2*N);
@@ -4177,7 +4227,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     //
@@ -4243,7 +4294,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+    lfsr_btraversal_t bt;
+    lfsr_btraversal_init(&bt);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i <= 2*N);

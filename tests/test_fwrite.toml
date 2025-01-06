@@ -180,7 +180,8 @@ code = '''
         lfs_size_t fragments = 0;
 
         lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -320,7 +321,8 @@ code = '''
         lfs_block_t blocks = 0;
 
         lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -578,7 +580,8 @@ code = '''
         lfs_size_t fragments = 0;
 
         lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -733,7 +736,8 @@ code = '''
         lfs_block_t blocks = 0;
 
         lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-        lfsr_btraversal_t bt = LFSR_BTRAVERSAL();
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);

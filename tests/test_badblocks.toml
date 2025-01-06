@@ -61,7 +61,8 @@ code = '''
         lfs_alloc_ckpoint(&lfs);
 
         // create a btree
-        lfsr_btree_t btree = LFSR_BTREE_NULL();
+        lfsr_btree_t btree;
+        lfsr_btree_init(&btree);
 
         // set up a simulation to compare against
         char *sim = malloc(N);
@@ -1835,7 +1836,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     char *sim = malloc(N);
@@ -3609,7 +3611,8 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
 
     // create a btree
-    lfsr_btree_t btree = LFSR_BTREE_NULL();
+    lfsr_btree_t btree;
+    lfsr_btree_init(&btree);
 
     // set up a simulation to compare against
     char *sim = malloc(N);
