@@ -2129,24 +2129,13 @@ static inline lfs_size_t lfsr_rat_size(lfsr_rat_t rat) {
 
 // special rats - here be hacks
 
-// special case for passing names, we need to cat but we don't need the
-// full lfsr_data_t
-typedef struct lfsr_data_name {
-    lfsr_data_t did_data;
-    lfs_size_t name_len;
-    const uint8_t *name;
-} lfsr_data_name_t;
-
+// helper macro for did+name pairs
 #define LFSR_RAT_NAME(_tag, _weight, _did, _name, _name_len) \
-    LFSR_RAT_CAT_( \
+    LFSR_RAT_CAT( \
         _tag, \
         _weight, \
-        ((lfsr_data_t*)&(lfsr_data_name_t){ \
-            .did_data=LFSR_DATA_LEB128( \
-                _did, (uint8_t[LFSR_LEB128_DSIZE]){0}), \
-            .name_len=_name_len, \
-            .name=(const void*)(_name)}), \
-        2)
+        LFSR_DATA_LEB128(_did, (uint8_t[LFSR_LEB128_DSIZE]){0}), \
+        LFSR_DATA_BUF(_name, _name_len))
 
 // hacky rats - these end up handled as special cases in high-level
 // commit layers
