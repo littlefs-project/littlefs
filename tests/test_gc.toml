@@ -1045,6 +1045,305 @@ code = '''
 done:;
 '''
 
+# test we can detect fully clobbered blocks after a ck pass, if we call
+# lfsr_gc_unck
+[cases.test_gc_ckmeta_unck]
+# AFTER=0 => after running lfsr_gc once
+# AFTER=1 => after running lfsr_gc to completion
+# AFTER=2 => after lfsr_fs_ckmeta
+# AFTER=3 => after remounting with LFS_M_CKMETA
+defines.AFTER = [0, 1, 2, 3]
+defines.GC_FLAGS = 'LFS_GC_CKMETA'
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+ifdef = 'LFS_GC'
+code = '''
+    lfs_block_t i = 0;
+    while (true) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+        // create an interesting filesystem
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "squid%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+
+        // run lfsr_gc before clobbering, this should not find anything
+
+        // run lfsr_gc once
+        if (AFTER == 0) {
+            lfsr_gc(&lfs) => 0;
+
+        // run lfsr_gc to completion
+        } else if (AFTER == 1) {
+            while (true) {
+                struct lfs_fsinfo fsinfo;
+                lfsr_fs_stat(&lfs, &fsinfo) => 0;
+                if (!(fsinfo.flags & LFS_I_CANCKMETA)) {
+                    break;
+                }
+
+                lfsr_gc(&lfs) => 0;
+            }
+
+        // run lfsr_fs_ckmeta
+        } else if (AFTER == 2) {
+            lfsr_fs_ckmeta(&lfs) => 0;
+
+            struct lfs_fsinfo fsinfo;
+            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS_I_CANCKMETA));
+
+        // remount with LFS_M_CKMETA
+        } else if (AFTER == 3) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKMETA, CFG) => 0;
+
+            struct lfs_fsinfo fsinfo;
+            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS_I_CANCKMETA));
+
+        } else {
+            assert(false);
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            // this gets a bit tricky be cause we need to clobber both
+            // blocks in mdir pairs
+            if (tinfo.btype == LFS_BTYPE_MDIR
+                    || tinfo.btype == LFS_BTYPE_BTREE) {
+                if (k == i || k == i+1) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto clobbered;
+                    }
+                }
+                k += 1;
+            }
+        }
+
+    clobbered:;
+        // clear relevant ck flags
+        lfsr_gc_unck(&lfs, LFS_I_CANCKMETA) => 0;
+
+        // running lfsr_gc should eventually find the clobbered block
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+            int err = lfsr_gc(&lfs);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found it
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+        }
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
+[cases.test_gc_ckdata_unck]
+# AFTER=0 => after running lfsr_gc once
+# AFTER=1 => after running lfsr_gc to completion
+# AFTER=2 => after lfsr_fs_ckdata
+# AFTER=3 => after remounting with LFS_M_CKDATA
+defines.AFTER = [0, 1, 2]
+defines.GC_FLAGS = 'LFS_GC_CKDATA'
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+ifdef = 'LFS_GC'
+code = '''
+    lfs_block_t i = 0;
+    while (true) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs_t lfs;
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+        // create an interesting filesystem
+        uint32_t prng = 42;
+        for (lfs_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "squid%03x", i);
+
+            uint8_t wbuf[SIZE];
+            for (lfs_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfsr_file_t file;
+            lfsr_file_open(&lfs, &file, name,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+            lfsr_file_close(&lfs, &file) => 0;
+        }
+
+        // run lfsr_gc before clobbering, this should not find anything
+
+        // run lfsr_gc once
+        if (AFTER == 0) {
+            lfsr_gc(&lfs) => 0;
+
+        // run lfsr_gc to completion
+        } else if (AFTER == 1) {
+            while (true) {
+                struct lfs_fsinfo fsinfo;
+                lfsr_fs_stat(&lfs, &fsinfo) => 0;
+                if (!(fsinfo.flags & LFS_I_CANCKDATA)) {
+                    break;
+                }
+
+                lfsr_gc(&lfs) => 0;
+            }
+
+        // run lfsr_fs_ckdata
+        } else if (AFTER == 2) {
+            lfsr_fs_ckdata(&lfs) => 0;
+
+            struct lfs_fsinfo fsinfo;
+            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS_I_CANCKDATA));
+
+        // remount with LFS_M_CKDATA
+        } else if (AFTER == 3) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATA, CFG) => 0;
+
+            struct lfs_fsinfo fsinfo;
+            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS_I_CANCKDATA));
+
+        } else {
+            assert(false);
+        }
+
+        // traverse to find blocks
+        lfsr_traversal_t t;
+        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfs_block_t k = 0;
+        for (lfs_block_t j = 0;; j++) {
+            assert(j < 2*BLOCK_COUNT);
+
+            struct lfs_tinfo tinfo;
+            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                lfsr_traversal_close(&lfs, &t) => 0;
+                lfsr_unmount(&lfs) => 0;
+                goto done;
+            }
+
+            // this gets a bit tricky be cause we need to clobber both
+            // blocks in mdir pairs
+            if (tinfo.btype == LFS_BTYPE_MDIR
+                    || tinfo.btype == LFS_BTYPE_BTREE
+                    || tinfo.btype == LFS_BTYPE_DATA) {
+                if (k == i || k == i+1) {
+                    // clobber this block
+                    printf("clobbering 0x%x\n", tinfo.block);
+                    uint8_t clobber_buf[BLOCK_SIZE];
+                    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+                    CFG->erase(CFG, tinfo.block) => 0;
+                    CFG->prog(CFG, tinfo.block, 0,
+                            clobber_buf, BLOCK_SIZE) => 0;
+                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto clobbered;
+                    }
+                }
+                k += 1;
+            }
+        }
+
+    clobbered:;
+        // clear relevant ck flags
+        lfsr_gc_unck(&lfs, LFS_I_CANCKDATA) => 0;
+
+        // running lfsr_gc should eventually find the clobbered block
+        //
+        // note LFS_GC_CKDATA implies LFS_GC_CKMETA
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+            int err = lfsr_gc(&lfs);
+            assert(!err || err == LFS_ERR_CORRUPT);
+            // found it
+            if (err == LFS_ERR_CORRUPT) {
+                break;
+            }
+        }
+
+        lfsr_unmount(&lfs) => 0;
+    }
+done:;
+'''
+
 
 # pseudo-fuzz test that dirtying still works with the GC API
 [cases.test_gc_mutation]
@@ -1115,6 +1414,79 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# pseudo-fuzz test that spamming lfsr_gc_unck doesn't break anything
+[cases.test_gc_mutation_unck]
+defines.N = 100
+defines.MKCONSISTENT = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.COMPACT = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.SIZE = [
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+ifdef = 'LFS_GC'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "spider",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (uint32_t i = 0; i < N; i++) {
+        // rewrite the file every gc cycle
+        lfsr_file_open(&lfs, &file, "spider",
+                LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // choose a random set of flags to unck every cycle
+        uint32_t flags = GC_FLAGS & TEST_PRNG(&prng);
+        lfsr_gc_unck(&lfs, flags) => 0;
+
+        // gc!
+        lfsr_gc(&lfs) => 0;
+    }
+
+    // check the file contents
+    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 
 # many/fuzz tests mixed with GC
@@ -1126,6 +1498,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -1153,6 +1526,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -1224,6 +1602,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -1334,6 +1713,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -1393,6 +1777,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -1440,6 +1825,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -1485,6 +1875,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -1642,6 +2033,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -1716,6 +2112,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -1809,6 +2206,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     lfsr_file_close(&lfs, &file) => 0;
@@ -1867,6 +2269,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -2142,6 +2545,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     // check that disk matches our simulation
@@ -2226,6 +2634,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
@@ -2563,6 +2972,11 @@ code = '''
 
         // gc!
         lfsr_gc(&lfs) => 0;
+
+        // unck to keep things interesting?
+        if (UNCK) {
+            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+        }
     }
 
     // check that disk matches our simulation

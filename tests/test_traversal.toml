@@ -1682,7 +1682,9 @@ code = '''
     assert(fsinfo.flags == (
             LFS_I_INCONSISTENT
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing
     lfsr_traversal_t t;
@@ -1707,7 +1709,9 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS_I_INCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
+                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1763,12 +1767,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1812,12 +1818,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try another mutation just for good measure
     lfsr_file_open(&lfs, &file, "tarantula",
@@ -1831,11 +1839,13 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_traversal_close(&lfs, &t) => 0;
 
@@ -1883,12 +1893,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1940,12 +1952,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1997,12 +2011,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2066,12 +2082,14 @@ code = '''
 
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -2145,12 +2163,14 @@ code = '''
 
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_rewind(&lfs, &file) => 0;
@@ -2236,12 +2256,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -2336,12 +2358,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -2429,12 +2453,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+               | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -2509,12 +2535,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2608,12 +2636,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2700,12 +2730,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     lfsr_file_close(&lfs, &file1) => 0;
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2784,13 +2816,15 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact, unless we're desynced
+    // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS_I_INCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!(CKMETA && DESYNC)) ? LFS_I_CANCKMETA : 0)
+                | ((!(CKDATA && DESYNC)) ? LFS_I_CANCKDATA : 0)));
 
     lfsr_file_close(&lfs, &file2) => 0;
 
@@ -2888,13 +2922,15 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact, unless we're desynced
+    // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS_I_INCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!(CKMETA && DESYNC)) ? LFS_I_CANCKMETA : 0)
+                | ((!(CKDATA && DESYNC)) ? LFS_I_CANCKDATA : 0)));
 
     lfsr_file_close(&lfs, &file2) => 0;
 
@@ -2985,13 +3021,15 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact, unless we're desynced
+    // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS_I_INCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!(CKMETA && DESYNC)) ? LFS_I_CANCKMETA : 0)
+                | ((!(CKDATA && DESYNC)) ? LFS_I_CANCKDATA : 0)));
 
     lfsr_file_close(&lfs, &file2) => 0;
 
@@ -3079,13 +3117,15 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact, unless we're desynced
+    // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS_I_INCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!(CKMETA && DESYNC)) ? LFS_I_CANCKMETA : 0)
+                | ((!(CKDATA && DESYNC)) ? LFS_I_CANCKDATA : 0)));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
@@ -3176,12 +3216,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => LFS_ERR_NOENT;
@@ -3272,12 +3314,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3376,12 +3420,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3491,12 +3537,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3606,12 +3654,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3708,12 +3758,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3804,12 +3856,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -3915,12 +3969,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4025,12 +4081,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4188,12 +4246,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4368,12 +4428,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4542,12 +4604,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4713,12 +4777,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -4891,12 +4957,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -5068,12 +5136,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -5256,12 +5326,14 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
     lfsr_traversal_close(&lfs, &t) => 0;
 
-    // we should _not_ update lookahead/compact
+    // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -5326,7 +5398,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing and compacting
     lfsr_traversal_t t;
@@ -5352,7 +5426,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // running another traversal should clear the uncompacted flag
     lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -5371,7 +5447,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5449,7 +5527,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing and compacting
     lfsr_traversal_t t;
@@ -5483,7 +5563,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // running another traversal should clear the uncompacted flag
     lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -5504,7 +5586,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5564,7 +5648,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing and compacting
     lfsr_traversal_t t;
@@ -5592,7 +5678,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // running another traversal should clear the uncompacted flag
     lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -5611,7 +5699,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5696,7 +5786,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing and compacting
     lfsr_traversal_t t;
@@ -5736,7 +5828,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // running another traversal should clear the uncompacted flag
     lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -5756,7 +5850,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5897,7 +5993,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing and compacting
     lfsr_traversal_t t;
@@ -5944,7 +6042,9 @@ code = '''
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         assert(fsinfo.flags == (
                 LFS_I_CANLOOKAHEAD
-                    | LFS_I_UNCOMPACTED));
+                    | LFS_I_UNCOMPACTED
+                    | LFS_I_CANCKMETA
+                    | LFS_I_CANCKDATA));
 
         // running another traversal should clear the uncompacted flag
         lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -5966,7 +6066,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6109,7 +6211,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing and compacting
     lfsr_traversal_t t;
@@ -6161,7 +6265,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // running another traversal should clear the uncompacted flag
     lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -6183,7 +6289,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6292,7 +6400,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -6340,7 +6450,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6410,7 +6522,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -6476,7 +6590,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS >= 3) ? LFS_I_INCONSISTENT : 0)
                 | ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6569,7 +6685,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -6631,7 +6749,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6722,7 +6842,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -6784,7 +6906,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6878,7 +7002,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -6948,7 +7074,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7040,7 +7168,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -7110,7 +7240,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_CANLOOKAHEAD : 0)
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7222,7 +7354,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -7275,7 +7409,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // running another traversal should clear the uncompacted flag
     lfsr_traversal_rewind(&lfs, &t) => 0;
@@ -7295,7 +7431,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+            ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7388,7 +7526,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // try traversing with mkconsistent
     lfsr_traversal_t t;
@@ -7459,7 +7599,9 @@ code = '''
     assert(fsinfo.flags == (
             ((ORPHANS >= 3) ? LFS_I_INCONSISTENT : 0)
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {

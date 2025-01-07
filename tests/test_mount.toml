@@ -74,7 +74,9 @@ code = '''
                     : 0)
                 | ((!MKCONSISTENT) ? LFS_I_INCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
+                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -135,7 +137,9 @@ code = '''
     assert(fsinfo.flags == (
             LFS_I_INCONSISTENT
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
     lfsr_unmount(&lfs) => 0;
 
     // with LFS_M_LOOKAHEAD, mount performs a lookahead scan
@@ -148,7 +152,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_INCONSISTENT
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -201,7 +207,9 @@ code = '''
     assert(fsinfo.flags == (
             LFS_I_INCONSISTENT
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
     lfsr_unmount(&lfs) => 0;
 
     // with LFS_M_COMPACT, mount compact any uncompacted blocks
@@ -215,7 +223,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS_I_INCONSISTENT
-                | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)));
+                | ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // mdir should have been compacted
     lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
@@ -295,7 +305,9 @@ code = '''
     assert(fsinfo.flags == (
             LFS_I_INCONSISTENT
                 | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED));
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA));
     lfsr_unmount(&lfs) => 0;
 
     // with LFS_M_MKCONSISTENT, mount cleans up orphans eagerly
@@ -310,7 +322,9 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_CANLOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)));
+                | ((!COMPACT) ? LFS_I_UNCOMPACTED : 0)
+                | ((!CKMETA) ? LFS_I_CANCKMETA : 0)
+                | ((!CKDATA) ? LFS_I_CANCKDATA : 0)));
 
     // check we can still read the files
     lfsr_file_open(&lfs, &file, "cuttlefish", LFS_O_RDONLY) => 0;

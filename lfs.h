@@ -229,6 +229,8 @@ enum lfs_type {
                         0x00002000  // Lookahead buffer is not full
 #define LFS_I_UNCOMPACTED \
                         0x00008000  // Filesystem may have uncompacted metadata
+#define LFS_I_CANCKMETA 0x00010000  // Metadata checksums not checked recently
+#define LFS_I_CANCKDATA 0x00020000  // Data checksums not checked recently
 
 // internally used flags, don't use these
 #define LFS_I_UNTIDY    0x00001000  // Filesystem may have orphaned stickynotes
@@ -1268,6 +1270,20 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 //
 // Returns a negative error code on failure.
 int lfsr_gc(lfs_t *lfs);
+#endif
+
+#ifdef LFS_GC
+// Mark janitorial work as incomplete.
+//
+// Any info flags passed to lfsr_gc_unck will be reset internally,
+// forcing the work to be redone.
+//
+// This is most useful for triggering new ckmeta/ckdata scans with
+// LFS_I_CANCKMETA and LFS_I_CANCKDATA. Otherwise littlefs will perform
+// only one scan after mount.
+//
+// Returns a negative error code on failure.
+int lfsr_gc_unck(lfs_t *lfs, uint32_t flags);
 #endif
 
 
