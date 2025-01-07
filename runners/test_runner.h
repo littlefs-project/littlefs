@@ -136,13 +136,20 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .pcache_size        = PCACHE_SIZE,          \
     .file_buffer_size   = FILE_BUFFER_SIZE,     \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
-    .gc_flags           = GC_FLAGS,             \
-    .gc_steps           = GC_STEPS,             \
+    TEST_GC_CFG                                 \
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \
     .inline_size        = INLINE_SIZE,          \
     .shrub_size         = SHRUB_SIZE,           \
     .fragment_size      = FRAGMENT_SIZE,        \
-    .crystal_thresh     = CRYSTAL_THRESH,
+    .crystal_thresh     = CRYSTAL_THRESH
+
+#ifdef LFS_GC
+#define TEST_GC_CFG                             \
+    .gc_flags           = GC_FLAGS,             \
+    .gc_steps           = GC_STEPS,
+#else
+#define TEST_GC_CFG
+#endif
 
 #define TEST_BDCFG \
     .erase_value        = ERASE_VALUE,          \

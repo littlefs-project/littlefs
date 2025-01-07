@@ -352,12 +352,15 @@ struct lfs_config {
     // can track 8 blocks.
     lfs_size_t lookahead_size;
 
+    #ifdef LFS_GC
     // Flags indicating what gc work to do during lfsr_gc calls.
     //
     // Defaults to LFS_GC_MKCONSISTENT + LFS_GC_LOOKAHEAD +
     // LFS_GC_COMPACT when zero.
     uint32_t gc_flags;
+    #endif
 
+    #ifdef LFS_GC
     // Number of gc steps to perform in each call to lfsr_gc, with each
     // step being ~1 block of work.
     //
@@ -369,6 +372,7 @@ struct lfs_config {
     //
     // Defaults to steps=1 when zero.
     lfs_soff_t gc_steps;
+    #endif
 
     // Threshold for metadata compaction during gc in bytes. Metadata logs
     // that exceed this threshold will be compacted during gc operations.
@@ -879,12 +883,13 @@ typedef struct lfs {
     uint8_t grm_p[LFSR_GRM_DSIZE];
     uint8_t grm_d[LFSR_GRM_DSIZE];
 
-    // TODO allow compile time opt-out to reclaim RAM
+    #ifdef LFS_GC
     struct {
         uint32_t flags;
         lfs_soff_t steps;
         lfsr_traversal_t t;
     } gc;
+    #endif
 } lfs_t;
 
 
@@ -1253,7 +1258,7 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 
 /// Incremental gc operations ///
 
-#ifndef LFS_READONLY
+#ifdef LFS_GC
 // Perform any janitorial work that may be pending.
 //
 // The exact janitorial work depends on the configured flags and steps.
@@ -1265,14 +1270,14 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 int lfsr_gc(lfs_t *lfs);
 #endif
 
-#ifndef LFS_READONLY
+#ifdef LFS_GC
 // Sets the gc flags.
 //
 // Returns a negative error code on failure.
 int lfsr_gc_setflags(lfs_t *lfs, uint32_t flags);
 #endif
 
-#ifndef LFS_READONLY
+#ifdef LFS_GC
 // Sets the number of gc steps per lfsr_gc call, with each step being
 // ~1 block of work.
 //

@@ -13155,6 +13155,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
 //    // wear-leveling.
 //    LFS_ASSERT(lfs->cfg->block_cycles != 0);
 
+    #ifdef LFS_GC
     // unknown gc flags?
     LFS_ASSERT((lfs->cfg->gc_flags & ~(
             LFS_GC_MTREEONLY
@@ -13163,6 +13164,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
                 | LFS_GC_COMPACT
                 | LFS_GC_CKMETA
                 | LFS_GC_CKDATA)) == 0);
+    #endif
 
     // check that gc_compact_thresh makes sense
     //
@@ -13361,6 +13363,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 
+    #ifdef LFS_GC
     // setup gc state, this can be mutated which is why we need a copy
     if (lfs->cfg->gc_flags) {
         lfs->gc.flags = lfs->cfg->gc_flags;
@@ -13374,6 +13377,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     } else {
         lfs->gc.steps = 1;
     }
+    #endif
 
     return 0;
 
@@ -13921,7 +13925,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
 }
 
 // needed in lfsr_mount
-static int lfsr_gc_(lfs_t *lfs, uint32_t flags, lfs_soff_t steps);
+static int lfsr_fs_gc(lfs_t *lfs, lfsr_traversal_t *t,
+        uint32_t flags, lfs_soff_t steps);
 
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg) {
@@ -13977,7 +13982,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_COMPACT
                 | LFS_M_CKMETA
                 | LFS_M_CKDATA)) {
-        err = lfsr_gc_(lfs,
+        lfsr_traversal_t t;
+        err = lfsr_fs_gc(lfs, &t,
                 flags & (
                     LFS_M_MTREEONLY
                         | LFS_M_MKCONSISTENT
@@ -14018,8 +14024,10 @@ int lfsr_unmount(lfs_t *lfs) {
     // all files/dirs should be closed before lfsr_unmount
     LFS_ASSERT(lfs->omdirs == NULL
             // special case for our gc traversal handle
-            || (lfs->omdirs == &lfs->gc.t.o.o
-                && lfs->gc.t.o.o.next == NULL));
+            || LFS_IFDEF_GC(
+                (lfs->omdirs == &lfs->gc.t.o.o
+                    && lfs->gc.t.o.o.next == NULL),
+                false));
 
     return lfs_deinit(lfs);
 }
@@ -14153,7 +14161,8 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                 | LFS_F_COMPACT
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) {
-        err = lfsr_gc_(lfs,
+        lfsr_traversal_t t;
+        err = lfsr_fs_gc(lfs, &t,
                 flags & (
                     LFS_F_MTREEONLY
                         | LFS_F_COMPACT
@@ -14405,6 +14414,118 @@ int lfsr_fs_ckdata(lfs_t *lfs) {
     return lfsr_fs_ck(lfs, LFS_T_CKMETA | LFS_T_CKDATA);
 }
 
+// low-level filesystem gc
+//
+// runs the traversal until all work is completed, which may take
+// multiple passes
+static int lfsr_fs_gc(lfs_t *lfs, lfsr_traversal_t *t,
+        uint32_t flags, lfs_soff_t steps) {
+    // unknown gc flags?
+    //
+    // we should have check these earlier, but it doesn't hurt to
+    // double check
+    LFS_ASSERT((flags & ~(
+            LFS_GC_MTREEONLY
+                | LFS_GC_MKCONSISTENT
+                | LFS_GC_LOOKAHEAD
+                | LFS_GC_COMPACT
+                | LFS_GC_CKMETA
+                | LFS_GC_CKDATA)) == 0);
+    // these flags require a writable filesystem
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_ismkconsistent(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_iscompact(flags));
+    // some flags don't make sense when only traversing the mtree
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
+
+    // fix pending grms if requested
+    if (lfsr_t_ismkconsistent(flags)
+            && lfsr_grm_count(lfs) > 0) {
+        int err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    // do we have any pending work?
+    uint32_t pending = flags & (
+            (lfs->flags & (
+                    LFS_I_UNTIDY
+                        | LFS_I_UNCOMPACTED))
+                | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
+                | LFS_GC_CKMETA
+                | LFS_GC_CKDATA);
+
+    while (pending && (lfs_off_t)steps > 0) {
+        // checkpoint the allocator to maximize any lookahead scans
+        lfs_alloc_ckpoint(lfs);
+
+        // start a new traversal?
+        if (!lfsr_omdir_isopen(lfs, &t->o.o)) {
+            lfsr_traversal_init(t, pending);
+            lfsr_omdir_open(lfs, &t->o.o);
+        }
+
+        // don't bother with lookahead if we've mutated
+        if (lfsr_t_isdirty(t->o.o.flags)
+                || lfsr_t_ismutated(t->o.o.flags)) {
+            t->o.o.flags &= ~LFS_GC_LOOKAHEAD;
+        }
+
+        // will this traversal still make progress? no? start over
+        if (!(t->o.o.flags & (
+                LFS_GC_MKCONSISTENT
+                    | LFS_GC_LOOKAHEAD
+                    | LFS_GC_COMPACT
+                    | LFS_GC_CKMETA
+                    | LFS_GC_CKDATA))) {
+            lfsr_omdir_close(lfs, &t->o.o);
+            continue;
+        }
+
+        // do we really need a full traversal?
+        if (!(t->o.o.flags & (
+                LFS_GC_LOOKAHEAD
+                    | LFS_GC_CKMETA
+                    | LFS_GC_CKDATA))) {
+            t->o.o.flags |= LFS_T_MTREEONLY;
+        }
+
+        // progress gc
+        int err = lfsr_mtree_gc(lfs, t,
+                NULL, NULL);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // end of traversal?
+        if (err == LFS_ERR_NOENT) {
+            lfsr_omdir_close(lfs, &t->o.o);
+
+            // clear any pending flags we make progress on
+            pending &= (
+                    (lfs->flags & (
+                            LFS_I_UNTIDY
+                                | LFS_I_UNCOMPACTED))
+                        | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
+                        // only consider our filesystem checked if we
+                        // weren't mutated
+                        | ((lfsr_t_isdirty(t->o.o.flags)
+                                || lfsr_t_ismutated(t->o.o.flags))
+                            ? LFS_GC_CKMETA | LFS_GC_CKDATA
+                            : 0));
+        }
+
+        // decrement steps
+        if (steps > 0) {
+            steps -= 1;
+        }
+    }
+
+    return 0;
+}
+
 
 // attempt to grow the filesystem
 int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
@@ -14638,6 +14759,7 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
 
 /// Incremental gc operations ///
 
+#ifdef LFS_GC
 int lfsr_gc_setflags(lfs_t *lfs, uint32_t flags) {
     // unknown gc flags?
     LFS_ASSERT((flags & ~(
@@ -14656,123 +14778,22 @@ int lfsr_gc_setflags(lfs_t *lfs, uint32_t flags) {
     lfs->gc.flags = flags;
     return 0;
 }
+#endif
 
+#ifdef LFS_GC
 int lfsr_gc_setsteps(lfs_t *lfs, lfs_soff_t steps) {
     lfs->gc.steps = steps;
     return 0;
 }
+#endif
 
+#ifdef LFS_GC
 // perform any pending janitorial work
-static int lfsr_gc_(lfs_t *lfs, uint32_t flags, lfs_soff_t steps) {
-    // unknown gc flags?
-    //
-    // we should have check these earlier, but it doesn't hurt to
-    // double check
-    LFS_ASSERT((flags & ~(
-            LFS_GC_MTREEONLY
-                | LFS_GC_MKCONSISTENT
-                | LFS_GC_LOOKAHEAD
-                | LFS_GC_COMPACT
-                | LFS_GC_CKMETA
-                | LFS_GC_CKDATA)) == 0);
-    // these flags require a writable filesystem
-    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_ismkconsistent(flags));
-    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_iscompact(flags));
-    // some flags don't make sense when only traversing the mtree
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
-
-    // fix pending grms if requested
-    if (lfsr_t_ismkconsistent(flags)
-            && lfsr_grm_count(lfs) > 0) {
-        int err = lfsr_fs_fixgrm(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
-    // do we have any pending work?
-    uint32_t pending = flags & (
-            (lfs->flags & (
-                    LFS_I_UNTIDY
-                        | LFS_I_UNCOMPACTED))
-                | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
-                | LFS_GC_CKMETA
-                | LFS_GC_CKDATA);
-
-    while (pending && (lfs_off_t)steps > 0) {
-        // checkpoint the allocator to maximize any lookahead scans
-        lfs_alloc_ckpoint(lfs);
-
-        // start a new traversal?
-        if (!lfsr_omdir_isopen(lfs, &lfs->gc.t.o.o)) {
-            lfsr_traversal_init(&lfs->gc.t, pending);
-            lfsr_omdir_open(lfs, &lfs->gc.t.o.o);
-        }
-
-        // don't bother with lookahead if we've mutated
-        if (lfsr_t_isdirty(lfs->gc.t.o.o.flags)
-                || lfsr_t_ismutated(lfs->gc.t.o.o.flags)) {
-            lfs->gc.t.o.o.flags &= ~LFS_GC_LOOKAHEAD;
-        }
-
-        // will this traversal still make progress? no? start over
-        if (!(lfs->gc.t.o.o.flags & (
-                LFS_GC_MKCONSISTENT
-                    | LFS_GC_LOOKAHEAD
-                    | LFS_GC_COMPACT
-                    | LFS_GC_CKMETA
-                    | LFS_GC_CKDATA))) {
-            lfsr_omdir_close(lfs, &lfs->gc.t.o.o);
-            continue;
-        }
-
-        // do we really need a full traversal?
-        if (!(lfs->gc.t.o.o.flags & (
-                LFS_GC_LOOKAHEAD
-                    | LFS_GC_CKMETA
-                    | LFS_GC_CKDATA))) {
-            lfs->gc.t.o.o.flags |= LFS_T_MTREEONLY;
-        }
-
-        // progress gc
-        int err = lfsr_mtree_gc(lfs, &lfs->gc.t,
-                NULL, NULL);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-
-        // end of traversal?
-        if (err == LFS_ERR_NOENT) {
-            lfsr_omdir_close(lfs, &lfs->gc.t.o.o);
-
-            // clear any pending flags we make progress on
-            pending &= (
-                    (lfs->flags & (
-                            LFS_I_UNTIDY
-                                | LFS_I_UNCOMPACTED))
-                        | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0)
-                        // only consider our filesystem checked if we
-                        // weren't mutated
-                        | ((lfsr_t_isdirty(lfs->gc.t.o.o.flags)
-                                || lfsr_t_ismutated(lfs->gc.t.o.o.flags))
-                            ? LFS_GC_CKMETA | LFS_GC_CKDATA
-                            : 0));
-        }
-
-        // decrement steps
-        if (steps > 0) {
-            steps -= 1;
-        }
-    }
-
-    return 0;
-}
-
 int lfsr_gc(lfs_t *lfs) {
-    return lfsr_gc_(lfs, lfs->gc.flags, lfs->gc.steps);
+    return lfsr_fs_gc(lfs, &lfs->gc.t,
+            lfs->gc.flags, lfs->gc.steps);
 }
+#endif
 
 
 

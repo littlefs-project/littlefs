@@ -22,6 +22,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -85,6 +86,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -153,6 +155,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -216,6 +219,7 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -290,6 +294,7 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -358,6 +363,7 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -430,6 +436,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -518,6 +525,7 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -618,6 +626,7 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -713,6 +722,7 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -804,6 +814,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [1, 2, 3, 100]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -953,7 +964,9 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_INCONSISTENT);
+    #ifdef LFS_GC
     assert(lfs.omdirs != &lfs.gc.t.o.o);
+    #endif
 
     // call lfsr_fs_mkconsistent
     lfsr_fs_mkconsistent(&lfs) => 0;
@@ -1008,6 +1021,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.ORPHANS = [3, 100]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -1123,7 +1137,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.ORPHANS = [3, 100]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
-in = 'lfs.c'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -1237,6 +1251,7 @@ defines.SIZE = 'FILE_BUFFER_SIZE/2'
 defines.ORPHANS = [3, 100]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -1349,6 +1364,7 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
+ifdef = 'LFS_GC'
 code = '''
     lfs_block_t i = 0;
     while (true) {
@@ -1448,6 +1464,7 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
+ifdef = 'LFS_GC'
 code = '''
     lfs_block_t i = 0;
     while (true) {
@@ -1740,6 +1757,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -1808,6 +1826,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -1876,6 +1895,7 @@ defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+ifdef = 'LFS_GC'
 code = '''
     // test creating directories
     lfs_t lfs;
@@ -1976,6 +1996,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
+ifdef = 'LFS_GC'
 code = '''
     // test fuzz with dirs
     lfs_t lfs;
@@ -2151,6 +2172,7 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
+ifdef = 'LFS_GC'
 code = '''
     // test creating files
     lfs_t lfs;
@@ -2245,6 +2267,7 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
+ifdef = 'LFS_GC'
 code = '''
     // test fuzz with files
     lfs_t lfs;
@@ -2484,6 +2507,7 @@ if = [
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
+ifdef = 'LFS_GC'
 code = '''
     // test with complex file writes
     lfs_t lfs;
@@ -2625,6 +2649,7 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
+ifdef = 'LFS_GC'
 code = '''
     // test with uncreats, zombies, etc
     lfs_t lfs;
@@ -2983,6 +3008,7 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
+ifdef = 'LFS_GC'
 code = '''
     // test with uncreats, zombies, dirs, etc
     lfs_t lfs;

@@ -24,7 +24,10 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+    'LFS_IFDEF_GC(true, METHOD != 1)',
+]
 code = '''
     lfs_block_t i = 0;
     while (true) {
@@ -98,7 +101,11 @@ code = '''
 
         // find clobbered blocks with lfsr_gc
         } else if (METHOD == 1) {
+            #ifdef LFS_GC
             lfsr_gc(&lfs) => LFS_ERR_CORRUPT;
+            #else
+            LFS_UNREACHABLE();
+            #endif
 
         // find clobbered blocks with lfsr_traversal_read
         } else if (METHOD == 2) {
@@ -154,7 +161,10 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+    'LFS_IFDEF_GC(true, METHOD != 1)',
+]
 code = '''
     lfs_block_t i = 0;
     while (true) {
@@ -229,7 +239,11 @@ code = '''
 
         // find clobbered blocks with lfsr_gc
         } else if (METHOD == 1) {
+            #ifdef LFS_GC
             lfsr_gc(&lfs) => LFS_ERR_CORRUPT;
+            #else
+            LFS_UNREACHABLE();
+            #endif
 
         // find clobbered blocks with lfsr_traversal_read
         } else if (METHOD == 2) {
