@@ -14760,34 +14760,6 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
 /// Incremental gc operations ///
 
 #ifdef LFS_GC
-int lfsr_gc_setflags(lfs_t *lfs, uint32_t flags) {
-    // unknown gc flags?
-    LFS_ASSERT((flags & ~(
-            LFS_GC_MTREEONLY
-                | LFS_GC_MKCONSISTENT
-                | LFS_GC_LOOKAHEAD
-                | LFS_GC_COMPACT
-                | LFS_GC_CKMETA
-                | LFS_GC_CKDATA)) == 0);
-
-    // clobber any existing traversals
-    if (lfsr_omdir_isopen(lfs, &lfs->gc.t.o.o)) {
-        lfsr_omdir_close(lfs, &lfs->gc.t.o.o);
-    }
-
-    lfs->gc.flags = flags;
-    return 0;
-}
-#endif
-
-#ifdef LFS_GC
-int lfsr_gc_setsteps(lfs_t *lfs, lfs_soff_t steps) {
-    lfs->gc.steps = steps;
-    return 0;
-}
-#endif
-
-#ifdef LFS_GC
 // perform any pending janitorial work
 int lfsr_gc(lfs_t *lfs) {
     return lfsr_fs_gc(lfs, &lfs->gc.t,

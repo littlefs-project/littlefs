@@ -1270,27 +1270,6 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 int lfsr_gc(lfs_t *lfs);
 #endif
 
-#ifdef LFS_GC
-// Sets the gc flags.
-//
-// Returns a negative error code on failure.
-int lfsr_gc_setflags(lfs_t *lfs, uint32_t flags);
-#endif
-
-#ifdef LFS_GC
-// Sets the number of gc steps per lfsr_gc call, with each step being
-// ~1 block of work.
-//
-// More steps per call will make more progress if interleaved with
-// other filesystem operations, but may also introduce more latency.
-// steps=1 will do the minimum amount of work to make progress, and
-// steps=-1 will not return until all pending janitorial work has
-// been completed.
-//
-// Returns a negative error code on failure.
-int lfsr_gc_setsteps(lfs_t *lfs, lfs_soff_t steps);
-#endif
-
 
 /// Filesystem-level filesystem operations
 
