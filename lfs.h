@@ -173,7 +173,6 @@ enum lfs_type {
                         0x08000000  // Check data checksums on reads
 #endif
 
-#define LFS_F_MTREEONLY 0x00000800  // Only traverse the mtree
 #define LFS_F_COMPACT   0x00008000  // Compact metadata logs
 #define LFS_F_CKMETA    0x00010000  // Check metadata checksums
 #define LFS_F_CKDATA    0x00020000  // Check metadata + data checksums
@@ -197,7 +196,6 @@ enum lfs_type {
                         0x08000000  // Check data checksums on reads
 #endif
 
-#define LFS_M_MTREEONLY 0x00000800  // Only traverse the mtree
 #define LFS_M_MKCONSISTENT \
                         0x00001000  // Make the filesystem consistent
 #define LFS_M_LOOKAHEAD 0x00002000  // Populate lookahead buffer
@@ -257,8 +255,6 @@ enum lfs_btype {
 #define LFS_T_MUTATED   0x00000200  // Filesystem modified by traversal
 
 // GC flags
-#define LFS_GC_MTREEONLY \
-                        0x00000800  // Only traverse the mtree
 #define LFS_GC_MKCONSISTENT \
                         0x00001000  // Make the filesystem consistent
 #define LFS_GC_LOOKAHEAD \

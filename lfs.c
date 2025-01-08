@@ -13182,8 +13182,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     #ifdef LFS_GC
     // unknown gc flags?
     LFS_ASSERT((lfs->cfg->gc_flags & ~(
-            LFS_GC_MTREEONLY
-                | LFS_GC_MKCONSISTENT
+            LFS_GC_MKCONSISTENT
                 | LFS_GC_LOOKAHEAD
                 | LFS_GC_COMPACT
                 | LFS_GC_CKMETA
@@ -13967,7 +13966,6 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, 0)
-                | LFS_M_MTREEONLY
                 | LFS_M_MKCONSISTENT
                 | LFS_M_LOOKAHEAD
                 | LFS_M_COMPACT
@@ -14003,8 +14001,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS_M_MTREEONLY
-                | LFS_M_MKCONSISTENT
+            LFS_M_MKCONSISTENT
                 | LFS_M_LOOKAHEAD
                 | LFS_M_COMPACT
                 | LFS_M_CKMETA
@@ -14012,8 +14009,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
         lfsr_traversal_t t;
         err = lfsr_fs_gc_(lfs, &t,
                 flags & (
-                    LFS_M_MTREEONLY
-                        | LFS_M_MKCONSISTENT
+                    LFS_M_MKCONSISTENT
                         | LFS_M_LOOKAHEAD
                         | LFS_M_COMPACT
                         | LFS_M_CKMETA
@@ -14145,7 +14141,6 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, 0)
-                | LFS_F_MTREEONLY
                 | LFS_F_COMPACT
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) == 0);
@@ -14184,15 +14179,13 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS_F_MTREEONLY
-                | LFS_F_COMPACT
+            LFS_F_COMPACT
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) {
         lfsr_traversal_t t;
         err = lfsr_fs_gc_(lfs, &t,
                 flags & (
-                    LFS_F_MTREEONLY
-                        | LFS_F_COMPACT
+                    LFS_F_COMPACT
                         | LFS_F_CKMETA
                         | LFS_F_CKDATA),
                 -1);
@@ -14456,8 +14449,7 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
     // we should have check these earlier, but it doesn't hurt to
     // double check
     LFS_ASSERT((flags & ~(
-            LFS_GC_MTREEONLY
-                | LFS_GC_MKCONSISTENT
+            LFS_GC_MKCONSISTENT
                 | LFS_GC_LOOKAHEAD
                 | LFS_GC_COMPACT
                 | LFS_GC_CKMETA
