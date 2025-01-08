@@ -5318,7 +5318,7 @@ code = '''
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
+    assert(!(fsinfo.flags & LFS_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -5454,7 +5454,7 @@ code = '''
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
+    assert(!(fsinfo.flags & LFS_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -5604,7 +5604,7 @@ code = '''
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
+    assert(!(fsinfo.flags & LFS_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -5760,7 +5760,7 @@ code = '''
 
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
+    assert(!(fsinfo.flags & LFS_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here

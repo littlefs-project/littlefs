@@ -6724,28 +6724,28 @@ static inline bool lfsr_i_isuntidy(uint32_t flags) {
     return flags & LFS_I_UNTIDY;
 }
 
-static inline bool lfsr_i_isuncompacted(uint32_t flags) {
-    return flags & LFS_I_UNCOMPACTED;
+static inline bool lfsr_i_iscompact(uint32_t flags) {
+    return flags & LFS_I_COMPACT;
 }
 
-static inline bool lfsr_i_canckmeta(uint32_t flags) {
-    return flags & LFS_I_CANCKMETA;
+static inline bool lfsr_i_isckmeta(uint32_t flags) {
+    return flags & LFS_I_CKMETA;
 }
 
-static inline bool lfsr_i_canckdata(uint32_t flags) {
-    return flags & LFS_I_CANCKDATA;
+static inline bool lfsr_i_isckdata(uint32_t flags) {
+    return flags & LFS_I_CKDATA;
 }
 
 // on-demand flags
 
-// needed in lfsr_fs_isinconsistent
+// needed in lfsr_fs_ismkconsistent
 static inline uint8_t lfsr_grm_count(const lfs_t *lfs);
 
-static bool lfsr_fs_isinconsistent(const lfs_t *lfs) {
+static bool lfsr_fs_ismkconsistent(const lfs_t *lfs) {
     return lfsr_grm_count(lfs) > 0 || lfsr_i_isuntidy(lfs->flags);
 }
 
-static bool lfsr_fs_canlookahead(const lfs_t *lfs) {
+static bool lfsr_fs_islookahead(const lfs_t *lfs) {
     return lfs->lookahead.size < lfs_min(
             8*lfs->cfg->lookahead_size,
             lfs->cfg->block_size);
@@ -8742,7 +8742,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // we may have touched any number of mdirs, so assume uncompacted
     // until lfsr_gc can prove otherwise
-    lfs->flags |= LFS_I_UNCOMPACTED;
+    lfs->flags |= LFS_I_COMPACT;
 
     // update any gstate changes
     lfsr_fs_commitgdelta(lfs);
@@ -9646,7 +9646,7 @@ eot:;
     if (lfsr_t_iscompact(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)
             && !lfsr_t_ismutated(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_UNCOMPACTED;
+        lfs->flags &= ~LFS_I_COMPACT;
     }
 
     // was ckmeta/ckdata successful? we only consider our filesystem
@@ -9655,13 +9655,13 @@ eot:;
             && !lfsr_t_ismtreeonly(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)
             && !lfsr_t_ismutated(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_CANCKMETA;
+        lfs->flags &= ~LFS_I_CKMETA;
     }
     if (lfsr_t_isckdata(t->o.o.flags)
             && !lfsr_t_ismtreeonly(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)
             && !lfsr_t_ismutated(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_CANCKDATA;
+        lfs->flags &= ~LFS_I_CKDATA;
     }
 
     return LFS_ERR_NOENT;
@@ -13212,10 +13212,10 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
             | LFS_I_UNTIDY
             // default to assuming we need compaction somewhere, worst case
             // this just makes lfsr_gc read more than is strictly needed
-            | LFS_I_UNCOMPACTED
+            | LFS_I_COMPACT
             // default to needing a ckmeta/ckdata scan
-            | LFS_I_CANCKMETA
-            | LFS_I_CANCKDATA;
+            | LFS_I_CKMETA
+            | LFS_I_CKDATA;
 
     // copy block_count so we can mutate it
     lfs->block_count = lfs->cfg->block_count;
@@ -14223,12 +14223,12 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, 0)
-                | LFS_I_UNCOMPACTED
-                | LFS_I_CANCKMETA
-                | LFS_I_CANCKDATA);
+                | LFS_I_COMPACT
+                | LFS_I_CKMETA
+                | LFS_I_CKDATA);
     // some flags we calculate on demand
-    fsinfo->flags |= (lfsr_fs_isinconsistent(lfs)) ? LFS_I_INCONSISTENT : 0;
-    fsinfo->flags |= (lfsr_fs_canlookahead(lfs)) ? LFS_I_CANLOOKAHEAD : 0;
+    fsinfo->flags |= (lfsr_fs_ismkconsistent(lfs)) ? LFS_I_MKCONSISTENT : 0;
+    fsinfo->flags |= (lfsr_fs_islookahead(lfs)) ? LFS_I_LOOKAHEAD : 0;
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs->cfg->block_size;
@@ -14483,10 +14483,10 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
     uint32_t pending = flags & (
             (lfs->flags & (
                     LFS_I_UNTIDY
-                        | LFS_I_UNCOMPACTED
-                        | LFS_I_CANCKMETA
-                        | LFS_I_CANCKDATA))
-                | ((lfsr_fs_canlookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0));
+                        | LFS_I_COMPACT
+                        | LFS_I_CKMETA
+                        | LFS_I_CKDATA))
+                | ((lfsr_fs_islookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0));
 
     while (pending && (lfs_off_t)steps > 0) {
         // checkpoint the allocator to maximize any lookahead scans
@@ -14538,10 +14538,10 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
             pending &= (
                     (lfs->flags & (
                             LFS_I_UNTIDY
-                                | LFS_I_UNCOMPACTED
-                                | LFS_I_CANCKMETA
-                                | LFS_I_CANCKDATA))
-                        | ((lfsr_fs_canlookahead(lfs))
+                                | LFS_I_COMPACT
+                                | LFS_I_CKMETA
+                                | LFS_I_CKDATA))
+                        | ((lfsr_fs_islookahead(lfs))
                             ? LFS_GC_LOOKAHEAD
                             : 0));
         }
@@ -14569,11 +14569,11 @@ int lfsr_fs_gc(lfs_t *lfs) {
 int lfsr_fs_unck(lfs_t *lfs, uint32_t flags) {
     // unknown flags?
     LFS_ASSERT((flags & ~(
-            LFS_I_INCONSISTENT
-                | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED
-                | LFS_I_CANCKMETA
-                | LFS_I_CANCKDATA)) == 0);
+            LFS_I_MKCONSISTENT
+                | LFS_I_LOOKAHEAD
+                | LFS_I_COMPACT
+                | LFS_I_CKMETA
+                | LFS_I_CKDATA)) == 0);
 
     // reset the requested flags
     lfs->flags |= flags;

@@ -223,14 +223,12 @@ enum lfs_type {
                         0x08000000  // Mounted with LFS_M_CKDATACKSUMS
 #endif
 
-#define LFS_I_INCONSISTENT \
+#define LFS_I_MKCONSISTENT \
                         0x00001000  // Filesystem needs mkconsistent to write
-#define LFS_I_CANLOOKAHEAD \
-                        0x00002000  // Lookahead buffer is not full
-#define LFS_I_UNCOMPACTED \
-                        0x00008000  // Filesystem may have uncompacted metadata
-#define LFS_I_CANCKMETA 0x00010000  // Metadata checksums not checked recently
-#define LFS_I_CANCKDATA 0x00020000  // Data checksums not checked recently
+#define LFS_I_LOOKAHEAD 0x00002000  // Lookahead buffer is not full
+#define LFS_I_COMPACT   0x00008000  // Filesystem may have uncompacted metadata
+#define LFS_I_CKMETA    0x00010000  // Metadata checksums not checked recently
+#define LFS_I_CKDATA    0x00020000  // Data checksums not checked recently
 
 // internally used flags, don't use these
 #define LFS_I_UNTIDY    0x00001000  // Filesystem may have orphaned stickynotes

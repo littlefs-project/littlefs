@@ -44,7 +44,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
+    assert(fsinfo.flags & LFS_I_LOOKAHEAD);
     assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC until we make progress
@@ -55,7 +55,7 @@ code = '''
         lfsr_fs_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS_I_CANLOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS_I_LOOKAHEAD)) {
             break;
         }
     }
@@ -111,7 +111,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
+    assert(fsinfo.flags & LFS_I_LOOKAHEAD);
     assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
@@ -134,7 +134,7 @@ code = '''
 
     // we should _not_ make progress
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_CANLOOKAHEAD);
+    assert(fsinfo.flags & LFS_I_LOOKAHEAD);
 
     // check the file contents
     lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
@@ -196,7 +196,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_UNCOMPACTED);
+    assert(fsinfo.flags & LFS_I_COMPACT);
     assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC until we make progress
@@ -207,7 +207,7 @@ code = '''
         lfsr_fs_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS_I_UNCOMPACTED)) {
+        if (!(fsinfo.flags & LFS_I_COMPACT)) {
             break;
         }
     }
@@ -285,7 +285,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_UNCOMPACTED);
+    assert(fsinfo.flags & LFS_I_COMPACT);
     assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one traversal + one step
@@ -315,7 +315,7 @@ code = '''
 
     // we should _not_ make progress
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_UNCOMPACTED);
+    assert(fsinfo.flags & LFS_I_COMPACT);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -406,7 +406,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_INCONSISTENT);
+    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
     assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC until we make progress
@@ -417,7 +417,7 @@ code = '''
         lfsr_fs_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS_I_INCONSISTENT)) {
+        if (!(fsinfo.flags & LFS_I_MKCONSISTENT)) {
             break;
         }
     }
@@ -505,7 +505,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_INCONSISTENT);
+    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
     #ifdef LFS_GC
     assert(lfs.omdirs != &lfs.gc.t.o.o);
     #endif
@@ -515,7 +515,7 @@ code = '''
 
     // we should have made progress
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_INCONSISTENT));
+    assert(!(fsinfo.flags & LFS_I_MKCONSISTENT));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -623,7 +623,7 @@ code = '''
     // we should now have dirty state
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_INCONSISTENT);
+    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
 
     // run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.t.o.o) {
@@ -632,7 +632,7 @@ code = '''
 
     // we should _not_ make progress
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_INCONSISTENT);
+    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -1107,7 +1107,7 @@ code = '''
             while (true) {
                 struct lfs_fsinfo fsinfo;
                 lfsr_fs_stat(&lfs, &fsinfo) => 0;
-                if (!(fsinfo.flags & LFS_I_CANCKMETA)) {
+                if (!(fsinfo.flags & LFS_I_CKMETA)) {
                     break;
                 }
 
@@ -1120,7 +1120,7 @@ code = '''
 
             struct lfs_fsinfo fsinfo;
             lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CANCKMETA));
+            assert(!(fsinfo.flags & LFS_I_CKMETA));
 
         // remount with LFS_M_CKMETA
         } else if (AFTER == 3) {
@@ -1129,7 +1129,7 @@ code = '''
 
             struct lfs_fsinfo fsinfo;
             lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CANCKMETA));
+            assert(!(fsinfo.flags & LFS_I_CKMETA));
 
         } else {
             assert(false);
@@ -1175,7 +1175,7 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfsr_fs_unck(&lfs, LFS_I_CANCKMETA) => 0;
+        lfsr_fs_unck(&lfs, LFS_I_CKMETA) => 0;
 
         // running lfsr_fs_gc should eventually find the clobbered block
         for (lfs_block_t i = 0;; i++) {
@@ -1255,7 +1255,7 @@ code = '''
             while (true) {
                 struct lfs_fsinfo fsinfo;
                 lfsr_fs_stat(&lfs, &fsinfo) => 0;
-                if (!(fsinfo.flags & LFS_I_CANCKDATA)) {
+                if (!(fsinfo.flags & LFS_I_CKDATA)) {
                     break;
                 }
 
@@ -1268,7 +1268,7 @@ code = '''
 
             struct lfs_fsinfo fsinfo;
             lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CANCKDATA));
+            assert(!(fsinfo.flags & LFS_I_CKDATA));
 
         // remount with LFS_M_CKDATA
         } else if (AFTER == 3) {
@@ -1277,7 +1277,7 @@ code = '''
 
             struct lfs_fsinfo fsinfo;
             lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CANCKDATA));
+            assert(!(fsinfo.flags & LFS_I_CKDATA));
 
         } else {
             assert(false);
@@ -1324,7 +1324,7 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfsr_fs_unck(&lfs, LFS_I_CANCKDATA) => 0;
+        lfsr_fs_unck(&lfs, LFS_I_CKDATA) => 0;
 
         // running lfsr_fs_gc should eventually find the clobbered block
         //
@@ -1531,7 +1531,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
@@ -1718,7 +1718,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
@@ -1830,7 +1830,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
@@ -2038,7 +2038,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
@@ -2211,7 +2211,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
@@ -2550,7 +2550,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
@@ -2977,7 +2977,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
         }
     }
 
