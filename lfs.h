@@ -1258,35 +1258,6 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 
 
-/// Incremental gc operations ///
-
-#ifdef LFS_GC
-// Perform any janitorial work that may be pending.
-//
-// The exact janitorial work depends on the configured flags and steps.
-//
-// Calling this function is not required, but may allow the offloading of
-// expensive janitorial work to a less time-critical code path.
-//
-// Returns a negative error code on failure.
-int lfsr_gc(lfs_t *lfs);
-#endif
-
-#ifdef LFS_GC
-// Mark janitorial work as incomplete.
-//
-// Any info flags passed to lfsr_gc_unck will be reset internally,
-// forcing the work to be redone.
-//
-// This is most useful for triggering new ckmeta/ckdata scans with
-// LFS_I_CANCKMETA and LFS_I_CANCKDATA. Otherwise littlefs will perform
-// only one scan after mount.
-//
-// Returns a negative error code on failure.
-int lfsr_gc_unck(lfs_t *lfs, uint32_t flags);
-#endif
-
-
 /// Filesystem-level filesystem operations
 
 // Find on-disk info about the filesystem
@@ -1340,6 +1311,30 @@ int lfsr_fs_ckmeta(lfs_t *lfs);
 // error code on failure.
 int lfsr_fs_ckdata(lfs_t *lfs);
 #endif
+
+#ifdef LFS_GC
+// Perform any janitorial work that may be pending
+//
+// The exact janitorial work depends on the configured flags and steps.
+//
+// Calling this function is not required, but may allow the offloading of
+// expensive janitorial work to a less time-critical code path.
+//
+// Returns a negative error code on failure.
+int lfsr_fs_gc(lfs_t *lfs);
+#endif
+
+// Mark janitorial work as incomplete
+//
+// Any info flags passed to lfsr_gc_unck will be reset internally,
+// forcing the work to be redone.
+//
+// This is most useful for triggering new ckmeta/ckdata scans with
+// LFS_I_CANCKMETA and LFS_I_CANCKDATA. Otherwise littlefs will perform
+// only one scan after mount.
+//
+// Returns a negative error code on failure.
+int lfsr_fs_unck(lfs_t *lfs, uint32_t flags);
 
 #ifndef LFS_READONLY
 // Change the number of blocks used by the filesystem

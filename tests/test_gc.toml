@@ -52,7 +52,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS_I_CANLOOKAHEAD)) {
@@ -115,7 +115,7 @@ code = '''
     assert(lfs.omdirs != &lfs.gc.t.o.o);
 
     // run GC one step
-    lfsr_gc(&lfs) => 0;
+    lfsr_fs_gc(&lfs) => 0;
     assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // mutate the filesystem
@@ -129,7 +129,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.t.o.o) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -204,7 +204,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS_I_UNCOMPACTED)) {
@@ -290,14 +290,14 @@ code = '''
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // internal traversal done?
         if (lfs.omdirs != &lfs.gc.t.o.o) {
             break;
         }
     }
-    lfsr_gc(&lfs) => 0;
+    lfsr_fs_gc(&lfs) => 0;
     assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // mutate the filesystem
@@ -310,7 +310,7 @@ code = '''
 
     // run GC until our traversal is done (twice for compact)
     while (lfs.omdirs == &lfs.gc.t.o.o) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -414,7 +414,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS_I_INCONSISTENT)) {
@@ -606,7 +606,7 @@ code = '''
 
     // run GC one step
     assert(lfs.omdirs != &lfs.gc.t.o.o);
-    lfsr_gc(&lfs) => 0;
+    lfsr_fs_gc(&lfs) => 0;
     assert(lfs.omdirs == &lfs.gc.t.o.o);
 
     // create the rest of the orphans after GC has started
@@ -627,7 +627,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs.omdirs == &lfs.gc.t.o.o) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
 
     // we should _not_ make progress
@@ -747,12 +747,12 @@ code = '''
         }
 
     clobbered:;
-        // running lfsr_gc should eventually find the clobbered block
+        // running lfsr_fs_gc should eventually find the clobbered block
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_gc(&lfs);
+            int err = lfsr_fs_gc(&lfs);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
@@ -848,14 +848,14 @@ code = '''
         }
 
     clobbered:;
-        // running lfsr_gc should eventually find the clobbered block
+        // running lfsr_fs_gc should eventually find the clobbered block
         //
         // note LFS_GC_CKDATA implies LFS_GC_CKMETA
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_gc(&lfs);
+            int err = lfsr_fs_gc(&lfs);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
@@ -1046,10 +1046,10 @@ done:;
 '''
 
 # test we can detect fully clobbered blocks after a ck pass, if we call
-# lfsr_gc_unck
+# lfsr_fs_unck
 [cases.test_gc_ckmeta_unck]
-# AFTER=0 => after running lfsr_gc once
-# AFTER=1 => after running lfsr_gc to completion
+# AFTER=0 => after running lfsr_fs_gc once
+# AFTER=1 => after running lfsr_fs_gc to completion
 # AFTER=2 => after lfsr_fs_ckmeta
 # AFTER=3 => after remounting with LFS_M_CKMETA
 defines.AFTER = [0, 1, 2, 3]
@@ -1095,13 +1095,14 @@ code = '''
             lfsr_file_close(&lfs, &file) => 0;
         }
 
-        // run lfsr_gc before clobbering, this should not find anything
+        // run lfsr_fs_gc before clobbering, this should not find
+        // anything
 
-        // run lfsr_gc once
+        // run lfsr_fs_gc once
         if (AFTER == 0) {
-            lfsr_gc(&lfs) => 0;
+            lfsr_fs_gc(&lfs) => 0;
 
-        // run lfsr_gc to completion
+        // run lfsr_fs_gc to completion
         } else if (AFTER == 1) {
             while (true) {
                 struct lfs_fsinfo fsinfo;
@@ -1110,7 +1111,7 @@ code = '''
                     break;
                 }
 
-                lfsr_gc(&lfs) => 0;
+                lfsr_fs_gc(&lfs) => 0;
             }
 
         // run lfsr_fs_ckmeta
@@ -1174,14 +1175,14 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfsr_gc_unck(&lfs, LFS_I_CANCKMETA) => 0;
+        lfsr_fs_unck(&lfs, LFS_I_CANCKMETA) => 0;
 
-        // running lfsr_gc should eventually find the clobbered block
+        // running lfsr_fs_gc should eventually find the clobbered block
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_gc(&lfs);
+            int err = lfsr_fs_gc(&lfs);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
@@ -1195,8 +1196,8 @@ done:;
 '''
 
 [cases.test_gc_ckdata_unck]
-# AFTER=0 => after running lfsr_gc once
-# AFTER=1 => after running lfsr_gc to completion
+# AFTER=0 => after running lfsr_fs_gc once
+# AFTER=1 => after running lfsr_fs_gc to completion
 # AFTER=2 => after lfsr_fs_ckdata
 # AFTER=3 => after remounting with LFS_M_CKDATA
 defines.AFTER = [0, 1, 2]
@@ -1242,13 +1243,14 @@ code = '''
             lfsr_file_close(&lfs, &file) => 0;
         }
 
-        // run lfsr_gc before clobbering, this should not find anything
+        // run lfsr_fs_gc before clobbering, this should not find
+        // anything
 
-        // run lfsr_gc once
+        // run lfsr_fs_gc once
         if (AFTER == 0) {
-            lfsr_gc(&lfs) => 0;
+            lfsr_fs_gc(&lfs) => 0;
 
-        // run lfsr_gc to completion
+        // run lfsr_fs_gc to completion
         } else if (AFTER == 1) {
             while (true) {
                 struct lfs_fsinfo fsinfo;
@@ -1257,7 +1259,7 @@ code = '''
                     break;
                 }
 
-                lfsr_gc(&lfs) => 0;
+                lfsr_fs_gc(&lfs) => 0;
             }
 
         // run lfsr_fs_ckdata
@@ -1322,16 +1324,16 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfsr_gc_unck(&lfs, LFS_I_CANCKDATA) => 0;
+        lfsr_fs_unck(&lfs, LFS_I_CANCKDATA) => 0;
 
-        // running lfsr_gc should eventually find the clobbered block
+        // running lfsr_fs_gc should eventually find the clobbered block
         //
         // note LFS_GC_CKDATA implies LFS_GC_CKMETA
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             LFS_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_gc(&lfs);
+            int err = lfsr_fs_gc(&lfs);
             assert(!err || err == LFS_ERR_CORRUPT);
             // found it
             if (err == LFS_ERR_CORRUPT) {
@@ -1401,7 +1403,7 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
 
     // check the file contents
@@ -1414,7 +1416,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# pseudo-fuzz test that spamming lfsr_gc_unck doesn't break anything
+# pseudo-fuzz test that spamming lfsr_fs_unck doesn't break anything
 [cases.test_gc_mutation_unck]
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
@@ -1471,10 +1473,10 @@ code = '''
 
         // choose a random set of flags to unck every cycle
         uint32_t flags = GC_FLAGS & TEST_PRNG(&prng);
-        lfsr_gc_unck(&lfs, flags) => 0;
+        lfsr_fs_unck(&lfs, flags) => 0;
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
 
     // check the file contents
@@ -1525,11 +1527,11 @@ code = '''
         assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 
@@ -1712,11 +1714,11 @@ code = '''
         }
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 
@@ -1824,11 +1826,11 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 
@@ -2032,11 +2034,11 @@ code = '''
         }
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 
@@ -2205,11 +2207,11 @@ code = '''
         }
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 
@@ -2544,11 +2546,11 @@ code = '''
         }
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 
@@ -2971,11 +2973,11 @@ code = '''
         }
 
         // gc!
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_gc_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
+            lfsr_fs_unck(&lfs, LFS_I_CANCKMETA | LFS_I_CANCKDATA) => 0;
         }
     }
 

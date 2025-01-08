@@ -531,7 +531,7 @@ code = '''
     // try compacting?
     #ifdef LFS_GC
     if (COMPACT) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
     #endif
 
@@ -614,7 +614,7 @@ code = '''
     // try compacting?
     #ifdef LFS_GC
     if (COMPACT) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
     #endif
 
@@ -4119,7 +4119,7 @@ code = '''
     // try compacting?
     #ifdef LFS_GC
     if (COMPACT) {
-        lfsr_gc(&lfs) => 0;
+        lfsr_fs_gc(&lfs) => 0;
     }
     #endif
 

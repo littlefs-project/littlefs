@@ -13952,7 +13952,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 }
 
 // needed in lfsr_mount
-static int lfsr_fs_gc(lfs_t *lfs, lfsr_traversal_t *t,
+static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
         uint32_t flags, lfs_soff_t steps);
 
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
@@ -14010,7 +14010,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_CKMETA
                 | LFS_M_CKDATA)) {
         lfsr_traversal_t t;
-        err = lfsr_fs_gc(lfs, &t,
+        err = lfsr_fs_gc_(lfs, &t,
                 flags & (
                     LFS_M_MTREEONLY
                         | LFS_M_MKCONSISTENT
@@ -14189,7 +14189,7 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) {
         lfsr_traversal_t t;
-        err = lfsr_fs_gc(lfs, &t,
+        err = lfsr_fs_gc_(lfs, &t,
                 flags & (
                     LFS_F_MTREEONLY
                         | LFS_F_COMPACT
@@ -14449,7 +14449,7 @@ int lfsr_fs_ckdata(lfs_t *lfs) {
 //
 // runs the traversal until all work is completed, which may take
 // multiple passes
-static int lfsr_fs_gc(lfs_t *lfs, lfsr_traversal_t *t,
+static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
         uint32_t flags, lfs_soff_t steps) {
     // unknown gc flags?
     //
@@ -14551,6 +14551,40 @@ static int lfsr_fs_gc(lfs_t *lfs, lfsr_traversal_t *t,
             steps -= 1;
         }
     }
+
+    return 0;
+}
+
+#ifdef LFS_GC
+// incremental filesystem gc
+//
+// perform any pending janitorial work
+int lfsr_fs_gc(lfs_t *lfs) {
+    return lfsr_fs_gc_(lfs, &lfs->gc.t,
+            lfs->gc.flags, lfs->gc.steps);
+}
+#endif
+
+// unperform janitorial work
+int lfsr_fs_unck(lfs_t *lfs, uint32_t flags) {
+    // unknown flags?
+    LFS_ASSERT((flags & ~(
+            LFS_I_INCONSISTENT
+                | LFS_I_CANLOOKAHEAD
+                | LFS_I_UNCOMPACTED
+                | LFS_I_CANCKMETA
+                | LFS_I_CANCKDATA)) == 0);
+
+    // reset the requested flags
+    lfs->flags |= flags;
+
+    #ifdef LFS_GC
+    // and clear from any ongoing traversals
+    //
+    // lfsr_fs_gc will terminate early if it discovers it can no longer
+    // make progress
+    lfs->gc.t.o.o.flags &= ~flags;
+    #endif
 
     return 0;
 }
@@ -14783,42 +14817,6 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t) {
 
     return lfsr_traversal_rewind_(lfs, t);
 }
-
-
-
-/// Incremental gc operations ///
-
-#ifdef LFS_GC
-// perform any pending janitorial work
-int lfsr_gc(lfs_t *lfs) {
-    return lfsr_fs_gc(lfs, &lfs->gc.t,
-            lfs->gc.flags, lfs->gc.steps);
-}
-#endif
-
-#ifdef LFS_GC
-// unperform janitorial work
-int lfsr_gc_unck(lfs_t *lfs, uint32_t flags) {
-    // unknown flags?
-    LFS_ASSERT((flags & ~(
-            LFS_I_INCONSISTENT
-                | LFS_I_CANLOOKAHEAD
-                | LFS_I_UNCOMPACTED
-                | LFS_I_CANCKMETA
-                | LFS_I_CANCKDATA)) == 0);
-
-    // reset the requested flags
-    lfs->flags |= flags;
-
-    // and clear from any ongoing traversals
-    //
-    // lfsr_fs_gc will terminate early if it discovers it can no longer
-    // make progress
-    lfs->gc.t.o.o.flags &= ~flags;
-
-    return 0;
-}
-#endif
 
 
 

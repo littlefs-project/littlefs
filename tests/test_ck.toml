@@ -8,7 +8,7 @@ after = ['test_traversal', 'test_gc', 'test_mount']
 # test we can detect at least fully clobbered blocks
 [cases.test_ck_ckmeta_easy]
 # METHOD=0 => lfsr_fs_ckmeta
-# METHOD=1 => lfsr_gc
+# METHOD=1 => lfsr_fs_gc
 # METHOD=2 => lfsr_traversal_read
 # METHOD=3 => lfsr_mount
 defines.METHOD = [0, 1, 2, 3]
@@ -99,10 +99,10 @@ code = '''
         if (METHOD == 0) {
             lfsr_fs_ckmeta(&lfs) => LFS_ERR_CORRUPT;
 
-        // find clobbered blocks with lfsr_gc
+        // find clobbered blocks with lfsr_fs_gc
         } else if (METHOD == 1) {
             #ifdef LFS_GC
-            lfsr_gc(&lfs) => LFS_ERR_CORRUPT;
+            lfsr_fs_gc(&lfs) => LFS_ERR_CORRUPT;
             #else
             LFS_UNREACHABLE();
             #endif
@@ -145,7 +145,7 @@ done:;
 
 [cases.test_ck_ckdata_easy]
 # METHOD=0 => lfsr_fs_ckdata
-# METHOD=1 => lfsr_gc
+# METHOD=1 => lfsr_fs_gc
 # METHOD=2 => lfsr_traversal_read
 # METHOD=3 => lfsr_mount
 defines.METHOD = [0, 1, 2, 3]
@@ -237,10 +237,10 @@ code = '''
         if (METHOD == 0) {
             lfsr_fs_ckdata(&lfs) => LFS_ERR_CORRUPT;
 
-        // find clobbered blocks with lfsr_gc
+        // find clobbered blocks with lfsr_fs_gc
         } else if (METHOD == 1) {
             #ifdef LFS_GC
-            lfsr_gc(&lfs) => LFS_ERR_CORRUPT;
+            lfsr_fs_gc(&lfs) => LFS_ERR_CORRUPT;
             #else
             LFS_UNREACHABLE();
             #endif
