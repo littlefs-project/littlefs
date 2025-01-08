@@ -1710,7 +1710,8 @@ code = '''
             ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS_I_COMPACT : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     lfsr_unmount(&lfs) => 0;
@@ -2823,7 +2824,10 @@ code = '''
             ((DESYNC) ? LFS_I_MKCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!(CKMETA && DESYNC)) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
+                    ? LFS_I_CKMETA
+                    : 0)
                 | ((!(CKDATA && DESYNC)) ? LFS_I_CKDATA : 0)));
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -2929,7 +2933,10 @@ code = '''
             ((DESYNC) ? LFS_I_MKCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!(CKMETA && DESYNC)) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
+                    ? LFS_I_CKMETA
+                    : 0)
                 | ((!(CKDATA && DESYNC)) ? LFS_I_CKDATA : 0)));
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -3028,7 +3035,10 @@ code = '''
             ((DESYNC) ? LFS_I_MKCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!(CKMETA && DESYNC)) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
+                    ? LFS_I_CKMETA
+                    : 0)
                 | ((!(CKDATA && DESYNC)) ? LFS_I_CKDATA : 0)));
 
     lfsr_file_close(&lfs, &file2) => 0;
@@ -3124,7 +3134,10 @@ code = '''
             ((DESYNC) ? LFS_I_MKCONSISTENT : 0)
                 | ((!(LOOKAHEAD && DESYNC)) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!(CKMETA && DESYNC)) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
+                    ? LFS_I_CKMETA
+                    : 0)
                 | ((!(CKDATA && DESYNC)) ? LFS_I_CKDATA : 0)));
 
     // check the file contents
@@ -5448,7 +5461,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the file
@@ -5587,7 +5601,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the file
@@ -5700,7 +5715,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the file
@@ -5851,7 +5867,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -6067,7 +6084,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -6290,7 +6308,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -6451,7 +6470,8 @@ code = '''
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA || ORPHANS > 0) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -6591,7 +6611,8 @@ code = '''
             ((ORPHANS >= 3) ? LFS_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA || ORPHANS > 0) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -6750,7 +6771,8 @@ code = '''
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA || ORPHANS > 0) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -6907,7 +6929,8 @@ code = '''
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA || ORPHANS > 0) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -7075,7 +7098,8 @@ code = '''
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA || ORPHANS > 0) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -7241,7 +7265,8 @@ code = '''
     assert(fsinfo.flags == (
             ((!LOOKAHEAD || ORPHANS > 0) ? LFS_I_LOOKAHEAD : 0)
                 | LFS_I_COMPACT
-                | ((!CKMETA || ORPHANS > 0) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA || ORPHANS > 0) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
@@ -7432,7 +7457,8 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files

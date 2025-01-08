@@ -349,9 +349,6 @@ struct lfs_config {
 
     #ifdef LFS_GC
     // Flags indicating what gc work to do during lfsr_gc calls.
-    //
-    // Defaults to LFS_GC_MKCONSISTENT + LFS_GC_LOOKAHEAD +
-    // LFS_GC_COMPACT when zero.
     uint32_t gc_flags;
     #endif
 
@@ -880,8 +877,6 @@ typedef struct lfs {
 
     #ifdef LFS_GC
     struct {
-        uint32_t flags;
-        lfs_soff_t steps;
         lfsr_traversal_t t;
     } gc;
     #endif

@@ -9646,7 +9646,8 @@ eot:;
             && !lfsr_t_ismtreeonly(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)
             && !lfsr_t_ismutated(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_CKDATA;
+        // note ckdata implies ckmeta
+        lfs->flags &= ~LFS_I_CKDATA & ~LFS_I_CKMETA;
     }
 
     return LFS_ERR_NOENT;
@@ -13383,22 +13384,6 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 
-    #ifdef LFS_GC
-    // setup gc state, this can be mutated which is why we need a copy
-    if (lfs->cfg->gc_flags) {
-        lfs->gc.flags = lfs->cfg->gc_flags;
-    } else {
-        lfs->gc.flags = LFS_GC_MKCONSISTENT
-                | LFS_GC_LOOKAHEAD
-                | LFS_GC_COMPACT;
-    }
-    if (lfs->cfg->gc_steps) {
-        lfs->gc.steps = lfs->cfg->gc_steps;
-    } else {
-        lfs->gc.steps = 1;
-    }
-    #endif
-
     return 0;
 
 failed:;
@@ -14542,7 +14527,10 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
 // perform any pending janitorial work
 int lfsr_fs_gc(lfs_t *lfs) {
     return lfsr_fs_gc_(lfs, &lfs->gc.t,
-            lfs->gc.flags, lfs->gc.steps);
+            lfs->cfg->gc_flags,
+            (lfs->cfg->gc_steps)
+                ? lfs->cfg->gc_steps
+                : 1);
 }
 #endif
 

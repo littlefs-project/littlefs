@@ -71,7 +71,8 @@ code = '''
                 | ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS_I_COMPACT : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     lfsr_unmount(&lfs) => 0;
@@ -144,7 +145,8 @@ code = '''
     assert(fsinfo.flags == (
             LFS_I_MKCONSISTENT
                 | LFS_I_COMPACT
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
     lfsr_unmount(&lfs) => 0;
 '''
@@ -215,7 +217,8 @@ code = '''
     assert(fsinfo.flags == (
             LFS_I_MKCONSISTENT
                 | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // mdir should have been compacted
@@ -314,7 +317,8 @@ code = '''
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS_I_COMPACT : 0)
-                | ((!CKMETA) ? LFS_I_CKMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS_I_CKDATA : 0)));
 
     // check we can still read the files
