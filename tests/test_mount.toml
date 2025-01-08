@@ -85,7 +85,6 @@ defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
-defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
@@ -104,9 +103,8 @@ code = '''
                 | ((CKDATACKSUMS)
                     ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
                     : 0)
-                | ((COMPACT) ? LFS_M_COMPACT : 0)
-                | ((CKMETA) ? LFS_M_CKMETA : 0)
-                | ((CKDATA) ? LFS_M_CKDATA : 0),
+                | ((CKMETA) ? LFS_F_CKMETA : 0)
+                | ((CKDATA) ? LFS_F_CKDATA : 0),
             CFG) => 0;
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;

@@ -173,7 +173,6 @@ enum lfs_type {
                         0x08000000  // Check data checksums on reads
 #endif
 
-#define LFS_F_COMPACT   0x00008000  // Compact metadata logs
 #define LFS_F_CKMETA    0x00010000  // Check metadata checksums
 #define LFS_F_CKDATA    0x00020000  // Check metadata + data checksums
 

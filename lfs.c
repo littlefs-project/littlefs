@@ -14141,7 +14141,6 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, 0)
-                | LFS_F_COMPACT
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) == 0);
     // some flags don't make sense when only traversing the mtree
@@ -14179,14 +14178,12 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS_F_COMPACT
-                | LFS_F_CKMETA
+            LFS_F_CKMETA
                 | LFS_F_CKDATA)) {
         lfsr_traversal_t t;
         err = lfsr_fs_gc_(lfs, &t,
                 flags & (
-                    LFS_F_COMPACT
-                        | LFS_F_CKMETA
+                    LFS_F_CKMETA
                         | LFS_F_CKDATA),
                 -1);
         if (err) {
