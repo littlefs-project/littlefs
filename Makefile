@@ -404,7 +404,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 				-fctx='max(size)' -q -o-) \
 			-fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
 			-bbuild='"BEFORE"' -q -o-) \
-		-bbuild -cBEFORE -Y $(SUMMARYFLAGS))
+		-bbuild -cBEFORE -Q $(SUMMARYFLAGS))
 
 ## Build the test-runner
 .PHONY: test-runner build-tests
