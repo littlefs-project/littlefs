@@ -6736,21 +6736,6 @@ static inline bool lfsr_i_isckdata(uint32_t flags) {
     return flags & LFS_I_CKDATA;
 }
 
-// on-demand flags
-
-// needed in lfsr_fs_ismkconsistent
-static inline uint8_t lfsr_grm_count(const lfs_t *lfs);
-
-static bool lfsr_fs_ismkconsistent(const lfs_t *lfs) {
-    return lfsr_grm_count(lfs) > 0 || lfsr_i_isuntidy(lfs->flags);
-}
-
-static bool lfsr_fs_islookahead(const lfs_t *lfs) {
-    return lfs->lookahead.size < lfs_min(
-            8*lfs->cfg->lookahead_size,
-            lfs->cfg->block_size);
-}
-
 
 
 /// opened mdir things ///
@@ -9737,6 +9722,10 @@ static void lfs_alloc_markfree(lfs_t *lfs) {
             8*lfs->cfg->lookahead_size,
             lfs->lookahead.ckpoint);
 
+    // signal that lookahead is full, this may be cleared by
+    // lfs_alloc_findfree
+    lfs->flags &= ~LFS_I_LOOKAHEAD;
+
     // eagerly find the next free block so lookahead scans can make
     // the most progress
     lfs_alloc_findfree(lfs);
@@ -9749,6 +9738,9 @@ static void lfs_alloc_inc(lfs_t *lfs) {
     // clear lookahead as we increment
     lfs->lookahead.buffer[lfs->lookahead.off / 8]
             &= ~(1 << (lfs->lookahead.off % 8));
+
+    // signal that lookahead is no longer full
+    lfs->flags |= LFS_I_LOOKAHEAD;
 
     // increment next/off
     lfs->lookahead.off += 1;
@@ -13207,8 +13199,10 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
 
     // setup flags
     lfs->flags = flags
-            // assume we may contain orphans until proven otherwise
+            // assume we contain orphans until proven otherwise
             | LFS_I_UNTIDY
+            // default to an empty lookahead
+            | LFS_I_LOOKAHEAD
             // default to assuming we need compaction somewhere, worst case
             // this just makes lfsr_gc read more than is strictly needed
             | LFS_I_COMPACT
@@ -14213,12 +14207,13 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, 0)
+                | LFS_I_MKCONSISTENT // synonym for LFS_I_UNTIDY
+                | LFS_I_LOOKAHEAD
                 | LFS_I_COMPACT
                 | LFS_I_CKMETA
                 | LFS_I_CKDATA);
     // some flags we calculate on demand
-    fsinfo->flags |= (lfsr_fs_ismkconsistent(lfs)) ? LFS_I_MKCONSISTENT : 0;
-    fsinfo->flags |= (lfsr_fs_islookahead(lfs)) ? LFS_I_LOOKAHEAD : 0;
+    fsinfo->flags |= (lfsr_grm_count(lfs) > 0) ? LFS_I_MKCONSISTENT : 0;
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs->cfg->block_size;
@@ -14471,11 +14466,11 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
     // do we have any pending work?
     uint32_t pending = flags & (
             (lfs->flags & (
-                    LFS_I_UNTIDY
-                        | LFS_I_COMPACT
-                        | LFS_I_CKMETA
-                        | LFS_I_CKDATA))
-                | ((lfsr_fs_islookahead(lfs)) ? LFS_GC_LOOKAHEAD : 0));
+                LFS_I_UNTIDY
+                    | LFS_I_LOOKAHEAD
+                    | LFS_I_COMPACT
+                    | LFS_I_CKMETA
+                    | LFS_I_CKDATA)));
 
     while (pending && (lfs_off_t)steps > 0) {
         // checkpoint the allocator to maximize any lookahead scans
@@ -14524,15 +14519,12 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
             lfsr_omdir_close(lfs, &t->o.o);
 
             // clear any pending flags we make progress on
-            pending &= (
-                    (lfs->flags & (
-                            LFS_I_UNTIDY
-                                | LFS_I_COMPACT
-                                | LFS_I_CKMETA
-                                | LFS_I_CKDATA))
-                        | ((lfsr_fs_islookahead(lfs))
-                            ? LFS_GC_LOOKAHEAD
-                            : 0));
+            pending &= lfs->flags & (
+                    LFS_I_UNTIDY
+                        | LFS_I_LOOKAHEAD
+                        | LFS_I_COMPACT
+                        | LFS_I_CKMETA
+                        | LFS_I_CKDATA);
         }
 
         // decrement steps
