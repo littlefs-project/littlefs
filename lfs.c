@@ -6584,26 +6584,18 @@ static inline bool lfsr_o_isdesync(uint32_t flags) {
     return flags & LFS_O_DESYNC;
 }
 
-static inline bool lfsr_o_isckmeta(uint32_t flags) {
-    return flags & LFS_O_CKMETA;
-}
-
-static inline bool lfsr_o_isckdata(uint32_t flags) {
-    return flags & LFS_O_CKDATA;
-}
-
 // internal open flags
 static inline uint8_t lfsr_o_type(uint32_t flags) {
-    return flags >> 24;
+    return flags >> 28;
 }
 
 static inline uint32_t lfsr_o_settype(uint32_t flags, uint8_t type) {
-    return (flags & ~0xff000000) | ((uint32_t)type << 24);
+    return (flags & ~0xf0000000) | ((uint32_t)type << 28);
 }
 
 static inline bool lfsr_o_isbshrub(uint32_t flags) {
     // it turns out that bshrub types share a bit
-    return flags & 0x01000000;
+    return flags & 0x10000000;
 }
 
 static inline bool lfsr_o_isunflush(uint32_t flags) {
@@ -6622,7 +6614,7 @@ static inline bool lfsr_o_iszombie(uint32_t flags) {
     return flags & LFS_o_ZOMBIE;
 }
 
-// custom rat flags
+// custom attr flags
 static inline bool lfsr_a_islazy(uint32_t flags) {
     return flags & LFS_A_LAZY;
 }
@@ -6662,11 +6654,11 @@ static inline uint32_t lfsr_t_settstate(uint32_t flags, uint8_t tstate) {
 }
 
 static inline uint8_t lfsr_t_btype(uint32_t flags) {
-    return (flags >> 4) & 0xf;
+    return (flags >> 8) & 0x0f;
 }
 
 static inline uint32_t lfsr_t_setbtype(uint32_t flags, uint8_t btype) {
-    return (flags & ~0x000000f0) | (btype << 4);
+    return (flags & ~0x00000f00) | (btype << 8);
 }
 
 static inline bool lfsr_t_isdirty(uint32_t flags) {
@@ -6678,8 +6670,8 @@ static inline bool lfsr_t_ismutated(uint32_t flags) {
 }
 
 static inline uint32_t lfsr_t_swapdirty(uint32_t flags) {
-    uint32_t x = ((flags >> 9) ^ (flags >> 8)) & 0x1;
-    return flags ^ (x << 9) ^ (x << 8);
+    uint32_t x = ((flags >> 25) ^ (flags >> 24)) & 0x1;
+    return flags ^ (x << 25) ^ (x << 24);
 }
 
 // mount flags
@@ -6711,29 +6703,9 @@ static inline bool lfsr_m_isckdatacksums(uint32_t flags) {
 }
 #endif
 
-static inline bool lfsr_m_isflush(uint32_t flags) {
-    return flags & LFS_M_FLUSH;
-}
-
-static inline bool lfsr_m_issync(uint32_t flags) {
-    return flags & LFS_M_SYNC;
-}
-
 // internal fs flags
 static inline bool lfsr_i_isuntidy(uint32_t flags) {
     return flags & LFS_i_UNTIDY;
-}
-
-static inline bool lfsr_i_iscompact(uint32_t flags) {
-    return flags & LFS_I_COMPACT;
-}
-
-static inline bool lfsr_i_isckmeta(uint32_t flags) {
-    return flags & LFS_I_CKMETA;
-}
-
-static inline bool lfsr_i_isckdata(uint32_t flags) {
-    return flags & LFS_I_CKDATA;
 }
 
 
@@ -9134,8 +9106,8 @@ enum {
 };
 
 static void lfsr_traversal_init(lfsr_traversal_t *t, uint32_t flags) {
-    t->o.o.flags = (LFS_TYPE_TRAVERSAL << 24)
-            | (LFSR_TSTATE_MROOTANCHOR << 4)
+    t->o.o.flags = lfsr_o_settype(0, LFS_TYPE_TRAVERSAL)
+            | lfsr_t_settstate(0, LFSR_TSTATE_MROOTANCHOR)
             | flags;
     t->o.o.mdir.mid = -1;
     t->o.o.mdir.rbyd.weight = 0;
@@ -11157,7 +11129,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // check metadata/data for errors?
-    if (lfsr_o_isckmeta(flags) || lfsr_o_isckdata(flags)) {
+    if (lfsr_t_isckmeta(flags) || lfsr_t_isckdata(flags)) {
         err = lfsr_file_ck(lfs, file, flags);
         if (err) {
             goto failed;
