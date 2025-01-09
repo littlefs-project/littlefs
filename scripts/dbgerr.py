@@ -31,35 +31,30 @@ def main(errs, *,
     import builtins
     list_, list = list, builtins.list
 
+    lines = []
     # list all known error codes
     if list_:
-        # first find the widths
-        w = [0, 0]
         for n, e, h in ERRS:
-            w[0] = max(w[0], len('LFS_ERR_')+len(n))
-            w[1] = max(w[1], len(str(e)))
-
-        # print
-        for n, e, h in ERRS:
-            print('%-*s  %-*s  %s' % (
-                    w[0], 'LFS_ERR_'+n,
-                    w[1], e,
-                    h))
+            lines.append(('LFS_ERR_'+n, str(e), h))
 
     # find these errors
     else:
         def find_err(err):
             # find by LFS_ERR_+name
             for n, e, h in ERRS:
-                if 'LFS_ERR_'+n == err:
+                if 'LFS_ERR_'+n == err.upper():
+                    return n, e, h
+            # find by ERR_+name
+            for n, e, h in ERRS:
+                if 'ERR_'+n == err.upper():
                     return n, e, h
             # find by name
             for n, e, h in ERRS:
-                if n == err:
+                if n == err.upper():
                     return n, e, h
             # find by E+name
             for n, e, h in ERRS:
-                if 'E'+n == err:
+                if 'E'+n == err.upper():
                     return n, e, h
             try:
                 # find by err code
@@ -78,9 +73,22 @@ def main(errs, *,
         for err in errs:
             try:
                 n, e, h = find_err(err)
-                print('%s %s %s' % ('LFS_ERR_'+n, e, h))
+                lines.append(('LFS_ERR_'+n, str(e), h))
             except KeyError:
-                print('%s ?' % err)
+                lines.append(('?', err, 'Unknown err code'))
+
+    # first find widths
+    w = [0, 0]
+    for l in lines:
+        w[0] = max(w[0], len(l[0]))
+        w[1] = max(w[1], len(l[1]))
+
+    # then print results
+    for l in lines:
+        print('%-*s  %-*s  %s' % (
+                w[0], l[0],
+                w[1], l[1],
+                l[2]))
 
 
 if __name__ == "__main__":

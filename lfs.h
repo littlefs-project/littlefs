@@ -126,6 +126,7 @@ enum lfs_type {
 };
 
 // File open flags
+#define LFS_O_MODE               3  // The file's access mode
 #define LFS_O_RDONLY             0  // Open a file as read only
 #define LFS_O_WRONLY             1  // Open a file as write only
 #define LFS_O_RDWR               2  // Open a file as read and write
@@ -140,11 +141,11 @@ enum lfs_type {
 #define LFS_O_CKDATA    0x00020000  // Check metadata + data checksums
 
 // internally used flags, don't use these
-#define LFS_O_TYPE      0xff000000  // The file's type
-#define LFS_O_UNFLUSH   0x00100000  // File's data does not match disk
-#define LFS_O_UNSYNC    0x00200000  // File's metadata does not match disk
-#define LFS_O_UNCREAT   0x00400000  // File does not exist yet
-#define LFS_O_ZOMBIE    0x00800000  // File has been removed
+#define LFS_o_TYPE      0xff000000  // The file's type
+#define LFS_o_UNFLUSH   0x00100000  // File's data does not match disk
+#define LFS_o_UNSYNC    0x00200000  // File's metadata does not match disk
+#define LFS_o_UNCREAT   0x00400000  // File does not exist yet
+#define LFS_o_ZOMBIE    0x00800000  // File has been removed
 
 // File seek flags
 #define LFS_SEEK_SET 0  // Seek relative to an absolute position
@@ -152,12 +153,14 @@ enum lfs_type {
 #define LFS_SEEK_END 2  // Seek relative to the end of the file
 
 // Custom attribute flags
+#define LFS_A_MODE               3  // The attr's access mode
 #define LFS_A_RDONLY             0  // Open an attr as read only
 #define LFS_A_WRONLY             1  // Open an attr as write only
 #define LFS_A_RDWR               2  // Open an attr as read and write
 #define LFS_A_LAZY            0x04  // Only write attr if file changed
 
 // Filesystem format flags
+#define LFS_F_MODE               1  // Format's access mode
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
 #ifdef LFS_CKPROGS
 #define LFS_F_CKPROGS   0x00100000  // Check progs by reading back progged data
@@ -177,6 +180,7 @@ enum lfs_type {
 #define LFS_F_CKDATA    0x00020000  // Check metadata + data checksums
 
 // Filesystem mount flags
+#define LFS_M_MODE               1  // Mount's access mode
 #define LFS_M_RDWR               0  // Mount the filesystem as read and write
 #define LFS_M_RDONLY             1  // Mount the filesystem as read only
 #define LFS_M_FLUSH     0x00000040  // Open all files with LFS_O_FLUSH
@@ -228,7 +232,7 @@ enum lfs_type {
 #define LFS_I_CKDATA    0x00020000  // Data checksums not checked recently
 
 // internally used flags, don't use these
-#define LFS_I_UNTIDY    0x00001000  // Filesystem may have orphaned stickynotes
+#define LFS_i_UNTIDY    0x00001000  // Filesystem may have orphaned stickynotes
 
 
 // Block types
@@ -248,10 +252,10 @@ enum lfs_btype {
 #define LFS_T_CKDATA    0x00020000  // Check metadata + data checksums
 
 // internally used flags, don't use these
-#define LFS_T_TSTATE    0x0000000f  // The current traversal state
-#define LFS_T_BTYPE     0x000000f0  // The current traversal btype
-#define LFS_T_DIRTY     0x00000100  // Filesystem modified during traversal
-#define LFS_T_MUTATED   0x00000200  // Filesystem modified by traversal
+#define LFS_t_TSTATE    0x0000000f  // The traversal's current tstate
+#define LFS_t_BTYPE     0x000000f0  // The traversal's current btype
+#define LFS_t_DIRTY     0x00000100  // Filesystem modified during traversal
+#define LFS_t_MUTATED   0x00000200  // Filesystem modified by traversal
 
 // GC flags
 #define LFS_GC_MKCONSISTENT \

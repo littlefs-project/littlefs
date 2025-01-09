@@ -6549,11 +6549,11 @@ static int lfsr_data_readmptr(lfs_t *lfs, lfsr_data_t *data,
 
 // open flags
 static inline bool lfsr_o_isrdonly(uint32_t flags) {
-    return (flags & 3) == LFS_O_RDONLY;
+    return (flags & LFS_O_MODE) == LFS_O_RDONLY;
 }
 
 static inline bool lfsr_o_iswronly(uint32_t flags) {
-    return (flags & 3) == LFS_O_WRONLY;
+    return (flags & LFS_O_MODE) == LFS_O_WRONLY;
 }
 
 static inline bool lfsr_o_iscreat(uint32_t flags) {
@@ -6607,19 +6607,19 @@ static inline bool lfsr_o_isbshrub(uint32_t flags) {
 }
 
 static inline bool lfsr_o_isunflush(uint32_t flags) {
-    return flags & LFS_O_UNFLUSH;
+    return flags & LFS_o_UNFLUSH;
 }
 
 static inline bool lfsr_o_isunsync(uint32_t flags) {
-    return flags & LFS_O_UNSYNC;
+    return flags & LFS_o_UNSYNC;
 }
 
 static inline bool lfsr_o_isuncreat(uint32_t flags) {
-    return flags & LFS_O_UNCREAT;
+    return flags & LFS_o_UNCREAT;
 }
 
 static inline bool lfsr_o_iszombie(uint32_t flags) {
-    return flags & LFS_O_ZOMBIE;
+    return flags & LFS_o_ZOMBIE;
 }
 
 // custom rat flags
@@ -6670,11 +6670,11 @@ static inline uint32_t lfsr_t_setbtype(uint32_t flags, uint8_t btype) {
 }
 
 static inline bool lfsr_t_isdirty(uint32_t flags) {
-    return flags & LFS_T_DIRTY;
+    return flags & LFS_t_DIRTY;
 }
 
 static inline bool lfsr_t_ismutated(uint32_t flags) {
-    return flags & LFS_T_MUTATED;
+    return flags & LFS_t_MUTATED;
 }
 
 static inline uint32_t lfsr_t_swapdirty(uint32_t flags) {
@@ -6721,7 +6721,7 @@ static inline bool lfsr_m_issync(uint32_t flags) {
 
 // internal fs flags
 static inline bool lfsr_i_isuntidy(uint32_t flags) {
-    return flags & LFS_I_UNTIDY;
+    return flags & LFS_i_UNTIDY;
 }
 
 static inline bool lfsr_i_iscompact(uint32_t flags) {
@@ -6804,7 +6804,7 @@ static void lfsr_omdir_clobber(lfs_t *lfs, const lfsr_omdir_t *o,
         bool dirty) {
     for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
         if (lfsr_o_type(o_->flags) == LFS_TYPE_TRAVERSAL) {
-            o_->flags |= (dirty) ? LFS_T_DIRTY : 0;
+            o_->flags |= (dirty) ? LFS_t_DIRTY : 0;
 
             if (o && ((lfsr_traversal_t*)o_)->ot == o) {
                 lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o_);
@@ -8744,7 +8744,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 if (o->mdir.mid < mid_ - rats[i].weight) {
                     // we should not be removing opened regular files
                     LFS_ASSERT(lfsr_o_type(o->flags) != LFS_TYPE_REG);
-                    o->flags |= LFS_O_ZOMBIE;
+                    o->flags |= LFS_o_ZOMBIE;
                     o->mdir.mid = mid_;
                 } else {
                     o->mdir.mid += rats[i].weight;
@@ -9554,7 +9554,7 @@ dropped:;
         }
 
         // make sure we clear any zombie flags
-        t->o.o.flags &= ~LFS_O_ZOMBIE;
+        t->o.o.flags &= ~LFS_o_ZOMBIE;
 
         // did this drop our mdir?
         if (mdir->mid != -1 && mdir->rbyd.weight == 0) {
@@ -9623,7 +9623,7 @@ eot:;
     // was mkconsistent successful?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_UNTIDY;
+        lfs->flags &= ~LFS_i_UNTIDY;
     }
 
     // was compaction successful? note we may need multiple passes if
@@ -10008,9 +10008,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         if (exists
                 && lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == mdir.mid) {
-            o->flags = (o->flags & ~LFS_O_UNCREAT)
-                    | LFS_O_ZOMBIE
-                    | LFS_O_UNSYNC
+            o->flags = (o->flags & ~LFS_o_UNCREAT)
+                    | LFS_o_ZOMBIE
+                    | LFS_o_UNSYNC
                     | LFS_O_DESYNC;
 
         // update dir positions
@@ -10158,23 +10158,23 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         if (zombie
                 && lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == mdir.mid) {
-            o->flags |= LFS_O_UNCREAT
-                    | LFS_O_ZOMBIE
-                    | LFS_O_UNSYNC
+            o->flags |= LFS_o_UNCREAT
+                    | LFS_o_ZOMBIE
+                    | LFS_o_UNSYNC
                     | LFS_O_DESYNC;
 
         // mark any removed dirs as zombied
         } else if (did_
                 && lfsr_o_type(o->flags) == LFS_TYPE_DIR
                 && ((lfsr_dir_t*)o)->did == did_) {
-            o->flags |= LFS_O_ZOMBIE;
+            o->flags |= LFS_o_ZOMBIE;
 
         // update dir positions
         } else if (lfsr_o_type(o->flags) == LFS_TYPE_DIR
                 && ((lfsr_dir_t*)o)->did == did
                 && o->mdir.mid >= mdir.mid) {
             if (lfsr_o_iszombie(o->flags)) {
-                o->flags &= ~LFS_O_ZOMBIE;
+                o->flags &= ~LFS_o_ZOMBIE;
             } else {
                 ((lfsr_dir_t*)o)->pos -= 1;
             }
@@ -10182,7 +10182,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         // clobber entangled traversals
         } else if (lfsr_o_type(o->flags) == LFS_TYPE_TRAVERSAL) {
             if (lfsr_o_iszombie(o->flags)) {
-                o->flags &= ~LFS_O_ZOMBIE;
+                o->flags &= ~LFS_o_ZOMBIE;
                 o->mdir.mid -= 1;
                 lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o);
             }
@@ -10324,9 +10324,9 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         if (exists
                 && lfsr_o_type(o->flags) == LFS_TYPE_REG
                 && o->mdir.mid == new_mdir.mid) {
-            o->flags = (o->flags & ~LFS_O_UNCREAT)
-                    | LFS_O_ZOMBIE
-                    | LFS_O_UNSYNC
+            o->flags = (o->flags & ~LFS_o_UNCREAT)
+                    | LFS_o_ZOMBIE
+                    | LFS_o_UNSYNC
                     | LFS_O_DESYNC;
 
         // update moved files with the new mdir
@@ -10338,7 +10338,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         } else if (new_did_
                 && lfsr_o_type(o->flags) == LFS_TYPE_DIR
                 && ((lfsr_dir_t*)o)->did == new_did_) {
-            o->flags |= LFS_O_ZOMBIE;
+            o->flags |= LFS_o_ZOMBIE;
 
         // update dir positions
         } else if (lfsr_o_type(o->flags) == LFS_TYPE_DIR) {
@@ -10878,7 +10878,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     file->buffer.pos = 0;
     file->buffer.size = 0;
     // mark as flushed
-    file->o.o.flags &= ~LFS_O_UNFLUSH;
+    file->o.o.flags &= ~LFS_o_UNFLUSH;
 
     // don't bother reading disk if we're not created or truncating
     if (!lfsr_o_isuncreat(file->o.o.flags) && !trunc) {
@@ -10929,7 +10929,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
         file->o.bshrub = file->o.bshrub_;
 
         // mark as synced
-        file->o.o.flags &= ~LFS_O_UNSYNC;
+        file->o.o.flags &= ~LFS_o_UNSYNC;
     }
 
     // if our file is small, try to keep the whole thing in our buffer
@@ -10945,7 +10945,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
         }
 
         // small files remain perpetually unflushed
-        file->o.o.flags |= LFS_O_UNFLUSH;
+        file->o.o.flags |= LFS_o_UNFLUSH;
         lfsr_bshrub_init(&file->o.bshrub);
         file->buffer.pos = 0;
         file->buffer.size = size;
@@ -11051,7 +11051,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // mounted with LFS_M_FLUSH/SYNC? implies LFS_O_FLUSH/SYNC
             | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC))
             // default to unflushed for orphans/truncated files
-            | LFS_O_UNFLUSH;
+            | LFS_o_UNFLUSH;
     file->pos = 0;
     file->eblock = 0;
     file->eoff = -1;
@@ -11087,7 +11087,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         if (exists
                 && lfsr_o_isexcl(flags)
                 && lfsr_omdir_ismidopen(lfs, file->o.o.mdir.mid,
-                    ~(LFS_O_ZOMBIE | LFS_O_DESYNC))) {
+                    ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
             return LFS_ERR_EXIST;
         }
 
@@ -11121,7 +11121,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // mark as uncreated and unsynced, we need to convert to reg file
         // on first sync
-        file->o.o.flags |= LFS_O_UNCREAT | LFS_O_UNSYNC;
+        file->o.o.flags |= LFS_o_UNCREAT | LFS_o_UNSYNC;
 
     } else {
         // wanted to create a new entry?
@@ -11204,7 +11204,7 @@ static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
 
         // fallback to just marking the filesystem as untidy
         } else {
-            lfs->flags |= LFS_I_UNTIDY;
+            lfs->flags |= LFS_i_UNTIDY;
         }
     }
 }
@@ -12287,7 +12287,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // mark as unsynced in case we fail
-    file->o.o.flags |= LFS_O_UNSYNC;
+    file->o.o.flags |= LFS_o_UNSYNC;
 
     // update pos if we are appending
     lfs_off_t pos = file->pos;
@@ -12334,7 +12334,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     lfsr_file_buffersize(lfs, file));
             file->buffer.size = lfsr_file_buffersize(lfs, file);
 
-            file->o.o.flags &= ~LFS_O_UNFLUSH;
+            file->o.o.flags &= ~LFS_o_UNFLUSH;
             written += size;
             pos += size;
             buffer_ += size;
@@ -12377,7 +12377,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
                     file->buffer.size,
                     pos+d - file->buffer.pos);
 
-            file->o.o.flags |= LFS_O_UNFLUSH;
+            file->o.o.flags |= LFS_o_UNFLUSH;
             written += d;
             pos += d;
             buffer_ += d;
@@ -12391,7 +12391,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         if (err) {
             goto failed;
         }
-        file->o.o.flags &= ~LFS_O_UNFLUSH;
+        file->o.o.flags &= ~LFS_o_UNFLUSH;
     }
 
     // update our pos
@@ -12461,7 +12461,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as flushed
-    file->o.o.flags &= ~LFS_O_UNFLUSH;
+    file->o.o.flags &= ~LFS_o_UNFLUSH;
     return 0;
 
 failed:;
@@ -12635,19 +12635,19 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 && o != &file->o.o) {
             lfsr_file_t *file_ = (lfsr_file_t*)o;
             // notify all files of creation
-            file_->o.o.flags &= ~LFS_O_UNCREAT;
+            file_->o.o.flags &= ~LFS_o_UNCREAT;
 
             // mark desynced files an unsynced
             if (lfsr_o_isdesync(file_->o.o.flags)) {
-                file_->o.o.flags |= LFS_O_UNSYNC;
+                file_->o.o.flags |= LFS_o_UNSYNC;
 
             // update synced files
             } else {
-                file_->o.o.flags &= ~LFS_O_UNSYNC;
+                file_->o.o.flags &= ~LFS_o_UNSYNC;
                 if (lfsr_o_isunflush(file->o.o.flags)) {
-                    file_->o.o.flags |= LFS_O_UNFLUSH;
+                    file_->o.o.flags |= LFS_o_UNFLUSH;
                 } else {
-                    file_->o.o.flags &= ~LFS_O_UNFLUSH;
+                    file_->o.o.flags &= ~LFS_o_UNFLUSH;
                 }
                 file_->o.bshrub = file->o.bshrub;
                 file_->buffer.pos = file->buffer.pos;
@@ -12699,7 +12699,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->o.o.flags &= ~(LFS_O_UNSYNC | LFS_O_UNCREAT | LFS_O_DESYNC);
+    file->o.o.flags &= ~(LFS_o_UNSYNC | LFS_o_UNCREAT | LFS_O_DESYNC);
     return 0;
 
 failed:;
@@ -12819,7 +12819,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // mark as unsynced in case we fail
-    file->o.o.flags |= LFS_O_UNSYNC;
+    file->o.o.flags |= LFS_o_UNSYNC;
 
     // does our file become small?
     if (size_ <= lfsr_file_inlinesize(lfs, file)) {
@@ -12854,7 +12854,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // small files remain perpetually unflushed
-        file->o.o.flags |= LFS_O_UNFLUSH;
+        file->o.o.flags |= LFS_o_UNFLUSH;
         lfsr_bshrub_init(&file->o.bshrub);
         file->buffer.pos = 0;
         file->buffer.size = size_;
@@ -12928,7 +12928,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // mark as unsynced in case we fail
-    file->o.o.flags |= LFS_O_UNSYNC;
+    file->o.o.flags |= LFS_o_UNSYNC;
 
     // does our file become small?
     if (size_ <= lfsr_file_inlinesize(lfs, file)) {
@@ -12976,7 +12976,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         }
 
         // small files remain perpetually unflushed
-        file->o.o.flags |= LFS_O_UNFLUSH;
+        file->o.o.flags |= LFS_o_UNFLUSH;
         lfsr_bshrub_init(&file->o.bshrub);
         file->buffer.pos = 0;
         file->buffer.size = size_;
@@ -13201,7 +13201,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     // setup flags
     lfs->flags = flags
             // assume we contain orphans until proven otherwise
-            | LFS_I_UNTIDY
+            | LFS_i_UNTIDY
             // default to an empty lookahead
             | LFS_I_LOOKAHEAD
             // default to assuming we need compaction somewhere, worst case
@@ -13420,16 +13420,16 @@ static int lfs_deinit(lfs_t *lfs) {
 // note, "understanding" does not necessarily mean support
 //
 enum lfsr_rcompat {
-    LFSR_RCOMPAT_NONSTANDARD    = 0x0001,
-    LFSR_RCOMPAT_MLEAF          = 0x0002,
-    LFSR_RCOMPAT_MTREE          = 0x0008,
-    LFSR_RCOMPAT_BSPROUT        = 0x0010,
-    LFSR_RCOMPAT_BLEAF          = 0x0020,
-    LFSR_RCOMPAT_BSHRUB         = 0x0040,
-    LFSR_RCOMPAT_BTREE          = 0x0080,
-    LFSR_RCOMPAT_GRM            = 0x0100,
+    LFSR_RCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
+    LFSR_RCOMPAT_MLEAF       = 0x0002, // May use a single mdir pointer
+    LFSR_RCOMPAT_MTREE       = 0x0008, // May use an mtree
+    LFSR_RCOMPAT_BSPROUT     = 0x0010, // Files may use inlined data
+    LFSR_RCOMPAT_BLEAF       = 0x0020, // Files may use single block pointers
+    LFSR_RCOMPAT_BSHRUB      = 0x0040, // Files may use inlined btrees
+    LFSR_RCOMPAT_BTREE       = 0x0080, // Files may use btrees
+    LFSR_RCOMPAT_GRM         = 0x0100, // May use a global-remove
     // internal
-    LFSR_RCOMPAT_OVERFLOW       = 0x8000,
+    LFSR_rcompat_OVERFLOW    = 0x8000, // Can't represent all flags
 };
 
 #define LFSR_RCOMPAT_COMPAT \
@@ -13442,17 +13442,17 @@ enum lfsr_rcompat {
         | LFSR_RCOMPAT_GRM)
 
 enum lfsr_wcompat {
-    LFSR_WCOMPAT_NONSTANDARD    = 0x0001,
+    LFSR_WCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
     // internal
-    LFSR_WCOMPAT_OVERFLOW       = 0x8000,
+    LFSR_wcompat_OVERFLOW    = 0x8000, // Can't represent all flags
 };
 
 #define LFSR_WCOMPAT_COMPAT 0
 
 enum lfsr_ocompat {
-    LFSR_OCOMPAT_NONSTANDARD    = 0x0001,
+    LFSR_OCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
     // internal
-    LFSR_OCOMPAT_OVERFLOW       = 0x8000,
+    LFSR_ocompat_OVERFLOW    = 0x8000, // Can't represent all flags
 };
 
 #define LFSR_OCOMPAT_COMPAT 0
@@ -14192,7 +14192,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, 0)
-                | LFS_I_MKCONSISTENT // synonym for LFS_I_UNTIDY
+                | LFS_I_MKCONSISTENT // synonym for LFS_i_UNTIDY
                 | LFS_I_LOOKAHEAD
                 | LFS_I_COMPACT
                 | LFS_I_CKMETA
@@ -14451,7 +14451,7 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
     // do we have any pending work?
     uint32_t pending = flags & (
             (lfs->flags & (
-                LFS_I_UNTIDY
+                LFS_i_UNTIDY
                     | LFS_I_LOOKAHEAD
                     | LFS_I_COMPACT
                     | LFS_I_CKMETA
@@ -14505,7 +14505,7 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
 
             // clear any pending flags we make progress on
             pending &= lfs->flags & (
-                    LFS_I_UNTIDY
+                    LFS_i_UNTIDY
                         | LFS_I_LOOKAHEAD
                         | LFS_I_COMPACT
                         | LFS_I_CKMETA
@@ -14772,7 +14772,7 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
 
     // reset traversal
     lfsr_traversal_init(t,
-            t->o.o.flags & ~(LFS_T_DIRTY | LFS_T_MUTATED | LFS_T_TSTATE));
+            t->o.o.flags & ~(LFS_t_DIRTY | LFS_t_MUTATED | LFS_t_TSTATE));
 
     // and clear any pending blocks
     t->blocks[0] = -1;
