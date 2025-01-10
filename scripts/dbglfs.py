@@ -49,9 +49,8 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- --qp
+TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- ---p
 TAG_P           = 0x0001
-TAG_Q           = 0x0002
 TAG_NOTE        = 0x3100    #  0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
 
@@ -270,10 +269,9 @@ def tagrepr(tag, w=None, size=None, off=None):
                     else ' -%d' % size if size
                     else '')
     elif (tag & 0x7f00) == TAG_CKSUM:
-        return 'cksum%s%s%s%s%s' % (
-                'q' if not tag & 0xfc and tag & TAG_Q else '',
-                'p' if not tag & 0xfc and tag & TAG_P else '',
-                ' 0x%02x' % (tag & 0xff) if tag & 0xfc else '',
+        return 'cksum%s%s%s%s' % (
+                'p' if not tag & 0xfe and tag & TAG_P else '',
+                ' 0x%02x' % (tag & 0xff) if tag & 0xfe else '',
                 ' w%d' % w if w else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_NOTE:

@@ -1157,7 +1157,6 @@ enum lfsr_tag {
     // checksum tags
     LFSR_TAG_CKSUM          = 0x3000,
     LFSR_TAG_P              = 0x0001,
-    LFSR_TAG_Q              = 0x0002,
     LFSR_TAG_NOTE           = 0x3100,
     LFSR_TAG_ECKSUM         = 0x3200,
 
@@ -1227,10 +1226,6 @@ static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_p(lfsr_tag_t tag) {
     return tag & LFSR_TAG_P;
-}
-
-static inline bool lfsr_tag_q(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_Q;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
@@ -2821,9 +2816,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     break;
                 }
 
-                // if checksums match, perturb bits should also match
-                LFS_ASSERT(lfsr_tag_q(tag) == lfsr_rbyd_isperturb(rbyd));
-
                 // save what we've found so far
                 rbyd->eoff
                         = ((lfs_size_t)lfsr_tag_p(tag)
@@ -4046,8 +4038,6 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             // set the valid bit to the cksum parity
             | ((uint8_t)v << 7);
     cksum_buf[1] = (uint8_t)(LFSR_TAG_CKSUM >> 0)
-            // include the current perturb bit
-            | ((uint8_t)lfsr_rbyd_isperturb(rbyd) << 1)
             // set the perturb bit so next commit is invalid
             | ((uint8_t)perturb << 0);
     cksum_buf[2] = 0;
@@ -4063,7 +4053,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // calculate the commit checksum
     cksum_ = lfs_crc32c(cksum_, cksum_buf, 2+1+4);
     // and perturb, perturbing the commit checksum avoids a perturb hole
-    // after the last valid bit without needing to manually validate q
+    // after the last valid bit
     //
     // note the odd-parity zero preserves our position in the crc32c
     // ring while only changing the parity

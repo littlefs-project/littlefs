@@ -50,9 +50,8 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- --qp
+TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- ---p
 TAG_P           = 0x0001
-TAG_Q           = 0x0002
 TAG_NOTE        = 0x3100    #  0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
 
