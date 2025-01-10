@@ -13393,25 +13393,28 @@ static int lfs_deinit(lfs_t *lfs) {
 //
 enum lfsr_rcompat {
     LFSR_RCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
-    LFSR_RCOMPAT_MLEAF       = 0x0002, // May use a single mdir pointer
-    LFSR_RCOMPAT_MTREE       = 0x0008, // May use an mtree
-    LFSR_RCOMPAT_BSPROUT     = 0x0010, // Files may use inlined data
-    LFSR_RCOMPAT_BLEAF       = 0x0020, // Files may use single block pointers
-    LFSR_RCOMPAT_BSHRUB      = 0x0040, // Files may use inlined btrees
-    LFSR_RCOMPAT_BTREE       = 0x0080, // Files may use btrees
-    LFSR_RCOMPAT_GRM         = 0x0100, // May use a global-remove
+    LFSR_RCOMPAT_GRM         = 0x0004, // May use a global-remove
+    LFSR_RCOMPAT_MSPROUT     = 0x0010, // May use an inlined mdir
+    LFSR_RCOMPAT_MLEAF       = 0x0020, // May use a single mdir pointer
+    LFSR_RCOMPAT_MSHRUB      = 0x0040, // May use an inlined mtree
+    LFSR_RCOMPAT_MTREE       = 0x0080, // May use an mtree
+    LFSR_RCOMPAT_BSPROUT     = 0x0100, // Files may use inlined data
+    LFSR_RCOMPAT_BLEAF       = 0x0200, // Files may use single block pointers
+    LFSR_RCOMPAT_BSHRUB      = 0x0400, // Files may use inlined btrees
+    LFSR_RCOMPAT_BTREE       = 0x0800, // Files may use btrees
     // internal
     LFSR_rcompat_OVERFLOW    = 0x8000, // Can't represent all flags
 };
 
 #define LFSR_RCOMPAT_COMPAT \
-    (LFSR_RCOMPAT_MLEAF \
+    (LFSR_RCOMPAT_GRM \
+        | LFSR_RCOMPAT_MSPROUT \
+        | LFSR_RCOMPAT_MLEAF \
         | LFSR_RCOMPAT_MTREE \
         | LFSR_RCOMPAT_BSPROUT \
         | LFSR_RCOMPAT_BLEAF \
         | LFSR_RCOMPAT_BSHRUB \
-        | LFSR_RCOMPAT_BTREE \
-        | LFSR_RCOMPAT_GRM)
+        | LFSR_RCOMPAT_BTREE)
 
 enum lfsr_wcompat {
     LFSR_WCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format

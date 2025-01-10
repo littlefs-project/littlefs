@@ -149,13 +149,15 @@ FLAGS = [
     # Read-compat flags
     ('RCOMPAT', 'NONSTANDARD',
                            0x0001, "Non-standard filesystem format"           ),
-    ('RCOMPAT', 'MLEAF',   0x0002, "May use a single mdir pointer"            ),
-    ('RCOMPAT', 'MTREE',   0x0008, "May use an mdir btree"                    ),
-    ('RCOMPAT', 'BSPROUT', 0x0010, "Files may use inlined data"               ),
-    ('RCOMPAT', 'BLEAF',   0x0020, "Files may use single block pointers"      ),
-    ('RCOMPAT', 'BSHRUB',  0x0040, "Files may use inlined btrees"             ),
-    ('RCOMPAT', 'BTREE',   0x0080, "Files may use btrees"                     ),
-    ('RCOMPAT', 'GRM',     0x0100, "May use a global-remove"                  ),
+    ('RCOMPAT', 'GRM',     0x0004, "May use a global-remove"                  ),
+    ('RCOMPAT', 'MSPROUT', 0x0010, "May use an inlined mdir"                  ),
+    ('RCOMPAT', 'MLEAF',   0x0020, "May use a single mdir pointer"            ),
+    ('RCOMPAT', 'MSHRUB',  0x0040, "May use an inlined mtree"                 ),
+    ('RCOMPAT', 'MTREE',   0x0080, "May use an mdir btree"                    ),
+    ('RCOMPAT', 'BSPROUT', 0x0100, "Files may use inlined data"               ),
+    ('RCOMPAT', 'BLEAF',   0x0200, "Files may use single block pointers"      ),
+    ('RCOMPAT', 'BSHRUB',  0x0400, "Files may use inlined btrees"             ),
+    ('RCOMPAT', 'BTREE',   0x0800, "Files may use btrees"                     ),
 
     ('rcompat', 'OVERFLOW',0x8000, "Can't represent all flags"                ),
 
