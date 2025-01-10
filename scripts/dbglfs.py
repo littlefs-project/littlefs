@@ -1306,8 +1306,8 @@ def dbg_fstruct(f, block_size, mdir, rid, tag, j, d, data, *,
         m_width=0,
         color=False,
         args={}):
-    # first decode possible rbyds/btrees, for sprouts/direct blocks we pretend
-    # the entry itself is a single-element btree
+    # first decode possible rbyds/btrees, for inlined data/direct
+    # blocks we pretend the entry itself is a single-element btree
 
     # inlined data?
     if tag == TAG_DATA:
@@ -2158,7 +2158,7 @@ def main(disk, mroots=None, *,
                     # print file contents?
                     if ((tag == TAG_REG or tag == TAG_STICKYNOTE)
                             and args.get('structs')):
-                        # inlined sprout?
+                        # inlined data?
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
                                 rid, TAG_DATA)
                         if not done and rid_ == rid and tag_ == TAG_DATA:

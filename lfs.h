@@ -678,8 +678,6 @@ typedef struct lfsr_data {
 //    const struct lfs_file_config *cfg;
 //} lfs_file_t;
 
-typedef lfsr_data_t lfsr_sprout_t;
-
 typedef struct lfsr_bptr {
     lfsr_data_t data;
     #ifndef LFS_CKDATACKSUMS
@@ -694,15 +692,15 @@ typedef struct lfsr_bshrub {
     // mdir's block:
     //
     // sign(size)=1, data.size==0           => bnull
-    // sign(size)=1, data.block==mdir.block => bsprout
+    // sign(size)=1, data.block==mdir.block => bmoss
     // sign(size)=1, data.block!=mdir.block => bptr
     // sign(size)=0, data.block==mdir.block => bshrub
     // sign(size)=0, data.block!=mdir.block => btree
     //
     union {
         lfs_off_t size;
-        lfsr_sprout_t bsprout;
-        lfsr_bptr_t bptr;
+        lfsr_data_t bmoss;
+        lfsr_bptr_t bsprout;
         lfsr_shrub_t bshrub;
         lfsr_btree_t btree;
     } u;
