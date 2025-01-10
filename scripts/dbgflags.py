@@ -149,6 +149,7 @@ FLAGS = [
     # Read-compat flags
     ('RCOMPAT', 'NONSTANDARD',
                            0x0001, "Non-standard filesystem format"           ),
+    ('RCOMPAT', 'WRONLY',  0x0002, "Reading is disallowed"                    ),
     ('RCOMPAT', 'GRM',     0x0004, "May use a global-remove"                  ),
     ('RCOMPAT', 'MSPROUT', 0x0010, "May use an inlined mdir"                  ),
     ('RCOMPAT', 'MLEAF',   0x0020, "May use a single mdir pointer"            ),
@@ -164,6 +165,7 @@ FLAGS = [
     # Write-compat flags
     ('WCOMPAT', 'NONSTANDARD',
                            0x0001, "Non-standard filesystem format"           ),
+    ('WCOMPAT', 'RDONLY',  0x0002, "Writing is disallowed"                    ),
 
     ('wcompat', 'OVERFLOW',0x8000, "Can't represent all flags"                ),
 

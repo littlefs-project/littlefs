@@ -13393,6 +13393,7 @@ static int lfs_deinit(lfs_t *lfs) {
 //
 enum lfsr_rcompat {
     LFSR_RCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
+    LFSR_RCOMPAT_WRONLY      = 0x0002, // Reading is disallowed
     LFSR_RCOMPAT_GRM         = 0x0004, // May use a global-remove
     LFSR_RCOMPAT_MSPROUT     = 0x0010, // May use an inlined mdir
     LFSR_RCOMPAT_MLEAF       = 0x0020, // May use a single mdir pointer
@@ -13418,6 +13419,7 @@ enum lfsr_rcompat {
 
 enum lfsr_wcompat {
     LFSR_WCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
+    LFSR_WCOMPAT_RDONLY      = 0x0002, // Writing is disallowed
     // internal
     LFSR_wcompat_OVERFLOW    = 0x8000, // Can't represent all flags
 };
