@@ -152,7 +152,7 @@ FLAGS = [
     ('RCOMPAT', 'WRONLY',
                        0x00000002, "Reading is disallowed"                    ),
     ('RCOMPAT', 'GRM',
-                       0x00000004, "May use a global-remove"                  ),
+                       0x00000004, "Global-remove in use"                     ),
     ('RCOMPAT', 'MMOSS',
                        0x00000010, "May use an inlined mdir"                  ),
     ('RCOMPAT', 'MSPROUT',
@@ -177,6 +177,8 @@ FLAGS = [
                        0x00000001, "Non-standard filesystem format"           ),
     ('WCOMPAT', 'RDONLY',
                        0x00000002, "Writing is disallowed"                    ),
+    ('WCOMPAT', 'GCKSUM',
+                       0x00000004, "Global-checksum in use"                   ),
     ('wcompat', 'OVERFLOW',
                        0x80000000, "Can't represent all flags"                ),
 

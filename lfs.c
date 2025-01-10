@@ -13383,7 +13383,7 @@ static int lfs_deinit(lfs_t *lfs) {
 //
 #define LFSR_RCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFSR_RCOMPAT_WRONLY      0x00000002 // Reading is disallowed
-#define LFSR_RCOMPAT_GRM         0x00000004 // May use a global-remove
+#define LFSR_RCOMPAT_GRM         0x00000004 // Global-remove in use
 #define LFSR_RCOMPAT_MMOSS       0x00000010 // May use an inlined mdir
 #define LFSR_RCOMPAT_MSPROUT     0x00000020 // May use an mdir pointer
 #define LFSR_RCOMPAT_MSHRUB      0x00000040 // May use an inlined mtree
@@ -13407,10 +13407,12 @@ static int lfs_deinit(lfs_t *lfs) {
 
 #define LFSR_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFSR_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
+#define LFSR_WCOMPAT_GCKSUM      0x00000004 // Global-checksum in use
 // internal
 #define LFSR_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
-#define LFSR_WCOMPAT_COMPAT 0
+#define LFSR_WCOMPAT_COMPAT \
+    (LFSR_WCOMPAT_GCKSUM)
 
 #define LFSR_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 // internal
@@ -14000,6 +14002,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // - any format-time configuration
         // - the root's bookmark tag, which reserves did = 0 for the root
         uint8_t rcompat_buf[LFSR_LE32_DSIZE];
+        uint8_t wcompat_buf[LFSR_LE32_DSIZE];
         uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
         uint8_t name_limit_buf[LFSR_LLEB128_DSIZE];
         uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
@@ -14016,6 +14019,9 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_RAT(
                     LFSR_TAG_RCOMPAT, 0,
                     LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf)),
+                LFSR_RAT(
+                    LFSR_TAG_WCOMPAT, 0,
+                    LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf)),
                 LFSR_RAT(
                     LFSR_TAG_GEOMETRY, 0,
                     LFSR_DATA_GEOMETRY(
