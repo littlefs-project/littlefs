@@ -638,11 +638,11 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t rcompat_buf[LFSR_RCOMPAT_DSIZE];
+    uint8_t rcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_RCOMPAT, 0,
-                LFSR_DATA_RCOMPAT(
+                LFSR_DATA_LE32(
                     LFSR_RCOMPAT_COMPAT
                         | LFSR_RCOMPAT_NONSTANDARD,
                     rcompat_buf)))) => 0;
@@ -667,11 +667,11 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t wcompat_buf[LFSR_WCOMPAT_DSIZE];
+    uint8_t wcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_WCOMPAT, 0,
-                LFSR_DATA_WCOMPAT(
+                LFSR_DATA_LE32(
                     LFSR_WCOMPAT_COMPAT
                         | LFSR_WCOMPAT_NONSTANDARD,
                     wcompat_buf)))) => 0;
@@ -699,11 +699,11 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t ocompat_buf[LFSR_OCOMPAT_DSIZE];
+    uint8_t ocompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_OCOMPAT, 0,
-                LFSR_DATA_OCOMPAT(
+                LFSR_DATA_LE32(
                     LFSR_OCOMPAT_COMPAT
                         | LFSR_OCOMPAT_NONSTANDARD,
                     ocompat_buf)))) => 0;
@@ -729,11 +729,11 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t wcompat_buf[LFSR_WCOMPAT_DSIZE];
+    uint8_t wcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_WCOMPAT, 0,
-                LFSR_DATA_WCOMPAT(
+                LFSR_DATA_LE32(
                     LFSR_WCOMPAT_COMPAT
                         | LFSR_WCOMPAT_RDONLY,
                     wcompat_buf)))) => 0;
@@ -760,11 +760,11 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t rcompat_buf[LFSR_RCOMPAT_DSIZE];
+    uint8_t rcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT(
                 LFSR_TAG_RCOMPAT, 0,
-                LFSR_DATA_RCOMPAT(
+                LFSR_DATA_LE32(
                     LFSR_RCOMPAT_COMPAT
                         | LFSR_RCOMPAT_WRONLY,
                     rcompat_buf)))) => 0;
@@ -789,16 +789,16 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t overflow[OVERFLOW];
+    uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
     overflow[FLAG / 8] |= 1 << (FLAG % 8);
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t rcompat_buf[LFSR_RCOMPAT_DSIZE];
+    uint8_t rcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_RCOMPAT, 0,
-                LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT, rcompat_buf),
+                LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -823,16 +823,16 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t overflow[OVERFLOW];
+    uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
     overflow[FLAG / 8] |= 1 << (FLAG % 8);
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t wcompat_buf[LFSR_WCOMPAT_DSIZE];
+    uint8_t wcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_WCOMPAT, 0,
-                LFSR_DATA_WCOMPAT(LFSR_WCOMPAT_COMPAT, wcompat_buf),
+                LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -857,16 +857,16 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t overflow[OVERFLOW];
+    uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
     overflow[FLAG / 8] |= 1 << (FLAG % 8);
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t ocompat_buf[LFSR_OCOMPAT_DSIZE];
+    uint8_t ocompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_OCOMPAT, 0,
-                LFSR_DATA_OCOMPAT(LFSR_OCOMPAT_COMPAT, ocompat_buf),
+                LFSR_DATA_LE32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -890,15 +890,15 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t overflow[OVERFLOW];
+    uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t rcompat_buf[LFSR_RCOMPAT_DSIZE];
+    uint8_t rcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_RCOMPAT, 0,
-                LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT, rcompat_buf),
+                LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -924,15 +924,15 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t overflow[OVERFLOW];
+    uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t wcompat_buf[LFSR_WCOMPAT_DSIZE];
+    uint8_t wcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_WCOMPAT, 0,
-                LFSR_DATA_WCOMPAT(LFSR_WCOMPAT_COMPAT, wcompat_buf),
+                LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -955,15 +955,15 @@ code = '''
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t overflow[OVERFLOW];
+    uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
 
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t ocompat_buf[LFSR_OCOMPAT_DSIZE];
+    uint8_t ocompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATS(
             LFSR_RAT_CAT(
                 LFSR_TAG_OCOMPAT, 0,
-                LFSR_DATA_OCOMPAT(LFSR_OCOMPAT_COMPAT, ocompat_buf),
+                LFSR_DATA_LE32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 

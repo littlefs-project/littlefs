@@ -13391,21 +13391,19 @@ static int lfs_deinit(lfs_t *lfs) {
 //
 // note, "understanding" does not necessarily mean support
 //
-enum lfsr_rcompat {
-    LFSR_RCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
-    LFSR_RCOMPAT_WRONLY      = 0x0002, // Reading is disallowed
-    LFSR_RCOMPAT_GRM         = 0x0004, // May use a global-remove
-    LFSR_RCOMPAT_MMOSS       = 0x0010, // May use an inlined mdir
-    LFSR_RCOMPAT_MSPROUT     = 0x0020, // May use a single mdir pointer
-    LFSR_RCOMPAT_MSHRUB      = 0x0040, // May use an inlined mtree
-    LFSR_RCOMPAT_MTREE       = 0x0080, // May use an mtree
-    LFSR_RCOMPAT_BMOSS       = 0x0100, // Files may use inlined data
-    LFSR_RCOMPAT_BSPROUT     = 0x0200, // Files may use single block pointers
-    LFSR_RCOMPAT_BSHRUB      = 0x0400, // Files may use inlined btrees
-    LFSR_RCOMPAT_BTREE       = 0x0800, // Files may use btrees
-    // internal
-    LFSR_rcompat_OVERFLOW    = 0x8000, // Can't represent all flags
-};
+#define LFSR_RCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+#define LFSR_RCOMPAT_WRONLY      0x00000002 // Reading is disallowed
+#define LFSR_RCOMPAT_GRM         0x00000004 // May use a global-remove
+#define LFSR_RCOMPAT_MMOSS       0x00000010 // May use an inlined mdir
+#define LFSR_RCOMPAT_MSPROUT     0x00000020 // May use an mdir pointer
+#define LFSR_RCOMPAT_MSHRUB      0x00000040 // May use an inlined mtree
+#define LFSR_RCOMPAT_MTREE       0x00000080 // May use an mtree
+#define LFSR_RCOMPAT_BMOSS       0x00000100 // Files may use inlined data
+#define LFSR_RCOMPAT_BSPROUT     0x00000200 // Files may use block pointers
+#define LFSR_RCOMPAT_BSHRUB      0x00000400 // Files may use inlined btrees
+#define LFSR_RCOMPAT_BTREE       0x00000800 // Files may use btrees
+// internal
+#define LFSR_rcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFSR_RCOMPAT_COMPAT \
     (LFSR_RCOMPAT_GRM \
@@ -13417,26 +13415,22 @@ enum lfsr_rcompat {
         | LFSR_RCOMPAT_BSHRUB \
         | LFSR_RCOMPAT_BTREE)
 
-enum lfsr_wcompat {
-    LFSR_WCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
-    LFSR_WCOMPAT_RDONLY      = 0x0002, // Writing is disallowed
-    // internal
-    LFSR_wcompat_OVERFLOW    = 0x8000, // Can't represent all flags
-};
+#define LFSR_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+#define LFSR_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
+// internal
+#define LFSR_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFSR_WCOMPAT_COMPAT 0
 
-enum lfsr_ocompat {
-    LFSR_OCOMPAT_NONSTANDARD = 0x0001, // Non-standard filesystem format
-    // internal
-    LFSR_ocompat_OVERFLOW    = 0x8000, // Can't represent all flags
-};
+#define LFSR_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+// internal
+#define LFSR_ocompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFSR_OCOMPAT_COMPAT 0
 
-typedef uint16_t lfsr_rcompat_t;
-typedef uint16_t lfsr_wcompat_t;
-typedef uint16_t lfsr_ocompat_t;
+typedef uint32_t lfsr_rcompat_t;
+typedef uint32_t lfsr_wcompat_t;
+typedef uint32_t lfsr_ocompat_t;
 
 static inline bool lfsr_rcompat_isincompat(lfsr_rcompat_t rcompat) {
     return rcompat != LFSR_RCOMPAT_COMPAT;
@@ -13454,26 +13448,15 @@ static inline bool lfsr_ocompat_isincompat(lfsr_ocompat_t ocompat) {
 //
 // little-endian, truncated bits must be assumed zero
 
-#define LFSR_COMPAT_DSIZE 2
-
-#define LFSR_DATA_COMPAT(_compat, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromcompat(_compat, _buffer)}.d)
-
-static inline lfsr_data_t lfsr_data_fromcompat(uint16_t compat,
-        uint8_t buffer[static LFSR_COMPAT_DSIZE]) {
-    lfs_tole16_(compat, buffer);
-    return LFSR_DATA_BUF(buffer, LFSR_COMPAT_DSIZE);
-}
-
 static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
-        uint16_t *compat) {
+        uint32_t *compat) {
     // allow truncated compat flags
-    uint8_t buf[2] = {0};
-    lfs_ssize_t d = lfsr_data_read(lfs, data, buf, 2);
+    uint8_t buf[4] = {0};
+    lfs_ssize_t d = lfsr_data_read(lfs, data, buf, 4);
     if (d < 0) {
         return d;
     }
-    *compat = lfs_fromle16_(buf);
+    *compat = lfs_fromle32_(buf);
 
     // if any out-of-range flags are set, set the internal overflow bit,
     // this is a compromise in correctness and and compat-flag complexity
@@ -13487,7 +13470,7 @@ static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
         }
 
         if (b != 0x00) {
-            *compat |= 0x8000;
+            *compat |= 0x80000000;
             break;
         }
     }
@@ -13497,30 +13480,15 @@ static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
 
 // all the compat parsing is basically the same, so try to reuse code
 
-#define LFSR_RCOMPAT_DSIZE LFSR_COMPAT_DSIZE
-
-#define LFSR_DATA_RCOMPAT(_rcompat, _buffer) \
-        LFSR_DATA_COMPAT(_rcompat, _buffer)
-
 static inline int lfsr_data_readrcompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_rcompat_t *rcompat) {
     return lfsr_data_readcompat(lfs, data, rcompat);
 }
 
-#define LFSR_WCOMPAT_DSIZE LFSR_COMPAT_DSIZE
-
-#define LFSR_DATA_WCOMPAT(_wcompat, _buffer) \
-        LFSR_DATA_COMPAT(_wcompat, _buffer)
-
 static inline int lfsr_data_readwcompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_wcompat_t *wcompat) {
     return lfsr_data_readcompat(lfs, data, wcompat);
 }
-
-#define LFSR_OCOMPAT_DSIZE LFSR_COMPAT_DSIZE
-
-#define LFSR_DATA_OCOMPAT(_ocompat, _buffer) \
-        LFSR_DATA_COMPAT(_ocompat, _buffer)
 
 static inline int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
         lfsr_ocompat_t *ocompat) {
@@ -13625,8 +13593,8 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     if (lfsr_rcompat_isincompat(rcompat)) {
-        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx16
-                " (!= 0x%0"PRIx16")",
+        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx32
+                " (!= 0x%0"PRIx32")",
                 rcompat,
                 LFSR_RCOMPAT_COMPAT);
         return LFS_ERR_NOTSUP;
@@ -13648,8 +13616,8 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     if (lfsr_wcompat_isincompat(wcompat)) {
-        LFS_WARN("Incompatible wcompat flags 0x%0"PRIx16
-                " (!= 0x%0"PRIx16")",
+        LFS_WARN("Incompatible wcompat flags 0x%0"PRIx32
+                " (!= 0x%0"PRIx32")",
                 wcompat,
                 LFSR_WCOMPAT_COMPAT);
         // we can continue if rdonly
@@ -14041,7 +14009,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // - our magic string, "littlefs"
         // - any format-time configuration
         // - the root's bookmark tag, which reserves did = 0 for the root
-        uint8_t rcompat_buf[LFSR_RCOMPAT_DSIZE];
+        uint8_t rcompat_buf[LFSR_LE32_DSIZE];
         uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
         uint8_t name_limit_buf[LFSR_LLEB128_DSIZE];
         uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
@@ -14057,7 +14025,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
                         LFS_DISK_VERSION_MINOR}), 2)),
                 LFSR_RAT(
                     LFSR_TAG_RCOMPAT, 0,
-                    LFSR_DATA_RCOMPAT(LFSR_RCOMPAT_COMPAT, rcompat_buf)),
+                    LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf)),
                 LFSR_RAT(
                     LFSR_TAG_GEOMETRY, 0,
                     LFSR_DATA_GEOMETRY(

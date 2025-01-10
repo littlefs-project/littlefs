@@ -1169,13 +1169,13 @@ class Config:
                 return 'version v%d.%d' % self.version
             elif tag == TAG_RCOMPAT:
                 return 'rcompat 0x%s' % ''.join(
-                        '%x' % f for f in reversed(self.rcompat))
+                        '%02x' % f for f in reversed(self.rcompat))
             elif tag == TAG_WCOMPAT:
                 return 'wcompat 0x%s' % ''.join(
-                        '%x' % f for f in reversed(self.wcompat))
+                        '%02x' % f for f in reversed(self.wcompat))
             elif tag == TAG_OCOMPAT:
                 return 'ocompat 0x%s' % ''.join(
-                        '%x' % f for f in reversed(self.ocompat))
+                        '%02x' % f for f in reversed(self.ocompat))
             elif tag == TAG_GEOMETRY:
                 return 'geometry %dx%d' % self.geometry
             elif tag == TAG_NAMELIMIT:
