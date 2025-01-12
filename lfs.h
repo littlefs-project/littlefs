@@ -611,6 +611,7 @@ typedef struct {
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
     lfsr_rbyd_t rbyd;
+    uint32_t gcksumdelta;
 } lfsr_mdir_t;
 
 typedef struct lfsr_omdir {
@@ -873,6 +874,10 @@ typedef struct lfs {
         lfs_block_t ckpoint;
         uint8_t *buffer;
     } lookahead;
+
+    uint32_t gcksum;
+    uint32_t gcksum_p;
+    uint32_t gcksum_d;
 
     lfsr_grm_t grm;
     uint8_t grm_p[LFSR_GRM_DSIZE];

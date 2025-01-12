@@ -1158,6 +1158,7 @@ enum lfsr_tag {
     LFSR_TAG_P              = 0x0001,
     LFSR_TAG_NOTE           = 0x3100,
     LFSR_TAG_ECKSUM         = 0x3200,
+    LFSR_TAG_GCKSUMDELTA    = 0x3300,
 
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
@@ -2725,7 +2726,8 @@ static int lfsr_rbyd_ckecksum(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 // fetch an rbyd
-static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_fetch_(lfs_t *lfs,
+        lfsr_rbyd_t *rbyd, uint32_t *gcksumdelta,
         lfs_block_t block, lfs_size_t trunk) {
     // set up some initial state
     rbyd->blocks[0] = block;
@@ -2752,8 +2754,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_rid_t weight_ = 0;
 
     // assume unerased until proven otherwise
-    lfsr_data_t ecksum = LFSR_DATA_NULL();
-    lfsr_data_t ecksum_ = LFSR_DATA_NULL();
+    lfsr_ecksum_t ecksum = {.cksize=-1};
+    lfsr_ecksum_t ecksum_ = {.cksize=-1};
+
+    // also find gcksumdelta, though this is only used by mdirs
+    uint32_t gcksumdelta_ = 0;
 
     // scan tags, checking valid bits, cksums, etc
     while (off < lfs->cfg->block_size
@@ -2793,7 +2798,33 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                 // found an ecksum? save for later
                 if (tag == LFSR_TAG_ECKSUM) {
-                    ecksum_ = LFSR_DATA_DISK(block, off_, size);
+                    err = lfsr_data_readecksum(lfs,
+                            &LFSR_DATA_DISK(block, off_,
+                                // note this size is to make the hint do
+                                // what we want
+                                lfs->cfg->block_size - off_),
+                            &ecksum_);
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            break;
+                        }
+                        return err;
+                    }
+
+                // found gcksumdelta? save for later
+                } else if (tag == LFSR_TAG_GCKSUMDELTA) {
+                    err = lfsr_data_readle32(lfs,
+                            &LFSR_DATA_DISK(block, off_,
+                                // note this size is to make the hint do
+                                // what we want
+                                lfs->cfg->block_size - off_),
+                            &gcksumdelta_);
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            break;
+                        }
+                        return err;
+                    }
                 }
 
             // is an end-of-commit cksum
@@ -2824,13 +2855,17 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 rbyd->trunk = (LFSR_RBYD_ISSHRUB & rbyd->trunk) | trunk_;
                 rbyd->weight = weight;
                 ecksum = ecksum_;
+                ecksum_.cksize = -1;
+                if (gcksumdelta) {
+                    *gcksumdelta = gcksumdelta_;
+                }
+                gcksumdelta_ = 0;
 
                 // revert to canonical checksum and perturb if necessary
                 cksum_ = cksum
                         ^ ((lfsr_rbyd_isperturb(rbyd))
                             ? LFS_CRC32C_ODDZERO
                             : 0);
-                ecksum_ = LFSR_DATA_NULL();
             }
         }
 
@@ -2888,25 +2923,15 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // did we end on a valid commit? we may have erased-state
     bool erased = false;
-    if (lfsr_data_size(ecksum) != 0) {
-        // read the erased-state checksum
-        lfsr_ecksum_t ecksum__;
-        err = lfsr_data_readecksum(lfs, &ecksum,
-                &ecksum__);
+    if (ecksum.cksize != -1) {
+        // check the erased-state checksum
+        err = lfsr_rbyd_ckecksum(lfs, rbyd, &ecksum);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
 
-        if (err != LFS_ERR_CORRUPT) {
-            // check the erased-state checksum
-            err = lfsr_rbyd_ckecksum(lfs, rbyd, &ecksum__);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-
-            // found valid erased-state?
-            erased = (err != LFS_ERR_CORRUPT);
-        }
+        // found valid erased-state?
+        erased = (err != LFS_ERR_CORRUPT);
     }
 
     // used eoff=-1 to indicate when there is no erased-state
@@ -2915,6 +2940,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     return 0;
+}
+
+static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_block_t block, lfs_size_t trunk) {
+    return lfsr_rbyd_fetch_(lfs, rbyd, NULL, block, trunk);
 }
 
 // a more aggressive fetch when checksum is known
@@ -3937,7 +3967,11 @@ leaf:;
     return 0;
 }
 
-static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+// needed in lfsr_rbyd_appendcksum
+static uint32_t lfsr_gcksum_cube(uint32_t gcksum);
+
+static int lfsr_rbyd_appendcksum_(lfs_t *lfs,
+        lfsr_rbyd_t *rbyd, uint32_t *gcksumdelta) {
     // begin appending
     int err = lfsr_rbyd_appendinit(lfs, rbyd);
     if (err) {
@@ -3946,6 +3980,28 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
     // save the canonical checksum
     uint32_t cksum = rbyd->cksum;
+
+    // append gcksumdelta?
+    //
+    // the only requirement for gcksumdelta is we append after
+    // calculating the canonical checksum, it's a bit more convenient to
+    // append before the ecksum because of end-of-commit calculations
+    if (gcksumdelta) {
+        // figure out changes to our gcksumdelta
+        uint32_t gcksumdelta_ = *gcksumdelta
+                ^ lfsr_gcksum_cube(lfs->gcksum_p)
+                ^ lfsr_gcksum_cube(lfs->gcksum)
+                ^ lfs->gcksum_d;
+        *gcksumdelta = gcksumdelta_;
+
+        uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
+        err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT(
+                LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
+                    gcksumdelta_, gcksumdelta_buf)));
+        if (err) {
+            return err;
+        }
+    }
 
     // align to the next prog unit
     //
@@ -4079,6 +4135,10 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // revert to canonical checksum
     rbyd->cksum = cksum;
     return 0;
+}
+
+static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+    return lfsr_rbyd_appendcksum_(lfs, rbyd, NULL);
 }
 
 static int lfsr_rbyd_appendrats(lfs_t *lfs, lfsr_rbyd_t *rbyd,
@@ -6808,6 +6868,14 @@ static inline void lfsr_gdelta_xor(
 }
 
 
+// gcksum (global checksum) things
+
+// cubing the gcksum prevents trivial gcksumdeltas
+static uint32_t lfsr_gcksum_cube(uint32_t gcksum) {
+    return lfs_crc32c_mul(lfs_crc32c_mul(gcksum, gcksum), gcksum);
+}
+
+
 // grm (global remove) things
 static inline uint8_t lfsr_grm_count_(const lfsr_grm_t *grm) {
     return (grm->mids[0] >= 0) + (grm->mids[1] >= 0);
@@ -6895,6 +6963,8 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
 // some mdir-related gstate things we need
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
+    // zero any pending gdeltas
+    lfs->gcksum_d = 0;
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 }
 
@@ -6911,6 +6981,8 @@ static void lfsr_fs_preparegdelta(lfs_t *lfs) {
 
 static void lfsr_fs_revertgdelta(lfs_t *lfs) {
     // revert gstate to on-disk state
+    lfs->gcksum = lfs->gcksum_p;
+
     int err = lfsr_data_readgrm(lfs,
             &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
             &lfs->grm);
@@ -6921,11 +6993,15 @@ static void lfsr_fs_revertgdelta(lfs_t *lfs) {
 
 static void lfsr_fs_commitgdelta(lfs_t *lfs) {
     // commit any pending gdeltas
+    lfs->gcksum_p = lfs->gcksum;
     lfsr_data_fromgrm(&lfs->grm, lfs->grm_p);
 }
 
 // append and consume any pending gstate
 static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+    // gcksums are a special case and handled directly in
+    // lfsr_mdir_commit__/lfsr_rbyd_appendcksum_
+
     // need grm delta?
     if (!lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE)) {
         // make sure to xor any existing delta
@@ -6964,6 +7040,9 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 }
 
 static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
+    // consume any gcksum deltas
+    lfs->gcksum_d ^= mdir->gcksumdelta;
+
     // consume any grm deltas
     lfsr_data_t data;
     int err = lfsr_rbyd_lookup(lfs, &mdir->rbyd, -1, LFSR_TAG_GRMDELTA,
@@ -7065,7 +7144,9 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // try to fetch rbyds in the order of most recent to least recent
     for (int i = 0; i < 2; i++) {
-        int err = lfsr_rbyd_fetch(lfs, &mdir->rbyd, blocks[0], 0);
+        int err = lfsr_rbyd_fetch_(lfs,
+                &mdir->rbyd, &mdir->gcksumdelta,
+                blocks[0], 0);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
@@ -7265,6 +7346,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
     if (lfsr_mtree_isnull(&lfs->mtree)) {
         mdir_->mid = mid;
         mdir_->rbyd = lfs->mroot.rbyd;
+        mdir_->gcksumdelta = lfs->mroot.gcksumdelta;
         return 0;
 
     // looking up direct mdir?
@@ -7308,6 +7390,8 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_smid_t mid, bool partial) {
     // assign the mid
     mdir->mid = mid;
+    // default to zero gcksumdelta
+    mdir->gcksumdelta = 0;
 
     if (!partial) {
         // allocate one block without an erase
@@ -7362,6 +7446,8 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         const lfsr_mdir_t *mdir, bool force) {
     // assign the mid
     mdir_->mid = mdir->mid;
+    // reset to zero gcksumdelta, upper layers should handle this
+    mdir_->gcksumdelta = 0;
 
     // first thing we need to do is read our current revision count
     uint32_t rev;
@@ -7686,22 +7772,38 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // append any gstate?
-    if (start_rid == -1) {
+    if (start_rid <= -1) {
         int err = lfsr_rbyd_appendgdelta(lfs, &mdir->rbyd);
         if (err) {
             return err;
         }
     }
 
+    // TODO should lfsr_rbyd_appendcksum_ revert cksum on failure?
+    // save cksum in case we fail
+    uint32_t cksum = mdir->rbyd.cksum;
+    // xor our new cksum
+    lfs->gcksum ^= mdir->rbyd.cksum;
+
     // finalize commit
-    int err = lfsr_rbyd_appendcksum(lfs, &mdir->rbyd);
+    int err = lfsr_rbyd_appendcksum_(lfs, &mdir->rbyd,
+            // include gcksumdelta if we're not relocating
+            (start_rid <= -2) ? &mdir->gcksumdelta : NULL);
     if (err) {
+        // undo cksum xor on failure
+        lfs->gcksum ^= cksum;
         return err;
     }
 
     // success? flush gstate?
-    if (start_rid == -1) {
+    if (start_rid <= -1) {
+        // TODO this is a hack
+        // we only flush gcksumdelta if rid == -2
+        uint32_t gcksum_d = lfs->gcksum_d;
         lfsr_fs_flushgdelta(lfs);
+        if (start_rid > -2) {
+            lfs->gcksum_d = gcksum_d;
+        }
     }
 
     return 0;
@@ -7719,7 +7821,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
     // calculate dsize by starting from the outside ids and working inwards,
     // this naturally gives us a split rid
-    lfsr_srid_t a_rid = start_rid;
+    lfsr_srid_t a_rid = lfs_smax(start_rid, -1);
     lfsr_srid_t b_rid = lfs_min(mdir->rbyd.weight, end_rid);
     lfs_size_t a_dsize = 0;
     lfs_size_t b_dsize = 0;
@@ -7827,7 +7929,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             }
         }
 
-        if (a_rid == -1) {
+        if (a_rid <= -1) {
             mdir_dsize += dsize_;
         } else {
             a_dsize += dsize_;
@@ -7858,8 +7960,14 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     // (btree), not the staged state (btree_), this is important,
     // we can't trust btree_ after a failed commit
 
+    // assume we keep any gcksumdelta, this will get fixed the first time
+    // we commit anything
+    if (start_rid == -2) {
+        mdir_->gcksumdelta = mdir->gcksumdelta;
+    }
+
     // copy over tags in the rbyd in order
-    lfsr_srid_t rid = start_rid;
+    lfsr_srid_t rid = lfs_smax(start_rid, -1);
     lfsr_tag_t tag = 0;
     while (true) {
         lfsr_rid_t weight;
@@ -8075,8 +8183,14 @@ relocate:;
     }
 
 compact:;
+    // don't copy over gcksum if relocating
+    lfsr_srid_t start_rid_ = start_rid;
+    if (relocated && !overcompacted) {
+        start_rid_ = lfs_smax(start_rid_, -1);
+    }
+
     // compact our mdir
-    err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid, end_rid);
+    err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid_, end_rid);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
@@ -8090,7 +8204,7 @@ compact:;
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
+    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid_, end_rid,
             mid, rats, rat_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -8101,6 +8215,10 @@ compact:;
         return err;
     }
 
+    // consume gcksumdelta if relocated
+    if (relocated && !overcompacted) {
+        lfs->gcksum_d ^= mdir->gcksumdelta;
+    }
     // update mdir
     *mdir = mdir_;
     return 0;
@@ -8196,6 +8314,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // setup any pending gdeltas
     lfsr_fs_preparegdelta(lfs);
 
+    // xor our old cksum
+    lfs->gcksum ^= mdir->rbyd.cksum;
+
     // create a copy
     lfsr_mdir_t mdir_[2];
     mdir_[0] = *mdir;
@@ -8218,7 +8339,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // attempt to commit/compact the mdir normally
     lfsr_srid_t split_rid;
-    int err = lfsr_mdir_commit_(lfs, &mdir_[0], -1, -1, &split_rid,
+    int err = lfsr_mdir_commit_(lfs, &mdir_[0], -2, -1, &split_rid,
             mdir->mid, rats, rat_count);
     if (err && err != LFS_ERR_RANGE
             && err != LFS_ERR_NOENT) {
@@ -8229,6 +8350,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfsr_mdir_t mroot_ = lfs->mroot;
     if (!err && lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
         mroot_.rbyd = mdir_[0].rbyd;
+        mroot_.gcksumdelta = mdir_[0].gcksumdelta;
     }
 
     // handle possible mtree updates, this gets a bit messy
@@ -8328,6 +8450,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             mdir_[0].rbyd = mdir_[1].rbyd;
+            mdir_[0].gcksumdelta = mdir_[1].gcksumdelta;
             goto relocated;
 
         // other sibling reduced to zero
@@ -8509,6 +8632,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // mtree should never go to zero since we always have a root bookmark
         LFS_ASSERT(lfsr_mtree_weight_(&mtree_) > 0);
 
+        // make sure mtree/mroot changes are on-disk before committing
+        // metadata
+        err = lfsr_bd_sync(lfs);
+        if (err) {
+            goto failed;
+        }
+
+        // xor mroot's cksum if we haven't already
+        if (lfsr_mdir_cmp(mdir, &lfs->mroot) != 0) {
+            lfs->gcksum ^= lfs->mroot.rbyd.cksum;
+        }
+
         // mark any copies of our mroot as unerased
         lfs->mroot.rbyd.eoff = -1;
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
@@ -8517,19 +8652,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
         }
 
-        // make sure mtree/mroot changes are on-disk before committing
-        // metadata
-        err = lfsr_bd_sync(lfs);
-        if (err) {
-            goto failed;
-        }
-
         // commit new mtree into our mroot
         //
         // note end_rid=0 here will delete any files leftover from a split
         // in our mroot
         uint8_t mtree_buf[LFS_MAX(LFSR_MPTR_DSIZE, LFSR_BTREE_DSIZE)];
-        err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL,
+        err = lfsr_mdir_commit_(lfs, &mroot_, -2, 0, NULL,
                 -1, LFSR_RATS(
                     (lfsr_mtree_ismptr(&mtree_))
                         ? LFSR_RAT(
@@ -8580,9 +8708,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 goto failed;
             }
 
+            // xor mrootchild's cksum
+            lfs->gcksum ^= mrootparent_.rbyd.cksum;
+
             // commit mrootchild
             uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
-            err = lfsr_mdir_commit_(lfs, &mrootparent_, -1, -1, NULL,
+            err = lfsr_mdir_commit_(lfs, &mrootparent_, -2, -1, NULL,
                     -1, LFSR_RATS(
                         LFSR_RAT(
                             LFSR_TAG_MROOT, 0,
@@ -8630,7 +8761,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
-            err = lfsr_mdir_commit__(lfs, &mrootanchor_, -1, -1,
+            err = lfsr_mdir_commit__(lfs, &mrootanchor_, -2, -1,
                     -1, LFSR_RATS(
                         LFSR_RAT(
                             LFSR_TAG_MAGIC, 0,
@@ -8656,6 +8787,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // gstate must have been committed by a lower-level function at this point
+    LFS_ASSERT(lfs->gcksum_d == 0);
     LFS_ASSERT(lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE));
 
     // sync on-disk state
@@ -8745,8 +8877,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                         >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
                 o->mdir.mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
                 o->mdir.rbyd = mdir_[1].rbyd;
+                o->mdir.gcksumdelta = mdir_[1].gcksumdelta;
             } else {
                 o->mdir.rbyd = mdir_[0].rbyd;
+                o->mdir.gcksumdelta = mdir_[0].gcksumdelta;
             }
         } else if (o->mdir.mid > mdir->mid) {
             o->mdir.mid += mdelta;
@@ -8757,13 +8891,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (mdelta > 0
             && mdir->mid == -1) {
         mdir->rbyd = mroot_.rbyd;
+        mdir->gcksumdelta = mroot_.gcksumdelta;
     } else if (mdelta > 0
             && lfsr_mid_rid(lfs, mdir->mid)
                 >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
         mdir->mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
         mdir->rbyd = mdir_[1].rbyd;
+        mdir->gcksumdelta = mdir_[1].gcksumdelta;
     } else {
         mdir->rbyd = mdir_[0].rbyd;
+        mdir->gcksumdelta = mdir_[0].gcksumdelta;
     }
 
     // update mroot and mtree
@@ -13331,6 +13468,12 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     lfs->omdirs = NULL;
 
     // zero gstate
+    lfs->gcksum = 0;
+    lfs->gcksum_p = 0;
+    lfs->gcksum_d = 0;
+
+    lfs->grm.mids[0] = -1;
+    lfs->grm.mids[1] = -1;
     lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 
@@ -13796,6 +13939,9 @@ static int lfsr_mountinited(lfs_t *lfs) {
             // numbers
             lfs->seed ^= mdir->rbyd.cksum;
 
+            // build gcksum out of mdir cksums
+            lfs->gcksum_p ^= mdir->rbyd.cksum;
+
             // collect any gdeltas from this mdir
             err = lfsr_fs_consumegdelta(lfs, mdir);
             if (err) {
@@ -13813,6 +13959,42 @@ static int lfsr_mountinited(lfs_t *lfs) {
         } else {
             LFS_UNREACHABLE();
         }
+    }
+
+    // keep track of the current gcksum
+    lfs->gcksum = lfs->gcksum_p;
+
+    // validate gcksum by comparing its cube against the gcksumdeltas
+    //
+    // The use of cksum^3 here is important to avoid trivial
+    // gcksumdeltas. If we use a linear function (cksum, crc32c(cksum),
+    // cksum^2, etc), the state of the filesystem cancels out when
+    // calculating a new gcksumdelta:
+    //
+    //   d_i = t(g') - t(g)
+    //   d_i = t(g + c_i) - t(g)
+    //   d_i = t(g) + t(c_i) - t(g)
+    //   d_i = t(c_i)
+    //
+    // Using cksum^3 prevents this from happening:
+    //
+    //   d_i = (g + c_i)^3 - g^3
+    //   d_i = (g + c_i)(g + c_i)(g + c_i) - g^3
+    //   d_i = (g^2 + gc_i + gc_i + c_i^2)(g + c_i) - g^3
+    //   d_i = (g^2 + c_i^2)(g + c_i) - g^3
+    //   d_i = g^3 + gc_i^2 + g^2c_i + c_i^3 - g^3
+    //   d_i = gc_i^2 + g^2c_i + c_i^3
+    //
+    // cksum^3 also has some other nice properties, providing a perfect
+    // 1->1 mapping of t(g) in 2^31 fields, and losing at most 3-bits of
+    // info when calculating d_i.
+    //
+    if (lfsr_gcksum_cube(lfs->gcksum) != lfs->gcksum_d) {
+        LFS_ERROR("Found gcksum mismatch, cksum^3 %08"PRIx32" "
+                    "(!= %08"PRIx32")",
+                lfsr_gcksum_cube(lfs->gcksum),
+                lfs->gcksum_d);
+        return LFS_ERR_CORRUPT;
     }
 
     // once we've mounted and derived a pseudo-random seed, initialize our
@@ -13924,7 +14106,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
 
     // TODO this should use any configured values
     LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" %"PRId32"x%"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32".%"PRId32,
+                "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32".%"PRId32", "
+                "cksum %08"PRIx32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,
@@ -13933,7 +14116,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
             lfs->mroot.rbyd.blocks[1],
             lfsr_rbyd_trunk(&lfs->mroot.rbyd),
             lfsr_mtree_weight_(&lfs->mtree) >> lfs->mdir_bits,
-            1 << lfs->mdir_bits);
+            1 << lfs->mdir_bits,
+            lfs->gcksum);
 
     return 0;
 
@@ -13991,7 +14175,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         uint8_t name_limit_buf[LFSR_LLEB128_DSIZE];
         uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
         uint8_t bookmark_buf[LFSR_LEB128_DSIZE];
-        err = lfsr_rbyd_commit(lfs, &rbyd, -1, LFSR_RATS(
+        err = lfsr_rbyd_appendrats(lfs, &rbyd, -1, -1, -1, LFSR_RATS(
                 LFSR_RAT(
                     LFSR_TAG_MAGIC, 0,
                     LFSR_DATA_BUF("littlefs", 8)),
@@ -14022,6 +14206,13 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_RAT(
                     LFSR_TAG_BOOKMARK, +1,
                     LFSR_DATA_LEB128(0, bookmark_buf))));
+        if (err) {
+            return err;
+        }
+
+        // prepare initial gcksum and commit
+        lfs->gcksum = rbyd.cksum;
+        err = lfsr_rbyd_appendcksum_(lfs, &rbyd, &(uint32_t){0});
         if (err) {
             return err;
         }

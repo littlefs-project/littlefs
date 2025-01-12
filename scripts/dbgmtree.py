@@ -48,10 +48,11 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- ---p
+TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- ---p
 TAG_P           = 0x0001
-TAG_NOTE        = 0x3100    #  0x3100  v-11 ---1 ---- ----
-TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
+TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
+TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
+TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
 
 # some ways of block geometry representations
@@ -268,6 +269,11 @@ def tagrepr(tag, w=None, size=None, off=None):
                 ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
                 ' w%d' % w if w else '',
                 ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_GCKSUMDELTA:
+        return 'gcksumdelta%s%s%s' % (
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     else:
         return '0x%04x%s%s' % (
                 tag,
@@ -280,7 +286,8 @@ TBranch = co.namedtuple('TBranch', 'a, b, d, c')
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum):
+    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum,
+            gcksumdelta):
         if isinstance(blocks, int):
             blocks = (blocks,)
 
@@ -291,6 +298,7 @@ class Rbyd:
         self.trunk = trunk
         self.weight = weight
         self.cksum = cksum
+        self.gcksumdelta = gcksumdelta
 
     @property
     def block(self):
@@ -366,6 +374,8 @@ class Rbyd:
         weight = 0
         weight_ = 0
         weight__ = 0
+        gcksumdelta = None
+        gcksumdelta_ = None
         while j_ < len(data) and (not trunk or eoff <= trunk):
             # read next tag
             v, tag, w, size, d = fromtag(data[j_:])
@@ -381,6 +391,11 @@ class Rbyd:
             if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
                     cksum___ = crc32c(data[j_:j_+size], cksum___)
+
+                    # found a gcksumdelta?
+                    if (tag & 0xff00) == TAG_GCKSUMDELTA:
+                        gcksumdelta_ = (tag, w, j_-d, d, data[j_:j_+size])
+
                 # found a cksum?
                 else:
                     # check cksum
@@ -392,6 +407,8 @@ class Rbyd:
                     cksum_ = cksum__
                     trunk_ = trunk__
                     weight = weight_
+                    gcksumdelta = gcksumdelta_
+                    gcksumdelta_ = None
                     # update perturb bit
                     perturb = tag & TAG_P
                     # revert to data cksum and perturb
@@ -423,6 +440,7 @@ class Rbyd:
                                         0xfca42daf if perturb else 0)
                                 trunk_ = trunk__
                                 weight = weight_
+                                gcksumdelta = gcksumdelta_
                         trunk___ = 0
 
                 # update canonical checksum, xoring out any perturb state
@@ -433,9 +451,9 @@ class Rbyd:
 
         # cksum mismatch?
         if cksum is not None and cksum_ != cksum:
-            return cls(block, data, rev, 0, 0, 0, cksum_)
+            return cls(block, data, rev, 0, 0, 0, cksum_, gcksumdelta)
 
-        return cls(block, data, rev, eoff, trunk_, weight, cksum_)
+        return cls(block, data, rev, eoff, trunk_, weight, cksum_, gcksumdelta)
 
     def lookup(self, rid, tag):
         if not self:

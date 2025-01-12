@@ -58,10 +58,11 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- ---p
+TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- ---p
 TAG_P           = 0x0001
-TAG_NOTE        = 0x3100    #  0x3100  v-11 ---1 ---- ----
-TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
+TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
+TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
+TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
 
 # some ways of block geometry representations
@@ -253,6 +254,11 @@ def tagrepr(tag, w=None, size=None, off=None):
                 ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_ECKSUM:
         return 'ecksum%s%s%s' % (
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_GCKSUMDELTA:
+        return 'gcksumdelta%s%s%s' % (
                 ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
                 ' w%d' % w if w else '',
                 ' %s' % size if size is not None else '')

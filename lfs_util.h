@@ -281,6 +281,25 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
     return (int)(unsigned)(a - b);
 }
 
+// Perform polynomial/carry-less multiplication
+//
+// This is a multiply where all adds are replaced with xors. If we view
+// a and b as binary polynomials, xor is polynomial addition and pmul is
+// polynomial multiplication.
+static inline uint64_t lfs_pmul(uint32_t a, uint32_t b) {
+    uint64_t r = 0;
+    uint64_t a_ = a;
+    while (b) {
+        if (b & 1) {
+            r ^= a_;
+        }
+        a_ <<= 1;
+        b >>= 1;
+    }
+    return r;
+}
+
+
 // Convert between 32-bit little-endian and native order
 static inline uint32_t lfs_fromle32(uint32_t a) {
 #if !defined(LFS_NO_BUILTINS) && defined(LFS_LITTLE_ENDIAN)
@@ -602,6 +621,9 @@ static inline size_t lfs_strcspn(const char *a, const char *cs) {
 // fini = 0xffffffff
 //
 uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size);
+
+// Multiply two crc32cs in the crc32c ring
+uint32_t lfs_crc32c_mul(uint32_t a, uint32_t b);
 
 
 // Allocate memory, only used if buffers are not provided to littlefs

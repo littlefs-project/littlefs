@@ -2,6 +2,124 @@
 after = ['test_traversal', 'test_gc', 'test_mount']
 
 
+code = '''
+// naive crc32c
+static uint32_t test_ck_naive_crc32c(
+        uint32_t crc, const void *buffer, size_t size) {
+    const uint8_t *buffer_ = buffer;
+    crc ^= 0xffffffff;
+
+    for (size_t i = 0; i < size; i++) {
+        crc = crc ^ buffer_[i];
+        for (size_t j = 0; j < 8; j++) {
+            crc = (crc >> 1) ^ ((crc & 1) ? 0x82f63b78 : 0);
+        }
+    }
+
+    crc ^= 0xffffffff;
+    return crc;
+}
+
+// naive crc32c multiplication
+static uint32_t test_ck_naive_crc32c_mul(uint32_t a, uint32_t b) {
+    // pmul
+    uint64_t r = 0;
+    for (int i = 0; i < 32; i++) {
+        if (b & (1 << i)) {
+            r ^= (uint64_t)a << i;
+        }
+    }
+
+    // mod crc32c
+    for (int i = 0; i < 31; i++) {
+        r = (r >> 1) ^ ((r & 1) ? 0x82f63b78 : 0);
+    }
+
+    return (uint32_t)r;
+}
+'''
+
+
+# let's first check that our crc32c math probably works
+
+# try some random inputs and compare with a naive implementation
+[cases.test_ck_crc32c]
+defines.SIZE = [1, 2, 4, 8, 16, 32, 64]
+defines.SEED = 'range(10)'
+defines.N = 1000
+fuzz = 'SEED'
+code = '''
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint8_t buffer[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            buffer[j] = TEST_PRNG(&prng);
+        }
+
+        uint32_t a = test_ck_naive_crc32c(0, buffer, SIZE);
+        uint32_t b = lfs_crc32c(0, buffer, SIZE);
+        assert(a == b);
+    }
+'''
+
+# test incremental crc32cs
+[cases.test_ck_crc32c_incr]
+defines.SIZE = [1, 2, 4, 8, 16, 32, 64]
+defines.SEED = 'range(10)'
+defines.N = 1000
+fuzz = 'SEED'
+code = '''
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint8_t buffer[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            buffer[j] = TEST_PRNG(&prng);
+        }
+
+        uint32_t a = lfs_crc32c(0, buffer, SIZE);
+        uint32_t b = 0;
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            b = lfs_crc32c(b, &buffer[j], 1);
+        }
+        assert(a == b);
+    }
+'''
+
+# try some random inputs and compare with a naive implementation
+[cases.test_ck_crc32c_mul]
+defines.SEED = 'range(10)'
+defines.N = 1000
+fuzz = 'SEED'
+code = '''
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint32_t x = TEST_PRNG(&prng);
+        uint32_t y = TEST_PRNG(&prng);
+
+        uint32_t a = test_ck_naive_crc32c_mul(x, y);
+        uint32_t b = lfs_crc32c_mul(x, y);
+        assert(a == b);
+    }
+'''
+
+# test that multiplication is distributive
+[cases.test_ck_crc32c_mul_dist]
+defines.SEED = 'range(10)'
+defines.N = 1000
+fuzz = 'SEED'
+code = '''
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint32_t x = TEST_PRNG(&prng);
+        uint32_t y = TEST_PRNG(&prng);
+        uint32_t z = TEST_PRNG(&prng);
+
+        uint32_t a = lfs_crc32c_mul(x, y ^ z);
+        uint32_t b = lfs_crc32c_mul(x, y) ^ lfs_crc32c_mul(x, z);
+        assert(a == b);
+    }
+'''
+
 
 # Test filesystem-level checksum things
 

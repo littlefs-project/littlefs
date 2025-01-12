@@ -49,10 +49,11 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x3c0p  v-11 cccc ---- ---p
+TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- ---p
 TAG_P           = 0x0001
-TAG_NOTE        = 0x3100    #  0x3100  v-11 ---1 ---- ----
-TAG_ECKSUM      = 0x3200    #  0x3200  v-11 --1- ---- ----
+TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
+TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
+TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
 
 # some ways of block geometry representations
@@ -122,6 +123,21 @@ def crc32c(data, crc=0):
         for j in range(8):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
+
+def pmul(a, b):
+    r = 0
+    while b:
+        if b & 1:
+            r ^= a
+        a <<= 1
+        b >>= 1
+    return r
+
+def crc32cmul(a, b):
+    r = pmul(a, b)
+    for _ in range(31):
+        r = (r >> 1) ^ ((r & 1) * 0x82f63b78)
+    return r
 
 def popc(x):
     return bin(x).count('1')
@@ -284,6 +300,11 @@ def tagrepr(tag, w=None, size=None, off=None):
                 ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
                 ' w%d' % w if w else '',
                 ' %s' % size if size is not None else '')
+    elif (tag & 0x7f00) == TAG_GCKSUMDELTA:
+        return 'gcksumdelta%s%s%s' % (
+                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+                ' w%d' % w if w else '',
+                ' %s' % size if size is not None else '')
     else:
         return '0x%04x%s%s' % (
                 tag,
@@ -296,7 +317,8 @@ TBranch = co.namedtuple('TBranch', 'a, b, d, c')
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum):
+    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum,
+            gcksumdelta=None):
         if isinstance(blocks, int):
             blocks = (blocks,)
 
@@ -307,6 +329,7 @@ class Rbyd:
         self.trunk = trunk
         self.weight = weight
         self.cksum = cksum
+        self.gcksumdelta = gcksumdelta
 
     @property
     def block(self):
@@ -382,6 +405,8 @@ class Rbyd:
         weight = 0
         weight_ = 0
         weight__ = 0
+        gcksumdelta = None
+        gcksumdelta_ = None
         while j_ < len(data) and (not trunk or eoff <= trunk):
             # read next tag
             v, tag, w, size, d = fromtag(data[j_:])
@@ -397,6 +422,11 @@ class Rbyd:
             if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
                     cksum___ = crc32c(data[j_:j_+size], cksum___)
+
+                    # found a gcksumdelta?
+                    if (tag & 0xff00) == TAG_GCKSUMDELTA:
+                        gcksumdelta_ = (tag, w, j_-d, d, data[j_:j_+size])
+
                 # found a cksum?
                 else:
                     # check cksum
@@ -408,6 +438,8 @@ class Rbyd:
                     cksum_ = cksum__
                     trunk_ = trunk__
                     weight = weight_
+                    gcksumdelta = gcksumdelta_
+                    gcksumdelta_ = None
                     # update perturb bit
                     perturb = tag & TAG_P
                     # revert to data cksum and perturb
@@ -439,6 +471,7 @@ class Rbyd:
                                         0xfca42daf if perturb else 0)
                                 trunk_ = trunk__
                                 weight = weight_
+                                gcksumdelta = gcksumdelta_
                         trunk___ = 0
 
                 # update canonical checksum, xoring out any perturb state
@@ -449,9 +482,9 @@ class Rbyd:
 
         # cksum mismatch?
         if cksum is not None and cksum_ != cksum:
-            return cls(block, data, rev, 0, 0, 0, cksum_)
+            return cls(block, data, rev, 0, 0, 0, cksum_, gcksumdelta)
 
-        return cls(block, data, rev, eoff, trunk_, weight, cksum_)
+        return cls(block, data, rev, eoff, trunk_, weight, cksum_, gcksumdelta)
 
     def lookup(self, rid, tag):
         if not self:
@@ -922,8 +955,11 @@ class Rbyd:
             # have mdir?
             done, rid, tag, w, j, _, data, _ = self.lookup(-1, TAG_MDIR)
             if not done and rid == -1 and tag == TAG_MDIR:
-                blocks = frommdir(data)
-                return False, 0, 0, Rbyd.fetch(f, block_size, blocks)
+                if mbid == 0:
+                    blocks = frommdir(data)
+                    return False, 0, 0, Rbyd.fetch(f, block_size, blocks)
+                else:
+                    return True, 0, 0, None
 
             else:
                 # I guess we're inlined?
@@ -1192,15 +1228,11 @@ class GState:
     def __init__(self, mleaf_weight):
         self.gstate = {}
         self.gdelta = {}
+        self.gcksum = 0
         self.mleaf_weight = mleaf_weight
 
     def xor(self, mbid, mw, mdir):
-        tag = TAG_GDELTA-0x1
-        while True:
-            done, rid, tag, w, j, d, data, _ = mdir.lookup(-1, tag+0x1)
-            if done or rid != -1 or (tag & 0xff00) != TAG_GDELTA:
-                break
-
+        def gxor(rid, tag, w, j, d, data):
             # keep track of gdeltas
             if tag not in self.gdelta:
                 self.gdelta[tag] = []
@@ -1213,7 +1245,35 @@ class GState:
                     a^b for a,b in it.zip_longest(
                         self.gstate[tag], data, fillvalue=0))
 
+        # gcksum deltas are a bit of a special case
+        self.gcksum ^= mdir.cksum
+        if mdir.gcksumdelta is not None:
+            tag, w, j, d, data = mdir.gcksumdelta
+            gxor(-1, tag, w, j, d, data)
+
+        # other gstate deltas
+        tag = TAG_GDELTA-0x1
+        while True:
+            done, rid, tag, w, j, d, data, _ = mdir.lookup(-1, tag+0x1)
+            if done or rid != -1 or (tag & 0xff00) != TAG_GDELTA:
+                break
+
+            gxor(rid, tag, w, j, d, data)
+
     # parsers for some gstate
+    @ft.cached_property
+    def gcksum_(self):
+        # cubed gcksum
+        return crc32cmul(crc32cmul(self.gcksum, self.gcksum), self.gcksum)
+
+    @ft.cached_property
+    def gcksum__(self):
+        # gcksumdelta based cubed gcksum
+        if TAG_GCKSUMDELTA not in self.gstate:
+            return 0
+
+        return fromle32(self.gstate[TAG_GCKSUMDELTA])
+
     @ft.cached_property
     def grm(self):
         if TAG_GRMDELTA not in self.gstate:
@@ -1233,7 +1293,10 @@ class GState:
 
     def repr(self):
         def grepr(tag, data):
-            if tag == TAG_GRMDELTA:
+            if tag == TAG_GCKSUMDELTA:
+                gcksum = fromle32(data)
+                return 'gcksum %08x' % gcksum
+            elif tag == TAG_GRMDELTA:
                 count, _ = fromleb128(data)
                 return 'grm %s' % (
                         'none' if count == 0
@@ -1826,7 +1889,7 @@ def main(disk, mroots=None, *,
                 corrupted = True
             else:
                 rweight = max(rweight, mdir.weight)
-                gstate.xor(0, mdir)
+                gstate.xor(0, 0, mdir)
 
                 # find any dids
                 for rid, tag, w, j, d, data in mdir:
@@ -1908,14 +1971,14 @@ def main(disk, mroots=None, *,
         if grmed_dir_dids != grmed_bookmark_dids:
             corrupted = True
 
-        # are we going to end up rendering the dtree?
-        dtree = args.get('files') or not (
+        # are we going to end up rendering the ftree?
+        ftree = args.get('files') or not (
                 args.get('config') or args.get('gstate'))
 
         # do a pass to find the width that fits file names+tree, this
         # may not terminate! It's up to the user to use -Z in that case
         f_width = 0
-        if dtree:
+        if ftree:
             def rec_f_width(did, depth):
                 depth_ = 0
                 width_ = 0
@@ -1941,13 +2004,15 @@ def main(disk, mroots=None, *,
         #### actual debugging begins here
 
         # print some information about the filesystem
-        print('littlefs v%s.%s %dx%d %s w%d.%d, rev %08x' % (
+        print('littlefs v%s.%s %dx%d %s w%d.%d, rev %08x, cksum %08x%s' % (
                 config.version[0] if config.version[0] is not None else '?',
                 config.version[1] if config.version[1] is not None else '?',
                 (config.geometry[0] or 0), (config.geometry[1] or 0),
                 mroot.addr(),
                 bweight//mleaf_weight, 1*mleaf_weight,
-                mroot.rev))
+                mroot.rev,
+                gstate.gcksum,
+                '' if gstate.gcksum_ == gstate.gcksum__ else '!'))
 
         # dynamically size the id field
         w_width = max(
@@ -1982,14 +2047,24 @@ def main(disk, mroots=None, *,
         # print gstate?
         if args.get('gstate'):
             for i, (repr_, tag, data) in enumerate(gstate.repr()):
-                print('%12s %*s %-*s  %s' % (
+                # some special situations worth reporting
+                notes = []
+                # gcksum mismatch?
+                if (tag == TAG_GCKSUMDELTA
+                        and gstate.gcksum_ != gstate.gcksum__):
+                    notes.append('gcksum!=%08x' % gstate.gcksum_)
+
+                print('%s%12s %*s %-*s  %s%s%s' % (
+                        '\x1b[31m' if color and notes else '',
                         'gstate:' if i == 0 else '',
                         2*w_width+1, 'g' if i == 0 else '',
                         21+w_width, repr_,
                         next(xxd(data, 8), '')
                             if not args.get('raw')
                                 and not args.get('no_truncate')
-                            else ''))
+                            else '',
+                        ' (%s)' % ', '.join(notes) if notes else '',
+                        '\x1b[m' if color and notes else ''))
 
                 # show on-disk encoding
                 if args.get('raw') or args.get('no_truncate'):
@@ -2029,8 +2104,8 @@ def main(disk, mroots=None, *,
                                         2*w_width+1, '',
                                         line))
 
-        # print dtree?
-        if dtree:
+        # print ftree?
+        if ftree:
             # only show mdir on change
             pmbid = None
             # recursively print directories
@@ -2091,7 +2166,7 @@ def main(disk, mroots=None, *,
                             if did_ not in grmed_dir_dids:
                                 notes.append('orphaned')
 
-                    # print human readable dtree entry
+                    # print human readable ftree entry
                     print('%s%12s %*s %-*s  %s%s%s' % (
                             '\x1b[31m' if color and not grmed and notes
                                 else '\x1b[90m'
