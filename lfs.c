@@ -338,8 +338,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         }
 
         if (cmp != LFS_CMP_EQ) {
-            LFS_DEBUG("Found ckprog mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32,
+            LFS_DEBUG("Found ckprog mismatch 0x%"PRIx32".%"PRIx32" %"PRId32,
                     block, off, size);
             return LFS_ERR_CORRUPT;
         }
@@ -786,8 +785,8 @@ static int lfsr_bd_cksuffix(lfs_t *lfs,
     // do checksums match?
     if (cksum__ != cksum) {
         LFS_ERROR("Found ckdatacksums mismatch "
-                "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                "cksum %08"PRIx32" (!= %08"PRIx32")",
+                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
+                    "cksum %08"PRIx32" (!= %08"PRIx32")",
                 block, 0, cksize,
                 cksum__, cksum);
         return LFS_ERR_CORRUPT;
@@ -1569,8 +1568,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         // does parity match?
         if (lfs_parity(cksum_) != parity) {
             LFS_ERROR("Found ckparity mismatch "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "parity %01"PRIx32" (!= %01"PRIx32")",
+                        "0x%"PRIx32".%"PRIx32" %"PRId32", "
+                        "parity %01"PRIx32" (!= %01"PRIx32")",
                     block, off, d_,
                     lfs_parity(cksum_), parity);
             return LFS_ERR_CORRUPT;
@@ -2510,8 +2509,8 @@ static int lfsr_bptr_ck(lfs_t *lfs, const lfsr_bptr_t *bptr) {
     // test that our cksum matches what's expected
     if (cksum != lfsr_bptr_cksum(bptr)) {
         LFS_ERROR("Found bptr cksum mismatch "
-                "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                "cksum %08"PRIx32" (!= %08"PRIx32")",
+                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
+                    "cksum %08"PRIx32" (!= %08"PRIx32")",
                 bptr->data.u.disk.block, 0,
                 lfsr_bptr_cksize(bptr),
                 cksum, lfsr_bptr_cksum(bptr));
@@ -2926,7 +2925,7 @@ static int lfsr_rbyd_fetchck(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (err) {
         if (err == LFS_ERR_CORRUPT) {
             LFS_ERROR("Found corrupted rbyd 0x%"PRIx32".%"PRIx32", "
-                    "cksum %08"PRIx32,
+                        "cksum %08"PRIx32,
                     block, trunk, cksum);
         }
         return err;
@@ -2938,9 +2937,8 @@ static int lfsr_rbyd_fetchck(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // above fetch failing, since that would require the rbyd to have the
     // same trunk and pass its internal cksum
     if (rbyd->cksum != cksum) {
-        LFS_ERROR("Found rbyd cksum mismatch "
-                "0x%"PRIx32".%"PRIx32", "
-                "cksum %08"PRIx32" (!= %08"PRIx32")",
+        LFS_ERROR("Found rbyd cksum mismatch 0x%"PRIx32".%"PRIx32", "
+                    "cksum %08"PRIx32" (!= %08"PRIx32")",
                 rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
                 rbyd->cksum, cksum);
         return LFS_ERR_CORRUPT;
@@ -8058,8 +8056,7 @@ relocate:;
     // no more blocks? wear-leveling falls apart here, but we can try
     // without relocating
     if (err == LFS_ERR_NOSPC) {
-        LFS_WARN("Overcompacting mdir %"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"}",
+        LFS_WARN("Overcompacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
         overcompacted = true;
@@ -8305,10 +8302,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // adjust our sibling's mid after committing rats
         mdir_[1].mid += (1 << lfs->mdir_bits);
 
-        LFS_DEBUG("Splitting mdir %"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"} "
-                "-> 0x{%"PRIx32",%"PRIx32"}, "
-                "0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Splitting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}, 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1],
@@ -8319,20 +8314,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // both siblings reduced to zero
         if (mdir_[0].rbyd.weight == 0 && mdir_[1].rbyd.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32" "
-                    "0x{%"PRIx32",%"PRIx32"}",
+            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
-            LFS_DEBUG("Dropping mdir %"PRId32" "
-                    "0x{%"PRIx32",%"PRIx32"}",
+            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_[1].mid >> lfs->mdir_bits,
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
             goto dropped;
 
         // one sibling reduced to zero
         } else if (mdir_[0].rbyd.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32" "
-                    "0x{%"PRIx32",%"PRIx32"}",
+            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             mdir_[0].rbyd = mdir_[1].rbyd;
@@ -8340,8 +8332,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // other sibling reduced to zero
         } else if (mdir_[1].rbyd.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32" "
-                    "0x{%"PRIx32",%"PRIx32"}",
+            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_[1].mid >> lfs->mdir_bits,
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
             goto relocated;
@@ -8414,8 +8405,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // need to drop?
     } else if (err == LFS_ERR_NOENT) {
-        LFS_DEBUG("Dropping mdir %"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
         // set weight to zero
@@ -8450,8 +8440,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // need to relocate?
     } else if (lfsr_mdir_cmp(&mdir_[0], mdir) != 0
             && lfsr_mdir_cmp(mdir, &lfs->mroot) != 0) {
-        LFS_DEBUG("Relocating mdir %"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"} -> 0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Relocating mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
@@ -8577,7 +8567,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             LFS_DEBUG("Relocating mroot 0x{%"PRIx32",%"PRIx32"} "
-                    "-> 0x{%"PRIx32",%"PRIx32"}",
+                        "-> 0x{%"PRIx32",%"PRIx32"}",
                     mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
                     mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
 
@@ -8613,8 +8603,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // mrootchild should be our previous mroot anchor at this point
             LFS_ASSERT(lfsr_mdir_ismrootanchor(&mrootchild));
             LFS_DEBUG("Extending mroot 0x{%"PRIx32",%"PRIx32"}"
-                    " -> 0x{%"PRIx32",%"PRIx32"}"
-                    ", 0x{%"PRIx32",%"PRIx32"}",
+                        " -> 0x{%"PRIx32",%"PRIx32"}, 0x{%"PRIx32",%"PRIx32"}",
                     mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
                     mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
                     mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
@@ -9179,7 +9168,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                         t->o.o.mdir.rbyd.blocks,
                         t->u.mtortoise.blocks) == 0) {
                     LFS_ERROR("Cycle detected during mtree traversal "
-                            "0x{%"PRIx32",%"PRIx32"}",
+                                "0x{%"PRIx32",%"PRIx32"}",
                             t->o.o.mdir.rbyd.blocks[0],
                             t->o.o.mdir.rbyd.blocks[1]);
                     return LFS_ERR_CORRUPT;
@@ -9537,9 +9526,8 @@ dropped:;
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
-        LFS_DEBUG("Compacting mdir %"PRId32" "
-                "0x{%"PRIx32",%"PRIx32"} "
-                "(%"PRId32" > %"PRId32")",
+        LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                    "(%"PRId32" > %"PRId32")",
                 mdir->mid >> lfs->mdir_bits,
                 mdir->rbyd.blocks[0],
                 mdir->rbyd.blocks[1],
@@ -13560,8 +13548,8 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     if (version[0] != LFS_DISK_VERSION_MAJOR
             || version[1] > LFS_DISK_VERSION_MINOR) {
-        LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
-                " (!= v%"PRId32".%"PRId32")",
+        LFS_ERROR("Incompatible version v%"PRId32".%"PRId32" "
+                    "(!= v%"PRId32".%"PRId32")",
                 version[0],
                 version[1],
                 LFS_DISK_VERSION_MAJOR,
@@ -13585,8 +13573,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     if (lfsr_rcompat_isincompat(rcompat)) {
-        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx32
-                " (!= 0x%0"PRIx32")",
+        LFS_ERROR("Incompatible rcompat flags 0x%0"PRIx32" (!= 0x%0"PRIx32")",
                 rcompat,
                 LFSR_RCOMPAT_COMPAT);
         return LFS_ERR_NOTSUP;
@@ -13608,8 +13595,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     if (lfsr_wcompat_isincompat(wcompat)) {
-        LFS_WARN("Incompatible wcompat flags 0x%0"PRIx32
-                " (!= 0x%0"PRIx32")",
+        LFS_WARN("Incompatible wcompat flags 0x%0"PRIx32" (!= 0x%0"PRIx32")",
                 wcompat,
                 LFSR_WCOMPAT_COMPAT);
         // we can continue if rdonly
@@ -13674,7 +13660,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     if (name_limit > lfs->name_limit) {
-        LFS_ERROR("Incompatible name limit (%"PRId32" > %"PRId32")",
+        LFS_ERROR("Incompatible name limit %"PRId32" (> %"PRId32")",
                 name_limit,
                 lfs->name_limit);
         return LFS_ERR_NOTSUP;
@@ -13700,7 +13686,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     if (file_limit > lfs->file_limit) {
-        LFS_ERROR("Incompatible file limit (%"PRId32" > %"PRId32")",
+        LFS_ERROR("Incompatible file limit %"PRId32" (> %"PRId32")",
                 file_limit,
                 lfs->file_limit);
         return LFS_ERR_NOTSUP;
@@ -13937,10 +13923,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
     }
 
     // TODO this should use any configured values
-    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
-            "%"PRId32"x%"PRId32" "
-            "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
-            "w%"PRId32".%"PRId32,
+    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" %"PRId32"x%"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32".%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,
@@ -14078,8 +14062,7 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
         return err;
     }
 
-    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
-            "%"PRId32"x%"PRId32,
+    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" %"PRId32"x%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,
