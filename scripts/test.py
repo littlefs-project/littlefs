@@ -102,9 +102,9 @@ class TestCase:
                 # the runner itself.
                 for v_ in csplit(v):
                     m = re.search(r'\brange\b\s*\('
-                        '(?P<start>[^,\s]*)'
-                        '\s*(?:,\s*(?P<stop>[^,\s]*)'
-                        '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
+                        r'(?P<start>[^,\s]*)'
+                        r'\s*(?:,\s*(?P<stop>[^,\s]*)'
+                        r'\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
                         v_)
                     if m:
                         start = (int(m.group('start'), 0)
@@ -163,8 +163,8 @@ class TestSuite:
             code_linenos = []
             for i, line in enumerate(f):
                 match = re.match(
-                    '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
-                        '|' '(?P<code>code\s*=)',
+                    r'(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
+                        r'|' r'(?P<code>code\s*=)',
                     line)
                 if match and match.group('case'):
                     case_linenos.append((i+1, match.group('name')))
@@ -602,9 +602,9 @@ def find_perms(runner_, ids=[], **args):
         errors='replace',
         close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<flags>[^\s]+)'
-            '\s+(?P<filtered>\d+)/(?P<perms>\d+)')
+        r'^(?P<case>[^\s]+)'
+            r'\s+(?P<flags>[^\s]+)'
+            r'\s+(?P<filtered>\d+)/(?P<perms>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -632,8 +632,8 @@ def find_perms(runner_, ids=[], **args):
         errors='replace',
         close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+        r'^(?P<case>[^\s]+)'
+            r'\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -676,8 +676,8 @@ def find_path(runner_, id, **args):
         errors='replace',
         close_fds=False)
     pattern = re.compile(
-        '^(?P<case>[^\s]+)'
-            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+        r'^(?P<case>[^\s]+)'
+            r'\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -706,7 +706,7 @@ def find_defines(runner_, id, **args):
         errors='replace',
         close_fds=False)
     defines = co.OrderedDict()
-    pattern = re.compile('^(?P<define>\w+)=(?P<value>.+)')
+    pattern = re.compile(r'^(?P<define>\w+)=(?P<value>.+)')
     for line in proc.stdout:
         m = pattern.match(line)
         if m:
@@ -781,12 +781,12 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
     failures = []
     killed = False
 
-    pattern = re.compile('^(?:'
-            '(?P<op>running|finished|skipped|powerloss) '
-                '(?P<id>(?P<case>[^:]+)[^\s]*)'
-            '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
-                ' *(?P<message>.*)'
-        ')$')
+    pattern = re.compile(r'^(?:'
+            r'(?P<op>running|finished|skipped|powerloss) '
+                r'(?P<id>(?P<case>[^:]+)[^\s]*)'
+            r'|' r'(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
+                r' *(?P<message>.*)'
+        r')$')
     locals = th.local()
     children = set()
 
