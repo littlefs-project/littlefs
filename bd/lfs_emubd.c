@@ -1261,6 +1261,25 @@ int lfs_emubd_flipbit(const struct lfs_config *cfg,
     // flip the bit
     b->data[bit/8] ^= 1 << (bit%8);
 
+    // mirror to disk file?
+    if (bd->disk) {
+        off_t res1 = lseek(bd->disk->fd,
+                (off_t)block*cfg->block_size + (off_t)(bit/8),
+                SEEK_SET);
+        if (res1 < 0) {
+            int err = -errno;
+            LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", err);
+            return err;
+        }
+
+        ssize_t res2 = write(bd->disk->fd, &b->data[bit/8], 1);
+        if (res2 < 0) {
+            int err = -errno;
+            LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", err);
+            return err;
+        }
+    }
+
     LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", 0);
     return 0;
 }

@@ -776,6 +776,8 @@ typedef struct lfsr_traversal {
         lfsr_btraversal_t bt;
     } u;
 
+    // recalculate gcksum when traversing with ckmeta
+    uint32_t gcksum;
     // pending blocks, only used in lfsr_traversal_read
     lfs_sblock_t blocks[2];
 } lfsr_traversal_t;

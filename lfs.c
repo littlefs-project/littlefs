@@ -9236,6 +9236,7 @@ static void lfsr_traversal_init(lfsr_traversal_t *t, uint32_t flags) {
     t->u.mtortoise.blocks[1] = -1;
     t->u.mtortoise.step = 0;
     t->u.mtortoise.power = 0;
+    t->gcksum = 0;
 }
 
 // low-level traversal _only_ finds blocks
@@ -9563,17 +9564,29 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
     int err = lfsr_mtree_traverse_(lfs, t,
             &tag, &bptr);
     if (err) {
+        // end of traversal?
+        if (err == LFS_ERR_NOENT) {
+            goto eot;
+        }
         return err;
+    }
+
+    // recalculate gcksum?
+    if ((lfsr_t_isckmeta(t->o.o.flags)
+                || lfsr_t_isckdata(t->o.o.flags))
+            && tag == LFSR_TAG_MDIR) {
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
+        t->gcksum ^= mdir->rbyd.cksum;
     }
 
     // validate btree nodes? note mdirs are already validated
     if ((lfsr_t_isckmeta(t->o.o.flags)
                 || lfsr_t_isckdata(t->o.o.flags))
+            && tag == LFSR_TAG_BRANCH
             // note ckfetches already validates btree nodes
             && LFS_IFDEF_CKFETCHES(
                 !lfsr_m_isckfetches(lfs->flags),
-                true)
-            && tag == LFSR_TAG_BRANCH) {
+                true)) {
         lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
         err = lfsr_rbyd_fetchck(lfs, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
@@ -9599,6 +9612,35 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
         *bptr_ = bptr;
     }
     return 0;
+
+eot:;
+    // compare gcksum with in-RAM gcksum
+    if ((lfsr_t_isckmeta(t->o.o.flags)
+                || lfsr_t_isckdata(t->o.o.flags))
+            && t->gcksum != lfs->gcksum) {
+        LFS_ERROR("Found gcksum mismatch, cksum %08"PRIx32" (!= %08"PRIx32")",
+                t->gcksum,
+                lfs->gcksum);
+        return LFS_ERR_CORRUPT;
+    }
+
+    // was ckmeta/ckdata successful? we only consider our filesystem
+    // checked if we weren't mutated
+    if (lfsr_t_isckmeta(t->o.o.flags)
+            && !lfsr_t_ismtreeonly(t->o.o.flags)
+            && !lfsr_t_isdirty(t->o.o.flags)
+            && !lfsr_t_ismutated(t->o.o.flags)) {
+        lfs->flags &= ~LFS_I_CKMETA;
+    }
+    if (lfsr_t_isckdata(t->o.o.flags)
+            && !lfsr_t_ismtreeonly(t->o.o.flags)
+            && !lfsr_t_isdirty(t->o.o.flags)
+            && !lfsr_t_ismutated(t->o.o.flags)) {
+        // note ckdata implies ckmeta
+        lfs->flags &= ~LFS_I_CKDATA & ~LFS_I_CKMETA;
+    }
+
+    return LFS_ERR_NOENT;
 }
 
 // needed in lfsr_mtree_gc
@@ -9693,11 +9735,6 @@ dropped:;
     }
     return 0;
 
-failed:;
-    // swap back dirty/mutated flags
-    t->o.o.flags = lfsr_t_swapdirty(t->o.o.flags);
-    return err;
-
 eot:;
     // was lookahead scan successful?
     if (lfsr_t_islookahead(t->o.o.flags)
@@ -9721,23 +9758,12 @@ eot:;
         lfs->flags &= ~LFS_I_COMPACT;
     }
 
-    // was ckmeta/ckdata successful? we only consider our filesystem
-    // checked if we weren't mutated
-    if (lfsr_t_isckmeta(t->o.o.flags)
-            && !lfsr_t_ismtreeonly(t->o.o.flags)
-            && !lfsr_t_isdirty(t->o.o.flags)
-            && !lfsr_t_ismutated(t->o.o.flags)) {
-        lfs->flags &= ~LFS_I_CKMETA;
-    }
-    if (lfsr_t_isckdata(t->o.o.flags)
-            && !lfsr_t_ismtreeonly(t->o.o.flags)
-            && !lfsr_t_isdirty(t->o.o.flags)
-            && !lfsr_t_ismutated(t->o.o.flags)) {
-        // note ckdata implies ckmeta
-        lfs->flags &= ~LFS_I_CKDATA & ~LFS_I_CKMETA;
-    }
-
     return LFS_ERR_NOENT;
+
+failed:;
+    // swap back dirty/mutated flags
+    t->o.o.flags = lfsr_t_swapdirty(t->o.o.flags);
+    return err;
 }
 
 
@@ -11109,7 +11135,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 | LFS_O_APPEND
                 | LFS_O_FLUSH
                 | LFS_O_SYNC
-                | LFS_O_DESYNC)) == 0);
+                | LFS_O_DESYNC
+                | LFS_O_CKMETA
+                | LFS_O_CKDATA)) == 0);
     // writeable files require a writeable filesystem
     LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || lfsr_o_isrdonly(flags));
     // these flags require a writable file
@@ -13857,6 +13885,7 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
 static int lfsr_mountinited(lfs_t *lfs) {
     // zero gdeltas, we'll read these from our mdirs
+    lfs->gcksum = 0;
     lfsr_fs_flushgdelta(lfs);
 
     // default to no mtree, this is allowed and implies all files are inlined
@@ -13940,7 +13969,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
             lfs->seed ^= mdir->rbyd.cksum;
 
             // build gcksum out of mdir cksums
-            lfs->gcksum_p ^= mdir->rbyd.cksum;
+            lfs->gcksum ^= mdir->rbyd.cksum;
 
             // collect any gdeltas from this mdir
             err = lfsr_fs_consumegdelta(lfs, mdir);
@@ -13960,9 +13989,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
             LFS_UNREACHABLE();
         }
     }
-
-    // keep track of the current gcksum
-    lfs->gcksum = lfs->gcksum_p;
 
     // validate gcksum by comparing its cube against the gcksumdeltas
     //
@@ -13996,6 +14022,9 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 lfs->gcksum_d);
         return LFS_ERR_CORRUPT;
     }
+
+    // keep track of the current gcksum
+    lfs->gcksum_p = lfs->gcksum;
 
     // once we've mounted and derived a pseudo-random seed, initialize our
     // block allocator
@@ -14505,7 +14534,7 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
 static int lfsr_fs_ck(lfs_t *lfs, uint32_t flags) {
     // we leave this up to lfsr_mtree_traverse
     lfsr_traversal_t t;
-    lfsr_traversal_init(&t, flags);;
+    lfsr_traversal_init(&t, flags);
     while (true) {
         int err = lfsr_mtree_traverse(lfs, &t,
                 NULL, NULL);
@@ -14517,8 +14546,6 @@ static int lfsr_fs_ck(lfs_t *lfs, uint32_t flags) {
         }
     }
 
-    // clear relevant ck flags
-    lfs->flags &= ~flags;
     return 0;
 }
 
