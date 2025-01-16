@@ -46,7 +46,7 @@ typedef enum lfs_emubd_badblock_behavior {
 
 // Mode determining how power-loss behaves during testing.
 typedef enum lfs_emubd_powerloss_behavior {
-    LFS_EMUBD_POWERLOSS_NOOP        = 0, // Progs are atomic
+    LFS_EMUBD_POWERLOSS_ATOMIC      = 0, // Progs are atomic
     LFS_EMUBD_POWERLOSS_SOMEBITS    = 1, // One bit is progged
     LFS_EMUBD_POWERLOSS_MOSTBITS    = 2, // All-but-one bit is progged
     LFS_EMUBD_POWERLOSS_OOO         = 3, // Blocks are written out-of-order

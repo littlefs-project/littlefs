@@ -23,7 +23,7 @@ after = [
 #
 [cases.test_powerloss_spam_dir_many]
 defines.POWERLOSS_BEHAVIOR = [
-    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_ATOMIC',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
@@ -121,7 +121,7 @@ code = '''
 #
 [cases.test_powerloss_spam_file_many]
 defines.POWERLOSS_BEHAVIOR = [
-    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_ATOMIC',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
@@ -221,7 +221,7 @@ code = '''
 #
 [cases.test_powerloss_spam_f_pl_fuzz]
 defines.POWERLOSS_BEHAVIOR = [
-    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_ATOMIC',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
@@ -451,7 +451,7 @@ code = '''
 #
 [cases.test_powerloss_spam_fd_pl_fuzz]
 defines.POWERLOSS_BEHAVIOR = [
-    'LFS_EMUBD_POWERLOSS_NOOP',
+    'LFS_EMUBD_POWERLOSS_ATOMIC',
     'LFS_EMUBD_POWERLOSS_SOMEBITS',
     'LFS_EMUBD_POWERLOSS_MOSTBITS',
     'LFS_EMUBD_POWERLOSS_OOO',
