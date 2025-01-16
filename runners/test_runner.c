@@ -1609,7 +1609,7 @@ static void powerloss_exhaustive_branch(void *c) {
     }
 
     // create copy-on-write copy
-    int err = lfs_emubd_copy(state->cfg, branch);
+    int err = lfs_emubd_cpy(state->cfg, branch);
     if (err) {
         fprintf(stderr, "error: exhaustive: could not create bd copy\n");
         exit(-1);

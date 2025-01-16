@@ -261,7 +261,7 @@ int lfs_emubd_setpowercycles(const struct lfs_config *cfg,
         lfs_emubd_powercycles_t power_cycles);
 
 // Create a copy-on-write copy of the state of this block device
-int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy);
+int lfs_emubd_cpy(const struct lfs_config *cfg, lfs_emubd_t *copy);
 
 
 #ifdef __cplusplus

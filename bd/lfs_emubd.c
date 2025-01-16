@@ -1340,15 +1340,15 @@ int lfs_emubd_setpowercycles(const struct lfs_config *cfg,
     return 0;
 }
 
-int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
-    LFS_EMUBD_TRACE("lfs_emubd_copy(%p, %p)", (void*)cfg, (void*)copy);
+int lfs_emubd_cpy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
+    LFS_EMUBD_TRACE("lfs_emubd_cpy(%p, %p)", (void*)cfg, (void*)copy);
     lfs_emubd_t *bd = cfg->context;
 
     // lazily copy over our block array
     copy->blocks = malloc(
             cfg->block_count * sizeof(lfs_emubd_block_t*));
     if (!copy->blocks) {
-        LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_cpy -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
     for (lfs_block_t i = 0; i < cfg->block_count; i++) {
@@ -1359,7 +1359,7 @@ int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
         copy->ooo_before = malloc(
                 cfg->block_count * sizeof(lfs_emubd_block_t*));
         if (!copy->ooo_before) {
-            LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", LFS_ERR_NOMEM);
+            LFS_EMUBD_TRACE("lfs_emubd_cpy -> %d", LFS_ERR_NOMEM);
             return LFS_ERR_NOMEM;
         }
         for (lfs_block_t i = 0; i < cfg->block_count; i++) {
@@ -1369,7 +1369,7 @@ int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
         copy->ooo_after = malloc(
                 cfg->block_count * sizeof(lfs_emubd_block_t*));
         if (!copy->ooo_after) {
-            LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", LFS_ERR_NOMEM);
+            LFS_EMUBD_TRACE("lfs_emubd_cpy -> %d", LFS_ERR_NOMEM);
             return LFS_ERR_NOMEM;
         }
         for (lfs_block_t i = 0; i < cfg->block_count; i++) {
@@ -1389,7 +1389,7 @@ int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
     }
     copy->cfg = bd->cfg;
 
-    LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_cpy -> %d", 0);
     return 0;
 }
 
