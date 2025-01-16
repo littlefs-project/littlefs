@@ -9477,6 +9477,20 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 continue;
             }
 
+            // hold on, does our mdir cksum match? if not we found some
+            // sort of error
+            if (t->ot->mdir.rbyd.cksum != t->o.o.mdir.rbyd.cksum) {
+                LFS_DEBUG("Found mdir cksum mismatch %"PRId32" "
+                            "0x{%"PRIx32",%"PRIx32"}, "
+                            "cksum %08"PRIx32" (!= %08"PRIx32")",
+                        t->o.o.mdir.mid >> lfs->mdir_bits,
+                        t->o.o.mdir.rbyd.blocks[0],
+                        t->o.o.mdir.rbyd.blocks[1],
+                        t->o.o.mdir.rbyd.cksum,
+                        t->ot->mdir.rbyd.cksum);
+                return LFS_ERR_CORRUPT;
+            }
+
             // start traversing the file
             const lfsr_file_t *file = (const lfsr_file_t*)t->ot;
             t->o.bshrub = file->o.bshrub;

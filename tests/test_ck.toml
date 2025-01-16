@@ -2451,6 +2451,9 @@ defines.BADBLOCK_BEHAVIOR = '''
         ? LFS_EMUBD_BADBLOCK_PROGFLIP
         : LFS_EMUBD_BADBLOCK_MANUAL
 '''
+defines.CKMETA        = 'METHOD == 2 || METHOD == 3'
+defines.CKDATA        = 'METHOD == 1'
+defines.MTREEONLY     = 'METHOD == 2'
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKPARITY      = false
@@ -2526,21 +2529,21 @@ code = '''
             }
 
             // run ckdata?
-            if (METHOD == 1) {
+            if (CKDATA) {
                 int err = lfsr_fs_ckdata(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
-            } else if (METHOD == 3) {
+            } else if (CKMETA && !MTREEONLY) {
                 int err = lfsr_fs_ckmeta(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta mtreeonly?
-            } else if (METHOD == 2) {
+            } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
@@ -2749,6 +2752,9 @@ defines.BADBLOCK_BEHAVIOR = '''
         ? LFS_EMUBD_BADBLOCK_PROGFLIP
         : LFS_EMUBD_BADBLOCK_MANUAL
 '''
+defines.CKMETA        = 'METHOD == 2 || METHOD == 3'
+defines.CKDATA        = 'METHOD == 1'
+defines.MTREEONLY     = 'METHOD == 2'
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKPARITY      = false
@@ -2835,21 +2841,21 @@ code = '''
             }
 
             // run ckdata?
-            if (METHOD == 1) {
+            if (CKDATA) {
                 int err = lfsr_fs_ckdata(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
-            } else if (METHOD == 3) {
+            } else if (CKMETA && !MTREEONLY) {
                 int err = lfsr_fs_ckmeta(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta mtreeonly?
-            } else if (METHOD == 2) {
+            } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
@@ -3112,8 +3118,7 @@ corrupt_mounted:;
 # METHOD=1 => ckdata
 # METHOD=2 => ckmeta+ckfetches
 # METHOD=3 => ckmeta+ckdatacksums
-# note only ckprogs works with open files
-defines.METHOD = [0]
+defines.METHOD = [0, 1, 2, 3]
 defines.PERIOD = 10
 # protecting the mrootanchor encourages more interesting failures, and
 # simulates storage with hardened {0,1} blocks
@@ -3126,6 +3131,11 @@ defines.BADBLOCK_BEHAVIOR = '''
         ? LFS_EMUBD_BADBLOCK_PROGFLIP
         : LFS_EMUBD_BADBLOCK_MANUAL
 '''
+defines.CKMETA        = 'METHOD == 2 || METHOD == 3'
+defines.CKDATA        = 'METHOD == 1'
+# note we need a full ckmeta if we have open files, ckfetches does not
+# recheck open btrees
+defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKPARITY      = false
@@ -3241,21 +3251,21 @@ code = '''
             }
 
             // run ckdata?
-            if (METHOD == 1) {
+            if (CKDATA) {
                 int err = lfsr_fs_ckdata(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_open;
                 }
             // run ckmeta?
-            } else if (METHOD == 3) {
+            } else if (CKMETA && !MTREEONLY) {
                 int err = lfsr_fs_ckmeta(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_open;
                 }
             // run ckmeta mtreeonly?
-            } else if (METHOD == 2) {
+            } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
@@ -3311,8 +3321,11 @@ code = '''
         // sync?
         if (SYNC) {
             int err = lfsr_file_sync(&lfs, &file);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            assert(!err
+                    || err == LFS_ERR_NOSPC
+                    || (err == LFS_ERR_CORRUPT
+                        && (METHOD == 2 || METHOD == 3)));
+            if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                 goto corrupt_open;
             }
         }
@@ -3385,6 +3398,7 @@ code = '''
 
     goto corrupt_mounted;
 corrupt_open:;
+    lfsr_file_desync(&lfs, &file) => 0;
     lfsr_file_close(&lfs, &file) => 0;
 corrupt_mounted:;
     lfsr_unmount(&lfs) => 0;
@@ -3399,8 +3413,7 @@ corrupt_mounted:;
 # METHOD=1 => ckdata
 # METHOD=2 => ckmeta+ckfetches
 # METHOD=3 => ckmeta+ckdatacksums
-# note only ckprogs works with open files
-defines.METHOD = [0]
+defines.METHOD = [0, 1, 2, 3]
 defines.PERIOD = 10
 # protecting the mrootanchor encourages more interesting failures, and
 # simulates storage with hardened {0,1} blocks
@@ -3413,6 +3426,11 @@ defines.BADBLOCK_BEHAVIOR = '''
         ? LFS_EMUBD_BADBLOCK_PROGFLIP
         : LFS_EMUBD_BADBLOCK_MANUAL
 '''
+defines.CKMETA        = 'METHOD == 2 || METHOD == 3'
+defines.CKDATA        = 'METHOD == 1'
+# note we need a full ckmeta if we have open files, ckfetches does not
+# recheck open btrees
+defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKPARITY      = false
@@ -3509,21 +3527,21 @@ code = '''
             }
 
             // run ckdata?
-            if (METHOD == 1) {
+            if (CKDATA) {
                 int err = lfsr_fs_ckdata(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
-            } else if (METHOD == 3) {
+            } else if (CKMETA && !MTREEONLY) {
                 int err = lfsr_fs_ckmeta(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta mtreeonly?
-            } else if (METHOD == 2) {
+            } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
@@ -3901,8 +3919,7 @@ corrupt_mounted:;
 # METHOD=1 => ckdata
 # METHOD=2 => ckmeta+ckfetches
 # METHOD=3 => ckmeta+ckdatacksums
-# note only ckprogs works with open files
-defines.METHOD = [0]
+defines.METHOD = [0, 1, 2, 3]
 defines.PERIOD = 10
 # protecting the mrootanchor encourages more interesting failures, and
 # simulates storage with hardened {0,1} blocks
@@ -3915,6 +3932,11 @@ defines.BADBLOCK_BEHAVIOR = '''
         ? LFS_EMUBD_BADBLOCK_PROGFLIP
         : LFS_EMUBD_BADBLOCK_MANUAL
 '''
+defines.CKMETA        = 'METHOD == 2 || METHOD == 3'
+defines.CKDATA        = 'METHOD == 1'
+# note we need a full ckmeta if we have open files, ckfetches does not
+# recheck open btrees
+defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKPARITY      = false
@@ -4012,21 +4034,21 @@ code = '''
             }
 
             // run ckdata?
-            if (METHOD == 1) {
+            if (CKDATA) {
                 int err = lfsr_fs_ckdata(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
-            } else if (METHOD == 3) {
+            } else if (CKMETA && !MTREEONLY) {
                 int err = lfsr_fs_ckmeta(&lfs);
                 assert(!err || err == LFS_ERR_CORRUPT);
                 if (err == LFS_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta mtreeonly?
-            } else if (METHOD == 2) {
+            } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
