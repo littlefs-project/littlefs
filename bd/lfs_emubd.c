@@ -912,10 +912,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         // flipping bits? if we're not manually overridden, choose a
         // new bad bit on erase, this makes it more likely to
         // eventually cause problems
-        } else if (bd->cfg->badblock_behavior
-                    == LFS_EMUBD_BADBLOCK_PROGFLIP
-                || bd->cfg->badblock_behavior
-                    == LFS_EMUBD_BADBLOCK_READFLIP) {
+        } else {
             if (!(0x80000000 & b->bad_bit)) {
                 b->bad_bit = lfs_emubd_prng_(&bd->prng)
                         % (cfg->block_size*8);
@@ -1118,6 +1115,12 @@ int lfs_emubd_markbad(const struct lfs_config *cfg,
     // set the wear
     b->wear = -1;
 
+    // choose a bad bit now in case this block is never erased
+    if (!(0x80000000 & b->bad_bit)) {
+        b->bad_bit = lfs_emubd_prng_(&bd->prng)
+                % (cfg->block_size*8);
+    }
+
     LFS_EMUBD_TRACE("lfs_emubd_markbad -> %d", 0);
     return 0;
 }
@@ -1241,10 +1244,8 @@ int lfs_emubd_markbadbit(const struct lfs_config *cfg,
     return 0;
 }
 
-int lfs_emubd_flipbit(const struct lfs_config *cfg,
+int lfs_emubd_flipbit_(const struct lfs_config *cfg,
         lfs_block_t block, lfs_size_t bit) {
-    LFS_EMUBD_TRACE("lfs_emubd_flipbit(%p, %"PRIu32", %"PRIu32")",
-            (void*)cfg, block, bit);
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1253,7 +1254,6 @@ int lfs_emubd_flipbit(const struct lfs_config *cfg,
     // mutate the block
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1268,19 +1268,54 @@ int lfs_emubd_flipbit(const struct lfs_config *cfg,
                 SEEK_SET);
         if (res1 < 0) {
             int err = -errno;
-            LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", err);
             return err;
         }
 
         ssize_t res2 = write(bd->disk->fd, &b->data[bit/8], 1);
         if (res2 < 0) {
             int err = -errno;
-            LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", err);
             return err;
         }
     }
 
+    return 0;
+}
+
+
+int lfs_emubd_flipbit(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_size_t bit) {
+    LFS_EMUBD_TRACE("lfs_emubd_flipbit(%p, %"PRIu32", %"PRIu32")",
+            (void*)cfg, block, bit);
+
+    // flip the bit
+    int err = lfs_emubd_flipbit_(cfg, block, bit);
+    if (err) {
+        LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", err);
+        return err;
+    }
+
     LFS_EMUBD_TRACE("lfs_emubd_flipbit -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_flip(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_flip(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
+
+    // flip all bits in bad blocks, make sure not to allocate blocks we
+    // don't need
+    for (lfs_block_t i = 0; i < cfg->block_count; i++) {
+        const lfs_emubd_block_t *b = bd->blocks[i];
+        if (b && b->wear > bd->cfg->erase_cycles) {
+            int err = lfs_emubd_flipbit_(cfg, i, b->bad_bit & 0x7fffffff);
+            if (err) {
+                LFS_EMUBD_TRACE("lfs_emubd_flip -> %d", err);
+                return err;
+            }
+        }
+    }
+
+    LFS_EMUBD_TRACE("lfs_emubd_flip -> %d", 0);
     return 0;
 }
 

@@ -41,6 +41,7 @@ typedef enum lfs_emubd_badblock_behavior {
     LFS_EMUBD_BADBLOCK_ERASENOOP    = 4, // Erase does nothing silently
     LFS_EMUBD_BADBLOCK_PROGFLIP     = 5, // Prog flips a bit
     LFS_EMUBD_BADBLOCK_READFLIP     = 6, // Read flips a bit sometimes
+    LFS_EMUBD_BADBLOCK_MANUAL       = 7, // Bits require manual flipping
 } lfs_emubd_badblock_behavior_t;
 
 // Mode determining how power-loss behaves during testing.
@@ -247,6 +248,9 @@ int lfs_emubd_markbadbit(const struct lfs_config *cfg,
 // Flip a bit in a given block, intended for emulating bit errors
 int lfs_emubd_flipbit(const struct lfs_config *cfg,
         lfs_block_t block, lfs_size_t bit);
+
+// Flip all bits marked as bad
+int lfs_emubd_flip(const struct lfs_config *cfg);
 
 // Get the remaining power-cycles
 lfs_emubd_spowercycles_t lfs_emubd_powercycles(

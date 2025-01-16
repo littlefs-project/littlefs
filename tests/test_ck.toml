@@ -2429,22 +2429,31 @@ code = '''
 # we basically just throw errors at filesystem operations until they
 # error with either LFS_ERR_CORRUPT or LFS_ERR_NOSPC
 #
-# TODO this is all basically in stasis until rollback is solved
+# TODO revisit these when ckredund is implemented, ckredund should
+# finally close the ckread hole
 
 # fuzz errors with fuzz dirs
 [cases.test_ck_spam_dir_fuzz]
-# TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckfetches
-# METHOD=2 => ckparity
-# METHOD=3 => ckdatacksums
-defines.METHOD = [0]
+# METHOD=1 => ckdata
+# METHOD=2 => ckmeta+ckfetches
+# METHOD=3 => ckmeta+ckdatacksums
+defines.METHOD = [0, 1, 2, 3]
 defines.PERIOD = 10
+# protecting the mrootanchor encourages more interesting failures, and
+# simulates storage with hardened {0,1} blocks
 defines.PROTECTED_MROOTANCHOR = [false, true]
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
-defines.CKPROGS   = 'METHOD == 0'
-defines.CKFETCHES = 'METHOD == 1'
-defines.CKPARITY  = 'METHOD == 2'
+# we can't reliably detect bit errors in erased blocks, we rely on
+# future progs failing if this happens
+defines.ERASE_VALUE = -1
+defines.BADBLOCK_BEHAVIOR = '''
+    (METHOD == 0)
+        ? LFS_EMUBD_BADBLOCK_PROGFLIP
+        : LFS_EMUBD_BADBLOCK_MANUAL
+'''
+defines.CKPROGS       = 'METHOD == 0'
+defines.CKFETCHES     = 'METHOD == 2'
+defines.CKPARITY      = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 'range(10)'
@@ -2493,13 +2502,14 @@ code = '''
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     lfs_size_t sim_size = 0;
 
-    // keep adding block errors until we either run out of blocks or
-    // our errors
+    // keep adding errors until we either run out of blocks or detect
+    // corruption
     lfs_size_t i = 0;
     for (; i < PERIOD*BLOCK_COUNT; i++) {
+        // add an error?
         if (i % PERIOD == 0
-                && !(PROTECTED_MROOTANCHOR
-                    && badblocks[i/PERIOD] < 2)) {
+                // protected mrootanchor? (just makes things more interesting)
+                && !(PROTECTED_MROOTANCHOR && badblocks[i/PERIOD] < 2)) {
             lfs_block_t badblock = badblocks[i/PERIOD];
             printf("badblock: 0x%x\n", badblock);
 
@@ -2507,16 +2517,52 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckdatacksums?
-            if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
-                // mark our badblock as bad
-                lfs_emubd_markbad(CFG, badblock) => 0;
+            // mark our badblock as bad
+            lfs_emubd_markbad(CFG, badblock) => 0;
 
-            // ckfetches?
-            } else if (METHOD == 1) {
-                // flip a bit
-                lfs_emubd_flipbit(CFG, badblock,
-                        lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
+            // manually flipping? flip all badbits in badblocks
+            if (BADBLOCK_BEHAVIOR == LFS_EMUBD_BADBLOCK_MANUAL) {
+                lfs_emubd_flip(CFG) => 0;
+            }
+
+            // run ckdata?
+            if (METHOD == 1) {
+                int err = lfsr_fs_ckdata(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta?
+            } else if (METHOD == 3) {
+                int err = lfsr_fs_ckmeta(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta mtreeonly?
+            } else if (METHOD == 2) {
+                // need an explicit traversal for this
+                lfsr_traversal_t t;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                for (lfs_block_t i = 0;; i++) {
+                    // a bit hacky, but this catches infinite loops
+                    LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+                    struct lfs_tinfo tinfo;
+                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+                    assert(!err
+                            || err == LFS_ERR_NOENT
+                            || err == LFS_ERR_CORRUPT);
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto corrupt_mounted;
+                    }
+                }
+                lfsr_traversal_close(&lfs, &t) => 0;
             }
         }
 
@@ -2686,18 +2732,26 @@ corrupt_mounted:;
 
 # fuzz errors with fuzz files
 [cases.test_ck_spam_file_fuzz]
-# TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckfetches
-# METHOD=2 => ckparity
-# METHOD=3 => ckdatacksums
-defines.METHOD = [0]
+# METHOD=1 => ckdata
+# METHOD=2 => ckmeta+ckfetches
+# METHOD=3 => ckmeta+ckdatacksums
+defines.METHOD = [0, 1, 2, 3]
 defines.PERIOD = 10
+# protecting the mrootanchor encourages more interesting failures, and
+# simulates storage with hardened {0,1} blocks
 defines.PROTECTED_MROOTANCHOR = [false, true]
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
-defines.CKPROGS   = 'METHOD == 0'
-defines.CKFETCHES = 'METHOD == 1'
-defines.CKPARITY  = 'METHOD == 2'
+# we can't reliably detect bit errors in erased blocks, we rely on
+# future progs failing if this happens
+defines.ERASE_VALUE = -1
+defines.BADBLOCK_BEHAVIOR = '''
+    (METHOD == 0)
+        ? LFS_EMUBD_BADBLOCK_PROGFLIP
+        : LFS_EMUBD_BADBLOCK_MANUAL
+'''
+defines.CKPROGS       = 'METHOD == 0'
+defines.CKFETCHES     = 'METHOD == 2'
+defines.CKPARITY      = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -2757,13 +2811,14 @@ code = '''
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
     lfs_size_t sim_size = 0;
 
-    // keep adding block errors until we either run out of blocks or
-    // our errors
+    // keep adding errors until we either run out of blocks or detect
+    // corruption
     lfs_size_t i = 0;
     for (; i < PERIOD*BLOCK_COUNT; i++) {
+        // add an error?
         if (i % PERIOD == 0
-                && !(PROTECTED_MROOTANCHOR
-                    && badblocks[i/PERIOD] < 2)) {
+                // protected mrootanchor? (just makes things more interesting)
+                && !(PROTECTED_MROOTANCHOR && badblocks[i/PERIOD] < 2)) {
             lfs_block_t badblock = badblocks[i/PERIOD];
             printf("badblock: 0x%x\n", badblock);
 
@@ -2771,16 +2826,52 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckdatacksums?
-            if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
-                // mark our badblock as bad
-                lfs_emubd_markbad(CFG, badblock) => 0;
+            // mark our badblock as bad
+            lfs_emubd_markbad(CFG, badblock) => 0;
 
-            // ckfetches?
-            } else if (METHOD == 1) {
-                // flip a bit
-                lfs_emubd_flipbit(CFG, badblock,
-                        lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
+            // manually flipping? flip all badbits in badblocks
+            if (BADBLOCK_BEHAVIOR == LFS_EMUBD_BADBLOCK_MANUAL) {
+                lfs_emubd_flip(CFG) => 0;
+            }
+
+            // run ckdata?
+            if (METHOD == 1) {
+                int err = lfsr_fs_ckdata(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta?
+            } else if (METHOD == 3) {
+                int err = lfsr_fs_ckmeta(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta mtreeonly?
+            } else if (METHOD == 2) {
+                // need an explicit traversal for this
+                lfsr_traversal_t t;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                for (lfs_block_t i = 0;; i++) {
+                    // a bit hacky, but this catches infinite loops
+                    LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+                    struct lfs_tinfo tinfo;
+                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+                    assert(!err
+                            || err == LFS_ERR_NOENT
+                            || err == LFS_ERR_CORRUPT);
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto corrupt_mounted;
+                    }
+                }
+                lfsr_traversal_close(&lfs, &t) => 0;
             }
         }
 
@@ -2993,7 +3084,13 @@ code = '''
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs_ssize_t d = lfsr_file_read(&lfs, &file, rbuf, SIZE);
+            assert(d == SIZE
+                    || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+            if (d == LFS_ERR_CORRUPT) {
+                lfsr_file_close(&lfs, &file) => 0;
+                goto corrupt_mounted;
+            }
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
             lfsr_file_close(&lfs, &file) => 0;
         }
@@ -3011,18 +3108,27 @@ corrupt_mounted:;
 
 # fuzz errors with more complex file writes
 [cases.test_ck_spam_fwrite_fuzz]
-# TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckfetches
-# METHOD=2 => ckparity
-# METHOD=3 => ckdatacksums
+# METHOD=1 => ckdata
+# METHOD=2 => ckmeta+ckfetches
+# METHOD=3 => ckmeta+ckdatacksums
+# note only ckprogs works with open files
 defines.METHOD = [0]
 defines.PERIOD = 10
+# protecting the mrootanchor encourages more interesting failures, and
+# simulates storage with hardened {0,1} blocks
 defines.PROTECTED_MROOTANCHOR = [false, true]
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
-defines.CKPROGS   = 'METHOD == 0'
-defines.CKFETCHES = 'METHOD == 1'
-defines.CKPARITY  = 'METHOD == 2'
+# we can't reliably detect bit errors in erased blocks, we rely on
+# future progs failing if this happens
+defines.ERASE_VALUE = -1
+defines.BADBLOCK_BEHAVIOR = '''
+    (METHOD == 0)
+        ? LFS_EMUBD_BADBLOCK_PROGFLIP
+        : LFS_EMUBD_BADBLOCK_MANUAL
+'''
+defines.CKPROGS       = 'METHOD == 0'
+defines.CKFETCHES     = 'METHOD == 2'
+defines.CKPARITY      = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.SIZE = [
     'FILE_BUFFER_SIZE/2',
@@ -3111,13 +3217,14 @@ code = '''
         lfsr_file_sync(&lfs, &file) => 0;
     }
 
-    // keep adding block errors until we either run out of blocks or
-    // our errors
+    // keep adding errors until we either run out of blocks or detect
+    // corruption
     lfs_size_t i = 0;
     for (; i < PERIOD*BLOCK_COUNT; i++) {
+        // add an error?
         if (i % PERIOD == 0
-                && !(PROTECTED_MROOTANCHOR
-                    && badblocks[i/PERIOD] < 2)) {
+                // protected mrootanchor? (just makes things more interesting)
+                && !(PROTECTED_MROOTANCHOR && badblocks[i/PERIOD] < 2)) {
             lfs_block_t badblock = badblocks[i/PERIOD];
             printf("badblock: 0x%x\n", badblock);
 
@@ -3125,16 +3232,52 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckdatacksums?
-            if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
-                // mark our badblock as bad
-                lfs_emubd_markbad(CFG, badblock) => 0;
+            // mark our badblock as bad
+            lfs_emubd_markbad(CFG, badblock) => 0;
 
-            // ckfetches?
-            } else if (METHOD == 1) {
-                // flip a bit
-                lfs_emubd_flipbit(CFG, badblock,
-                        lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
+            // manually flipping? flip all badbits in badblocks
+            if (BADBLOCK_BEHAVIOR == LFS_EMUBD_BADBLOCK_MANUAL) {
+                lfs_emubd_flip(CFG) => 0;
+            }
+
+            // run ckdata?
+            if (METHOD == 1) {
+                int err = lfsr_fs_ckdata(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_open;
+                }
+            // run ckmeta?
+            } else if (METHOD == 3) {
+                int err = lfsr_fs_ckmeta(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_open;
+                }
+            // run ckmeta mtreeonly?
+            } else if (METHOD == 2) {
+                // need an explicit traversal for this
+                lfsr_traversal_t t;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                for (lfs_block_t i = 0;; i++) {
+                    // a bit hacky, but this catches infinite loops
+                    LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+                    struct lfs_tinfo tinfo;
+                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+                    assert(!err
+                            || err == LFS_ERR_NOENT
+                            || err == LFS_ERR_CORRUPT);
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto corrupt_open;
+                    }
+                }
+                lfsr_traversal_close(&lfs, &t) => 0;
             }
         }
 
@@ -3158,8 +3301,10 @@ code = '''
         // update file
         lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
         lfs_ssize_t d = lfsr_file_write(&lfs, &file, &sim[off], chunk);
-        assert(d == (lfs_ssize_t)chunk || d == LFS_ERR_NOSPC);
-        if (d == LFS_ERR_NOSPC) {
+        assert(d == (lfs_ssize_t)chunk
+                || d == LFS_ERR_NOSPC
+                || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+        if (d == LFS_ERR_NOSPC || d == LFS_ERR_CORRUPT) {
             goto corrupt_open;
         }
 
@@ -3250,19 +3395,27 @@ corrupt_mounted:;
 
 # fuzz errors with uncreats, zombies, etc
 [cases.test_ck_spam_uz_fuzz]
-defines.BADBLOCK = -1
-# TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckfetches
-# METHOD=2 => ckparity
-# METHOD=3 => ckdatacksums
+# METHOD=1 => ckdata
+# METHOD=2 => ckmeta+ckfetches
+# METHOD=3 => ckmeta+ckdatacksums
+# note only ckprogs works with open files
 defines.METHOD = [0]
 defines.PERIOD = 10
+# protecting the mrootanchor encourages more interesting failures, and
+# simulates storage with hardened {0,1} blocks
 defines.PROTECTED_MROOTANCHOR = [false, true]
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
-defines.CKPROGS   = 'METHOD == 0'
-defines.CKFETCHES = 'METHOD == 1'
-defines.CKPARITY  = 'METHOD == 2'
+# we can't reliably detect bit errors in erased blocks, we rely on
+# future progs failing if this happens
+defines.ERASE_VALUE = -1
+defines.BADBLOCK_BEHAVIOR = '''
+    (METHOD == 0)
+        ? LFS_EMUBD_BADBLOCK_PROGFLIP
+        : LFS_EMUBD_BADBLOCK_MANUAL
+'''
+defines.CKPROGS       = 'METHOD == 0'
+defines.CKFETCHES     = 'METHOD == 2'
+defines.CKPARITY      = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -3332,13 +3485,14 @@ code = '''
     sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
     lfs_size_t sim_file_count = 0;
 
-    // keep adding block errors until we either run out of blocks or
-    // our errors
+    // keep adding errors until we either run out of blocks or detect
+    // corruption
     lfs_size_t i = 0;
     for (; i < PERIOD*BLOCK_COUNT; i++) {
+        // add an error?
         if (i % PERIOD == 0
-                && !(PROTECTED_MROOTANCHOR
-                    && badblocks[i/PERIOD] < 2)) {
+                // protected mrootanchor? (just makes things more interesting)
+                && !(PROTECTED_MROOTANCHOR && badblocks[i/PERIOD] < 2)) {
             lfs_block_t badblock = badblocks[i/PERIOD];
             printf("badblock: 0x%x\n", badblock);
 
@@ -3346,16 +3500,52 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckdatacksums?
-            if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
-                // mark our badblock as bad
-                lfs_emubd_markbad(CFG, badblock) => 0;
+            // mark our badblock as bad
+            lfs_emubd_markbad(CFG, badblock) => 0;
 
-            // ckfetches?
-            } else if (METHOD == 1) {
-                // flip a bit
-                lfs_emubd_flipbit(CFG, badblock,
-                        lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
+            // manually flipping? flip all badbits in badblocks
+            if (BADBLOCK_BEHAVIOR == LFS_EMUBD_BADBLOCK_MANUAL) {
+                lfs_emubd_flip(CFG) => 0;
+            }
+
+            // run ckdata?
+            if (METHOD == 1) {
+                int err = lfsr_fs_ckdata(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta?
+            } else if (METHOD == 3) {
+                int err = lfsr_fs_ckmeta(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta mtreeonly?
+            } else if (METHOD == 2) {
+                // need an explicit traversal for this
+                lfsr_traversal_t t;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                for (lfs_block_t i = 0;; i++) {
+                    // a bit hacky, but this catches infinite loops
+                    LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+                    struct lfs_tinfo tinfo;
+                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+                    assert(!err
+                            || err == LFS_ERR_NOENT
+                            || err == LFS_ERR_CORRUPT);
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto corrupt_mounted;
+                    }
+                }
+                lfsr_traversal_close(&lfs, &t) => 0;
             }
         }
 
@@ -3473,8 +3663,10 @@ code = '''
             }
             lfs_ssize_t d = lfsr_file_write(&lfs, &sim_files[j]->file,
                     wbuf, SIZE);
-            assert(d == SIZE || d == LFS_ERR_NOSPC);
-            if (d == LFS_ERR_NOSPC) {
+            assert(d == SIZE
+                    || d == LFS_ERR_NOSPC
+                    || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+            if (d == LFS_ERR_NOSPC || d == LFS_ERR_CORRUPT) {
                 goto corrupt_mounted;
             }
             int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
@@ -3657,7 +3849,13 @@ code = '''
         }
 
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        lfs_ssize_t d = lfsr_file_read(&lfs, &file, rbuf, SIZE);
+        assert(d == SIZE
+                || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+        if (d == LFS_ERR_CORRUPT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            goto corrupt_mounted;
+        }
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
         lfsr_file_close(&lfs, &file) => 0;
     }
@@ -3672,7 +3870,12 @@ code = '''
 
         lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        lfs_ssize_t d = lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE);
+        assert(d == SIZE
+                || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+        if (d == LFS_ERR_CORRUPT) {
+            goto corrupt_mounted;
+        }
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
@@ -3694,18 +3897,27 @@ corrupt_mounted:;
 
 # fuzz errors with uncreats, zombies, dirs, etc
 [cases.test_ck_spam_uzd_fuzz]
-# TODO enable other methods once rollback protection is in place
 # METHOD=0 => ckprogs
-# METHOD=1 => ckfetches
-# METHOD=2 => ckparity
-# METHOD=3 => ckdatacksums
+# METHOD=1 => ckdata
+# METHOD=2 => ckmeta+ckfetches
+# METHOD=3 => ckmeta+ckdatacksums
+# note only ckprogs works with open files
 defines.METHOD = [0]
 defines.PERIOD = 10
+# protecting the mrootanchor encourages more interesting failures, and
+# simulates storage with hardened {0,1} blocks
 defines.PROTECTED_MROOTANCHOR = [false, true]
-defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
-defines.CKPROGS   = 'METHOD == 0'
-defines.CKFETCHES = 'METHOD == 1'
-defines.CKPARITY  = 'METHOD == 2'
+# we can't reliably detect bit errors in erased blocks, we rely on
+# future progs failing if this happens
+defines.ERASE_VALUE = -1
+defines.BADBLOCK_BEHAVIOR = '''
+    (METHOD == 0)
+        ? LFS_EMUBD_BADBLOCK_PROGFLIP
+        : LFS_EMUBD_BADBLOCK_MANUAL
+'''
+defines.CKPROGS       = 'METHOD == 0'
+defines.CKFETCHES     = 'METHOD == 2'
+defines.CKPARITY      = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -3776,13 +3988,14 @@ code = '''
     sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
     lfs_size_t sim_file_count = 0;
 
-    // keep adding block errors until we either run out of blocks or
-    // our errors
+    // keep adding errors until we either run out of blocks or detect
+    // corruption
     lfs_size_t i = 0;
     for (; i < PERIOD*BLOCK_COUNT; i++) {
+        // add an error?
         if (i % PERIOD == 0
-                && !(PROTECTED_MROOTANCHOR
-                    && badblocks[i/PERIOD] < 2)) {
+                // protected mrootanchor? (just makes things more interesting)
+                && !(PROTECTED_MROOTANCHOR && badblocks[i/PERIOD] < 2)) {
             lfs_block_t badblock = badblocks[i/PERIOD];
             printf("badblock: 0x%x\n", badblock);
 
@@ -3790,16 +4003,52 @@ code = '''
             // types of errors, so we implement errors for each one a
             // bit differently
 
-            // ckprogs? ckparity? ckdatacksums?
-            if (METHOD == 0 || METHOD == 2 || METHOD == 3) {
-                // mark our badblock as bad
-                lfs_emubd_markbad(CFG, badblock) => 0;
+            // mark our badblock as bad
+            lfs_emubd_markbad(CFG, badblock) => 0;
 
-            // ckfetches?
-            } else if (METHOD == 1) {
-                // flip a bit
-                lfs_emubd_flipbit(CFG, badblock,
-                        lfs_emubd_prng(CFG) % (BLOCK_SIZE*8)) => 0;
+            // manually flipping? flip all badbits in badblocks
+            if (BADBLOCK_BEHAVIOR == LFS_EMUBD_BADBLOCK_MANUAL) {
+                lfs_emubd_flip(CFG) => 0;
+            }
+
+            // run ckdata?
+            if (METHOD == 1) {
+                int err = lfsr_fs_ckdata(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta?
+            } else if (METHOD == 3) {
+                int err = lfsr_fs_ckmeta(&lfs);
+                assert(!err || err == LFS_ERR_CORRUPT);
+                if (err == LFS_ERR_CORRUPT) {
+                    goto corrupt_mounted;
+                }
+            // run ckmeta mtreeonly?
+            } else if (METHOD == 2) {
+                // need an explicit traversal for this
+                lfsr_traversal_t t;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                for (lfs_block_t i = 0;; i++) {
+                    // a bit hacky, but this catches infinite loops
+                    LFS_ASSERT(i < 2*BLOCK_COUNT);
+
+                    struct lfs_tinfo tinfo;
+                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
+                    assert(!err
+                            || err == LFS_ERR_NOENT
+                            || err == LFS_ERR_CORRUPT);
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        lfsr_traversal_close(&lfs, &t) => 0;
+                        goto corrupt_mounted;
+                    }
+                }
+                lfsr_traversal_close(&lfs, &t) => 0;
             }
         }
 
@@ -3923,8 +4172,10 @@ code = '''
             }
             lfs_ssize_t d = lfsr_file_write(&lfs, &sim_files[j]->file,
                     wbuf, SIZE);
-            assert(d == SIZE || d == LFS_ERR_NOSPC);
-            if (d == LFS_ERR_NOSPC) {
+            assert(d == SIZE
+                    || d == LFS_ERR_NOSPC
+                    || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+            if (d == LFS_ERR_NOSPC || d == LFS_ERR_CORRUPT) {
                 goto corrupt_mounted;
             }
             int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
@@ -4182,7 +4433,13 @@ code = '''
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs_ssize_t d = lfsr_file_read(&lfs, &file, rbuf, SIZE);
+            assert(d == SIZE
+                    || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+            if (d == LFS_ERR_CORRUPT) {
+                lfsr_file_close(&lfs, &file) => 0;
+                goto corrupt_mounted;
+            }
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
             lfsr_file_close(&lfs, &file) => 0;
         }
@@ -4198,7 +4455,12 @@ code = '''
 
         lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        lfs_ssize_t d = lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE);
+        assert(d == SIZE
+                || (d == LFS_ERR_CORRUPT && (METHOD == 2 || METHOD == 3)));
+        if (d == LFS_ERR_CORRUPT) {
+            goto corrupt_mounted;
+        }
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
