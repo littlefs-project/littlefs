@@ -9631,6 +9631,8 @@ eot:;
     // compare gcksum with in-RAM gcksum
     if ((lfsr_t_isckmeta(t->o.o.flags)
                 || lfsr_t_isckdata(t->o.o.flags))
+            && !lfsr_t_isdirty(t->o.o.flags)
+            && !lfsr_t_ismutated(t->o.o.flags)
             && t->gcksum != lfs->gcksum) {
         LFS_ERROR("Found gcksum mismatch, cksum %08"PRIx32" (!= %08"PRIx32")",
                 t->gcksum,
@@ -9640,7 +9642,8 @@ eot:;
 
     // was ckmeta/ckdata successful? we only consider our filesystem
     // checked if we weren't mutated
-    if (lfsr_t_isckmeta(t->o.o.flags)
+    if ((lfsr_t_isckmeta(t->o.o.flags)
+                || lfsr_t_isckdata(t->o.o.flags))
             && !lfsr_t_ismtreeonly(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)
             && !lfsr_t_ismutated(t->o.o.flags)) {
@@ -9650,8 +9653,7 @@ eot:;
             && !lfsr_t_ismtreeonly(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)
             && !lfsr_t_ismutated(t->o.o.flags)) {
-        // note ckdata implies ckmeta
-        lfs->flags &= ~LFS_I_CKDATA & ~LFS_I_CKMETA;
+        lfs->flags &= ~LFS_I_CKDATA;
     }
 
     return LFS_ERR_NOENT;
