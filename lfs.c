@@ -338,7 +338,7 @@ static int lfsr_bd_prog_(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         }
 
         if (cmp != LFS_CMP_EQ) {
-            LFS_DEBUG("Found ckprog mismatch 0x%"PRIx32".%"PRIx32" %"PRId32,
+            LFS_WARN("Found ckprog mismatch 0x%"PRIx32".%"PRIx32" %"PRId32,
                     block, off, size);
             return LFS_ERR_CORRUPT;
         }
@@ -8173,7 +8173,7 @@ relocate:;
         if (err) {
             // bad prog? can't do much here, mdir stuck
             if (err == LFS_ERR_CORRUPT) {
-                LFS_DEBUG("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
+                LFS_ERROR("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
                         mdir->rbyd.blocks[0],
                         mdir->rbyd.blocks[1]);
                 return LFS_ERR_NOSPC;
@@ -8752,7 +8752,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             if (err) {
                 // bad prog? can't do much here, mroot stuck
                 if (err == LFS_ERR_CORRUPT) {
-                    LFS_DEBUG("Stuck mroot 0x{%"PRIx32",%"PRIx32"}",
+                    LFS_ERROR("Stuck mroot 0x{%"PRIx32",%"PRIx32"}",
                             mrootanchor_.rbyd.blocks[0],
                             mrootanchor_.rbyd.blocks[1]);
                     return LFS_ERR_NOSPC;
@@ -8776,7 +8776,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 // bad prog? can't do much here, mroot stuck
                 if (err == LFS_ERR_CORRUPT) {
-                    LFS_DEBUG("Stuck mroot 0x{%"PRIx32",%"PRIx32"}",
+                    LFS_ERROR("Stuck mroot 0x{%"PRIx32",%"PRIx32"}",
                             mrootanchor_.rbyd.blocks[0],
                             mrootanchor_.rbyd.blocks[1]);
                     return LFS_ERR_NOSPC;
@@ -9589,7 +9589,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
         // check cksum matches our mroot
         if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0
                 && mdir->rbyd.cksum != lfs->mroot.rbyd.cksum) {
-            LFS_DEBUG("Found mroot cksum mismatch "
+            LFS_ERROR("Found mroot cksum mismatch "
                         "0x{%"PRIx32",%"PRIx32"}, "
                         "cksum %08"PRIx32" (!= %08"PRIx32")",
                     mdir->rbyd.blocks[0],
@@ -9603,7 +9603,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
                     && o->mdir.rbyd.cksum != mdir->rbyd.cksum) {
-                LFS_DEBUG("Found mdir cksum mismatch %"PRId32" "
+                LFS_ERROR("Found mdir cksum mismatch %"PRId32" "
                             "0x{%"PRIx32",%"PRIx32"}, "
                             "cksum %08"PRIx32" (!= %08"PRIx32")",
                         mdir->mid >> lfs->mdir_bits,
