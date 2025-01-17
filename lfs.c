@@ -9477,20 +9477,6 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 continue;
             }
 
-            // hold on, does our mdir cksum match? if not we found some
-            // sort of error
-            if (t->ot->mdir.rbyd.cksum != t->o.o.mdir.rbyd.cksum) {
-                LFS_DEBUG("Found mdir cksum mismatch %"PRId32" "
-                            "0x{%"PRIx32",%"PRIx32"}, "
-                            "cksum %08"PRIx32" (!= %08"PRIx32")",
-                        t->o.o.mdir.mid >> lfs->mdir_bits,
-                        t->o.o.mdir.rbyd.blocks[0],
-                        t->o.o.mdir.rbyd.blocks[1],
-                        t->o.o.mdir.rbyd.cksum,
-                        t->ot->mdir.rbyd.cksum);
-                return LFS_ERR_CORRUPT;
-            }
-
             // start traversing the file
             const lfsr_file_t *file = (const lfsr_file_t*)t->ot;
             t->o.bshrub = file->o.bshrub;
@@ -9585,15 +9571,55 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
         return err;
     }
 
-    // recalculate gcksum?
+    // validate mdirs? mdir checksums are already validated in
+    // lfsr_mdir_fetch, but this doesn't prevent rollback issues, where
+    // the most recent commit is corrupted but a previous outdated
+    // commit appears valid
+    //
+    // this is where the gcksum comes in, which we can recalculate to
+    // check if the filesystem state on-disk is as expected
+    //
+    // we also compare mdir checksums with any open mdirs to try to
+    // avoid traversing any outdated bshrubs/btrees
     if ((lfsr_t_isckmeta(t->o.o.flags)
                 || lfsr_t_isckdata(t->o.o.flags))
             && tag == LFSR_TAG_MDIR) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
+
+        // check cksum matches our mroot
+        if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0
+                && mdir->rbyd.cksum != lfs->mroot.rbyd.cksum) {
+            LFS_DEBUG("Found mroot cksum mismatch "
+                        "0x{%"PRIx32",%"PRIx32"}, "
+                        "cksum %08"PRIx32" (!= %08"PRIx32")",
+                    mdir->rbyd.blocks[0],
+                    mdir->rbyd.blocks[1],
+                    mdir->rbyd.cksum,
+                    lfs->mroot.rbyd.cksum);
+            return LFS_ERR_CORRUPT;
+        }
+
+        // check cksum matches any open mdirs
+        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+            if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
+                    && o->mdir.rbyd.cksum != mdir->rbyd.cksum) {
+                LFS_DEBUG("Found mdir cksum mismatch %"PRId32" "
+                            "0x{%"PRIx32",%"PRIx32"}, "
+                            "cksum %08"PRIx32" (!= %08"PRIx32")",
+                        mdir->mid >> lfs->mdir_bits,
+                        mdir->rbyd.blocks[0],
+                        mdir->rbyd.blocks[1],
+                        mdir->rbyd.cksum,
+                        o->mdir.rbyd.cksum);
+                return LFS_ERR_CORRUPT;
+            }
+        }
+
+        // recalculate gcksum
         t->gcksum ^= mdir->rbyd.cksum;
     }
 
-    // validate btree nodes? note mdirs are already validated
+    // validate btree nodes?
     if ((lfsr_t_isckmeta(t->o.o.flags)
                 || lfsr_t_isckdata(t->o.o.flags))
             && tag == LFSR_TAG_BRANCH
@@ -13900,13 +13926,19 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 }
 
 static int lfsr_mountinited(lfs_t *lfs) {
-    // zero gdeltas, we'll read these from our mdirs
-    lfs->gcksum = 0;
-    lfsr_fs_flushgdelta(lfs);
+    // mark mroot as invalid to prevent lfsr_mtree_traverse from getting
+    // confused
+    lfs->mroot.mid = -1;
+    lfs->mroot.rbyd.blocks[0] = -1;
+    lfs->mroot.rbyd.blocks[1] = -1;
 
     // default to no mtree, this is allowed and implies all files are inlined
     // in the mroot
     lfsr_mtree_init(&lfs->mtree);
+
+    // zero gcksum/gdeltas, we'll read these from our mdirs
+    lfs->gcksum = 0;
+    lfsr_fs_flushgdelta(lfs);
 
     // traverse the mtree rooted at mroot 0x{1,0}
     //
