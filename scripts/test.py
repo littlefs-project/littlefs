@@ -667,7 +667,7 @@ def compile(test_paths, **args):
                 f.writeln()
 
 
-def find_runner(runner, id=None, **args):
+def find_runner(runner, id=None, main=True, **args):
     cmd = runner.copy()
 
     # run under some external command?
@@ -703,22 +703,26 @@ def find_runner(runner, id=None, **args):
         cmd.append('-P%s' % args['powerloss'])
     if args.get('all'):
         cmd.append('-a')
-    if args.get('disk'):
-        cmd.append('-d%s' % args['disk'])
-    if args.get('trace'):
-        cmd.append('-t%s' % args['trace'])
-    if args.get('trace_backtrace'):
-        cmd.append('--trace-backtrace')
-    if args.get('trace_period'):
-        cmd.append('--trace-period=%s' % args['trace_period'])
-    if args.get('trace_freq'):
-        cmd.append('--trace-freq=%s' % args['trace_freq'])
-    if args.get('read_sleep'):
-        cmd.append('--read-sleep=%s' % args['read_sleep'])
-    if args.get('prog_sleep'):
-        cmd.append('--prog-sleep=%s' % args['prog_sleep'])
-    if args.get('erase_sleep'):
-        cmd.append('--erase-sleep=%s' % args['erase_sleep'])
+
+    # only one thread should write to disk/trace, otherwise the output
+    # ends up clobbered and useless
+    if main:
+        if args.get('disk'):
+            cmd.append('-d%s' % args['disk'])
+        if args.get('trace'):
+            cmd.append('-t%s' % args['trace'])
+        if args.get('trace_backtrace'):
+            cmd.append('--trace-backtrace')
+        if args.get('trace_period'):
+            cmd.append('--trace-period=%s' % args['trace_period'])
+        if args.get('trace_freq'):
+            cmd.append('--trace-freq=%s' % args['trace_freq'])
+        if args.get('read_sleep'):
+            cmd.append('--read-sleep=%s' % args['read_sleep'])
+        if args.get('prog_sleep'):
+            cmd.append('--prog-sleep=%s' % args['prog_sleep'])
+        if args.get('erase_sleep'):
+            cmd.append('--erase-sleep=%s' % args['erase_sleep'])
 
     # defines?
     if args.get('define') and id is None:
@@ -736,7 +740,7 @@ def find_runner(runner, id=None, **args):
     return cmd
 
 def find_perms(runner, test_ids=[], **args):
-    runner_ = find_runner(runner, **args)
+    runner_ = find_runner(runner, main=False, **args)
     case_suites = {}
     expected_case_perms = co.OrderedDict()
     expected_perms = 0
@@ -810,7 +814,7 @@ def find_perms(runner, test_ids=[], **args):
             total_perms)
 
 def find_path(runner, id, **args):
-    runner_ = find_runner(runner, id, **args)
+    runner_ = find_runner(runner, id, main=False, **args)
     path = None
     # query from runner
     cmd = runner_ + ['--list-case-paths', id]
@@ -838,7 +842,7 @@ def find_path(runner, id, **args):
     return path
 
 def find_defines(runner, id, **args):
-    runner_ = find_runner(runner, id, **args)
+    runner_ = find_runner(runner, id, main=False, **args)
     # query permutation defines from runner
     cmd = runner_ + ['--list-permutation-defines', id]
     if args.get('verbose'):
@@ -934,7 +938,7 @@ def find_ids(runner, test_ids=[], **args):
 
 
 def list_(runner, test_ids=[], **args):
-    cmd = find_runner(runner, **args)
+    cmd = find_runner(runner, main=False, **args)
     cmd.extend(find_ids(runner, test_ids, **args))
 
     if args.get('summary'):          cmd.append('--summary')
@@ -1123,7 +1127,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                     list(last_stdout),
                     last_assert)
 
-    def run_job(start=None, step=None):
+    def run_job(main=True, start=None, step=None):
         nonlocal failed_perms
         nonlocal failures
         nonlocal killed
@@ -1132,10 +1136,10 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
         start = start or 0
         step = step or 1
         while start < total_perms:
-            runner_ = find_runner(runner, **args)
+            runner_ = find_runner(runner, main=main, **args)
             if args.get('isolate') or args.get('valgrind'):
                 runner_.append('-s%s,%s,%s' % (start, start+step, step))
-            else:
+            elif start != 0 or step != 1:
                 runner_.append('-s%s,,%s' % (start, step))
 
             runner_.extend(test_ids)
@@ -1189,11 +1193,11 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     if 'jobs' in args:
         for job in range(args['jobs']):
             runners.append(th.Thread(
-                    target=run_job, args=(job, args['jobs']),
+                    target=run_job, args=(job == 0, job, args['jobs']),
                     daemon=True))
     else:
         runners.append(th.Thread(
-                target=run_job, args=(None, None),
+                target=run_job, args=(True, None, None),
                 daemon=True))
 
     def print_update(done):
