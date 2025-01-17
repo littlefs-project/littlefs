@@ -3970,39 +3970,8 @@ leaf:;
 // needed in lfsr_rbyd_appendcksum
 static uint32_t lfsr_gcksum_cube(uint32_t gcksum);
 
-static int lfsr_rbyd_appendcksum_(lfs_t *lfs,
-        lfsr_rbyd_t *rbyd, uint32_t *gcksumdelta) {
-    // begin appending
-    int err = lfsr_rbyd_appendinit(lfs, rbyd);
-    if (err) {
-        return err;
-    }
-
-    // save the canonical checksum
-    uint32_t cksum = rbyd->cksum;
-
-    // append gcksumdelta?
-    //
-    // the only requirement for gcksumdelta is we append after
-    // calculating the canonical checksum, it's a bit more convenient to
-    // append before the ecksum because of end-of-commit calculations
-    if (gcksumdelta) {
-        // figure out changes to our gcksumdelta
-        uint32_t gcksumdelta_ = *gcksumdelta
-                ^ lfsr_gcksum_cube(lfs->gcksum_p)
-                ^ lfsr_gcksum_cube(lfs->gcksum)
-                ^ lfs->gcksum_d;
-        *gcksumdelta = gcksumdelta_;
-
-        uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
-        err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT(
-                LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
-                    gcksumdelta_, gcksumdelta_buf)));
-        if (err) {
-            return err;
-        }
-    }
-
+static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        uint32_t cksum) {
     // align to the next prog unit
     //
     // this gets a bit complicated as we have two types of cksums:
@@ -4037,7 +4006,7 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs,
         // read the leading byte in case we need to perturb the next commit,
         // this should hopefully stay in our cache
         uint8_t e = 0;
-        err = lfsr_bd_read(lfs,
+        int err = lfsr_bd_read(lfs,
                 rbyd->blocks[0], off_, lfs->cfg->prog_size,
                 &e, 1);
         if (err && err != LFS_ERR_CORRUPT) {
@@ -4115,7 +4084,7 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs,
     lfs_tole32_(cksum_, &cksum_buf[2+1+4]);
 
     // prog, when this lands on disk commit is committed
-    err = lfsr_bd_prog(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
+    int err = lfsr_bd_prog(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
             cksum_buf, 2+1+4+4,
             NULL, false);
     if (err) {
@@ -4138,7 +4107,14 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs,
 }
 
 static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    return lfsr_rbyd_appendcksum_(lfs, rbyd, NULL);
+    // begin appending
+    int err = lfsr_rbyd_appendinit(lfs, rbyd);
+    if (err) {
+        return err;
+    }
+
+    // append checksum stuff
+    return lfsr_rbyd_appendcksum_(lfs, rbyd, rbyd->cksum);
 }
 
 static int lfsr_rbyd_appendrats(lfs_t *lfs, lfsr_rbyd_t *rbyd,
@@ -7779,23 +7755,40 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
-    // TODO should lfsr_rbyd_appendcksum_ revert cksum on failure?
-    // save cksum in case we fail
+    // save our canonical cksum
+    //
+    // note this is before we calculate gcksumdelta, otherwise
+    // everything would get all self-referential
     uint32_t cksum = mdir->rbyd.cksum;
-    // xor our new cksum
-    lfs->gcksum ^= mdir->rbyd.cksum;
+
+    // append gkcsumdelta?
+    if (start_rid <= -2) {
+        // figure out changes to our gcksumdelta
+        mdir->gcksumdelta ^= lfsr_gcksum_cube(lfs->gcksum_p)
+                ^ lfsr_gcksum_cube(lfs->gcksum ^ cksum)
+                ^ lfs->gcksum_d;
+
+        uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
+        int err = lfsr_rbyd_appendrat_(lfs, &mdir->rbyd, LFSR_RAT(
+                LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
+                    mdir->gcksumdelta, gcksumdelta_buf)));
+        if (err) {
+            return err;
+        }
+    }
 
     // finalize commit
-    int err = lfsr_rbyd_appendcksum_(lfs, &mdir->rbyd,
-            // include gcksumdelta if we're not relocating
-            (start_rid <= -2) ? &mdir->gcksumdelta : NULL);
+    int err = lfsr_rbyd_appendcksum_(lfs, &mdir->rbyd, cksum);
     if (err) {
-        // undo cksum xor on failure
-        lfs->gcksum ^= cksum;
         return err;
     }
 
-    // success? flush gstate?
+    // success?
+
+    // xor our new cksum
+    lfs->gcksum ^= mdir->rbyd.cksum;
+
+    // flush gstate?
     if (start_rid <= -1) {
         // TODO this is a hack
         // we only flush gcksumdelta if rid == -2
@@ -14287,9 +14280,15 @@ static int lfsr_formatinited(lfs_t *lfs) {
             return err;
         }
 
-        // prepare initial gcksum and commit
-        lfs->gcksum = rbyd.cksum;
-        err = lfsr_rbyd_appendcksum_(lfs, &rbyd, &(uint32_t){0});
+        // append initial gcksum
+        uint32_t cksum = rbyd.cksum;
+        uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
+        err = lfsr_rbyd_appendrat_(lfs, &rbyd, LFSR_RAT(
+                LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
+                    lfsr_gcksum_cube(cksum), gcksumdelta_buf)));
+
+        // and commit
+        err = lfsr_rbyd_appendcksum_(lfs, &rbyd, cksum);
         if (err) {
             return err;
         }
