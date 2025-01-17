@@ -7092,6 +7092,12 @@ static inline bool lfsr_mdir_ismrootanchor(const lfsr_mdir_t *mdir) {
     return lfsr_mptr_ismrootanchor(mdir->rbyd.blocks);
 }
 
+static inline void lfsr_mdir_sync(lfsr_mdir_t *a, const lfsr_mdir_t *b) {
+    // copy over everything but the mid
+    a->rbyd = b->rbyd;
+    a->gcksumdelta = b->gcksumdelta;
+}
+
 // mdir operations
 static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_smid_t mid, const lfs_block_t mptr[static 2]) {
@@ -7321,8 +7327,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
     // looking up mroot?
     if (lfsr_mtree_isnull(&lfs->mtree)) {
         mdir_->mid = mid;
-        mdir_->rbyd = lfs->mroot.rbyd;
-        mdir_->gcksumdelta = lfs->mroot.gcksumdelta;
+        lfsr_mdir_sync(mdir_, &lfs->mroot);
         return 0;
 
     // looking up direct mdir?
@@ -8342,8 +8347,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // keep track of any mroot changes
     lfsr_mdir_t mroot_ = lfs->mroot;
     if (!err && lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
-        mroot_.rbyd = mdir_[0].rbyd;
-        mroot_.gcksumdelta = mdir_[0].gcksumdelta;
+        lfsr_mdir_sync(&mroot_, &mdir_[0]);
     }
 
     // handle possible mtree updates, this gets a bit messy
@@ -8442,8 +8446,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_[0].mid >> lfs->mdir_bits,
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
-            mdir_[0].rbyd = mdir_[1].rbyd;
-            mdir_[0].gcksumdelta = mdir_[1].gcksumdelta;
+            lfsr_mdir_sync(&mdir_[0], &mdir_[1]);
             goto relocated;
 
         // other sibling reduced to zero
@@ -8869,11 +8872,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     && lfsr_mid_rid(lfs, o->mdir.mid)
                         >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
                 o->mdir.mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
-                o->mdir.rbyd = mdir_[1].rbyd;
-                o->mdir.gcksumdelta = mdir_[1].gcksumdelta;
+                lfsr_mdir_sync(&o->mdir, &mdir_[1]);
             } else {
-                o->mdir.rbyd = mdir_[0].rbyd;
-                o->mdir.gcksumdelta = mdir_[0].gcksumdelta;
+                lfsr_mdir_sync(&o->mdir, &mdir_[0]);
             }
         } else if (o->mdir.mid > mdir->mid) {
             o->mdir.mid += mdelta;
@@ -8883,21 +8884,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // update mdir to follow requested rid
     if (mdelta > 0
             && mdir->mid == -1) {
-        mdir->rbyd = mroot_.rbyd;
-        mdir->gcksumdelta = mroot_.gcksumdelta;
+        lfsr_mdir_sync(mdir, &mroot_);
     } else if (mdelta > 0
             && lfsr_mid_rid(lfs, mdir->mid)
                 >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
         mdir->mid += (1 << lfs->mdir_bits) - mdir_[0].rbyd.weight;
-        mdir->rbyd = mdir_[1].rbyd;
-        mdir->gcksumdelta = mdir_[1].gcksumdelta;
+        lfsr_mdir_sync(mdir, &mdir_[1]);
     } else {
-        mdir->rbyd = mdir_[0].rbyd;
-        mdir->gcksumdelta = mdir_[0].gcksumdelta;
+        lfsr_mdir_sync(mdir, &mdir_[0]);
     }
 
     // update mroot and mtree
-    lfs->mroot = mroot_;
+    lfsr_mdir_sync(&lfs->mroot, &mroot_);
     lfs->mtree = mtree_;
 
     return 0;
