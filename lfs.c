@@ -6823,11 +6823,6 @@ static void lfsr_fs_mkdirty(lfs_t *lfs) {
 
 /// Global-state things ///
 
-static inline bool lfsr_gdelta_iszero(
-        const uint8_t *gdelta, lfs_size_t size) {
-    return lfs_memcchr(gdelta, 0, size) == NULL;
-}
-
 static inline lfs_size_t lfsr_gdelta_size(
         const uint8_t *gdelta, lfs_size_t size) {
     // truncate based on number of trailing zeros
@@ -6836,11 +6831,6 @@ static inline lfs_size_t lfsr_gdelta_size(
     }
 
     return size;
-}
-
-static inline void lfsr_gdelta_xor(
-        uint8_t *a, const uint8_t *b, lfs_size_t size) {
-    lfs_memxor(a, b, size);
 }
 
 
@@ -6941,18 +6931,15 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
     // zero any pending gdeltas
     lfs->gcksum_d = 0;
+
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 }
 
-static void lfsr_fs_preparegdelta(lfs_t *lfs) {
-    // first flush everything
-    lfsr_fs_flushgdelta(lfs);
+static void lfsr_fs_commitgdelta(lfs_t *lfs) {
+    // commit any pending gdeltas
+    lfs->gcksum_p = lfs->gcksum;
 
-    // any pending grms?
-    lfsr_data_fromgrm(&lfs->grm, lfs->grm_d);
-
-    // xor with current gstate to find our initial gdelta
-    lfsr_gdelta_xor(lfs->grm_d, lfs->grm_p, LFSR_GRM_DSIZE);
+    lfsr_data_fromgrm(&lfs->grm, lfs->grm_p);
 }
 
 static void lfsr_fs_revertgdelta(lfs_t *lfs) {
@@ -6967,19 +6954,18 @@ static void lfsr_fs_revertgdelta(lfs_t *lfs) {
     }
 }
 
-static void lfsr_fs_commitgdelta(lfs_t *lfs) {
-    // commit any pending gdeltas
-    lfs->gcksum_p = lfs->gcksum;
-    lfsr_data_fromgrm(&lfs->grm, lfs->grm_p);
-}
-
 // append and consume any pending gstate
 static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    // gcksums are a special case and handled directly in
+    // note gcksums are a special case and handled directly in
     // lfsr_mdir_commit__/lfsr_rbyd_appendcksum_
 
-    // need grm delta?
-    if (!lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE)) {
+    // pending grm state?
+    uint8_t grmdelta_[LFSR_GRM_DSIZE];
+    lfsr_data_fromgrm(&lfs->grm, grmdelta_);
+    lfs_memxor(grmdelta_, lfs->grm_p, LFSR_GRM_DSIZE);
+    lfs_memxor(grmdelta_, lfs->grm_d, LFSR_GRM_DSIZE);
+
+    if (lfsr_gdelta_size(grmdelta_, LFSR_GRM_DSIZE) != 0) {
         // make sure to xor any existing delta
         lfsr_data_t data;
         int err = lfsr_rbyd_lookup(lfs, rbyd, -1, LFSR_TAG_GRMDELTA,
@@ -6988,25 +6974,26 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             return err;
         }
 
-        uint8_t grm_d[LFSR_GRM_DSIZE];
-        lfs_memset(grm_d, 0, LFSR_GRM_DSIZE);
+        uint8_t grmdelta[LFSR_GRM_DSIZE];
+        lfs_memset(grmdelta, 0, LFSR_GRM_DSIZE);
         if (err != LFS_ERR_NOENT) {
-            lfs_ssize_t d = lfsr_data_read(lfs, &data, grm_d, LFSR_GRM_DSIZE);
+            lfs_ssize_t d = lfsr_data_read(lfs, &data,
+                    grmdelta, LFSR_GRM_DSIZE);
             if (d < 0) {
                 return d;
             }
         }
 
-        lfsr_gdelta_xor(grm_d, lfs->grm_d, LFSR_GRM_DSIZE);
+        lfs_memxor(grmdelta_, grmdelta, LFSR_GRM_DSIZE);
 
         // append to our rbyd, replacing any existing delta
-        lfs_size_t size = lfsr_gdelta_size(grm_d, LFSR_GRM_DSIZE);
+        lfs_size_t size = lfsr_gdelta_size(grmdelta_, LFSR_GRM_DSIZE);
         err = lfsr_rbyd_appendrat(lfs, rbyd, -1, LFSR_RAT(
                 // opportunistically remove this tag if delta is all zero
                 (size == 0)
                     ? LFSR_TAG_RM | LFSR_TAG_GRMDELTA
                     : LFSR_TAG_GRMDELTA, 0,
-                LFSR_DATA_BUF(grm_d, size)));
+                LFSR_DATA_BUF(grmdelta_, size)));
         if (err) {
             return err;
         }
@@ -7028,13 +7015,13 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     }
 
     if (err != LFS_ERR_NOENT) {
-        uint8_t grm_d[LFSR_GRM_DSIZE];
-        lfs_ssize_t d = lfsr_data_read(lfs, &data, grm_d, LFSR_GRM_DSIZE);
+        uint8_t grmdelta[LFSR_GRM_DSIZE];
+        lfs_ssize_t d = lfsr_data_read(lfs, &data, grmdelta, LFSR_GRM_DSIZE);
         if (d < 0) {
             return d;
         }
 
-        lfsr_gdelta_xor(lfs->grm_d, grm_d, d);
+        lfs_memxor(lfs->grm_d, grmdelta, d);
     }
 
     return 0;
@@ -8298,8 +8285,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         mid_ = lfsr_rat_nextrid(rats[i], mid_);
     }
 
-    // setup any pending gdeltas
-    lfsr_fs_preparegdelta(lfs);
+    // flush gdeltas
+    lfsr_fs_flushgdelta(lfs);
 
     // xor our old cksum
     lfs->gcksum ^= mdir->rbyd.cksum;
@@ -8581,19 +8568,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // patch any pending grms
-    //
-    // Assuming we already xored our gdelta with the grm, we first
-    // need to xor the grm out of the gdelta. We can't just zero
-    // the gdelta because we may have picked up extra gdelta from
-    // split/dropped mdirs
-    //
-    // gd' = gd xor (grm' xor grm)
-    //
-    uint8_t grm_d[LFSR_GRM_DSIZE];
-    lfsr_data_t data = lfsr_data_fromgrm(&lfs->grm, grm_d);
-    lfsr_gdelta_xor(lfs->grm_d, grm_d, lfsr_data_size(data));
-
-    // patch our grm
     for (int j = 0; j < 2; j++) {
         if (lfsr_mid_bid(lfs, lfs->grm.mids[j])
                 == lfsr_mid_bid(lfs, lfs_smax(mdir->mid, 0))) {
@@ -8607,10 +8581,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->grm.mids[j] += mdelta;
         }
     }
-
-    // xor our patch into our gdelta
-    data = lfsr_data_fromgrm(&lfs->grm, grm_d);
-    lfsr_gdelta_xor(lfs->grm_d, grm_d, lfsr_data_size(data));
 
     // need to update mtree?
     if (lfsr_mtree_cmp(&mtree_, &lfs->mtree) != 0) {
