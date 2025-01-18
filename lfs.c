@@ -7753,7 +7753,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // append any gstate?
-    if (start_rid <= -1) {
+    if (start_rid <= -2) {
         int err = lfsr_rbyd_appendgdelta(lfs, &mdir->rbyd);
         if (err) {
             return err;
@@ -7792,17 +7792,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // xor our new cksum
     lfs->gcksum ^= mdir->rbyd.cksum;
-
-    // flush gstate?
-    if (start_rid <= -1) {
-        // TODO this is a hack
-        // we only flush gcksumdelta if rid == -2
-        uint32_t gcksum_d = lfs->gcksum_d;
-        lfsr_fs_flushgdelta(lfs);
-        if (start_rid > -2) {
-            lfs->gcksum_d = gcksum_d;
-        }
-    }
 
     return 0;
 }
@@ -8782,10 +8771,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
-    // gstate must have been committed by a lower-level function at this point
-    LFS_ASSERT(lfs->gcksum_d == 0);
-    LFS_ASSERT(lfsr_gdelta_iszero(lfs->grm_d, LFSR_GRM_DSIZE));
-
     // sync on-disk state
     err = lfsr_bd_sync(lfs);
     if (err) {
@@ -8810,6 +8795,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // update any gstate changes
     lfsr_fs_commitgdelta(lfs);
+    lfsr_fs_flushgdelta(lfs);
 
     // play out any rats that affect internal state
     mid_ = mdir->mid;
