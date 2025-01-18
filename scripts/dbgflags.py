@@ -85,8 +85,6 @@ FLAGS = [
     ('M', 'CKMETA',    0x00100000, "Check metadata checksums"                 ),
     ('M', 'CKDATA',    0x00200000, "Check metadata + data checksums"          ),
 
-    ('m', 'UNTIDY',    0x00010000, "Filesystem may have orphaned stickynotes" ),
-
     # GC flags
     ('GC', 'MKCONSISTENT',
                        0x00010000, "Make the filesystem consistent"           ),

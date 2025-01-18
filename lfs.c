@@ -6727,11 +6727,6 @@ static inline bool lfsr_m_isckdatacksums(uint32_t flags) {
 }
 #endif
 
-// internal fs flags
-static inline bool lfsr_i_isuntidy(uint32_t flags) {
-    return flags & LFS_i_UNTIDY;
-}
-
 
 
 /// opened mdir things ///
@@ -9625,7 +9620,7 @@ eot:;
 }
 
 // needed in lfsr_mtree_gc
-static int lfsr_fs_mktidy_(lfs_t *lfs, lfsr_mdir_t *mdir);
+static int lfsr_mdir_mkconsistent(lfs_t *lfs, lfsr_mdir_t *mdir);
 static void lfs_alloc_ckpoint(lfs_t *lfs);
 static void lfs_alloc_markfree(lfs_t *lfs);
 
@@ -9656,10 +9651,10 @@ dropped:;
 
     // mkconsistencing mdirs?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
-            && lfsr_i_isuntidy(lfs->flags)
+            && lfsr_t_ismkconsistent(lfs->flags)
             && tag == LFSR_TAG_MDIR) {
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
-        err = lfsr_fs_mktidy_(lfs, mdir);
+        err = lfsr_mdir_mkconsistent(lfs, mdir);
         if (err) {
             goto failed;
         }
@@ -9728,7 +9723,7 @@ eot:;
     // was mkconsistent successful?
     if (lfsr_t_ismkconsistent(t->o.o.flags)
             && !lfsr_t_isdirty(t->o.o.flags)) {
-        lfs->flags &= ~LFS_i_UNTIDY;
+        lfs->flags &= ~LFS_I_MKCONSISTENT;
     }
 
     // was compaction successful? note we may need multiple passes if
@@ -11298,9 +11293,9 @@ static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
         if (lfsr_grm_count(lfs) < 2) {
             lfsr_grm_push(lfs, file->o.o.mdir.mid);
 
-        // fallback to just marking the filesystem as untidy
+        // fallback to just marking the filesystem as inconsistent
         } else {
-            lfs->flags |= LFS_i_UNTIDY;
+            lfs->flags |= LFS_I_MKCONSISTENT;
         }
     }
 }
@@ -13297,7 +13292,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     // setup flags
     lfs->flags = flags
             // assume we contain orphans until proven otherwise
-            | LFS_i_UNTIDY
+            | LFS_I_MKCONSISTENT
             // default to an empty lookahead
             | LFS_I_LOOKAHEAD
             // default to assuming we need compaction somewhere, worst case
@@ -14324,7 +14319,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, 0)
-                | LFS_I_MKCONSISTENT // synonym for LFS_i_UNTIDY
+                | LFS_I_MKCONSISTENT
                 | LFS_I_LOOKAHEAD
                 | LFS_I_COMPACT
                 | LFS_I_CKMETA
@@ -14424,7 +14419,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
     return 0;
 }
 
-static int lfsr_fs_mktidy_(lfs_t *lfs, lfsr_mdir_t *mdir) {
+static int lfsr_mdir_mkconsistent(lfs_t *lfs, lfsr_mdir_t *mdir) {
     // save the current mid
     lfsr_mid_t mid = mdir->mid;
 
@@ -14472,7 +14467,7 @@ failed:;
     return err;
 }
 
-static int lfsr_fs_mktidy(lfs_t *lfs) {
+static int lfsr_fs_fixorphans(lfs_t *lfs) {
     // LFS_T_MKCONSISTENT really just removes orphans
     lfsr_traversal_t t;
     lfsr_traversal_init(&t, LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
@@ -14508,8 +14503,8 @@ int lfsr_fs_mkconsistent(lfs_t *lfs) {
     // this must happen after fixgrm, since removing orphaned
     // stickynotes risks outdating the grm
     //
-    if (lfsr_i_isuntidy(lfs->flags)) {
-        int err = lfsr_fs_mktidy(lfs);
+    if (lfsr_t_ismkconsistent(lfs->flags)) {
+        int err = lfsr_fs_fixorphans(lfs);
         if (err) {
             return err;
         }
@@ -14581,7 +14576,7 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
     // do we have any pending work?
     uint32_t pending = flags & (
             (lfs->flags & (
-                LFS_i_UNTIDY
+                LFS_I_MKCONSISTENT
                     | LFS_I_LOOKAHEAD
                     | LFS_I_COMPACT
                     | LFS_I_CKMETA
@@ -14635,7 +14630,7 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
 
             // clear any pending flags we make progress on
             pending &= lfs->flags & (
-                    LFS_i_UNTIDY
+                    LFS_I_MKCONSISTENT
                         | LFS_I_LOOKAHEAD
                         | LFS_I_COMPACT
                         | LFS_I_CKMETA

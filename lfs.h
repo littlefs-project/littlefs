@@ -231,9 +231,6 @@ enum lfs_type {
 #define LFS_I_CKMETA    0x00100000  // Metadata checksums not checked recently
 #define LFS_I_CKDATA    0x00200000  // Data checksums not checked recently
 
-// internally used flags, don't use these
-#define LFS_i_UNTIDY    0x00010000  // Filesystem may have orphaned stickynotes
-
 
 // Block types
 enum lfs_btype {
