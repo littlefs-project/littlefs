@@ -78,15 +78,20 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
 
 
 // crc32c tables (see lfs_crc32c for more info)
-#if !defined(LFS_FASTER_CRC32C)
+#if !defined(LFS_SMALLER_CRC32C) \
+        && !defined(LFS_FASTER_CRC32C) \
+        && !defined(LFS_PMUL_CRC32C)
 static const uint32_t lfs_crc32c_table[16] = {
     0x00000000, 0x105ec76f, 0x20bd8ede, 0x30e349b1,
     0x417b1dbc, 0x5125dad3, 0x61c69362, 0x7198540d,
     0x82f63b78, 0x92a8fc17, 0xa24bb5a6, 0xb21572c9,
     0xc38d26c4, 0xd3d3e1ab, 0xe330a81a, 0xf36e6f75,
 };
+#endif
 
-#else
+#if defined(LFS_FASTER_CRC32C) \
+        && !defined(LFS_SMALLER_CRC32C) \
+        && !defined(LFS_PMUL_CRC32C)
 static const uint32_t lfs_crc32c_table[256] = {
     0x00000000, 0xf26b8303, 0xe13b70f7, 0x1350f3f4,
     0xc79a971f, 0x35f1141c, 0x26a1e7e8, 0xd4ca64eb,
@@ -159,7 +164,7 @@ static const uint32_t lfs_crc32c_table[256] = {
 // Calculate crc32c incrementally
 uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
     // init with 0xffffffff so prefixed zeros affect the crc
-    const uint8_t *data = buffer;
+    const uint8_t *buffer_ = buffer;
     crc ^= 0xffffffff;
 
     // A couple crc32c implementations to choose from.
@@ -173,29 +178,72 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
     // instruction counts from QEMU and an input size of 4KiB. Note these are
     // not cycle-accurate:
     //
-    //                code   stack     ins   ld/st  branch
-    // naive            48      12  221192    4099   36865
-    // small-table     124      12   49160   12291    4097
-    // big-table      1064       8   32776    8195    4097
+    //                    code   stack     ins   ld/st  branch
+    // naive                48      12  221192    4099   36865
+    // small-table         124      12   49160   12291    4097
+    // big-table          1064       8   32776    8195    4097
     //
-    #if defined(LFS_SMALLER_CRC32C)
+    // If hardware pmul is present, these tables can be replaced with a
+    // technique called Barret reduction.
+    //
+    // The implementation here provides an example, but pmul hardware is
+    // often paired with SIMD which you may need to leverage to make the
+    // result performant. The m55 is a notably bad example in that it
+    // only has a 16-bit pmul, but can do 8 pmuls simultaneously:
+    //
+    //                    code   stack     ins   ld/st  branch
+    // pmul-naive-1x32     152      52  622603    5123   68609
+    // pmul-tuned-8x16     316      72    6364     266     783
+    //
+    // Intel's Fast CRC Computation for Generic Polynomials Using
+    // PCLMULQDQ Instruction whitepaper is an excellent resource on this
+    // topic.
+    //
+    #if defined(LFS_SMALLER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    // naive reduce
     for (size_t i = 0; i < size; i++) {
-        crc = crc ^ data[i];
+        crc = crc ^ buffer_[i];
         for (size_t j = 0; j < 8; j++) {
             crc = (crc >> 1) ^ ((crc & 1) ? 0x82f63b78 : 0);
         }
     }
 
-    #elif !defined(LFS_FASTER_CRC32C)
+    #elif !defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    // reduce via small table
     for (size_t i = 0; i < size; i++) {
-        crc = (crc >> 4) ^ lfs_crc32c_table[0xf & (crc ^ (data[i] >> 0))];
-        crc = (crc >> 4) ^ lfs_crc32c_table[0xf & (crc ^ (data[i] >> 4))];
+        crc = (crc >> 4) ^ lfs_crc32c_table[0xf & (crc ^ (buffer_[i] >> 0))];
+        crc = (crc >> 4) ^ lfs_crc32c_table[0xf & (crc ^ (buffer_[i] >> 4))];
     }
 
-    #else
+    #elif defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    // reduce via big table
     for (size_t i = 0; i < size; i++) {
-        crc = (crc >> 8) ^ lfs_crc32c_table[0xff & (crc ^ data[i])];
+        crc = (crc >> 8) ^ lfs_crc32c_table[0xff & (crc ^ buffer_[i])];
     }
+
+    #elif defined(LFS_PMUL_CRC32C)
+    // reduce via Barret reduction
+    for (size_t i = 0; i < size;) {
+        // align to 32-bits
+        if ((uintptr_t)&buffer_[i] % sizeof(uint32_t) == 0
+                && i+sizeof(uint32_t) < size) {
+            crc = crc ^ lfs_fromle32_(&buffer_[i]);
+            crc = lfs_pmul(
+                        lfs_pmul(crc, 0xdea713f1),
+                        0x82f63b78)
+                    >> 31;
+            i += 4;
+        } else {
+            crc = crc ^ buffer_[i];
+            crc = (crc >> 8)
+                    ^ (lfs_pmul(
+                            lfs_pmul(crc << 24, 0xdea713f1),
+                            0x82f63b78)
+                        >> 31);
+            i += 1;
+        }
+    }
+
     #endif
 
     // fini with 0xffffffff to cancel out init when called incrementally
@@ -214,28 +262,40 @@ uint32_t lfs_crc32c_mul(uint32_t a, uint32_t b) {
     // Note because our crc32c is not irreducible, this does not give
     // us a finite-field, i.e. division is undefined. Still,
     // multiplication has useful properties.
+    //
 
     // This gets a bit funky because crc32cs are little-endian, but
-    // fortunately pmul is symmetric. Unfortunately the result is
-    // 31-bits large, so we need to shift by 1.
+    // fortunately pmul is symmetric. Though the result is awkwardly
+    // 63-bits, so we need to shift by 1.
     uint64_t r = lfs_pmul(a, b) << 1;
 
     // We can accelerate our module with crc32c tables if present, these
     // loops may look familiar.
-    #if defined(LFS_SMALLER_CRC32C)
+    #if defined(LFS_SMALLER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    // naive reduce
     for (int i = 0; i < 32; i++) {
         r = (r >> 1) ^ ((r & 1) ? 0x82f63b78 : 0);
     }
 
-    #elif !defined(LFS_FASTER_CRC32C)
+    #elif !defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    // reduce via small table
     for (int i = 0; i < 8; i++) {
         r = (r >> 4) ^ lfs_crc32c_table[0xf & r];
     }
 
-    #else
+    #elif defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    // reduce via big table
     for (int i = 0; i < 4; i++) {
         r = (r >> 8) ^ lfs_crc32c_table[0xff & r];
     }
+
+    #elif defined(LFS_PMUL_CRC32C)
+    // reduce via Barret reduction
+    r = (r >> 32)
+            ^ (lfs_pmul(
+                    lfs_pmul(r, 0xdea713f1),
+                    0x82f63b78)
+                >> 31);
     #endif
 
     return (uint32_t)r;
