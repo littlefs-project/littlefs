@@ -7044,7 +7044,7 @@ static inline uint32_t lfsr_rev_init(lfs_t *lfs, uint32_t rev) {
     // increment revision
     rev += 1 << 28;
     // xor in a pseudorandom nonce
-    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->seed;
+    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
     return rev;
 }
 
@@ -7062,7 +7062,7 @@ static inline uint32_t lfsr_rev_inc(lfs_t *lfs, uint32_t rev) {
     // increment recycle counter/revision
     rev += 1 << (28-lfs_smax(lfs->recycle_bits, 0));
     // xor in a pseudorandom nonce
-    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->seed;
+    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
     return rev;
 }
 
@@ -8750,14 +8750,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     ///////////////////////////////////////////////////////////////////////
     // success? update in-device state, we must not error at this point! //
     ///////////////////////////////////////////////////////////////////////
-
-    // toss our cksum into the filesystem seed for pseudorandom numbers
-    if (mdelta >= 0) {
-        lfs->seed ^= mdir_[0].rbyd.cksum;
-    }
-    if (mdelta > 0) {
-        lfs->seed ^= mdir_[1].rbyd.cksum;
-    }
 
     // we may have touched any number of mdirs, so assume uncompacted
     // until lfsr_gc can prove otherwise
@@ -13384,7 +13376,6 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     }
 
     // setup default state
-    lfs->seed = 0;
 
 //    lfs->root[0] = LFS_BLOCK_NULL;
 //    lfs->root[1] = LFS_BLOCK_NULL;
@@ -13959,10 +13950,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 }
             }
 
-            // toss our cksum into the filesystem seed for pseudorandom
-            // numbers
-            lfs->seed ^= mdir->rbyd.cksum;
-
             // build gcksum out of mdir cksums
             lfs->gcksum ^= mdir->rbyd.cksum;
 
@@ -14027,7 +14014,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // the purpose of this is to avoid bad wear patterns such as always 
     // allocating blocks near the beginning of disk after a power-loss
     //
-    lfs->lookahead.window = lfs->seed % lfs->block_count;
+    lfs->lookahead.window = lfs->gcksum % lfs->block_count;
 
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk

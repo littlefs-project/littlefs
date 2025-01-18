@@ -850,7 +850,6 @@ typedef struct lfs {
 
     lfsr_mdir_t mroot;
     lfsr_mtree_t mtree;
-    uint32_t seed;
 
     struct {
         lfs_block_t block;
