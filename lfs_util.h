@@ -473,6 +473,16 @@ static inline void *lfs_memcchr(const void *a, int c, size_t size) {
     return NULL;
 }
 
+// Find the minimum length that includes all non-zero bytes
+static inline size_t lfs_memlen(const void *a, size_t size) {
+    const uint8_t *a_ = a;
+    while (size > 0 && a_[size-1] == 0) {
+        size -= 1;
+    }
+
+    return size;
+}
+
 // Xor n bytes from b into a
 static inline void *lfs_memxor(
         void *restrict a, const void *restrict b, size_t size) {

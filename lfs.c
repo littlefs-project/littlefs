@@ -6818,17 +6818,6 @@ static void lfsr_fs_mkdirty(lfs_t *lfs) {
 
 /// Global-state things ///
 
-static inline lfs_size_t lfsr_gdelta_size(
-        const uint8_t *gdelta, lfs_size_t size) {
-    // truncate based on number of trailing zeros
-    while (size > 0 && gdelta[size-1] == 0) {
-        size -= 1;
-    }
-
-    return size;
-}
-
-
 // gcksum (global checksum) things
 
 // cubing the gcksum prevents trivial gcksumdeltas
@@ -6886,7 +6875,7 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
         d += d_;
     }
 
-    return LFSR_DATA_BUF(buffer, lfsr_gdelta_size(buffer, LFSR_GRM_DSIZE));
+    return LFSR_DATA_BUF(buffer, lfs_memlen(buffer, LFSR_GRM_DSIZE));
 }
 
 // required by lfsr_data_readgrm
@@ -6921,6 +6910,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
     return 0;
 }
+
 
 // some mdir-related gstate things we need
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
@@ -6960,7 +6950,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     lfs_memxor(grmdelta_, lfs->grm_p, LFSR_GRM_DSIZE);
     lfs_memxor(grmdelta_, lfs->grm_d, LFSR_GRM_DSIZE);
 
-    if (lfsr_gdelta_size(grmdelta_, LFSR_GRM_DSIZE) != 0) {
+    if (lfs_memlen(grmdelta_, LFSR_GRM_DSIZE) != 0) {
         // make sure to xor any existing delta
         lfsr_data_t data;
         int err = lfsr_rbyd_lookup(lfs, rbyd, -1, LFSR_TAG_GRMDELTA,
@@ -6982,7 +6972,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         lfs_memxor(grmdelta_, grmdelta, LFSR_GRM_DSIZE);
 
         // append to our rbyd, replacing any existing delta
-        lfs_size_t size = lfsr_gdelta_size(grmdelta_, LFSR_GRM_DSIZE);
+        lfs_size_t size = lfs_memlen(grmdelta_, LFSR_GRM_DSIZE);
         err = lfsr_rbyd_appendrat(lfs, rbyd, -1, LFSR_RAT(
                 // opportunistically remove this tag if delta is all zero
                 (size == 0)
