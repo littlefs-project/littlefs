@@ -14519,6 +14519,12 @@ int lfsr_fs_ckdata(lfs_t *lfs) {
     return lfsr_fs_ck(lfs, LFS_T_CKMETA | LFS_T_CKDATA);
 }
 
+// get the filesystem checksum
+int lfsr_fs_cksum(lfs_t *lfs, uint32_t *cksum) {
+    *cksum = lfs->gcksum;
+    return 0;
+}
+
 // low-level filesystem gc
 //
 // runs the traversal until all work is completed, which may take

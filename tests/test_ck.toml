@@ -123,6 +123,61 @@ code = '''
 
 # Test filesystem-level checksum things
 
+# test that lfsr_fs_cksum doesn't do anything weird
+[cases.test_ck_cksum]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FILE_BUFFER_SIZE/2',
+    '2*FILE_BUFFER_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+    'LFS_IFDEF_GC(true, METHOD != 1)',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an interesting filesystem
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "squid%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // get the filesystem cksum
+    uint32_t gcksum;
+    lfsr_fs_cksum(&lfs, &gcksum) => 0;
+    printf("cksum: %08x\n", gcksum);
+
+    // test that the cksum remains the same after a remount
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    uint32_t gcksum_;
+    lfsr_fs_cksum(&lfs, &gcksum_) => 0;
+    assert(gcksum_ == gcksum);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 # test we can detect at least fully clobbered blocks
 [cases.test_ck_ckmeta_easy]
 # METHOD=0 => lfsr_fs_ckmeta
@@ -483,9 +538,9 @@ code = '''
         }
 
     clobber:;
-        // TODO API for this?
         // save the current gcksum
-        uint32_t gcksum = lfs.gcksum;
+        uint32_t gcksum;
+        lfsr_fs_cksum(&lfs, &gcksum) => 0;
 
         // try flipping some bits
         for (lfs_size_t j = 0; j < M; j++) {
@@ -604,8 +659,9 @@ code = '''
             // end up different, this allows detecting rollback if
             // stored externally
             if (found != N) {
-                // TODO API for this?
-                assert(lfs.gcksum != gcksum);
+                uint32_t gcksum_;
+                lfsr_fs_cksum(&lfs, &gcksum_) => 0;
+                assert(gcksum_ != gcksum);
             }
 
             // test we can read the files that survived
@@ -737,9 +793,9 @@ code = '''
         }
 
     clobber:;
-        // TODO API for this?
         // save the current gcksum
         uint32_t gcksum = lfs.gcksum;
+        lfsr_fs_cksum(&lfs, &gcksum) => 0;
 
         // try flipping some bits
         for (lfs_size_t j = 0; j < M; j++) {
@@ -858,8 +914,9 @@ code = '''
             // end up different, this allows detecting rollback if
             // stored externally
             if (found != N) {
-                // TODO API for this?
-                assert(lfs.gcksum != gcksum);
+                uint32_t gcksum_;
+                lfsr_fs_cksum(&lfs, &gcksum_) => 0;
+                assert(gcksum_ != gcksum);
             }
 
             // test we can read the files that survived

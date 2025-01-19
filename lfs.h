@@ -1306,6 +1306,22 @@ int lfsr_fs_ckmeta(lfs_t *lfs);
 int lfsr_fs_ckdata(lfs_t *lfs);
 #endif
 
+// Get the current filesystem checksum
+//
+// This is a checksum of all metadata + data in the filesystem, which
+// can be stored externally to provide increased protection against
+// filesystem corruption.
+//
+// Note this checksum is order-sensitive. So while it's unlikely two
+// filesystems with different contents will have the same checksum, two
+// filesystems with the same contents may not have the same checksum.
+//
+// Also note this is only a 32-bit checksum. Collisions should be
+// expected.
+//
+// Returns a negative error code on failure.
+int lfsr_fs_cksum(lfs_t *lfs, uint32_t *cksum);
+
 #ifdef LFS_GC
 // Perform any janitorial work that may be pending
 //
