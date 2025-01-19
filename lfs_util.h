@@ -635,6 +635,11 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size);
 // Multiply two crc32cs in the crc32c ring
 uint32_t lfs_crc32c_mul(uint32_t a, uint32_t b);
 
+// Find the cube of a crc32c in the crc32c ring
+static inline uint32_t lfs_crc32c_cube(uint32_t a) {
+    return lfs_crc32c_mul(lfs_crc32c_mul(a, a), a);
+}
+
 
 // Allocate memory, only used if buffers are not provided to littlefs
 // Note, memory must be 64-bit aligned

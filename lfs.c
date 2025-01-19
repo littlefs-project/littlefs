@@ -3967,9 +3967,6 @@ leaf:;
     return 0;
 }
 
-// needed in lfsr_rbyd_appendcksum
-static uint32_t lfsr_gcksum_cube(uint32_t gcksum);
-
 static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         uint32_t cksum) {
     // align to the next prog unit
@@ -6818,14 +6815,6 @@ static void lfsr_fs_mkdirty(lfs_t *lfs) {
 
 /// Global-state things ///
 
-// gcksum (global checksum) things
-
-// cubing the gcksum prevents trivial gcksumdeltas
-static uint32_t lfsr_gcksum_cube(uint32_t gcksum) {
-    return lfs_crc32c_mul(lfs_crc32c_mul(gcksum, gcksum), gcksum);
-}
-
-
 // grm (global remove) things
 static inline uint8_t lfsr_grm_count_(const lfsr_grm_t *grm) {
     return (grm->mids[0] >= 0) + (grm->mids[1] >= 0);
@@ -7741,8 +7730,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     // append gkcsumdelta?
     if (start_rid <= -2) {
         // figure out changes to our gcksumdelta
-        mdir->gcksumdelta ^= lfsr_gcksum_cube(lfs->gcksum_p)
-                ^ lfsr_gcksum_cube(lfs->gcksum ^ cksum)
+        mdir->gcksumdelta ^= lfs_crc32c_cube(lfs->gcksum_p)
+                ^ lfs_crc32c_cube(lfs->gcksum ^ cksum)
                 ^ lfs->gcksum_d;
 
         uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
@@ -13982,10 +13971,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // 1->1 mapping of t(g) in 2^31 fields, and losing at most 3-bits of
     // info when calculating d_i.
     //
-    if (lfsr_gcksum_cube(lfs->gcksum) != lfs->gcksum_d) {
+    if (lfs_crc32c_cube(lfs->gcksum) != lfs->gcksum_d) {
         LFS_ERROR("Found gcksum mismatch, cksum^3 %08"PRIx32" "
                     "(!= %08"PRIx32")",
-                lfsr_gcksum_cube(lfs->gcksum),
+                lfs_crc32c_cube(lfs->gcksum),
                 lfs->gcksum_d);
         return LFS_ERR_CORRUPT;
     }
@@ -14211,7 +14200,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
         err = lfsr_rbyd_appendrat_(lfs, &rbyd, LFSR_RAT(
                 LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
-                    lfsr_gcksum_cube(cksum), gcksumdelta_buf)));
+                    lfs_crc32c_cube(cksum), gcksumdelta_buf)));
 
         // and commit
         err = lfsr_rbyd_appendcksum_(lfs, &rbyd, cksum);
