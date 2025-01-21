@@ -1332,7 +1332,7 @@ static inline void lfsr_tag_trim(
     LFS_ASSERT((lfsr_srid_t)weight >= 0);
     if (lfsr_tag_isgt(alt)) {
         *upper_rid -= weight;
-        if (upper_tag && !lfsr_tag_isn(alt)) {
+        if (upper_tag && !lfsr_tag_isa(alt)) {
             *upper_tag = alt + 1;
         }
     } else {
@@ -4345,6 +4345,7 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // balanced binary tree upwards until we have a single trunk
     lfs_size_t layer = off;
     lfsr_rid_t weight = 0;
+    lfsr_tag_t tag_ = 0;
     while (true) {
         lfs_size_t layer_ = lfsr_rbyd_eoff(rbyd);
         off = layer;
@@ -4404,23 +4405,30 @@ static int lfsr_rbyd_appendcompaction(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     goto done;
                 }
 
-                // connect with an altle
+                // connect with an altle/altgt
                 //
-                // note we can't use an altas here, we need to encode the
-                // exact tag so we know the largest tag when building the
-                // next layer
+                // note we need to use altles for all but the last tag
+                // so we know the largest tag when building the next
+                // layer, but for that last tag we need an altgt so
+                // future appends maintain the balance of the tree
                 err = lfsr_rbyd_appendtag(lfs, rbyd,
-                        LFSR_TAG_ALT(
-                            (i == 0 && off < layer_)
-                                ? LFSR_TAG_R
-                                : LFSR_TAG_B,
-                            LFSR_TAG_LE,
-                            tag),
+                        (off < layer_)
+                            ? LFSR_TAG_ALT(
+                                (i == 0) ? LFSR_TAG_R : LFSR_TAG_B,
+                                LFSR_TAG_LE,
+                                tag)
+                            : LFSR_TAG_ALT(
+                                LFSR_TAG_B,
+                                LFSR_TAG_GT,
+                                tag_),
                         weight,
                         lfsr_rbyd_eoff(rbyd) - trunk);
                 if (err) {
                     return err;
                 }
+
+                // keep track of the previous tag for altgts
+                tag_ = tag;
             }
 
             // terminate with a null tag
