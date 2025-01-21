@@ -9541,13 +9541,13 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
     }
 
     // validate btree nodes?
+    //
+    // this may end up revalidating some btree nodes when ckfetches is
+    // enabled, but we need to revalidate cached btree nodes or we risk
+    // missing errors in ckmeta scans
     if ((lfsr_t_isckmeta(t->o.o.flags)
                 || lfsr_t_isckdata(t->o.o.flags))
-            && tag == LFSR_TAG_BRANCH
-            // note ckfetches already validates btree nodes
-            && LFS_IFDEF_CKFETCHES(
-                !lfsr_m_isckfetches(lfs->flags),
-                true)) {
+            && tag == LFSR_TAG_BRANCH) {
         lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
         err = lfsr_rbyd_fetchck(lfs, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
