@@ -226,13 +226,10 @@ def tagrepr(tag, w=None, size=None, off=None):
                 ' w%d' % w if w else '',
                 ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:
-        return 'alt%s%s%s%s%s' % (
+        return 'alt%s%s 0x%03x%s%s' % (
                 'r' if tag & TAG_R else 'b',
-                'a' if tag & 0x0fff == 0 and tag & TAG_GT
-                    else 'n' if tag & 0x0fff == 0
-                    else 'gt' if tag & TAG_GT
-                    else 'le',
-                ' 0x%x' % (tag & 0x0fff) if tag & 0x0fff != 0 else '',
+                'gt' if tag & TAG_GT else 'le',
+                tag & 0x0fff,
                 ' w%d' % w if w is not None else '',
                 ' 0x%x' % (0xffffffff & (off-size))
                     if size and off is not None

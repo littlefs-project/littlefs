@@ -1265,14 +1265,6 @@ static inline bool lfsr_tag_isgt(lfsr_tag_t tag) {
     return tag & LFSR_TAG_GT;
 }
 
-static inline bool lfsr_tag_isa(lfsr_tag_t tag) {
-    return (tag & 0x1fff) == (LFSR_TAG_GT | 0);
-}
-
-static inline bool lfsr_tag_isn(lfsr_tag_t tag) {
-    return (tag & 0x1fff) == (LFSR_TAG_LE | 0);
-}
-
 static inline lfsr_tag_t lfsr_tag_isparallel(lfsr_tag_t a, lfsr_tag_t b) {
     return (a & LFSR_TAG_GT) == (b & LFSR_TAG_GT);
 }
@@ -1281,7 +1273,7 @@ static inline bool lfsr_tag_follow(
         lfsr_tag_t alt, lfsr_rid_t weight,
         lfsr_srid_t lower_rid, lfsr_srid_t upper_rid,
         lfsr_srid_t rid, lfsr_tag_t tag) {
-    // null tags break the following logic for altns/altas
+    // null tags break the following logic for unreachable alts
     LFS_ASSERT(lfsr_tag_key(tag) != 0);
 
     if (lfsr_tag_isgt(alt)) {
@@ -1332,12 +1324,12 @@ static inline void lfsr_tag_trim(
     LFS_ASSERT((lfsr_srid_t)weight >= 0);
     if (lfsr_tag_isgt(alt)) {
         *upper_rid -= weight;
-        if (upper_tag && !lfsr_tag_isa(alt)) {
+        if (upper_tag) {
             *upper_tag = alt + 1;
         }
     } else {
         *lower_rid += weight;
-        if (lower_tag && !lfsr_tag_isn(alt)) {
+        if (lower_tag) {
             *lower_tag = alt;
         }
     }
@@ -3289,9 +3281,13 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // write out some number of alt pointers in our queue
     for (int i = 0; i < count; i++) {
         if (p[3-1-i].alt) {
-            // change to a relative jump at the last minute
+            // jump=0 represents an unreachable alt, we do write out
+            // unreachable alts sometimes in order to maintain the
+            // balance of the tree
+            LFS_ASSERT(p[3-1-i].jump || lfsr_tag_isblack(p[3-1-i].alt));
             lfsr_tag_t alt = p[3-1-i].alt;
             lfsr_rid_t weight = p[3-1-i].weight;
+            // change to a relative jump at the last minute
             lfs_size_t jump = (p[3-1-i].jump)
                     ? lfsr_rbyd_eoff(rbyd) - p[3-1-i].jump
                     : 0;
@@ -3335,8 +3331,8 @@ static void lfsr_rbyd_p_recolor(
     if (p[1].alt) {
         p[1].alt |= LFSR_TAG_R;
 
-        // alt-never? we can prune this now
-        if (lfsr_tag_isn(p[1].alt)) {
+        // unreachable alt? we can prune this now
+        if (!p[1].jump) {
             p[1] = p[2];
             p[2].alt = 0;
 
@@ -3708,16 +3704,25 @@ trunk:;
                     branch = branch_;
                     continue;
 
-                // convert unreachable non-root black alts into alt-nevers,
-                // if we prune these it would break the color balance of
-                // our tree
+                // mark unreachable non-root black alts as unreachable,
+                // we can't prune these or we risk breaking the color
+                // balance of our tree, but if we push a red up later we
+                // can get rid of them
                 //    :            :
                 //   <b  =>       nb
                 // .-'|         .--'
                 // 3  4      3  4  x
                 } else {
-                    alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, 0);
-                    weight = 0;
+                    alt = LFSR_TAG_ALT(
+                            LFSR_TAG_B,
+                            LFSR_TAG_LE,
+                            (diverged && !(a_rid < b_rid || a_tag < b_tag))
+                                ? d_tag
+                                : lower_tag);
+                    LFS_ASSERT(weight == 0);
+                    // we don't need to, but setting jump=0 asserts this
+                    // alt is unreachable while also minimizing the the
+                    // encoding
                     jump = 0;
                 }
             }
