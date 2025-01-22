@@ -2717,6 +2717,12 @@ static int lfsr_rbyd_ckecksum(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return (ecksum_ == ecksum->cksum) ? 0 : LFS_ERR_CORRUPT;
 }
 
+// needed in lfsr_rbyd_fetch_ if asserting rbyd balance
+static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfsr_srid_t rid, lfsr_tag_t tag,
+        lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
+        lfsr_data_t *data_, lfs_size_t *height_);
+
 // fetch an rbyd
 static int lfsr_rbyd_fetch_(lfs_t *lfs,
         lfsr_rbyd_t *rbyd, uint32_t *gcksumdelta,
@@ -2931,6 +2937,32 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
         rbyd->eoff = -1;
     }
 
+    // asserting rbyd balance? check that all branches in the rbyd have
+    // the same height
+    #ifdef LFS_ASSERTRBYDBALANCE
+    lfsr_srid_t rid = -1;
+    lfsr_tag_t tag = 0;
+    lfs_ssize_t height = -1;
+    while (true) {
+        lfs_size_t height_;
+        int err = lfsr_rbyd_lookupnext_(lfs, rbyd,
+                rid, tag+1,
+                &rid, &tag, NULL, NULL, &height_);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+
+        // all branches should have the same height
+        if (height != -1) {
+            LFS_ASSERT(height_ == height);
+        }
+        height = height_;
+    }
+    #endif
+
     return 0;
 }
 
@@ -2973,10 +3005,10 @@ static int lfsr_rbyd_fetchck(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 
-static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
-        lfsr_data_t *data_) {
+        lfsr_data_t *data_, lfs_size_t *height_) {
     // these bits should be clear at this point
     LFS_ASSERT(lfsr_tag_mode(tag) == 0);
 
@@ -2987,6 +3019,11 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // out of bounds? no trunk yet?
     if (rid >= (lfsr_srid_t)rbyd->weight || !lfsr_rbyd_trunk(rbyd)) {
         return LFS_ERR_NOENT;
+    }
+
+    // optionally find height for asserting rbyd balance
+    if (height_) {
+        *height_ = 0;
     }
 
     // keep track of bounds as we descend down the tree
@@ -3010,6 +3047,16 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
             lfs_size_t branch_ = branch + d;
+
+            // only count black alts and followed alts towards height
+            if (height_
+                    && (lfsr_tag_isblack(alt)
+                        || lfsr_tag_follow(
+                            alt, weight,
+                            lower_rid, upper_rid,
+                            rid, tag))) {
+                *height_ += 1;
+            }
 
             // take alt?
             if (lfsr_tag_follow(
@@ -3059,6 +3106,14 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             return 0;
         }
     }
+}
+
+static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfsr_srid_t rid, lfsr_tag_t tag,
+        lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
+        lfsr_data_t *data_) {
+    return lfsr_rbyd_lookupnext_(lfs, rbyd, rid, tag,
+            rid_, tag_, weight_, data_, NULL);
 }
 
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
