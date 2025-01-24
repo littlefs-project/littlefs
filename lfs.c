@@ -3615,14 +3615,13 @@ trunk:;
                 LFS_SWAP(lfs_size_t, &jump, &branch_);
             }
 
-            // do bounds want to take different paths? begin diverging
-            //                            >b                    <b
-            //                          .-'|                  .-'|
-            //         <b  =>           | nb  =>             nb  |
-            //    .----'|      .--------|--'      .-----------'  |
-            //   <b    <b      |       <b         |             nb
-            // .-'|  .-'|      |     .-'|         |        .-----'
-            // 1  2  3  4      1  2  3  4  x      1  2  3  4  x  x
+            // TODO need this? does this ever get triggered?
+            // both diverging? collapse
+            //      <r              >b
+            // .----'|            .-'|
+            // |    <b  =>        |  |
+            // |  .-'|      .-----|--'
+            // 1  2  3      1  2  3  x
             bool diverging = lfsr_tag_diverging2(
                     alt, weight,
                     p[0].alt, p[0].weight,
@@ -3635,33 +3634,90 @@ trunk:;
                         lower_rid, upper_rid,
                         a_rid, a_tag,
                         b_rid, b_tag);
+            if (diverging && diverging_red) {
+                LFS_DEBUG("%04x->%04x: both diverging",
+                        branch, lfsr_rbyd_eoff(rbyd));
+                LFS_ASSERT(a_rid < b_rid || a_tag < b_tag);
+                LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
+
+                weight += p[0].weight;
+                jump = p[0].jump;
+                lfsr_rbyd_p_pop(p);
+            }
+
+//            // only diverging red? swap
+//            diverging_red = lfsr_tag_isred(p[0].alt)
+//                    && lfsr_tag_diverging(
+//                        p[0].alt, p[0].weight,
+//                        lower_rid, upper_rid,
+//                        a_rid, a_tag,
+//                        b_rid, b_tag);
+//            if (diverging_red) {
+//                LFS_DEBUG("%04x->%04x: diverging red",
+//                        branch, lfsr_rbyd_eoff(rbyd));
+//                LFS_ASSERT(!lfsr_tag_isparallel(alt, p[0].alt));
+//
+//                LFS_SWAP(lfsr_tag_t, &p[0].alt, &alt);
+//                LFS_SWAP(lfsr_rid_t, &p[0].weight, &weight);
+//                LFS_SWAP(lfs_size_t, &p[0].jump, &jump);
+//                alt = (alt & ~LFSR_TAG_R) | (p[0].alt & LFSR_TAG_R);
+//                p[0].alt |= LFSR_TAG_R;
+//            }
+
+            // do bounds want to take different paths? begin diverging
+            //                            >b                    <b
+            //                          .-'|                  .-'|
+            //         <b  =>           | nb  =>             nb  |
+            //    .----'|      .--------|--'      .-----------'  |
+            //   <b    <b      |       <b         |             nb
+            // .-'|  .-'|      |     .-'|         |        .-----'
+            // 1  2  3  4      1  2  3  4  x      1  2  3  4  x  x
+            diverging = lfsr_tag_diverging2(
+                    alt, weight,
+                    p[0].alt, p[0].weight,
+                    lower_rid, upper_rid,
+                    a_rid, a_tag,
+                    b_rid, b_tag);
+            diverging_red = lfsr_tag_isred(p[0].alt)
+                    && lfsr_tag_diverging(
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        a_rid, a_tag,
+                        b_rid, b_tag);
+            bool just_diverged = false;
             if (!diverged
                     // diverging black?
+//                    && lfsr_tag_isblack(alt)
                     && (lfsr_tag_isblack(alt)
                         // give up if we find a yellow alt
                         || lfsr_tag_isred(p[0].alt))
                     && (diverging || diverging_red)) {
                 LFS_DEBUG("%04x->%04x: diverging",
                         branch, lfsr_rbyd_eoff(rbyd));
-                diverged = true;
-
-                // TODO need this? does this ever get triggered?
-                // both diverging? collapse
-                //      <r              >b
-                // .----'|            .-'|
-                // |    <b  =>        |  |
-                // |  .-'|      .-----|--'
-                // 1  2  3      1  2  3  x
-                if (diverging && diverging_red) {
-                    LFS_DEBUG("%04x->%04x: both diverging",
+                if (lfsr_tag_isred(p[0].alt)) {
+                    LFS_DEBUG("%04x->%04x: wouldnt've diverged",
                             branch, lfsr_rbyd_eoff(rbyd));
-                    LFS_ASSERT(a_rid < b_rid || a_tag < b_tag);
-                    LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
-
-                    p[0].alt = alt | LFSR_TAG_R;
-                    p[0].weight += weight;
-                    weight = 0;
                 }
+                diverged = true;
+                just_diverged = true;
+
+//                // TODO need this? does this ever get triggered?
+//                // both diverging? collapse
+//                //      <r              >b
+//                // .----'|            .-'|
+//                // |    <b  =>        |  |
+//                // |  .-'|      .-----|--'
+//                // 1  2  3      1  2  3  x
+//                if (diverging && diverging_red) {
+//                    LFS_DEBUG("%04x->%04x: both diverging",
+//                            branch, lfsr_rbyd_eoff(rbyd));
+//                    LFS_ASSERT(a_rid < b_rid || a_tag < b_tag);
+//                    LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
+//
+//                    p[0].alt = alt | LFSR_TAG_R;
+//                    p[0].weight += weight;
+//                    weight = 0;
+//                }
 
                 // diverging upper? stitch together both trunks
                 //            >b                    <b
@@ -3685,7 +3741,11 @@ trunk:;
 
                     // stitch together both trunks
                     lfsr_srid_t weight_ = weight;
-                    alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag);
+                    if (lfsr_tag_isred(alt)) {
+                        alt = LFSR_TAG_ALT(LFSR_TAG_R, LFSR_TAG_LE, d_tag);
+                    } else {
+                        alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag);
+                    }
                     //weight = (d_rid - lower_rid) - lfs_smax(-rat.weight, 0);
                     //weight = d_rid - lower_rid;
 
@@ -3763,6 +3823,8 @@ trunk:;
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         lower_tag, upper_tag)) {
+                LFS_DEBUG("%04x->%04x: yprune",
+                        branch, lfsr_rbyd_eoff(rbyd));
                 alt &= ~LFSR_TAG_R;
                 lfsr_rbyd_p_pop(p);
             }
@@ -3846,6 +3908,8 @@ trunk:;
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
                 if (branch_ < branch) {
+                    LFS_DEBUG("%04x->%04x: ysplit b",
+                            branch, lfsr_rbyd_eoff(rbyd));
                     if (jump > branch) {
                         LFS_SWAP(lfsr_tag_t, &p[0].alt, &alt);
                         LFS_SWAP(lfsr_rid_t, &p[0].weight, &weight);
@@ -3871,6 +3935,8 @@ trunk:;
                 // |  |  .-'|      |  |  .----'|
                 // 1  2  3  4      1  2  3  4  4
                 } else {
+                    LFS_DEBUG("%04x->%04x: ysplit y",
+                            branch, lfsr_rbyd_eoff(rbyd));
                     LFS_ASSERT(y_branch != 0);
                     p[0].alt = alt;
                     p[0].weight += weight;
