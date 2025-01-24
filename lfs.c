@@ -2956,6 +2956,7 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
         }
 
         // all branches should have the same height
+        LFS_DEBUG("%d 0x%04x: height %d", rid, tag, height_);
         if (height != -1) {
             LFS_ASSERT(height_ == height);
         }
@@ -3512,6 +3513,8 @@ static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     bool diverged = false;
     lfsr_srid_t d_rid = 0;
+    lfsr_srid_t d_upper_rid = rbyd->weight;
+    lfsr_srid_t d_weight = 0;
     lfsr_tag_t d_tag = 0;
 
     // follow the current trunk
@@ -3638,8 +3641,11 @@ trunk:;
                         // give up if we find a yellow alt
                         || lfsr_tag_isred(p[0].alt))
                     && (diverging || diverging_red)) {
+                LFS_DEBUG("%04x->%04x: diverging",
+                        branch, lfsr_rbyd_eoff(rbyd));
                 diverged = true;
 
+                // TODO need this? does this ever get triggered?
                 // both diverging? collapse
                 //      <r              >b
                 // .----'|            .-'|
@@ -3647,6 +3653,8 @@ trunk:;
                 // |  .-'|      .-----|--'
                 // 1  2  3      1  2  3  x
                 if (diverging && diverging_red) {
+                    LFS_DEBUG("%04x->%04x: both diverging",
+                            branch, lfsr_rbyd_eoff(rbyd));
                     LFS_ASSERT(a_rid < b_rid || a_tag < b_tag);
                     LFS_ASSERT(lfsr_tag_isparallel(alt, p[0].alt));
 
@@ -3664,24 +3672,61 @@ trunk:;
                 // |     .-'|         |        .-----'
                 // 1  2  3  4  x      1  2  3  4  x  x
                 if (a_rid > b_rid || a_tag > b_tag) {
-                    lfsr_tag_trim2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
+                    LFS_DEBUG("%04x->%04x: stitching %d ((%d, %d), (%d, %d)) "
+                                "%04x %04x",
+                            branch, lfsr_rbyd_eoff(rbyd),
+                            d_rid - lower_rid,
+                            d_rid, d_upper_rid,
+                            lower_rid, upper_rid,
+                            alt, d_tag);
+
+                    // TODO is this uh, how much of this is already in
+                    // the diverging alt?
 
                     // stitch together both trunks
-                    err = lfsr_rbyd_p_push(lfs, rbyd, p,
-                            LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag),
-                            d_rid - (lower_rid - weight),
-                            jump);
-                    if (err) {
-                        return err;
-                    }
+                    lfsr_srid_t weight_ = weight;
+                    alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag);
+                    //weight = (d_rid - lower_rid) - lfs_smax(-rat.weight, 0);
+                    //weight = d_rid - lower_rid;
 
-                    // continue to next alt
-                    branch = branch_;
-                    continue;
+                    lfsr_srid_t delta =
+                            lfs_smax(-rat.weight, d_upper_rid - d_rid);
+//                            lfs_smax(-rat.weight, 0)
+//                                + (d_upper_rid - d_rid);
+//                            (lfs_smax(-rat.weight, 0) > 0)
+//                                ? lfs_smax(-rat.weight, 0)
+//                                : (d_upper_rid - d_rid);
+
+//                            + lfs_smax(-rat.weight, 0);
+//                            + (weight - (d_rid - lower_rid));
+
+//                    weight = weight
+//                            - lfs_smax(-rat.weight, 0)
+//                            - (weight - (d_rid - lower_rid));
+                    weight -= delta;
+                    branch = jump;
+
+//                    lower_rid += lfs_smax(-rat.weight, 0);
+                    lower_rid += delta;
+
+//                     lfsr_tag_trim2(
+//                             alt, weight,
+//                             p[0].alt, p[0].weight,
+//                             &lower_rid, &upper_rid,
+//                             &lower_tag, &upper_tag);
+//
+//                    // stitch together both trunks
+//                    err = lfsr_rbyd_p_push(lfs, rbyd, p,
+//                            LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, d_tag),
+//                            d_rid - (lower_rid - weight),
+//                            jump);
+//                    if (err) {
+//                        return err;
+//                    }
+//
+//                    // continue to next alt
+//                    branch = branch_;
+//                    continue;
                 }
             // diverged?
             //    :            :
@@ -3689,6 +3734,8 @@ trunk:;
             // .-'|         .--'
             // 3  4      3  4  x
             } else if (diverged && diverging) {
+                LFS_DEBUG("%04x->%04x: div pruning",
+                        branch, lfsr_rbyd_eoff(rbyd));
                 // trim so alt is pruned
                 lfsr_tag_trim(
                         alt, weight,
@@ -3774,7 +3821,9 @@ trunk:;
                             (diverged && !(a_rid < b_rid || a_tag < b_tag))
                                 ? d_tag
                                 : lower_tag);
+                    // TODO hmmmmm?
                     LFS_ASSERT(weight == 0);
+                    //weight = 0;
                     // we don't need to, but setting jump=0 asserts this
                     // alt is unreachable while also minimizing the the
                     // encoding
@@ -3885,6 +3934,9 @@ trunk:;
                     // keep track of the lower diverged bound
                     d_rid = lower_rid;
                     d_tag = lower_tag;
+                    // TODO need this?
+                    d_upper_rid = upper_rid;
+                    d_weight = upper_rid - lower_rid;
 
                     // flush any pending alts
                     err = lfsr_rbyd_p_flush(lfs, rbyd, p, 3);
@@ -3951,11 +4003,15 @@ stem:;
                             && lfsr_tag_key(tag_)
                                 < lfsr_tag_key(rat.tag)))))) {
         if (lfsr_tag_isrm(rat.tag) || !lfsr_tag_key(rat.tag)) {
+            LFS_DEBUG("%04x->%04x: leaf unr lt",
+                    branch, lfsr_rbyd_eoff(rbyd));
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, lower_tag);
             weight = upper_rid - lower_rid + rat.weight;
             upper_rid -= weight;
         } else {
+            LFS_DEBUG("%04x->%04x: leaf split lt",
+                    branch, lfsr_rbyd_eoff(rbyd));
             // split less than
             alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, tag_);
             weight = upper_rid - lower_rid;
@@ -3974,11 +4030,15 @@ stem:;
                             && lfsr_tag_key(tag_)
                                 > lfsr_tag_key(rat.tag)))))) {
         if (lfsr_tag_isrm(rat.tag) || !lfsr_tag_key(rat.tag)) {
+            LFS_DEBUG("%04x->%04x: leaf unr gt",
+                    branch, lfsr_rbyd_eoff(rbyd));
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, lower_tag);
             weight = upper_rid - lower_rid + rat.weight;
             upper_rid -= weight;
         } else {
+            LFS_DEBUG("%04x->%04x: leaf split gt",
+                    branch, lfsr_rbyd_eoff(rbyd));
             // split greater than
             alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, rat.tag);
             weight = upper_rid - (rid+1);
