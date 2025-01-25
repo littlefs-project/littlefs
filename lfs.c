@@ -3087,6 +3087,9 @@ static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             if (!tag__
                     || rid__ < rid
                     || (rid__ == rid && tag__ < tag)) {
+                if (height_) {
+                    LFS_DEBUG("not found height: %d\n", *height_);
+                }
                 return LFS_ERR_NOENT;
             }
 
@@ -3516,6 +3519,7 @@ static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_srid_t d_upper_rid = rbyd->weight;
     lfsr_srid_t d_weight = 0;
     lfsr_tag_t d_tag = 0;
+    lfs_size_t d_branch = 0;
 
     // follow the current trunk
     lfs_size_t branch = lfsr_rbyd_trunk(rbyd);
@@ -3645,7 +3649,14 @@ trunk:;
                 lfsr_rbyd_p_pop(p);
             }
 
+//            // TODO need this?
 //            // only diverging red? swap
+//            diverging = lfsr_tag_diverging2(
+//                    alt, weight,
+//                    p[0].alt, p[0].weight,
+//                    lower_rid, upper_rid,
+//                    a_rid, a_tag,
+//                    b_rid, b_tag);
 //            diverging_red = lfsr_tag_isred(p[0].alt)
 //                    && lfsr_tag_diverging(
 //                        p[0].alt, p[0].weight,
@@ -3690,7 +3701,7 @@ trunk:;
 //                    && lfsr_tag_isblack(alt)
                     && (lfsr_tag_isblack(alt)
                         // give up if we find a yellow alt
-                        || lfsr_tag_isred(p[0].alt))
+                        || (lfsr_tag_isred(p[0].alt)))
                     && (diverging || diverging_red)) {
                 LFS_DEBUG("%04x->%04x: diverging",
                         branch, lfsr_rbyd_eoff(rbyd));
@@ -3719,6 +3730,14 @@ trunk:;
 //                    weight = 0;
 //                }
 
+//                // propagate a red edge?
+//                if (lfsr_tag_isred(alt) && lfsr_tag_isred(p[0].alt)) {
+//                    LFS_DEBUG("%04x->%04x: recolor",
+//                            branch, lfsr_rbyd_eoff(rbyd));
+//                    lfsr_rbyd_p_recolor(p);
+//                    alt &= ~LFSR_TAG_R;
+//                }
+
                 // diverging upper? stitch together both trunks
                 //            >b                    <b
                 //          .-'|                  .-'|
@@ -3735,6 +3754,9 @@ trunk:;
                             d_rid, d_upper_rid,
                             lower_rid, upper_rid,
                             alt, d_tag);
+
+                    // TODO should we assert we're only diverging here?
+                    // not diverging_red?
 
                     // TODO is this uh, how much of this is already in
                     // the diverging alt?
@@ -3820,9 +3842,9 @@ trunk:;
             // 1  2  3  4  4      1  2  3  4  4  1
             if (lfsr_tag_isred(p[0].alt)
                     && lfsr_tag_unreachable(
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)) {
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            lower_tag, upper_tag)) {
                 LFS_DEBUG("%04x->%04x: yprune",
                         branch, lfsr_rbyd_eoff(rbyd));
                 alt &= ~LFSR_TAG_R;
@@ -3840,10 +3862,10 @@ trunk:;
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
             if (lfsr_tag_unreachable2(
-                    alt, weight,
-                    p[0].alt, p[0].weight,
-                    lower_rid, upper_rid,
-                    lower_tag, upper_tag)) {
+                        alt, weight,
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)) {
                 // prune unreachable recolorable alts
                 //       :               :
                 //      <r  =>          <b
@@ -3857,6 +3879,7 @@ trunk:;
                     jump = p[0].jump;
                     lfsr_rbyd_p_pop(p);
 
+                // TODO redoc
                 // prune unreachable root alts and red alts
                 //       :               :
                 //      <r  =>          <b
@@ -3864,7 +3887,7 @@ trunk:;
                 // |    <b         |     |
                 // |  .-'|         |  .--'
                 // 3  4  5      3  4  5  x
-                } else if (!p[0].alt || lfsr_tag_isred(alt)) {
+                } else if (!p[0].alt) { //|| lfsr_tag_isred(alt)) {
                     branch = branch_;
                     continue;
 
@@ -4010,6 +4033,10 @@ trunk:;
                         return err;
                     }
 
+                    // TODO need this? can we instead make the trunk
+                    // unreachable?
+                    d_branch = lfsr_rbyd_eoff(rbyd);
+
                     // terminate diverged trunk with an unreachable tag
                     err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT(
                             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
@@ -4032,6 +4059,16 @@ trunk:;
                     // calculation
                     lower_rid = d_rid;
                     lower_tag = d_tag;
+
+//                    // TODO ???
+//                    // needed for balance reasons if we end up reachable
+//                    err = lfsr_rbyd_p_push(lfs, rbyd, p,
+//                            LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_LE, lower_tag),
+//                            0,
+//                            0);
+//                    if (err) {
+//                        return err;
+//                    }
                 }
             }
 
