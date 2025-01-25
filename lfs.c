@@ -3504,6 +3504,11 @@ static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     a_tag = lfs_max(a_tag, 0x1);
     b_tag = lfs_max(b_tag, 0x1);
 
+    LFS_DEBUG("%04x: rbyd append %d %04x %d %04x",
+            lfsr_rbyd_eoff(rbyd),
+            a_rid, a_tag,
+            b_rid, b_tag);
+
     // keep track of diverged state
     //
     // this is only used if we operate on a range of tags, in which case
@@ -3635,7 +3640,8 @@ trunk:;
                 if (lfsr_tag_unreachable(
                             p[0].alt, p[0].weight,
                             lower_rid, upper_rid,
-                            lower_tag, upper_tag)) {
+                            lower_tag, upper_tag)
+                        && p[0].jump >= branch_) {
                     LFS_DEBUG("%04x->%04x: yprune",
                             branch, lfsr_rbyd_eoff(rbyd));
                     alt &= ~LFSR_TAG_R;
@@ -3652,10 +3658,11 @@ trunk:;
                 // |  |  .----'|      |     .----'|  |
                 // 1  2  3  4  4      1  2  3  4  4  2
                 } else if (lfsr_tag_unreachable2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        lower_tag, upper_tag)) {
+                            alt, weight,
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            lower_tag, upper_tag)
+                        && jump >= branch_) {
                     LFS_DEBUG("%04x->%04x: rprune",
                             branch, lfsr_rbyd_eoff(rbyd));
                     alt = p[0].alt & ~LFSR_TAG_R;
@@ -3878,8 +3885,9 @@ trunk:;
                             lower_rid, upper_rid,
                             a_rid, a_tag,
                             b_rid, b_tag);
+                // TODO I think this logic is wrong, what's correct here?
                 if (diverging_red) {
-                    LFS_DEBUG("%04x->%04x: div r pruning",
+                    LFS_DEBUG("%04x->%04x: div r trimming",
                             branch, lfsr_rbyd_eoff(rbyd));
                     // trim so alt is pruned
                     lfsr_tag_trim(
@@ -3902,7 +3910,7 @@ trunk:;
                 if (diverging
                         && (!lfsr_tag_isred(alt)
                             || lfsr_tag_isred(p[0].alt))) {
-                    LFS_DEBUG("%04x->%04x: div trimming",
+                    LFS_DEBUG("%04x->%04x: div b trimming",
                             branch, lfsr_rbyd_eoff(rbyd));
                     // trim so alt is pruned
                     lfsr_tag_trim(
@@ -4000,7 +4008,7 @@ trunk:;
                 // |  |    <b         |    <b  |
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
-                if (branch_ <= branch) {
+                if (branch_ < branch) {
                     LFS_DEBUG("%04x->%04x: ysplit b",
                             branch, lfsr_rbyd_eoff(rbyd));
                     // TODO hwat, >= solves this??
