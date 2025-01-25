@@ -3902,7 +3902,7 @@ trunk:;
                 if (diverging) {
 //                        && (!lfsr_tag_isred(alt)
 //                            || lfsr_tag_isred(p[0].alt))) {
-                    LFS_DEBUG("%04x->%04x: div b pruning",
+                    LFS_DEBUG("%04x->%04x: div trimming",
                             branch, lfsr_rbyd_eoff(rbyd));
                     // trim so alt is pruned
                     lfsr_tag_trim(
@@ -3935,7 +3935,7 @@ trunk:;
                         // |  .-'|      |  .-----'
                         // 1  2  3      1  2  3  x
                         if (lfsr_tag_isred(p[0].alt)) {
-                            LFS_DEBUG("%04x->%04x: rprune",
+                            LFS_DEBUG("%04x->%04x: rtrim",
                                     branch, lfsr_rbyd_eoff(rbyd));
                             alt = p[0].alt & ~LFSR_TAG_R;
                             weight = p[0].weight;
@@ -3952,7 +3952,7 @@ trunk:;
                         // |  .-'|         |  .--'
                         // 3  4  5      3  4  5  x
                         } else if (!p[0].alt) { //|| lfsr_tag_isred(alt)) {
-                            LFS_DEBUG("%04x->%04x: zprune",
+                            LFS_DEBUG("%04x->%04x: ztrim",
                                     branch, lfsr_rbyd_eoff(rbyd));
                             branch = branch_;
                             continue;
@@ -3966,7 +3966,7 @@ trunk:;
                         // .-'|         .--'
                         // 3  4      3  4  x
                         } else if (!lfsr_tag_isred(alt)) {
-                            LFS_DEBUG("%04x->%04x: bprune",
+                            LFS_DEBUG("%04x->%04x: btrim",
                                     branch, lfsr_rbyd_eoff(rbyd));
                             alt = LFSR_TAG_ALT(
                                     LFSR_TAG_B,
@@ -4000,10 +4000,15 @@ trunk:;
                 // |  |    <b         |    <b  |
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
-                if (branch_ < branch) {
+                if (branch_ <= branch) {
                     LFS_DEBUG("%04x->%04x: ysplit b",
                             branch, lfsr_rbyd_eoff(rbyd));
-                    if (jump > branch) {
+                    // TODO hwat, >= solves this??
+                    if (jump == branch){
+                        LFS_DEBUG("%04x->%04x: ysplit b jump == branch",
+                                branch, lfsr_rbyd_eoff(rbyd));
+                    }
+                    if (jump >= branch) {
                         LFS_SWAP(lfsr_tag_t, &p[0].alt, &alt);
                         LFS_SWAP(lfsr_rid_t, &p[0].weight, &weight);
                         LFS_SWAP(lfs_size_t, &p[0].jump, &jump);
