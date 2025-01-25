@@ -3866,32 +3866,32 @@ trunk:;
             // .-'|         .--'
             // 3  4      3  4  x
             } else if (diverged) {
-//                diverging = lfsr_tag_diverging2(
-//                        alt, weight,
-//                        p[0].alt, p[0].weight,
-//                        lower_rid, upper_rid,
-//                        a_rid, a_tag,
-//                        b_rid, b_tag);
-//                diverging_red = lfsr_tag_isred(p[0].alt)
-//                        && lfsr_tag_diverging(
-//                            p[0].alt, p[0].weight,
-//                            lower_rid, upper_rid,
-//                            a_rid, a_tag,
-//                            b_rid, b_tag);
-//                if (diverging_red) {
-//                    LFS_DEBUG("%04x->%04x: div r pruning",
-//                            branch, lfsr_rbyd_eoff(rbyd));
-//                    // trim so alt is pruned
-//                    lfsr_tag_trim(
-//                            p[0].alt, p[0].weight,
-//                            &lower_rid, &upper_rid,
-//                            &lower_tag, &upper_tag);
-//                    p[0].weight = 0;
-//
-//                    lfsr_rbyd_p_pop(p);
-//
-//                    // TODO prune? (trim?)
-//                }
+                diverging = lfsr_tag_diverging2(
+                        alt, weight,
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        a_rid, a_tag,
+                        b_rid, b_tag);
+                diverging_red = lfsr_tag_isred(p[0].alt)
+                        && lfsr_tag_diverging(
+                            p[0].alt, p[0].weight,
+                            lower_rid, upper_rid,
+                            a_rid, a_tag,
+                            b_rid, b_tag);
+                if (diverging_red) {
+                    LFS_DEBUG("%04x->%04x: div r pruning",
+                            branch, lfsr_rbyd_eoff(rbyd));
+                    // trim so alt is pruned
+                    lfsr_tag_trim(
+                            p[0].alt, p[0].weight,
+                            &lower_rid, &upper_rid,
+                            &lower_tag, &upper_tag);
+                    p[0].weight = 0;
+
+                    lfsr_rbyd_p_pop(p);
+
+                    // TODO prune? (trim?)
+                }
 
                 diverging = lfsr_tag_diverging2(
                         alt, weight,
@@ -3899,9 +3899,9 @@ trunk:;
                         lower_rid, upper_rid,
                         a_rid, a_tag,
                         b_rid, b_tag);
-                if (diverging) {
-//                        && (!lfsr_tag_isred(alt)
-//                            || lfsr_tag_isred(p[0].alt))) {
+                if (diverging
+                        && (!lfsr_tag_isred(alt)
+                            || lfsr_tag_isred(p[0].alt))) {
                     LFS_DEBUG("%04x->%04x: div trimming",
                             branch, lfsr_rbyd_eoff(rbyd));
                     // trim so alt is pruned
