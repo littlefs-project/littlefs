@@ -3872,6 +3872,66 @@ trunk:;
                 }
             }
 
+            // TODO hmmmm
+            if (lfsr_tag_isred(p[0].alt)
+                    && lfsr_tag_unreachable(
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)
+                    && p[0].jump > branch) {
+                // prune unreachable recolorable alts
+                //      <r  =>          <b
+                // .----'|         .----'|
+                // |    <b         |     |
+                // |  .-'|         |  .--'
+                // 1  2  3      1  2  3  x
+                // this includes unreachable yellow alts in yellow splits
+                //            <b                    >b
+                //          .-'|                  .-'|
+                //         <y  |                  |  |
+                // .-------'|  |                  |  |
+                // |       <r  |  =>              | >b
+                // |  .----'   |         .--------|-'|
+                // |  |       <b         |       <b  |
+                // |  |  .----'|         |  .----'|  |
+                // 1  2  3  4  4      1  2  3  4  4  1
+                LFS_DEBUG("%04x->%04x: yprune",
+                        branch, lfsr_rbyd_eoff(rbyd));
+                alt &= ~LFSR_TAG_R;
+                lfsr_rbyd_p_pop(p);
+            }
+            if (lfsr_tag_unreachable2(
+                        alt, weight,
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)
+                    && lfsr_tag_isred(p[0].alt)
+                    && jump > branch) {
+                // prune unreachable recolorable alts
+                //      <r  =>          <b
+                // .----'|      .-------'|
+                // |    <b      |        |
+                // |  .-'|      |  .-----'
+                // 1  2  3      1  2  3  x
+                // this includes unreachable red alts in yellow splits
+                //            <b                    >b
+                //          .-'|                  .-'|
+                //         <y  |                  | <b
+                // .-------'|  |      .-----------|-'|
+                // |       <r  |  =>  |           |  |
+                // |  .----'   |      |           |  |
+                // |  |       <b      |          <b  |
+                // |  |  .----'|      |     .----'|  |
+                // 1  2  3  4  4      1  2  3  4  4  2
+                LFS_DEBUG("%04x->%04x: rprune",
+                        branch, lfsr_rbyd_eoff(rbyd));
+                alt = (p[0].alt & ~LFSR_TAG_R) | (alt & LFSR_TAG_R);
+                    alt &= ~LFSR_TAG_R;
+                weight = p[0].weight;
+                jump = p[0].jump;
+                lfsr_rbyd_p_pop(p);
+            }
+
             // prune red alts
             if (lfsr_tag_isred(p[0].alt)
                     && lfsr_tag_unreachable(
@@ -3908,6 +3968,12 @@ trunk:;
                     p[0].alt, p[0].weight,
                     lower_rid, upper_rid,
                     lower_tag, upper_tag)) {
+                if (!lfsr_tag_isred(p[0].alt)
+                        && lfsr_tag_isred(alt)) {
+                    LFS_DEBUG("%04x->%04x: would've zpruned",
+                            branch, lfsr_rbyd_eoff(rbyd));
+                }
+
                 // prune unreachable recolorable alts
                 //      <r  =>          <b
                 // .----'|      .-------'|
@@ -3943,8 +4009,8 @@ trunk:;
                 // |    <b         |     |
                 // |  .-'|         |  .--'
                 // 3  4  5      3  4  5  x
-                } else if (!p[0].alt) { //|| lfsr_tag_isred(alt)) {
-                    LFS_DEBUG("%04x->%04x: ztrim",
+                } else if (!p[0].alt) {
+                    LFS_DEBUG("%04x->%04x: zprune",
                             branch, lfsr_rbyd_eoff(rbyd));
                     branch = branch_;
                     continue;
@@ -3957,7 +4023,7 @@ trunk:;
                 // .-'|         .--'
                 // 3  4      3  4  x
                 } else if (!lfsr_tag_isred(alt)) {
-                    LFS_DEBUG("%04x->%04x: btrim",
+                    LFS_DEBUG("%04x->%04x: bprune",
                             branch, lfsr_rbyd_eoff(rbyd));
                     alt = LFSR_TAG_ALT(
                             LFSR_TAG_B,
