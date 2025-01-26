@@ -3793,7 +3793,7 @@ trunk:;
 //                            - lfs_smax(-rat.weight, 0)
 //                            - (weight - (d_rid - lower_rid));
                     weight -= delta;
-                    branch = jump;
+//                    branch_ = jump;
 
 //                    lower_rid += lfs_smax(-rat.weight, 0);
                     lower_rid += delta;
@@ -3992,13 +3992,7 @@ trunk:;
                 if (branch_ < branch) {
                     LFS_DEBUG("%04x->%04x: ysplit b",
                             branch, lfsr_rbyd_eoff(rbyd));
-                    // TODO this shouldn't happen?
-                    // TODO hwat, >= solves this??
-                    if (jump == branch){
-                        LFS_DEBUG("%04x->%04x: ysplit b jump == branch",
-                                branch, lfsr_rbyd_eoff(rbyd));
-                    }
-                    if (jump >= branch) {
+                    if (jump > branch) {
                         LFS_SWAP(lfsr_tag_t, &p[0].alt, &alt);
                         LFS_SWAP(lfsr_rid_t, &p[0].weight, &weight);
                         LFS_SWAP(lfs_size_t, &p[0].jump, &jump);
