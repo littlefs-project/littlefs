@@ -3624,54 +3624,6 @@ trunk:;
                 LFS_SWAP(lfs_size_t, &jump, &branch_);
             }
 
-            // TODO redoc?
-            // prune?
-            if (lfsr_tag_isred(p[0].alt)) {
-                // prune unreachable red alts
-                //            <b                    >b
-                //          .-'|                  .-'|
-                //         <y  |                  |  |
-                // .-------'|  |                  |  |
-                // |       <r  |  =>              | >b
-                // |  .----'   |         .--------|-'|
-                // |  |       <b         |       <b  |
-                // |  |  .----'|         |  .----'|  |
-                // 1  2  3  4  4      1  2  3  4  4  1
-                if (lfsr_tag_unreachable(
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            lower_tag, upper_tag)
-                        && p[0].jump >= branch_) {
-                    LFS_DEBUG("%04x->%04x: yprune",
-                            branch, lfsr_rbyd_eoff(rbyd));
-                    alt &= ~LFSR_TAG_R;
-                    lfsr_rbyd_p_pop(p);
-
-                // prune other unreachable alts
-                //            <b                    >b
-                //          .-'|                  .-'|
-                //         <y  |                  | <b
-                // .-------'|  |      .-----------|-'|
-                // |       <r  |  =>  |           |  |
-                // |  .----'   |      |           |  |
-                // |  |       <b      |          <b  |
-                // |  |  .----'|      |     .----'|  |
-                // 1  2  3  4  4      1  2  3  4  4  2
-                } else if (lfsr_tag_unreachable2(
-                            alt, weight,
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            lower_tag, upper_tag)
-                        && jump >= branch_) {
-                    LFS_DEBUG("%04x->%04x: rprune",
-                            branch, lfsr_rbyd_eoff(rbyd));
-                    alt = p[0].alt & ~LFSR_TAG_R;
-                    weight = p[0].weight;
-                    jump = p[0].jump;
-                    lfsr_rbyd_p_pop(p);
-                }
-            }
-
             // TODO need this? does this ever get triggered?
             // both diverging? collapse
             //      <r              >b
@@ -3865,51 +3817,50 @@ trunk:;
 //                    branch = branch_;
 //                    continue;
 
-                    goto maybetrim;
+//                    goto maybetrim;
                 }
             // diverged?
-            //    :            :
             //   <b  =>       nb
             // .-'|         .--'
             // 3  4      3  4  x
             } else if (diverged) {
+//                diverging = lfsr_tag_diverging2(
+//                        alt, weight,
+//                        p[0].alt, p[0].weight,
+//                        lower_rid, upper_rid,
+//                        a_rid, a_tag,
+//                        b_rid, b_tag);
+//                diverging_red = lfsr_tag_isred(p[0].alt)
+//                        && lfsr_tag_diverging(
+//                            p[0].alt, p[0].weight,
+//                            lower_rid, upper_rid,
+//                            a_rid, a_tag,
+//                            b_rid, b_tag);
+//                // TODO I think this logic is wrong, what's correct here?
+//                if (diverging_red) {
+//                    LFS_DEBUG("%04x->%04x: div r trimming",
+//                            branch, lfsr_rbyd_eoff(rbyd));
+//                    // trim so alt is pruned
+//                    lfsr_tag_trim(
+//                            p[0].alt, p[0].weight,
+//                            &lower_rid, &upper_rid,
+//                            &lower_tag, &upper_tag);
+//                    p[0].weight = 0;
+//
+//                    lfsr_rbyd_p_pop(p);
+//
+//                    // TODO prune? (trim?)
+//                }
+
                 diverging = lfsr_tag_diverging2(
                         alt, weight,
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag,
                         b_rid, b_tag);
-                diverging_red = lfsr_tag_isred(p[0].alt)
-                        && lfsr_tag_diverging(
-                            p[0].alt, p[0].weight,
-                            lower_rid, upper_rid,
-                            a_rid, a_tag,
-                            b_rid, b_tag);
-                // TODO I think this logic is wrong, what's correct here?
-                if (diverging_red) {
-                    LFS_DEBUG("%04x->%04x: div r trimming",
-                            branch, lfsr_rbyd_eoff(rbyd));
-                    // trim so alt is pruned
-                    lfsr_tag_trim(
-                            p[0].alt, p[0].weight,
-                            &lower_rid, &upper_rid,
-                            &lower_tag, &upper_tag);
-                    p[0].weight = 0;
-
-                    lfsr_rbyd_p_pop(p);
-
-                    // TODO prune? (trim?)
-                }
-
-                diverging = lfsr_tag_diverging2(
-                        alt, weight,
-                        p[0].alt, p[0].weight,
-                        lower_rid, upper_rid,
-                        a_rid, a_tag,
-                        b_rid, b_tag);
-                if (diverging
-                        && (!lfsr_tag_isred(alt)
-                            || lfsr_tag_isred(p[0].alt))) {
+                if (diverging) {
+//                        && (!lfsr_tag_isred(alt)
+//                            || lfsr_tag_isred(p[0].alt))) {
                     LFS_DEBUG("%04x->%04x: div b trimming",
                             branch, lfsr_rbyd_eoff(rbyd));
                     // trim so alt is pruned
@@ -3918,79 +3869,109 @@ trunk:;
                             &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
                     weight = 0;
+                }
+            }
 
-                maybetrim:;
-                    // prune other unreachable alts
-                    //            <b                    >b
-                    //          .-'|                  .-'|
-                    //         <y  |                  | <b
-                    // .-------'|  |      .-----------|-'|
-                    // |       <r  |  =>  |           |  |
-                    // |  .----'   |      |           |  |
-                    // |  |       <b      |          <b  |
-                    // |  |  .----'|      |     .----'|  |
-                    // 1  2  3  4  4      1  2  3  4  4  2
-                    if (lfsr_tag_unreachable2(
-                                alt, weight,
-                                p[0].alt, p[0].weight,
-                                lower_rid, upper_rid,
-                                lower_tag, upper_tag)) {
-                        // prune unreachable recolorable alts
-                        //       :               :
-                        //      <r  =>          <b
-                        // .----'|      .-------'|
-                        // |    <b      |        |
-                        // |  .-'|      |  .-----'
-                        // 1  2  3      1  2  3  x
-                        if (lfsr_tag_isred(p[0].alt)) {
-                            LFS_DEBUG("%04x->%04x: rtrim",
-                                    branch, lfsr_rbyd_eoff(rbyd));
-                            alt = p[0].alt & ~LFSR_TAG_R;
-                            weight = p[0].weight;
-                            jump = p[0].jump;
-                            lfsr_rbyd_p_pop(p);
+            // prune red alts
+            if (lfsr_tag_isred(p[0].alt)
+                    && lfsr_tag_unreachable(
+                        p[0].alt, p[0].weight,
+                        lower_rid, upper_rid,
+                        lower_tag, upper_tag)) {
+                // prune unreachable recolorable alts
+                //      <r  =>          <b
+                // .----'|         .----'|
+                // |    <b         |     |
+                // |  .-'|         |  .--'
+                // 1  2  3      1  2  3  x
+                // this includes unreachable yellow alts in yellow splits
+                //            <b                    >b
+                //          .-'|                  .-'|
+                //         <y  |                  |  |
+                // .-------'|  |                  |  |
+                // |       <r  |  =>              | >b
+                // |  .----'   |         .--------|-'|
+                // |  |       <b         |       <b  |
+                // |  |  .----'|         |  .----'|  |
+                // 1  2  3  4  4      1  2  3  4  4  1
+                LFS_DEBUG("%04x->%04x: yprune",
+                        branch, lfsr_rbyd_eoff(rbyd));
+                if (p[0].jump > branch) {
+                    alt &= ~LFSR_TAG_R;
+                }
+                lfsr_rbyd_p_pop(p);
+            }
 
-                        // TODO redoc
-                        // TODO does this ever get hit?
-                        // prune unreachable root alts and red alts
-                        //       :               :
-                        //      <r  =>          <b
-                        // .----'|         .----'|
-                        // |    <b         |     |
-                        // |  .-'|         |  .--'
-                        // 3  4  5      3  4  5  x
-                        } else if (!p[0].alt) { //|| lfsr_tag_isred(alt)) {
-                            LFS_DEBUG("%04x->%04x: ztrim",
-                                    branch, lfsr_rbyd_eoff(rbyd));
-                            branch = branch_;
-                            continue;
-
-                        // mark unreachable non-root black alts as unreachable,
-                        // we can't prune these or we risk breaking the color
-                        // balance of our tree, but if we push a red up later we
-                        // can get rid of them
-                        //    :            :
-                        //   <b  =>       nb
-                        // .-'|         .--'
-                        // 3  4      3  4  x
-                        } else if (!lfsr_tag_isred(alt)) {
-                            LFS_DEBUG("%04x->%04x: btrim",
-                                    branch, lfsr_rbyd_eoff(rbyd));
-                            alt = LFSR_TAG_ALT(
-                                    LFSR_TAG_B,
-                                    LFSR_TAG_LE,
-                                    (diverged && !(a_rid < b_rid || a_tag < b_tag))
-                                        ? d_tag
-                                        : lower_tag);
-                            // TODO hmmmmm?
-                            LFS_ASSERT(weight == 0);
-                            //weight = 0;
-                            // we don't need to, but setting jump=0 asserts this
-                            // alt is unreachable while also minimizing the the
-                            // encoding
-                            jump = 0;
-                        }
+            // prune black alts
+            if (lfsr_tag_unreachable2(
+                    alt, weight,
+                    p[0].alt, p[0].weight,
+                    lower_rid, upper_rid,
+                    lower_tag, upper_tag)) {
+                // prune unreachable recolorable alts
+                //      <r  =>          <b
+                // .----'|      .-------'|
+                // |    <b      |        |
+                // |  .-'|      |  .-----'
+                // 1  2  3      1  2  3  x
+                // this includes unreachable red alts in yellow splits
+                //            <b                    >b
+                //          .-'|                  .-'|
+                //         <y  |                  | <b
+                // .-------'|  |      .-----------|-'|
+                // |       <r  |  =>  |           |  |
+                // |  .----'   |      |           |  |
+                // |  |       <b      |          <b  |
+                // |  |  .----'|      |     .----'|  |
+                // 1  2  3  4  4      1  2  3  4  4  2
+                if (lfsr_tag_isred(p[0].alt)) {
+                    LFS_DEBUG("%04x->%04x: rprune",
+                            branch, lfsr_rbyd_eoff(rbyd));
+                    alt = (p[0].alt & ~LFSR_TAG_R) | (alt & LFSR_TAG_R);
+                    if (jump > branch) {
+                        alt &= ~LFSR_TAG_R;
                     }
+                    weight = p[0].weight;
+                    jump = p[0].jump;
+                    lfsr_rbyd_p_pop(p);
+
+                // TODO redoc
+                // TODO does this ever get hit?
+                // prune unreachable root alts and red alts
+                //      <r  =>          <b
+                // .----'|         .----'|
+                // |    <b         |     |
+                // |  .-'|         |  .--'
+                // 3  4  5      3  4  5  x
+                } else if (!p[0].alt) { //|| lfsr_tag_isred(alt)) {
+                    LFS_DEBUG("%04x->%04x: ztrim",
+                            branch, lfsr_rbyd_eoff(rbyd));
+                    branch = branch_;
+                    continue;
+
+                // mark unreachable non-root black alts as unreachable (
+                // jump=0), we can't prune these right now or we risk
+                // breaking the color balance of our tree, but if we
+                // push up a red edge later we can get rid of these
+                //   <b  =>       nb
+                // .-'|         .--'
+                // 3  4      3  4  x
+                } else if (!lfsr_tag_isred(alt)) {
+                    LFS_DEBUG("%04x->%04x: btrim",
+                            branch, lfsr_rbyd_eoff(rbyd));
+                    alt = LFSR_TAG_ALT(
+                            LFSR_TAG_B,
+                            LFSR_TAG_LE,
+                            (diverged && !(a_rid < b_rid || a_tag < b_tag))
+                                ? d_tag
+                                : lower_tag);
+                    // TODO hmmmmm?
+                    LFS_ASSERT(weight == 0);
+                    //weight = 0;
+                    // we don't need to, but setting jump=0 asserts this
+                    // alt is unreachable while also minimizing the the
+                    // encoding
+                    jump = 0;
                 }
             }
 
@@ -4011,6 +3992,7 @@ trunk:;
                 if (branch_ < branch) {
                     LFS_DEBUG("%04x->%04x: ysplit b",
                             branch, lfsr_rbyd_eoff(rbyd));
+                    // TODO this shouldn't happen?
                     // TODO hwat, >= solves this??
                     if (jump == branch){
                         LFS_DEBUG("%04x->%04x: ysplit b jump == branch",
