@@ -2717,11 +2717,12 @@ static int lfsr_rbyd_ckecksum(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return (ecksum_ == ecksum->cksum) ? 0 : LFS_ERR_CORRUPT;
 }
 
-// needed in lfsr_rbyd_fetch_ if asserting rbyd balance
+// needed in lfsr_rbyd_fetch_ if debugging rbyd balance
 static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
-        lfsr_data_t *data_, lfs_size_t *height_);
+        lfsr_data_t *data_,
+        lfs_size_t *height_, lfs_size_t *bheight_);
 
 // fetch an rbyd
 static int lfsr_rbyd_fetch_(lfs_t *lfs,
@@ -2937,17 +2938,22 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
         rbyd->eoff = -1;
     }
 
-    // asserting rbyd balance? check that all branches in the rbyd have
+    // debugging rbyd balance? check that all branches in the rbyd have
     // the same height
     #ifdef LFS_DEBUGRBYDBALANCE
     lfsr_srid_t rid = -1;
     lfsr_tag_t tag = 0;
-    lfs_ssize_t height = -1;
+    lfs_size_t min_height = 0;
+    lfs_size_t max_height = 0;
+    lfs_size_t min_bheight = 0;
+    lfs_size_t max_bheight = 0;
     while (true) {
-        lfs_size_t height_;
+        lfs_size_t height;
+        lfs_size_t bheight;
         int err = lfsr_rbyd_lookupnext_(lfs, rbyd,
                 rid, tag+1,
-                &rid, &tag, NULL, NULL, &height_);
+                &rid, &tag, NULL, NULL,
+                &height, &bheight);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -2955,13 +2961,23 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
             return err;
         }
 
-        // all branches should have the same height
-        LFS_DEBUG("%d 0x%04x: height %d", rid, tag, height_);
-        if (height != -1) {
-            LFS_ASSERT(height_ == height);
-        }
-        height = height_;
+        // find the min/max height and bheight
+        min_height = (min_height) ? lfs_min(min_height, height) : height;
+        max_height = (max_height) ? lfs_max(max_height, height) : height;
+        min_bheight = (min_bheight) ? lfs_min(min_bheight, bheight) : bheight;
+        max_bheight = (max_bheight) ? lfs_max(max_bheight, bheight) : bheight;
     }
+    LFS_DEBUG("rbyd 0x%"PRIx32".%"PRIx32": "
+                "height %"PRId32"-%"PRId32", "
+                "bheight %"PRId32"-%"PRId32,
+            rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
+            min_height, max_height,
+            min_bheight, max_bheight);
+    // all branches in the rbyd should have the same bheight
+    LFS_ASSERT(max_bheight == min_bheight);
+    // this limits alt height to no worse than 2*bheight+2 (2*bheight+1
+    // for normal appends, 2*bheight+2 with range removals)
+    LFS_ASSERT(max_height <= 2*min_height+2);
     #endif
 
     return 0;
@@ -3009,7 +3025,8 @@ static int lfsr_rbyd_fetchck(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
-        lfsr_data_t *data_, lfs_size_t *height_) {
+        lfsr_data_t *data_,
+        lfs_size_t *height_, lfs_size_t *bheight_) {
     // these bits should be clear at this point
     LFS_ASSERT(lfsr_tag_mode(tag) == 0);
 
@@ -3022,9 +3039,12 @@ static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         return LFS_ERR_NOENT;
     }
 
-    // optionally find height for asserting rbyd balance
+    // optionally find height/bheight for debugging rbyd balance
     if (height_) {
         *height_ = 0;
+    }
+    if (bheight_) {
+        *bheight_ = 0;
     }
 
     // keep track of bounds as we descend down the tree
@@ -3049,14 +3069,18 @@ static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isalt(alt)) {
             lfs_size_t branch_ = branch + d;
 
-            // only count black alts and followed alts towards height
-            if (height_
+            // keep track of height for debugging
+            if (height_) {
+                *height_ += 1;
+            }
+            if (bheight_
+                    // only count black+followed alts towards bheight
                     && (lfsr_tag_isblack(alt)
                         || lfsr_tag_follow(
                             alt, weight,
                             lower_rid, upper_rid,
                             rid, tag))) {
-                *height_ += 1;
+                *bheight_ += 1;
             }
 
             // take alt?
@@ -3114,7 +3138,8 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
         lfsr_data_t *data_) {
     return lfsr_rbyd_lookupnext_(lfs, rbyd, rid, tag,
-            rid_, tag_, weight_, data_, NULL);
+            rid_, tag_, weight_, data_,
+            NULL, NULL);
 }
 
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
