@@ -204,12 +204,6 @@ extern "C"
 #define LFS_IFDEF_GC(a, b) (b)
 #endif
 
-#ifdef LFS_DEBUGRBYDBALANCE
-#define LFS_IFDEF_DEBUGRBYDBALANCE(a, b) (a)
-#else
-#define LFS_IFDEF_DEBUGRBYDBALANCE(a, b) (b)
-#endif
-
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more

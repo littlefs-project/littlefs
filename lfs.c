@@ -2938,6 +2938,17 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
         rbyd->eoff = -1;
     }
 
+    #ifdef LFS_DEBUGRBYDFETCHES
+    LFS_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                "eoff %"PRId32", cksum %"PRIx32,
+            rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
+            rbyd->weight,
+            (lfsr_rbyd_eoff(rbyd) >= lfs->cfg->block_size)
+                ? -1
+                : (lfs_ssize_t)lfsr_rbyd_eoff(rbyd),
+            rbyd->cksum);
+    #endif
+
     // debugging rbyd balance? check that all branches in the rbyd have
     // the same height
     #ifdef LFS_DEBUGRBYDBALANCE
@@ -2967,10 +2978,11 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
         min_bheight = (min_bheight) ? lfs_min(min_bheight, bheight) : bheight;
         max_bheight = (max_bheight) ? lfs_max(max_bheight, bheight) : bheight;
     }
-    LFS_DEBUG("rbyd 0x%"PRIx32".%"PRIx32": "
+    LFS_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "height %"PRId32"-%"PRId32", "
                 "bheight %"PRId32"-%"PRId32,
             rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
+            rbyd->weight,
             min_height, max_height,
             min_bheight, max_bheight);
     // all branches in the rbyd should have the same bheight
@@ -4216,6 +4228,17 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             | off_;
     // revert to canonical checksum
     rbyd->cksum = cksum;
+
+    #ifdef LFS_DEBUGRBYDCOMMITS
+    LFS_DEBUG("Committed rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                "eoff %"PRId32", cksum %"PRIx32,
+                rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
+                rbyd->weight,
+                (lfsr_rbyd_eoff(rbyd) >= lfs->cfg->block_size)
+                    ? -1
+                    : (lfs_ssize_t)lfsr_rbyd_eoff(rbyd),
+                rbyd->cksum);
+    #endif
     return 0;
 }
 
@@ -4916,9 +4939,21 @@ static int lfsr_btree_fetch(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_block_t block, lfs_size_t trunk, lfsr_bid_t weight,
         uint32_t cksum) {
     // btree/branch fetch really are the same once we know the weight
-    return lfsr_branch_fetch(lfs, btree,
+    int err = lfsr_branch_fetch(lfs, btree,
             block, trunk, weight,
             cksum);
+    if (err) {
+        return err;
+    }
+
+    #ifdef LFS_DEBUGBTREEFETCHES
+    LFS_DEBUG("Fetched btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                "cksum %"PRIx32,
+            btree->blocks[0], lfsr_rbyd_trunk(btree),
+            btree->weight,
+            btree->cksum);
+    #endif
+    return 0;
 }
 
 static int lfsr_data_fetchbtree(lfs_t *lfs, lfsr_data_t *data,
@@ -5700,6 +5735,13 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     }
 
     LFS_ASSERT(lfsr_rbyd_trunk(btree));
+    #ifdef LFS_DEBUGBTREECOMMITS
+    LFS_DEBUG("Committed btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                "cksum %"PRIx32,
+            btree->blocks[0], lfsr_rbyd_trunk(btree),
+            btree->weight,
+            btree->cksum);
+    #endif
     return 0;
 }
 
@@ -6479,7 +6521,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
     LFS_ASSERT(!err || rat_count > 0);
     bool alloc = (err == LFS_ERR_RANGE);
 
-    // when btree is shrubbed, lfsr_btree_commit_ stops at the root
+    // when btree is shrubbed, lfsr_btree_commit__ stops at the root
     // and returns with pending rats
     if (rat_count > 0) {
         // we need to prevent our shrub from overflowing our mdir somehow
@@ -6553,11 +6595,24 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
             }
         }
         LFS_ASSERT(bshrub->u.bshrub.estimate == (lfs_size_t)estimate);
-
-        return 0;
     }
 
     LFS_ASSERT(lfsr_shrub_trunk(&bshrub->u.bshrub));
+    #ifdef LFS_DEBUGBTREECOMMITS
+    if (lfsr_bshrub_isbshrub(mdir, bshrub)) {
+        LFS_DEBUG("Committed bshrub "
+                    "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32,
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+                lfsr_shrub_trunk(&bshrub->u.bshrub),
+                bshrub->u.bshrub.weight);
+    } else {
+        LFS_DEBUG("Committed btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                    "cksum %"PRIx32,
+                bshrub->u.btree.blocks[0], lfsr_rbyd_trunk(&bshrub->u.btree),
+                bshrub->u.btree.weight,
+                bshrub->u.btree.cksum);
+    }
+    #endif
     return 0;
 
 relocate:;
@@ -6592,6 +6647,15 @@ relocate:;
     }
 
     bshrub->u.btree = rbyd_;
+
+    LFS_ASSERT(lfsr_rbyd_trunk(&bshrub->u.btree));
+    #ifdef LFS_DEBUGBTREECOMMITS
+    LFS_DEBUG("Committed btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                "cksum %"PRIx32,
+            bshrub->u.btree.blocks[0], lfsr_rbyd_trunk(&bshrub->u.btree),
+            bshrub->u.btree.weight,
+            bshrub->u.btree.cksum);
+    #endif
     return 0;
 }
 
@@ -7222,6 +7286,16 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
             mdir->mid = mid;
             // keep track of other block for compactions
             mdir->rbyd.blocks[1] = blocks[1];
+            #ifdef LFS_DEBUGMDIRFETCHES
+            LFS_DEBUG("Fetched mdir %"PRId32" "
+                        "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32", "
+                        "cksum %"PRIx32,
+                    mdir->mid >> lfs->mdir_bits,
+                    mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+                    lfsr_rbyd_trunk(&mdir->rbyd),
+                    mdir->rbyd.weight,
+                    mdir->rbyd.cksum);
+            #endif
             return 0;
         }
 
@@ -8944,6 +9018,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfsr_mdir_sync(&lfs->mroot, &mroot_);
     lfs->mtree = mtree_;
 
+    #ifdef LFS_DEBUGMDIRCOMMITS
+    LFS_DEBUG("Committed mdir %"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32", "
+                "cksum %"PRIx32,
+            mdir->mid >> lfs->mdir_bits,
+            mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+            lfsr_rbyd_trunk(&mdir->rbyd),
+            mdir->rbyd.weight,
+            mdir->rbyd.cksum);
+    #endif
     return 0;
 
 failed:;
@@ -9995,6 +10079,14 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
             lfs_alloc_inc(lfs);
             lfs_alloc_findfree(lfs);
 
+            #ifdef LFS_DEBUGALLOCS
+            LFS_DEBUG("Allocated block 0x%"PRIx32", "
+                        "lookahead %"PRId32"/%"PRId32"/%"PRId32,
+                    block,
+                    lfs->lookahead.size,
+                    lfs->lookahead.ckpoint,
+                    lfs->cfg->block_count);
+            #endif
             return block;
         }
 
@@ -10006,9 +10098,11 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
         // the filesystem as out of storage
         //
         if (lfs->lookahead.ckpoint <= 0) {
-            LFS_ERROR("No more free space (0x%"PRIx32")",
-                    (lfs->lookahead.window + lfs->lookahead.off)
-                        % lfs->block_count);
+            LFS_ERROR("No more free space "
+                        "(lookahead %"PRId32"/%"PRId32"/%"PRId32")",
+                    lfs->lookahead.size,
+                    lfs->lookahead.ckpoint,
+                    lfs->cfg->block_count);
             return LFS_ERR_NOSPC;
         }
 
