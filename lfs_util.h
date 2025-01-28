@@ -24,17 +24,6 @@
 // Some convenient macro aliases
 // TODO move these to something like lfs_cfg.h?
 
-// LFS_LITTLER disables non-essential/debugging utils
-//
-// note your system may already make these zero cost in release mode
-#ifdef LFS_LITTLER
-#define LFS_NO_DEBUG
-#define LFS_NO_INFO
-#define LFS_NO_WARN
-#define LFS_NO_ERROR
-#define LFS_NO_ASSERT
-#endif
-
 // LFS_BIGGEST enables all opt-in features
 #ifdef LFS_BIGGEST
 #define LFS_CKPROGS
@@ -42,6 +31,14 @@
 #define LFS_CKPARITY
 #define LFS_CKDATACKSUMS
 #define LFS_GC
+#endif
+
+// LFS_NO_LOG disables all logging macros
+#ifdef LFS_NO_LOG
+#define LFS_NO_DEBUG
+#define LFS_NO_INFO
+#define LFS_NO_WARN
+#define LFS_NO_ERROR
 #endif
 
 
