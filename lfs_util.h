@@ -168,10 +168,10 @@ extern "C"
 #define LFS_IFDEF_GC(a, b) (b)
 #endif
 
-#ifdef LFS_ASSERTRBYDBALANCE
-#define LFS_IFDEF_ASSERTRBYDBALANCE(a, b) (a)
+#ifdef LFS_DEBUGRBYDBALANCE
+#define LFS_IFDEF_DEBUGRBYDBALANCE(a, b) (a)
 #else
-#define LFS_IFDEF_ASSERTRBYDBALANCE(a, b) (b)
+#define LFS_IFDEF_DEBUGRBYDBALANCE(a, b) (b)
 #endif
 
 

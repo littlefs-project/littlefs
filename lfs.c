@@ -2939,7 +2939,7 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
 
     // asserting rbyd balance? check that all branches in the rbyd have
     // the same height
-    #ifdef LFS_ASSERTRBYDBALANCE
+    #ifdef LFS_DEBUGRBYDBALANCE
     lfsr_srid_t rid = -1;
     lfsr_tag_t tag = 0;
     lfs_ssize_t height = -1;
