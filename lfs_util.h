@@ -26,19 +26,37 @@
 
 // LFS_BIGGEST enables all opt-in features
 #ifdef LFS_BIGGEST
+#ifndef LFS_CKPROGS
 #define LFS_CKPROGS
+#endif
+#ifndef LFS_CKFETCHES
 #define LFS_CKFETCHES
+#endif
+#ifndef LFS_CKPARITY
 #define LFS_CKPARITY
+#endif
+#ifndef LFS_CKDATACKSUMS
 #define LFS_CKDATACKSUMS
+#endif
+#ifndef LFS_GC
 #define LFS_GC
+#endif
 #endif
 
 // LFS_NO_LOG disables all logging macros
 #ifdef LFS_NO_LOG
+#ifndef LFS_NO_DEBUG
 #define LFS_NO_DEBUG
+#endif
+#ifndef LFS_NO_INFO
 #define LFS_NO_INFO
+#endif
+#ifndef LFS_NO_WARN
 #define LFS_NO_WARN
+#endif
+#ifndef LFS_NO_ERROR
 #define LFS_NO_ERROR
+#endif
 #endif
 
 
