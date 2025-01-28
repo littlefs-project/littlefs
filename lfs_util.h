@@ -35,6 +35,15 @@
 #define LFS_NO_ASSERT
 #endif
 
+// LFS_BIGGEST enables all opt-in features
+#ifdef LFS_BIGGEST
+#define LFS_CKPROGS
+#define LFS_CKFETCHES
+#define LFS_CKPARITY
+#define LFS_CKDATACKSUMS
+#define LFS_GC
+#endif
+
 
 // System includes
 #include <stdint.h>
