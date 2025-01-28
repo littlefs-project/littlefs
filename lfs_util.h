@@ -35,6 +35,7 @@
 #include <assert.h>
 #endif
 #if !defined(LFS_NO_DEBUG) || \
+        !defined(LFS_NO_INFO) || \
         !defined(LFS_NO_WARN) || \
         !defined(LFS_NO_ERROR) || \
         defined(LFS_YES_TRACE)
@@ -69,6 +70,16 @@ extern "C"
 #define LFS_DEBUG(...) LFS_DEBUG_(__VA_ARGS__, "")
 #else
 #define LFS_DEBUG(...)
+#endif
+#endif
+
+#ifndef LFS_INFO
+#ifndef LFS_NO_INFO
+#define LFS_INFO_(fmt, ...) \
+    printf("%s:%d:info: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+#define LFS_INFO(...) LFS_INFO_(__VA_ARGS__, "")
+#else
+#define LFS_INFO(...)
 #endif
 #endif
 
