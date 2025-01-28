@@ -20,6 +20,22 @@
 #include LFS_STRINGIZE(LFS_CONFIG)
 #else
 
+
+// Some convenient macro aliases
+// TODO move these to something like lfs_cfg.h?
+
+// LFS_LITTLER disables non-essential/debugging utils
+//
+// note your system may already make these zero cost in release mode
+#ifdef LFS_LITTLER
+#define LFS_NO_DEBUG
+#define LFS_NO_INFO
+#define LFS_NO_WARN
+#define LFS_NO_ERROR
+#define LFS_NO_ASSERT
+#endif
+
+
 // System includes
 #include <stdint.h>
 #include <stdbool.h>
