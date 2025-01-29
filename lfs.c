@@ -7475,8 +7475,6 @@ static inline int lfsr_mtree_cmp(
         return a->u.weight - b->u.weight;
     } else if (lfsr_mtree_isnull(a)) {
         return 0;
-    } else if (lfsr_mtree_ismptr(a)) {
-        return lfsr_mptr_cmp(a->u.mptr.blocks, b->u.mptr.blocks);
     } else {
         return lfsr_btree_cmp(&a->u.btree, &b->u.btree);
     }
@@ -7503,11 +7501,6 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
         mdir_->mid = mid;
         lfsr_mdir_sync(mdir_, &lfs->mroot);
         return 0;
-
-    // looking up direct mdir?
-    } else if (lfsr_mtree_ismptr(&lfs->mtree)) {
-        // fetch mdir
-        return lfsr_mdir_fetch(lfs, mdir_, mid, lfs->mtree.u.mptr.blocks);
 
     // look up mdir in actual mtree
     } else {
@@ -8636,7 +8629,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // new mtree?
-        if (lfsr_mtree_ismptr(&lfs->mtree)) {
+        if (lfsr_mtree_weight_(&lfs->mtree) == 0) {
             lfsr_btree_init(&mtree_.u.btree);
 
             uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
@@ -8702,9 +8695,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     dropped:;
         mdelta = -(1 << lfs->mdir_bits);
 
-        // we should never drop a direct mdir, because we always have our
-        // root bookmark
-        LFS_ASSERT(!lfsr_mtree_ismptr(&lfs->mtree));
+        // how can we drop if we have no mtree?
+        LFS_ASSERT(lfsr_mtree_weight_(&lfs->mtree) != 0);
 
         // mark as unerased in case of failure
         lfs->mtree.u.btree.eoff = -1;
@@ -8730,16 +8722,26 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     relocated:;
         // new mtree?
-        if (lfsr_mtree_ismptr(&lfs->mtree)) {
-            lfsr_mtree_frommptr(&mtree_,
-                    mdir_[0].rbyd.blocks,
-                    1 << lfs->mdir_bits);
+        if (lfsr_mtree_weight_(&lfs->mtree) == 0) {
+            lfsr_btree_init(&mtree_.u.btree);
 
+            uint8_t mdir_buf[LFSR_MPTR_DSIZE];
+            err = lfsr_btree_commit(lfs, &mtree_.u.btree,
+                    0, LFSR_RATS(
+                        LFSR_RAT(
+                            LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
+                            LFSR_DATA_MPTR(
+                                mdir_[0].rbyd.blocks,
+                                mdir_buf))));
+            if (err) {
+                goto failed;
+            }
+
+        // update our mtree
         } else {
             // mark as unerased in case of failure
             lfs->mtree.u.btree.eoff = -1;
 
-            // update our mtree
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_.u.btree,
                     lfsr_mid_bid(lfs, mdir->mid), LFSR_RATS(
@@ -8801,13 +8803,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mtree_buf[LFS_MAX(LFSR_MPTR_DSIZE, LFSR_BTREE_DSIZE)];
         err = lfsr_mdir_commit_(lfs, &mroot_, -2, 0, NULL,
                 -1, LFSR_RATS(
-                    (lfsr_mtree_ismptr(&mtree_))
-                        ? LFSR_RAT(
-                            LFSR_TAG_SUB | LFSR_TAG_MDIR, 0,
-                            LFSR_DATA_MPTR(mtree_.u.mptr.blocks, mtree_buf))
-                        : LFSR_RAT(
-                            LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
-                            LFSR_DATA_BTREE(&mtree_.u.btree, mtree_buf)),
+                    LFSR_RAT(
+                        LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
+                        LFSR_DATA_BTREE(&mtree_.u.btree, mtree_buf)),
                     // were we committing to the mroot? include any -1 rats
                     (mdir->mid == -1)
                         ? LFSR_RAT_RATS(
@@ -9128,13 +9126,6 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
         // treat inlined mdir as mid=0
         mdir.mid = 0;
 
-    // direct mdir?
-    } else if (lfsr_mtree_ismptr(&lfs->mtree)) {
-        int err = lfsr_mdir_fetch(lfs, &mdir, 0, lfs->mtree.u.mptr.blocks);
-        if (err) {
-            return err;
-        }
-
     // lookup name in actual mtree
     } else {
         lfsr_bid_t bid;
@@ -9404,7 +9395,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             }
             return 0;
 
-        // traverse the mroot chain, checking for mroot/mtree/mdir
+        // traverse the mroot chain, checking for mroots/mtrees
         case LFSR_TSTATE_MROOTCHAIN:;
             // lookup mroot, if we find one this is not the active mroot
             lfsr_tag_t tag;
@@ -9412,7 +9403,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             err = lfsr_mdir_sublookup(lfs, &t->o.o.mdir, LFSR_TAG_STRUCT,
                     &tag, &data);
             if (err) {
-                // if we have no mtree/mdir (inlined mdir), we need to
+                // if we have no mtree (inlined mdir), we need to
                 // traverse any files in our mroot next
                 if (err == LFS_ERR_NOENT) {
                     t->o.o.mdir.mid = 0;
@@ -9454,27 +9445,6 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                     t->u.mtortoise.power += 1;
                 }
                 t->u.mtortoise.step += 1;
-
-                if (tag_) {
-                    *tag_ = LFSR_TAG_MDIR;
-                }
-                if (bptr_) {
-                    bptr_->data.u.buffer = (const uint8_t*)&t->o.o.mdir;
-                }
-                return 0;
-
-            // found an mdir?
-            } else if (tag == LFSR_TAG_MDIR) {
-                // fetch this mdir
-                err = lfsr_data_fetchmdir(lfs, &data, 0,
-                        &t->o.o.mdir);
-                if (err) {
-                    return err;
-                }
-
-                // transition to traversing the mdir
-                t->o.o.flags = lfsr_t_settstate(t->o.o.flags,
-                        LFSR_TSTATE_MDIR);
 
                 if (tag_) {
                     *tag_ = LFSR_TAG_MDIR;
@@ -13745,7 +13715,6 @@ static int lfs_deinit(lfs_t *lfs) {
 #define LFSR_RCOMPAT_COMPAT \
     (LFSR_RCOMPAT_GRM \
         | LFSR_RCOMPAT_MMOSS \
-        | LFSR_RCOMPAT_MSPROUT \
         | LFSR_RCOMPAT_MTREE \
         | LFSR_RCOMPAT_BMOSS \
         | LFSR_RCOMPAT_BSPROUT \
@@ -14147,14 +14116,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     if (err) {
                         return err;
                     }
-                }
-
-            } else {
-                // found a direct mdir? keep track of this
-                if (lfsr_mtree_isnull(&lfs->mtree)) {
-                    lfsr_mtree_frommptr(&lfs->mtree,
-                            mdir->rbyd.blocks,
-                            1 << lfs->mdir_bits);
                 }
             }
 
