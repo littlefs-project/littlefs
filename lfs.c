@@ -2828,6 +2828,11 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
 
             // is an end-of-commit cksum
             } else {
+                // truncate checksum?
+                if (size < sizeof(uint32_t)) {
+                    break;
+                }
+
                 // check checksum
                 uint32_t cksum__ = 0;
                 err = lfsr_bd_read(lfs, block, off_, -1,

@@ -4390,6 +4390,248 @@ code = '''
 '''
 
 
+## Truncate mroot tests ##
+
+# test some that some tricky truncated tags are rejected correctly
+[cases.test_mtree_truncated_tag]
+defines.OVERFLOW = [-3, -2, -1, 0, 1, 2, 3, 4, 5]
+in = 'lfs.c'
+code = '''
+    // create a malformed mroot
+    uint8_t buffer[BLOCK_SIZE];
+    // fill with zeros to make parity checks easier
+    memset(buffer, 0, BLOCK_SIZE);
+    memcpy(&buffer[0], "evil", 4);
+    uint32_t cksum = lfs_crc32c(0, &buffer[0], 4);
+
+    // make sure we're not caught by magic checks
+    buffer[4+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_MAGIC >> 8);
+    buffer[4+1] = (uint8_t)(LFSR_TAG_MAGIC >> 0);
+    buffer[4+2] = 0;
+    buffer[4+3] = 8;
+    memcpy(&buffer[4+4], "littlefs", 8);
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[4], 4+8);
+
+    // append a tag that overflows our block
+    lfs_size_t size = BLOCK_SIZE - (16+7) + OVERFLOW;
+    buffer[16+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_ATTR >> 8);
+    buffer[16+1] = (uint8_t)(LFSR_TAG_ATTR >> 0);
+    buffer[16+2] = 0;
+    buffer[16+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[16+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[16+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[16+6] = 0x00 | (0x7f & (size >> 21));
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[16], 7+size);
+
+    // make next tag look valid to make errors look more likely
+    if (OVERFLOW < 0) {
+        buffer[BLOCK_SIZE + OVERFLOW] = ((uint8_t)lfs_parity(cksum) << 7);
+    }
+
+    // write to both mroot blocks
+    for (int i = 0; i < 2; i++) {
+        CFG->erase(CFG, i) => 0;
+        CFG->prog(CFG, i, 0, buffer, BLOCK_SIZE) => 0;
+    }
+
+    // try to mount, this should fail
+    lfs_t lfs;
+    lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => LFS_ERR_CORRUPT;
+'''
+
+[cases.test_mtree_truncated_cksum]
+defines.OVERFLOW = [1, 2, 3, 4]
+defines.TRUNCATED_SIZE = [false, true]
+in = 'lfs.c'
+code = '''
+    // create a malformed mroot
+    uint8_t buffer[BLOCK_SIZE];
+    // fill with zeros to make parity checks easier
+    memset(buffer, 0, BLOCK_SIZE);
+    memcpy(&buffer[0], "evil", 4);
+    uint32_t cksum = lfs_crc32c(0, &buffer[0], 4);
+
+    // make sure we're not caught by magic checks
+    buffer[4+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_MAGIC >> 8);
+    buffer[4+1] = (uint8_t)(LFSR_TAG_MAGIC >> 0);
+    buffer[4+2] = 0;
+    buffer[4+3] = 8;
+    memcpy(&buffer[4+4], "littlefs", 8);
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[4], 4+8);
+
+    // append a tag for padding
+    lfs_size_t size = BLOCK_SIZE - (16+7) - (7+4) + OVERFLOW;
+    buffer[16+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_ATTR >> 8);
+    buffer[16+1] = (uint8_t)(LFSR_TAG_ATTR >> 0);
+    buffer[16+2] = 0;
+    buffer[16+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[16+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[16+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[16+6] = 0x00 | (0x7f & (size >> 21));
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[16], 7+size);
+
+    // append a truncated cksum tag
+    lfs_off_t off = BLOCK_SIZE - (7+4) + OVERFLOW;
+    size = (TRUNCATED_SIZE) ? 4-OVERFLOW : 4;
+    buffer[off+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_CKSUM >> 8);
+    buffer[off+1] = (uint8_t)(LFSR_TAG_CKSUM >> 0);
+    buffer[off+2] = 0;
+    buffer[off+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[off+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[off+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[off+6] = 0x00 | (0x7f & (size >> 21));
+
+    // write to both mroot blocks
+    for (int i = 0; i < 2; i++) {
+        CFG->erase(CFG, i) => 0;
+        CFG->prog(CFG, i, 0, buffer, BLOCK_SIZE) => 0;
+    }
+
+    // try to mount, this should fail
+    lfs_t lfs;
+    lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => LFS_ERR_CORRUPT;
+'''
+
+[cases.test_mtree_truncated_ecksum]
+defines.OVERFLOW = [-3, -2, -1, 0, 1, 2, 3, 4, 5]
+defines.TRUNCATED_SIZE = [false, true]
+in = 'lfs.c'
+code = '''
+    // create a malformed mroot
+    uint8_t buffer[BLOCK_SIZE];
+    // fill with zeros to make parity checks easier
+    memset(buffer, 0, BLOCK_SIZE);
+    memcpy(&buffer[0], "evil", 4);
+    uint32_t cksum = lfs_crc32c(0, &buffer[0], 4);
+
+    // make sure we're not caught by magic checks
+    buffer[4+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_MAGIC >> 8);
+    buffer[4+1] = (uint8_t)(LFSR_TAG_MAGIC >> 0);
+    buffer[4+2] = 0;
+    buffer[4+3] = 8;
+    memcpy(&buffer[4+4], "littlefs", 8);
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[4], 4+8);
+
+    // append a tag for padding
+    lfs_size_t size = BLOCK_SIZE - (16+7) - (7+5) + OVERFLOW;
+    buffer[16+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_ATTR >> 8);
+    buffer[16+1] = (uint8_t)(LFSR_TAG_ATTR >> 0);
+    buffer[16+2] = 0;
+    buffer[16+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[16+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[16+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[16+6] = 0x00 | (0x7f & (size >> 21));
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[16], 7+size);
+
+    // append a truncated ecksum tag
+    lfs_off_t off = BLOCK_SIZE - (7+5) + OVERFLOW;
+    size = (TRUNCATED_SIZE) ? 5-lfs_smax(OVERFLOW, 0) : 5;
+    buffer[off+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_ECKSUM >> 8);
+    buffer[off+1] = (uint8_t)(LFSR_TAG_ECKSUM >> 0);
+    buffer[off+2] = 0;
+    buffer[off+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[off+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[off+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[off+6] = 0x00 | (0x7f & (size >> 21));
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[16], 7+size);
+
+    // make next tag look valid to make errors look more likely
+    if (OVERFLOW < 0) {
+        buffer[BLOCK_SIZE + OVERFLOW] = ((uint8_t)lfs_parity(cksum) << 7);
+    }
+
+    // write to both mroot blocks
+    for (int i = 0; i < 2; i++) {
+        CFG->erase(CFG, i) => 0;
+        CFG->prog(CFG, i, 0, buffer, BLOCK_SIZE) => 0;
+    }
+
+    // try to mount, this should fail
+    lfs_t lfs;
+    lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => LFS_ERR_CORRUPT;
+'''
+
+[cases.test_mtree_truncated_gcksumdelta]
+defines.OVERFLOW = [-3, -2, -1, 0, 1, 2, 3, 4]
+defines.TRUNCATED_SIZE = [false, true]
+in = 'lfs.c'
+code = '''
+    // create a malformed mroot
+    uint8_t buffer[BLOCK_SIZE];
+    // fill with zeros to make parity checks easier
+    memset(buffer, 0, BLOCK_SIZE);
+    memcpy(&buffer[0], "evil", 4);
+    uint32_t cksum = lfs_crc32c(0, &buffer[0], 4);
+
+    // make sure we're not caught by magic checks
+    buffer[4+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_MAGIC >> 8);
+    buffer[4+1] = (uint8_t)(LFSR_TAG_MAGIC >> 0);
+    buffer[4+2] = 0;
+    buffer[4+3] = 8;
+    memcpy(&buffer[4+4], "littlefs", 8);
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[4], 4+8);
+
+    // append a tag for padding
+    lfs_size_t size = BLOCK_SIZE - (16+7) - (7+4) + OVERFLOW;
+    buffer[16+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_ATTR >> 8);
+    buffer[16+1] = (uint8_t)(LFSR_TAG_ATTR >> 0);
+    buffer[16+2] = 0;
+    buffer[16+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[16+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[16+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[16+6] = 0x00 | (0x7f & (size >> 21));
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[16], 7+size);
+
+    // append a truncated gcksumdelta tag
+    lfs_off_t off = BLOCK_SIZE - (7+4) + OVERFLOW;
+    size = (TRUNCATED_SIZE) ? 4-lfs_smax(OVERFLOW, 0) : 4;
+    buffer[off+0] = ((uint8_t)lfs_parity(cksum) << 7)
+            | (uint8_t)(LFSR_TAG_GCKSUMDELTA >> 8);
+    buffer[off+1] = (uint8_t)(LFSR_TAG_GCKSUMDELTA >> 0);
+    buffer[off+2] = 0;
+    buffer[off+3] = 0x80 | (0x7f & (size >>  0));
+    buffer[off+4] = 0x80 | (0x7f & (size >>  7));
+    buffer[off+5] = 0x80 | (0x7f & (size >> 14));
+    buffer[off+6] = 0x00 | (0x7f & (size >> 21));
+    cksum = lfs_crc32c(cksum ^ ((uint32_t)lfs_parity(cksum) << 7),
+            &buffer[16], 7+size);
+
+    // make next tag look valid to make errors look more likely
+    if (OVERFLOW < 0) {
+        buffer[BLOCK_SIZE + OVERFLOW] = ((uint8_t)lfs_parity(cksum) << 7);
+    }
+
+    // write to both mroot blocks
+    for (int i = 0; i < 2; i++) {
+        CFG->erase(CFG, i) => 0;
+        CFG->prog(CFG, i, 0, buffer, BLOCK_SIZE) => 0;
+    }
+
+    // try to mount, this should fail
+    lfs_t lfs;
+    lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => LFS_ERR_CORRUPT;
+'''
+
+
 ## Magic consistency ##
 
 # make sure our magic string ("littlefs") shows up in the same place (off=8)
