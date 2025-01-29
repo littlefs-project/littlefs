@@ -26,6 +26,9 @@
 
 // LFS_BIGGEST enables all opt-in features
 #ifdef LFS_BIGGEST
+#ifndef LFS_NOISY
+#define LFS_NOISY
+#endif
 #ifndef LFS_CKPROGS
 #define LFS_CKPROGS
 #endif
@@ -189,6 +192,12 @@ extern "C"
 
 
 // Some ifdef conveniences
+#ifdef LFS_NOISY
+#define LFS_IFDEF_NOISY(a, b) (a)
+#else
+#define LFS_IFDEF_NOISY(a, b) (b)
+#endif
+
 #ifdef LFS_CKPROGS
 #define LFS_IFDEF_CKPROGS(a, b) (a)
 #else

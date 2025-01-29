@@ -57,6 +57,7 @@ FLAGS = [
     # Filesystem format flags
     ('F', 'MODE',               1, "Format's access mode"                     ),
     ('^', 'RDWR',               0, "Format the filesystem as read and write"  ),
+    ('F', 'NOISY',     0x00000010, "Add noise to revision counts"             ),
     ('F', 'CKPROGS',   0x00000800, "Check progs by reading back progged data" ),
     ('F', 'CKFETCHES', 0x00001000, "Check block checksums before first use"   ),
     ('F', 'CKPARITY',  0x00002000, "Check metadata tag parity bits"           ),
@@ -72,6 +73,7 @@ FLAGS = [
     ('^', 'RDONLY',             1, "Mount the filesystem as read only"        ),
     ('M', 'FLUSH',     0x00000040, "Open all files with LFS_O_FLUSH"          ),
     ('M', 'SYNC',      0x00000080, "Open all files with LFS_O_SYNC"           ),
+    ('M', 'NOISY',     0x00000010, "Add noise to revision counts"             ),
     ('M', 'CKPROGS',   0x00000800, "Check progs by reading back progged data" ),
     ('M', 'CKFETCHES', 0x00001000, "Check block checksums before first use"   ),
     ('M', 'CKPARITY',  0x00002000, "Check metadata tag parity bits"           ),
@@ -97,6 +99,7 @@ FLAGS = [
     ('I', 'RDONLY',    0x00000001, "Mounted read only"                        ),
     ('I', 'FLUSH',     0x00000040, "Mounted with LFS_M_FLUSH"                 ),
     ('I', 'SYNC',      0x00000080, "Mounted with LFS_M_SYNC"                  ),
+    ('I', 'NOISY',     0x00000010, "Mounted with LFS_M_NOISY"                 ),
     ('I', 'CKPROGS',   0x00000800, "Mounted with LFS_M_CKPROGS"               ),
     ('I', 'CKFETCHES', 0x00001000, "Mounted with LFS_M_CKFETCHES"             ),
     ('I', 'CKPARITY',  0x00002000, "Mounted with LFS_M_CKPARITY"              ),

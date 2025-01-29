@@ -6888,6 +6888,12 @@ static inline bool lfsr_m_isrdonly(uint32_t flags) {
     return flags & LFS_M_RDONLY;
 }
 
+#ifdef LFS_NOISY
+static inline bool lfsr_m_isnoisy(uint32_t flags) {
+    return flags & LFS_M_NOISY;
+}
+#endif
+
 #ifdef LFS_CKPROGS
 static inline bool lfsr_m_isckprogs(uint32_t flags) {
     return flags & LFS_M_CKPROGS;
@@ -7198,15 +7204,20 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
 //   '-.''----.----''---------.--------'
 //     '------|---------------|---------- 4-bit relocation revision
 //            '---------------|---------- recycle-bits recycle counter
-//                            '---------- pseudorandom nonce
+//                            '---------- pseudorandom noise (optional)
 
 static inline uint32_t lfsr_rev_init(lfs_t *lfs, uint32_t rev) {
+    (void)lfs;
     // we really only care about the top revision bits here
     rev &= ~((1 << 28)-1);
     // increment revision
     rev += 1 << 28;
-    // xor in a pseudorandom nonce
-    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
+    // xor in pseudorandom noise
+    #ifdef LFS_NOISY
+    if (lfsr_m_isnoisy(lfs->flags)) {
+        rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
+    }
+    #endif
     return rev;
 }
 
@@ -7223,8 +7234,12 @@ static inline bool lfsr_rev_needsrelocation(lfs_t *lfs, uint32_t rev) {
 static inline uint32_t lfsr_rev_inc(lfs_t *lfs, uint32_t rev) {
     // increment recycle counter/revision
     rev += 1 << (28-lfs_smax(lfs->recycle_bits, 0));
-    // xor in a pseudorandom nonce
-    rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
+    // xor in pseudorandom noise
+    #ifdef LFS_NOISY
+    if (lfsr_m_isnoisy(lfs->flags)) {
+        rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
+    }
+    #endif
     return rev;
 }
 
@@ -13421,6 +13436,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
                 | LFS_M_RDONLY
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
+                | LFS_IFDEF_NOISY(LFS_M_NOISY, 0)
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
@@ -14249,6 +14265,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_RDONLY
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
+                | LFS_IFDEF_NOISY(LFS_M_NOISY, 0)
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
@@ -14262,9 +14279,6 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT(!lfsr_m_isrdonly(flags) || !lfsr_t_ismkconsistent(flags));
     LFS_ASSERT(!lfsr_m_isrdonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_m_isrdonly(flags) || !lfsr_t_iscompact(flags));
-    // some flags don't make sense when only traversing the mtree
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
     int err = lfs_init(lfs,
             flags & (
@@ -14272,6 +14286,7 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                     | LFS_M_RDONLY
                     | LFS_M_FLUSH
                     | LFS_M_SYNC
+                    | LFS_IFDEF_NOISY(LFS_M_NOISY, 0)
                     | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                     | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                     | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
@@ -14441,18 +14456,18 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     // unknown flags?
     LFS_ASSERT((flags & ~(
             LFS_F_RDWR
+                | LFS_IFDEF_NOISY(LFS_F_NOISY, 0)
                 | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, 0)
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) == 0);
-    // some flags don't make sense when only traversing the mtree
-    LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
     int err = lfs_init(lfs,
             flags & (
                 LFS_F_RDWR
+                    | LFS_IFDEF_NOISY(LFS_F_NOISY, 0)
                     | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                     | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                     | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
@@ -14512,6 +14527,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
             LFS_I_RDONLY
                 | LFS_I_FLUSH
                 | LFS_I_SYNC
+                | LFS_IFDEF_NOISY(LFS_I_NOISY, 0)
                 | LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
