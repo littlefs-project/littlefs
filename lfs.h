@@ -803,19 +803,6 @@ typedef struct lfsr_traversal {
 //    lfs_block_t pair[2];
 //} lfs_gstate_t;
 
-typedef struct lfsr_mtree {
-    union {
-        // the sign bit indicates if this is an inlined mdir/direct mdir
-        // pointer or a full mtree
-        lfsr_mid_t weight;
-        struct {
-            lfsr_mid_t weight;
-            lfs_block_t blocks[2];
-        } mptr;
-        lfsr_btree_t btree;
-    } u;
-} lfsr_mtree_t;
-
 // grm encoding:
 // .---.                  mode:  1 leb128   1 byte
 // |mod|                  mids:  2 leb128s  <=2x5 bytes
@@ -855,7 +842,7 @@ typedef struct lfs {
     lfsr_omdir_t *omdirs;
 
     lfsr_mdir_t mroot;
-    lfsr_mtree_t mtree;
+    lfsr_btree_t mtree;
 
     struct {
         lfs_block_t block;
