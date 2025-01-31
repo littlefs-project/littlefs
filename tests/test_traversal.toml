@@ -5778,6 +5778,8 @@ code = '''
     // create enough files to both compact and split
     lfs_size_t i = 0;
     while (true) {
+        // we should not have split yet
+        assert(lfs.mtree.weight == 0);
         // we need internals to check this
         lfs_ssize_t estimate = lfsr_mdir_estimate__(&lfs,
                 &file1.o.o.mdir, -1, -1,
@@ -5789,7 +5791,7 @@ code = '''
         }
 
         char name[256];
-        sprintf(name, "medusaaaaaaaaaaaaaaaaaaaaaaaaaaaa%03x", i);
+        sprintf(name, "medusaaaaaaaaaaaaaaaa%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -6204,7 +6206,10 @@ code = '''
 
     // create enough files to both compact and split
     i = 0;
+    orig = lfs.mtree.weight;
     while (true) {
+        // we should not have split yet
+        assert(lfs.mtree.weight == orig);
         // we need internals to check this
         lfs_ssize_t estimate = lfsr_mdir_estimate__(&lfs,
                 &file2.o.o.mdir, -1, -1,
@@ -6216,7 +6221,7 @@ code = '''
         }
 
         char name[256];
-        sprintf(name, "medusaaaaaaaaaaaaaaaaaaaaaaaaaaaa%03x", i);
+        sprintf(name, "medusaaaaaaaaaaaaaaaa%03x", i);
         lfsr_file_t file;
         lfsr_file_open(&lfs, &file, name,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
