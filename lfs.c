@@ -6000,79 +6000,6 @@ static inline lfs_off_t lfsr_bshrub_size(const lfsr_bshrub_t *bshrub) {
 }
 
 
-// moss things
-
-static inline int lfsr_moss_cmp(
-        const lfsr_data_t *a,
-        const lfsr_data_t *b) {
-    // big assumption for mosses, we convert straight to bshrubs,
-    // and never leave sliced mosses in our files, so we don't need
-    // to compare the size
-    LFS_ASSERT(a->u.disk.block != b->u.disk.block
-            || a->u.disk.off != b->u.disk.off
-            || lfsr_data_size(*a) == lfsr_data_size(*b));
-    if (a->u.disk.block != b->u.disk.block) {
-        return a->u.disk.block - b->u.disk.block;
-    } else {
-        return a->u.disk.off - b->u.disk.off;
-    }
-}
-
-// needed in lfsr_moss_estimate
-static inline bool lfsr_o_isbshrub(uint32_t flags);
-
-// these are used in mdir compaction
-static lfs_ssize_t lfsr_moss_estimate(lfs_t *lfs,
-        const lfsr_data_t *moss) {
-    // only include the last reference
-    const lfsr_data_t *last = NULL;
-    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        if (lfsr_o_isbshrub(o->flags)
-                && lfsr_bshrub_isbmoss(&o->mdir,
-                    &((lfsr_obshrub_t*)o)->bshrub)
-                && lfsr_moss_cmp(
-                    &((lfsr_obshrub_t*)o)->bshrub.u.bmoss,
-                    moss) == 0) {
-            last = &((lfsr_obshrub_t*)o)->bshrub.u.bmoss;
-        }
-    }
-    if (last && moss != last) {
-        return 0;
-    }
-
-    return LFSR_TAG_DSIZE + lfsr_data_size(*moss);
-}
-
-static int lfsr_moss_compact(lfs_t *lfs, const lfsr_rbyd_t *rbyd_,
-        lfsr_data_t *moss_, const lfsr_data_t *moss) {
-    // this gets a bit weird, since upper layers need to do the actual
-    // compaction, we just update internal state here
-
-    // this is a bit tricky since we don't know the tag size,
-    // but we have just enough info
-    lfsr_data_t moss__ = LFSR_DATA_DISK(
-            rbyd_->blocks[0],
-            rbyd_->eoff - lfsr_data_size(*moss),
-            lfsr_data_size(*moss));
-
-    // stage any opened inlined files with their new location so we
-    // can update these later if our commit is a success
-    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        if (lfsr_o_isbshrub(o->flags)
-                && lfsr_bshrub_isbmoss(&o->mdir,
-                    &((lfsr_obshrub_t*)o)->bshrub)
-                && lfsr_moss_cmp(
-                    &((lfsr_obshrub_t*)o)->bshrub.u.bmoss,
-                    moss) == 0) {
-            ((lfsr_obshrub_t*)o)->bshrub_.u.bmoss = moss__;
-        }
-    }
-
-    *moss_ = moss__;
-    return 0;
-}
-
-
 // shrub things
 
 // create an empty shrub
@@ -6166,6 +6093,9 @@ static int lfsr_data_readshrub(lfs_t *lfs, lfsr_data_t *data,
     shrub->trunk |= LFSR_RBYD_ISSHRUB;
     return 0;
 }
+
+// needed in lfsr_shrub_estimate
+static inline bool lfsr_o_isbshrub(uint32_t flags);
 
 // these are used in mdir commit/compaction
 static lfs_ssize_t lfsr_shrub_estimate(lfs_t *lfs,
@@ -6280,8 +6210,8 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
     (void)bshrub;
     lfs_size_t estimate = 0;
 
-    // include all unique mosses/shrubs related to our file,
-    // including the on-disk moss/shrub
+    // include all unique shrubs related to our file, including the
+    // on-disk shrub
     lfsr_tag_t tag;
     lfsr_data_t data;
     int err = lfsr_mdir_lookupnext(lfs, mdir, LFSR_TAG_DATA,
@@ -6290,14 +6220,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
         return err;
     }
 
-    if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
-        lfs_ssize_t dsize = lfsr_moss_estimate(lfs, &data);
-        if (dsize < 0) {
-            return dsize;
-        }
-        estimate += dsize;
-
-    } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+    if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
         lfsr_shrub_t shrub;
         err = lfsr_data_readshrub(lfs, &data, mdir,
                 &shrub);
@@ -6316,16 +6239,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_o_isbshrub(o->flags)
                 && o->mdir.mid == mdir->mid) {
-            if (lfsr_bshrub_isbmoss(&o->mdir,
-                    &((lfsr_obshrub_t*)o)->bshrub)) {
-                lfs_ssize_t dsize = lfsr_moss_estimate(lfs,
-                        &((lfsr_obshrub_t*)o)->bshrub.u.bmoss);
-                if (dsize < 0) {
-                    return dsize;
-                }
-                estimate += dsize;
-
-            } else if (lfsr_bshrub_isbshrub(&o->mdir,
+            if (lfsr_bshrub_isbshrub(&o->mdir,
                     &((lfsr_obshrub_t*)o)->bshrub)) {
                 lfs_ssize_t dsize = lfsr_shrub_estimate(lfs,
                         &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
@@ -6345,147 +6259,92 @@ static int lfsr_bshrub_lookupnext(lfs_t *lfs,
         lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
         lfsr_bptr_t *bptr_) {
+    (void)mdir;
     // out of bounds?
     if (bid >= lfsr_bshrub_size(bshrub)) {
         return LFS_ERR_NOENT;
     }
     // the above size check should make this impossible
     LFS_ASSERT(!lfsr_bshrub_isbnull(bshrub));
-
-    // inlined data?
-    if (lfsr_bshrub_isbmoss(mdir, bshrub)) {
-        if (bid_) {
-            *bid_ = lfsr_data_size(bshrub->u.bmoss)-1;
-        }
-        if (tag_) {
-            *tag_ = LFSR_TAG_DATA;
-        }
-        if (weight_) {
-            *weight_ = lfsr_data_size(bshrub->u.bmoss);
-        }
-        if (bptr_) {
-            bptr_->data = bshrub->u.bmoss;
-        }
-        return 0;
-
-    // direct block?
-    } else if (lfsr_bshrub_isbptr(mdir, bshrub)) {
-        if (bid_) {
-            *bid_ = lfsr_data_size(bshrub->u.bsprout.data)-1;
-        }
-        if (tag_) {
-            *tag_ = LFSR_TAG_BLOCK;
-        }
-        if (weight_) {
-            *weight_ = lfsr_data_size(bshrub->u.bsprout.data);
-        }
-        if (bptr_) {
-            *bptr_ = bshrub->u.bsprout;
-        }
-        return 0;
+    // file must be a bshrub/btree here
+    LFS_ASSERT(lfsr_bshrub_isbshruborbtree(bshrub));
 
     // bshrub/btree?
-    } else if (lfsr_bshrub_isbshruborbtree(bshrub)) {
-        lfsr_bid_t bid__;
-        lfsr_rbyd_t rbyd;
-        lfsr_srid_t rid;
-        lfsr_tag_t tag;
-        lfsr_bid_t weight;
-        lfsr_data_t data;
-        int err = lfsr_btree_lookupnext_(lfs, &bshrub->u.btree, bid,
-                &bid__, &rbyd, &rid, &tag, &weight, &data);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-        LFS_ASSERT(tag == LFSR_TAG_DATA
-                || tag == LFSR_TAG_BLOCK);
-
-        if (bid_) {
-            *bid_ = bid__;
-        }
-        if (tag_) {
-            *tag_ = tag;
-        }
-        if (weight_) {
-            *weight_ = weight;
-        }
-        if (bptr_) {
-            // decode bptrs
-            if (tag == LFSR_TAG_DATA) {
-                bptr_->data = data;
-            } else {
-                err = lfsr_data_readbptr(lfs, &data, bptr_);
-                if (err) {
-                    return err;
-                }
-            }
-            LFS_ASSERT(lfsr_data_size(bptr_->data) <= weight);
-        }
-        return 0;
-
-    } else {
-        LFS_UNREACHABLE();
+    lfsr_bid_t bid__;
+    lfsr_rbyd_t rbyd;
+    lfsr_srid_t rid;
+    lfsr_tag_t tag;
+    lfsr_bid_t weight;
+    lfsr_data_t data;
+    int err = lfsr_btree_lookupnext_(lfs, &bshrub->u.btree, bid,
+            &bid__, &rbyd, &rid, &tag, &weight, &data);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
     }
+    LFS_ASSERT(tag == LFSR_TAG_DATA
+            || tag == LFSR_TAG_BLOCK);
+
+    if (bid_) {
+        *bid_ = bid__;
+    }
+    if (tag_) {
+        *tag_ = tag;
+    }
+    if (weight_) {
+        *weight_ = weight;
+    }
+    if (bptr_) {
+        // decode bptrs
+        if (tag == LFSR_TAG_DATA) {
+            bptr_->data = data;
+        } else {
+            err = lfsr_data_readbptr(lfs, &data, bptr_);
+            if (err) {
+                return err;
+            }
+        }
+        LFS_ASSERT(lfsr_data_size(bptr_->data) <= weight);
+    }
+    return 0;
 }
 
 static int lfsr_bshrub_traverse(lfs_t *lfs,
         const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub,
         lfsr_btraversal_t *bt,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
-    // bnull/bmoss does nothing
-    if (lfsr_bshrub_isbnull(bshrub)
-            || lfsr_bshrub_isbmoss(mdir, bshrub)) {
+    (void)mdir;
+    // bnull does nothing
+    if (lfsr_bshrub_isbnull(bshrub)) {
         return LFS_ERR_NOENT;
     }
+    // file must be a bshrub/btree here
+    LFS_ASSERT(lfsr_bshrub_isbshruborbtree(bshrub));
 
-    // bsprout?
-    if (lfsr_bshrub_isbptr(mdir, bshrub)) {
-        if (bt->bid > 0) {
-            return LFS_ERR_NOENT;
-        }
-
-        if (bid_) {
-            *bid_ = lfsr_data_size(bshrub->u.bsprout.data)-1;
-        }
-        if (tag_) {
-            *tag_ = LFSR_TAG_BLOCK;
-        }
-        if (bptr_) {
-            *bptr_ = bshrub->u.bsprout;
-        }
-        return 0;
-
-    // bshrub/btree?
-    } else if (lfsr_bshrub_isbshruborbtree(bshrub)) {
-        lfsr_tag_t tag;
-        lfsr_data_t data;
-        int err = lfsr_btree_traverse(lfs, &bshrub->u.btree, bt,
-                bid_, &tag, &data);
-        if (err) {
-            return err;
-        }
-
-        // decode bptrs
-        if (tag_) {
-            *tag_ = tag;
-        }
-        if (bptr_) {
-            if (tag == LFSR_TAG_BLOCK) {
-                err = lfsr_data_readbptr(lfs, &data,
-                        bptr_);
-                if (err) {
-                    return err;
-                }
-            } else {
-                bptr_->data = data;
-            }
-        }
-        return 0;
-
-    } else {
-        LFS_UNREACHABLE();
+    lfsr_tag_t tag;
+    lfsr_data_t data;
+    int err = lfsr_btree_traverse(lfs, &bshrub->u.btree, bt,
+            bid_, &tag, &data);
+    if (err) {
+        return err;
     }
+
+    // decode bptrs
+    if (tag_) {
+        *tag_ = tag;
+    }
+    if (bptr_) {
+        if (tag == LFSR_TAG_BLOCK) {
+            err = lfsr_data_readbptr(lfs, &data,
+                    bptr_);
+            if (err) {
+                return err;
+            }
+        } else {
+            bptr_->data = data;
+        }
+    }
+    return 0;
 }
 
 // needed in lfsr_bshrub_commit_
@@ -7657,7 +7516,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // us due to mdir compactions
             //
             // TODO should we preserve mode for all of these?
-            // TODO should we do the same for mosses?
             } else if (lfsr_tag_key(rats[i].tag) == LFSR_TAG_SHRUBTRUNK) {
                 // find the staging shrub
                 lfsr_shrub_t *shrub = (lfsr_shrub_t*)rats[i].cat;
@@ -7696,25 +7554,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         return err;
                     }
 
-                    // found an inlined moss? we can just copy this like
-                    // normal but we need to update any opened inlined files
-                    if (tag == LFSR_TAG_DATA) {
-                        err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
-                                rid - lfs_smax(start_rid, 0),
-                                LFSR_RAT_CAT_(tag, 0, &data, 1));
-                        if (err) {
-                            return err;
-                        }
-
-                        err = lfsr_moss_compact(lfs, &mdir->rbyd, &data,
-                                &data);
-                        if (err) {
-                            return err;
-                        }
-
                     // found an inlined shrub? we need to compact the shrub
                     // as well to bring it along with us
-                    } else if (tag == LFSR_TAG_BSHRUB) {
+                    if (tag == LFSR_TAG_BSHRUB) {
                         lfsr_shrub_t shrub;
                         err = lfsr_data_readshrub(lfs, &data, mdir__,
                                 &shrub);
@@ -7761,29 +7603,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     }
                     lfsr_obshrub_t *bshrub = (lfsr_obshrub_t*)o;
 
-                    // inlined moss?
-                    if (lfsr_bshrub_isbmoss(&bshrub->o.mdir, &bshrub->bshrub)
-                            // only compact once, first compact should stage
-                            // the new block
-                            && bshrub->bshrub_.u.bmoss.u.disk.block
-                                != mdir->rbyd.blocks[0]) {
-                        int err = lfsr_rbyd_appendcompactrat(lfs, &mdir->rbyd,
-                                LFSR_RAT_CAT_(
-                                    LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
-                                    &bshrub->bshrub.u.bmoss, 1));
-                        if (err) {
-                            return err;
-                        }
-
-                        err = lfsr_moss_compact(lfs, &mdir->rbyd,
-                                &bshrub->bshrub_.u.bmoss,
-                                &bshrub->bshrub.u.bmoss);
-                        if (err) {
-                            return err;
-                        }
-
                     // inlined shrub?
-                    } else if (lfsr_bshrub_isbshrub(
+                    if (lfsr_bshrub_isbshrub(
                                 &bshrub->o.mdir, &bshrub->bshrub)
                             // only compact once, first compact should stage
                             // the new block
@@ -7971,21 +7792,13 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 break;
             }
 
-            // special handling for mosses, just to avoid duplicate cost
-            if (tag == LFSR_TAG_DATA) {
-                lfs_ssize_t dsize__ = lfsr_moss_estimate(lfs, &data);
-                if (dsize__ < 0) {
-                    return dsize__;
-                }
-                dsize_ += lfs->rat_estimate + dsize__;
-
             // special handling for shrub trunks, we need to include the
             // compacted cost of the shrub in our estimate
             //
             // this is what would make lfsr_rbyd_estimate recursive, and
             // why we need a second function...
             //
-            } else if (tag == LFSR_TAG_BSHRUB) {
+            if (tag == LFSR_TAG_BSHRUB) {
                 // include the cost of this trunk
                 dsize_ += LFSR_SHRUB_DSIZE;
 
@@ -8021,18 +7834,8 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
             }
             lfsr_obshrub_t *bshrub = (lfsr_obshrub_t*)o;
 
-            // inlined moss?
-            if (lfsr_bshrub_isbmoss(&bshrub->o.mdir,
-                    &bshrub->bshrub)) {
-                lfs_ssize_t dsize__ = lfsr_moss_estimate(lfs,
-                        &bshrub->bshrub.u.bmoss);
-                if (dsize__ < 0) {
-                    return dsize__;
-                }
-                dsize_ += dsize__;
-
             // inlined shrub?
-            } else if (lfsr_bshrub_isbshrub(&bshrub->o.mdir,
+            if (lfsr_bshrub_isbshrub(&bshrub->o.mdir,
                     &bshrub->bshrub)) {
                 lfs_ssize_t dsize__ = lfsr_shrub_estimate(lfs,
                         &bshrub->bshrub.u.bshrub);
@@ -8102,26 +7905,9 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             break;
         }
 
-        // found an inlined moss? we can just copy this like normal but
-        // we need to update any opened inlined files
-        if (tag == LFSR_TAG_DATA) {
-            err = lfsr_rbyd_appendcompactrat(lfs, &mdir_->rbyd,
-                    LFSR_RAT_CAT_(tag, weight, &data, 1));
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_moss_compact(lfs, &mdir_->rbyd, &data,
-                    &data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
         // found an inlined shrub? we need to compact the shrub as well to
         // bring it along with us
-        } else if (tag == LFSR_TAG_BSHRUB) {
+        if (tag == LFSR_TAG_BSHRUB) {
             lfsr_shrub_t shrub;
             err = lfsr_data_readshrub(lfs, &data, mdir,
                     &shrub);
@@ -8177,29 +7963,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         }
         lfsr_obshrub_t *bshrub = (lfsr_obshrub_t*)o;
 
-        // inlined moss?
-        if (lfsr_bshrub_isbmoss(&bshrub->o.mdir, &bshrub->bshrub)
-                // only compact once, first compact should stage the new block
-                && bshrub->bshrub_.u.bmoss.u.disk.block
-                    != mdir_->rbyd.blocks[0]) {
-            err = lfsr_rbyd_appendcompactrat(lfs, &mdir_->rbyd,
-                    LFSR_RAT_CAT_(
-                        LFSR_TAG_SHRUB | LFSR_TAG_DATA, 0,
-                        &bshrub->bshrub.u.bmoss, 1));
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_moss_compact(lfs, &mdir_->rbyd,
-                    &bshrub->bshrub_.u.bmoss, &bshrub->bshrub.u.bmoss);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
         // inlined shrub?
-        } else if (lfsr_bshrub_isbshrub(&bshrub->o.mdir, &bshrub->bshrub)
+        if (lfsr_bshrub_isbshrub(&bshrub->o.mdir, &bshrub->bshrub)
                 // only compact once, first compact should stage the new block
                 && bshrub->bshrub_.u.bshrub.blocks[0]
                     != mdir_->rbyd.blocks[0]) {
@@ -8445,7 +8210,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             o->mdir.rbyd.eoff = -1;
         }
 
-        // stage any bmosses/bshrubs
+        // stage any bshrubs
         if (lfsr_o_isbshrub(o->flags)) {
             ((lfsr_obshrub_t*)o)->bshrub_ = ((lfsr_obshrub_t*)o)->bshrub;
         }
@@ -9481,15 +9246,8 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 return err;
             }
 
-            // found a bsprout (direct block)?
-            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
-                err = lfsr_data_readbptr(lfs, &data, &t->o.bshrub.u.bsprout);
-                if (err) {
-                    return err;
-                }
-
             // found a bshrub (inlined btree)?
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
                 err = lfsr_data_readshrub(lfs, &data, &t->o.o.mdir,
                         &t->o.bshrub.u.bshrub);
                 if (err) {
@@ -11098,10 +10856,6 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 
 // file operations
 
-// needed in lfsr_file_fetch
-static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
-        lfs_off_t pos, uint8_t *buffer, lfs_size_t size);
-
 static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // default data state
     lfsr_bshrub_init(&file->o.bshrub);
@@ -11127,20 +10881,8 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
         // bshrub
         file->o.bshrub_ = file->o.bshrub;
 
-        // may be a bmoss (inlined data)
-        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
-            file->o.bshrub_.u.bmoss = data;
-
-        // or a bsprout (direct block)
-        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BLOCK) {
-            err = lfsr_data_readbptr(lfs, &data,
-                    &file->o.bshrub_.u.bsprout);
-            if (err) {
-                return err;
-            }
-
-        // or a bshrub (inlined btree)
-        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+        // may be a bshrub (inlined btree)
+        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
             err = lfsr_data_readshrub(lfs, &data, &file->o.o.mdir,
                     &file->o.bshrub_.u.bshrub);
             if (err) {
@@ -11514,25 +11256,6 @@ static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
     return pos_ - pos;
 }
 
-static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
-        lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
-    lfs_off_t pos_ = pos;
-    while (size > 0 && pos_ < lfsr_bshrub_size(&file->o.bshrub)) {
-        lfs_ssize_t d = lfsr_file_readnext(lfs, file,
-                pos_, buffer, size);
-        if (d < 0) {
-            LFS_ASSERT(d != LFS_ERR_NOENT);
-            return d;
-        }
-
-        pos_ += d;
-        buffer += d;
-        size -= d;
-    }
-
-    return pos_ - pos;
-}
-
 // high-level file reading
 
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
@@ -11670,33 +11393,11 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
     // always convert to bshrub/btree when this function is called
     if (!lfsr_bshrub_isbshruborbtree(&file->o.bshrub)) {
-        // this does risk losing our moss/sprout if there is an error,
-        // but note that's already a risk with how file carve deletes
-        // data before insertion
-        if (lfsr_bshrub_isbmoss(&file->o.o.mdir, &file->o.bshrub)) {
-            rats[rat_count++] = LFSR_RAT_CAT_(
-                    LFSR_TAG_DATA, +lfsr_bshrub_size(&file->o.bshrub),
-                    &file->o.bshrub.u.bmoss, 1);
-        } else if (lfsr_bshrub_isbptr(&file->o.o.mdir, &file->o.bshrub)) {
-            rats[rat_count++] = LFSR_RAT(
-                    LFSR_TAG_BLOCK, +lfsr_bshrub_size(&file->o.bshrub),
-                    LFSR_DATA_BPTR(&file->o.bshrub.u.bsprout, left.buf));
-        }
-
+        // file must be a bnull here
+        LFS_ASSERT(lfsr_bshrub_isbnull(&file->o.bshrub));
+        // initialize bshrub's shrub
         lfsr_shrub_init(&file->o.bshrub.u.bshrub,
                 file->o.o.mdir.rbyd.blocks[0]);
-
-        if (rat_count > 0) {
-            LFS_ASSERT(rat_count <= sizeof(rats)/sizeof(lfsr_rat_t));
-
-            int err = lfsr_file_commit(lfs, file, 0,
-                    rats, rat_count);
-            if (err) {
-                return err;
-            }
-        }
-
-        rat_count = 0;
     }
 
     // need a hole?
@@ -13493,8 +13194,6 @@ static int lfs_deinit(lfs_t *lfs) {
     (LFSR_RCOMPAT_GRM \
         | LFSR_RCOMPAT_MMOSS \
         | LFSR_RCOMPAT_MTREE \
-        | LFSR_RCOMPAT_BMOSS \
-        | LFSR_RCOMPAT_BSPROUT \
         | LFSR_RCOMPAT_BSHRUB \
         | LFSR_RCOMPAT_BTREE)
 
