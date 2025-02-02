@@ -694,13 +694,10 @@ typedef struct lfsr_bptr {
 } lfsr_bptr_t;
 
 // the lfsr_bshrub_t struct represents the on-disk component of a file
-//
-// navigating this union is a bit tricky, and relies on the related
-// mdir block:
-// block==mdir.block, weight==0 => bnull
-// block==mdir.block, weight!=0 => bshrub
-// block!=mdir.block            => btree
 typedef struct lfsr_bshrub {
+    // weight=0       => no bshrub/btree
+    // sign(weight)=1 => bshrub
+    // sign(weight)=0 => btree
     union {
         lfs_size_t weight;
         lfsr_shrub_t bshrub;

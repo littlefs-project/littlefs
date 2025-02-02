@@ -6139,26 +6139,22 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 // ok, actual bshrub things
 
-// create an empty bshrub
-static void lfsr_bshrub_init(
-        const lfsr_mdir_t *mdir, lfsr_bshrub_t *bshrub) {
-    lfsr_shrub_init(&bshrub->u.bshrub, mdir->rbyd.blocks[0]);
+// create a non-existant bshrub
+static void lfsr_bshrub_init(lfsr_bshrub_t *bshrub) {
+    bshrub->u.bshrub.weight = 0;
+    bshrub->u.bshrub.trunk = 0;
 }
 
-static inline bool lfsr_bshrub_isbshrub(
-        const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub) {
-    return bshrub->u.bshrub.blocks[0] == mdir->rbyd.blocks[0];
+static inline bool lfsr_bshrub_isbnull(const lfsr_bshrub_t *bshrub) {
+    return !bshrub->u.bshrub.trunk;
 }
 
-static inline bool lfsr_bshrub_isbtree(
-        const lfsr_mdir_t *mdir, const lfsr_bshrub_t *bshrub) {
-    return bshrub->u.bshrub.blocks[0] != mdir->rbyd.blocks[0];
+static inline bool lfsr_bshrub_isbshrub(const lfsr_bshrub_t *bshrub) {
+    return lfsr_shrub_isshrub(&bshrub->u.bshrub);
 }
 
-static inline int lfsr_bshrub_cmp(
-        const lfsr_bshrub_t *a,
-        const lfsr_bshrub_t *b) {
-    return lfsr_btree_cmp(&a->u.btree, &b->u.btree);
+static inline bool lfsr_bshrub_isbtree(const lfsr_bshrub_t *bshrub) {
+    return !lfsr_shrub_isshrub(&bshrub->u.bshrub);
 }
 
 // needed in lfsr_bshrub_estimate
@@ -6203,8 +6199,7 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
         if (lfsr_o_isbshrub(o->flags)
                 && o->mdir.mid == mdir->mid
                 && lfsr_bshrub_isbshrub(
-                    &o->mdir, &((lfsr_obshrub_t*)o)->bshrub)
-                && ((lfsr_obshrub_t*)o)->bshrub.u.weight > 0) {
+                    &((lfsr_obshrub_t*)o)->bshrub)) {
             lfs_ssize_t dsize = lfsr_shrub_estimate(lfs,
                     &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
             if (dsize < 0) {
@@ -6310,7 +6305,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
         const lfsr_rat_t *rats, lfs_size_t rat_count) {
     // before we touch anything, we need to mark all other btree references
     // as unerased
-    if (lfsr_bshrub_isbtree(mdir, bshrub)) {
+    if (lfsr_bshrub_isbtree(bshrub)) {
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             if (lfsr_o_isbshrub(o->flags)
                     && &((lfsr_obshrub_t*)o)->bshrub != bshrub
@@ -6402,7 +6397,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs,
             if (lfsr_o_isbshrub(o->flags)
                     && o->mdir.mid == mdir->mid
                     && lfsr_bshrub_isbshrub(
-                        &o->mdir, &((lfsr_obshrub_t*)o)->bshrub)) {
+                        &((lfsr_obshrub_t*)o)->bshrub)) {
                 ((lfsr_obshrub_t*)o)->bshrub.u.bshrub.estimate = estimate;
             }
         }
@@ -7443,7 +7438,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 // reset shrub if it doesn't live in our block, this happens
                 // when converting from a btree
-                if (shrub_->blocks[0] != mdir->rbyd.blocks[0]) {
+                if (!lfsr_shrub_isshrub(shrub)) {
                     shrub_->blocks[0] = mdir->rbyd.blocks[0];
                     shrub_->trunk = LFSR_RBYD_ISSHRUB | 0;
                     shrub_->weight = 0;
@@ -7546,27 +7541,16 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             && o->mdir.mid == mdir__->mid
                             // is a bshrub?
                             && lfsr_bshrub_isbshrub(
-                                &o->mdir, &((lfsr_obshrub_t*)o)->bshrub)
+                                &((lfsr_obshrub_t*)o)->bshrub)
                             // only compact once, first compact should
                             // stage the new block
                             && ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.blocks[0]
                                 != mdir->rbyd.blocks[0]) {
-                        // empty bshrubs are a little bit weird in that
-                        // we don't want to write anything, but we still
-                        // need to update the block
-                        if (((lfsr_obshrub_t*)o)->bshrub.u.weight == 0) {
-                            ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.weight = 0;
-                            ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.blocks[0]
-                                    = mdir->rbyd.blocks[0];
-                            ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.trunk
-                                    = LFSR_RBYD_ISSHRUB | 0;
-                        } else {
-                            int err = lfsr_shrub_compact(lfs, &mdir->rbyd,
-                                    &((lfsr_obshrub_t*)o)->bshrub_.u.bshrub,
-                                    &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
-                            if (err) {
-                                return err;
-                            }
+                        int err = lfsr_shrub_compact(lfs, &mdir->rbyd,
+                                &((lfsr_obshrub_t*)o)->bshrub_.u.bshrub,
+                                &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
+                        if (err) {
+                            return err;
                         }
                     }
                 }
@@ -7784,8 +7768,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                     && lfsr_mid_rid(lfs, o->mdir.mid) == a_rid
                     // is a bshrub?
                     && lfsr_bshrub_isbshrub(
-                        &o->mdir, &((lfsr_obshrub_t*)o)->bshrub)
-                    && ((lfsr_obshrub_t*)o)->bshrub.u.weight > 0) {
+                        &((lfsr_obshrub_t*)o)->bshrub)) {
                 lfs_ssize_t dsize__ = lfsr_shrub_estimate(lfs,
                         &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
                 if (dsize__ < 0) {
@@ -7910,28 +7893,17 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     < (lfsr_rid_t)end_rid
                 // is a bshrub?
                 && lfsr_bshrub_isbshrub(
-                    &o->mdir, &((lfsr_obshrub_t*)o)->bshrub)
+                    &((lfsr_obshrub_t*)o)->bshrub)
                 // only compact once, first compact should
                 // stage the new block
                 && ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.blocks[0]
                     != mdir_->rbyd.blocks[0]) {
-            // empty bshrubs are a little bit weird in that
-            // we don't want to write anything, but we still
-            // need to update the block
-            if (((lfsr_obshrub_t*)o)->bshrub.u.weight == 0) {
-                ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.weight = 0;
-                ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.blocks[0]
-                        = mdir_->rbyd.blocks[0];
-                ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.trunk
-                        = LFSR_RBYD_ISSHRUB | 0;
-            } else {
-                int err = lfsr_shrub_compact(lfs, &mdir_->rbyd,
-                        &((lfsr_obshrub_t*)o)->bshrub_.u.bshrub,
-                        &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
+            int err = lfsr_shrub_compact(lfs, &mdir_->rbyd,
+                    &((lfsr_obshrub_t*)o)->bshrub_.u.bshrub,
+                    &((lfsr_obshrub_t*)o)->bshrub.u.bshrub);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
             }
         }
     }
@@ -8021,6 +7993,14 @@ relocate:;
     }
 
 compact:;
+    #ifdef LFS_DEBUGMDIRCOMMITS
+    LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                "-> 0x{%"PRIx32",%"PRIx32"}",
+            mdir->mid >> lfs->mdir_bits,
+            mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+            mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
+    #endif
+
     // don't copy over gcksum if relocating
     lfsr_srid_t start_rid_ = start_rid;
     if (relocated && !overcompacted) {
@@ -8171,6 +8151,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // stage any bshrubs
         if (lfsr_o_isbshrub(o->flags)) {
+            // a bshrub outside of its mdir means something has gone
+            // horribly wrong
+            LFS_ASSERT(!lfsr_bshrub_isbshrub(&((lfsr_obshrub_t*)o)->bshrub)
+                    || ((lfsr_obshrub_t*)o)->bshrub.u.bshrub.blocks[0]
+                        == o->mdir.rbyd.blocks[0]);
             ((lfsr_obshrub_t*)o)->bshrub_ = ((lfsr_obshrub_t*)o)->bshrub;
         }
     }
@@ -8652,7 +8637,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         mid_ = lfsr_rat_nextrid(rats[i], mid_);
     }
 
-    // update any staged bmosses/bshrubs
+    // update any staged bshrubs
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_o_isbshrub(o->flags)) {
             ((lfsr_obshrub_t*)o)->bshrub = ((lfsr_obshrub_t*)o)->bshrub_;
@@ -9040,8 +9025,7 @@ static void lfsr_traversal_init(lfsr_traversal_t *t, uint32_t flags) {
     t->o.o.mdir.rbyd.weight = 0;
     t->o.o.mdir.rbyd.blocks[0] = -1;
     t->o.o.mdir.rbyd.blocks[1] = -1;
-    t->o.bshrub.u.bshrub.weight = 0;
-    t->o.bshrub.u.bshrub.blocks[0] = -1;
+    lfsr_bshrub_init(&t->o.bshrub);
     t->ot = NULL;
     t->u.mtortoise.blocks[0] = -1;
     t->u.mtortoise.blocks[1] = -1;
@@ -9279,6 +9263,8 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                     NULL, &tag, bptr_);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
+                    // clear the bshrub state
+                    lfsr_bshrub_init(&t->o.bshrub);
                     // end of mtree? start iterating over mdirs
                     if (lfsr_t_tstate(t->o.o.flags)
                             == LFSR_TSTATE_MTREE) {
@@ -10817,7 +10803,7 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 
 static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // default data state
-    lfsr_bshrub_init(&file->o.o.mdir, &file->o.bshrub);
+    lfsr_bshrub_init(&file->o.bshrub);
     // discard the current buffer
     file->buffer.pos = 0;
     file->buffer.size = 0;
@@ -11334,6 +11320,17 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     // The second requirement isn't strictly necessary if we track temporary
     // copies during file writes, but it is nice to prove this constraint is
     // possible in case we ever don't track temporary copies.
+
+    // can't carve more than the carve weight
+    LFS_ASSERT(rat.weight >= -(lfs_soff_t)weight);
+
+    // carving the entire tree? revert to no bshrub/btree
+    if (pos == 0
+            && weight >= file->o.bshrub.u.weight
+            && rat.weight == -(lfs_soff_t)weight) {
+        lfsr_bshrub_init(&file->o.bshrub);
+        return 0;
+    }
 
     // try to merge commits where possible
     lfsr_bid_t bid = file->o.bshrub.u.weight;
@@ -12329,11 +12326,6 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     if (err) {
         goto failed;
     }
-
-    // uncreated files must be unsynced
-    LFS_ASSERT(!lfsr_o_isuncreat(file->o.o.flags)
-            || lfsr_o_isunsync(file->o.o.flags));
-
     // build a commit of any pending file metadata
     lfsr_rat_t rats[3];
     lfs_size_t rat_count = 0;
@@ -12342,6 +12334,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
     // not created yet? need to convert to normal file
     if (lfsr_o_isuncreat(file->o.o.flags)) {
+        // uncreated files must be unsynced
+        LFS_ASSERT(lfsr_o_isunsync(file->o.o.flags));
+
         err = lfsr_mdir_lookup(lfs, &file->o.o.mdir, LFSR_TAG_STICKYNOTE,
                 &name_data);
         if (err) {
@@ -12363,19 +12358,22 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             goto failed;
         }
 
-        // bnull? no rat?
-        if (lfsr_bshrub_isbshrub(&file->o.o.mdir, &file->o.bshrub)
-                && file->o.bshrub.u.weight == 0) {
+        // zero size files should have no bshrub/btree
+        LFS_ASSERT(file->o.bshrub.u.weight > 0
+                || lfsr_bshrub_isbnull(&file->o.bshrub));
+
+        // no bshrub/btree?
+        if (lfsr_bshrub_isbnull(&file->o.bshrub)) {
             rats[rat_count++] = LFSR_RAT(
                     LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_STRUCT, 0,
                     LFSR_DATA_NULL());
         // bshrub?
-        } else if (lfsr_bshrub_isbshrub(&file->o.o.mdir, &file->o.bshrub)) {
+        } else if (lfsr_bshrub_isbshrub(&file->o.bshrub)) {
             rats[rat_count++] = LFSR_RAT_SHRUBTRUNK(
                     LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
                     &file->o.bshrub.u.bshrub);
         // btree?
-        } else if (lfsr_bshrub_isbtree(&file->o.o.mdir, &file->o.bshrub)) {
+        } else if (lfsr_bshrub_isbtree(&file->o.bshrub)) {
             rats[rat_count++] = LFSR_RAT(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
                     LFSR_DATA_BTREE(&file->o.bshrub.u.btree, buf));
@@ -14463,22 +14461,19 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t) {
     if (lfsr_t_tstate(t->o.o.flags) < LFSR_TSTATE_MDIRS) {
         t->o.o.flags = lfsr_t_settstate(t->o.o.flags, LFSR_TSTATE_MDIRS);
         t->o.o.mdir.mid = 0;
-        t->o.bshrub.u.bshrub.weight = 0;
-        t->o.bshrub.u.bshrub.blocks[0] = -1;
+        lfsr_bshrub_init(&t->o.bshrub);
         t->ot = NULL;
     // in-mtree mdir? increment the mid (to make progress) and reset to
     // mdir iteration
     } else if (lfsr_t_tstate(t->o.o.flags) < LFSR_TSTATE_OMDIRS) {
         t->o.o.flags = lfsr_t_settstate(t->o.o.flags, LFSR_TSTATE_MDIR);
         t->o.o.mdir.mid += 1;
-        t->o.bshrub.u.bshrub.weight = 0;
-        t->o.bshrub.u.bshrub.blocks[0] = -1;
+        lfsr_bshrub_init(&t->o.bshrub);
         t->ot = NULL;
     // opened mdir? skip to next omdir
     } else if (lfsr_t_tstate(t->o.o.flags) < LFSR_TSTATE_DONE) {
         t->o.o.flags = lfsr_t_settstate(t->o.o.flags, LFSR_TSTATE_OMDIRS);
-        t->o.bshrub.u.bshrub.weight = 0;
-        t->o.bshrub.u.bshrub.blocks[0] = -1;
+        lfsr_bshrub_init(&t->o.bshrub);
         t->ot = (t->ot) ? t->ot->next : NULL;
     // done traversals should never need clobbering
     } else {
