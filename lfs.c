@@ -8135,6 +8135,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // xor our old cksum
     lfs->gcksum ^= mdir->rbyd.cksum;
 
+    // stage any bshrubs
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        if (lfsr_o_isbshrub(o->flags)) {
+            // a bshrub outside of its mdir means something has gone
+            // horribly wrong
+            LFS_ASSERT(!lfsr_bshrub_isbshrub(&((lfsr_obshrub_t*)o)->bshrub)
+                    || ((lfsr_obshrub_t*)o)->bshrub.u.bshrub.blocks[0]
+                        == o->mdir.rbyd.blocks[0]);
+            ((lfsr_obshrub_t*)o)->bshrub_ = ((lfsr_obshrub_t*)o)->bshrub;
+        }
+    }
+
     // create a copy
     lfsr_mdir_t mdir_[2];
     mdir_[0] = *mdir;
@@ -8147,16 +8159,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
             o->mdir.rbyd.eoff = -1;
-        }
-
-        // stage any bshrubs
-        if (lfsr_o_isbshrub(o->flags)) {
-            // a bshrub outside of its mdir means something has gone
-            // horribly wrong
-            LFS_ASSERT(!lfsr_bshrub_isbshrub(&((lfsr_obshrub_t*)o)->bshrub)
-                    || ((lfsr_obshrub_t*)o)->bshrub.u.bshrub.blocks[0]
-                        == o->mdir.rbyd.blocks[0]);
-            ((lfsr_obshrub_t*)o)->bshrub_ = ((lfsr_obshrub_t*)o)->bshrub;
         }
     }
 
@@ -8605,14 +8607,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // success? update in-device state, we must not error at this point! //
     ///////////////////////////////////////////////////////////////////////
 
-    // we may have touched any number of mdirs, so assume uncompacted
-    // until lfsr_gc can prove otherwise
-    lfs->flags |= LFS_I_COMPACT;
-
-    // update any gstate changes
-    lfsr_fs_commitgdelta(lfs);
-    lfsr_fs_flushgdelta(lfs);
-
     // play out any rats that affect internal state
     mid_ = mdir->mid;
     for (lfs_size_t i = 0; i < rat_count; i++) {
@@ -8636,16 +8630,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // adjust mid
         mid_ = lfsr_rat_nextrid(rats[i], mid_);
     }
-
-    // update any staged bshrubs
-    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        if (lfsr_o_isbshrub(o->flags)) {
-            ((lfsr_obshrub_t*)o)->bshrub = ((lfsr_obshrub_t*)o)->bshrub_;
-        }
-    }
-
-    // mark all traversals as dirty
-    lfsr_fs_mkdirty(lfs);
 
     // if mroot/mtree changed, clobber any mroot/mtree traversals
     if (lfsr_mdir_cmp(&mroot_, &lfs->mroot) != 0
@@ -8699,6 +8683,28 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // update mroot and mtree
     lfsr_mdir_sync(&lfs->mroot, &mroot_);
     lfs->mtree = mtree_;
+
+    // update any staged bshrubs
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        if (lfsr_o_isbshrub(o->flags)) {
+            // a bshrub outside of its mdir means something has gone
+            // horribly wrong
+            LFS_ASSERT(!lfsr_bshrub_isbshrub(&((lfsr_obshrub_t*)o)->bshrub_)
+                    || ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.blocks[0]
+                        == o->mdir.rbyd.blocks[0]);
+            ((lfsr_obshrub_t*)o)->bshrub = ((lfsr_obshrub_t*)o)->bshrub_;
+        }
+    }
+
+    // update any gstate changes
+    lfsr_fs_commitgdelta(lfs);
+
+    // mark all traversals as dirty
+    lfsr_fs_mkdirty(lfs);
+
+    // we may have touched any number of mdirs, so assume uncompacted
+    // until lfsr_fs_gc can prove otherwise
+    lfs->flags |= LFS_I_COMPACT;
 
     #ifdef LFS_DEBUGMDIRCOMMITS
     LFS_DEBUG("Committed mdir %"PRId32" "
@@ -12897,7 +12903,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
             // default to an empty lookahead
             | LFS_I_LOOKAHEAD
             // default to assuming we need compaction somewhere, worst case
-            // this just makes lfsr_gc read more than is strictly needed
+            // this just makes lfsr_fs_gc read more than is strictly needed
             | LFS_I_COMPACT
             // default to needing a ckmeta/ckdata scan
             | LFS_I_CKMETA
