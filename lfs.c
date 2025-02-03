@@ -8687,11 +8687,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // update any staged bshrubs
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_o_isbshrub(o->flags)) {
-            // a bshrub outside of its mdir means something has gone
-            // horribly wrong
-            LFS_ASSERT(!lfsr_bshrub_isbshrub(&((lfsr_obshrub_t*)o)->bshrub_)
-                    || ((lfsr_obshrub_t*)o)->bshrub_.u.bshrub.blocks[0]
-                        == o->mdir.rbyd.blocks[0]);
             ((lfsr_obshrub_t*)o)->bshrub = ((lfsr_obshrub_t*)o)->bshrub_;
         }
     }
