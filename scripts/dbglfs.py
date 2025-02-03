@@ -2009,7 +2009,7 @@ def main(disk, mroots=None, *,
                 bweight//mleaf_weight, 1*mleaf_weight,
                 mroot.rev,
                 gstate.gcksum,
-                '' if gstate.gcksum_ == gstate.gcksum__ else '!'))
+                '' if gstate.gcksum_ == gstate.gcksum__ else '?'))
 
         # dynamically size the id field
         w_width = max(
