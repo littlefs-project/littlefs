@@ -605,14 +605,7 @@ typedef struct lfsr_rbyd {
 typedef lfsr_rbyd_t lfsr_btree_t;
 
 // a shrub is a secondary trunk in an mdir
-typedef struct {
-    // this mostly lines up with lfsr_rbyd_t
-    lfsr_rid_t weight;
-    lfs_block_t blocks[2];
-    lfs_size_t trunk;
-    // except for shrub estimate, which takes the place of eoff, etc
-    lfs_size_t estimate;
-} lfsr_shrub_t;
+typedef lfsr_rbyd_t lfsr_shrub_t;
 
 typedef struct lfsr_mdir {
     lfsr_smid_t mid;
@@ -694,16 +687,11 @@ typedef struct lfsr_bptr {
 } lfsr_bptr_t;
 
 // the lfsr_bshrub_t struct represents the on-disk component of a file
-typedef struct lfsr_bshrub {
-    // weight=0       => no bshrub/btree
-    // sign(weight)=1 => bshrub
-    // sign(weight)=0 => btree
-    union {
-        lfs_size_t weight;
-        lfsr_shrub_t bshrub;
-        lfsr_btree_t btree;
-    } u;
-} lfsr_bshrub_t;
+//
+// weight=0       => no bshrub/btree
+// sign(weight)=1 => bshrub
+// sign(weight)=0 => btree
+typedef lfsr_rbyd_t lfsr_bshrub_t;
 
 typedef struct lfsr_obshrub {
     // bshrubs need to be tracked for commits to work
