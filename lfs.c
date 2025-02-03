@@ -5948,15 +5948,6 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
 
 // shrub things
 
-// create an empty shrub
-static void lfsr_shrub_init(lfsr_shrub_t *shrub, lfs_block_t block) {
-    shrub->weight = 0;
-    shrub->blocks[0] = block;
-    shrub->trunk = LFSR_RBYD_ISSHRUB | 0;
-    // force estimate recalculation
-    shrub->eoff = -1;
-}
-
 // helper functions
 static inline bool lfsr_shrub_isshrub(const lfsr_shrub_t *shrub) {
     return lfsr_rbyd_isshrub(shrub);
