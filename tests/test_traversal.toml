@@ -5397,7 +5397,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5433,7 +5433,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     // mdir should have been compacted
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5455,7 +5455,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5649,7 +5649,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5687,7 +5687,7 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     // mdir should have been compacted
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5709,7 +5709,7 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5782,10 +5782,10 @@ code = '''
         assert(lfs.mtree.weight == 0);
         // we need internals to check this
         lfs_ssize_t estimate = lfsr_mdir_estimate__(&lfs,
-                &file1.o.o.mdir, -1, -1,
+                &file1.b.o.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -5839,8 +5839,8 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5862,8 +5862,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -5973,7 +5973,7 @@ code = '''
     // write to each file until mdir >gc_compact_thresh full
     if (COMPACTSET & 0x1) {
         // hack, don't use the internals like this
-        while ((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfsr_file_rewind(&lfs, &file1) => 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5985,7 +5985,7 @@ code = '''
 
     if (COMPACTSET & 0x2) {
         // hack, don't use the internals like this
-        while ((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfsr_file_rewind(&lfs, &file2) => 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5997,7 +5997,7 @@ code = '''
 
     if (COMPACTSET & 0x4) {
         // hack, don't use the internals like this
-        while ((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfsr_file_rewind(&lfs, &file3) => 0;
             for (lfs_size_t j = 0; j < SIZE; j++) {
                 wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6053,9 +6053,9 @@ code = '''
 
     if (COMPACTSET) {
         // mdirs should have been compacted
-        assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-        assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-        assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
         // but because we mutated, we're still marked as uncompacted
         lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -6078,9 +6078,9 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -6212,10 +6212,10 @@ code = '''
         assert(lfs.mtree.weight == orig);
         // we need internals to check this
         lfs_ssize_t estimate = lfsr_mdir_estimate__(&lfs,
-                &file2.o.o.mdir, -1, -1,
+                &file2.b.o.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -6279,10 +6279,10 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file4.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file4.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -6304,10 +6304,10 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file4.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file4.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -6467,8 +6467,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
-    assert(file1.o.o.mdir.rbyd.weight <= 3);
-    assert(file2.o.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.rbyd.weight <= 3);
+    assert(file2.b.o.mdir.rbyd.weight <= 3);
 
     // and we should be marked as consistent
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -6768,8 +6768,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
-    assert(file1.o.o.mdir.rbyd.weight <= 3);
-    assert(file2.o.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.rbyd.weight <= 3);
+    assert(file2.b.o.mdir.rbyd.weight <= 3);
 
     // and we should be marked as consistent
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -6926,8 +6926,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
-    assert(file1.o.o.mdir.rbyd.weight <= 3);
-    assert(file2.o.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.rbyd.weight <= 3);
+    assert(file2.b.o.mdir.rbyd.weight <= 3);
 
     // and we should be marked as consistent
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -7095,8 +7095,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
-    assert(file1.o.o.mdir.rbyd.weight <= 3);
-    assert(file2.o.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.rbyd.weight <= 3);
+    assert(file2.b.o.mdir.rbyd.weight <= 3);
 
     // and we should be marked as consistent
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -7262,8 +7262,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
-    assert(file1.o.o.mdir.rbyd.weight <= 3);
-    assert(file2.o.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.rbyd.weight <= 3);
+    assert(file2.b.o.mdir.rbyd.weight <= 3);
 
     // and we should be marked as consistent
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -7360,7 +7360,7 @@ code = '''
     // write to our mdirs until >gc_compact_thresh full
     //
     // hack, don't use the internals like this
-    while ((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file1) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7369,7 +7369,7 @@ code = '''
         lfsr_file_sync(&lfs, &file1) => 0;
     }
 
-    while ((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file2) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7427,12 +7427,12 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
-    assert(file1.o.o.mdir.rbyd.weight <= 3);
-    assert(file2.o.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.rbyd.weight <= 3);
+    assert(file2.b.o.mdir.rbyd.weight <= 3);
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // we should be marked as consistent, but because we mutated, we're
     // still marked as uncompacted
@@ -7455,8 +7455,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
@@ -7534,7 +7534,7 @@ code = '''
     // write to our mdirs until >gc_compact_thresh full
     //
     // hack, don't use the internals like this
-    while ((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file1) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7543,7 +7543,7 @@ code = '''
         lfsr_file_sync(&lfs, &file1) => 0;
     }
 
-    while ((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file2) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7622,8 +7622,8 @@ code = '''
     }
 
     // mdirs should have been compacted
-    assert((file1.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
     lfsr_fs_stat(&lfs, &fsinfo) => 0;

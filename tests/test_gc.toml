@@ -45,7 +45,7 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_LOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
 
     // run GC until we make progress
     for (lfs_block_t i = 0;; i++) {
@@ -112,11 +112,11 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_LOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
 
     // run GC one step
     lfsr_fs_gc(&lfs) => 0;
-    assert(lfs.omdirs == &lfs.gc.t.o.o);
+    assert(lfs.omdirs == &lfs.gc.t.b.o);
 
     // mutate the filesystem
     lfsr_file_open(&lfs, &file, "spider",
@@ -128,7 +128,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.t.o.o) {
+    while (lfs.omdirs == &lfs.gc.t.b.o) {
         lfsr_fs_gc(&lfs) => 0;
     }
 
@@ -184,7 +184,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -197,7 +197,7 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_COMPACT);
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
 
     // run GC until we make progress
     for (lfs_block_t i = 0;; i++) {
@@ -213,7 +213,7 @@ code = '''
     }
 
     // mdir should have been compacted
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -273,7 +273,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -286,19 +286,19 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_COMPACT);
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
 
     // run GC one traversal + one step
     while (true) {
         lfsr_fs_gc(&lfs) => 0;
 
         // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.t.o.o) {
+        if (lfs.omdirs != &lfs.gc.t.b.o) {
             break;
         }
     }
     lfsr_fs_gc(&lfs) => 0;
-    assert(lfs.omdirs == &lfs.gc.t.o.o);
+    assert(lfs.omdirs == &lfs.gc.t.b.o);
 
     // mutate the filesystem
     lfsr_file_rewind(&lfs, &file) => 0;
@@ -309,7 +309,7 @@ code = '''
     lfsr_file_sync(&lfs, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs.omdirs == &lfs.gc.t.o.o) {
+    while (lfs.omdirs == &lfs.gc.t.b.o) {
         lfsr_fs_gc(&lfs) => 0;
     }
 
@@ -407,7 +407,7 @@ code = '''
     struct lfs_fsinfo fsinfo;
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_MKCONSISTENT);
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
 
     // run GC until we make progress
     for (lfs_block_t i = 0;; i++) {
@@ -507,7 +507,7 @@ code = '''
     lfsr_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.flags & LFS_I_MKCONSISTENT);
     #ifdef LFS_GC
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
     #endif
 
     // call lfsr_fs_mkconsistent
@@ -605,9 +605,9 @@ code = '''
     }
 
     // run GC one step
-    assert(lfs.omdirs != &lfs.gc.t.o.o);
+    assert(lfs.omdirs != &lfs.gc.t.b.o);
     lfsr_fs_gc(&lfs) => 0;
-    assert(lfs.omdirs == &lfs.gc.t.o.o);
+    assert(lfs.omdirs == &lfs.gc.t.b.o);
 
     // create the rest of the orphans after GC has started
     for (lfs_size_t i = 0; i < ORPHANS; i++) {
@@ -626,7 +626,7 @@ code = '''
     assert(fsinfo.flags & LFS_I_MKCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.t.o.o) {
+    while (lfs.omdirs == &lfs.gc.t.b.o) {
         lfsr_fs_gc(&lfs) => 0;
     }
 

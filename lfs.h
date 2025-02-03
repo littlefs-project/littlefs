@@ -584,42 +584,6 @@ struct lfs_file_config {
 //    uint8_t *buffer;
 //} lfs_cache_t;
 
-// TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
-typedef struct lfsr_rbyd {
-    // note this lines up with weight in lfsr_data_t
-    // sign(weight)=0 => rbyd
-    lfsr_rid_t weight;
-    lfs_block_t blocks[2];
-    // sign(trunk)=0 => normal rbyd
-    // sign(trunk)=1 => shrub rbyd
-    lfs_size_t trunk;
-    // sign(eoff)       => perturb bit
-    // eoff=0, trunk=0  => not yet committed
-    // eoff=0, trunk>0  => not yet fetched
-    // eoff>=block_size => rbyd not erased/needs compaction
-    lfs_size_t eoff;
-    uint32_t cksum;
-} lfsr_rbyd_t;
-
-// a btree is just the root rbyd
-typedef lfsr_rbyd_t lfsr_btree_t;
-
-// a shrub is a secondary trunk in an mdir
-typedef lfsr_rbyd_t lfsr_shrub_t;
-
-typedef struct lfsr_mdir {
-    lfsr_smid_t mid;
-    lfsr_rbyd_t rbyd;
-    uint32_t gcksumdelta;
-} lfsr_mdir_t;
-
-typedef struct lfsr_omdir {
-    struct lfsr_omdir *next;
-    uint32_t flags;
-    lfsr_mdir_t mdir;
-} lfsr_omdir_t;
-
-
 //typedef struct lfs_mdir {
 //    lfs_block_t pair[2];
 //    uint32_t rev;
@@ -656,6 +620,62 @@ typedef struct lfsr_data {
     } u;
 } lfsr_data_t;
 
+// a block pointer
+typedef struct lfsr_bptr {
+    lfsr_data_t data;
+    #ifndef LFS_CKDATACKSUMS
+    lfs_size_t cksize;
+    uint32_t cksum;
+    #endif
+} lfsr_bptr_t;
+
+// littlefs's core metadata log type
+typedef struct lfsr_rbyd {
+    lfsr_rid_t weight;
+    lfs_block_t blocks[2];
+    // sign(trunk)=0 => normal rbyd
+    // sign(trunk)=1 => shrub rbyd
+    lfs_size_t trunk;
+    // sign(eoff)       => perturb bit
+    // eoff=0, trunk=0  => not yet committed
+    // eoff=0, trunk>0  => not yet fetched
+    // eoff>=block_size => rbyd not erased/needs compaction
+    lfs_size_t eoff;
+    uint32_t cksum;
+} lfsr_rbyd_t;
+
+// a btree is represented by the root rbyd
+typedef lfsr_rbyd_t lfsr_btree_t;
+
+// littlefs's atomic metadata log type
+typedef struct lfsr_mdir {
+    lfsr_smid_t mid;
+    lfsr_rbyd_t rbyd;
+    uint32_t gcksumdelta;
+} lfsr_mdir_t;
+
+typedef struct lfsr_omdir {
+    struct lfsr_omdir *next;
+    uint32_t flags;
+    lfsr_mdir_t mdir;
+} lfsr_omdir_t;
+
+// a shrub is a secondary trunk in an mdir
+typedef lfsr_rbyd_t lfsr_shrub_t;
+
+// a bshrub is like a btree but with a shrub as a root
+typedef struct lfsr_bshrub {
+    // bshrubs need to be tracked for commits to work
+    lfsr_omdir_t o;
+    // files contain both an active bshrub and staging bshrub, to allow
+    // staging during mdir compacts
+    // trunk=0       => no bshrub/btree
+    // sign(trunk)=1 => bshrub
+    // sign(trunk)=0 => btree
+    lfsr_shrub_t shrub;
+    lfsr_shrub_t shrub_;
+} lfsr_bshrub_t;
+
 // littlefs file type
 
 //typedef struct lfs_file {
@@ -678,32 +698,8 @@ typedef struct lfsr_data {
 //    const struct lfs_file_config *cfg;
 //} lfs_file_t;
 
-typedef struct lfsr_bptr {
-    lfsr_data_t data;
-    #ifndef LFS_CKDATACKSUMS
-    lfs_size_t cksize;
-    uint32_t cksum;
-    #endif
-} lfsr_bptr_t;
-
-// the lfsr_bshrub_t struct represents the on-disk component of a file
-//
-// weight=0       => no bshrub/btree
-// sign(weight)=1 => bshrub
-// sign(weight)=0 => btree
-typedef lfsr_rbyd_t lfsr_bshrub_t;
-
-typedef struct lfsr_obshrub {
-    // bshrubs need to be tracked for commits to work
-    lfsr_omdir_t o;
-    // files contain both an active bshrub and staging bshrub, to allow
-    // staging during mdir compacts
-    lfsr_bshrub_t bshrub;
-    lfsr_bshrub_t bshrub_;
-} lfsr_obshrub_t;
-
 typedef struct lfsr_file {
-    lfsr_obshrub_t o;
+    lfsr_bshrub_t b;
     const struct lfs_file_config *cfg;
 
     lfs_off_t pos;
@@ -747,8 +743,9 @@ typedef struct lfsr_btraversal {
 } lfsr_btraversal_t;
 
 typedef struct lfsr_traversal {
-    // mdir/btree state, this also includes our traversal state machine
-    lfsr_obshrub_t o;
+    // mdir/bshrub/btree state, this also includes our traversal
+    // state machine
+    lfsr_bshrub_t b;
     // opened file state
     lfsr_omdir_t *ot;
     union {

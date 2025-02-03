@@ -188,7 +188,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfsr_file_rewind(&lfs, &file) => 0;
         for (lfs_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -230,7 +230,7 @@ code = '''
 
     // mdir should have been compacted
     lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
-    assert((file.o.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     uint8_t rbuf[SIZE];
