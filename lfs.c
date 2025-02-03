@@ -6131,7 +6131,10 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 // create a non-existant bshrub
 static void lfsr_bshrub_init(lfsr_bshrub_t *bshrub) {
     bshrub->weight = 0;
+    bshrub->blocks[0] = -1;
     bshrub->trunk = 0;
+    // force estimate recalculation
+    bshrub->eoff = -1;
 }
 
 static inline bool lfsr_bshrub_isbnull(const lfsr_bshrub_t *bshrub) {
