@@ -961,6 +961,380 @@ code = '''
 '''
 
 
+# we never actually create zero-weight bshrubs/btrees, but we should be
+# able to read them if created by another impl
+
+[cases.test_files_zero_bnull]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_sync(&lfs, &file) => 0;
+
+    // delete any bshrub/btree
+    lfsr_mdir_commit(&lfs, &file.o.o.mdir, LFSR_RATS(
+            LFSR_RAT(
+                LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_STRUCT, 0,
+                LFSR_DATA_NULL()))) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == 0);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => 0;
+        // try reading
+        uint8_t rbuf[8192];
+        lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // try writing to said file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    uint8_t wbuf[8192];
+    strcpy((char*)wbuf, "Does this work?");
+    lfs_size_t wsize = strlen((const char*)wbuf);
+    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == wsize);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == wsize);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => wsize;
+        // try reading
+        uint8_t rbuf[8192];
+        memset(rbuf, 0xaa, sizeof(rbuf));
+        lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
+        assert(memcmp(rbuf, wbuf, wsize) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_files_zero_bshrub]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_sync(&lfs, &file) => 0;
+
+    // create an empty bshrub
+    lfsr_mdir_commit(&lfs, &file.o.o.mdir, LFSR_RATS(
+            LFSR_RAT_SHRUBCOMMIT(
+                LFSR_TAG_SHRUBCOMMIT, 0,
+                &file.o.bshrub.u.bshrub, 0, ((lfsr_rat_t[]){
+                    LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("?", 1))}),
+                    1))) => 0;
+    lfsr_mdir_commit(&lfs, &file.o.o.mdir, LFSR_RATS(
+            LFSR_RAT_SHRUBCOMMIT(
+                LFSR_TAG_SHRUBCOMMIT, 0,
+                &file.o.bshrub.u.bshrub, 0, ((lfsr_rat_t[]){
+                    LFSR_RAT(LFSR_TAG_RM, -1, LFSR_DATA_NULL())}),
+                    1))) => 0;
+    lfsr_mdir_commit(&lfs, &file.o.o.mdir, LFSR_RATS(
+            LFSR_RAT_SHRUBTRUNK(
+                LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
+                &file.o.bshrub.u.bshrub))) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == 0);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => 0;
+        // try reading
+        uint8_t rbuf[8192];
+        lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // try writing to said file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    uint8_t wbuf[8192];
+    strcpy((char*)wbuf, "Does this work?");
+    lfs_size_t wsize = strlen((const char*)wbuf);
+    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == wsize);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == wsize);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => wsize;
+        // try reading
+        uint8_t rbuf[8192];
+        memset(rbuf, 0xaa, sizeof(rbuf));
+        lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
+        assert(memcmp(rbuf, wbuf, wsize) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_files_zero_btree]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_sync(&lfs, &file) => 0;
+
+    // create an empty btree
+    lfs_alloc_ckpoint(&lfs);
+    lfsr_rbyd_alloc(&lfs, &file.o.bshrub.u.btree) => 0;
+    lfsr_rbyd_commit(&lfs, &file.o.bshrub.u.btree, 0, LFSR_RATS(
+            LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("?", 1)))) => 0;
+    lfsr_rbyd_commit(&lfs, &file.o.bshrub.u.btree, 0, LFSR_RATS(
+            LFSR_RAT(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
+    uint8_t buf[LFSR_BTREE_DSIZE];
+    lfsr_mdir_commit(&lfs, &file.o.o.mdir, LFSR_RATS(
+            LFSR_RAT(
+                LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
+                LFSR_DATA_BTREE(&file.o.bshrub.u.btree, buf)))) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == 0);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => 0;
+        // try reading
+        uint8_t rbuf[8192];
+        lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // try writing to said file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    uint8_t wbuf[8192];
+    strcpy((char*)wbuf, "Does this work?");
+    lfs_size_t wsize = strlen((const char*)wbuf);
+    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == wsize);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == wsize);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => wsize;
+        // try reading
+        uint8_t rbuf[8192];
+        memset(rbuf, 0xaa, sizeof(rbuf));
+        lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
+        assert(memcmp(rbuf, wbuf, wsize) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
 # test removing files of various sizes
 #
 # to be honest, this doesn't really test much and is just included
