@@ -1097,19 +1097,19 @@ code = '''
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATS(
             LFSR_RAT_SHRUBCOMMIT(
                 LFSR_TAG_SHRUBCOMMIT, 0,
-                &file.b.shrub, 0, ((lfsr_rat_t[]){
+                &file.b, 0, ((lfsr_rat_t[]){
                     LFSR_RAT(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("?", 1))}),
                     1))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATS(
             LFSR_RAT_SHRUBCOMMIT(
                 LFSR_TAG_SHRUBCOMMIT, 0,
-                &file.b.shrub, 0, ((lfsr_rat_t[]){
+                &file.b, 0, ((lfsr_rat_t[]){
                     LFSR_RAT(LFSR_TAG_RM, -1, LFSR_DATA_NULL())}),
                     1))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATS(
             LFSR_RAT_SHRUBTRUNK(
                 LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
-                &file.b.shrub))) => 0;
+                &file.b))) => 0;
 
     lfsr_file_close(&lfs, &file) => 0;
 

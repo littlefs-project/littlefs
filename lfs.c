@@ -2148,17 +2148,17 @@ static inline lfs_size_t lfsr_rat_size(lfsr_rat_t rat) {
 // writing to an unrelated trunk in the rbyd
 typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
 #define LFSR_RAT_SHRUBCOMMIT(_tag, _weight, \
-        _shrub, _rid, _rats, _rat_count) \
+        _bshrub, _rid, _rats, _rat_count) \
     LFSR_RAT_(_tag, _weight, \
         (&(const lfsr_shrubcommit_t){ \
-            .shrub=_shrub, \
+            .bshrub=_bshrub, \
             .rid=_rid, \
             .rats=_rats, \
             .rat_count=_rat_count}), \
         0)
 
-#define LFSR_RAT_SHRUBTRUNK(_tag, _weight, _shrub) \
-    LFSR_RAT_(_tag, _weight, (const lfsr_shrub_t*){_shrub}, 0)
+#define LFSR_RAT_SHRUBTRUNK(_tag, _weight, _bshrub) \
+    LFSR_RAT_(_tag, _weight, (const lfsr_bshrub_t*){_bshrub}, 0)
 
 
 // operations on custom attribute lists
@@ -6091,7 +6091,7 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 // this is needed to sneak shrub commits into mdir commits
 struct lfsr_shrubcommit {
-    lfsr_shrub_t *shrub;
+    lfsr_bshrub_t *bshrub;
     lfsr_srid_t rid;
     const lfsr_rat_t *rats;
     lfs_size_t rat_count;
@@ -6374,7 +6374,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         int err = lfsr_mdir_commit(lfs, &bshrub->o.mdir, LFSR_RATS(
                 LFSR_RAT_SHRUBCOMMIT(
                     LFSR_TAG_SHRUBCOMMIT, 0,
-                    &bshrub->shrub, bid, rats, rat_count)));
+                    bshrub, bid, rats, rat_count)));
         if (err) {
             return err;
         }
@@ -7417,22 +7417,23 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // in our rbyd
             } else if (rats[i].tag == LFSR_TAG_SHRUBCOMMIT) {
                 const lfsr_shrubcommit_t *shrubcommit = rats[i].cat;
-                // find the staging shrub
-                lfsr_shrub_t *shrub = shrubcommit->shrub;
-                lfsr_shrub_t *shrub_ = shrub + 1;
+                lfsr_bshrub_t *bshrub_ = shrubcommit->bshrub;
+                lfsr_srid_t rid_ = shrubcommit->rid;
+                const lfsr_rat_t *rats_ = shrubcommit->rats;
+                lfs_size_t rat_count_ = shrubcommit->rat_count;
 
                 // reset shrub if it doesn't live in our block, this happens
                 // when converting from a btree
-                if (!lfsr_shrub_isshrub(shrub)) {
-                    shrub_->blocks[0] = mdir->rbyd.blocks[0];
-                    shrub_->trunk = LFSR_RBYD_ISSHRUB | 0;
-                    shrub_->weight = 0;
+                if (!lfsr_bshrub_isbshrub(bshrub_)) {
+                    bshrub_->shrub_.blocks[0] = mdir->rbyd.blocks[0];
+                    bshrub_->shrub_.trunk = LFSR_RBYD_ISSHRUB | 0;
+                    bshrub_->shrub_.weight = 0;
                 }
 
                 // commit to shrub
-                int err = lfsr_shrub_commit(lfs, &mdir->rbyd,
-                        shrub_, shrubcommit->rid,
-                        shrubcommit->rats, shrubcommit->rat_count);
+                int err = lfsr_shrub_commit(lfs,
+                        &mdir->rbyd, &bshrub_->shrub_,
+                        rid_, rats_, rat_count_);
                 if (err) {
                     return err;
                 }
@@ -7442,9 +7443,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // TODO should we preserve mode for all of these?
             } else if (lfsr_tag_key(rats[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                // find the staging shrub
-                lfsr_shrub_t *shrub = (lfsr_shrub_t*)rats[i].cat;
-                lfsr_shrub_t *shrub_ = shrub + 1;
+                lfsr_bshrub_t *bshrub_ = (lfsr_bshrub_t*)rats[i].cat;
 
                 uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
                 int err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
@@ -7453,7 +7452,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             lfsr_tag_mode(rats[i].tag) | LFSR_TAG_BSHRUB,
                             rats[i].weight,
                             // note we use the staged trunk here
-                            LFSR_DATA_SHRUB(shrub_, shrub_buf)));
+                            LFSR_DATA_SHRUB(&bshrub_->shrub_, shrub_buf)));
                 if (err) {
                     return err;
                 }
@@ -12351,7 +12350,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         } else if (lfsr_bshrub_isbshrub(&file->b)) {
             rats[rat_count++] = LFSR_RAT_SHRUBTRUNK(
                     LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
-                    &file->b.shrub);
+                    &file->b);
         // btree?
         } else if (lfsr_bshrub_isbtree(&file->b)) {
             rats[rat_count++] = LFSR_RAT(
