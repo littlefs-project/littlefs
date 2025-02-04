@@ -189,7 +189,7 @@ code = '''
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bptr_t bptr;
-            int err = lfsr_bshrub_traverse(&lfs, &file.b, &bt,
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
                     &bid, &tag, &bptr);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
@@ -329,7 +329,7 @@ code = '''
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bptr_t bptr;
-            int err = lfsr_bshrub_traverse(&lfs, &file.b, &bt,
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
                     &bid, &tag, &bptr);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
@@ -587,7 +587,7 @@ code = '''
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bptr_t bptr;
-            int err = lfsr_bshrub_traverse(&lfs, &file.b, &bt,
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
                     &bid, &tag, &bptr);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
@@ -742,7 +742,7 @@ code = '''
             lfsr_bid_t bid;
             lfsr_tag_t tag;
             lfsr_bptr_t bptr;
-            int err = lfsr_bshrub_traverse(&lfs, &file.b, &bt,
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
                     &bid, &tag, &bptr);
             assert(!err || err == LFS_ERR_NOENT);
             if (err == LFS_ERR_NOENT) {
