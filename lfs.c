@@ -1663,8 +1663,10 @@ static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
 }
 
 // data slicing
-// TODO what to do about this inlining situation?
-__attribute__((always_inline))
+#define LFSR_DATA_SLICE(_data, _off, _size) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromslice(_data, _off, _size)}.d)
+
+LFS_FORCEINLINE
 static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
         lfs_ssize_t off, lfs_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
@@ -1690,17 +1692,19 @@ static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
     return data;
 }
 
-#define LFSR_DATA_SLICE(_data, _off, _size) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromslice(_data, _off, _size)}.d)
+#define LFSR_DATA_TRUNCATE(_data, _size) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromtruncate(_data, _size)}.d)
 
+LFS_FORCEINLINE
 static inline lfsr_data_t lfsr_data_fromtruncate(lfsr_data_t data,
         lfs_size_t size) {
     return LFSR_DATA_SLICE(data, -1, size);
 }
 
-#define LFSR_DATA_TRUNCATE(_data, _size) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromtruncate(_data, _size)}.d)
+#define LFSR_DATA_FRUNCATE(_data, _size) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromfruncate(_data, _size)}.d)
 
+LFS_FORCEINLINE
 static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
         lfs_size_t size) {
     return LFSR_DATA_SLICE(data,
@@ -1709,9 +1713,6 @@ static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
                 lfsr_data_size(data)),
             -1);
 }
-
-#define LFSR_DATA_FRUNCATE(_data, _size) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromfruncate(_data, _size)}.d)
 
 
 // macros for le32/leb128/lleb128 encoding, these are useful for
@@ -2023,6 +2024,7 @@ typedef struct lfsr_rat {
 #define LFSR_RAT(_tag, _weight, _data) \
     ((struct {lfsr_rat_t a;}){lfsr_rat(_tag, _weight, _data)}.a)
 
+LFS_FORCEINLINE
 static inline lfsr_rat_t lfsr_rat(
         lfsr_tag_t tag, lfsr_srid_t weight, lfsr_data_t data) {
     // only simple data works here

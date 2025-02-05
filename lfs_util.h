@@ -229,6 +229,16 @@ extern "C"
 #endif
 
 
+// Some function attributes, no way around these
+
+// Force a function to be inlined
+#if !defined(LFS_NO_BUILTINS) && defined(__GNUC__)
+#define LFS_FORCEINLINE __attribute__((always_inline))
+#else
+#define LFS_FORCEINLINE
+#endif
+
+
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more
 // expensive basic C implementation for debugging purposes
