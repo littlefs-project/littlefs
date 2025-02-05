@@ -6282,12 +6282,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         // figure out how much data this commit progs
         lfs_size_t commit_estimate = 0;
         for (lfs_size_t i = 0; i < rat_count; i++) {
-            // only include tag overhead if tag is not a grow/rm tag
-            if (!lfsr_tag_isgrow(rats[i].tag)
-                    && !lfsr_tag_isrm(rats[i].tag)) {
-                commit_estimate += lfs->rat_estimate;
-            }
-            commit_estimate += lfsr_rat_size(rats[i]);
+            commit_estimate += lfs->rat_estimate + lfsr_rat_size(rats[i]);
         }
 
         // does our estimate exceed our shrub_size? need to recalculate an
@@ -6302,8 +6297,8 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
             }
 
             // two cases where we evict:
-            // - overlow shrub_size/2 - don't penalize for commits here
-            // - overlow shrub_size - must include commits or we risk overflow
+            // - overflow shrub_size/2 - don't penalize for commits here
+            // - overflow shrub_size - must include commits or we risk overflow
             //
             // the 1/2 here prevents runaway performance with the shrub is
             // near full, but it's a heuristic, so including the commit would
