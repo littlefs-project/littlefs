@@ -11544,7 +11544,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t crystal_start = pos;
         lfs_off_t crystal_end = pos + size;
         lfs_off_t block_start;
-        lfsr_bptr_t bptr;
+        lfs_off_t block_end;
+        lfs_sblock_t block;
+        lfs_size_t off;
+        lfs_size_t eoff;
+        uint32_t cksum;
 
         // within our tree? find left crystal neighbor
         if (pos > 0
@@ -11556,6 +11560,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 && !aligned) {
             lfsr_bid_t bid;
             lfsr_bid_t weight;
+            lfsr_bptr_t bptr;
             int err = lfsr_file_lookupnext(lfs, file,
                     lfs_smax(pos - (lfs->cfg->crystal_thresh-1), 0),
                     &bid, &weight, &bptr);
@@ -11595,6 +11600,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
                     // try to use erased-state
                     block_start = bid-(weight-1);
+                    block_end = block_start + lfsr_data_size(bptr.data);
+                    block = bptr.data.u.disk.block;
+                    off = bptr.data.u.disk.off;
+                    eoff = lfsr_bptr_cksize(&bptr);
+                    cksum = lfsr_bptr_cksum(&bptr);
                     goto compact;
                 }
             }
@@ -11606,6 +11616,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 && file->b.shrub.weight > 0) {
             lfsr_bid_t bid;
             lfsr_bid_t weight;
+            lfsr_bptr_t bptr;
             int err = lfsr_file_lookupnext(lfs, file,
                     lfs_min(
                         crystal_start + (lfs->cfg->crystal_thresh-1),
@@ -11650,6 +11661,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 && !aligned) {
             lfsr_bid_t bid;
             lfsr_bid_t weight;
+            lfsr_bptr_t bptr;
             int err = lfsr_file_lookupnext(lfs, file,
                     lfs_min(
                         crystal_start-1,
@@ -11679,6 +11691,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     file->eoff = -1;
 
                     // try to use erased-state
+                    block_end = block_start + lfsr_data_size(bptr.data);
+                    block = bptr.data.u.disk.block;
+                    off = bptr.data.u.disk.off;
+                    eoff = lfsr_bptr_cksize(&bptr);
+                    cksum = lfsr_bptr_cksum(&bptr);
                     goto compact;
                 }
 
@@ -11696,45 +11713,45 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         //
         // note if we relocate, we rewrite the entire block from block_start
         // using what we can find in our tree
-        lfs_sblock_t block = lfs_alloc(lfs, true);
+        block = lfs_alloc(lfs, true);
         if (block < 0) {
             return block;
         }
 
-        lfsr_bptr_init(&bptr, LFSR_DATA_DISK(block, 0, 0), 0, 0);
+        block_end = block_start;
+        off = 0;
+        eoff = 0;
+        cksum = 0;
 
     compact:;
         // compact data into our block
         //
         // eagerly merge any right neighbors we see unless that would
         // put us over our block size
-        lfs_off_t pos_ = block_start + lfsr_data_size(bptr.data);
-        while (pos_ < lfs_min(
+        while (block_end < lfs_min(
                 block_start
-                    + (lfs->cfg->block_size - bptr.data.u.disk.off),
+                    + (lfs->cfg->block_size - off),
                 lfs_max(
                     pos + size,
                     file->b.shrub.weight))) {
             // keep track of the next highest priority data offset
             lfs_ssize_t d = lfs_min(
                     block_start
-                        + (lfs->cfg->block_size - bptr.data.u.disk.off),
+                        + (lfs->cfg->block_size - off),
                     lfs_max(
                         pos + size,
-                        file->b.shrub.weight)) - pos_;
+                        file->b.shrub.weight)) - block_end;
 
             // any data in our buffer?
-            if (pos_ < pos + size && size > 0) {
-                if (pos_ >= pos) {
+            if (block_end < pos + size && size > 0) {
+                if (block_end >= pos) {
                     lfs_ssize_t d_ = lfs_min(
                             d,
-                            size - (pos_ - pos));
-                    int err = lfsr_bd_prog(lfs, bptr.data.u.disk.block,
-                            lfsr_bptr_cksize(&bptr),
-                            &buffer[pos_ - pos], d_,
-                            LFS_IFDEF_CKDATACKSUMS(
-                                &bptr.data.u.disk.cksum,
-                                &bptr.cksum), true);
+                            size - (block_end - pos));
+                    int err = lfsr_bd_prog(lfs, block,
+                            eoff,
+                            &buffer[block_end - pos], d_,
+                            &cksum, true);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         // bad prog? try another block
@@ -11744,23 +11761,21 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         return err;
                     }
 
-                    pos_ += d_;
-                    LFS_IFDEF_CKDATACKSUMS(
-                            bptr.data.u.disk.cksize,
-                            bptr.cksize) += d_;
+                    block_end += d_;
+                    eoff += d_;
                     d -= d_;
                 }
 
                 // buffered data takes priority
-                d = lfs_min(d, pos - pos_);
+                d = lfs_min(d, pos - block_end);
             }
 
             // any data on disk?
-            if (pos_ < file->b.shrub.weight) {
+            if (block_end < file->b.shrub.weight) {
                 lfsr_bid_t bid_;
                 lfsr_bid_t weight_;
                 lfsr_bptr_t bptr_;
-                int err = lfsr_file_lookupnext(lfs, file, pos_,
+                int err = lfsr_file_lookupnext(lfs, file, block_end,
                         &bid_, &weight_, &bptr_);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -11783,7 +11798,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 if (bid_-(weight_-1) >= crystal_end
                         // is this data a pure hole? stop early to better
                         // leverage erased-state in sparse files
-                        && (pos_ >= bid_-(weight_-1)
+                        && (block_end >= bid_-(weight_-1)
                                 + lfsr_data_size(bptr_.data)
                             // does this data exceed our block_size?
                             // stop early to try to avoid messing up
@@ -11794,21 +11809,20 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     break;
                 }
 
-                if (pos_ < bid_-(weight_-1) + lfsr_data_size(bptr_.data)) {
+                if (block_end
+                        < bid_-(weight_-1) + lfsr_data_size(bptr_.data)) {
                     // note one important side-effect here is a strict
                     // data hint
                     lfs_ssize_t d_ = lfs_min(
                             d,
                             lfsr_data_size(bptr_.data)
-                                - (pos_ - (bid_-(weight_-1))));
-                    err = lfsr_bd_progdata(lfs, bptr.data.u.disk.block,
-                            lfsr_bptr_cksize(&bptr),
+                                - (block_end - (bid_-(weight_-1))));
+                    err = lfsr_bd_progdata(lfs, block,
+                            eoff,
                             LFSR_DATA_SLICE(bptr_.data,
-                                pos_ - (bid_-(weight_-1)),
+                                block_end - (bid_-(weight_-1)),
                                 d_),
-                            LFS_IFDEF_CKDATACKSUMS(
-                                &bptr.data.u.disk.cksum,
-                                &bptr.cksum), true);
+                            &cksum, true);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_RANGE);
                         // bad prog? try another block
@@ -11818,24 +11832,20 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         return err;
                     }
 
-                    pos_ += d_;
-                    LFS_IFDEF_CKDATACKSUMS(
-                            bptr.data.u.disk.cksize,
-                            bptr.cksize) += d_;
+                    block_end += d_;
+                    eoff += d_;
                     d -= d_;
                 }
 
                 // found a hole? just make sure next leaf takes priority
-                d = lfs_min(d, bid_+1 - pos_);
+                d = lfs_min(d, bid_+1 - block_end);
             }
 
             // found a hole? fill with zeros
-            int err = lfsr_bd_set(lfs,
-                    bptr.data.u.disk.block, lfsr_bptr_cksize(&bptr),
+            int err = lfsr_bd_set(lfs, block,
+                    eoff,
                     0, d,
-                    LFS_IFDEF_CKDATACKSUMS(
-                        &bptr.data.u.disk.cksum,
-                        &bptr.cksum), true);
+                    &cksum, true);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 // bad prog? try another block
@@ -11845,27 +11855,22 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 return err;
             }
 
-            pos_ += d;
-            LFS_IFDEF_CKDATACKSUMS(
-                    bptr.data.u.disk.cksize,
-                    bptr.cksize) += d;
+            block_end += d;
+            eoff += d;
         }
 
         // A bit of a hack here, we need to truncate our block to prog_size
         // alignment to avoid padding issues. Doing this retroactively to
         // the pcache greatly simplifies the above loop, though we may end
         // up reading more than is strictly necessary.
-        lfs_ssize_t d = lfsr_bptr_cksize(&bptr) % lfs->cfg->prog_size;
+        lfs_ssize_t d = eoff % lfs->cfg->prog_size;
         lfs->pcache.size -= d;
-        LFS_IFDEF_CKDATACKSUMS(
-                bptr.data.u.disk.cksize,
-                bptr.cksize) -= d;
+        block_end -= d;
+        eoff -= d;
 
         // finalize our write
         int err = lfsr_bd_flush(lfs,
-                LFS_IFDEF_CKDATACKSUMS(
-                    &bptr.data.u.disk.cksum,
-                    &bptr.cksum), true);
+                &cksum, true);
         if (err) {
             // bad prog? try another block
             if (err == LFS_ERR_CORRUPT) {
@@ -11875,16 +11880,15 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // prepare our block pointer
-        LFS_ASSERT(lfsr_bptr_cksize(&bptr) > 0);
-        LFS_ASSERT(lfsr_bptr_cksize(&bptr) <= lfs->cfg->block_size);
+        LFS_ASSERT(eoff > 0);
+        LFS_ASSERT(eoff <= lfs->cfg->block_size);
+        lfsr_bptr_t bptr;
         lfsr_bptr_init(&bptr,
                 LFSR_DATA_DISK(
-                    bptr.data.u.disk.block,
-                    bptr.data.u.disk.off,
-                    lfsr_bptr_cksize(&bptr) - bptr.data.u.disk.off),
-                lfsr_bptr_cksize(&bptr),
-                lfsr_bptr_cksum(&bptr));
-        lfs_off_t block_end = block_start + lfsr_data_size(bptr.data);
+                    block,
+                    off,
+                    eoff - off),
+                eoff, cksum);
 
         // and write it into our tree
         uint8_t bptr_buf[LFSR_BPTR_DSIZE];
@@ -11898,9 +11902,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // keep track of any remaining erased-state
-        if (lfsr_bptr_cksize(&bptr) < lfs->cfg->block_size) {
-            file->eblock = bptr.data.u.disk.block;
-            file->eoff = lfsr_bptr_cksize(&bptr);
+        if (eoff < lfs->cfg->block_size) {
+            file->eblock = block;
+            file->eoff = eoff;
         }
 
         // note compacting fragments -> blocks may not actually make any
