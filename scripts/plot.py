@@ -543,11 +543,15 @@ def fold(results, by=None, x=None, y=None, defines=[], labels=None):
                     key_ += (y_,)
                 datasets[key_] = dataset
 
-    # filter/order by labels
+    # order by labels
     if labels:
         datasets_ = co.OrderedDict()
         for _, key in labels:
             if key in datasets:
+                datasets_[key] = datasets[key]
+        # include unlabeled data to help with debugging
+        for key, dataset in datasets.items():
+            if key not in datasets_:
                 datasets_[key] = datasets[key]
         datasets = datasets_
 
@@ -1030,7 +1034,9 @@ def main(csv_paths, *,
             if all_labels:
                 all_labels_ = {key: l for l, key in all_labels}
             for i, name in enumerate(datasets_.keys()):
-                if all_labels and not all_labels_[name]:
+                if (all_labels
+                        and name in all_labels_
+                        and not all_labels_[name]):
                     continue
                 label = '%s%s' % (
                         '%s ' % datachars_[name]
@@ -1039,7 +1045,7 @@ def main(csv_paths, *,
                             if line_chars is not None
                             else '',
                         all_labels_[name]
-                            if all_labels
+                            if all_labels and name in all_labels_
                             else ','.join(name))
 
                 if label:
