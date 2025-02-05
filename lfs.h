@@ -595,14 +595,15 @@ struct lfs_file_config {
 //    lfs_block_t tail[2];
 //} lfs_mdir_t;
 
-// either an on-disk or in-device data pointer
+// either an on-disk or in-RAM data pointer
 //
-// note, it's enticing to make this fancier, but we benefit quite a lot
+// note, it's tempting to make this fancier, but we benefit quite a lot
 // from the compiler being able to aggresively optimize this struct
 //
 typedef struct lfsr_data {
-    // sign(size)=0 => in-RAM buffer
-    // sign(size)=1 => on-disk reference
+    // sign2(size)=0b00 => in-RAM buffer
+    // sign2(size)=0b10 => on-disk data
+    // sign2(size)=0b11 => on-disk data + cksum
     lfs_size_t size;
     union {
         const uint8_t *buffer;
@@ -611,8 +612,6 @@ typedef struct lfsr_data {
             lfs_size_t off;
             // optional context for validating data
             #ifdef LFS_CKDATACKSUMS
-            // cksize==0 => no checksum
-            // cksize!=0 => yes checksum
             lfs_size_t cksize;
             uint32_t cksum;
             #endif
@@ -620,8 +619,11 @@ typedef struct lfsr_data {
     } u;
 } lfsr_data_t;
 
-// a block pointer
+// a possible block pointer
 typedef struct lfsr_bptr {
+    // sign2(size)=0b00 => in-RAM buffer
+    // sign2(size)=0b10 => on-disk data
+    // sign2(size)=0b11 => block pointer
     lfsr_data_t data;
     #ifndef LFS_CKDATACKSUMS
     lfs_size_t cksize;

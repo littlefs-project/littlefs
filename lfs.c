@@ -732,8 +732,6 @@ static int lfsr_bd_ckprefix(lfs_t *lfs,
         lfs_size_t *hint_,
         uint32_t *cksum__) {
     (void)cksum;
-    // checked read with no cksum?
-    LFS_ASSERT(cksize != 0);
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(cksize <= lfs->cfg->block_size);
@@ -767,8 +765,6 @@ static int lfsr_bd_cksuffix(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfs_size_t cksize, uint32_t cksum,
         uint32_t cksum__) {
-    // checked read with no cksum?
-    LFS_ASSERT(cksize != 0);
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(cksize <= lfs->cfg->block_size);
@@ -810,8 +806,6 @@ static int lfsr_bd_readck(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         void *buffer, lfs_size_t size,
         lfs_size_t cksize, uint32_t cksum) {
-    // checked read with no cksum?
-    LFS_ASSERT(cksize != 0);
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(cksize <= lfs->cfg->block_size);
@@ -862,8 +856,6 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size,
         lfs_size_t cksize, uint32_t cksum) {
-    // checked read with no cksum?
-    LFS_ASSERT(cksize != 0);
     // must be in-bounds
     LFS_ASSERT(block < lfs->block_count);
     LFS_ASSERT(cksize <= lfs->cfg->block_size);
@@ -930,8 +922,6 @@ static int lfsr_bd_cpyck(lfs_t *lfs,
         lfs_size_t size,
         lfs_size_t src_cksize, uint32_t src_cksum,
         uint32_t *cksum, bool align) {
-    // checked read with no cksum?
-    LFS_ASSERT(src_cksize != 0);
     // must be in-bounds
     LFS_ASSERT(dst_block < lfs->block_count);
     LFS_ASSERT(dst_off+size <= lfs->cfg->block_size);
@@ -1637,6 +1627,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 /// lfsr_data_t stuff ///
 
 #define LFSR_DATA_ONDISK 0x80000000
+#define LFSR_DATA_ISBPTR 0x40000000
 
 #define LFSR_DATA_NULL() \
     ((lfsr_data_t){ \
@@ -1654,22 +1645,6 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.disk.block=_block, \
         .u.disk.off=_off})
 
-#ifdef LFS_CKDATACKSUMS
-#define LFSR_DATA_DISKCKSUM(_block, _off, _size, _cksize, _cksum) \
-    ((lfsr_data_t){ \
-        .size=LFSR_DATA_ONDISK | (_size), \
-        .u.disk.block=_block, \
-        .u.disk.off=_off, \
-        .u.disk.cksize=_cksize, \
-        .u.disk.cksum=_cksum})
-#else
-#define LFSR_DATA_DISKCKSUM(_block, _off, _size, _cksize, _cksum) \
-    ((lfsr_data_t){ \
-        .size=LFSR_DATA_ONDISK | (_size), \
-        .u.disk.block=_block, \
-        .u.disk.off=_off})
-#endif
-
 // data helpers
 static inline bool lfsr_data_ondisk(lfsr_data_t data) {
     return data.size & LFSR_DATA_ONDISK;
@@ -1679,11 +1654,17 @@ static inline bool lfsr_data_isbuf(lfsr_data_t data) {
     return !(data.size & LFSR_DATA_ONDISK);
 }
 
+static inline bool lfsr_data_isbptr(lfsr_data_t data) {
+    return data.size & LFSR_DATA_ISBPTR;
+}
+
 static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
-    return data.size & ~LFSR_DATA_ONDISK;
+    return data.size & ~(LFSR_DATA_ONDISK | LFSR_DATA_ISBPTR);
 }
 
 // data slicing
+// TODO what to do about this inlining situation?
+__attribute__((always_inline))
 static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
         lfs_ssize_t off, lfs_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
@@ -1698,12 +1679,12 @@ static inline lfsr_data_t lfsr_data_fromslice(lfsr_data_t data,
     // on-disk?
     if (lfsr_data_ondisk(data)) {
         data.u.disk.off += off_;
-        data.size = LFSR_DATA_ONDISK | size_;
+        data.size -= lfsr_data_size(data) - size_;
 
     // buffer?
     } else {
         data.u.buffer += off_;
-        data.size = size_;
+        data.size -= lfsr_data_size(data) - size_;
     }
 
     return data;
@@ -1804,7 +1785,7 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
         // validating data cksums?
         if (LFS_IFDEF_CKDATACKSUMS(
                 lfsr_m_isckdatacksums(lfs->flags)
-                    && data->u.disk.cksize != 0,
+                    && lfsr_data_isbptr(*data),
                 false)) {
             #ifdef LFS_CKDATACKSUMS
             int err = lfsr_bd_readck(lfs,
@@ -1911,7 +1892,7 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
         // validating data cksums?
         if (LFS_IFDEF_CKDATACKSUMS(
                 lfsr_m_isckdatacksums(lfs->flags)
-                    && data.u.disk.cksize != 0,
+                    && lfsr_data_isbptr(data),
                 false)) {
             #ifdef LFS_CKDATACKSUMS
             int cmp = lfsr_bd_cmpck(lfs,
@@ -1983,7 +1964,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
         // validating data cksums?
         if (LFS_IFDEF_CKDATACKSUMS(
                 lfsr_m_isckdatacksums(lfs->flags)
-                    && data.u.disk.cksize != 0,
+                    && lfsr_data_isbptr(data),
                 false)) {
             #ifdef LFS_CKDATACKSUMS
             int err = lfsr_bd_cpyck(lfs, block, off,
@@ -2366,23 +2347,25 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 
 // block pointer things
 
-// bptr encoding:
-// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
-// | size          |      block:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
-// | block             |  cksize: 1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
-// | off           |      total:            <=21 bytes
-// +---+- -+- -+- -+
-// | cksize        |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFSR_BPTR_DSIZE (4+5+4+4+4)
+static void lfsr_bptr_init(lfsr_bptr_t *bptr,
+        lfsr_data_t data, lfs_size_t cksize, uint32_t cksum) {
+    // make sure the bptr flag is set
+    LFS_ASSERT(lfsr_data_ondisk(data));
+    bptr->data.size = data.size | LFSR_DATA_ISBPTR;
+    bptr->data.u.disk.block = data.u.disk.block;
+    bptr->data.u.disk.off = data.u.disk.off;
+    #ifdef LFS_CKDATACKSUMS
+    bptr->data.u.disk.cksize = cksize;
+    bptr->data.u.disk.cksum = cksum;
+    #else
+    bptr->cksize = cksize;
+    bptr->cksum = cksum;
+    #endif
+}
 
-#define LFSR_DATA_BPTR(_bptr, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombptr(_bptr, _buffer)}.d)
+static inline bool lfsr_bptr_isbptr(const lfsr_bptr_t *bptr) {
+    return lfsr_data_isbptr(bptr->data);
+}
 
 // checked reads adds ck info to lfsr_data_t that we don't want to
 // unnecessarily duplicate, this makes accessing ck info annoyingly
@@ -2402,6 +2385,26 @@ static inline uint32_t lfsr_bptr_cksum(const lfsr_bptr_t *bptr) {
     return bptr->cksum;
     #endif
 }
+
+// bptr on-disk encoding
+
+// bptr encoding:
+// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
+// | size          |      block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
+// | block             |  cksize: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
+// | off           |      total:            <=21 bytes
+// +---+- -+- -+- -+
+// | cksize        |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFSR_BPTR_DSIZE (4+5+4+4+4)
+
+#define LFSR_DATA_BPTR(_bptr, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_frombptr(_bptr, _buffer)}.d)
 
 static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]) {
@@ -2482,9 +2485,8 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
         return err;
     }
 
-    // all bptrs have this flag set, this is used to differentiate
-    // bptrs from btrees in files
-    bptr->data.size |= LFSR_DATA_ONDISK;
+    // mark as on-disk + cksum
+    bptr->data.size |= LFSR_DATA_ONDISK | LFSR_DATA_ISBPTR;
     return 0;
 }
 
@@ -11070,8 +11072,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
 static int lfsr_file_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t bid,
-        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
-        lfsr_bptr_t *bptr_) {
+        lfsr_bid_t *bid_, lfsr_bid_t *weight_, lfsr_bptr_t *bptr_) {
     lfsr_tag_t tag;
     lfsr_data_t data;
     int err = lfsr_bshrub_lookupnext(lfs, &file->b, bid,
@@ -11083,9 +11084,6 @@ static int lfsr_file_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
             || tag == LFSR_TAG_BLOCK);
 
     // decode bptrs
-    if (tag_) {
-        *tag_ = tag;
-    }
     if (bptr_) {
         if (tag == LFSR_TAG_DATA) {
             bptr_->data = data;
@@ -11104,11 +11102,10 @@ static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
     lfs_off_t pos_ = pos;
     // read one btree entry
     lfsr_bid_t bid;
-    lfsr_tag_t tag;
     lfsr_bid_t weight;
     lfsr_bptr_t bptr;
     int err = lfsr_file_lookupnext(lfs, file, pos_,
-            &bid, &tag, &weight, &bptr);
+            &bid, &weight, &bptr);
     if (err) {
         return err;
     }
@@ -11116,7 +11113,7 @@ static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
     #ifdef LFS_CKFETCHES
     // checking fetches?
     if (lfsr_m_isckfetches(lfs->flags)
-            && tag == LFSR_TAG_BLOCK) {
+            && lfsr_bptr_isbptr(&bptr)) {
         err = lfsr_bptr_ck(lfs, &bptr);
         if (err) {
             return err;
@@ -11321,11 +11318,10 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     // try to carve any existing data
     lfsr_rat_t right_rat_ = {.tag=0};
     while (pos < file->b.shrub.weight) {
-        lfsr_tag_t tag_;
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
         int err = lfsr_file_lookupnext(lfs, file, pos,
-                &bid, &tag_, &weight_, &bptr_);
+                &bid, &weight_, &bptr_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -11334,7 +11330,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         #ifdef LFS_CKFETCHES
         // checking fetches?
         if (lfsr_m_isckfetches(lfs->flags)
-                && tag_ == LFSR_TAG_BLOCK) {
+                && lfsr_bptr_isbptr(&bptr_)) {
             err = lfsr_bptr_ck(lfs, &bptr_);
             if (err) {
                 return err;
@@ -11352,7 +11348,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // left sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
-        while (tag_ == LFSR_TAG_BLOCK
+        while (lfsr_bptr_isbptr(&bptr_)
                 && lfsr_data_size(left_slice_) > lfs->cfg->fragment_size
                 && lfsr_data_size(left_slice_) < lfs->cfg->crystal_thresh) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
@@ -11381,7 +11377,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // right sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
-        while (tag_ == LFSR_TAG_BLOCK
+        while (lfsr_bptr_isbptr(&bptr_)
                 && lfsr_data_size(right_slice_) > lfs->cfg->fragment_size
                 && lfsr_data_size(right_slice_) < lfs->cfg->crystal_thresh) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
@@ -11417,7 +11413,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                         LFSR_TAG_GROW, -(bid+1 - pos), LFSR_DATA_NULL());
 
             // carve fragment?
-            } else if (tag_ == LFSR_TAG_DATA) {
+            } else if (!lfsr_bptr_isbptr(&bptr_)) {
                 left.data = left_slice_;
                 rats[rat_count++] = LFSR_RAT_CAT_(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
@@ -11425,22 +11421,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                         &left.data, 1);
 
             // carve bptr?
-            } else if (tag_ == LFSR_TAG_BLOCK) {
+            } else {
+                bptr_.data = left_slice_;
                 rats[rat_count++] = LFSR_RAT(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
                             -(bid+1 - pos),
-                        LFSR_DATA_BPTR(
-                            LFS_IFDEF_CKDATACKSUMS(
-                                (&(lfsr_bptr_t){
-                                    .data=left_slice_}),
-                                (&(lfsr_bptr_t){
-                                    .data=left_slice_,
-                                    .cksize=bptr_.cksize,
-                                    .cksum=bptr_.cksum})),
-                            left.buf));
-
-            } else {
-                LFS_UNREACHABLE();
+                        LFSR_DATA_BPTR(&bptr_, left.buf));
             }
 
         // completely overwriting this entry?
@@ -11474,30 +11460,20 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 rat.weight += bid+1 - (pos+weight);
 
             // carve fragment?
-            } else if (tag_ == LFSR_TAG_DATA) {
+            } else if (!lfsr_bptr_isbptr(&bptr_)) {
                 right.data = right_slice_;
                 right_rat_ = LFSR_RAT_CAT_(
-                        tag_,
+                        LFSR_TAG_DATA,
                         bid+1 - (pos+weight),
                         &right.data, 1);
 
             // carve bptr?
-            } else if (tag_ == LFSR_TAG_BLOCK) {
-                right_rat_ = LFSR_RAT(
-                        tag_,
-                        bid+1 - (pos+weight),
-                        LFSR_DATA_BPTR(
-                            LFS_IFDEF_CKDATACKSUMS(
-                                (&(lfsr_bptr_t){
-                                    .data=right_slice_}),
-                                (&(lfsr_bptr_t){
-                                    .data=right_slice_,
-                                    .cksize=bptr_.cksize,
-                                    .cksum=bptr_.cksum})),
-                            right.buf));
-
             } else {
-                LFS_UNREACHABLE();
+                bptr_.data = right_slice_;
+                right_rat_ = LFSR_RAT(
+                        LFSR_TAG_BLOCK,
+                        bid+1 - (pos+weight),
+                        LFSR_DATA_BPTR(&bptr_, right.buf));
             }
         }
 
@@ -11579,11 +11555,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 // don't bother to lookup left after the first block
                 && !aligned) {
             lfsr_bid_t bid;
-            lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_file_lookupnext(lfs, file,
                     lfs_smax(pos - (lfs->cfg->crystal_thresh-1), 0),
-                    &bid, &tag, &weight, &bptr);
+                    &bid, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -11592,7 +11567,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // if left crystal neighbor is a fragment and there is no
             // obvious hole between our own crystal and our neighbor,
             // include as a part of our crystal
-            if (tag == LFSR_TAG_DATA
+            if (!lfsr_bptr_isbptr(&bptr)
                     // hole? holes can be quite large and shouldn't trigger
                     // crystallization
                     && (lfs_soff_t)(bid-(weight-1)+lfsr_data_size(bptr.data))
@@ -11604,7 +11579,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 crystal_start = lfs_min(bid+1, pos);
 
                 // wait, found erased-state?
-                if (tag == LFSR_TAG_BLOCK
+                if (lfsr_bptr_isbptr(&bptr)
                         && bptr.data.u.disk.block == file->eblock
                         && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
                             == file->eoff
@@ -11630,13 +11605,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         if (crystal_end - crystal_start < lfs->cfg->crystal_thresh
                 && file->b.shrub.weight > 0) {
             lfsr_bid_t bid;
-            lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_file_lookupnext(lfs, file,
                     lfs_min(
                         crystal_start + (lfs->cfg->crystal_thresh-1),
                         file->b.shrub.weight-1),
-                    &bid, &tag, &weight, &bptr);
+                    &bid, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -11644,7 +11618,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
             // if right crystal neighbor is a fragment, include as a part
             // of our crystal
-            if (tag == LFSR_TAG_DATA) {
+            if (!lfsr_bptr_isbptr(&bptr)) {
                 crystal_end = lfs_max(
                         bid-(weight-1)+lfsr_data_size(bptr.data),
                         pos + size);
@@ -11675,13 +11649,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 // don't bother to lookup left after the first block
                 && !aligned) {
             lfsr_bid_t bid;
-            lfsr_tag_t tag;
             lfsr_bid_t weight;
             int err = lfsr_file_lookupnext(lfs, file,
                     lfs_min(
                         crystal_start-1,
                         file->b.shrub.weight-1),
-                    &bid, &tag, &weight, &bptr);
+                    &bid, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -11694,7 +11667,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 block_start = bid-(weight-1);
 
                 // wait, found erased-state?
-                if (tag == LFSR_TAG_BLOCK
+                if (lfsr_bptr_isbptr(&bptr)
                         && bptr.data.u.disk.block == file->eblock
                         && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
                             == file->eoff
@@ -11728,13 +11701,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             return block;
         }
 
-        bptr.data = LFSR_DATA_DISKCKSUM(block, 0, 0, 0, 0);
-        LFS_IFDEF_CKDATACKSUMS(
-                bptr.data.u.disk.cksize,
-                bptr.cksize) = 0;
-        LFS_IFDEF_CKDATACKSUMS(
-                bptr.data.u.disk.cksum,
-                bptr.cksum) = 0;
+        lfsr_bptr_init(&bptr, LFSR_DATA_DISK(block, 0, 0), 0, 0);
 
     compact:;
         // compact data into our block
@@ -11791,11 +11758,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // any data on disk?
             if (pos_ < file->b.shrub.weight) {
                 lfsr_bid_t bid_;
-                lfsr_tag_t tag_;
                 lfsr_bid_t weight_;
                 lfsr_bptr_t bptr_;
                 int err = lfsr_file_lookupnext(lfs, file, pos_,
-                        &bid_, &tag_, &weight_, &bptr_);
+                        &bid_, &weight_, &bptr_);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
@@ -11804,7 +11770,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 #ifdef LFS_CKFETCHES
                 // checking fetches?
                 if (lfsr_m_isckfetches(lfs->flags)
-                        && tag_ == LFSR_TAG_BLOCK) {
+                        && lfsr_bptr_isbptr(&bptr_)) {
                     err = lfsr_bptr_ck(lfs, &bptr_);
                     if (err) {
                         return err;
@@ -11911,10 +11877,11 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         // prepare our block pointer
         LFS_ASSERT(lfsr_bptr_cksize(&bptr) > 0);
         LFS_ASSERT(lfsr_bptr_cksize(&bptr) <= lfs->cfg->block_size);
-        bptr.data = LFSR_DATA_DISKCKSUM(
-                bptr.data.u.disk.block,
-                bptr.data.u.disk.off,
-                lfsr_bptr_cksize(&bptr) - bptr.data.u.disk.off,
+        lfsr_bptr_init(&bptr,
+                LFSR_DATA_DISK(
+                    bptr.data.u.disk.block,
+                    bptr.data.u.disk.off,
+                    lfsr_bptr_cksize(&bptr) - bptr.data.u.disk.off),
                 lfsr_bptr_cksize(&bptr),
                 lfsr_bptr_cksum(&bptr));
         lfs_off_t block_end = block_start + lfsr_data_size(bptr.data);
@@ -11963,12 +11930,11 @@ fragment:;
                 // don't bother to lookup left after first fragment
                 && !aligned) {
             lfsr_bid_t bid;
-            lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
             int err = lfsr_file_lookupnext(lfs, file,
                     fragment_start-1,
-                    &bid, &tag, &weight, &bptr);
+                    &bid, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -11977,7 +11943,7 @@ fragment:;
             #ifdef LFS_CKFETCHES
             // checking fetches?
             if (lfsr_m_isckfetches(lfs->flags)
-                    && tag == LFSR_TAG_BLOCK) {
+                    && lfsr_bptr_isbptr(&bptr)) {
                 err = lfsr_bptr_ck(lfs, &bptr);
                 if (err) {
                     return err;
@@ -12011,12 +11977,11 @@ fragment:;
                 // don't bother to lookup right if fragment is already full
                 && fragment_end - fragment_start < lfs->cfg->fragment_size) {
             lfsr_bid_t bid;
-            lfsr_tag_t tag;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
             int err = lfsr_file_lookupnext(lfs, file,
                     fragment_end,
-                    &bid, &tag, &weight, &bptr);
+                    &bid, &weight, &bptr);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -12025,7 +11990,7 @@ fragment:;
             #ifdef LFS_CKFETCHES
             // checking fetches?
             if (lfsr_m_isckfetches(lfs->flags)
-                    && tag == LFSR_TAG_BLOCK) {
+                    && lfsr_bptr_isbptr(&bptr)) {
                 err = lfsr_bptr_ck(lfs, &bptr);
                 if (err) {
                     return err;
