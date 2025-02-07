@@ -103,7 +103,7 @@ code = '''
 defines.N = [0, 1, 2, 3, 4]
 defines.SIZE = 'N*FRAGMENT_SIZE'
 # force a btree node
-defines.SHRUB_SIZE = 0
+defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.SYNC = [false, true]
 in = 'lfs.c'
@@ -487,7 +487,7 @@ defines.N = [0, 1, 2, 3, 4]
 defines.SIZE = 'N*FRAGMENT_SIZE'
 defines.CHUNK = [32, 8, 1]
 # force a btree node
-defines.SHRUB_SIZE = 0
+defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]

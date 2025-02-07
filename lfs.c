@@ -6276,7 +6276,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         //
         // Instead, we keep track of an estimate of how many bytes have
         // been progged to the shrub since the last estimate, and recalculate
-        // the estimate when this overflows our shrub_size. This mirrors how
+        // the estimate when this overflows our inline_size. This mirrors how
         // block_size and rbyds interact, and amortizes the estimate cost.
 
         // figure out how much data this commit progs
@@ -6285,27 +6285,27 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
             commit_estimate += lfs->rat_estimate + lfsr_rat_size(rats[i]);
         }
 
-        // does our estimate exceed our shrub_size? need to recalculate an
+        // does our estimate exceed our inline_size? need to recalculate an
         // accurate estimate
         lfs_ssize_t estimate = (alloc) ? (lfs_size_t)-1 : bshrub->shrub.eoff;
         // this double condition avoids overflow issues
-        if ((lfs_size_t)estimate > lfs->cfg->shrub_size
-                || estimate + commit_estimate > lfs->cfg->shrub_size) {
+        if ((lfs_size_t)estimate > lfs->cfg->inline_size
+                || estimate + commit_estimate > lfs->cfg->inline_size) {
             estimate = lfsr_bshrub_estimate(lfs, bshrub);
             if (estimate < 0) {
                 return estimate;
             }
 
             // two cases where we evict:
-            // - overflow shrub_size/2 - don't penalize for commits here
-            // - overflow shrub_size - must include commits or we risk overflow
+            // - overflow inline_size/2 - don't penalize for commits here
+            // - overflow inline_size - must include commits or risk overflow
             //
             // the 1/2 here prevents runaway performance with the shrub is
             // near full, but it's a heuristic, so including the commit would
             // just be mean
             //
-            if ((lfs_size_t)estimate > lfs->cfg->shrub_size/2
-                    || estimate + commit_estimate > lfs->cfg->shrub_size) {
+            if ((lfs_size_t)estimate > lfs->cfg->inline_size/2
+                    || estimate + commit_estimate > lfs->cfg->inline_size) {
                 goto relocate;
             }
         }
@@ -12823,8 +12823,8 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT(lfs->cfg->gc_compact_thresh == (lfs_size_t)-1
             || lfs->cfg->gc_compact_thresh <= lfs->cfg->block_size);
 
-    // shrub_size must be <= block_size/4
-    LFS_ASSERT(lfs->cfg->shrub_size <= lfs->cfg->block_size/4);
+    // inline_size must be <= block_size/4
+    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
     // fragment_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
 

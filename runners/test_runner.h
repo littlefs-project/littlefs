@@ -108,7 +108,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(GC_FLAGS,           0                                       ) \
     TEST_DEFINE(GC_STEPS,           0                                       ) \
     TEST_DEFINE(GC_COMPACT_THRESH,  0                                       ) \
-    TEST_DEFINE(SHRUB_SIZE,         BLOCK_SIZE/4                            ) \
+    TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
     TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
@@ -137,7 +137,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .lookahead_size     = LOOKAHEAD_SIZE,       \
     TEST_GC_CFG                                 \
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \
-    .shrub_size         = SHRUB_SIZE,           \
+    .inline_size        = INLINE_SIZE,          \
     .fragment_size      = FRAGMENT_SIZE,        \
     .crystal_thresh     = CRYSTAL_THRESH
 

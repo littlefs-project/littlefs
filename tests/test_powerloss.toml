@@ -128,7 +128,7 @@ defines.POWERLOSS_BEHAVIOR = [
 ]
 defines.MKCONSISTENT = [false, true]
 # inlining has a tendency to hide sync issues, so try without
-defines.SHRUB_SIZE = ['BLOCK_SIZE/4', '0']
+defines.INLINE_SIZE = ['BLOCK_SIZE/4', '0']
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -228,7 +228,7 @@ defines.POWERLOSS_BEHAVIOR = [
 ]
 defines.MKCONSISTENT = [false, true]
 # inlining has a tendency to hide sync issues, so try without
-defines.SHRUB_SIZE = ['BLOCK_SIZE/4', '0']
+defines.INLINE_SIZE = ['BLOCK_SIZE/4', '0']
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
 defines.SIZE = [
@@ -458,7 +458,7 @@ defines.POWERLOSS_BEHAVIOR = [
 ]
 defines.MKCONSISTENT = [false, true]
 # inlining has a tendency to hide sync issues, so try without
-defines.SHRUB_SIZE = ['BLOCK_SIZE/4', '0']
+defines.INLINE_SIZE = ['BLOCK_SIZE/4', '0']
 # note dirs x files grows O(n^2)
 defines.N = [1, 2, 4, 8]
 defines.M = 'N'

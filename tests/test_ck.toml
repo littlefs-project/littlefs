@@ -1657,7 +1657,7 @@ code = '''
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
 # force the file to create a btree
-defines.SHRUB_SIZE = 0
+defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'
@@ -1956,7 +1956,7 @@ code = '''
 [cases.test_ck_ckfetches_btree]
 defines.BADBIT = -1
 # force the file to create a btree
-defines.SHRUB_SIZE = 0
+defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'
@@ -2213,7 +2213,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_READFLIP',
 ]
 # force the file to create a btree
-defines.SHRUB_SIZE = 0
+defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'

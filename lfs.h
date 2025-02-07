@@ -438,7 +438,7 @@ struct lfs_config {
     // blocksize/4.
     //
     // 0 disables shrubs.
-    lfs_size_t shrub_size;
+    lfs_size_t inline_size;
 
     // Maximum size of a non-block B-tree leaf in bytes. Smaller values may
     // make small random-writes cheaper, but increase metadata overhead. Must
