@@ -4565,43 +4565,43 @@ code = '''
     path = "coffee/drip";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
 
@@ -4745,43 +4745,43 @@ code = '''
     path = "drip";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
 
@@ -5035,43 +5035,43 @@ code = '''
     path = "coffee/drip";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
 
@@ -5271,43 +5271,43 @@ code = '''
     path = "coffee/drip";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
 
@@ -5507,43 +5507,43 @@ code = '''
     path = "coffee/drip";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_NAME + 0x13, +1,
                 did, path, lfsr_path_namelen(path)))) => 0;
 

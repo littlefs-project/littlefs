@@ -1152,7 +1152,7 @@ enum lfsr_tag {
 
     // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
-    LFSR_TAG_RATS           = 0x0800,
+    LFSR_TAG_RATTRS         = 0x0800,
     LFSR_TAG_SHRUBCOMMIT    = 0x0801,
     LFSR_TAG_SHRUBTRUNK     = 0x0802,
     LFSR_TAG_MOVE           = 0x0803,
@@ -1716,7 +1716,7 @@ static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
 
 
 // macros for le32/leb128/lleb128 encoding, these are useful for
-// building rats
+// building rattrs
 
 #define LFSR_LE32_DSIZE 4
 
@@ -2004,7 +2004,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 
 // operations on attribute lists
 
-typedef struct lfsr_rat {
+typedef struct lfsr_rattr {
     lfsr_tag_t tag;
     int16_t count;
     lfsr_srid_t weight;
@@ -2012,83 +2012,83 @@ typedef struct lfsr_rat {
     // sign(count)=1 => multiple concatenated datas
     // special tags  => other things
     const void *cat;
-} lfsr_rat_t;
+} lfsr_rattr_t;
 
-#define LFSR_RAT_(_tag, _weight, _cat, _count) \
-    ((lfsr_rat_t){ \
+#define LFSR_RATTR_(_tag, _weight, _cat, _count) \
+    ((lfsr_rattr_t){ \
         .tag=_tag, \
         .count=(uint16_t){_count}, \
         .weight=_weight, \
         .cat=_cat})
 
-#define LFSR_RAT(_tag, _weight, _data) \
-    ((struct {lfsr_rat_t a;}){lfsr_rat(_tag, _weight, _data)}.a)
+#define LFSR_RATTR(_tag, _weight, _data) \
+    ((struct {lfsr_rattr_t a;}){lfsr_rattr(_tag, _weight, _data)}.a)
 
 LFS_FORCEINLINE
-static inline lfsr_rat_t lfsr_rat(
+static inline lfsr_rattr_t lfsr_rattr(
         lfsr_tag_t tag, lfsr_srid_t weight, lfsr_data_t data) {
     // only simple data works here
     LFS_ASSERT(lfsr_data_isbuf(data));
     LFS_ASSERT(lfsr_data_size(data) <= 0x7fff);
-    return (lfsr_rat_t){
+    return (lfsr_rattr_t){
         .tag=tag,
         .count=lfsr_data_size(data),
         .weight=weight,
         .cat=data.u.buffer};
 }
 
-#define LFSR_RAT_CAT_(_tag, _weight, _datas, _data_count) \
-    ((lfsr_rat_t){ \
+#define LFSR_RATTR_CAT_(_tag, _weight, _datas, _data_count) \
+    ((lfsr_rattr_t){ \
         .tag=_tag, \
         .count=-(uint16_t){_data_count}, \
         .weight=_weight, \
         .cat=_datas})
 
-#define LFSR_RAT_CAT(_tag, _weight, ...) \
-    LFSR_RAT_CAT_( \
+#define LFSR_RATTR_CAT(_tag, _weight, ...) \
+    LFSR_RATTR_CAT_( \
         _tag, \
         _weight, \
         ((const lfsr_data_t[]){__VA_ARGS__}), \
         sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
 
-#define LFSR_RAT_NOOP() \
-    LFSR_RAT_(LFSR_TAG_NULL, 0, NULL, 0)
+#define LFSR_RATTR_NOOP() \
+    LFSR_RATTR_(LFSR_TAG_NULL, 0, NULL, 0)
 
 // create an attribute list
-#define LFSR_RATS(...) \
-    (const lfsr_rat_t[]){__VA_ARGS__}, \
-    sizeof((const lfsr_rat_t[]){__VA_ARGS__}) / sizeof(lfsr_rat_t)
+#define LFSR_RATTRS(...) \
+    (const lfsr_rattr_t[]){__VA_ARGS__}, \
+    sizeof((const lfsr_rattr_t[]){__VA_ARGS__}) / sizeof(lfsr_rattr_t)
 
-// rat helpers
-static inline bool lfsr_rat_isnoop(lfsr_rat_t rat) {
-    // noop rats must have zero weight
-    LFS_ASSERT(rat.tag || rat.weight == 0);
-    return !rat.tag;
+// rattr helpers
+static inline bool lfsr_rattr_isnoop(lfsr_rattr_t rattr) {
+    // noop rattrs must have zero weight
+    LFS_ASSERT(rattr.tag || rattr.weight == 0);
+    return !rattr.tag;
 }
 
-static inline bool lfsr_rat_isinsert(lfsr_rat_t rat) {
-    return !lfsr_tag_isgrow(rat.tag) && rat.weight > 0;
+static inline bool lfsr_rattr_isinsert(lfsr_rattr_t rattr) {
+    return !lfsr_tag_isgrow(rattr.tag) && rattr.weight > 0;
 }
 
-static inline lfsr_srid_t lfsr_rat_nextrid(lfsr_rat_t rat,
+static inline lfsr_srid_t lfsr_rattr_nextrid(lfsr_rattr_t rattr,
         lfsr_srid_t rid) {
-    if (lfsr_rat_isinsert(rat)) {
-        return rid + rat.weight-1;
+    if (lfsr_rattr_isinsert(rattr)) {
+        return rid + rattr.weight-1;
     } else {
-        return rid + rat.weight;
+        return rid + rattr.weight;
     }
 }
 
-static inline lfs_size_t lfsr_rat_size(lfsr_rat_t rat) {
+static inline lfs_size_t lfsr_rattr_size(lfsr_rattr_t rattr) {
     // note this does not include the tag size
 
     // this gets a bit complicated for concatenated data
-    if (rat.count >= 0) {
-        return rat.count;
+    if (rattr.count >= 0) {
+        return rattr.count;
 
     } else {
-        const lfsr_data_t *datas = rat.cat;
-        lfs_size_t data_count = -rat.count;
+        const lfsr_data_t *datas = rattr.cat;
+        lfs_size_t data_count = -rattr.count;
         lfs_size_t size = 0;
         for (lfs_size_t i = 0; i < data_count; i++) {
             size += lfsr_data_size(datas[i]);
@@ -2097,51 +2097,51 @@ static inline lfs_size_t lfsr_rat_size(lfsr_rat_t rat) {
     }
 }
 
-// special rats - here be hacks
+// special rattrs - here be hacks
 
 // helper macro for did+name pairs
-#define LFSR_RAT_NAME(_tag, _weight, _did, _name, _name_len) \
-    LFSR_RAT_CAT( \
+#define LFSR_RATTR_NAME(_tag, _weight, _did, _name, _name_len) \
+    LFSR_RATTR_CAT( \
         _tag, \
         _weight, \
         LFSR_DATA_LEB128(_did, (uint8_t[LFSR_LEB128_DSIZE]){0}), \
         LFSR_DATA_BUF(_name, _name_len))
 
-// hacky rats - these end up handled as special cases in high-level
+// hacky rattrs - these end up handled as special cases in high-level
 // commit layers
 
-// chain another rat-list, only allowed as last rat
-#define LFSR_RAT_RATS(_tag, _weight, _rats, _rat_count) \
-    LFSR_RAT_(_tag, _weight, (const lfsr_rat_t*){_rats}, _rat_count)
+// chain another rattr-list, only allowed as last rattr
+#define LFSR_RATTR_RATTRS(_tag, _weight, _rattrs, _rattr_count) \
+    LFSR_RATTR_(_tag, _weight, (const lfsr_rattr_t*){_rattrs}, _rattr_count)
 
 // chain a list of user attributes, these require a bit of last-minute
 // reencoding during commits
-#define LFSR_RAT_ATTRS(_tag, _weight, _attrs, _attr_count) \
-    LFSR_RAT_(_tag, _weight, (const struct lfs_attr*){_attrs}, _attr_count)
+#define LFSR_RATTR_ATTRS(_tag, _weight, _attrs, _attr_count) \
+    LFSR_RATTR_(_tag, _weight, (const struct lfs_attr*){_attrs}, _attr_count)
 
-// a move of all rats from an mdir entry
-#define LFSR_RAT_MOVE(_tag, _weight, _mdir) \
-    LFSR_RAT_(_tag, _weight, (const lfsr_mdir_t*){_mdir}, 0)
+// a move of all rattrs from an mdir entry
+#define LFSR_RATTR_MOVE(_tag, _weight, _mdir) \
+    LFSR_RATTR_(_tag, _weight, (const lfsr_mdir_t*){_mdir}, 0)
 
 // a grm update, note this is mutable! we may update the grm during
 // mdir commits
-#define LFSR_RAT_GRM(_tag, _weight, _grm) \
-    LFSR_RAT_(_tag, _weight, (const lfsr_grm_t*){_grm}, 0)
+#define LFSR_RATTR_GRM(_tag, _weight, _grm) \
+    LFSR_RATTR_(_tag, _weight, (const lfsr_grm_t*){_grm}, 0)
 
 // writing to an unrelated trunk in the rbyd
 typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
-#define LFSR_RAT_SHRUBCOMMIT(_tag, _weight, \
-        _bshrub, _rid, _rats, _rat_count) \
-    LFSR_RAT_(_tag, _weight, \
+#define LFSR_RATTR_SHRUBCOMMIT(_tag, _weight, \
+        _bshrub, _rid, _rattrs, _rattr_count) \
+    LFSR_RATTR_(_tag, _weight, \
         (&(const lfsr_shrubcommit_t){ \
             .bshrub=_bshrub, \
             .rid=_rid, \
-            .rats=_rats, \
-            .rat_count=_rat_count}), \
+            .rattrs=_rattrs, \
+            .rattr_count=_rattr_count}), \
         0)
 
-#define LFSR_RAT_SHRUBTRUNK(_tag, _weight, _bshrub) \
-    LFSR_RAT_(_tag, _weight, (const lfsr_bshrub_t*){_bshrub}, 0)
+#define LFSR_RATTR_SHRUBTRUNK(_tag, _weight, _bshrub) \
+    LFSR_RATTR_(_tag, _weight, (const lfsr_bshrub_t*){_bshrub}, 0)
 
 
 // operations on custom attribute lists
@@ -3292,10 +3292,10 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-static int lfsr_rbyd_appendrat_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_rat_t rat) {
+static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_rattr_t rattr) {
     // do we fit?
-    lfs_size_t size = lfsr_rat_size(rat);
+    lfs_size_t size = lfsr_rattr_size(rattr);
     if (lfsr_rbyd_eoff(rbyd) + LFSR_TAG_DSIZE + size
             > lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
@@ -3303,26 +3303,26 @@ static int lfsr_rbyd_appendrat_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // append tag
     int err = lfsr_rbyd_appendtag(lfs, rbyd,
-            rat.tag, rat.weight, size);
+            rattr.tag, rattr.weight, size);
     if (err) {
         return err;
     }
 
     // direct buffer?
-    if (rat.count >= 0) {
+    if (rattr.count >= 0) {
         err = lfsr_bd_prog(lfs,
-                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), rat.cat, rat.count,
+                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), rattr.cat, rattr.count,
                 &rbyd->cksum, false);
         if (err) {
             return err;
         }
 
-        rbyd->eoff += rat.count;
+        rbyd->eoff += rattr.count;
 
     // indirect concatenated data?
     } else {
-        const lfsr_data_t *datas = rat.cat;
-        lfs_size_t data_count = -rat.count;
+        const lfsr_data_t *datas = rattr.cat;
+        lfs_size_t data_count = -rattr.count;
         for (lfs_size_t i = 0; i < data_count; i++) {
             err = lfsr_bd_progdata(lfs,
                     rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), datas[i],
@@ -3370,7 +3370,7 @@ static int lfsr_rbyd_appendinit(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 }
 
 // helper functions for managing the 3-element fifo used in
-// lfsr_rbyd_appendrat
+// lfsr_rbyd_appendrattr
 typedef struct lfsr_alt {
     lfsr_tag_t alt;
     lfsr_rid_t weight;
@@ -3473,19 +3473,19 @@ static void lfsr_rbyd_p_recolor(
 }
 
 // core rbyd algorithm
-static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_srid_t rid, lfsr_rat_t rat) {
+static int lfsr_rbyd_appendrattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_srid_t rid, lfsr_rattr_t rattr) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
     // tag must not be internal at this point
-    LFS_ASSERT(!lfsr_tag_isinternal(rat.tag));
+    LFS_ASSERT(!lfsr_tag_isinternal(rattr.tag));
     // bit 7 is reserved for future subtype extensions
-    LFS_ASSERT(!(rat.tag & 0x80));
+    LFS_ASSERT(!(rattr.tag & 0x80));
     // you can't delete more than what's in the rbyd
-    LFS_ASSERT(rat.weight >= -(lfsr_srid_t)rbyd->weight);
+    LFS_ASSERT(rattr.weight >= -(lfsr_srid_t)rbyd->weight);
 
     // ignore noops
-    if (lfsr_rat_isnoop(rat)) {
+    if (lfsr_rattr_isnoop(rattr)) {
         return 0;
     }
 
@@ -3500,8 +3500,8 @@ static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_srid_t b_rid;
     lfsr_tag_t a_tag;
     lfsr_tag_t b_tag;
-    if (!lfsr_tag_isgrow(rat.tag) && rat.weight != 0) {
-        if (rat.weight > 0) {
+    if (!lfsr_tag_isgrow(rattr.tag) && rattr.weight != 0) {
+        if (rattr.weight > 0) {
             LFS_ASSERT(rid <= (lfsr_srid_t)rbyd->weight);
 
             // it's a bit ugly, but adjusting the rid here makes the following
@@ -3515,7 +3515,7 @@ static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
             rid += 1;
-            a_rid = rid - lfs_smax(-rat.weight, 0);
+            a_rid = rid - lfs_smax(-rattr.weight, 0);
             b_rid = rid;
         }
 
@@ -3525,23 +3525,23 @@ static int lfsr_rbyd_appendrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     } else {
         LFS_ASSERT(rid < (lfsr_srid_t)rbyd->weight);
 
-        a_rid = rid - lfs_smax(-rat.weight, 0);
+        a_rid = rid - lfs_smax(-rattr.weight, 0);
         b_rid = rid;
 
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
-        if (lfsr_tag_issup(rat.tag)) {
+        if (lfsr_tag_issup(rattr.tag)) {
             a_tag = 0x000;
             b_tag = 0xf00;
-        } else if (lfsr_tag_issub(rat.tag)) {
-            a_tag = lfsr_tag_supkey(rat.tag);
-            b_tag = lfsr_tag_supkey(rat.tag) + 0x100;
-        } else if (lfsr_tag_isrm(rat.tag)) {
-            a_tag = lfsr_tag_key(rat.tag);
-            b_tag = lfsr_tag_key(rat.tag) + 1;
+        } else if (lfsr_tag_issub(rattr.tag)) {
+            a_tag = lfsr_tag_supkey(rattr.tag);
+            b_tag = lfsr_tag_supkey(rattr.tag) + 0x100;
+        } else if (lfsr_tag_isrm(rattr.tag)) {
+            a_tag = lfsr_tag_key(rattr.tag);
+            b_tag = lfsr_tag_key(rattr.tag) + 1;
         } else {
-            a_tag = lfsr_tag_key(rat.tag);
-            b_tag = lfsr_tag_key(rat.tag);
+            a_tag = lfsr_tag_key(rattr.tag);
+            b_tag = lfsr_tag_key(rattr.tag);
         }
     }
     a_tag = lfs_max(a_tag, 0x1);
@@ -3970,7 +3970,7 @@ trunk:;
                     }
 
                     // terminate diverged trunk with an unreachable tag
-                    err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT(
+                    err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR(
                             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                                 | LFSR_TAG_NULL,
                             0,
@@ -4017,20 +4017,20 @@ stem:;
     lfsr_tag_t alt = 0;
     lfsr_rid_t weight = 0;
     if (tag_
-            && (upper_rid-1 < rid-lfs_smax(-rat.weight, 0)
-                || (upper_rid-1 == rid-lfs_smax(-rat.weight, 0)
-                    && ((!lfsr_tag_isgrow(rat.tag) && rat.weight > 0)
-                        || (!lfsr_tag_issup(rat.tag)
+            && (upper_rid-1 < rid-lfs_smax(-rattr.weight, 0)
+                || (upper_rid-1 == rid-lfs_smax(-rattr.weight, 0)
+                    && ((!lfsr_tag_isgrow(rattr.tag) && rattr.weight > 0)
+                        || (!lfsr_tag_issup(rattr.tag)
                             && lfsr_tag_supkey(tag_)
-                                < lfsr_tag_supkey(rat.tag))
-                        || (!lfsr_tag_issup(rat.tag)
-                            && !lfsr_tag_issub(rat.tag)
+                                < lfsr_tag_supkey(rattr.tag))
+                        || (!lfsr_tag_issup(rattr.tag)
+                            && !lfsr_tag_issub(rattr.tag)
                             && lfsr_tag_key(tag_)
-                                < lfsr_tag_key(rat.tag)))))) {
-        if (lfsr_tag_isrm(rat.tag) || !lfsr_tag_key(rat.tag)) {
+                                < lfsr_tag_key(rattr.tag)))))) {
+        if (lfsr_tag_isrm(rattr.tag) || !lfsr_tag_key(rattr.tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, lower_tag);
-            weight = upper_rid - lower_rid + rat.weight;
+            weight = upper_rid - lower_rid + rattr.weight;
             upper_rid -= weight;
         } else {
             // split less than
@@ -4042,22 +4042,22 @@ stem:;
     } else if (tag_
             && (upper_rid-1 > rid
                 || (upper_rid-1 == rid
-                    && ((!lfsr_tag_isgrow(rat.tag) && rat.weight > 0)
-                        || (!lfsr_tag_issup(rat.tag)
+                    && ((!lfsr_tag_isgrow(rattr.tag) && rattr.weight > 0)
+                        || (!lfsr_tag_issup(rattr.tag)
                             && lfsr_tag_supkey(tag_)
-                                > lfsr_tag_supkey(rat.tag))
-                        || (!lfsr_tag_issup(rat.tag)
-                            && !lfsr_tag_issub(rat.tag)
+                                > lfsr_tag_supkey(rattr.tag))
+                        || (!lfsr_tag_issup(rattr.tag)
+                            && !lfsr_tag_issub(rattr.tag)
                             && lfsr_tag_key(tag_)
-                                > lfsr_tag_key(rat.tag)))))) {
-        if (lfsr_tag_isrm(rat.tag) || !lfsr_tag_key(rat.tag)) {
+                                > lfsr_tag_key(rattr.tag)))))) {
+        if (lfsr_tag_isrm(rattr.tag) || !lfsr_tag_key(rattr.tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, lower_tag);
-            weight = upper_rid - lower_rid + rat.weight;
+            weight = upper_rid - lower_rid + rattr.weight;
             upper_rid -= weight;
         } else {
             // split greater than
-            alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, rat.tag);
+            alt = LFSR_TAG_ALT(LFSR_TAG_B, LFSR_TAG_GT, rattr.tag);
             weight = upper_rid - (rid+1);
             upper_rid -= weight;
         }
@@ -4085,22 +4085,22 @@ leaf:;
     //
     // note we always need a non-alt to terminate the trunk, otherwise we
     // can't find trunks during fetch
-    err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT_(
+    err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR_(
             // mark as shrub if we are a shrub
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0)
                 // rm => null, otherwise strip off control bits
-                | ((lfsr_tag_isrm(rat.tag))
+                | ((lfsr_tag_isrm(rattr.tag))
                     ? LFSR_TAG_NULL
-                    : lfsr_tag_key(rat.tag)),
-            upper_rid - lower_rid + rat.weight,
-            rat.cat, rat.count));
+                    : lfsr_tag_key(rattr.tag)),
+            upper_rid - lower_rid + rattr.weight,
+            rattr.cat, rattr.count));
     if (err) {
         return err;
     }
 
     // update the trunk and weight
     rbyd->trunk = (rbyd->trunk & LFSR_RBYD_ISSHRUB) | trunk_;
-    rbyd->weight += rat.weight;
+    rbyd->weight += rattr.weight;
     return 0;
 }
 
@@ -4163,7 +4163,7 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
-        err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT(
+        err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR(
                 LFSR_TAG_ECKSUM, 0, LFSR_DATA_ECKSUM(
                     (&(lfsr_ecksum_t){
                         .cksize=lfs->cfg->prog_size,
@@ -4262,14 +4262,14 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     return lfsr_rbyd_appendcksum_(lfs, rbyd, rbyd->cksum);
 }
 
-static int lfsr_rbyd_appendrats(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_appendrattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // append each tag to the tree
-    for (lfs_size_t i = 0; i < rat_count; i++) {
+    for (lfs_size_t i = 0; i < rattr_count; i++) {
         // treat inserts after the first tag as though they are splits,
         // sequential inserts don't really make sense otherwise
-        if (i > 0 && lfsr_rat_isinsert(rats[i])) {
+        if (i > 0 && lfsr_rattr_isinsert(rattrs[i])) {
             rid += 1;
         }
 
@@ -4279,9 +4279,9 @@ static int lfsr_rbyd_appendrats(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // treat end_rid=-1 as "unbounded" in such a way that rid=-1
                 // is still included
                 && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
-            int err = lfsr_rbyd_appendrat(lfs, rbyd,
+            int err = lfsr_rbyd_appendrattr(lfs, rbyd,
                     rid - lfs_smax(start_rid, 0),
-                    rats[i]);
+                    rattrs[i]);
             if (err) {
                 return err;
             }
@@ -4290,24 +4290,24 @@ static int lfsr_rbyd_appendrats(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // we need to make sure we keep start_rid/end_rid updated with
         // weight changes
         if (rid < start_rid) {
-            start_rid += rats[i].weight;
+            start_rid += rattrs[i].weight;
         }
         if (rid < end_rid) {
-            end_rid += rats[i].weight;
+            end_rid += rattrs[i].weight;
         }
 
         // adjust rid
-        rid = lfsr_rat_nextrid(rats[i], rid);
+        rid = lfsr_rattr_nextrid(rattrs[i], rid);
     }
 
     return 0;
 }
 
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_srid_t rid, const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        lfsr_srid_t rid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // append each tag to the tree
-    int err = lfsr_rbyd_appendrats(lfs, rbyd, rid, -1, -1,
-            rats, rat_count);
+    int err = lfsr_rbyd_appendrattrs(lfs, rbyd, rid, -1, -1,
+            rattrs, rattr_count);
     if (err) {
         return err;
     }
@@ -4335,7 +4335,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // calculate dsize by starting from the outside ids and working inwards,
     // this naturally gives us a split rid
     //
-    // TODO adopt this a/b naming scheme in lfsr_rbyd_appendrat?
+    // TODO adopt this a/b naming scheme in lfsr_rbyd_appendrattr?
     lfsr_srid_t a_rid = start_rid;
     lfsr_srid_t b_rid = lfs_min(rbyd->weight, end_rid);
     lfs_size_t a_dsize = 0;
@@ -4379,7 +4379,7 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             weight += weight_;
 
             // include the cost of this tag
-            dsize_ += lfs->rat_estimate + lfsr_data_size(data);
+            dsize_ += lfs->rattr_estimate + lfsr_data_size(data);
         }
 
         if (a_rid == -1) {
@@ -4405,9 +4405,9 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 // appends a raw tag as a part of compaction, note these must
 // be appended in order!
 //
-// also note rat.weight here is total weight not delta weight
-static int lfsr_rbyd_appendcompactrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_rat_t rat) {
+// also note rattr.weight here is total weight not delta weight
+static int lfsr_rbyd_appendcompactrattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_rattr_t rattr) {
     // begin appending
     int err = lfsr_rbyd_appendinit(lfs, rbyd);
     if (err) {
@@ -4415,10 +4415,10 @@ static int lfsr_rbyd_appendcompactrat(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // write the tag
-    err = lfsr_rbyd_appendrat_(lfs, rbyd, LFSR_RAT_(
-            (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | rat.tag,
-            rat.weight,
-            rat.cat, rat.count));
+    err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR_(
+            (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | rattr.tag,
+            rattr.weight,
+            rattr.cat, rattr.count));
     if (err) {
         return err;
     }
@@ -4451,7 +4451,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         }
 
         // write the tag
-        err = lfsr_rbyd_appendcompactrat(lfs, rbyd_, LFSR_RAT_CAT_(
+        err = lfsr_rbyd_appendcompactrattr(lfs, rbyd_, LFSR_RATTR_CAT_(
                 tag, weight, &data, 1));
         if (err) {
             return err;
@@ -5147,7 +5147,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 
 // extra state needed for non-terminating lfsr_btree_commit__ calls
 typedef struct lfsr_bscratch {
-    lfsr_rat_t rats[4];
+    lfsr_rattr_t rattrs[4];
     lfsr_data_t split_data;
     uint8_t buf[2*LFSR_BRANCH_DSIZE];
 } lfsr_bscratch_t;
@@ -5161,11 +5161,11 @@ typedef struct lfsr_bscratch {
 static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bscratch_t *bscratch,
         lfsr_bid_t *bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_rat_t **rats, lfs_size_t *rat_count) {
+        const lfsr_rattr_t **rattrs, lfs_size_t *rattr_count) {
     lfsr_bid_t bid_ = *bid;
     LFS_ASSERT(bid_ <= (lfsr_bid_t)btree->weight);
-    const lfsr_rat_t *rats_ = *rats;
-    lfs_size_t rat_count_ = *rat_count;
+    const lfsr_rattr_t *rattrs_ = *rattrs;
+    lfs_size_t rattr_count_ = *rattr_count;
 
     // if rbyd is NULL, lookup which leaf our bid resides
     //
@@ -5208,8 +5208,8 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             if (!lfsr_rbyd_trunk(&rbyd_)
                     || lfsr_rbyd_isshrub(btree)) {
                 *bid = rid_;
-                *rats = rats_;
-                *rat_count = rat_count_;
+                *rattrs = rattrs_;
+                *rattr_count = rattr_count_;
                 return (!lfsr_rbyd_trunk(&rbyd_)) ? LFS_ERR_RANGE : 0;
             }
 
@@ -5248,7 +5248,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // interacting with other references to the rbyd
         lfsr_rbyd_t rbyd__ = rbyd_;
         int err = lfsr_rbyd_commit(lfs, &rbyd__, rid_,
-                rats_, rat_count_);
+                rattrs_, rattr_count_);
         if (err) {
             if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
                 goto compact;
@@ -5403,10 +5403,10 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // append any pending rats, it's up to upper
+        // append any pending rattrs, it's up to upper
         // layers to make sure these always fit
         err = lfsr_rbyd_commit(lfs, &rbyd__, rid_,
-                rats_, rat_count_);
+                rattrs_, rattr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -5441,12 +5441,12 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // append pending rats < split_rid
+        // append pending rattrs < split_rid
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendrats(lfs, &rbyd__, rid_, -1, split_rid,
-                rats_, rat_count_);
+        err = lfsr_rbyd_appendrattrs(lfs, &rbyd__, rid_, -1, split_rid,
+                rattrs_, rattr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -5485,12 +5485,12 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // append pending rats >= split_rid
+        // append pending rattrs >= split_rid
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendrats(lfs, &sibling, rid_, split_rid, -1,
-                rats_, rat_count_);
+        err = lfsr_rbyd_appendrattrs(lfs, &sibling, rid_, split_rid, -1,
+                rattrs_, rattr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -5522,7 +5522,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
 
         // lookup first name in sibling to use as the split name
         //
-        // note we need to do this after playing out pending rats in case
+        // note we need to do this after playing out pending rattrs in case
         // they introduce a new name!
         lfsr_tag_t split_tag;
         err = lfsr_rbyd_lookupnext(lfs, &sibling, 0, LFSR_TAG_NAME,
@@ -5535,49 +5535,49 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // prepare commit to parent, tail recursing upwards
         LFS_ASSERT(rbyd__.weight > 0);
         LFS_ASSERT(sibling.weight > 0);
-        rat_count_ = 0;
+        rattr_count_ = 0;
         // new root?
         if (!lfsr_rbyd_trunk(&parent)) {
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +rbyd__.weight,
                     LFSR_DATA_BRANCH(
                         &rbyd__,
                         &bscratch->buf[0*LFSR_BRANCH_DSIZE]));
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
                     LFSR_DATA_BRANCH(
                         &sibling,
                         &bscratch->buf[1*LFSR_BRANCH_DSIZE]));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                bscratch->rats[rat_count_++] = LFSR_RAT_CAT_(
+                bscratch->rattrs[rattr_count_++] = LFSR_RATTR_CAT_(
                         LFSR_TAG_NAME, 0,
                         &bscratch->split_data, 1);
             }
         // split root?
         } else {
             bid_ -= pid - (rbyd_.weight-1);
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, 0,
                     LFSR_DATA_BRANCH(
                         &rbyd__,
                         &bscratch->buf[0*LFSR_BRANCH_DSIZE]));
             if (rbyd__.weight != rbyd_.weight) {
-                bscratch->rats[rat_count_++] = LFSR_RAT(
+                bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         LFSR_DATA_NULL());
             }
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
                     LFSR_DATA_BRANCH(
                         &sibling,
                         &bscratch->buf[1*LFSR_BRANCH_DSIZE]));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                bscratch->rats[rat_count_++] = LFSR_RAT_CAT_(
+                bscratch->rattrs[rattr_count_++] = LFSR_RATTR_CAT_(
                         LFSR_TAG_NAME, 0,
                         &bscratch->split_data, 1);
             }
         }
-        rats_ = bscratch->rats;
+        rattrs_ = bscratch->rattrs;
 
         rbyd_ = parent;
         rid_ = pid;
@@ -5622,10 +5622,10 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // append any pending rats, it's up to upper
+        // append any pending rattrs, it's up to upper
         // layers to make sure these always fit
         err = lfsr_rbyd_commit(lfs, &rbyd__, rid_,
-                rats_, rat_count_);
+                rattrs_, rattr_count_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -5641,25 +5641,25 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         if (rbyd_.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             *btree = rbyd__;
-            *rat_count = 0;
+            *rattr_count = 0;
             return 0;
         }
 
         // prepare commit to parent, tail recursing upwards
         LFS_ASSERT(rbyd__.weight > 0);
-        rat_count_ = 0;
+        rattr_count_ = 0;
         bid_ -= pid - (rbyd_.weight-1);
-        bscratch->rats[rat_count_++] = LFSR_RAT(
+        bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                 LFSR_TAG_RM, -sibling.weight, LFSR_DATA_NULL());
-        bscratch->rats[rat_count_++] = LFSR_RAT(
+        bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                 LFSR_TAG_BRANCH, 0,
                 LFSR_DATA_BRANCH(&rbyd__, bscratch->buf));
         if (rbyd__.weight != rbyd_.weight) {
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                     LFSR_DATA_NULL());
         }
-        rats_ = bscratch->rats;
+        rattrs_ = bscratch->rattrs;
 
         rbyd_ = parent;
         rid_ = pid + sibling.weight;
@@ -5669,7 +5669,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // done?
         if (!lfsr_rbyd_trunk(&parent)) {
             *btree = rbyd__;
-            *rat_count = 0;
+            *rattr_count = 0;
             return 0;
         }
 
@@ -5677,7 +5677,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         if (rbyd_.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             *btree = rbyd__;
-            *rat_count = 0;
+            *rattr_count = 0;
             return 0;
         }
 
@@ -5685,22 +5685,22 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
-        rat_count_ = 0;
+        rattr_count_ = 0;
         bid_ -= pid - (rbyd_.weight-1);
         if (rbyd__.weight == 0) {
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_RM, -rbyd_.weight, LFSR_DATA_NULL());
         } else {
-            bscratch->rats[rat_count_++] = LFSR_RAT(
+            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, 0,
                     LFSR_DATA_BRANCH(&rbyd__, bscratch->buf));
             if (rbyd__.weight != rbyd_.weight) {
-                bscratch->rats[rat_count_++] = LFSR_RAT(
+                bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         LFSR_DATA_NULL());
             }
         }
-        rats_ = bscratch->rats;
+        rattrs_ = bscratch->rattrs;
 
         rbyd_ = parent;
         rid_ = pid;
@@ -5711,18 +5711,18 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
 // commit to btree with optional rbyd
 static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // try to commit to the btree
     lfsr_bscratch_t bscratch;
     int err = lfsr_btree_commit__(lfs, btree, &bscratch,
-            &bid, rbyd, rid, &rats, &rat_count);
+            &bid, rbyd, rid, &rattrs, &rattr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
 
     // needs a new root?
     if (err == LFS_ERR_RANGE) {
-        LFS_ASSERT(rat_count > 0);
+        LFS_ASSERT(rattr_count > 0);
 
     relocate:;
         lfsr_rbyd_t rbyd_;
@@ -5731,7 +5731,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_commit(lfs, &rbyd_, bid, rats, rat_count);
+        err = lfsr_rbyd_commit(lfs, &rbyd_, bid, rattrs, rattr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             // bad prog? try another block
@@ -5757,9 +5757,9 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
 
 // commit to a btree, this is atomic
 static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
-        lfsr_bid_t bid, const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     return lfsr_btree_commit_(lfs, btree, bid, NULL, -1,
-            rats, rat_count);
+            rattrs, rattr_count);
 }
 
 // lookup in a btree by name
@@ -6097,13 +6097,13 @@ static int lfsr_shrub_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 struct lfsr_shrubcommit {
     lfsr_bshrub_t *bshrub;
     lfsr_srid_t rid;
-    const lfsr_rat_t *rats;
-    lfs_size_t rat_count;
+    const lfsr_rattr_t *rattrs;
+    lfs_size_t rattr_count;
 };
 
 static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_shrub_t *shrub, lfsr_srid_t rid,
-        const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // swap out our trunk/weight temporarily, note we're
     // operating on a copy so if this fails we shouldn't mess
     // things up too much
@@ -6115,8 +6115,8 @@ static int lfsr_shrub_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     rbyd_->weight = shrub->weight;
 
     // append any bshrub attributes
-    int err = lfsr_rbyd_appendrats(lfs, rbyd_, rid, -1, -1,
-            rats, rat_count);
+    int err = lfsr_rbyd_appendrattrs(lfs, rbyd_, rid, -1, -1,
+            rattrs, rattr_count);
     if (err) {
         return err;
     }
@@ -6237,12 +6237,12 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
 
 // needed in lfsr_bshrub_commit_
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
-        const lfsr_rat_t *rats, lfs_size_t rat_count);
+        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count);
 
 // commit to bshrub with optional rbyd
 static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // before we touch anything, we need to mark all other btree references
     // as unerased
     if (lfsr_bshrub_isbtree(bshrub)) {
@@ -6259,16 +6259,16 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
     // try to commit to the btree
     lfsr_bscratch_t bscratch;
     int err = lfsr_btree_commit__(lfs, &bshrub->shrub, &bscratch,
-            &bid, rbyd, rid, &rats, &rat_count);
+            &bid, rbyd, rid, &rattrs, &rattr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
-    LFS_ASSERT(!err || rat_count > 0);
+    LFS_ASSERT(!err || rattr_count > 0);
     bool alloc = (err == LFS_ERR_RANGE);
 
     // when btree is shrubbed, lfsr_btree_commit__ stops at the root
-    // and returns with pending rats
-    if (rat_count > 0) {
+    // and returns with pending rattrs
+    if (rattr_count > 0) {
         // we need to prevent our shrub from overflowing our mdir somehow
         //
         // maintaining an accurate estimate is tricky and error-prone,
@@ -6281,8 +6281,9 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
 
         // figure out how much data this commit progs
         lfs_size_t commit_estimate = 0;
-        for (lfs_size_t i = 0; i < rat_count; i++) {
-            commit_estimate += lfs->rat_estimate + lfsr_rat_size(rats[i]);
+        for (lfs_size_t i = 0; i < rattr_count; i++) {
+            commit_estimate += lfs->rattr_estimate
+                    + lfsr_rattr_size(rattrs[i]);
         }
 
         // does our estimate exceed our inline_size? need to recalculate an
@@ -6314,10 +6315,10 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         estimate += commit_estimate;
 
         // commit to shrub
-        int err = lfsr_mdir_commit(lfs, &bshrub->o.mdir, LFSR_RATS(
-                LFSR_RAT_SHRUBCOMMIT(
+        int err = lfsr_mdir_commit(lfs, &bshrub->o.mdir, LFSR_RATTRS(
+                LFSR_RATTR_SHRUBCOMMIT(
                     LFSR_TAG_SHRUBCOMMIT, 0,
-                    bshrub, bid, rats, rat_count)));
+                    bshrub, bid, rattrs, rattr_count)));
         if (err) {
             return err;
         }
@@ -6372,7 +6373,7 @@ relocate:;
         }
     }
 
-    err = lfsr_rbyd_commit(lfs, &bshrub->shrub_, bid, rats, rat_count);
+    err = lfsr_rbyd_commit(lfs, &bshrub->shrub_, bid, rattrs, rattr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
@@ -6397,9 +6398,9 @@ relocate:;
 
 // commit to a bshrub, this is atomic
 static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
-        lfsr_bid_t bid, const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     return lfsr_bshrub_commit_(lfs, bshrub, bid, NULL, -1,
-            rats, rat_count);
+            rattrs, rattr_count);
 }
 
 
@@ -6889,7 +6890,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
         // append to our rbyd, replacing any existing delta
         lfs_size_t size = lfs_memlen(grmdelta_, LFSR_GRM_DSIZE);
-        err = lfsr_rbyd_appendrat(lfs, rbyd, -1, LFSR_RAT(
+        err = lfsr_rbyd_appendrattr(lfs, rbyd, -1, LFSR_RATTR(
                 // opportunistically remove this tag if delta is all zero
                 (size == 0)
                     ? LFSR_TAG_RM | LFSR_TAG_GRMDELTA
@@ -7327,9 +7328,9 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 // low-level mdir commit, does not handle mtree/mlist/compaction/etc
 static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
-        lfsr_smid_t mid, const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        lfsr_smid_t mid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // since we only ever commit to one mid or split, we can ignore the
-    // entire rat-list if our mid is out of range
+    // entire rattr-list if our mid is out of range
     lfsr_srid_t rid = lfsr_mid_rid(lfs, mid);
     if (rid >= start_rid
             // note the use of rid+1 and unsigned comparison here to
@@ -7337,33 +7338,33 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // is still included
             && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
 
-        for (lfs_size_t i = 0; i < rat_count; i++) {
+        for (lfs_size_t i = 0; i < rattr_count; i++) {
             // we just happen to never split in an mdir commit
-            LFS_ASSERT(!(i > 0 && lfsr_rat_isinsert(rats[i])));
+            LFS_ASSERT(!(i > 0 && lfsr_rattr_isinsert(rattrs[i])));
 
-            // rat lists can be chained, but only tail-recursively
-            if (rats[i].tag == LFSR_TAG_RATS) {
+            // rattr lists can be chained, but only tail-recursively
+            if (rattrs[i].tag == LFSR_TAG_RATTRS) {
                 // must be the last tag
-                LFS_ASSERT(i == rat_count-1);
+                LFS_ASSERT(i == rattr_count-1);
                 // how would weight make sense here?
-                LFS_ASSERT(rats[i].weight == 0);
-                const lfsr_rat_t *rats_ = rats[i].cat;
-                lfs_size_t rat_count_ = rats[i].count;
+                LFS_ASSERT(rattrs[i].weight == 0);
+                const lfsr_rattr_t *rattrs_ = rattrs[i].cat;
+                lfs_size_t rattr_count_ = rattrs[i].count;
 
-                // switch to chained rat-list
-                rats = rats_;
-                rat_count = rat_count_;
+                // switch to chained rattr-list
+                rattrs = rattrs_;
+                rattr_count = rattr_count_;
                 i = -1;
                 continue;
 
             // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
-            } else if (rats[i].tag == LFSR_TAG_SHRUBCOMMIT) {
-                const lfsr_shrubcommit_t *shrubcommit = rats[i].cat;
+            } else if (rattrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
+                const lfsr_shrubcommit_t *shrubcommit = rattrs[i].cat;
                 lfsr_bshrub_t *bshrub_ = shrubcommit->bshrub;
                 lfsr_srid_t rid_ = shrubcommit->rid;
-                const lfsr_rat_t *rats_ = shrubcommit->rats;
-                lfs_size_t rat_count_ = shrubcommit->rat_count;
+                const lfsr_rattr_t *rattrs_ = shrubcommit->rattrs;
+                lfs_size_t rattr_count_ = shrubcommit->rattr_count;
 
                 // reset shrub if it doesn't live in our block, this happens
                 // when converting from a btree
@@ -7376,7 +7377,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // commit to shrub
                 int err = lfsr_shrub_commit(lfs,
                         &mdir->rbyd, &bshrub_->shrub_,
-                        rid_, rats_, rat_count_);
+                        rid_, rattrs_, rattr_count_);
                 if (err) {
                     return err;
                 }
@@ -7385,15 +7386,15 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // us due to mdir compactions
             //
             // TODO should we preserve mode for all of these?
-            } else if (lfsr_tag_key(rats[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                lfsr_bshrub_t *bshrub_ = (lfsr_bshrub_t*)rats[i].cat;
+            } else if (lfsr_tag_key(rattrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
+                lfsr_bshrub_t *bshrub_ = (lfsr_bshrub_t*)rattrs[i].cat;
 
                 uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-                int err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
+                int err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                         rid - lfs_smax(start_rid, 0),
-                        LFSR_RAT(
-                            lfsr_tag_mode(rats[i].tag) | LFSR_TAG_BSHRUB,
-                            rats[i].weight,
+                        LFSR_RATTR(
+                            lfsr_tag_mode(rattrs[i].tag) | LFSR_TAG_BSHRUB,
+                            rattrs[i].weight,
                             // note we use the staged trunk here
                             LFSR_DATA_SHRUB(&bshrub_->shrub_, shrub_buf)));
                 if (err) {
@@ -7403,10 +7404,10 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfsr_mdir_compact__ more?
             // it _really_ wants to be deduplicated
-            } else if (rats[i].tag == LFSR_TAG_MOVE) {
+            } else if (rattrs[i].tag == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
-                LFS_ASSERT(rats[i].weight == 0);
-                const lfsr_mdir_t *mdir__ = rats[i].cat;
+                LFS_ASSERT(rattrs[i].weight == 0);
+                const lfsr_mdir_t *mdir__ = rattrs[i].cat;
 
                 // skip the name tag, this is always replaced by upper layers
                 lfsr_tag_t tag = LFSR_TAG_STRUCT-1;
@@ -7440,20 +7441,20 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                         // write our new shrub tag
                         uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-                        err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
+                        err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
-                                LFSR_RAT(
+                                LFSR_RATTR(
                                     LFSR_TAG_BSHRUB, 0,
                                     LFSR_DATA_SHRUB(&shrub, shrub_buf)));
                         if (err) {
                             return err;
                         }
 
-                    // append the rat
+                    // append the rattr
                     } else {
-                        err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
+                        err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
-                                LFSR_RAT_CAT_(tag, 0, &data, 1));
+                                LFSR_RATTR_CAT_(tag, 0, &data, 1));
                         if (err) {
                             return err;
                         }
@@ -7482,9 +7483,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
             // custom attributes need to be reencoded into our tag format
-            } else if (lfsr_tag_key(rats[i].tag) == LFSR_TAG_ATTRS) {
-                const struct lfs_attr *attrs_ = rats[i].cat;
-                lfs_size_t attr_count_ = rats[i].count;
+            } else if (lfsr_tag_key(rattrs[i].tag) == LFSR_TAG_ATTRS) {
+                const struct lfs_attr *attrs_ = rattrs[i].cat;
+                lfs_size_t attr_count_ = rattrs[i].count;
 
                 for (lfs_size_t j = 0; j < attr_count_; j++) {
                     // skip readonly attrs and lazy attrs
@@ -7514,15 +7515,15 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     }
 
                     // append the custom attr
-                    err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
+                    err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                             rid - lfs_smax(start_rid, 0),
                             // removing or updating?
                             (lfsr_attr_isnoattr(&attrs_[j]))
-                                ? LFSR_RAT(
+                                ? LFSR_RATTR(
                                     LFSR_TAG_RM
                                         | LFSR_TAG_ATTR(attrs_[j].type), 0,
                                     LFSR_DATA_NULL())
-                                : LFSR_RAT(
+                                : LFSR_RATTR(
                                     LFSR_TAG_ATTR(attrs_[j].type), 0,
                                     LFSR_DATA_BUF(
                                         attrs_[j].buffer,
@@ -7534,18 +7535,18 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // write out normal tags normally
             } else {
-                LFS_ASSERT(!lfsr_tag_isinternal(rats[i].tag));
+                LFS_ASSERT(!lfsr_tag_isinternal(rattrs[i].tag));
 
-                int err = lfsr_rbyd_appendrat(lfs, &mdir->rbyd,
+                int err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                         rid - lfs_smax(start_rid, 0),
-                        rats[i]);
+                        rattrs[i]);
                 if (err) {
                     return err;
                 }
             }
 
             // adjust rid
-            rid = lfsr_rat_nextrid(rats[i], rid);
+            rid = lfsr_rattr_nextrid(rattrs[i], rid);
         }
     }
 
@@ -7584,7 +7585,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 ^ lfs->gcksum_d;
 
         uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
-        int err = lfsr_rbyd_appendrat_(lfs, &mdir->rbyd, LFSR_RAT(
+        int err = lfsr_rbyd_appendrattr_(lfs, &mdir->rbyd, LFSR_RATTR(
                 LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
                     mdir->gcksumdelta, gcksumdelta_buf)));
         if (err) {
@@ -7674,11 +7675,11 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
                 if (dsize__ < 0) {
                     return dsize__;
                 }
-                dsize_ += lfs->rat_estimate + dsize__;
+                dsize_ += lfs->rattr_estimate + dsize__;
 
             } else {
                 // include the cost of this tag
-                dsize_ += lfs->rat_estimate + lfsr_data_size(data);
+                dsize_ += lfs->rattr_estimate + lfsr_data_size(data);
             }
         }
 
@@ -7782,8 +7783,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
             // write the new shrub tag
             uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-            err = lfsr_rbyd_appendcompactrat(lfs, &mdir_->rbyd,
-                    LFSR_RAT(
+            err = lfsr_rbyd_appendcompactrattr(lfs, &mdir_->rbyd,
+                    LFSR_RATTR(
                         tag, weight,
                         LFSR_DATA_SHRUB(&shrub, shrub_buf)));
             if (err) {
@@ -7793,8 +7794,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
         } else {
             // write the tag
-            err = lfsr_rbyd_appendcompactrat(lfs, &mdir_->rbyd,
-                    LFSR_RAT_CAT_(tag, weight, &data, 1));
+            err = lfsr_rbyd_appendcompactrattr(lfs, &mdir_->rbyd,
+                    LFSR_RATTR_CAT_(tag, weight, &data, 1));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -7839,7 +7840,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         lfsr_srid_t *split_rid_,
-        lfsr_smid_t mid, const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        lfsr_smid_t mid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // make a copy
     lfsr_mdir_t mdir_ = *mdir;
     // mark as erased in case of failure
@@ -7847,7 +7848,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // try to commit
     int err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
-            mid, rats, rat_count);
+            mid, rattrs, rattr_count);
     if (err) {
         if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
             goto swap;
@@ -7947,7 +7948,7 @@ compact:;
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
     err = lfsr_mdir_commit__(lfs, &mdir_, start_rid_, end_rid,
-            mid, rats, rat_count);
+            mid, rattrs, rattr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
@@ -8014,7 +8015,7 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfs_block_t mptr[static 2],
 // state
 //
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
-        const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // non-mroot mdirs must have weight
     LFS_ASSERT(mdir->mid == -1
             // note inlined mdirs are mroots with mid != -1
@@ -8026,12 +8027,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // lfs->mroot must have mid=-1
     LFS_ASSERT(lfs->mroot.mid == -1);
 
-    // play out any rats that affect our grm _before_ committing to disk,
+    // play out any rattrs that affect our grm _before_ committing to disk,
     // keep in mind we revert to on-disk gstate if we run into an error
     lfsr_smid_t mid_ = mdir->mid;
-    for (lfs_size_t i = 0; i < rat_count; i++) {
+    for (lfs_size_t i = 0; i < rattr_count; i++) {
         // automatically create grms for new bookmarks
-        if (rats[i].tag == LFSR_TAG_BOOKMARK) {
+        if (rattrs[i].tag == LFSR_TAG_BOOKMARK) {
             lfsr_grm_push(lfs, mid_);
 
         // adjust pending grms?
@@ -8041,16 +8042,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             == lfsr_mid_bid(lfs, mid_)
                         && lfs->grm.mids[j] >= mid_) {
                     // deleting a pending grm doesn't really make sense
-                    LFS_ASSERT(lfs->grm.mids[j] >= mid_ - rats[i].weight);
+                    LFS_ASSERT(lfs->grm.mids[j] >= mid_ - rattrs[i].weight);
 
                     // adjust the grm
-                    lfs->grm.mids[j] += rats[i].weight;
+                    lfs->grm.mids[j] += rattrs[i].weight;
                 }
             }
         }
 
         // adjust mid
-        mid_ = lfsr_rat_nextrid(rats[i], mid_);
+        mid_ = lfsr_rattr_nextrid(rattrs[i], mid_);
     }
 
     // flush gdeltas
@@ -8089,7 +8090,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // attempt to commit/compact the mdir normally
     lfsr_srid_t split_rid;
     int err = lfsr_mdir_commit_(lfs, &mdir_[0], -2, -1, &split_rid,
-            mdir->mid, rats, rat_count);
+            mdir->mid, rattrs, rattr_count);
     if (err && err != LFS_ERR_RANGE
             && err != LFS_ERR_NOENT) {
         goto failed;
@@ -8154,7 +8155,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             err = lfsr_mdir_commit__(lfs, &mdir_[i^left],
                     ((i^left) == 0) ?         0 : split_rid,
                     ((i^left) == 0) ? split_rid :        -1,
-                    mdir->mid, rats, rat_count);
+                    mdir->mid, rattrs, rattr_count);
             if (err && err != LFS_ERR_NOENT) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 // bad prog? try another block
@@ -8169,7 +8170,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
         }
 
-        // adjust our sibling's mid after committing rats
+        // adjust our sibling's mid after committing rattrs
         mdir_[1].mid += (1 << lfs->mdir_bits);
 
         LFS_INFO("Splitting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
@@ -8213,7 +8214,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // lookup first name in sibling to use as the split name
         //
-        // note we need to do this after playing out pending rats in
+        // note we need to do this after playing out pending rattrs in
         // case they introduce a new name!
         lfsr_data_t split_data;
         err = lfsr_rbyd_sublookup(lfs, &mdir_[1].rbyd, 0, LFSR_TAG_NAME,
@@ -8229,16 +8230,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
-                    0, LFSR_RATS(
-                        LFSR_RAT(
+                    0, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
                             LFSR_DATA_MPTR(
                                 mdir_[0].rbyd.blocks,
                                 &mdir_buf[0*LFSR_MPTR_DSIZE])),
-                        LFSR_RAT_CAT_(
+                        LFSR_RATTR_CAT_(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_data, 1),
-                        LFSR_RAT(
+                        LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
                             LFSR_DATA_MPTR(
                                 mdir_[1].rbyd.blocks,
@@ -8254,16 +8255,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
-                    lfsr_mid_bid(lfs, mdir->mid), LFSR_RATS(
-                        LFSR_RAT(
+                    lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
                             LFSR_DATA_MPTR(
                                 mdir_[0].rbyd.blocks,
                                 &mdir_buf[0*LFSR_MPTR_DSIZE])),
-                        LFSR_RAT_CAT_(
+                        LFSR_RATTR_CAT_(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_data, 1),
-                        LFSR_RAT(
+                        LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
                             LFSR_DATA_MPTR(
                                 mdir_[1].rbyd.blocks,
@@ -8298,8 +8299,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // update our mtree
         err = lfsr_btree_commit(lfs, &mtree_,
-                lfsr_mid_bid(lfs, mdir->mid), LFSR_RATS(
-                    LFSR_RAT(
+                lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_RM, -(1 << lfs->mdir_bits),
                         LFSR_DATA_NULL())));
         if (err) {
@@ -8322,8 +8323,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
-                    0, LFSR_RATS(
-                        LFSR_RAT(
+                    0, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
                             LFSR_DATA_MPTR(
                                 mdir_[0].rbyd.blocks,
@@ -8339,8 +8340,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
-                    lfsr_mid_bid(lfs, mdir->mid), LFSR_RATS(
-                        LFSR_RAT(
+                    lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
                             LFSR_DATA_MPTR(
                                 mdir_[0].rbyd.blocks,
@@ -8397,16 +8398,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // in our mroot
         uint8_t mtree_buf[LFS_MAX(LFSR_MPTR_DSIZE, LFSR_BTREE_DSIZE)];
         err = lfsr_mdir_commit_(lfs, &mroot_, -2, 0, NULL,
-                -1, LFSR_RATS(
-                    LFSR_RAT(
+                -1, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
                         LFSR_DATA_BTREE(&mtree_, mtree_buf)),
-                    // were we committing to the mroot? include any -1 rats
+                    // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid == -1)
-                        ? LFSR_RAT_RATS(
-                            LFSR_TAG_RATS, 0,
-                            rats, rat_count)
-                        : LFSR_RAT_NOOP()));
+                        ? LFSR_RATTR_RATTRS(
+                            LFSR_TAG_RATTRS, 0,
+                            rattrs, rattr_count)
+                        : LFSR_RATTR_NOOP()));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             goto failed;
@@ -8449,8 +8450,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // commit mrootchild
             uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mdir_commit_(lfs, &mrootparent_, -2, -1, NULL,
-                    -1, LFSR_RATS(
-                        LFSR_RAT(
+                    -1, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_MROOT, 0,
                             LFSR_DATA_MPTR(
                                 mrootchild_.rbyd.blocks,
@@ -8497,11 +8498,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mdir_commit__(lfs, &mrootanchor_, -2, -1,
-                    -1, LFSR_RATS(
-                        LFSR_RAT(
+                    -1, LFSR_RATTRS(
+                        LFSR_RATTR(
                             LFSR_TAG_MAGIC, 0,
                             LFSR_DATA_BUF("littlefs", 8)),
-                        LFSR_RAT(
+                        LFSR_RATTR(
                             LFSR_TAG_MROOT, 0,
                             LFSR_DATA_MPTR(
                                 mrootchild_.rbyd.blocks,
@@ -8531,28 +8532,28 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // success? update in-device state, we must not error at this point! //
     ///////////////////////////////////////////////////////////////////////
 
-    // play out any rats that affect internal state
+    // play out any rattrs that affect internal state
     mid_ = mdir->mid;
-    for (lfs_size_t i = 0; i < rat_count; i++) {
+    for (lfs_size_t i = 0; i < rattr_count; i++) {
         // adjust any opened mdirs
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             // adjust opened mdirs?
             if (lfsr_mdir_cmp(&o->mdir, mdir) == 0
                     && o->mdir.mid >= mid_) {
                 // removed?
-                if (o->mdir.mid < mid_ - rats[i].weight) {
+                if (o->mdir.mid < mid_ - rattrs[i].weight) {
                     // we should not be removing opened regular files
                     LFS_ASSERT(lfsr_o_type(o->flags) != LFS_TYPE_REG);
                     o->flags |= LFS_o_ZOMBIE;
                     o->mdir.mid = mid_;
                 } else {
-                    o->mdir.mid += rats[i].weight;
+                    o->mdir.mid += rattrs[i].weight;
                 }
             }
         }
 
         // adjust mid
-        mid_ = lfsr_rat_nextrid(rats[i], mid_);
+        mid_ = lfsr_rattr_nextrid(rattrs[i], mid_);
     }
 
     // if mroot/mtree changed, clobber any mroot/mtree traversals
@@ -9777,7 +9778,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     //
     // Worst case (or best case?) each directory needs 1 name tag, 1 did
     // tag, and 1 bookmark. With our current compaction strategy, each tag
-    // needs 3t+4 bytes for tag+alts (see our rat_estimate). And, if
+    // needs 3t+4 bytes for tag+alts (see our rattr_estimate). And, if
     // we assume ~1/2 block utilization due to our mdir split threshold, we
     // can multiply everything by 2:
     //
@@ -9840,8 +9841,10 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our bookmark and a grm to self-remove in case of powerloss
     lfs_alloc_ckpoint(lfs);
     uint8_t did_buf[LFSR_LEB128_DSIZE];
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-            LFSR_RAT(LFSR_TAG_BOOKMARK, +1, LFSR_DATA_LEB128(did_, did_buf))));
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR(
+                LFSR_TAG_BOOKMARK, +1,
+                LFSR_DATA_LEB128(did_, did_buf))));
     if (err) {
         return err;
     }
@@ -9860,11 +9863,13 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // process
     lfsr_grm_pop(lfs);
     lfs_alloc_ckpoint(lfs);
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
                 did, path, name_len),
-            LFSR_RAT(LFSR_TAG_DID, 0, LFSR_DATA_LEB128(did_, did_buf))));
+            LFSR_RATTR(
+                LFSR_TAG_DID, 0,
+                LFSR_DATA_LEB128(did_, did_buf))));
     if (err) {
         return err;
     }
@@ -10004,16 +10009,16 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
     // remove the metadata entry
     lfs_alloc_ckpoint(lfs);
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
             // create a stickynote if zombied
             //
-            // we use a create+delete here to also clear any rats
+            // we use a create+delete here to also clear any rattrs
             // and trim the entry size
             (zombie)
-                ? LFSR_RAT_NAME(
+                ? LFSR_RATTR_NAME(
                     LFSR_TAG_SUP | LFSR_TAG_STICKYNOTE, 0,
                     did, path, lfsr_path_namelen(path))
-                : LFSR_RAT(
+                : LFSR_RATTR(
                     LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
     if (err) {
         return err;
@@ -10176,11 +10181,11 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
     lfs_alloc_ckpoint(lfs);
-    err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_RATS(
-            LFSR_RAT_NAME(
+    err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_RATTRS(
+            LFSR_RATTR_NAME(
                 LFSR_TAG_SUP | old_tag, (!exists) ? +1 : 0,
                 new_did, new_path, new_name_len),
-            LFSR_RAT_MOVE(LFSR_TAG_MOVE, 0, &old_mdir)));
+            LFSR_RATTR_MOVE(LFSR_TAG_MOVE, 0, &old_mdir)));
     if (err) {
         return err;
     }
@@ -10620,8 +10625,8 @@ int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
 
     // commit our attr
     lfs_alloc_ckpoint(lfs);
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-            LFSR_RAT(
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_ATTR(type), 0,
                 LFSR_DATA_BUF(buffer, size))));
     if (err) {
@@ -10672,8 +10677,8 @@ int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
 
     // commit our removal
     lfs_alloc_ckpoint(lfs);
-    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-            LFSR_RAT(
+    err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_RM | LFSR_TAG_ATTR(type), 0,
                 LFSR_DATA_NULL())));
     if (err) {
@@ -10926,8 +10931,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             }
 
             lfs_alloc_ckpoint(lfs);
-            err = lfsr_mdir_commit(lfs, &file->b.o.mdir, LFSR_RATS(
-                    LFSR_RAT_NAME(
+            err = lfsr_mdir_commit(lfs, &file->b.o.mdir, LFSR_RATTRS(
+                    LFSR_RATTR_NAME(
                         LFSR_TAG_STICKYNOTE, +1,
                         did, path, name_len)));
             if (err) {
@@ -11239,13 +11244,13 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 // low-level file writing
 
 static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t pos, const lfsr_rat_t *rats, lfs_size_t rat_count) {
+        lfs_off_t pos, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     return lfsr_bshrub_commit(lfs, &file->b,
-            pos, rats, rat_count);
+            pos, rattrs, rattr_count);
 }
 
 static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t pos, lfs_off_t weight, lfsr_rat_t rat) {
+        lfs_off_t pos, lfs_off_t weight, lfsr_rattr_t rattr) {
     // Note! This function has some rather special constraints:
     //
     // 1. We must never allow our btree size to overflow, even temporarily.
@@ -11262,20 +11267,20 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     // possible in case we ever don't track temporary copies.
 
     // can't carve more than the carve weight
-    LFS_ASSERT(rat.weight >= -(lfs_soff_t)weight);
+    LFS_ASSERT(rattr.weight >= -(lfs_soff_t)weight);
 
     // carving the entire tree? revert to no bshrub/btree
     if (pos == 0
             && weight >= file->b.shrub.weight
-            && rat.weight == -(lfs_soff_t)weight) {
+            && rattr.weight == -(lfs_soff_t)weight) {
         lfsr_bshrub_init(&file->b);
         return 0;
     }
 
     // try to merge commits where possible
     lfsr_bid_t bid = file->b.shrub.weight;
-    lfsr_rat_t rats[5];
-    lfs_size_t rat_count = 0;
+    lfsr_rattr_t rattrs[5];
+    lfs_size_t rattr_count = 0;
     union {
         lfsr_data_t data;
         uint8_t buf[LFSR_BPTR_DSIZE];
@@ -11290,21 +11295,21 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // can we coalesce?
         if (file->b.shrub.weight > 0) {
             bid = lfs_min(bid, file->b.shrub.weight-1);
-            rats[rat_count++] = LFSR_RAT(
+            rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_GROW, +(pos - file->b.shrub.weight),
                     LFSR_DATA_NULL());
 
         // new hole
         } else {
             bid = lfs_min(bid, file->b.shrub.weight);
-            rats[rat_count++] = LFSR_RAT(
+            rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_DATA, +(pos - file->b.shrub.weight),
                     LFSR_DATA_NULL());
         }
     }
 
     // try to carve any existing data
-    lfsr_rat_t right_rat_ = {.tag=0};
+    lfsr_rattr_t right_rattr_ = {.tag=0};
     while (pos < file->b.shrub.weight) {
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
@@ -11343,13 +11348,13 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     lfs->cfg->fragment_size,
                     -1);
             
-            err = lfsr_file_commit(lfs, file, bid, LFSR_RATS(
-                    LFSR_RAT_CAT(
+            err = lfsr_file_commit(lfs, file, bid, LFSR_RATTRS(
+                    LFSR_RATTR_CAT(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(weight_ - lfs->cfg->fragment_size),
                         LFSR_DATA_TRUNCATE(left_slice_,
                                 lfs->cfg->fragment_size)),
-                    LFSR_RAT(
+                    LFSR_RATTR(
                         LFSR_TAG_BLOCK,
                             +(weight_ - lfs->cfg->fragment_size),
                         LFSR_DATA_BPTR(&bptr_, left.buf))));
@@ -11372,12 +11377,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     -1,
                     lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
 
-            err = lfsr_file_commit(lfs, file, bid, LFSR_RATS(
-                    LFSR_RAT(
+            err = lfsr_file_commit(lfs, file, bid, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
                             -(weight_ - lfsr_data_size(bptr_.data)),
                         LFSR_DATA_BPTR(&bptr_, right.buf)),
-                    LFSR_RAT_CAT(
+                    LFSR_RATTR_CAT(
                         LFSR_TAG_DATA,
                             +(weight_ - lfsr_data_size(bptr_.data)),
                         LFSR_DATA_FRUNCATE(right_slice_,
@@ -11397,13 +11402,13 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         if (bid-(weight_-1) < pos) {
             // can we get away with a grow attribute?
             if (lfsr_data_size(bptr_.data) == lfsr_data_size(left_slice_)) {
-                rats[rat_count++] = LFSR_RAT(
+                rattrs[rattr_count++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -(bid+1 - pos), LFSR_DATA_NULL());
 
             // carve fragment?
             } else if (!lfsr_bptr_isbptr(&bptr_)) {
                 left.data = left_slice_;
-                rats[rat_count++] = LFSR_RAT_CAT_(
+                rattrs[rattr_count++] = LFSR_RATTR_CAT_(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(bid+1 - pos),
                         &left.data, 1);
@@ -11411,7 +11416,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             // carve bptr?
             } else {
                 bptr_.data = left_slice_;
-                rats[rat_count++] = LFSR_RAT(
+                rattrs[rattr_count++] = LFSR_RATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
                             -(bid+1 - pos),
                         LFSR_DATA_BPTR(&bptr_, left.buf));
@@ -11419,7 +11424,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
         // completely overwriting this entry?
         } else {
-            rats[rat_count++] = LFSR_RAT(
+            rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_RM, -weight_, LFSR_DATA_NULL());
         }
 
@@ -11427,17 +11432,17 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // so commit what we have and move on to next entry
         if (pos+weight > bid+1) {
             LFS_ASSERT(lfsr_data_size(right_slice_) == 0);
-            LFS_ASSERT(rat_count <= sizeof(rats)/sizeof(lfsr_rat_t));
+            LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
 
             err = lfsr_file_commit(lfs, file, bid,
-                    rats, rat_count);
+                    rattrs, rattr_count);
             if (err) {
                 return err;
             }
 
-            rat.weight += lfs_min(weight, bid+1 - pos);
+            rattr.weight += lfs_min(weight, bid+1 - pos);
             weight -= lfs_min(weight, bid+1 - pos);
-            rat_count = 0;
+            rattr_count = 0;
             continue;
         }
 
@@ -11445,12 +11450,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         if (pos+weight < bid+1) {
             // can we coalesce a hole?
             if (lfsr_data_size(right_slice_) == 0) {
-                rat.weight += bid+1 - (pos+weight);
+                rattr.weight += bid+1 - (pos+weight);
 
             // carve fragment?
             } else if (!lfsr_bptr_isbptr(&bptr_)) {
                 right.data = right_slice_;
-                right_rat_ = LFSR_RAT_CAT_(
+                right_rattr_ = LFSR_RATTR_CAT_(
                         LFSR_TAG_DATA,
                         bid+1 - (pos+weight),
                         &right.data, 1);
@@ -11458,54 +11463,54 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             // carve bptr?
             } else {
                 bptr_.data = right_slice_;
-                right_rat_ = LFSR_RAT(
+                right_rattr_ = LFSR_RATTR(
                         LFSR_TAG_BLOCK,
                         bid+1 - (pos+weight),
                         LFSR_DATA_BPTR(&bptr_, right.buf));
             }
         }
 
-        rat.weight += lfs_min(weight, bid+1 - pos);
+        rattr.weight += lfs_min(weight, bid+1 - pos);
         weight -= lfs_min(weight, bid+1 - pos);
         break;
     }
 
     // append our data
-    if (weight + rat.weight > 0) {
+    if (weight + rattr.weight > 0) {
         // can we coalesce a hole?
-        if (lfsr_rat_size(rat) == 0 && pos > 0) {
+        if (lfsr_rattr_size(rattr) == 0 && pos > 0) {
             bid = lfs_min(bid, file->b.shrub.weight-1);
-            rats[rat_count++] = LFSR_RAT(
-                    LFSR_TAG_GROW, +(weight + rat.weight),
+            rattrs[rattr_count++] = LFSR_RATTR(
+                    LFSR_TAG_GROW, +(weight + rattr.weight),
                     LFSR_DATA_NULL());
 
         // need a new hole?
-        } else if (lfsr_rat_size(rat) == 0) {
+        } else if (lfsr_rattr_size(rattr) == 0) {
             bid = lfs_min(bid, file->b.shrub.weight);
-            rats[rat_count++] = LFSR_RAT(
-                    LFSR_TAG_DATA, +(weight + rat.weight),
+            rattrs[rattr_count++] = LFSR_RATTR(
+                    LFSR_TAG_DATA, +(weight + rattr.weight),
                     LFSR_DATA_NULL());
 
         // append new fragment/bptr?
         } else {
             bid = lfs_min(bid, file->b.shrub.weight);
-            rats[rat_count++] = LFSR_RAT_(
-                    rat.tag, +(weight + rat.weight),
-                    rat.cat, rat.count);
+            rattrs[rattr_count++] = LFSR_RATTR_(
+                    rattr.tag, +(weight + rattr.weight),
+                    rattr.cat, rattr.count);
         }
     }
 
     // and don't forget the right sibling
-    if (right_rat_.tag) {
-        rats[rat_count++] = right_rat_;
+    if (right_rattr_.tag) {
+        rattrs[rattr_count++] = right_rattr_;
     }
 
-    // commit pending rats
-    if (rat_count > 0) {
-        LFS_ASSERT(rat_count <= sizeof(rats)/sizeof(lfsr_rat_t));
+    // commit pending rattrs
+    if (rattr_count > 0) {
+        LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
 
         int err = lfsr_file_commit(lfs, file, bid,
-                rats, rat_count);
+                rattrs, rattr_count);
         if (err) {
             return err;
         }
@@ -11882,7 +11887,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         uint8_t bptr_buf[LFSR_BPTR_DSIZE];
         err = lfsr_file_carve(lfs, file,
                 block_start, block_end - block_start,
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_BLOCK, 0,
                     LFSR_DATA_BPTR(&bptr, bptr_buf)));
         if (err) {
@@ -12013,7 +12018,7 @@ fragment:;
         // our tree
         int err = lfsr_file_carve(lfs, file,
                 fragment_start, fragment_end - fragment_start,
-                LFSR_RAT_CAT_(
+                LFSR_RATTR_CAT_(
                     LFSR_TAG_DATA, 0,
                     datas, data_count));
         if (err && err != LFS_ERR_RANGE) {
@@ -12239,8 +12244,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         goto failed;
     }
     // build a commit of any pending file metadata
-    lfsr_rat_t rats[3];
-    lfs_size_t rat_count = 0;
+    lfsr_rattr_t rattrs[3];
+    lfs_size_t rattr_count = 0;
     lfsr_data_t name_data;
     uint8_t buf[LFSR_BTREE_DSIZE];
 
@@ -12257,7 +12262,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             goto failed;
         }
 
-        rats[rat_count++] = LFSR_RAT_CAT_(
+        rattrs[rattr_count++] = LFSR_RATTR_CAT_(
                 LFSR_TAG_SUB | LFSR_TAG_REG, 0,
                 &name_data, 1);
     }
@@ -12276,17 +12281,17 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
         // no bshrub/btree?
         if (lfsr_bshrub_isbnull(&file->b)) {
-            rats[rat_count++] = LFSR_RAT(
+            rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_STRUCT, 0,
                     LFSR_DATA_NULL());
         // bshrub?
         } else if (lfsr_bshrub_isbshrub(&file->b)) {
-            rats[rat_count++] = LFSR_RAT_SHRUBTRUNK(
+            rattrs[rattr_count++] = LFSR_RATTR_SHRUBTRUNK(
                     LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
                     &file->b);
         // btree?
         } else if (lfsr_bshrub_isbtree(&file->b)) {
-            rats[rat_count++] = LFSR_RAT(
+            rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
                     LFSR_DATA_BTREE(&file->b.shrub, buf));
         } else {
@@ -12333,20 +12338,20 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
     if (attrs) {
         // need to append custom attributes
-        rats[rat_count++] = LFSR_RAT_ATTRS(
+        rattrs[rattr_count++] = LFSR_RATTR_ATTRS(
                 LFSR_TAG_ATTRS, 0,
                 file->cfg->attrs, file->cfg->attr_count);
     }
 
     // pending metadata? looks like we need to write to disk
-    if (rat_count > 0) {
+    if (rattr_count > 0) {
         // checkpoint the allocator
         lfs_alloc_ckpoint(lfs);
 
         // commit!
-        LFS_ASSERT(rat_count <= sizeof(rats)/sizeof(lfsr_rat_t));
+        LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
         err = lfsr_mdir_commit(lfs, &file->b.o.mdir,
-                rats, rat_count);
+                rattrs, rattr_count);
         if (err) {
             goto failed;
         }
@@ -12544,7 +12549,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // truncate our btree
     err = lfsr_file_carve(lfs, file,
             lfs_min(size, size_), size - lfs_min(size, size_),
-            LFSR_RAT(
+            LFSR_RATTR(
                 LFSR_TAG_DATA, +size_ - size,
                 LFSR_DATA_NULL()));
     if (err) {
@@ -12601,7 +12606,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // fruncate our btree
     err = lfsr_file_carve(lfs, file,
             0, lfs_smax(size - size_, 0),
-            LFSR_RAT(
+            LFSR_RATTR(
                 LFSR_TAG_DATA, +size_ - size,
                 LFSR_DATA_NULL()));
     if (err) {
@@ -12975,7 +12980,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
             + (lfs_nlog2(lfs->file_limit+1)+7-1)/7
             + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
     LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
-    lfs->rat_estimate = 3*tag_estimate + 4;
+    lfs->rattr_estimate = 3*tag_estimate + 4;
 
     // calculate the number of bits we need to reserve for mdir rids
     //
@@ -13708,35 +13713,35 @@ static int lfsr_formatinited(lfs_t *lfs) {
         uint8_t name_limit_buf[LFSR_LLEB128_DSIZE];
         uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
         uint8_t bookmark_buf[LFSR_LEB128_DSIZE];
-        err = lfsr_rbyd_appendrats(lfs, &rbyd, -1, -1, -1, LFSR_RATS(
-                LFSR_RAT(
+        err = lfsr_rbyd_appendrattrs(lfs, &rbyd, -1, -1, -1, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_MAGIC, 0,
                     LFSR_DATA_BUF("littlefs", 8)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_VERSION, 0,
                     LFSR_DATA_BUF(((const uint8_t[2]){
                         LFS_DISK_VERSION_MAJOR,
                         LFS_DISK_VERSION_MINOR}), 2)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_RCOMPAT, 0,
                     LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_WCOMPAT, 0,
                     LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_GEOMETRY, 0,
                     LFSR_DATA_GEOMETRY(
                         (&(lfsr_geometry_t){
                             lfs->cfg->block_size,
                             lfs->cfg->block_count}),
                         geometry_buf)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_NAMELIMIT, 0,
                     LFSR_DATA_LLEB128(lfs->name_limit, name_limit_buf)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_FILELIMIT, 0,
                     LFSR_DATA_LEB128(lfs->file_limit, file_limit_buf)),
-                LFSR_RAT(
+                LFSR_RATTR(
                     LFSR_TAG_BOOKMARK, +1,
                     LFSR_DATA_LEB128(0, bookmark_buf))));
         if (err) {
@@ -13746,7 +13751,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // append initial gcksum
         uint32_t cksum = rbyd.cksum;
         uint8_t gcksumdelta_buf[LFSR_LE32_DSIZE];
-        err = lfsr_rbyd_appendrat_(lfs, &rbyd, LFSR_RAT(
+        err = lfsr_rbyd_appendrattr_(lfs, &rbyd, LFSR_RATTR(
                 LFSR_TAG_GCKSUMDELTA, 0, LFSR_DATA_LE32(
                     lfs_crc32c_cube(cksum), gcksumdelta_buf)));
 
@@ -13935,8 +13940,8 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         // checkpoint the allocator
         lfs_alloc_ckpoint(lfs);
         // remove the rid while atomically updating our grm
-        err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATS(
-                LFSR_RAT(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
+        err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
+                LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
         if (err) {
             // revert grm manually
             lfs->grm = grm_p;
@@ -13978,8 +13983,8 @@ static int lfsr_mdir_mkconsistent(lfs_t *lfs, lfsr_mdir_t *mdir) {
                 lfsr_mid_rid(lfs, mdir->mid));
 
         lfs_alloc_ckpoint(lfs);
-        err = lfsr_mdir_commit(lfs, mdir, LFSR_RATS(
-                LFSR_RAT(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
+        err = lfsr_mdir_commit(lfs, mdir, LFSR_RATTRS(
+                LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())));
         if (err) {
             goto failed;
         }
@@ -14255,8 +14260,8 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
     // update our on-disk config
     lfs_alloc_ckpoint(lfs);
     uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
-    int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_RATS(
-            LFSR_RAT(
+    int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_RATTRS(
+            LFSR_RATTR(
                 LFSR_TAG_GEOMETRY, 0,
                 LFSR_DATA_GEOMETRY(
                     (&(lfsr_geometry_t){

@@ -75,8 +75,8 @@ code = '''
             lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
             // add to btree
-            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATS(
-                    LFSR_RAT(
+            lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, +1,
                         LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -1850,8 +1850,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATS(
-                LFSR_RAT(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
@@ -3625,8 +3625,8 @@ code = '''
         lfs_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATS(
-                LFSR_RAT(
+        lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
 
