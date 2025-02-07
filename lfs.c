@@ -10717,15 +10717,6 @@ static inline lfs_size_t lfsr_file_buffersize(lfs_t *lfs,
             : lfs->cfg->file_buffer_size;
 }
 
-static inline lfs_size_t lfsr_file_inlinesize(lfs_t *lfs,
-        const lfsr_file_t *file) {
-    return lfs_min(
-            lfsr_file_buffersize(lfs, file),
-            lfs_min(
-                lfs->cfg->inline_size,
-                lfs->cfg->fragment_size));
-}
-
 static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
     return lfs_max(
             file->buffer.pos + file->buffer.size,
@@ -12832,8 +12823,6 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT(lfs->cfg->gc_compact_thresh == (lfs_size_t)-1
             || lfs->cfg->gc_compact_thresh <= lfs->cfg->block_size);
 
-    // inline_size must be <= block_size/4
-    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
     // shrub_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->shrub_size <= lfs->cfg->block_size/4);
     // fragment_size must be <= block_size/4

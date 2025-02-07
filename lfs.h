@@ -422,16 +422,16 @@ struct lfs_config {
 //    // can help bound the metadata compaction time. Must be <= block_size.
 //    // Defaults to block_size when zero.
 //    lfs_size_t metadata_max;
+//
+//    // Maximum size of inlined files in bytes. Inlined files decrease storage
+//    // requirements, but may impact metadata-related performance. Must be <=
+//    // block_size/4.
+//    //
+//    // 0 disables inline files.
+//    lfs_size_t inline_size;
 
     // TODO these are pretty low-level details, should we have reasonable
     // defaults? need to benchmark.
-
-    // Maximum size on inlined files in bytes. Inlined files decrease storage
-    // requirements, but may impact metadata-related performance. Must be <=
-    // block_size/4.
-    //
-    // 0 disables inline files.
-    lfs_size_t inline_size;
 
     // Maximum size of inlined trees (shrubs) in bytes. Shrubs reduce B-tree
     // root overhead, but may impact metadata-related performance. Must be <=
