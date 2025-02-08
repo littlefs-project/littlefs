@@ -6288,7 +6288,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 
     lfs_soff_t res = lfs_file_size_(lfs, file);
 
-    LFS_TRACE("lfs_file_size -> %"PRId32, res);
+    LFS_TRACE("lfs_file_size -> %"PRIu32, res);
     LFS_UNLOCK(lfs->cfg);
     return res;
 }
