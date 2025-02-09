@@ -1107,9 +1107,9 @@ code = '''
                     LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL())}),
                     1))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
-            LFSR_RATTR_SHRUBTRUNK(
-                LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
-                &file.b))) => 0;
+            LFSR_RATTR__(
+                LFSR_TAG_SUB | LFSR_TAG_BSHRUB, 0,
+                &file.b.shrub_, LFSR_SHRUB_DSIZE))) => 0;
 
     lfsr_file_close(&lfs, &file) => 0;
 
@@ -1229,11 +1229,10 @@ code = '''
             LFSR_RATTR(LFSR_TAG_DATA, +1, LFSR_DATA_BUF("?", 1)))) => 0;
     lfsr_rbyd_commit(&lfs, &file.b.shrub, 0, LFSR_RATTRS(
             LFSR_RATTR(LFSR_TAG_RM, -1, LFSR_DATA_NULL()))) => 0;
-    uint8_t buf[LFSR_BTREE_DSIZE];
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR__(
                 LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                LFSR_DATA_BTREE(&file.b.shrub, buf)))) => 0;
+                &file.b.shrub, LFSR_BTREE_DSIZE))) => 0;
 
     lfsr_file_close(&lfs, &file) => 0;
 

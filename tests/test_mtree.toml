@@ -4341,13 +4341,10 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
     lfs_alloc_ckpoint(&lfs);
 
-    uint8_t mptr_buf[LFSR_MPTR_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR__(
                 LFSR_TAG_MROOT, 0,
-                LFSR_DATA_MPTR(
-                    LFSR_MPTR_MROOTANCHOR(),
-                    mptr_buf)))) => 0;
+                LFSR_MPTR_MROOTANCHOR(), LFSR_MPTR_DSIZE))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
     lfsr_traversal_t t;

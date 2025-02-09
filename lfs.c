@@ -1154,9 +1154,8 @@ enum lfsr_tag {
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_RATTRS         = 0x0800,
     LFSR_TAG_SHRUBCOMMIT    = 0x0801,
-    LFSR_TAG_SHRUBTRUNK     = 0x0802,
-    LFSR_TAG_MOVE           = 0x0803,
-    LFSR_TAG_ATTRS          = 0x0804,
+    LFSR_TAG_MOVE           = 0x0802,
+    LFSR_TAG_ATTRS          = 0x0803,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -1715,57 +1714,6 @@ static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
 }
 
 
-// macros for le32/leb128/lleb128 encoding, these are useful for
-// building rattrs
-
-#define LFSR_LE32_DSIZE 4
-
-#define LFSR_DATA_LE32(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromle32(_word, _buffer)}.d)
-
-static inline lfsr_data_t lfsr_data_fromle32(uint32_t word,
-        uint8_t buffer[static LFSR_LE32_DSIZE]) {
-    lfs_tole32_(word, buffer);
-    return LFSR_DATA_BUF(buffer, LFSR_LE32_DSIZE);
-}
-
-#define LFSR_LEB128_DSIZE  5
-
-#define LFSR_DATA_LEB128(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word, _buffer)}.d)
-
-static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
-        uint8_t buffer[static LFSR_LEB128_DSIZE]) {
-    // leb128s should not exceed 31-bits
-    LFS_ASSERT(word <= 0x7fffffff);
-
-    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
-    if (d < 0) {
-        LFS_UNREACHABLE();
-    }
-
-    return LFSR_DATA_BUF(buffer, d);
-}
-
-#define LFSR_LLEB128_DSIZE 4
-
-#define LFSR_DATA_LLEB128(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word, _buffer)}.d)
-
-static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
-        uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
-    // little-leb128s should not exceed 28-bits
-    LFS_ASSERT(word <= 0x0fffffff);
-
-    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
-    if (d < 0) {
-        LFS_UNREACHABLE();
-    }
-
-    return LFSR_DATA_BUF(buffer, d);
-}
-
-
 // data <-> bd interactions
 
 // lfsr_data_read* operations update the lfsr_data_t, effectively
@@ -2002,6 +1950,172 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 }
 
 
+// macros for le32/leb128/lleb128 encoding, these are useful for
+// building rattrs
+
+// le32 encoding:
+// .---+---+---+---.  total: 1 le32  4 bytes
+// |     le32      |
+// '---+---+---+---'
+//
+#define LFSR_LE32_DSIZE 4
+
+#define LFSR_DATA_LE32(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromle32(_word, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromle32(uint32_t word,
+        uint8_t buffer[static LFSR_LE32_DSIZE]) {
+    lfs_tole32_(word, buffer);
+    return LFSR_DATA_BUF(buffer, LFSR_LE32_DSIZE);
+}
+
+// leb128 encoding:
+// .---+- -+- -+- -+- -.  total: 1 leb128  <=5 bytes
+// |      leb128       |
+// '---+- -+- -+- -+- -'
+//
+#define LFSR_LEB128_DSIZE 5
+
+#define LFSR_DATA_LEB128(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
+        uint8_t buffer[static LFSR_LEB128_DSIZE]) {
+    // leb128s should not exceed 31-bits
+    LFS_ASSERT(word <= 0x7fffffff);
+
+    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LEB128_DSIZE);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+// lleb128 encoding:
+// .---+- -+- -+- -.  total: 1 leb128  <=4 bytes
+// |    lleb128    |
+// '---+- -+- -+- -'
+//
+#define LFSR_LLEB128_DSIZE 4
+
+#define LFSR_DATA_LLEB128(_word, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word, _buffer)}.d)
+
+static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
+        uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
+    // little-leb128s should not exceed 28-bits
+    LFS_ASSERT(word <= 0x0fffffff);
+
+    lfs_ssize_t d = lfs_toleb128(word, buffer, LFSR_LLEB128_DSIZE);
+    if (d < 0) {
+        LFS_UNREACHABLE();
+    }
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+
+// we need to at least define DSIZE/DATA macros here
+
+// ecksum encoding:
+// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
+// | cksize        |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+  total:            <=8 bytes
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFSR_ECKSUM_DSIZE (4+4)
+
+#define LFSR_DATA_ECKSUM(_ecksum, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromecksum(_ecksum, _buffer)}.d)
+
+// branch encoding:
+// .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
+// | block             |  trunk: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum: 1 le32    4 bytes
+// | trunk         |      total:           <=13 bytes
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFSR_BRANCH_DSIZE (5+4+4)
+
+#define LFSR_DATA_BRANCH(_branch, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_frombranch(_branch, _buffer)}.d)
+
+// btree encoding:
+// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// | weight            |  block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -+  trunk:  1 leb128  <=4 bytes
+// | block             |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+- -'  total:            <=18 bytes
+// | trunk         |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
+
+#define LFSR_DATA_BTREE(_btree, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_frombtree(_btree, _buffer)}.d)
+
+// bptr encoding:
+// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
+// | size          |      block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
+// | block             |  cksize: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
+// | off           |      total:            <=21 bytes
+// +---+- -+- -+- -+
+// | cksize        |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFSR_BPTR_DSIZE (4+5+4+4+4)
+
+#define LFSR_DATA_BPTR(_bptr, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_frombptr(_bptr, _buffer)}.d)
+
+// shrub encoding:
+// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// | weight            |  trunk:  1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  total:            <=9 bytes
+// | trunk         |
+// '---+- -+- -+- -'
+//
+#define LFSR_SHRUB_DSIZE (5+4)
+
+#define LFSR_DATA_SHRUB(_rbyd, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromshrub(_rbyd, _buffer)}.d)
+
+// mptr encoding:
+// .---+- -+- -+- -+- -.  blocks: 2 leb128s  <=2x5 bytes
+// | block x 2         |  total:             <=10 bytes
+// +                   +
+// |                   |
+// '---+- -+- -+- -+- -'
+//
+#define LFSR_MPTR_DSIZE (5+5)
+
+#define LFSR_DATA_MPTR(_mptr, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_frommptr(_mptr, _buffer)}.d)
+
+// geometry encoding
+// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
+// | block_size    |      block_count: 1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  total:                 <=9 bytes
+// | block_count       |
+// '---+- -+- -+- -+- -'
+#define LFSR_GEOMETRY_DSIZE (4+5)
+
+#define LFSR_DATA_GEOMETRY(_geometry, _buffer) \
+    ((struct {lfsr_data_t d;}){lfsr_data_fromgeometry(_geometry, _buffer)}.d)
+
+
+
+
 // operations on attribute lists
 
 typedef struct lfsr_rattr {
@@ -2013,6 +2127,13 @@ typedef struct lfsr_rattr {
     // special tags  => other things
     const void *cat;
 } lfsr_rattr_t;
+
+#define LFSR_RATTR__(_tag, _weight, _cat, _count) \
+    ((lfsr_rattr_t){ \
+        .tag=_tag, \
+        .count=_count, \
+        .weight=_weight, \
+        .cat=_cat})
 
 #define LFSR_RATTR_(_tag, _weight, _cat, _count) \
     ((lfsr_rattr_t){ \
@@ -2139,9 +2260,6 @@ typedef struct lfsr_shrubcommit lfsr_shrubcommit_t;
             .rattrs=_rattrs, \
             .rattr_count=_rattr_count}), \
         0)
-
-#define LFSR_RATTR_SHRUBTRUNK(_tag, _weight, _bshrub) \
-    LFSR_RATTR_(_tag, _weight, (const lfsr_bshrub_t*){_bshrub}, 0)
 
 
 // operations on custom attribute lists
@@ -2298,19 +2416,6 @@ typedef struct lfsr_ecksum {
 } lfsr_ecksum_t;
 
 // erased-state checksum on-disk encoding
-
-// ecksum encoding:
-// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
-// | cksize        |  cksum:  1 le32    4 bytes
-// +---+- -+- -+- -+  total:            <=8 bytes
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFSR_ECKSUM_DSIZE (4+4)
-
-#define LFSR_DATA_ECKSUM(_ecksum, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromecksum(_ecksum, _buffer)}.d)
-
 static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
     // you shouldn't try to encode a not-ecksum, that doesn't make sense
@@ -2389,25 +2494,6 @@ static inline uint32_t lfsr_bptr_cksum(const lfsr_bptr_t *bptr) {
 }
 
 // bptr on-disk encoding
-
-// bptr encoding:
-// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
-// | size          |      block:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
-// | block             |  cksize: 1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
-// | off           |      total:            <=21 bytes
-// +---+- -+- -+- -+
-// | cksize        |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFSR_BPTR_DSIZE (4+5+4+4+4)
-
-#define LFSR_DATA_BPTR(_bptr, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombptr(_bptr, _buffer)}.d)
-
 static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]) {
     // size should not exceed 28-bits
@@ -3292,10 +3378,78 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
+// needed in lfsr_rbyd_appendrattr_
+static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
+        uint8_t buffer[static LFSR_SHRUB_DSIZE]);
+static lfsr_data_t lfsr_data_frommptr(const lfs_block_t mptr[static 2],
+        uint8_t buffer[static LFSR_MPTR_DSIZE]);
+static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
+        uint8_t buffer[static LFSR_BTREE_DSIZE]);
+
 static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_rattr_t rattr) {
+    // encode lazy tags?
+    //
+    // we encode most tags lazily as this heavily reduces stack usage,
+    // though this does make us less gc-able at compile time
+    lfs_size_t size;
+    const void *cat;
+    int16_t count;
+    // TODO how to organize this?
+    uint8_t buf[LFS_MAX(
+            LFSR_SHRUB_DSIZE,
+            LFS_MAX(
+                LFSR_BTREE_DSIZE,
+                LFS_MAX(
+                    LFSR_MPTR_DSIZE,
+                    LFSR_ECKSUM_DSIZE)))];
+    switch ((rattr.count >= 0) ? rattr.tag : LFSR_TAG_NULL) {
+    // shrub trunk?
+    case LFSR_TAG_BSHRUB:;
+        // note unlike the other lazy tags, we _need_ to lazily encode
+        // shrub trunks, since they change underneath us during mdir
+        // compactions, relocations, etc
+        lfsr_data_t data = lfsr_data_fromshrub(rattr.cat, buf);
+        size = lfsr_data_size(data);
+        cat = buf;
+        count = size;
+        break;
+
+    // btree?
+    case LFSR_TAG_BTREE:;
+    case LFSR_TAG_MTREE:;
+        data = lfsr_data_frombtree(rattr.cat, buf);
+        size = lfsr_data_size(data);
+        cat = buf;
+        count = size;
+        break;
+
+    // mptr?
+    case LFSR_TAG_MROOT:;
+    case LFSR_TAG_MDIR:;
+        data = lfsr_data_frommptr(rattr.cat, buf);
+        size = lfsr_data_size(data);
+        cat = buf;
+        count = size;
+        break;
+
+    // ecksum?
+    case LFSR_TAG_ECKSUM:;
+        data = lfsr_data_fromecksum(rattr.cat, buf);
+        size = lfsr_data_size(data);
+        cat = buf;
+        count = size;
+        break;
+
+    // default to raw data
+    default:;
+        size = lfsr_rattr_size(rattr);
+        cat = rattr.cat;
+        count = rattr.count;
+        break;
+    }
+
     // do we fit?
-    lfs_size_t size = lfsr_rattr_size(rattr);
     if (lfsr_rbyd_eoff(rbyd) + LFSR_TAG_DSIZE + size
             > lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
@@ -3309,20 +3463,20 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // direct buffer?
-    if (rattr.count >= 0) {
+    if (count >= 0) {
         err = lfsr_bd_prog(lfs,
-                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), rattr.cat, rattr.count,
+                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), cat, count,
                 &rbyd->cksum, false);
         if (err) {
             return err;
         }
 
-        rbyd->eoff += rattr.count;
+        rbyd->eoff += count;
 
     // indirect concatenated data?
     } else {
-        const lfsr_data_t *datas = rattr.cat;
-        lfs_size_t data_count = -rattr.count;
+        const lfsr_data_t *datas = cat;
+        lfs_size_t data_count = -count;
         for (lfs_size_t i = 0; i < data_count; i++) {
             err = lfsr_bd_progdata(lfs,
                     rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), datas[i],
@@ -4162,13 +4316,11 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             return err;
         }
 
-        uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
-        err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR(
-                LFSR_TAG_ECKSUM, 0, LFSR_DATA_ECKSUM(
-                    (&(lfsr_ecksum_t){
-                        .cksize=lfs->cfg->prog_size,
-                        .cksum=ecksum}),
-                    ecksum_buf)));
+        err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR__(
+                LFSR_TAG_ECKSUM, 0,
+                (&(lfsr_ecksum_t){
+                    .cksize=lfs->cfg->prog_size,
+                    .cksum=ecksum}), LFSR_ECKSUM_DSIZE));
         if (err) {
             return err;
         }
@@ -4773,21 +4925,6 @@ static inline int lfsr_btree_cmp(
 
 
 // branch on-disk encoding
-
-// branch encoding:
-// .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
-// | block             |  trunk: 1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  cksum: 1 le32    4 bytes
-// | trunk         |      total:           <=13 bytes
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFSR_BRANCH_DSIZE (5+4+4)
-
-#define LFSR_DATA_BRANCH(_branch, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombranch(_branch, _buffer)}.d)
-
 static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
     // block should not exceed 31-bits
@@ -4891,23 +5028,6 @@ static int lfsr_data_fetchbranch(lfs_t *lfs,
 //
 // this is the same as the branch on-disk econding, but prefixed with the
 // btree's weight
-
-// btree encoding:
-// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
-// | weight            |  block:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -+  trunk:  1 leb128  <=4 bytes
-// | block             |  cksum:  1 le32    4 bytes
-// +---+- -+- -+- -+- -'  total:            <=18 bytes
-// | trunk         |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
-
-#define LFSR_DATA_BTREE(_btree, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombtree(_btree, _buffer)}.d)
-
 static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]) {
     // weight should not exceed 31-bits
@@ -5968,19 +6088,6 @@ static inline int lfsr_shrub_cmp(
 }
 
 // shrub on-disk encoding
-
-// shrub encoding:
-// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
-// | weight            |  trunk:  1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  total:            <=9 bytes
-// | trunk         |
-// '---+- -+- -+- -'
-//
-#define LFSR_SHRUB_DSIZE (5+4)
-
-#define LFSR_DATA_SHRUB(_rbyd, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromshrub(_rbyd, _buffer)}.d)
-
 static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
         uint8_t buffer[static LFSR_SHRUB_DSIZE]) {
     // shrub trunks should never be null
@@ -6317,8 +6424,8 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         // commit to shrub
         int err = lfsr_mdir_commit(lfs, &bshrub->o.mdir, LFSR_RATTRS(
                 LFSR_RATTR_SHRUBCOMMIT(
-                    LFSR_TAG_SHRUBCOMMIT, 0,
-                    bshrub, bid, rattrs, rattr_count)));
+                        LFSR_TAG_SHRUBCOMMIT, 0,
+                        bshrub, bid, rattrs, rattr_count)));
         if (err) {
             return err;
         }
@@ -6445,18 +6552,7 @@ static inline bool lfsr_mptr_ismrootanchor(
     return mptr[0] <= 1;
 }
 
-// mptr encoding:
-// .---+- -+- -+- -+- -.  blocks: 2 leb128s  <=2x5 bytes
-// | block x 2         |  total:             <=10 bytes
-// +                   +
-// |                   |
-// '---+- -+- -+- -+- -'
-//
-#define LFSR_MPTR_DSIZE (5+5)
-
-#define LFSR_DATA_MPTR(_mptr, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frommptr(_mptr, _buffer)}.d)
-
+// mptr on-disk encoding
 static lfsr_data_t lfsr_data_frommptr(const lfs_block_t mptr[static 2],
         uint8_t buffer[static LFSR_MPTR_DSIZE]) {
     // blocks should not exceed 31-bits
@@ -7382,25 +7478,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     return err;
                 }
 
-            // lazily encode inlined trunks in case they change underneath
-            // us due to mdir compactions
-            //
-            // TODO should we preserve mode for all of these?
-            } else if (lfsr_tag_key(rattrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                lfsr_bshrub_t *bshrub_ = (lfsr_bshrub_t*)rattrs[i].cat;
-
-                uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
-                int err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
-                        rid - lfs_smax(start_rid, 0),
-                        LFSR_RATTR(
-                            lfsr_tag_mode(rattrs[i].tag) | LFSR_TAG_BSHRUB,
-                            rattrs[i].weight,
-                            // note we use the staged trunk here
-                            LFSR_DATA_SHRUB(&bshrub_->shrub_, shrub_buf)));
-                if (err) {
-                    return err;
-                }
-
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfsr_mdir_compact__ more?
             // it _really_ wants to be deduplicated
@@ -7439,13 +7516,12 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             return err;
                         }
 
-                        // write our new shrub tag
-                        uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
+                        // write our new shrb tag
                         err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
-                                LFSR_RATTR(
+                                LFSR_RATTR__(
                                     LFSR_TAG_BSHRUB, 0,
-                                    LFSR_DATA_SHRUB(&shrub, shrub_buf)));
+                                    &shrub, LFSR_SHRUB_DSIZE));
                         if (err) {
                             return err;
                         }
@@ -7782,11 +7858,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             }
 
             // write the new shrub tag
-            uint8_t shrub_buf[LFSR_SHRUB_DSIZE];
             err = lfsr_rbyd_appendcompactrattr(lfs, &mdir_->rbyd,
-                    LFSR_RATTR(
-                        tag, weight,
-                        LFSR_DATA_SHRUB(&shrub, shrub_buf)));
+                    LFSR_RATTR__(tag, weight, &shrub, LFSR_SHRUB_DSIZE));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -8228,22 +8301,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (lfs->mtree.weight == 0) {
             lfsr_btree_init(&mtree_);
 
-            uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
                     0, LFSR_RATTRS(
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
-                            LFSR_DATA_MPTR(
-                                mdir_[0].rbyd.blocks,
-                                &mdir_buf[0*LFSR_MPTR_DSIZE])),
+                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE),
                         LFSR_RATTR_CAT_(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_data, 1),
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MDIR, 0,
-                            LFSR_DATA_MPTR(
-                                mdir_[1].rbyd.blocks,
-                                &mdir_buf[1*LFSR_MPTR_DSIZE]))));
+                            mdir_[1].rbyd.blocks, LFSR_MPTR_DSIZE)));
             if (err) {
                 goto failed;
             }
@@ -8253,22 +8321,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // mark as unerased in case of failure
             lfs->mtree.eoff = -1;
 
-            uint8_t mdir_buf[2*LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
                     lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MDIR, 0,
-                            LFSR_DATA_MPTR(
-                                mdir_[0].rbyd.blocks,
-                                &mdir_buf[0*LFSR_MPTR_DSIZE])),
+                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE),
                         LFSR_RATTR_CAT_(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_data, 1),
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MDIR, 0,
-                            LFSR_DATA_MPTR(
-                                mdir_[1].rbyd.blocks,
-                                &mdir_buf[1*LFSR_MPTR_DSIZE]))));
+                            mdir_[1].rbyd.blocks, LFSR_MPTR_DSIZE)));
             if (err) {
                 goto failed;
             }
@@ -8321,14 +8384,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (lfs->mtree.weight == 0) {
             lfsr_btree_init(&mtree_);
 
-            uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
                     0, LFSR_RATTRS(
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
-                            LFSR_DATA_MPTR(
-                                mdir_[0].rbyd.blocks,
-                                mdir_buf))));
+                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE)));
             if (err) {
                 goto failed;
             }
@@ -8338,14 +8398,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // mark as unerased in case of failure
             lfs->mtree.eoff = -1;
 
-            uint8_t mdir_buf[LFSR_MPTR_DSIZE];
             err = lfsr_btree_commit(lfs, &mtree_,
                     lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MDIR, 0,
-                            LFSR_DATA_MPTR(
-                                mdir_[0].rbyd.blocks,
-                                mdir_buf))));
+                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE)));
             if (err) {
                 goto failed;
             }
@@ -8396,12 +8453,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         //
         // note end_rid=0 here will delete any files leftover from a split
         // in our mroot
-        uint8_t mtree_buf[LFS_MAX(LFSR_MPTR_DSIZE, LFSR_BTREE_DSIZE)];
         err = lfsr_mdir_commit_(lfs, &mroot_, -2, 0, NULL,
                 -1, LFSR_RATTRS(
-                    LFSR_RATTR(
+                    LFSR_RATTR__(
                         LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
-                        LFSR_DATA_BTREE(&mtree_, mtree_buf)),
+                        &mtree_, LFSR_BTREE_DSIZE),
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid == -1)
                         ? LFSR_RATTR_RATTRS(
@@ -8448,14 +8504,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->gcksum ^= mrootparent_.rbyd.cksum;
 
             // commit mrootchild
-            uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mdir_commit_(lfs, &mrootparent_, -2, -1, NULL,
                     -1, LFSR_RATTRS(
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MROOT, 0,
-                            LFSR_DATA_MPTR(
-                                mrootchild_.rbyd.blocks,
-                                mrootchild_buf))));
+                            mrootchild_.rbyd.blocks, LFSR_MPTR_DSIZE)));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -8496,17 +8549,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 goto failed;
             }
 
-            uint8_t mrootchild_buf[LFSR_MPTR_DSIZE];
             err = lfsr_mdir_commit__(lfs, &mrootanchor_, -2, -1,
                     -1, LFSR_RATTRS(
                         LFSR_RATTR(
                             LFSR_TAG_MAGIC, 0,
                             LFSR_DATA_BUF("littlefs", 8)),
-                        LFSR_RATTR(
+                        LFSR_RATTR__(
                             LFSR_TAG_MROOT, 0,
-                            LFSR_DATA_MPTR(
-                                mrootchild_.rbyd.blocks,
-                                mrootchild_buf))));
+                            mrootchild_.rbyd.blocks, LFSR_MPTR_DSIZE)));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -12247,7 +12297,6 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     lfsr_rattr_t rattrs[3];
     lfs_size_t rattr_count = 0;
     lfsr_data_t name_data;
-    uint8_t buf[LFSR_BTREE_DSIZE];
 
     // not created yet? need to convert to normal file
     if (lfsr_o_isuncreat(file->b.o.flags)) {
@@ -12286,14 +12335,15 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                     LFSR_DATA_NULL());
         // bshrub?
         } else if (lfsr_bshrub_isbshrub(&file->b)) {
-            rattrs[rattr_count++] = LFSR_RATTR_SHRUBTRUNK(
-                    LFSR_TAG_SUB | LFSR_TAG_SHRUBTRUNK, 0,
-                    &file->b);
+            rattrs[rattr_count++] = LFSR_RATTR__(
+                    LFSR_TAG_SUB | LFSR_TAG_BSHRUB, 0,
+                    // note we use the staged trunk here
+                    &file->b.shrub_, LFSR_SHRUB_DSIZE);
         // btree?
         } else if (lfsr_bshrub_isbtree(&file->b)) {
-            rattrs[rattr_count++] = LFSR_RATTR(
+            rattrs[rattr_count++] = LFSR_RATTR__(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                    LFSR_DATA_BTREE(&file->b.shrub, buf));
+                    &file->b.shrub, LFSR_BTREE_DSIZE);
         } else {
             LFS_UNREACHABLE();
         }
@@ -13171,17 +13221,7 @@ typedef struct lfsr_geometry {
     lfs_off_t block_count;
 } lfsr_geometry_t;
 
-// geometry encoding
-// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
-// | block_size    |      block_count: 1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  total:                 <=9 bytes
-// | block_count       |
-// '---+- -+- -+- -+- -'
-#define LFSR_GEOMETRY_DSIZE (4+5)
-
-#define LFSR_DATA_GEOMETRY(_geometry, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromgeometry(_geometry, _buffer)}.d)
-
+// geometry on-disk encoding
 static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
         uint8_t buffer[static LFSR_GEOMETRY_DSIZE]) {
     lfs_ssize_t d = 0;
