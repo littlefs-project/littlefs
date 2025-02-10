@@ -2132,8 +2132,6 @@ typedef struct lfsr_rattr {
         uint32_t le32;
         uint32_t leb128;
         const void *etc;
-        // TODO rm me
-        const void *cat;
     } u;
 } lfsr_rattr_t;
 
@@ -2142,8 +2140,7 @@ typedef struct lfsr_rattr {
         .tag=_tag, \
         .data_count=(uint16_t){_data_count}, \
         .weight=_weight, \
-        /* TODO why does assigning to .u.etc add ~100 bytes of code? */ \
-        .u.cat=_etc})
+        .u.etc=_etc})
 
 #define LFSR_RATTR_DATA__(_tag, _weight, _data) \
     ((lfsr_rattr_t){ \
@@ -4345,7 +4342,7 @@ leaf:;
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(rattr.tag)),
             upper_rid - lower_rid + rattr.weight,
-            rattr.u.cat, rattr.data_count));
+            rattr.u.etc, rattr.data_count));
     if (err) {
         return err;
     }
@@ -4668,7 +4665,7 @@ static int lfsr_rbyd_appendcompactrattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR__(
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | rattr.tag,
             rattr.weight,
-            rattr.u.cat, rattr.data_count));
+            rattr.u.etc, rattr.data_count));
     if (err) {
         return err;
     }
@@ -7544,7 +7541,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 LFS_ASSERT(i == rattr_count-1);
                 // how would weight make sense here?
                 LFS_ASSERT(rattrs[i].weight == 0);
-                const lfsr_rattr_t *rattrs_ = rattrs[i].u.cat;
+                const lfsr_rattr_t *rattrs_ = rattrs[i].u.etc;
                 lfs_size_t rattr_count_ = rattrs[i].data_count;
 
                 // switch to chained rattr-list
@@ -7556,7 +7553,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
             } else if (rattrs[i].tag == LFSR_TAG_SHRUBCOMMIT) {
-                const lfsr_shrubcommit_t *shrubcommit = rattrs[i].u.cat;
+                const lfsr_shrubcommit_t *shrubcommit = rattrs[i].u.etc;
                 lfsr_bshrub_t *bshrub_ = shrubcommit->bshrub;
                 lfsr_srid_t rid_ = shrubcommit->rid;
                 const lfsr_rattr_t *rattrs_ = shrubcommit->rattrs;
@@ -7584,7 +7581,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else if (rattrs[i].tag == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
                 LFS_ASSERT(rattrs[i].weight == 0);
-                const lfsr_mdir_t *mdir__ = rattrs[i].u.cat;
+                const lfsr_mdir_t *mdir__ = rattrs[i].u.etc;
 
                 // skip the name tag, this is always replaced by upper layers
                 lfsr_tag_t tag = LFSR_TAG_STRUCT-1;
@@ -7660,7 +7657,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // custom attributes need to be reencoded into our tag format
             } else if (lfsr_tag_key(rattrs[i].tag) == LFSR_TAG_ATTRS) {
-                const struct lfs_attr *attrs_ = rattrs[i].u.cat;
+                const struct lfs_attr *attrs_ = rattrs[i].u.etc;
                 lfs_size_t attr_count_ = rattrs[i].data_count;
 
                 for (lfs_size_t j = 0; j < attr_count_; j++) {
@@ -11630,7 +11627,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             bid = lfs_min(bid, file->b.shrub.weight);
             rattrs[rattr_count++] = LFSR_RATTR__(
                     rattr.tag, +(weight + rattr.weight),
-                    rattr.u.cat, rattr.data_count);
+                    rattr.u.etc, rattr.data_count);
         }
     }
 
