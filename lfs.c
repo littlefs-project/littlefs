@@ -2194,6 +2194,28 @@ typedef struct lfsr_rattr {
         .weight=_weight, \
         .u.leb128=_leb128})
 
+// helper macro for did + name pairs
+typedef struct lfsr_name {
+    uint32_t did;
+    const char *name;
+    lfs_size_t name_len;
+} lfsr_name_t;
+
+#define LFSR_RATTR_NAME___(_tag, _weight, _name) \
+    ((lfsr_rattr_t){ \
+        .tag=_tag, \
+        .weight=_weight, \
+        .u.etc=(const lfsr_name_t*){_name}})
+
+#define LFSR_RATTR_NAME__(_tag, _weight, _did, _name, _name_len) \
+    LFSR_RATTR_NAME___( \
+        _tag, \
+        _weight, \
+        (&(lfsr_name_t){ \
+            .did=_did, \
+            .name=_name, \
+            .name_len=_name_len}))
+
 // TODO rm me
 #define LFSR_RATTR_(_tag, _weight, _cat, _count) \
     ((lfsr_rattr_t){ \
@@ -3419,6 +3441,11 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 // other low-level appends
 static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfsr_rid_t weight, lfs_size_t size) {
+    // tag must not be internal at this point
+    LFS_ASSERT(!lfsr_tag_isinternal(tag));
+    // bit 7 is reserved for future subtype extensions
+    LFS_ASSERT(!(tag & 0x80));
+
     // do we fit?
     if (lfsr_rbyd_eoff(rbyd) + LFSR_TAG_DSIZE
             > lfs->cfg->block_size) {
@@ -3463,6 +3490,11 @@ static lfsr_data_t lfsr_data_frommptr(const lfs_block_t mptr[static 2],
 
 static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_rattr_t rattr) {
+    // tag must not be internal at this point
+    LFS_ASSERT(!lfsr_tag_isinternal(rattr.tag));
+    // bit 7 is reserved for future subtype extensions
+    LFS_ASSERT(!(rattr.tag & 0x80));
+
     // encode lazy tags?
     //
     // we encode most tags lazily as this heavily reduces stack usage,
@@ -3470,32 +3502,40 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_size_t size;
     const void *datas;
     int16_t data_count;
-    // uh, there's probably a better way to do this, but I'm not sure
-    // what it is
-    uint8_t buf[LFS_MAX(
-            LFSR_LE32_DSIZE,
-            LFS_MAX(
-                LFSR_LEB128_DSIZE,
-                LFS_MAX(
-                    LFSR_GEOMETRY_DSIZE,
+    struct {
+        // uh, there's probably a better way to do this, but I'm not
+        // sure what it is
+        union {
+            uint8_t buf[LFS_MAX(
+                    LFSR_LE32_DSIZE,
                     LFS_MAX(
-                        LFSR_BPTR_DSIZE,
+                        LFSR_LEB128_DSIZE,
                         LFS_MAX(
-                            LFSR_SHRUB_DSIZE,
+                            LFSR_GEOMETRY_DSIZE,
                             LFS_MAX(
-                                LFSR_BTREE_DSIZE,
+                                LFSR_BPTR_DSIZE,
                                 LFS_MAX(
-                                    LFSR_MPTR_DSIZE,
-                                    LFSR_ECKSUM_DSIZE)))))))];
+                                    LFSR_SHRUB_DSIZE,
+                                    LFS_MAX(
+                                        LFSR_BTREE_DSIZE,
+                                        LFS_MAX(
+                                            LFSR_MPTR_DSIZE,
+                                            LFSR_ECKSUM_DSIZE)))))))];
+            struct {
+                lfsr_data_t datas[2];
+                uint8_t buf[LFSR_LEB128_DSIZE];
+            } name;
+        } u;
+    } ctx;
     switch (lfsr_rattr_dtag(rattr)) {
     // le32?
     case LFSR_TAG_RCOMPAT:;
     case LFSR_TAG_WCOMPAT:;
     case LFSR_TAG_OCOMPAT:;
     case LFSR_TAG_GCKSUMDELTA:;
-        lfsr_data_t data = lfsr_data_fromle32(rattr.u.le32, buf);
+        lfsr_data_t data = lfsr_data_fromle32(rattr.u.le32, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
@@ -3504,26 +3544,39 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     case LFSR_TAG_FILELIMIT:;
     case LFSR_TAG_BOOKMARK:;
     case LFSR_TAG_DID:;
-        data = lfsr_data_fromleb128(rattr.u.leb128, buf);
+        data = lfsr_data_fromleb128(rattr.u.leb128, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
     // geometry?
     case LFSR_TAG_GEOMETRY:;
-        data = lfsr_data_fromgeometry(rattr.u.etc, buf);
+        data = lfsr_data_fromgeometry(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
+        break;
+
+    // name?
+    case LFSR_TAG_NAME:;
+    case LFSR_TAG_REG:;
+    case LFSR_TAG_DIR:;
+    case LFSR_TAG_STICKYNOTE:;
+        const lfsr_name_t *name = rattr.u.etc;
+        ctx.u.name.datas[0] = lfsr_data_fromleb128(name->did, ctx.u.name.buf);
+        ctx.u.name.datas[1] = LFSR_DATA_BUF(name->name, name->name_len);
+        size = lfsr_data_size(ctx.u.name.datas[0]) + name->name_len;
+        datas = &ctx.u.name.datas;
+        data_count = -2;
         break;
 
     // bptr?
     case LFSR_TAG_BLOCK:;
     case LFSR_TAG_SHRUB | LFSR_TAG_BLOCK:;
-        data = lfsr_data_frombptr(rattr.u.etc, buf);
+        data = lfsr_data_frombptr(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
@@ -3532,35 +3585,35 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note unlike the other lazy tags, we _need_ to lazily encode
         // shrub trunks, since they change underneath us during mdir
         // compactions, relocations, etc
-        data = lfsr_data_fromshrub(rattr.u.etc, buf);
+        data = lfsr_data_fromshrub(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
     // btree?
     case LFSR_TAG_BTREE:;
     case LFSR_TAG_MTREE:;
-        data = lfsr_data_frombtree(rattr.u.etc, buf);
+        data = lfsr_data_frombtree(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
     // mptr?
     case LFSR_TAG_MROOT:;
     case LFSR_TAG_MDIR:;
-        data = lfsr_data_frommptr(rattr.u.etc, buf);
+        data = lfsr_data_frommptr(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
     // ecksum?
     case LFSR_TAG_ECKSUM:;
-        data = lfsr_data_fromecksum(rattr.u.etc, buf);
+        data = lfsr_data_fromecksum(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
-        datas = buf;
+        datas = ctx.u.buf;
         data_count = size;
         break;
 
@@ -10033,7 +10086,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     lfsr_grm_pop(lfs);
     lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_NAME__(
                 LFSR_TAG_SUP | LFSR_TAG_DIR, (!exists) ? +1 : 0,
                 did, path, name_len),
             LFSR_RATTR_LEB128__(
@@ -10183,7 +10236,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             // we use a create+delete here to also clear any rattrs
             // and trim the entry size
             (zombie)
-                ? LFSR_RATTR_NAME(
+                ? LFSR_RATTR_NAME__(
                     LFSR_TAG_SUP | LFSR_TAG_STICKYNOTE, 0,
                     did, path, lfsr_path_namelen(path))
                 : LFSR_RATTR(
@@ -10350,7 +10403,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     // new rid, while also marking the old rid for removal
     lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &new_mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_NAME__(
                 LFSR_TAG_SUP | old_tag, (!exists) ? +1 : 0,
                 new_did, new_path, new_name_len),
             LFSR_RATTR_MOVE(LFSR_TAG_MOVE, 0, &old_mdir)));
@@ -11100,7 +11153,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
             lfs_alloc_ckpoint(lfs);
             err = lfsr_mdir_commit(lfs, &file->b.o.mdir, LFSR_RATTRS(
-                    LFSR_RATTR_NAME(
+                    LFSR_RATTR_NAME__(
                         LFSR_TAG_STICKYNOTE, +1,
                         did, path, name_len)));
             if (err) {
