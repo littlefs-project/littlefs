@@ -995,15 +995,12 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR__(
                 LFSR_TAG_GEOMETRY, 0,
-                LFSR_DATA_GEOMETRY(
-                    (&(lfsr_geometry_t){
-                        INC_BLOCK_SIZE,
-                        BLOCK_COUNT}),
-                    geometry_buf)))) => 0;
+                (&(lfsr_geometry_t){
+                    INC_BLOCK_SIZE,
+                    BLOCK_COUNT}), LFSR_GEOMETRY_DSIZE))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
@@ -1025,15 +1022,12 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR__(
                 LFSR_TAG_GEOMETRY, 0,
-                LFSR_DATA_GEOMETRY(
-                    (&(lfsr_geometry_t){
-                        BLOCK_SIZE,
-                        INC_BLOCK_COUNT}),
-                    geometry_buf)))) => 0;
+                (&(lfsr_geometry_t){
+                    BLOCK_SIZE,
+                    INC_BLOCK_COUNT}), LFSR_GEOMETRY_DSIZE))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail

@@ -3449,6 +3449,9 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 // needed in lfsr_rbyd_appendrattr_
+typedef struct lfsr_geometry lfsr_geometry_t;
+static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
+        uint8_t buffer[static LFSR_GEOMETRY_DSIZE]);
 static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
         uint8_t buffer[static LFSR_BPTR_DSIZE]);
 static lfsr_data_t lfsr_data_fromshrub(const lfsr_shrub_t *shrub,
@@ -3474,14 +3477,16 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             LFS_MAX(
                 LFSR_LEB128_DSIZE,
                 LFS_MAX(
-                    LFSR_BPTR_DSIZE,
+                    LFSR_GEOMETRY_DSIZE,
                     LFS_MAX(
-                        LFSR_SHRUB_DSIZE,
+                        LFSR_BPTR_DSIZE,
                         LFS_MAX(
-                            LFSR_BTREE_DSIZE,
+                            LFSR_SHRUB_DSIZE,
                             LFS_MAX(
-                                LFSR_MPTR_DSIZE,
-                                LFSR_ECKSUM_DSIZE))))))];
+                                LFSR_BTREE_DSIZE,
+                                LFS_MAX(
+                                    LFSR_MPTR_DSIZE,
+                                    LFSR_ECKSUM_DSIZE)))))))];
     switch (lfsr_rattr_dtag(rattr)) {
     // le32?
     case LFSR_TAG_RCOMPAT:;
@@ -3500,6 +3505,14 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     case LFSR_TAG_BOOKMARK:;
     case LFSR_TAG_DID:;
         data = lfsr_data_fromleb128(rattr.u.leb128, buf);
+        size = lfsr_data_size(data);
+        datas = buf;
+        data_count = size;
+        break;
+
+    // geometry?
+    case LFSR_TAG_GEOMETRY:;
+        data = lfsr_data_fromgeometry(rattr.u.etc, buf);
         size = lfsr_data_size(data);
         datas = buf;
         data_count = size;
@@ -13310,10 +13323,10 @@ static inline int lfsr_data_readocompat(lfs_t *lfs, lfsr_data_t *data,
 // disk geometry
 //
 // note these are stored minus 1 to avoid overflow issues
-typedef struct lfsr_geometry {
+struct lfsr_geometry {
     lfs_off_t block_size;
     lfs_off_t block_count;
-} lfsr_geometry_t;
+};
 
 // geometry on-disk encoding
 static lfsr_data_t lfsr_data_fromgeometry(const lfsr_geometry_t *geometry,
@@ -13841,7 +13854,6 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // - our magic string, "littlefs"
         // - any format-time configuration
         // - the root's bookmark tag, which reserves did = 0 for the root
-        uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
         err = lfsr_rbyd_appendrattrs(lfs, &rbyd, -1, -1, -1, LFSR_RATTRS(
                 LFSR_RATTR(
                     LFSR_TAG_MAGIC, 0,
@@ -13857,13 +13869,11 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_RATTR_LE32__(
                     LFSR_TAG_WCOMPAT, 0,
                     LFSR_WCOMPAT_COMPAT),
-                LFSR_RATTR(
+                LFSR_RATTR__(
                     LFSR_TAG_GEOMETRY, 0,
-                    LFSR_DATA_GEOMETRY(
-                        (&(lfsr_geometry_t){
-                            lfs->cfg->block_size,
-                            lfs->cfg->block_count}),
-                        geometry_buf)),
+                    (&(lfsr_geometry_t){
+                        lfs->cfg->block_size,
+                        lfs->cfg->block_count}), LFSR_GEOMETRY_DSIZE),
                 LFSR_RATTR_LEB128__(
                     LFSR_TAG_NAMELIMIT, 0,
                     lfs->name_limit),
@@ -14386,15 +14396,12 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
 
     // update our on-disk config
     lfs_alloc_ckpoint(lfs);
-    uint8_t geometry_buf[LFSR_GEOMETRY_DSIZE];
     int err = lfsr_mdir_commit(lfs, &lfs->mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR__(
                 LFSR_TAG_GEOMETRY, 0,
-                LFSR_DATA_GEOMETRY(
-                    (&(lfsr_geometry_t){
-                        lfs->cfg->block_size,
-                        block_count_}),
-                    geometry_buf))));
+                (&(lfsr_geometry_t){
+                    lfs->cfg->block_size,
+                    block_count_}), LFSR_GEOMETRY_DSIZE)));
     if (err) {
         goto failed;
     }
