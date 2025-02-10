@@ -790,7 +790,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_RCOMPAT, 0,
-                LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
+                lfsr_data_fromle32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -824,7 +824,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_WCOMPAT, 0,
-                LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
+                lfsr_data_fromle32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -858,7 +858,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_OCOMPAT, 0,
-                LFSR_DATA_LE32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
+                lfsr_data_fromle32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -890,7 +890,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_RCOMPAT, 0,
-                LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
+                lfsr_data_fromle32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -924,7 +924,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_WCOMPAT, 0,
-                LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
+                lfsr_data_fromle32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -955,7 +955,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_OCOMPAT, 0,
-                LFSR_DATA_LE32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
+                lfsr_data_fromle32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
@@ -1067,7 +1067,7 @@ code = '''
                 // larger value by inserting an extra byte into our
                 // leb128 encoding
                 LFSR_DATA_BUF("\xff", 1),
-                LFSR_DATA_LEB128(LFS_FILE_MAX, file_limit_buf)))) => 0;
+                lfsr_data_fromleb128(LFS_FILE_MAX, file_limit_buf)))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
@@ -1134,7 +1134,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_CAT(
                 LFSR_TAG_SUB | (LFSR_TAG_NAME + 0x13), 0,
-                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
                 LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     lfsr_unmount(&lfs) => 0;
 

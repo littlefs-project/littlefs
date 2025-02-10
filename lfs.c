@@ -1962,9 +1962,6 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 //
 #define LFSR_LE32_DSIZE 4
 
-#define LFSR_DATA_LE32(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromle32(_word, _buffer)}.d)
-
 static inline lfsr_data_t lfsr_data_fromle32(uint32_t word,
         uint8_t buffer[static LFSR_LE32_DSIZE]) {
     lfs_tole32_(word, buffer);
@@ -1977,9 +1974,6 @@ static inline lfsr_data_t lfsr_data_fromle32(uint32_t word,
 // '---+- -+- -+- -+- -'
 //
 #define LFSR_LEB128_DSIZE 5
-
-#define LFSR_DATA_LEB128(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromleb128(_word, _buffer)}.d)
 
 static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
         uint8_t buffer[static LFSR_LEB128_DSIZE]) {
@@ -2000,9 +1994,6 @@ static inline lfsr_data_t lfsr_data_fromleb128(uint32_t word,
 // '---+- -+- -+- -'
 //
 #define LFSR_LLEB128_DSIZE 4
-
-#define LFSR_DATA_LLEB128(_word, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromlleb128(_word, _buffer)}.d)
 
 static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
         uint8_t buffer[static LFSR_LLEB128_DSIZE]) {
@@ -2029,9 +2020,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 //
 #define LFSR_ECKSUM_DSIZE (4+4)
 
-#define LFSR_DATA_ECKSUM(_ecksum, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromecksum(_ecksum, _buffer)}.d)
-
 // branch encoding:
 // .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
 // | block             |  trunk: 1 leb128  <=4 bytes
@@ -2042,9 +2030,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 // '---+---+---+---'
 //
 #define LFSR_BRANCH_DSIZE (5+4+4)
-
-#define LFSR_DATA_BRANCH(_branch, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombranch(_branch, _buffer)}.d)
 
 // btree encoding:
 // .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
@@ -2058,9 +2043,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 // '---+---+---+---'
 //
 #define LFSR_BTREE_DSIZE (5+LFSR_BRANCH_DSIZE)
-
-#define LFSR_DATA_BTREE(_btree, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombtree(_btree, _buffer)}.d)
 
 // bptr encoding:
 // .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
@@ -2077,9 +2059,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 //
 #define LFSR_BPTR_DSIZE (4+5+4+4+4)
 
-#define LFSR_DATA_BPTR(_bptr, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frombptr(_bptr, _buffer)}.d)
-
 // shrub encoding:
 // .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
 // | weight            |  trunk:  1 leb128  <=4 bytes
@@ -2088,9 +2067,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 // '---+- -+- -+- -'
 //
 #define LFSR_SHRUB_DSIZE (5+4)
-
-#define LFSR_DATA_SHRUB(_rbyd, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromshrub(_rbyd, _buffer)}.d)
 
 // mptr encoding:
 // .---+- -+- -+- -+- -.  blocks: 2 leb128s  <=2x5 bytes
@@ -2101,9 +2077,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 //
 #define LFSR_MPTR_DSIZE (5+5)
 
-#define LFSR_DATA_MPTR(_mptr, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_frommptr(_mptr, _buffer)}.d)
-
 // geometry encoding
 // .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
 // | block_size    |      block_count: 1 leb128  <=5 bytes
@@ -2111,9 +2084,6 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 // | block_count       |
 // '---+- -+- -+- -+- -'
 #define LFSR_GEOMETRY_DSIZE (4+5)
-
-#define LFSR_DATA_GEOMETRY(_geometry, _buffer) \
-    ((struct {lfsr_data_t d;}){lfsr_data_fromgeometry(_geometry, _buffer)}.d)
 
 
 
