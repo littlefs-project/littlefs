@@ -1055,11 +1055,10 @@ code = '''
     // note we're messing around with internals to do this! this
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t name_limit_buf[LFSR_LLEB128_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_LEB128__(
                 LFSR_TAG_NAMELIMIT, 0,
-                LFSR_DATA_LLEB128(INC_NAME_LIMIT, name_limit_buf)))) => 0;
+                INC_NAME_LIMIT))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
