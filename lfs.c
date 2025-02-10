@@ -5331,11 +5331,11 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 
 
 // extra state needed for non-terminating lfsr_btree_commit__ calls
-typedef struct lfsr_bscratch {
+typedef struct lfsr_bctx {
     lfsr_rattr_t rattrs[4];
     lfsr_data_t split_data;
     lfsr_rbyd_t branches[2];
-} lfsr_bscratch_t;
+} lfsr_bctx_t;
 
 // core btree algorithm
 //
@@ -5344,7 +5344,7 @@ typedef struct lfsr_bscratch {
 // 2. we have a shrub root
 //
 static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
-        lfsr_bscratch_t *bscratch,
+        lfsr_bctx_t *bctx,
         lfsr_bid_t *bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
         const lfsr_rattr_t **rattrs, lfs_size_t *rattr_count) {
     lfsr_bid_t bid_ = *bid;
@@ -5711,7 +5711,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // they introduce a new name!
         lfsr_tag_t split_tag;
         err = lfsr_rbyd_lookupnext(lfs, &sibling, 0, LFSR_TAG_NAME,
-                NULL, &split_tag, NULL, &bscratch->split_data);
+                NULL, &split_tag, NULL, &bctx->split_data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -5723,42 +5723,42 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         rattr_count_ = 0;
         // new root?
         if (!lfsr_rbyd_trunk(&parent)) {
-            bscratch->branches[0] = rbyd__;
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+            bctx->branches[0] = rbyd__;
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +rbyd__.weight,
-                    &bscratch->branches[0], LFSR_BRANCH_DSIZE);
-            bscratch->branches[1] = sibling;
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+                    &bctx->branches[0], LFSR_BRANCH_DSIZE);
+            bctx->branches[1] = sibling;
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
-                    &bscratch->branches[1], LFSR_BRANCH_DSIZE);
+                    &bctx->branches[1], LFSR_BRANCH_DSIZE);
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                bscratch->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
+                bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
                         LFSR_TAG_NAME, 0,
-                        &bscratch->split_data);
+                        &bctx->split_data);
             }
         // split root?
         } else {
             bid_ -= pid - (rbyd_.weight-1);
-            bscratch->branches[0] = rbyd__;
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+            bctx->branches[0] = rbyd__;
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, 0,
-                    &bscratch->branches[0], LFSR_BRANCH_DSIZE);
+                    &bctx->branches[0], LFSR_BRANCH_DSIZE);
             if (rbyd__.weight != rbyd_.weight) {
-                bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+                bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         NULL, 0);
             }
-            bscratch->branches[1] = sibling;
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+            bctx->branches[1] = sibling;
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
-                    &bscratch->branches[1], LFSR_BRANCH_DSIZE);
+                    &bctx->branches[1], LFSR_BRANCH_DSIZE);
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                bscratch->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
+                bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
                         LFSR_TAG_NAME, 0,
-                        &bscratch->split_data);
+                        &bctx->split_data);
             }
         }
-        rattrs_ = bscratch->rattrs;
+        rattrs_ = bctx->rattrs;
 
         rbyd_ = parent;
         rid_ = pid;
@@ -5830,18 +5830,18 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         LFS_ASSERT(rbyd__.weight > 0);
         rattr_count_ = 0;
         bid_ -= pid - (rbyd_.weight-1);
-        bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+        bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                 LFSR_TAG_RM, -sibling.weight, NULL, 0);
-        bscratch->branches[0] = rbyd__;
-        bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+        bctx->branches[0] = rbyd__;
+        bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                 LFSR_TAG_BRANCH, 0,
-                &bscratch->branches[0], LFSR_BRANCH_DSIZE);
+                &bctx->branches[0], LFSR_BRANCH_DSIZE);
         if (rbyd__.weight != rbyd_.weight) {
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                     NULL, 0);
         }
-        rattrs_ = bscratch->rattrs;
+        rattrs_ = bctx->rattrs;
 
         rbyd_ = parent;
         rid_ = pid + sibling.weight;
@@ -5870,20 +5870,20 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         rattr_count_ = 0;
         bid_ -= pid - (rbyd_.weight-1);
         if (rbyd__.weight == 0) {
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_RM, -rbyd_.weight, NULL, 0);
         } else {
-            bscratch->branches[0] = rbyd__;
-            bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+            bctx->branches[0] = rbyd__;
+            bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, 0,
-                    &bscratch->branches[0], LFSR_BRANCH_DSIZE);
+                    &bctx->branches[0], LFSR_BRANCH_DSIZE);
             if (rbyd__.weight != rbyd_.weight) {
-                bscratch->rattrs[rattr_count_++] = LFSR_RATTR(
+                bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         NULL, 0);
             }
         }
-        rattrs_ = bscratch->rattrs;
+        rattrs_ = bctx->rattrs;
 
         rbyd_ = parent;
         rid_ = pid;
@@ -5896,8 +5896,8 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
         const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // try to commit to the btree
-    lfsr_bscratch_t bscratch;
-    int err = lfsr_btree_commit__(lfs, btree, &bscratch,
+    lfsr_bctx_t bctx;
+    int err = lfsr_btree_commit__(lfs, btree, &bctx,
             &bid, rbyd, rid, &rattrs, &rattr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
@@ -6427,8 +6427,8 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
     }
 
     // try to commit to the btree
-    lfsr_bscratch_t bscratch;
-    int err = lfsr_btree_commit__(lfs, &bshrub->shrub, &bscratch,
+    lfsr_bctx_t bctx;
+    int err = lfsr_btree_commit__(lfs, &bshrub->shrub, &bctx,
             &bid, rbyd, rid, &rattrs, &rattr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
