@@ -4566,44 +4566,50 @@ code = '''
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
 
     // stat paths
     struct lfs_info info;
@@ -4746,44 +4752,50 @@ code = '''
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
 
     if (DIR) {
         lfsr_mkdir(&lfs, "drip/coffee") => LFS_ERR_NOTSUP;
@@ -5036,44 +5048,50 @@ code = '''
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
 
     // stat paths
     struct lfs_info info;
@@ -5272,44 +5290,50 @@ code = '''
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
 
     // stat paths
     struct lfs_info info;
@@ -5508,44 +5532,50 @@ code = '''
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => LFS_ERR_NOENT;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_NAME(
+            LFSR_RATTR_CAT__(
                 LFSR_TAG_NAME + 0x13, +1,
-                did, path, lfsr_path_namelen(path)))) => 0;
+                LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
 
     // stat paths
     struct lfs_info info;

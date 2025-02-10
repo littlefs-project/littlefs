@@ -76,9 +76,9 @@ code = '''
 
             // add to btree
             lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                    LFSR_RATTR(
+                    LFSR_RATTR__(
                         LFSR_TAG_DATA, +1,
-                        LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                        &(uint8_t){'a'+(i % 26)}, 1))) => 0;
 
             // add to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -1851,9 +1851,9 @@ code = '''
 
         // add to btree
         lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                LFSR_RATTR(
+                LFSR_RATTR__(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                    &(uint8_t){'a'+(i % 26)}, 1))) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -3626,9 +3626,9 @@ code = '''
 
         // add to btree
         lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                LFSR_RATTR(
+                LFSR_RATTR__(
                     LFSR_TAG_DATA, +1,
-                    LFSR_DATA_BUF(&(uint8_t){'a'+(i % 26)}, 1)))) => 0;
+                    &(uint8_t){'a'+(i % 26)}, 1))) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
