@@ -5333,7 +5333,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 // extra state needed for non-terminating lfsr_btree_commit__ calls
 typedef struct lfsr_bctx {
     lfsr_rattr_t rattrs[4];
-    lfsr_data_t split_data;
+    lfsr_data_t split_name;
     lfsr_rbyd_t branches[2];
 } lfsr_bctx_t;
 
@@ -5711,7 +5711,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // they introduce a new name!
         lfsr_tag_t split_tag;
         err = lfsr_rbyd_lookupnext(lfs, &sibling, 0, LFSR_TAG_NAME,
-                NULL, &split_tag, NULL, &bctx->split_data);
+                NULL, &split_tag, NULL, &bctx->split_name);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -5734,7 +5734,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
                         LFSR_TAG_NAME, 0,
-                        &bctx->split_data);
+                        &bctx->split_name);
             }
         // split root?
         } else {
@@ -5755,7 +5755,7 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
                         LFSR_TAG_NAME, 0,
-                        &bctx->split_data);
+                        &bctx->split_name);
             }
         }
         rattrs_ = bctx->rattrs;
@@ -8353,9 +8353,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         //
         // note we need to do this after playing out pending rattrs in
         // case they introduce a new name!
-        lfsr_data_t split_data;
+        lfsr_data_t split_name;
         err = lfsr_rbyd_sublookup(lfs, &mdir_[1].rbyd, 0, LFSR_TAG_NAME,
-                NULL, &split_data);
+                NULL, &split_name);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             goto failed;
@@ -8372,7 +8372,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE),
                         LFSR_RATTR_DATA(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
-                            &split_data),
+                            &split_name),
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
                             mdir_[1].rbyd.blocks, LFSR_MPTR_DSIZE)));
@@ -8392,7 +8392,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE),
                         LFSR_RATTR_DATA(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
-                            &split_data),
+                            &split_name),
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
                             mdir_[1].rbyd.blocks, LFSR_MPTR_DSIZE)));
