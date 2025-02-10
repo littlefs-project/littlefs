@@ -76,7 +76,7 @@ code = '''
 
             // add to btree
             lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                    LFSR_RATTR__(
+                    LFSR_RATTR(
                         LFSR_TAG_DATA, +1,
                         &(uint8_t){'a'+(i % 26)}, 1))) => 0;
 
@@ -1851,7 +1851,7 @@ code = '''
 
         // add to btree
         lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                LFSR_RATTR__(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     &(uint8_t){'a'+(i % 26)}, 1))) => 0;
 
@@ -3626,7 +3626,7 @@ code = '''
 
         // add to btree
         lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                LFSR_RATTR__(
+                LFSR_RATTR(
                     LFSR_TAG_DATA, +1,
                     &(uint8_t){'a'+(i % 26)}, 1))) => 0;
 

@@ -545,7 +545,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_RM | LFSR_TAG_MAGIC, 0,
                 NULL, 0))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -569,7 +569,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_MAGIC, 0,
                 "lottlefs", 8))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -593,7 +593,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_VERSION, 0,
                 ((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR+1,
@@ -619,7 +619,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_VERSION, 0,
                 ((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR,
@@ -646,7 +646,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32__(
+            LFSR_RATTR_LE32(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_RCOMPAT_COMPAT
                     | LFSR_RCOMPAT_NONSTANDARD))) => 0;
@@ -672,7 +672,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32__(
+            LFSR_RATTR_LE32(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_WCOMPAT_COMPAT
                     | LFSR_WCOMPAT_NONSTANDARD))) => 0;
@@ -701,7 +701,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32__(
+            LFSR_RATTR_LE32(
                 LFSR_TAG_OCOMPAT, 0,
                 LFSR_OCOMPAT_COMPAT
                     | LFSR_OCOMPAT_NONSTANDARD))) => 0;
@@ -728,7 +728,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32__(
+            LFSR_RATTR_LE32(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_WCOMPAT_COMPAT
                     | LFSR_WCOMPAT_RDONLY))) => 0;
@@ -756,7 +756,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32__(
+            LFSR_RATTR_LE32(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_RCOMPAT_COMPAT
                     | LFSR_RCOMPAT_WRONLY))) => 0;
@@ -788,7 +788,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t rcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
@@ -822,7 +822,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t wcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
@@ -856,7 +856,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t ocompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_OCOMPAT, 0,
                 LFSR_DATA_LE32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
@@ -888,7 +888,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t rcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_RCOMPAT, 0,
                 LFSR_DATA_LE32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
@@ -922,7 +922,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t wcompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_WCOMPAT, 0,
                 LFSR_DATA_LE32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
@@ -953,7 +953,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t ocompat_buf[LFSR_LE32_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_OCOMPAT, 0,
                 LFSR_DATA_LE32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
                 LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
@@ -981,7 +981,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_GEOMETRY, 0,
                 (&(lfsr_geometry_t){
                     INC_BLOCK_SIZE,
@@ -1008,7 +1008,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_GEOMETRY, 0,
                 (&(lfsr_geometry_t){
                     BLOCK_SIZE,
@@ -1035,7 +1035,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LEB128__(
+            LFSR_RATTR_LEB128(
                 LFSR_TAG_NAMELIMIT, 0,
                 INC_NAME_LIMIT))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -1060,7 +1060,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_FILELIMIT, 0,
                 // it's a bit difficult to test this since file limit
                 // is usually our integer limit, but we can force a
@@ -1086,7 +1086,7 @@ code = '''
     // create an unknown config
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR__(
+            LFSR_RATTR(
                 LFSR_TAG_CONFIG + 0x13, 0,
                 "oh no!", strlen("oh no!")))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -1132,7 +1132,7 @@ code = '''
     lfsr_mtree_pathlookup(&lfs, &path,
             &mdir, NULL, &did) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT__(
+            LFSR_RATTR_CAT(
                 LFSR_TAG_SUB | (LFSR_TAG_NAME + 0x13), 0,
                 LFSR_DATA_LEB128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
                 LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
