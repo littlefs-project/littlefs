@@ -3363,8 +3363,6 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]);
 static lfsr_data_t lfsr_data_frommptr(const lfs_block_t mptr[static 2],
         uint8_t buffer[static LFSR_MPTR_DSIZE]);
-static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
-        uint8_t buffer[static LFSR_BRANCH_DSIZE]);
 
 static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_rattr_t rattr) {
@@ -3398,9 +3396,7 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                                         LFSR_BTREE_DSIZE,
                                         LFS_MAX(
                                             LFSR_MPTR_DSIZE,
-                                            LFS_MAX(
-                                                LFSR_BRANCH_DSIZE,
-                                                LFSR_ECKSUM_DSIZE))))))))];
+                                            LFSR_ECKSUM_DSIZE)))))))];
             struct {
                 lfsr_data_t datas[2];
                 uint8_t buf[LFSR_LEB128_DSIZE];
@@ -3484,15 +3480,6 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     case LFSR_TAG_MROOT:;
     case LFSR_TAG_MDIR:;
         data = lfsr_data_frommptr(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
-        break;
-
-    // branch?
-    case LFSR_TAG_BRANCH:;
-    case LFSR_TAG_SHRUB | LFSR_TAG_BRANCH:;
-        data = lfsr_data_frombranch(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data);
         datas = ctx.u.buf;
         data_count = size;
@@ -5334,7 +5321,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 typedef struct lfsr_bctx {
     lfsr_rattr_t rattrs[4];
     lfsr_data_t split_name;
-    lfsr_rbyd_t branches[2];
+    uint8_t buf[2*LFSR_BRANCH_DSIZE];
 } lfsr_bctx_t;
 
 // core btree algorithm
@@ -5723,14 +5710,16 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         rattr_count_ = 0;
         // new root?
         if (!lfsr_rbyd_trunk(&parent)) {
-            bctx->branches[0] = rbyd__;
+            lfsr_data_t branch_l = lfsr_data_frombranch(
+                    &rbyd__, &bctx->buf[0*LFSR_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +rbyd__.weight,
-                    &bctx->branches[0], LFSR_BRANCH_DSIZE);
-            bctx->branches[1] = sibling;
+                    branch_l.u.buffer, lfsr_data_size(branch_l));
+            lfsr_data_t branch_r = lfsr_data_frombranch(
+                    &sibling, &bctx->buf[1*LFSR_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
-                    &bctx->branches[1], LFSR_BRANCH_DSIZE);
+                    branch_r.u.buffer, lfsr_data_size(branch_r));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
                         LFSR_TAG_NAME, 0,
@@ -5739,19 +5728,21 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // split root?
         } else {
             bid_ -= pid - (rbyd_.weight-1);
-            bctx->branches[0] = rbyd__;
+            lfsr_data_t branch_l = lfsr_data_frombranch(
+                    &rbyd__, &bctx->buf[0*LFSR_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, 0,
-                    &bctx->branches[0], LFSR_BRANCH_DSIZE);
+                    branch_l.u.buffer, lfsr_data_size(branch_l));
             if (rbyd__.weight != rbyd_.weight) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
                         NULL, 0);
             }
-            bctx->branches[1] = sibling;
+            lfsr_data_t branch_r = lfsr_data_frombranch(
+                    &sibling, &bctx->buf[1*LFSR_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, +sibling.weight,
-                    &bctx->branches[1], LFSR_BRANCH_DSIZE);
+                    branch_r.u.buffer, lfsr_data_size(branch_r));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
                         LFSR_TAG_NAME, 0,
@@ -5829,13 +5820,15 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
         // prepare commit to parent, tail recursing upwards
         LFS_ASSERT(rbyd__.weight > 0);
         rattr_count_ = 0;
+        // build attr list
         bid_ -= pid - (rbyd_.weight-1);
         bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                 LFSR_TAG_RM, -sibling.weight, NULL, 0);
-        bctx->branches[0] = rbyd__;
+        lfsr_data_t branch = lfsr_data_frombranch(
+                &rbyd__, &bctx->buf[0*LFSR_BRANCH_DSIZE]);
         bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                 LFSR_TAG_BRANCH, 0,
-                &bctx->branches[0], LFSR_BRANCH_DSIZE);
+                branch.u.buffer, lfsr_data_size(branch));
         if (rbyd__.weight != rbyd_.weight) {
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
@@ -5873,10 +5866,11 @@ static int lfsr_btree_commit__(lfs_t *lfs, lfsr_btree_t *btree,
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_RM, -rbyd_.weight, NULL, 0);
         } else {
-            bctx->branches[0] = rbyd__;
+            lfsr_data_t branch = lfsr_data_frombranch(
+                    &rbyd__, &bctx->buf[0*LFSR_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                     LFSR_TAG_BRANCH, 0,
-                    &bctx->branches[0], LFSR_BRANCH_DSIZE);
+                    branch.u.buffer, lfsr_data_size(branch));
             if (rbyd__.weight != rbyd_.weight) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -rbyd_.weight + rbyd__.weight,
