@@ -37,7 +37,7 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-                LFSR_RATTR(
+                LFSR_RATTR_BUF(
                     LFSR_TAG_ATTR(i), 0,
                     &(uint8_t){'a'+(i % 26)}, 1))) => 0;
     }
@@ -82,7 +82,7 @@ code = '''
         lfs.mroot.rbyd.eoff = -1;
 
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-                LFSR_RATTR(
+                LFSR_RATTR_BUF(
                     LFSR_TAG_ATTR(i), 0,
                     &(uint8_t){'a'+(i % 26)}, 1))) => 0;
     }
@@ -124,7 +124,7 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-                LFSR_RATTR(
+                LFSR_RATTR_BUF(
                     LFSR_TAG_ATTR(1), 0,
                     &(uint8_t){'a'+(i % 26)}, 1))) => 0;
         lfsr_data_t data;
@@ -173,18 +173,18 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined
     assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
@@ -269,7 +269,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -358,7 +358,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -378,7 +378,7 @@ code = '''
     // force mdir to compact
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "e", 1))) => 0;
 
     // assert mdir was split correctly
     assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
@@ -675,7 +675,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -765,7 +765,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -932,7 +932,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -1046,7 +1046,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -1273,18 +1273,18 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined
     assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
@@ -1296,10 +1296,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(4), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(4), 0, "d", 1))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(5), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(5), 0, "e", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1408,7 +1408,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -1422,10 +1422,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "e", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1538,7 +1538,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -1552,10 +1552,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "e", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1660,10 +1660,10 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "b", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "b", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "c", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1737,10 +1737,10 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "b", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "b", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "c", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1749,16 +1749,16 @@ code = '''
     old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "d", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(4), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(4), 0, "e", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(5), 0, "f", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(5), 0, "f", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(6), 0, "g", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(6), 0, "g", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1861,10 +1861,10 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "b", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "b", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "c", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1872,10 +1872,10 @@ code = '''
     old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "d", 1))) => 0;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(4), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(4), 0, "e", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -1970,7 +1970,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -1987,10 +1987,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "e", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
     // assert mroot relocated
@@ -2105,7 +2105,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -2129,10 +2129,10 @@ code = '''
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "e", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "e", 1))) => 0;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "f", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "f", 1))) => 0;
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
     // assert mroot relocated
@@ -2255,7 +2255,7 @@ code = '''
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
@@ -2272,7 +2272,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "d", 1))) => 0;
     // force mdir to compact while we're removing
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
@@ -2342,19 +2342,19 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
 
     // force mroot to compact, this should both uninline and relocate
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
     // assert mroot relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -2449,7 +2449,7 @@ code = '''
     lfsr_mdir_t old_mroot = lfs.mroot;
     lfs.mroot.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
     // assert mroot relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
@@ -3575,13 +3575,13 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.eoff = -1;

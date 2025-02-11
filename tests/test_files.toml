@@ -1101,7 +1101,7 @@ code = '''
                     .bshrub=&file.b,
                     .rid=0,
                     .rattrs=((lfsr_rattr_t[]){
-                        LFSR_RATTR(LFSR_TAG_DATA, +1, "?", 1)}),
+                        LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "?", 1)}),
                     .rattr_count=1}), 0))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
             LFSR_RATTR(
@@ -1232,7 +1232,7 @@ code = '''
     lfs_alloc_ckpoint(&lfs);
     lfsr_rbyd_alloc(&lfs, &file.b.shrub) => 0;
     lfsr_rbyd_commit(&lfs, &file.b.shrub, 0, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_DATA, +1, "?", 1))) => 0;
+            LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "?", 1))) => 0;
     lfsr_rbyd_commit(&lfs, &file.b.shrub, 0, LFSR_RATTRS(
             LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(

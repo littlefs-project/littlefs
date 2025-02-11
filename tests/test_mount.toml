@@ -569,7 +569,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_BUF(
                 LFSR_TAG_MAGIC, 0,
                 "lottlefs", 8))) => 0;
     lfsr_unmount(&lfs) => 0;
@@ -593,7 +593,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_BUF(
                 LFSR_TAG_VERSION, 0,
                 ((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR+1,
@@ -619,7 +619,7 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_BUF(
                 LFSR_TAG_VERSION, 0,
                 ((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR,
@@ -1086,7 +1086,7 @@ code = '''
     // create an unknown config
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_BUF(
                 LFSR_TAG_CONFIG + 0x13, 0,
                 "oh no!", strlen("oh no!")))) => 0;
     lfsr_unmount(&lfs) => 0;
