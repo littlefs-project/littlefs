@@ -2143,14 +2143,14 @@ typedef struct lfsr_rattr {
 #define LFSR_RATTR_LE32(_tag, _weight, _le32) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=LFSR_LE32_DSIZE, \
+        .data_count=0, \
         .weight=_weight, \
         .u.le32=_le32})
 
 #define LFSR_RATTR_LEB128(_tag, _weight, _leb128) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=LFSR_LEB128_DSIZE, \
+        .data_count=0, \
         .weight=_weight, \
         .u.leb128=_leb128})
 
@@ -2164,6 +2164,7 @@ typedef struct lfsr_name {
 #define LFSR_RATTR_NAME_(_tag, _weight, _name) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
+        .data_count=0, \
         .weight=_weight, \
         .u.etc=(const lfsr_name_t*){_name}})
 
@@ -4372,7 +4373,7 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 LFSR_TAG_ECKSUM, 0,
                 (&(lfsr_ecksum_t){
                     .cksize=lfs->cfg->prog_size,
-                    .cksum=ecksum}), LFSR_ECKSUM_DSIZE));
+                    .cksum=ecksum}), 0));
         if (err) {
             return err;
         }
@@ -7577,12 +7578,10 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             return err;
                         }
 
-                        // write our new shrb tag
+                        // write our new shrub tag
                         err = lfsr_rbyd_appendrattr(lfs, &mdir->rbyd,
                                 rid - lfs_smax(start_rid, 0),
-                                LFSR_RATTR(
-                                    LFSR_TAG_BSHRUB, 0,
-                                    &shrub, LFSR_SHRUB_DSIZE));
+                                LFSR_RATTR(LFSR_TAG_BSHRUB, 0, &shrub, 0));
                         if (err) {
                             return err;
                         }
@@ -7917,7 +7916,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
             // write the new shrub tag
             err = lfsr_rbyd_appendcompactrattr(lfs, &mdir_->rbyd,
-                    LFSR_RATTR(tag, weight, &shrub, LFSR_SHRUB_DSIZE));
+                    LFSR_RATTR(tag, weight, &shrub, 0));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -8363,13 +8362,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     0, LFSR_RATTRS(
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
-                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE),
+                            mdir_[0].rbyd.blocks, 0),
                         LFSR_RATTR_DATA(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_name),
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
-                            mdir_[1].rbyd.blocks, LFSR_MPTR_DSIZE)));
+                            mdir_[1].rbyd.blocks, 0)));
             if (err) {
                 goto failed;
             }
@@ -8383,13 +8382,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
-                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE),
+                            mdir_[0].rbyd.blocks, 0),
                         LFSR_RATTR_DATA(
                             LFSR_TAG_NAME, +(1 << lfs->mdir_bits),
                             &split_name),
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
-                            mdir_[1].rbyd.blocks, LFSR_MPTR_DSIZE)));
+                            mdir_[1].rbyd.blocks, 0)));
             if (err) {
                 goto failed;
             }
@@ -8446,7 +8445,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     0, LFSR_RATTRS(
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, +(1 << lfs->mdir_bits),
-                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE)));
+                            mdir_[0].rbyd.blocks, 0)));
             if (err) {
                 goto failed;
             }
@@ -8460,7 +8459,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     lfsr_mid_bid(lfs, mdir->mid), LFSR_RATTRS(
                         LFSR_RATTR(
                             LFSR_TAG_MDIR, 0,
-                            mdir_[0].rbyd.blocks, LFSR_MPTR_DSIZE)));
+                            mdir_[0].rbyd.blocks, 0)));
             if (err) {
                 goto failed;
             }
@@ -8515,7 +8514,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 -1, LFSR_RATTRS(
                     LFSR_RATTR(
                         LFSR_TAG_SUB | LFSR_TAG_MTREE, 0,
-                        &mtree_, LFSR_BTREE_DSIZE),
+                        &mtree_, 0),
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid == -1)
                         ? LFSR_RATTR(
@@ -8566,7 +8565,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     -1, LFSR_RATTRS(
                         LFSR_RATTR(
                             LFSR_TAG_MROOT, 0,
-                            mrootchild_.rbyd.blocks, LFSR_MPTR_DSIZE)));
+                            mrootchild_.rbyd.blocks, 0)));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -8614,7 +8613,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             "littlefs", 8),
                         LFSR_RATTR(
                             LFSR_TAG_MROOT, 0,
-                            mrootchild_.rbyd.blocks, LFSR_MPTR_DSIZE)));
+                            mrootchild_.rbyd.blocks, 0)));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -12382,12 +12381,12 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BSHRUB, 0,
                     // note we use the staged trunk here
-                    &file->b.shrub_, LFSR_SHRUB_DSIZE);
+                    &file->b.shrub_, 0);
         // btree?
         } else if (lfsr_bshrub_isbtree(&file->b)) {
             rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
-                    &file->b.shrub, LFSR_BTREE_DSIZE);
+                    &file->b.shrub, 0);
         } else {
             LFS_UNREACHABLE();
         }
@@ -13810,7 +13809,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
                     LFSR_TAG_GEOMETRY, 0,
                     (&(lfsr_geometry_t){
                         lfs->cfg->block_size,
-                        lfs->cfg->block_count}), LFSR_GEOMETRY_DSIZE),
+                        lfs->cfg->block_count}), 0),
                 LFSR_RATTR_LEB128(
                     LFSR_TAG_NAMELIMIT, 0,
                     lfs->name_limit),
@@ -14341,7 +14340,7 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count_) {
                 LFSR_TAG_GEOMETRY, 0,
                 (&(lfsr_geometry_t){
                     lfs->cfg->block_size,
-                    block_count_}), LFSR_GEOMETRY_DSIZE)));
+                    block_count_}), 0)));
     if (err) {
         goto failed;
     }
