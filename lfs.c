@@ -13828,6 +13828,9 @@ static int lfsr_formatinited(lfs_t *lfs) {
         uint32_t cksum = rbyd.cksum;
         err = lfsr_rbyd_appendrattr_(lfs, &rbyd, LFSR_RATTR_LE32(
                 LFSR_TAG_GCKSUMDELTA, 0, lfs_crc32c_cube(cksum)));
+        if (err) {
+            return err;
+        }
 
         // and commit
         err = lfsr_rbyd_appendcksum_(lfs, &rbyd, cksum);
