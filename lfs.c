@@ -1812,8 +1812,6 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
     return 0;
 }
 
-// TODO does the little-leb128 concept still make sense?
-
 // a little-leb128 in our system is truncated to align nicely
 //
 // for 32-bit words, little-leb128s are truncated to 28-bits, so the
@@ -2101,6 +2099,7 @@ typedef struct lfsr_rattr {
         const lfsr_data_t *datas;
         uint32_t le32;
         uint32_t leb128;
+        uint32_t lleb128;
         const void *etc;
     } u;
 } lfsr_rattr_t;
@@ -2153,6 +2152,13 @@ typedef struct lfsr_rattr {
         .data_count=0, \
         .weight=_weight, \
         .u.leb128=_leb128})
+
+#define LFSR_RATTR_LLEB128(_tag, _weight, _lleb128) \
+    ((lfsr_rattr_t){ \
+        .tag=_tag, \
+        .data_count=0, \
+        .weight=_weight, \
+        .u.lleb128=_lleb128})
 
 // helper macro for did + name pairs
 typedef struct lfsr_name {
@@ -3421,6 +3427,11 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     case LFSR_TAG_FILELIMIT:;
     case LFSR_TAG_BOOKMARK:;
     case LFSR_TAG_DID:;
+        // leb128s should not exceed 31-bits
+        LFS_ASSERT(rattr.u.leb128 <= 0x7fffffff);
+        // little-leb128s should not exceed 28-bits
+        LFS_ASSERT(rattr.tag != LFSR_TAG_NAMELIMIT
+                || rattr.u.leb128 <= 0x0fffffff);
         data = lfsr_data_fromleb128(rattr.u.leb128, ctx.u.buf);
         size = lfsr_data_size(data);
         datas = ctx.u.buf;
@@ -13810,7 +13821,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
                     (&(lfsr_geometry_t){
                         lfs->cfg->block_size,
                         lfs->cfg->block_count}), 0),
-                LFSR_RATTR_LEB128(
+                LFSR_RATTR_LLEB128(
                     LFSR_TAG_NAMELIMIT, 0,
                     lfs->name_limit),
                 LFSR_RATTR_LEB128(
