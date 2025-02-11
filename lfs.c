@@ -4318,7 +4318,7 @@ leaf:;
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(rattr.tag)),
             upper_rid - lower_rid + rattr.weight,
-            rattr.u.etc, rattr.data_count));
+            rattr.u.datas, rattr.data_count));
     if (err) {
         return err;
     }
@@ -4641,7 +4641,7 @@ static int lfsr_rbyd_appendcompactrattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR(
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | rattr.tag,
             rattr.weight,
-            rattr.u.etc, rattr.data_count));
+            rattr.u.datas, rattr.data_count));
     if (err) {
         return err;
     }
@@ -11608,7 +11608,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             bid = lfs_min(bid, file->b.shrub.weight);
             rattrs[rattr_count++] = LFSR_RATTR(
                     rattr.tag, +(weight + rattr.weight),
-                    rattr.u.etc, rattr.data_count);
+                    rattr.u.datas, rattr.data_count);
         }
     }
 
