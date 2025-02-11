@@ -8258,22 +8258,22 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // order the split compacts so that that mdir containing our mid
             // is committed last, this is a bit of a hack but necessary so
             // shrubs are staged correctly
-            bool left = lfsr_mid_rid(lfs, mdir->mid) < split_rid;
+            bool l = lfsr_mid_rid(lfs, mdir->mid) < split_rid;
 
             bool relocated = false;;
         split_relocate:;
             // alloc and compact into new mdirs
-            err = lfsr_mdir_alloc__(lfs, &mdir_[i^left],
+            err = lfsr_mdir_alloc__(lfs, &mdir_[i^l],
                     lfs_smax(mdir->mid, 0), relocated);
             if (err) {
                 goto failed;
             }
             relocated = true;
 
-            err = lfsr_mdir_compact__(lfs, &mdir_[i^left],
+            err = lfsr_mdir_compact__(lfs, &mdir_[i^l],
                     mdir,
-                    ((i^left) == 0) ?         0 : split_rid,
-                    ((i^left) == 0) ? split_rid :        -1);
+                    ((i^l) == 0) ?         0 : split_rid,
+                    ((i^l) == 0) ? split_rid :        -1);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 // bad prog? try another block
@@ -8283,9 +8283,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 goto failed;
             }
 
-            err = lfsr_mdir_commit__(lfs, &mdir_[i^left],
-                    ((i^left) == 0) ?         0 : split_rid,
-                    ((i^left) == 0) ? split_rid :        -1,
+            err = lfsr_mdir_commit__(lfs, &mdir_[i^l],
+                    ((i^l) == 0) ?         0 : split_rid,
+                    ((i^l) == 0) ? split_rid :        -1,
                     mdir->mid, rattrs, rattr_count);
             if (err && err != LFS_ERR_NOENT) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -8297,7 +8297,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
             // empty? set weight to zero
             if (err == LFS_ERR_NOENT) {
-                mdir_[i^left].rbyd.weight = 0;
+                mdir_[i^l].rbyd.weight = 0;
             }
         }
 
@@ -11386,8 +11386,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     lfsr_bid_t bid = file->b.shrub.weight;
     lfsr_rattr_t rattrs[5];
     lfs_size_t rattr_count = 0;
-    lfsr_bptr_t left;
-    lfsr_bptr_t right;
+    lfsr_bptr_t l;
+    lfsr_bptr_t r;
 
     // need a hole?
     if (pos > file->b.shrub.weight) {
@@ -11408,7 +11408,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // try to carve any existing data
-    lfsr_rattr_t right_rattr_ = {.tag=0};
+    lfsr_rattr_t r_rattr_ = {.tag=0};
     while (pos < file->b.shrub.weight) {
         lfsr_bid_t weight_;
         lfsr_bptr_t bptr_;
@@ -11431,20 +11431,20 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         #endif
 
         // note, an entry can be both a left and right sibling
-        left = bptr_;
-        left.data = LFSR_DATA_SLICE(bptr_.data,
+        l = bptr_;
+        l.data = LFSR_DATA_SLICE(bptr_.data,
                 -1,
                 pos - (bid-(weight_-1)));
-        right = bptr_;
-        right.data = LFSR_DATA_SLICE(bptr_.data,
+        r = bptr_;
+        r.data = LFSR_DATA_SLICE(bptr_.data,
                 pos+weight - (bid-(weight_-1)),
                 -1);
 
         // left sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
         while (lfsr_bptr_isbptr(&bptr_)
-                && lfsr_data_size(left.data) > lfs->cfg->fragment_size
-                && lfsr_data_size(left.data) < lfs->cfg->crystal_thresh) {
+                && lfsr_data_size(l.data) > lfs->cfg->fragment_size
+                && lfsr_data_size(l.data) < lfs->cfg->crystal_thresh) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     lfs->cfg->fragment_size,
                     -1);
@@ -11453,7 +11453,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_RATTR_DATA(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(weight_ - lfs->cfg->fragment_size),
-                        &LFSR_DATA_TRUNCATE(left.data,
+                        &LFSR_DATA_TRUNCATE(l.data,
                                 lfs->cfg->fragment_size)),
                     LFSR_RATTR(
                         LFSR_TAG_BLOCK,
@@ -11464,7 +11464,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             }
 
             weight_ -= lfs->cfg->fragment_size;
-            left.data = LFSR_DATA_SLICE(bptr_.data,
+            l.data = LFSR_DATA_SLICE(bptr_.data,
                     -1,
                     pos - (bid-(weight_-1)));
         }
@@ -11472,8 +11472,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // right sibling needs carving but falls underneath our
         // crystallization threshold? break into fragments
         while (lfsr_bptr_isbptr(&bptr_)
-                && lfsr_data_size(right.data) > lfs->cfg->fragment_size
-                && lfsr_data_size(right.data) < lfs->cfg->crystal_thresh) {
+                && lfsr_data_size(r.data) > lfs->cfg->fragment_size
+                && lfsr_data_size(r.data) < lfs->cfg->crystal_thresh) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     -1,
                     lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
@@ -11486,7 +11486,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_RATTR_DATA(
                         LFSR_TAG_DATA,
                             +(weight_ - lfsr_data_size(bptr_.data)),
-                        &LFSR_DATA_FRUNCATE(right.data,
+                        &LFSR_DATA_FRUNCATE(r.data,
                             lfs->cfg->fragment_size))));
             if (err) {
                 return err;
@@ -11494,7 +11494,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
             bid -= (weight_-lfsr_data_size(bptr_.data));
             weight_ -= (weight_-lfsr_data_size(bptr_.data));
-            right.data = LFSR_DATA_SLICE(bptr_.data,
+            r.data = LFSR_DATA_SLICE(bptr_.data,
                     pos+weight - (bid-(weight_-1)),
                     -1);
         }
@@ -11502,7 +11502,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // found left sibling?
         if (bid-(weight_-1) < pos) {
             // can we get away with a grow attribute?
-            if (lfsr_data_size(bptr_.data) == lfsr_data_size(left.data)) {
+            if (lfsr_data_size(bptr_.data) == lfsr_data_size(l.data)) {
                 rattrs[rattr_count++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -(bid+1 - pos), NULL, 0);
 
@@ -11511,14 +11511,14 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 rattrs[rattr_count++] = LFSR_RATTR_DATA(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_DATA,
                             -(bid+1 - pos),
-                        &left.data);
+                        &l.data);
 
             // carve bptr?
             } else {
                 rattrs[rattr_count++] = LFSR_RATTR(
                         LFSR_TAG_GROW | LFSR_TAG_SUB | LFSR_TAG_BLOCK,
                             -(bid+1 - pos),
-                        &left, LFSR_BPTR_DSIZE);
+                        &l, LFSR_BPTR_DSIZE);
             }
 
         // completely overwriting this entry?
@@ -11530,7 +11530,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // spans more than one entry? we can't do everything in one commit,
         // so commit what we have and move on to next entry
         if (pos+weight > bid+1) {
-            LFS_ASSERT(lfsr_data_size(right.data) == 0);
+            LFS_ASSERT(lfsr_data_size(r.data) == 0);
             LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
 
             err = lfsr_file_commit(lfs, file, bid,
@@ -11548,20 +11548,20 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         // found right sibling?
         if (pos+weight < bid+1) {
             // can we coalesce a hole?
-            if (lfsr_data_size(right.data) == 0) {
+            if (lfsr_data_size(r.data) == 0) {
                 rattr.weight += bid+1 - (pos+weight);
 
             // carve fragment?
             } else if (!lfsr_bptr_isbptr(&bptr_)) {
-                right_rattr_ = LFSR_RATTR_DATA(
+                r_rattr_ = LFSR_RATTR_DATA(
                         LFSR_TAG_DATA, bid+1 - (pos+weight),
-                        &right.data);
+                        &r.data);
 
             // carve bptr?
             } else {
-                right_rattr_ = LFSR_RATTR(
+                r_rattr_ = LFSR_RATTR(
                         LFSR_TAG_BLOCK, bid+1 - (pos+weight),
-                        &right, LFSR_BPTR_DSIZE);
+                        &r, LFSR_BPTR_DSIZE);
             }
         }
 
@@ -11596,8 +11596,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // and don't forget the right sibling
-    if (right_rattr_.tag) {
-        rattrs[rattr_count++] = right_rattr_;
+    if (r_rattr_.tag) {
+        rattrs[rattr_count++] = r_rattr_;
     }
 
     // commit pending rattrs
