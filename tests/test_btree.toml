@@ -1145,8 +1145,7 @@ code = '''
                         LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                         &(uint8_t){'A'+(i % 26)}, 1),
                     LFSR_RATTR(
-                        LFSR_TAG_GROW, +weight-sim_weights[bid],
-                        NULL, 0))) => 0;
+                        LFSR_TAG_GROW, +weight-sim_weights[bid]))) => 0;
 
         // update sim
         sim[bid] = 'A'+(i % 26);
@@ -1255,7 +1254,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "a", 1))) => 0;
     // pop!
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1314,7 +1313,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "b", 1))) => 0;
     // pop!
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1387,7 +1386,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "b", 1))) => 0;
     // pop!
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1462,7 +1461,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "c", 1))) => 0;
     // pop!
     lfsr_btree_commit(&lfs, &btree, 2, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
             btree.blocks[0],
@@ -1555,7 +1554,7 @@ code = '''
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
         lfsr_btree_commit(&lfs, &btree, N-1-i, LFSR_RATTRS(
-                LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+                LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     }
 
     printf("btree: w%d 0x%x.%x\n",
@@ -1635,7 +1634,7 @@ code = '''
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
         lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
-                LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+                LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -1733,7 +1732,7 @@ code = '''
 
         // remove from btree
         lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+                LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -1807,7 +1806,7 @@ code = '''
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
         lfsr_btree_commit(&lfs, &btree, (N-1-i)*W+W-1, LFSR_RATTRS(
-                LFSR_RATTR(LFSR_TAG_RM, -W, NULL, 0))) => 0;
+                LFSR_RATTR(LFSR_TAG_RM, -W))) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -1950,8 +1949,7 @@ code = '''
         lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
                     LFSR_RATTR(
-                        LFSR_TAG_RM, -sim_weights[bid],
-                        NULL, 0))) => 0;
+                        LFSR_TAG_RM, -sim_weights[bid]))) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -2300,8 +2298,7 @@ code = '''
         lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
                     LFSR_RATTR(
-                        LFSR_TAG_GROW, +weight1-sim_weights[bid],
-                        NULL, 0),
+                        LFSR_TAG_GROW, +weight1-sim_weights[bid]),
                     LFSR_RATTR_BUF(
                         LFSR_TAG_DATA, 0,
                         &(uint8_t){'a'+(i % 26)}, 1),
@@ -2469,7 +2466,7 @@ code = '''
     // now remove one entry, since this brings the rbyd down to zero,
     // this should force one of the blocks to drop
     lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2540,7 +2537,7 @@ code = '''
     // do this while forcing a compaction
     btree.eoff = -1;
     lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2604,7 +2601,7 @@ code = '''
     //
     btree.eoff = -1;
     lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2683,7 +2680,7 @@ code = '''
     // down to zero while also triggering a merge
     btree.eoff = -1;
     lfsr_btree_commit(&lfs, &btree, SIBLING, LFSR_RATTRS(
-            LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+            LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.weight,
@@ -2769,7 +2766,7 @@ code = '''
         } else {
             // pop from btree
             lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                    LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+                    LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -2884,8 +2881,7 @@ code = '''
                             LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             &(uint8_t){'a'+(i % 26)}, 1),
                         LFSR_RATTR(
-                            LFSR_TAG_GROW, +weight-sim_weights[bid],
-                            NULL, 0))) => 0;
+                            LFSR_TAG_GROW, +weight-sim_weights[bid]))) => 0;
 
             // update sim
             sim[bid] = 'a'+(i % 26);
@@ -2896,8 +2892,7 @@ code = '''
             lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
                         LFSR_RATTR(
-                            LFSR_TAG_RM, -sim_weights[bid],
-                            NULL, 0))) => 0;
+                            LFSR_TAG_RM, -sim_weights[bid]))) => 0;
 
             // remove from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3635,8 +3630,7 @@ code = '''
         lfsr_btree_commit(&lfs, &btree,
                 weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
                     LFSR_RATTR(
-                        LFSR_TAG_GROW, +weight1-sim_weights[bid],
-                        NULL, 0),
+                        LFSR_TAG_GROW, +weight1-sim_weights[bid]),
                     LFSR_RATTR_BUF(
                         LFSR_TAG_DATA, 0,
                         &(uint8_t){'0'+(i % 10)}, 1),
@@ -3831,7 +3825,7 @@ code = '''
         } else {
             // pop from btree
             lfsr_btree_commit(&lfs, &btree, bid, LFSR_RATTRS(
-                    LFSR_RATTR(LFSR_TAG_RM, -1, NULL, 0))) => 0;
+                    LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3998,8 +3992,7 @@ code = '''
                             LFSR_TAG_SUB | LFSR_TAG_DATA, 0,
                             &(uint8_t){'0'+(i % 10)}, 1),
                         LFSR_RATTR(
-                            LFSR_TAG_GROW, +weight-sim_weights[bid],
-                            NULL, 0))) => 0;
+                            LFSR_TAG_GROW, +weight-sim_weights[bid]))) => 0;
 
             // update sim
             sim[bid] = '0'+(i % 10);
@@ -4010,8 +4003,7 @@ code = '''
             lfsr_btree_commit(&lfs, &btree,
                     weighted_bid+sim_weights[bid]-1, LFSR_RATTRS(
                         LFSR_RATTR(
-                            LFSR_TAG_RM, -sim_weights[bid],
-                            NULL, 0))) => 0;
+                            LFSR_TAG_RM, -sim_weights[bid]))) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));

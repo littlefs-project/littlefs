@@ -546,8 +546,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR(
-                LFSR_TAG_RM | LFSR_TAG_MAGIC, 0,
-                NULL, 0))) => 0;
+                LFSR_TAG_RM | LFSR_TAG_MAGIC, 0))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
@@ -981,11 +980,11 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_GEOMETRY(
                 LFSR_TAG_GEOMETRY, 0,
                 (&(lfsr_geometry_t){
                     INC_BLOCK_SIZE,
-                    BLOCK_COUNT}), LFSR_GEOMETRY_DSIZE))) => 0;
+                    BLOCK_COUNT})))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
@@ -1008,11 +1007,11 @@ code = '''
     // is not a user API
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
+            LFSR_RATTR_GEOMETRY(
                 LFSR_TAG_GEOMETRY, 0,
                 (&(lfsr_geometry_t){
                     BLOCK_SIZE,
-                    INC_BLOCK_COUNT}), LFSR_GEOMETRY_DSIZE))) => 0;
+                    INC_BLOCK_COUNT})))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // mount should now fail
