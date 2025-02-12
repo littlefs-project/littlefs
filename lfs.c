@@ -2090,9 +2090,9 @@ static inline lfsr_data_t lfsr_data_fromlleb128(uint32_t word,
 typedef struct lfsr_rattr {
     lfsr_tag_t tag;
     // ignoring lazy/special tags
-    // sign(data_count)=0 => in-RAM buffer or estimate for lazy tags
-    // sign(data_count)=1 => multiple concatenated datas
-    int16_t data_count;
+    // sign(count)=0 => in-RAM buffer or estimate for lazy tags
+    // sign(count)=1 => multiple concatenated datas
+    int16_t count;
     lfsr_srid_t weight;
     union {
         const uint8_t *buffer;
@@ -2105,39 +2105,39 @@ typedef struct lfsr_rattr {
 } lfsr_rattr_t;
 
 // low-level attr macro
-#define LFSR_RATTR_(_tag, _weight, _datas, _data_count) \
+#define LFSR_RATTR_(_tag, _weight, _u, _count) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=_data_count, \
+        .count=_count, \
         .weight=_weight, \
-        .u.etc=_datas})
+        .u=_u})
 
 // high-level attr macros
 #define LFSR_RATTR(_tag, _weight) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.datas=NULL})
 
 #define LFSR_RATTR_BUF(_tag, _weight, _buffer, _size) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=(uint16_t){_size}, \
+        .count=(uint16_t){_size}, \
         .weight=_weight, \
         .u.buffer=(const void*)(_buffer)})
 
 #define LFSR_RATTR_DATA(_tag, _weight, _data) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=-1, \
+        .count=-1, \
         .weight=_weight, \
         .u.datas=_data})
 
 #define LFSR_RATTR_CAT_(_tag, _weight, _datas, _data_count) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=-(uint16_t){_data_count}, \
+        .count=-(uint16_t){_data_count}, \
         .weight=_weight, \
         .u.datas=_datas})
 
@@ -2151,7 +2151,7 @@ typedef struct lfsr_rattr {
 #define LFSR_RATTR_NOOP() \
     ((lfsr_rattr_t){ \
         .tag=LFSR_TAG_NULL, \
-        .data_count=0, \
+        .count=0, \
         .weight=0, \
         .u.buffer=NULL})
 
@@ -2161,21 +2161,21 @@ typedef struct lfsr_rattr {
 #define LFSR_RATTR_LE32(_tag, _weight, _le32) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.le32=_le32})
 
 #define LFSR_RATTR_LEB128(_tag, _weight, _leb128) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.leb128=_leb128})
 
 #define LFSR_RATTR_LLEB128(_tag, _weight, _lleb128) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.lleb128=_lleb128})
 
@@ -2189,7 +2189,7 @@ typedef struct lfsr_name {
 #define LFSR_RATTR_NAME_(_tag, _weight, _name) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.etc=(const lfsr_name_t*){_name}})
 
@@ -2206,7 +2206,7 @@ typedef struct lfsr_name {
 #define LFSR_RATTR_GEOMETRY(_tag, _weight, _geometry) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.etc=(const lfsr_geometry_t*){_geometry}})
 
@@ -2214,35 +2214,35 @@ typedef struct lfsr_name {
 #define LFSR_RATTR_BPTR(_tag, _weight, _bptr) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=LFSR_BPTR_DSIZE, \
+        .count=LFSR_BPTR_DSIZE, \
         .weight=_weight, \
         .u.etc=(const lfsr_bptr_t*){_bptr}})
 
 #define LFSR_RATTR_SHRUB(_tag, _weight, _shrub) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.etc=(const lfsr_shrub_t*){_shrub}})
 
 #define LFSR_RATTR_BTREE(_tag, _weight, _btree) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.etc=(const lfsr_btree_t*){_btree}})
 
 #define LFSR_RATTR_MPTR(_tag, _weight, _mptr) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.etc=(const lfs_block_t*){_mptr}})
 
 #define LFSR_RATTR_ECKSUM(_tag, _weight, _ecksum) \
     ((lfsr_rattr_t){ \
         .tag=_tag, \
-        .data_count=0, \
+        .count=0, \
         .weight=_weight, \
         .u.etc=(const lfsr_ecksum_t*){_ecksum}})
 
@@ -2251,28 +2251,28 @@ typedef struct lfsr_name {
 #define LFSR_RATTR_RATTRS(_rattrs, _rattr_count) \
     ((lfsr_rattr_t){ \
         .tag=LFSR_TAG_RATTRS, \
-        .data_count=(uint16_t){_rattr_count}, \
+        .count=(uint16_t){_rattr_count}, \
         .weight=0, \
         .u.etc=(const lfsr_rattr_t*){_rattrs}})
 
 #define LFSR_RATTR_SHRUBCOMMIT(_shrubcommit) \
     ((lfsr_rattr_t){ \
         .tag=LFSR_TAG_SHRUBCOMMIT, \
-        .data_count=0, \
+        .count=0, \
         .weight=0, \
         .u.etc=(const lfsr_shrubcommit_t*){_shrubcommit}})
 
 #define LFSR_RATTR_MOVE(_move) \
     ((lfsr_rattr_t){ \
         .tag=LFSR_TAG_MOVE, \
-        .data_count=0, \
+        .count=0, \
         .weight=0, \
         .u.etc=(const lfsr_mdir_t*){_move}})
 
 #define LFSR_RATTR_ATTRS(_attrs, _attr_count) \
     ((lfsr_rattr_t){ \
         .tag=LFSR_TAG_ATTRS, \
-        .data_count=(uint16_t){_attr_count}, \
+        .count=(uint16_t){_attr_count}, \
         .weight=0, \
         .u.etc=(const struct lfs_attr*){_attrs}})
 
@@ -2304,7 +2304,7 @@ static inline lfsr_srid_t lfsr_rattr_nextrid(lfsr_rattr_t rattr,
 static inline lfsr_tag_t lfsr_rattr_dtag(lfsr_rattr_t rattr) {
     // lazily tag encoding can be bypassed with explicit data, this is
     // necessary to allow copies during compaction, relocation, etc
-    if (rattr.data_count >= 0) {
+    if (rattr.count >= 0) {
         return rattr.tag;
     } else {
         return LFSR_TAG_DATA;
@@ -2315,11 +2315,11 @@ static inline lfs_size_t lfsr_rattr_dsize(lfsr_rattr_t rattr) {
     // note this does not include the tag size
     //
     // this gets a bit complicated for concatenated data
-    if (rattr.data_count >= 0) {
-        return rattr.data_count;
+    if (rattr.count >= 0) {
+        return rattr.count;
     } else {
         const lfsr_data_t *datas = rattr.u.datas;
-        lfs_size_t data_count = -rattr.data_count;
+        lfs_size_t data_count = -rattr.count;
         lfs_size_t size = 0;
         for (lfs_size_t i = 0; i < data_count; i++) {
             size += lfsr_data_size(datas[i]);
@@ -3476,8 +3476,8 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // we encode most tags lazily as this heavily reduces stack usage,
     // though this does make us less gc-able at compile time
     lfs_size_t size;
-    const void *datas;
-    int16_t data_count;
+    const void *data;
+    int16_t count;
     struct {
         // uh, there's probably a better way to do this, but I'm not
         // sure what it is
@@ -3509,10 +3509,10 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     case LFSR_TAG_WCOMPAT:;
     case LFSR_TAG_OCOMPAT:;
     case LFSR_TAG_GCKSUMDELTA:;
-        lfsr_data_t data = lfsr_data_fromle32(rattr.u.le32, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        lfsr_data_t data_ = lfsr_data_fromle32(rattr.u.le32, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // leb128?
@@ -3525,18 +3525,18 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // little-leb128s should not exceed 28-bits
         LFS_ASSERT(rattr.tag != LFSR_TAG_NAMELIMIT
                 || rattr.u.leb128 <= 0x0fffffff);
-        data = lfsr_data_fromleb128(rattr.u.leb128, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_fromleb128(rattr.u.leb128, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // geometry?
     case LFSR_TAG_GEOMETRY:;
-        data = lfsr_data_fromgeometry(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_fromgeometry(rattr.u.etc, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // name?
@@ -3548,17 +3548,17 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         ctx.u.name.datas[0] = lfsr_data_fromleb128(name->did, ctx.u.name.buf);
         ctx.u.name.datas[1] = LFSR_DATA_BUF(name->name, name->name_len);
         size = lfsr_data_size(ctx.u.name.datas[0]) + name->name_len;
-        datas = &ctx.u.name.datas;
-        data_count = -2;
+        data = &ctx.u.name.datas;
+        count = -2;
         break;
 
     // bptr?
     case LFSR_TAG_BLOCK:;
     case LFSR_TAG_SHRUB | LFSR_TAG_BLOCK:;
-        data = lfsr_data_frombptr(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_frombptr(rattr.u.etc, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // shrub trunk?
@@ -3566,43 +3566,43 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note unlike the other lazy tags, we _need_ to lazily encode
         // shrub trunks, since they change underneath us during mdir
         // compactions, relocations, etc
-        data = lfsr_data_fromshrub(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_fromshrub(rattr.u.etc, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // btree?
     case LFSR_TAG_BTREE:;
     case LFSR_TAG_MTREE:;
-        data = lfsr_data_frombtree(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_frombtree(rattr.u.etc, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // mptr?
     case LFSR_TAG_MROOT:;
     case LFSR_TAG_MDIR:;
-        data = lfsr_data_frommptr(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_frommptr(rattr.u.etc, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // ecksum?
     case LFSR_TAG_ECKSUM:;
-        data = lfsr_data_fromecksum(rattr.u.etc, ctx.u.buf);
-        size = lfsr_data_size(data);
-        datas = ctx.u.buf;
-        data_count = size;
+        data_ = lfsr_data_fromecksum(rattr.u.etc, ctx.u.buf);
+        size = lfsr_data_size(data_);
+        data = ctx.u.buf;
+        count = size;
         break;
 
     // default to raw data
     default:;
         size = lfsr_rattr_dsize(rattr);
-        datas = rattr.u.datas;
-        data_count = rattr.data_count;
+        data = rattr.u.datas;
+        count = rattr.count;
         break;
     }
 
@@ -3620,29 +3620,29 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // direct buffer?
-    if (data_count >= 0) {
+    if (count >= 0) {
         err = lfsr_bd_prog(lfs,
-                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), datas, data_count,
+                rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), data, count,
                 &rbyd->cksum, false);
         if (err) {
             return err;
         }
 
-        rbyd->eoff += data_count;
+        rbyd->eoff += count;
 
     // indirect concatenated data?
     } else {
-        const lfsr_data_t *datas_ = datas;
-        lfs_size_t data_count_ = -data_count;
-        for (lfs_size_t i = 0; i < data_count_; i++) {
+        const lfsr_data_t *datas = data;
+        lfs_size_t data_count = -count;
+        for (lfs_size_t i = 0; i < data_count; i++) {
             err = lfsr_bd_progdata(lfs,
-                    rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), datas_[i],
+                    rbyd->blocks[0], lfsr_rbyd_eoff(rbyd), datas[i],
                     &rbyd->cksum, false);
             if (err) {
                 return err;
             }
 
-            rbyd->eoff += lfsr_data_size(datas_[i]);
+            rbyd->eoff += lfsr_data_size(datas[i]);
         }
     }
 
@@ -4403,7 +4403,7 @@ leaf:;
                     ? LFSR_TAG_NULL
                     : lfsr_tag_key(rattr.tag)),
             upper_rid - lower_rid + rattr.weight,
-            rattr.u.datas, rattr.data_count));
+            rattr.u, rattr.count));
     if (err) {
         return err;
     }
@@ -4726,7 +4726,7 @@ static int lfsr_rbyd_appendcompactrattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     err = lfsr_rbyd_appendrattr_(lfs, rbyd, LFSR_RATTR_(
             (lfsr_rbyd_isshrub(rbyd) ? LFSR_TAG_SHRUB : 0) | rattr.tag,
             rattr.weight,
-            rattr.u.datas, rattr.data_count));
+            rattr.u, rattr.count));
     if (err) {
         return err;
     }
@@ -7604,7 +7604,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // must be the last tag
                 LFS_ASSERT(i == rattr_count-1);
                 const lfsr_rattr_t *rattrs_ = rattrs[i].u.etc;
-                lfs_size_t rattr_count_ = rattrs[i].data_count;
+                lfs_size_t rattr_count_ = rattrs[i].count;
 
                 // switch to chained rattr-list
                 rattrs = rattrs_;
@@ -7716,7 +7716,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // custom attributes need to be reencoded into our tag format
             } else if (lfsr_tag_key(rattrs[i].tag) == LFSR_TAG_ATTRS) {
                 const struct lfs_attr *attrs_ = rattrs[i].u.etc;
-                lfs_size_t attr_count_ = rattrs[i].data_count;
+                lfs_size_t attr_count_ = rattrs[i].count;
 
                 for (lfs_size_t j = 0; j < attr_count_; j++) {
                     // skip readonly attrs and lazy attrs
@@ -11676,7 +11676,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
             bid = lfs_min(bid, file->b.shrub.weight);
             rattrs[rattr_count++] = LFSR_RATTR_(
                     rattr.tag, +(weight + rattr.weight),
-                    rattr.u.datas, rattr.data_count);
+                    rattr.u, rattr.count);
         }
     }
 
