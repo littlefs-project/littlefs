@@ -1445,11 +1445,10 @@ def main(csv_paths, *,
                     ptime = time.time()
                     inotify.read()
                     inotify.close()
-                    # sleep for a minimum amount of time, this helps reduce
-                    # flicker issues
+                    # sleep a minimum amount of time to avoid flickering
                     time.sleep(max(0, (sleep or 0.01) - (time.time()-ptime)))
                 else:
-                    time.sleep(sleep or 0.1)
+                    time.sleep(sleep or 2)
         except KeyboardInterrupt:
             pass
 
@@ -1669,7 +1668,7 @@ if __name__ == "__main__":
             '-s', '--sleep',
             type=float,
             help="Time in seconds to sleep between redraws when running "
-                "with -k. Defaults to 0.01.")
+                "with -k. Defaults to 2 seconds.")
 
     def dictify(ns):
         if hasattr(ns, 'subplots'):

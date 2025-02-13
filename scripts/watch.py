@@ -247,12 +247,11 @@ def main(command, *,
                 ptime = time.time()
                 inotify.read()
                 inotify.close()
-                # sleep for a minimum amount of time, this helps reduce
-                # flicker issues
+                # sleep a minimum amount of time to avoid flickering
                 time.sleep(max(0, (sleep or 0.01) - (time.time()-ptime)))
             # or sleep
             else:
-                time.sleep(sleep or 0.1)
+                time.sleep(sleep or 2)
     except KeyboardInterrupt:
         pass
 
@@ -291,7 +290,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-s', '--sleep',
             type=float,
-            help="Seconds to sleep between runs. Defaults to 0.1.")
+            help="Seconds to sleep between runs. Defaults to 2 seconds.")
     parser.add_argument(
             '-k', '--keep-open',
             action='store_true',

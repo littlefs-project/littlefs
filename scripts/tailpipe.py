@@ -129,6 +129,7 @@ def main(path='-', *,
                 event.clear()
                 with lock:
                     ring.draw()
+                # sleep a minimum amount of time to avoid flickering
                 time.sleep(sleep or 0.01)
         th.Thread(target=background, daemon=True).start()
 
@@ -143,7 +144,7 @@ def main(path='-', *,
             if not keep_open:
                 break
             # don't just flood open calls
-            time.sleep(sleep or 0.1)
+            time.sleep(sleep or 2)
     except FileNotFoundError as e:
         print("error: file not found %r" % path,
                 file=sys.stderr)
@@ -182,7 +183,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-s', '--sleep',
             type=float,
-            help="Seconds to sleep between reads. Defaults to 0.01.")
+            help="Seconds to sleep between reads.")
     parser.add_argument(
             '-k', '--keep-open',
             action='store_true',

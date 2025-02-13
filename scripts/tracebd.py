@@ -1020,6 +1020,7 @@ def main(path='-', *,
                     draw(ring)
                     if not cat:
                         ring.draw()
+                # sleep a minimum amount of time to avoid flickering
                 time.sleep(sleep or 0.01)
         th.Thread(target=background, daemon=True).start()
 
@@ -1044,7 +1045,7 @@ def main(path='-', *,
             if not keep_open:
                 break
             # don't just flood open calls
-            time.sleep(sleep or 0.1)
+            time.sleep(sleep or 2)
     except FileNotFoundError as e:
         print("error: file not found %r" % path,
                 file=sys.stderr)
