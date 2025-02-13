@@ -1185,7 +1185,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 maybeerased = (lfs_tag_type2(ptag) == LFS_TYPE_CCRC);
                 break;
             // out of range?
-            } else if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
+            } else if (off + lfs_tag_dsize(tag) >= lfs->cfg->block_size) {
                 break;
             }
 
