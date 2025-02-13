@@ -337,20 +337,20 @@ struct lfs_config {
     // to -1 to disable block-level wear-leveling.
     int32_t block_recycles;
 
-    // Size of the read cache in bytes. Larger buffers can improve
+    // Size of the read cache in bytes. Larger caches can improve
     // performance by storing more data and reducing the number of disk
     // accesses. Must be a multiple of the read size.
     lfs_size_t rcache_size;
 
-    // Size of the program cache in bytes. Larger buffers can improve
+    // Size of the program cache in bytes. Larger caches can improve
     // performance by storing more data and reducing the number of disk
     // accesses. Must be a multiple of the program size.
     lfs_size_t pcache_size;
 
-    // Size of file buffers in bytes. In addition to filesystem-wide
-    // read/prog buffers, each file gets its own buffer to reduce disk
+    // Size of file caches in bytes. In addition to filesystem-wide
+    // read/prog caches, each file gets its own cache to reduce disk
     // accesses.
-    lfs_size_t file_buffer_size;
+    lfs_size_t file_cache_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
@@ -388,11 +388,11 @@ struct lfs_config {
     // Set to -1 to disable metadata compaction during gc.
     lfs_size_t gc_compact_thresh;
 
-    // Optional statically allocated read buffer. Must be rcache_size. By
+    // Optional statically allocated rcache buffer. Must be rcache_size. By
     // default lfs_malloc is used to allocate this buffer.
     void *rcache_buffer;
 
-    // Optional statically allocated program buffer. Must be pcache_size. By
+    // Optional statically allocated pcache buffer. Must be pcache_size. By
     // default lfs_malloc is used to allocate this buffer.
     void *pcache_buffer;
 
@@ -539,14 +539,14 @@ struct lfs_attr {
 
 // Optional configuration provided during lfs_file_opencfg
 struct lfs_file_config {
-    // Optional statically allocated file buffer. Must be buffer_size.
+    // Optional statically allocated file cache buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
-    void *buffer;
+    void *cache_buffer;
 
-    // Size of the file buffer in bytes. In addition to filesystem-wide
-    // read/prog buffers, each file gets its own buffer to reduce disk
-    // accesses. Defaults to file_buffer_size.
-    lfs_size_t buffer_size;
+    // Size of the file cache in bytes. In addition to filesystem-wide
+    // read/prog caches, each file gets its own cache to reduce disk
+    // accesses. Defaults to file_cache_size.
+    lfs_size_t cache_size;
 
 //    // Optional list of custom attributes related to the file. If the file
 //    // is opened with read access, these attributes will be read from disk
@@ -711,7 +711,7 @@ typedef struct lfsr_file {
         lfs_off_t size;
         uint8_t *buffer;
         lfs_off_t pos;
-    } buffer;
+    } cache;
 
     lfs_block_t eblock;
     lfs_size_t eoff;

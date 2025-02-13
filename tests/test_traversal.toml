@@ -230,8 +230,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -345,8 +345,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -590,8 +590,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -714,8 +714,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -932,8 +932,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1028,8 +1028,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1204,8 +1204,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1298,8 +1298,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1472,8 +1472,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1566,8 +1566,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2030,8 +2030,8 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2107,8 +2107,8 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2198,7 +2198,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 defines.TRUNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -2482,7 +2482,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
@@ -2763,7 +2763,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 defines.DESYNC = [false, true]
 code = '''
     lfs_t lfs;
@@ -5380,7 +5380,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
@@ -5489,7 +5489,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 # force early relocations
@@ -5629,7 +5629,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 # force early relocations
@@ -5743,7 +5743,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 in = 'lfs.c'
@@ -5904,7 +5904,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.COMPACTSET = 'range(0x8)'
@@ -6128,7 +6128,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 in = 'lfs.c'
@@ -6368,7 +6368,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -6510,7 +6510,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -7305,7 +7305,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -7497,7 +7497,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -7975,8 +7975,8 @@ defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -8080,8 +8080,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -8321,8 +8321,8 @@ defines.CKDATA = [true]
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.OPS = 20
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -8486,8 +8486,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -8857,8 +8857,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

@@ -128,8 +128,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -190,8 +190,8 @@ defines.GC_STEPS = -1
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -327,8 +327,8 @@ defines.GC_STEPS = -1
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -466,8 +466,8 @@ defines.GC_STEPS = -1
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -720,8 +720,8 @@ defines.GC_STEPS = -1
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -976,8 +976,8 @@ defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1073,8 +1073,8 @@ defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1173,8 +1173,8 @@ defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1321,8 +1321,8 @@ defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2819,8 +2819,8 @@ defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3198,8 +3198,8 @@ defines.CKFETCHES     = 'METHOD == 2'
 defines.CKPARITY      = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3495,8 +3495,8 @@ defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -4001,8 +4001,8 @@ defines.CKDATACKSUMS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

@@ -10909,16 +10909,16 @@ int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
 /// File operations ///
 
 // file helpers
-static inline lfs_size_t lfsr_file_buffersize(lfs_t *lfs,
+static inline lfs_size_t lfsr_file_cachesize(lfs_t *lfs,
         const lfsr_file_t *file) {
-    return (file->cfg->buffer_size)
-            ? file->cfg->buffer_size
-            : lfs->cfg->file_buffer_size;
+    return (file->cfg->cache_size)
+            ? file->cfg->cache_size
+            : lfs->cfg->file_cache_size;
 }
 
 static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
     return lfs_max(
-            file->buffer.pos + file->buffer.size,
+            file->cache.pos + file->cache.size,
             file->b.shrub.weight);
 }
 
@@ -10927,9 +10927,9 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
 static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // default data state
     lfsr_bshrub_init(&file->b);
-    // discard the current buffer
-    file->buffer.pos = 0;
-    file->buffer.size = 0;
+    // discard the current cache
+    file->cache.pos = 0;
+    file->cache.size = 0;
     // mark as flushed
     file->b.o.flags &= ~LFS_o_UNFLUSH;
 
@@ -11161,17 +11161,17 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
     }
 
-    // allocate buffer if necessary
-    if (file->cfg->buffer) {
-        file->buffer.buffer = file->cfg->buffer;
+    // allocate cache if necessary
+    if (file->cfg->cache_buffer) {
+        file->cache.buffer = file->cfg->cache_buffer;
     } else {
-        file->buffer.buffer = lfs_malloc(lfsr_file_buffersize(lfs, file));
-        if (!file->buffer.buffer) {
+        file->cache.buffer = lfs_malloc(lfsr_file_cachesize(lfs, file));
+        if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
         }
     }
-    file->buffer.pos = 0;
-    file->buffer.size = 0;
+    file->cache.pos = 0;
+    file->cache.size = 0;
 
     // fetch the file struct and custom attrs
     err = lfsr_file_fetch(lfs, file,
@@ -11209,8 +11209,8 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 // clean up resources
 static void lfsr_file_close_(lfs_t *lfs, const lfsr_file_t *file) {
     // clean up memory
-    if (!file->cfg->buffer) {
-        lfs_free(file->buffer.buffer);
+    if (!file->cfg->cache_buffer) {
+        lfs_free(file->cache.buffer);
     }
 
     // are we orphaning a file?
@@ -11356,15 +11356,15 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         // keep track of the next highest priority data offset
         lfs_ssize_t d = lfs_min(size, lfsr_file_size_(file) - pos_);
 
-        // any data in our buffer?
-        if (pos_ < file->buffer.pos + file->buffer.size
-                && file->buffer.size != 0) {
-            if (pos_ >= file->buffer.pos) {
+        // any data in our cache?
+        if (pos_ < file->cache.pos + file->cache.size
+                && file->cache.size != 0) {
+            if (pos_ >= file->cache.pos) {
                 lfs_ssize_t d_ = lfs_min(
                         d,
-                        file->buffer.size - (pos_ - file->buffer.pos));
+                        file->cache.size - (pos_ - file->cache.pos));
                 lfs_memcpy(buffer_,
-                        &file->buffer.buffer[pos_ - file->buffer.pos],
+                        &file->cache.buffer[pos_ - file->cache.pos],
                         d_);
 
                 pos_ += d_;
@@ -11375,13 +11375,13 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
             }
 
             // buffered data takes priority
-            d = lfs_min(d, file->buffer.pos - pos_);
+            d = lfs_min(d, file->cache.pos - pos_);
         }
 
         // any data in our btree?
         if (pos_ < file->b.shrub.weight) {
-            // bypass buffer?
-            if ((lfs_size_t)d >= lfsr_file_buffersize(lfs, file)) {
+            // bypass cache?
+            if ((lfs_size_t)d >= lfsr_file_cachesize(lfs, file)) {
                 lfs_ssize_t d_ = lfsr_file_readnext(lfs, file,
                         pos_, buffer_, d);
                 if (d_ < 0) {
@@ -11395,7 +11395,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
                 continue;
             }
 
-            // buffer in use? we need to flush it
+            // cache in use? we need to flush it
             //
             // note that flush does not change the actual file data, so if
             // a read fails it's ok to fall back to our flushed state
@@ -11405,19 +11405,19 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
                 if (err) {
                     return err;
                 }
-                file->buffer.pos = 0;
-                file->buffer.size = 0;
+                file->cache.pos = 0;
+                file->cache.size = 0;
             }
 
-            // try to fill our buffer with some data
+            // try to fill our cache with some data
             lfs_ssize_t d_ = lfsr_file_readnext(lfs, file,
-                    pos_, file->buffer.buffer, d);
+                    pos_, file->cache.buffer, d);
             if (d_ < 0) {
                 LFS_ASSERT(d != LFS_ERR_NOENT);
                 return d_;
             }
-            file->buffer.pos = pos_;
-            file->buffer.size = d_;
+            file->cache.pos = pos_;
+            file->cache.size = d_;
             continue;
         }
 
@@ -12254,30 +12254,30 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     const uint8_t *buffer_ = buffer;
     lfs_size_t written = 0;
     while (size > 0) {
-        // bypass buffer?
+        // bypass cache?
         //
-        // note we flush our buffer before bypassing writes, this isn't
+        // note we flush our cache before bypassing writes, this isn't
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
         if ((!lfsr_o_isunflush(file->b.o.flags)
-                    || file->buffer.size == 0)
-                && size >= lfsr_file_buffersize(lfs, file)) {
+                    || file->cache.size == 0)
+                && size >= lfsr_file_cachesize(lfs, file)) {
             err = lfsr_file_flush_(lfs, file,
                     pos, buffer_, size);
             if (err) {
                 goto failed;
             }
 
-            // after success, fill our buffer with the tail of our write
+            // after success, fill our cache with the tail of our write
             //
-            // note we need to clear the buffer anyways to avoid any
+            // note we need to clear the cache anyways to avoid any
             // out-of-date data
-            file->buffer.pos = pos + size - lfsr_file_buffersize(lfs, file);
-            lfs_memcpy(file->buffer.buffer,
-                    &buffer_[size - lfsr_file_buffersize(lfs, file)],
-                    lfsr_file_buffersize(lfs, file));
-            file->buffer.size = lfsr_file_buffersize(lfs, file);
+            file->cache.pos = pos + size - lfsr_file_cachesize(lfs, file);
+            lfs_memcpy(file->cache.buffer,
+                    &buffer_[size - lfsr_file_cachesize(lfs, file)],
+                    lfsr_file_cachesize(lfs, file));
+            file->cache.size = lfsr_file_cachesize(lfs, file);
 
             file->b.o.flags &= ~LFS_o_UNFLUSH;
             written += size;
@@ -12287,40 +12287,40 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             continue;
         }
 
-        // try to fill our buffer
+        // try to fill our cache
         //
-        // This is a bit delicate, since our buffer contains both old and
+        // This is a bit delicate, since our cache contains both old and
         // new data, but note:
         //
-        // 1. We only write to yet unused buffer memory.
+        // 1. We only write to yet unused cache memory.
         //
-        // 2. Bypassing the buffer above means we only write to the
-        //    buffer once, and flush at most twice.
+        // 2. Bypassing the cache above means we only write to the
+        //    cache once, and flush at most twice.
         //
         if ((!lfsr_o_isunflush(file->b.o.flags)
-                    || file->buffer.size == 0)
-                || (pos >= file->buffer.pos
-                    && pos <= file->buffer.pos + file->buffer.size
+                    || file->cache.size == 0)
+                || (pos >= file->cache.pos
+                    && pos <= file->cache.pos + file->cache.size
                     && pos
-                        < file->buffer.pos
-                            + lfsr_file_buffersize(lfs, file))) {
-            // unused buffer? we can move it where we need it
+                        < file->cache.pos
+                            + lfsr_file_cachesize(lfs, file))) {
+            // unused cache? we can move it where we need it
             if ((!lfsr_o_isunflush(file->b.o.flags)
-                    || file->buffer.size == 0)) {
-                file->buffer.pos = pos;
-                file->buffer.size = 0;
+                    || file->cache.size == 0)) {
+                file->cache.pos = pos;
+                file->cache.size = 0;
             }
 
             lfs_size_t d = lfs_min(
                     size,
-                    lfsr_file_buffersize(lfs, file)
-                        - (pos - file->buffer.pos));
-            lfs_memcpy(&file->buffer.buffer[pos - file->buffer.pos],
+                    lfsr_file_cachesize(lfs, file)
+                        - (pos - file->cache.pos));
+            lfs_memcpy(&file->cache.buffer[pos - file->cache.pos],
                     buffer_,
                     d);
-            file->buffer.size = lfs_max(
-                    file->buffer.size,
-                    pos+d - file->buffer.pos);
+            file->cache.size = lfs_max(
+                    file->cache.size,
+                    pos+d - file->cache.pos);
 
             file->b.o.flags |= LFS_o_UNFLUSH;
             written += d;
@@ -12330,9 +12330,9 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             continue;
         }
 
-        // flush our buffer so the above can't fail
+        // flush our cache so the above can't fail
         err = lfsr_file_flush_(lfs, file,
-                file->buffer.pos, file->buffer.buffer, file->buffer.size);
+                file->cache.pos, file->cache.buffer, file->cache.size);
         if (err) {
             goto failed;
         }
@@ -12381,9 +12381,9 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
 
-    // flush our buffer
+    // flush our cache
     int err = lfsr_file_flush_(lfs, file,
-            file->buffer.pos, file->buffer.buffer, file->buffer.size);
+            file->cache.pos, file->cache.buffer, file->cache.size);
     if (err) {
         goto failed;
     }
@@ -12411,7 +12411,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         goto failed;
     }
 
-    // first flush any data in our buffer, this is a noop if already
+    // first flush any data in our cache, this is a noop if already
     // flushed
     //
     // note that flush does not change the actual file data, so if
@@ -12552,13 +12552,13 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             } else {
                 file_->b.o.flags &= ~(LFS_o_UNSYNC | LFS_o_UNFLUSH);
                 file_->b.shrub = file->b.shrub;
-                file_->buffer.pos = file->buffer.pos;
-                LFS_ASSERT(file->buffer.size
-                        <= lfsr_file_buffersize(lfs, file));
-                lfs_memcpy(file_->buffer.buffer,
-                        file->buffer.buffer,
-                        file->buffer.size);
-                file_->buffer.size = file->buffer.size;
+                file_->cache.pos = file->cache.pos;
+                LFS_ASSERT(file->cache.size
+                        <= lfsr_file_cachesize(lfs, file));
+                lfs_memcpy(file_->cache.buffer,
+                        file->cache.buffer,
+                        file->cache.size);
+                file_->cache.size = file->cache.size;
 
                 // update any custom attrs
                 for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
@@ -12732,11 +12732,11 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         goto failed;
     }
 
-    // truncate our buffer
-    file->buffer.pos = lfs_min(file->buffer.pos, size_);
-    file->buffer.size = lfs_min(
-            file->buffer.size,
-            size_ - lfs_min(file->buffer.pos, size_));
+    // truncate our cache
+    file->cache.pos = lfs_min(file->cache.pos, size_);
+    file->cache.size = lfs_min(
+            file->cache.size,
+            size_ - lfs_min(file->cache.pos, size_));
 
     // sync if requested
     if (lfsr_o_issync(file->b.o.flags)) {
@@ -12788,26 +12788,26 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
         goto failed;
     }
 
-    // fruncate our buffer
-    lfs_memmove(file->buffer.buffer,
-            &file->buffer.buffer[lfs_min(
+    // fruncate our cache
+    lfs_memmove(file->cache.buffer,
+            &file->cache.buffer[lfs_min(
                 lfs_smax(
-                    size - size_ - file->buffer.pos,
+                    size - size_ - file->cache.pos,
                     0),
-                file->buffer.size)],
-            file->buffer.size - lfs_min(
+                file->cache.size)],
+            file->cache.size - lfs_min(
                 lfs_smax(
-                    size - size_ - file->buffer.pos,
+                    size - size_ - file->cache.pos,
                     0),
-                file->buffer.size));
-    file->buffer.size -= lfs_min(
+                file->cache.size));
+    file->cache.size -= lfs_min(
             lfs_smax(
-                size - size_ - file->buffer.pos,
+                size - size_ - file->cache.pos,
                 0),
-            file->buffer.size);
-    file->buffer.pos -= lfs_smin(
+            file->cache.size);
+    file->cache.pos -= lfs_smin(
             size - size_,
-            file->buffer.pos);
+            file->cache.pos);
 
     // sync if requested
     if (lfsr_o_issync(file->b.o.flags)) {

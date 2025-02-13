@@ -163,8 +163,8 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -246,7 +246,7 @@ defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.SIZE = 'FILE_BUFFER_SIZE/2'
+defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -350,8 +350,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -439,8 +439,8 @@ done:;
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

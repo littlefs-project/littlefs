@@ -103,7 +103,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(BLOCK_RECYCLES,     -1                                      ) \
     TEST_DEFINE(RCACHE_SIZE,        LFS_MAX(16, READ_SIZE)                  ) \
     TEST_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                  ) \
-    TEST_DEFINE(FILE_BUFFER_SIZE,   16                                      ) \
+    TEST_DEFINE(FILE_CACHE_SIZE,    16                                      ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
     TEST_DEFINE(GC_FLAGS,           0                                       ) \
     TEST_DEFINE(GC_STEPS,           0                                       ) \
@@ -133,7 +133,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .block_recycles     = BLOCK_RECYCLES,       \
     .rcache_size        = RCACHE_SIZE,          \
     .pcache_size        = PCACHE_SIZE,          \
-    .file_buffer_size   = FILE_BUFFER_SIZE,     \
+    .file_cache_size    = FILE_CACHE_SIZE,      \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
     TEST_GC_CFG                                 \
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \

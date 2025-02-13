@@ -5,8 +5,8 @@ after = ['test_fwrite', 'test_fsync']
 # Some specific tests
 [cases.test_forphans_uncreat]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -216,8 +216,8 @@ code = '''
 
 [cases.test_forphans_uncreat_pl]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -293,8 +293,8 @@ code = '''
 
 [cases.test_forphans_uncreat_many_pl]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
 ]
 defines.CHUNK = 8
 defines.N = 128
@@ -380,8 +380,8 @@ code = '''
 
 [cases.test_forphans_uncreat_sync_wr]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -587,8 +587,8 @@ code = '''
 
 [cases.test_forphans_uncreat_sync_rw]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -788,8 +788,8 @@ code = '''
 
 [cases.test_forphans_uncreat_desync_wdwr]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1516,8 +1516,8 @@ code = '''
 
 [cases.test_forphans_orphan]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1641,8 +1641,8 @@ code = '''
 
 [cases.test_forphans_orphan_wdwr]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1936,8 +1936,8 @@ code = '''
 defines.N = 'range(6)'
 defines.M = 'range(6)'
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2762,8 +2762,8 @@ code = '''
 
 [cases.test_forphans_zombie]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2895,8 +2895,8 @@ code = '''
 
 [cases.test_forphans_zombie_posthumous]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3028,8 +3028,8 @@ code = '''
 
 [cases.test_forphans_zombie_rwrw]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3259,8 +3259,8 @@ code = '''
 
 [cases.test_forphans_zombie_rwrw_posthumous]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3490,8 +3490,8 @@ code = '''
 
 [cases.test_forphans_zombie_zombie_rwrwrw]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3756,8 +3756,8 @@ code = '''
 
 [cases.test_forphans_zombie_zombie_rwrwrw_posthumous]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5227,8 +5227,8 @@ code = '''
 # test that we actually cleanup orphans correctly
 [cases.test_forphans_cleanup]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5369,8 +5369,8 @@ code = '''
 
 [cases.test_forphans_cleanup_open]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5521,8 +5521,8 @@ code = '''
 
 [cases.test_forphans_cleanup_uncreat]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5671,8 +5671,8 @@ code = '''
 
 [cases.test_forphans_cleanup_zombie]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5810,8 +5810,8 @@ code = '''
 # them here
 [cases.test_forphans_mv]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -6052,8 +6052,8 @@ code = '''
 
 [cases.test_forphans_mv_postmv]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -6354,8 +6354,8 @@ code = '''
 
 [cases.test_forphans_mv_rwrw]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -6705,8 +6705,8 @@ code = '''
 
 [cases.test_forphans_mv_rwrw_postmv]
 defines.SIZE = [
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -7407,8 +7407,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -7754,8 +7754,8 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -8106,8 +8106,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -8445,8 +8445,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
     '0',
-    'FILE_BUFFER_SIZE/2',
-    '2*FILE_BUFFER_SIZE',
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
