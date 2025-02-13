@@ -14,13 +14,13 @@ if __name__ == "__main__":
     __import__('sys').path.pop(0)
 
 import bisect
-import codecs
 import collections as co
 import csv
 import io
 import itertools as it
 import math as mt
 import os
+import re
 import shlex
 import shutil
 import sys
@@ -131,9 +131,30 @@ def si2(x, w=5):
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
 
-# parse escape strings
-def escape(s):
-    return codecs.escape_decode(s.encode('utf8'))[0].decode('utf8')
+# parse %-escaped strings
+def unescape(s):
+    pattern = re.compile(
+        '%[%=,abfnrtv0]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == '=': return '='
+        elif m.group()[1] == ',': return ','
+        elif m.group()[1] == 'a': return '\a'
+        elif m.group()[1] == 'b': return '\b'
+        elif m.group()[1] == 'f': return '\f'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'r': return '\r'
+        elif m.group()[1] == 't': return '\t'
+        elif m.group()[1] == 'v': return '\v'
+        elif m.group()[1] == '0': return '\0'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        else: assert False
+    return re.sub(pattern, unescape, s)
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
@@ -888,10 +909,10 @@ def main(csv_paths, *,
     else:
         line_chars_ = [False]
 
-    # allow escape codes in labels/titles
-    title = escape(title).splitlines() if title is not None else []
-    xlabel = escape(xlabel).splitlines() if xlabel is not None else []
-    ylabel = escape(ylabel).splitlines() if ylabel is not None else []
+    # allow %-escaped codes in labels/titles
+    title = unescape(title).splitlines() if title is not None else []
+    xlabel = unescape(xlabel).splitlines() if xlabel is not None else []
+    ylabel = unescape(ylabel).splitlines() if ylabel is not None else []
 
     # subplot can also contribute to subplots, resolve this here or things
     # become a mess...
@@ -912,8 +933,9 @@ def main(csv_paths, *,
             subplots_get('define', **subplot, subplots=subplots)):
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
-    all_labels = ((label or [])
-            + subplots_get('label', **subplot, subplots=subplots))
+    all_labels = [(unescape(k), vs) for k, vs in (
+            (label or [])
+                + subplots_get('label', **subplot, subplots=subplots))]
 
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
@@ -938,20 +960,22 @@ def main(csv_paths, *,
         ysublabel = s.args.get('ylabel')
 
         # allow escape codes in sublabels/subtitles
-        subtitle = (escape(subtitle).splitlines()
+        subtitle = (unescape(subtitle).splitlines()
                 if subtitle is not None else [])
-        xsublabel = (escape(xsublabel).splitlines()
+        xsublabel = (unescape(xsublabel).splitlines()
                 if xsublabel is not None else [])
-        ysublabel = (escape(ysublabel).splitlines()
+        ysublabel = (unescape(ysublabel).splitlines()
                 if ysublabel is not None else [])
 
         # don't allow >2 ticklabels and render single ticklabels only once
         if xticklabels_ is not None:
+            xticklabels_ = [unescape(l) for l in xticklabels_]
             if len(xticklabels_) == 1:
                 xticklabels_ = ["", xticklabels_[0]]
             elif len(xticklabels_) > 2:
                 xticklabels_ = [xticklabels_[0], xticklabels_[-1]]
         if yticklabels_ is not None:
+            yticklabels_ = [unescape(l) for l in yticklabels_]
             if len(yticklabels_) == 1:
                 yticklabels_ = ["", yticklabels_[0]]
             elif len(yticklabels_) > 2:
@@ -1473,12 +1497,13 @@ if __name__ == "__main__":
             action='append',
             type=lambda x: (
                 lambda k, vs: (
-                    re.sub(r'\\([=\\])', r'\1', k.strip()),
+                    k.strip(),
                     tuple(v.strip() for v in vs.split(',')))
-                )(*re.split(r'(?<!\\)=', x, 1)),
+                )(*re.split(r'(?<!%)=', x, 1)),
             help="Use this label for a given group, where a group is roughly "
                 "the comma-separated values in the -b/--by, -x, and -y "
-                "fields. Also provides an ordering. Accepts escaped equals.")
+                "fields. Also provides an ordering. Accepts %= and other "
+                "%-escaped codes.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
@@ -1556,27 +1581,25 @@ if __name__ == "__main__":
             help="Units for the y-axis.")
     parser.add_argument(
             '--xlabel',
-            help="Add a label to the x-axis.")
+            help="Add a label to the x-axis. Accepts %-escaped codes.")
     parser.add_argument(
             '--ylabel',
-            help="Add a label to the y-axis.")
+            help="Add a label to the y-axis. Accepts %-escaped codes.")
     parser.add_argument(
             '--xticklabels',
-            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                    for x in re.split(r'(?<!\\),', x)]
+            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
                 if x.strip() else [],
-            help="Comma separated xticklabels. Allows '\,' as an "
-                "alternative for a literal ','.")
+            help="Comma separated xticklabels. Accepts %, and other "
+                "%-escaped codes.")
     parser.add_argument(
             '--yticklabels',
-            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                    for x in re.split(r'(?<!\\),', x)]
+            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
                 if x.strip() else [],
-            help="Comma separated yticklabels. Allows '\,' as an "
-                "alternative for a literal ','.")
+            help="Comma separated yticklabels. Accepts %, and other "
+                "%-escaped codes.")
     parser.add_argument(
             '-t', '--title',
-            help="Add a title.")
+            help="Add a title. Accepts %-escaped codes.")
     parser.add_argument(
             '-l', '--legend', '--legend-right',
             dest='legend_right',

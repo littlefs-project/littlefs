@@ -13,7 +13,6 @@
 if __name__ == "__main__":
     __import__('sys').path.pop(0)
 
-import codecs
 import collections as co
 import csv
 import io
@@ -22,6 +21,7 @@ import logging
 import math as mt
 import numpy as np
 import os
+import re
 import shlex
 import shutil
 import sys
@@ -131,9 +131,30 @@ def si2(x):
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
 
-# parse escape strings
-def escape(s):
-    return codecs.escape_decode(s.encode('utf8'))[0].decode('utf8')
+# parse %-escaped strings
+def unescape(s):
+    pattern = re.compile(
+        '%[%=,abfnrtv0]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == '=': return '='
+        elif m.group()[1] == ',': return ','
+        elif m.group()[1] == 'a': return '\a'
+        elif m.group()[1] == 'b': return '\b'
+        elif m.group()[1] == 'f': return '\f'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'r': return '\r'
+        elif m.group()[1] == 't': return '\t'
+        elif m.group()[1] == 'v': return '\v'
+        elif m.group()[1] == '0': return '\0'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        else: assert False
+    return re.sub(pattern, unescape, s)
 
 # we want to use MaxNLocator, but since MaxNLocator forces multiples of 10
 # to be an option, we can't really...
@@ -622,7 +643,7 @@ def main(csv_paths, output, *,
         colors_ = COLORS
 
     if formats is not None:
-        formats_ = formats
+        formats_ = [unescape(f) for f in formats]
     elif points_and_lines:
         formats_ = FORMATS_POINTS_AND_LINES
     elif points:
@@ -727,8 +748,9 @@ def main(csv_paths, output, *,
             subplots_get('define', **subplot, subplots=subplots)):
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
-    all_labels = ((label or [])
-            + subplots_get('label', **subplot, subplots=subplots))
+    all_labels = [(unescape(k), vs) for k, vs in (
+            (label or [])
+                + subplots_get('label', **subplot, subplots=subplots))]
 
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
@@ -874,7 +896,7 @@ def main(csv_paths, output, *,
             ax.xaxis.set_major_formatter(lambda x, pos:
                     si2(x)+(xunits_ if xunits_ else ''))
             if xticklabels_ is not None:
-                ax.xaxis.set_ticklabels(xticklabels_)
+                ax.xaxis.set_ticklabels([unescape(l) for l in xticklabels_])
             if xticks_ is None:
                 ax.xaxis.set_major_locator(AutoMultipleLocator(2))
             elif isinstance(xticks_, list):
@@ -887,7 +909,7 @@ def main(csv_paths, output, *,
             ax.xaxis.set_major_formatter(lambda x, pos:
                     si(x)+(xunits_ if xunits_ else ''))
             if xticklabels_ is not None:
-                ax.xaxis.set_ticklabels(xticklabels_)
+                ax.xaxis.set_ticklabels([unescape(l) for l in xticklabels_])
             if xticks_ is None:
                 ax.xaxis.set_major_locator(mpl.ticker.AutoLocator())
             elif isinstance(xticks_, list):
@@ -900,7 +922,7 @@ def main(csv_paths, output, *,
             ax.yaxis.set_major_formatter(lambda x, pos:
                     si2(x)+(yunits_ if yunits_ else ''))
             if yticklabels_ is not None:
-                ax.yaxis.set_ticklabels(yticklabels_)
+                ax.yaxis.set_ticklabels([unescape(l) for l in yticklabels_])
             if yticks_ is None:
                 ax.yaxis.set_major_locator(AutoMultipleLocator(2))
             elif isinstance(yticks_, list):
@@ -913,7 +935,7 @@ def main(csv_paths, output, *,
             ax.yaxis.set_major_formatter(lambda x, pos:
                     si(x)+(yunits_ if yunits_ else ''))
             if yticklabels_ is not None:
-                ax.yaxis.set_ticklabels(yticklabels_)
+                ax.yaxis.set_ticklabels([unescape(l) for l in yticklabels_])
             if yticks_ is None:
                 ax.yaxis.set_major_locator(mpl.ticker.AutoLocator())
             elif isinstance(yticks_, list):
@@ -927,11 +949,11 @@ def main(csv_paths, output, *,
 
         # axes subplot labels
         if xsublabel is not None:
-            ax.set_xlabel(escape(xsublabel))
+            ax.set_xlabel(unescape(xsublabel))
         if ysublabel is not None:
-            ax.set_ylabel(escape(ysublabel))
+            ax.set_ylabel(unescape(ysublabel))
         if subtitle is not None:
-            ax.set_title(escape(subtitle))
+            ax.set_title(unescape(subtitle))
 
     # add a legend? a bit tricky with matplotlib
     #
@@ -1002,7 +1024,7 @@ def main(csv_paths, output, *,
         # big hack to get xlabel above the legend! but hey this
         # works really well actually
         if xlabel:
-            ax.set_title(escape(xlabel),
+            ax.set_title(unescape(xlabel),
                     size=plt.rcParams['axes.labelsize'],
                     weight=plt.rcParams['axes.labelweight'])
 
@@ -1032,11 +1054,11 @@ def main(csv_paths, output, *,
 
     # axes labels, NOTE we reposition these below
     if xlabel is not None and not legend_below:
-        fig.supxlabel(escape(xlabel))
+        fig.supxlabel(unescape(xlabel))
     if ylabel is not None:
-        fig.supylabel(escape(ylabel))
+        fig.supylabel(unescape(ylabel))
     if title is not None:
-        fig.suptitle(escape(title))
+        fig.suptitle(unescape(title))
 
     # precompute constrained layout and find midpoints to adjust things
     # that should be centered so they are actually centered
@@ -1045,11 +1067,11 @@ def main(csv_paths, output, *,
     ymid = (grid[0,0].ax.get_position().y0 + grid[0,-1].ax.get_position().y1)/2
 
     if xlabel is not None and not legend_below:
-        fig.supxlabel(escape(xlabel), x=xmid)
+        fig.supxlabel(unescape(xlabel), x=xmid)
     if ylabel is not None:
-        fig.supylabel(escape(ylabel), y=ymid)
+        fig.supylabel(unescape(ylabel), y=ymid)
     if title is not None:
-        fig.suptitle(escape(title), x=xmid)
+        fig.suptitle(unescape(title), x=xmid)
 
 
     # write the figure!
@@ -1117,12 +1139,13 @@ if __name__ == "__main__":
             action='append',
             type=lambda x: (
                 lambda k, vs: (
-                    re.sub(r'\\([=\\])', r'\1', k.strip()),
+                    k.strip(),
                     tuple(v.strip() for v in vs.split(',')))
-                )(*re.split(r'(?<!\\)=', x, 1)),
+                )(*re.split(r'(?<!%)=', x, 1)),
             help="Use this label for a given group, where a group is roughly "
                 "the comma-separated values in the -b/--by, -x, and -y "
-                "fields. Also provides an ordering. Accepts escaped equals.")
+                "fields. Also provides an ordering. Accepts %= and other "
+                "%-escaped codes.")
     parser.add_argument(
             '-.', '--points',
             action='store_true',
@@ -1137,10 +1160,9 @@ if __name__ == "__main__":
             help="Comma-separated hex colors to use.")
     parser.add_argument(
             '--formats',
-            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                for x in re.split(r'(?<!\\),', x)],
-            help="Comma-separated matplotlib formats to use. Accepts escaped "
-                "commas.")
+            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)],
+            help="Comma-separated matplotlib formats to use. Accepts %, and "
+                "other %-escaped codes.")
     parser.add_argument(
             '-W', '--width',
             type=lambda x: int(x, 0),
@@ -1197,25 +1219,25 @@ if __name__ == "__main__":
             help="Units for the y-axis.")
     parser.add_argument(
             '--xlabel',
-            help="Add a label to the x-axis.")
+            help="Add a label to the x-axis. Accepts %-escaped codes.")
     parser.add_argument(
             '--ylabel',
-            help="Add a label to the y-axis.")
+            help="Add a label to the y-axis. Accepts %-escaped codes.")
     parser.add_argument(
             '--xticklabels',
-            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                    for x in re.split(r'(?<!\\),', x)]
+            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
                 if x.strip() else [],
-            help="Comma separated xticklabels. Accepts escaped commas.")
+            help="Comma separated xticklabels. Accepts %, and other "
+                "%-escaped codes.")
     parser.add_argument(
             '--yticklabels',
-            type=lambda x: [re.sub(r'\\([,\\])', r'\1', x.strip())
-                    for x in re.split(r'(?<!\\),', x)]
+            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
                 if x.strip() else [],
-            help="Comma separated yticklabels. Accepts escaped commas.")
+            help="Comma separated yticklabels. Accepts %, and other "
+                "%-escaped codes.")
     parser.add_argument(
             '-t', '--title',
-            help="Add a title.")
+            help="Add a title. Accepts %-escaped codes.")
     parser.add_argument(
             '-l', '--legend', '--legend-right',
             dest='legend_right',
