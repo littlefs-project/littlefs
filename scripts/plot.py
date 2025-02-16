@@ -554,6 +554,8 @@ def fold(results, by=None, x=None, y=None, defines=[], labels=None):
                     else:
                         y__ = None
 
+                    # do _not_ sum ys here, it's tempting but risks
+                    # incorrect and misleading results
                     dataset.append((x__, y__))
 
                 # hide x/y if there is only one field
