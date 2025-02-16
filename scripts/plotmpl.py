@@ -1238,7 +1238,7 @@ if __name__ == "__main__":
             help="Comma separated yticklabels. Accepts %, and other "
                 "%-escaped codes.")
     parser.add_argument(
-            '-t', '--title',
+            '--title',
             help="Add a title. Accepts %-escaped codes.")
     parser.add_argument(
             '-l', '--legend', '--legend-right',
@@ -1280,7 +1280,8 @@ if __name__ == "__main__":
             help="Foreground color to use.")
     parser.add_argument(
             '--background',
-            help="Background color to use.")
+            help="Background color to use. Note #00000000 can make the "
+                "background transparent.")
     class AppendSubplot(argparse.Action):
         @staticmethod
         def parse(value):

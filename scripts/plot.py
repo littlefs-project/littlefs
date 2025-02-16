@@ -1599,7 +1599,7 @@ if __name__ == "__main__":
             help="Comma separated yticklabels. Accepts %, and other "
                 "%-escaped codes.")
     parser.add_argument(
-            '-t', '--title',
+            '--title',
             help="Add a title. Accepts %-escaped codes.")
     parser.add_argument(
             '-l', '--legend', '--legend-right',

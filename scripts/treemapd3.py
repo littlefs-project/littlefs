@@ -16,21 +16,37 @@ import math as mt
 import shutil
 
 
-# we don't actually need that many chars/colors thanks to the
-# 4-colorability of all 2d maps
-CHARS = ['.']
-COLORS = [34, 31, 32, 35, 33, 36]
+# some nicer colors borrowed from Seaborn
+# note these include a non-opaque alpha
+COLORS = [
+    '#4c72b0bf', # blue
+    '#dd8452bf', # orange
+    '#55a868bf', # green
+    '#c44e52bf', # red
+    '#8172b3bf', # purple
+    '#937860bf', # brown
+    '#da8bc3bf', # pink
+    '#8c8c8cbf', # gray
+    '#ccb974bf', # yellow
+    '#64b5cdbf', # cyan
+]
+COLORS_DARK = [
+    '#a1c9f4bf', # blue
+    '#ffb482bf', # orange
+    '#8de5a1bf', # green
+    '#ff9f9bbf', # red
+    '#d0bbffbf', # purple
+    '#debb9bbf', # brown
+    '#fab0e4bf', # pink
+    '#cfcfcfbf', # gray
+    '#fffea3bf', # yellow
+    '#b9f2f0bf', # cyan
+]
 
-CHARS_DOTS = " .':"
-CHARS_BRAILLE = (
-        '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
-        '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
-        '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
-        '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
-        '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
-        '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
-        '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
-        '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
+WIDTH = 750
+HEIGHT = 350
+FONT = ['sans-serif']
+FONT_SIZE = 10
 
 
 def openio(path, mode='r', buffering=-1):
@@ -147,175 +163,6 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
     return datasets, labels_
 
 
-# a little ascii renderer
-class Canvas:
-    def __init__(self, width, height, *,
-            color=False,
-            dots=False,
-            braille=False):
-        # scale if we're printing with dots or braille
-        if braille:
-            self.width = 2*width
-            self.height = 4*height
-        elif dots:
-            self.width = width
-            self.height = 2*height
-        else:
-            self.width = width
-            self.height = height
-        self.color_ = color
-        self.dots = dots
-        self.braille = braille
-
-        # create initial canvas
-        self.grid = [False] * (self.width*self.height)
-        self.colors = [''] * (self.width*self.height)
-
-    def __getitem__(self, xy):
-        x, y = xy
-        # ignore out of bounds
-        if x < 0 or y < 0 or x >= self.width or y >= self.height:
-            return
-
-        return self.grid[x + y*self.width]
-
-    def __setitem__(self, xy, char):
-        x, y = xy
-        # ignore out of bounds
-        if x < 0 or y < 0 or x >= self.width or y >= self.height:
-            return
-
-        self.grid[x + y*self.width] = char
-
-    def color(self, x, y, color=None):
-        # ignore out of bounds
-        if x < 0 or y < 0 or x >= self.width or y >= self.height:
-            return
-
-        if color is not None:
-            self.colors[x + y*self.width] = color
-        else:
-            return self.colors[x + y*self.width]
-
-    def point(self, x, y, *,
-            char=True,
-            color=''):
-        # scale if needed
-        if self.braille and char is not True and char is not False:
-            xscale, yscale = 2, 4
-        elif self.dots and char is not True and char is not False:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
-
-        for i in range(xscale*yscale):
-            x_ = x-(x%xscale) + (xscale-1-(i%xscale))
-            y_ = y-(y%yscale) + (i//xscale)
-
-            self[x_, y_] = char
-            self.color(x_, y_, color)
-
-    def line(self, x1, y1, x2, y2, *,
-            char=True,
-            color=''):
-        # incremental error line algorithm
-        ex = abs(x2 - x1)
-        ey = -abs(y2 - y1)
-        dx = +1 if x1 < x2 else -1
-        dy = +1 if y1 < y2 else -1
-        e = ex + ey
-
-        while True:
-            self.point(x1, y1, color=color, char=char)
-            e2 = 2*e
-
-            if x1 == x2 and y1 == y2:
-                break
-
-            if e2 > ey:
-                e += ey
-                x1 += dx
-
-            if x1 == x2 and y1 == y2:
-                break
-
-            if e2 < ex:
-                e += ex
-                y1 += dy
-
-        self.point(x2, y2, color=color, char=char)
-
-    def rect(self, x, y, w, h, *,
-            char=True,
-            color=''):
-        for j in range(h):
-            for i in range(w):
-                self.point(x+i, y+j, char=char, color=color)
-
-    def label(self, x, y, label, *,
-            color=''):
-        # scale if needed
-        if self.braille:
-            xscale, yscale = 2, 4
-        elif self.dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
-
-        for i, char in enumerate(label):
-            self.point(x+i*xscale, y, char=char, color=color)
-
-    def draw(self, row):
-        # scale if needed
-        if self.braille:
-            xscale, yscale = 2, 4
-        elif self.dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
-
-        y = self.height//yscale-1 - row
-        row_ = []
-        for x in range(self.width//xscale):
-            color = ''
-            char = False
-            byte = 0
-            for i in range(xscale*yscale):
-                x_ = x*xscale + (xscale-1-(i%xscale))
-                y_ = y*yscale + (i//xscale)
-
-                # calculate char
-                char_ = self[x_, y_]
-                if char_:
-                    byte |= 1 << i
-                    if char_ is not True and char_ is not False:
-                        char = char_
-
-                # keep track of best color
-                color_ = self.color(x_, y_)
-                if color_:
-                    color = color_
-
-            # figure out winning char
-            if byte:
-                if char is not True and char is not False:
-                    pass
-                elif self.braille:
-                    char = CHARS_BRAILLE[byte]
-                else:
-                    char = CHARS_DOTS[byte]
-            else:
-                char = ' '
-
-            # color?
-            if byte and self.color_ and color:
-                char = '\x1b[%sm%s\x1b[m' % (color, char)
-
-            row_.append(char)
-
-        return ''.join(row_)
-
-
 # a type to represent tiles
 class Tile:
     def __init__(self, key, children,
@@ -420,6 +267,7 @@ class Tile:
             'min': min_,
             'max': max_,
         }
+
 
 
 # our parititioning schemes
@@ -546,15 +394,12 @@ def partition_squarify(children, total, x, y, width, height):
         i = j
 
 
-def main(csv_paths, *,
+def main(csv_paths, output, *,
+        quiet=False,
         by=None,
         fields=None,
         labels=None,
         defines=[],
-        color=False,
-        dots=False,
-        braille=False,
-        chars=None,
         colors=None,
         width=None,
         height=None,
@@ -562,41 +407,46 @@ def main(csv_paths, *,
         to_scale=None,
         aspect_ratio=(1,1),
         title=None,
-        padding=0,
+        padding=1,
+        no_label=False,
+        tiny=False,
+        nested=False,
+        dark=False,
+        font=FONT,
+        font_size=FONT_SIZE,
+        background=None,
         **args):
-    # figure out what color should be
-    if color == 'auto':
-        color = sys.stdout.isatty()
-    elif color == 'always':
-        color = True
-    else:
-        color = False
+    # tiny mode?
+    if tiny:
+        to_scale = True
+        no_header = True
+        no_label = True
 
-    # figure out chars/colors
-    if chars is not None:
-        chars_ = chars
-    else:
-        chars_ = CHARS
-
+    # what colors to use?
     if colors is not None:
         colors_ = colors
+    elif dark:
+        colors_ = COLORS_DARK
     else:
         colors_ = COLORS
 
+    if background is not None:
+        background_ = background
+    elif dark:
+        background_ = '#000000'
+    else:
+        background_ = '#ffffff'
+
     # figure out width/height
-    if width is None:
-        width_ = min(80, shutil.get_terminal_size((80, 5))[0])
-    elif width:
+    if width is not None:
         width_ = width
     else:
-        width_ = shutil.get_terminal_size((80, 5))[0]
+        width_ = WIDTH
 
-    if height is None:
-        height_ = 2 if title is not None or not no_header else 1
-    elif height:
+    if height is not None:
         height_ = height
     else:
-        height_ = shutil.get_terminal_size((80, 5))[1]
+        height_ = HEIGHT
 
     # first collect results from CSV files
     fields_, results = collect(csv_paths, defines)
@@ -634,7 +484,7 @@ def main(csv_paths, *,
     # sort
     tile.sort()
 
-    # assign colors/chars after sorting to try to minimize touching
+    # assign colors after sorting to try to minimize touching
     # colors, while keeping things somewhat reproducible
 
     # use colors for top of tree
@@ -642,70 +492,32 @@ def main(csv_paths, *,
         for t_ in t.tiles():
             t_.color = colors_[i % len(colors_)]
 
-    # and chars for bottom of tree
-    for i, t in enumerate(tile.leaves()):
-        t.char = chars_[i % len(chars_)]
-
     # scale width/height if requested now that we have our data
     if to_scale and (width is None or height is None) and tile.value:
-        # scale if needed
-        if braille:
-            xscale, yscale = 2, 4
-        elif dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
-
         # scale width only
         if height is not None:
-            width_ = mt.ceil(
-                    ((tile.value * to_scale) / (height_*yscale))
-                        / xscale)
+            width_ = mt.ceil((tile.value * to_scale) / height_)
         # scale height only
         elif width is not None:
-            height_ = mt.ceil(
-                    ((tile.value * to_scale) / (width_*xscale))
-                        / yscale)
+            height_ = mt.ceil((tile.value * to_scale) / width_)
         # scale based on aspect-ratio
         else:
-            width_ = mt.ceil(
-                    (mt.sqrt(tile.value * to_scale)
-                            * (aspect_ratio[0] / aspect_ratio[1]))
-                        / xscale)
-            height_ = mt.ceil(
-                    ((tile.value * to_scale) / (width_*xscale))
-                        / yscale)
-
-    # create a canvas
-    canvas = Canvas(width_, height_,
-            color=color,
-            dots=dots,
-            braille=braille)
+            width_ = mt.ceil(mt.sqrt(tile.value * to_scale)
+                    * (aspect_ratio[0] / aspect_ratio[1]))
+            height_ = mt.ceil((tile.value * to_scale) / width_)
 
     # recursively partition tiles
     tile.x = 0
     tile.y = 0
-    tile.width = canvas.width
-    tile.height = canvas.height
+    tile.width = width_
+    tile.height = height_
     def partition(tile):
-        # apply top padding
         if tile.depth == 0:
+            # apply top padding
             tile.x += padding
             tile.y += padding
             tile.width  -= min(padding, tile.width)
             tile.height -= min(padding, tile.height)
-
-            x__ = tile.x
-            y__ = tile.y
-            width__ = tile.width
-            height__ = tile.height
-
-            # create space for header
-            if title is not None or not no_header:
-                y__ += 1
-                height__ -= min(1, height__)
-
-        else:
             # apply bottom padding
             if not tile.children:
                 tile.width  -= min(padding, tile.width)
@@ -715,6 +527,34 @@ def main(csv_paths, *,
             y__ = tile.y
             width__ = tile.width
             height__ = tile.height
+
+            # create space for header
+            if title is not None or not no_header:
+                y__ += mt.ceil(FONT_SIZE * 1.3)
+                height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
+
+        else:
+            # apply top padding
+            if nested and tile.depth != 1:
+                tile.x += padding
+                tile.y += padding
+                tile.width  -= min(padding, tile.width)
+                tile.height -= min(padding, tile.height)
+            # apply bottom padding
+            if nested or not tile.children:
+                tile.width  -= min(padding, tile.width)
+                tile.height -= min(padding, tile.height)
+
+            x__ = tile.x
+            y__ = tile.y
+            width__ = tile.width
+            height__ = tile.height
+
+            # create space for names and junk
+            if nested:
+                y__ += mt.ceil(FONT_SIZE * 1.3)
+                height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
+            
 
         # partition via requested scheme
         if tile.children:
@@ -748,75 +588,135 @@ def main(csv_paths, *,
     # align to pixel boundaries
     tile.align()
 
-    # render to canvas
-    labels_ = []
-    for t in tile.leaves():
-        x__ = t.x
-        y__ = t.y
-        width__ = t.width
-        height__ = t.height
-        # skip anything with zero weight/height after aligning things
-        if width__ == 0 or height__ == 0:
-            continue
+    # create svg file
+    with openio(output, 'w') as f:
+        def writeln(s=''):
+            f.write(s)
+            f.write('\n')
+        f.writeln = writeln
 
-        # flip y
-        y__ = canvas.height - (y__+height__)
+        # yes this is svg
+        f.write('<svg '
+                'viewBox="0,0,%(width)d,%(height)d" '
+                'width="%(width)d" '
+                'height="%(height)d" '
+                'style="max-width: 100%%; '
+                    'height: auto; '
+                    'font: %(font_size)dpx %(font)s; '
+                    'background-color: %(background)s;" '
+                'xmlns="http://www.w3.org/2000/svg">' % dict(
+                    width=width_,
+                    height=height_,
+                    font=','.join(font),
+                    font_size=font_size,
+                    background=background_))
 
-        canvas.rect(x__, y__, width__, height__,
-                # default to first letter in each label/key
-                char=(True if braille or dots
-                    else t.label[0]
-                        if chars is None
-                            and t.label is not None
-                    else t.key[-1][0]
-                        if chars is None
-                            and t.key
-                            and t.key[-1]
-                    else t.char if t.char is not None else chars_[0]),
-                color=t.color if t.color is not None else colors_[0])
+        # create header
+        if title is not None or not no_header:
+            f.write('<text fill="%(color)s">' % dict(
+                    color='#ffffff' if dark else '#000000'))
+            if not no_header:
+                stat = tile.stat()
+            if title:
+                f.write('<tspan x="3" y="1.1em">')
+                f.write(title)
+                f.write('</tspan>')
+                if not no_header:
+                    f.write('<tspan x="%(x)d" y="1.1em" '
+                            'text-anchor="end">' % dict(
+                                x=tile.width-3))
+                    f.write('total %d, avg %d +-%dσ, min %d, max %d' % (
+                            stat['total'],
+                            stat['mean'], stat['stddev'],
+                            stat['min'], stat['max']))
+                    f.write('</tspan>')
+            else:
+                f.write('<tspan x="3" y="1.1em">')
+                f.write('total %d, avg %d +-%dσ, min %d, max %d' % (
+                        stat['total'],
+                        stat['mean'], stat['stddev'],
+                        stat['min'], stat['max']))
+                f.write('</tspan>')
+            f.write('</text>')
 
-        if labels:
+        # create tiles
+        for i, t in enumerate(tile.tiles() if nested else tile.leaves()):
+            # skip the top tile
+            if t.depth == 0:
+                continue
+            # skip anything with zero weight/height after aligning things
+            if t.width == 0 or t.height == 0:
+                continue
+
             if t.label is not None:
                 label__ = t.label
             else:
                 label__ = ','.join(t.key)
 
-            # render these later so they get priority
-            labels_.append((x__, y__+height__-1, label__[:width__]))
+            f.write('<g transform="translate(%d,%d)">' % (t.x, t.y))
+            f.write('<title>')
+            f.write('\n'.join([label__, str(t.value)]))
+            f.write('</title>')
+            f.write('<rect '
+                    'id="tile-%(id)s" '
+                    'fill="%(color)s" '
+                    'width="%(width)d" '
+                    'height="%(height)d">' % dict(
+                        id=i,
+                        color=t.color,
+                        width=t.width,
+                        height=t.height))
+            f.write('</rect>')
+            if not no_label:
+                f.write('<clipPath id="clip-%s">' % i)
+                f.write('<use href="#tile-%s">' % i)
+                f.write('</use>')
+                f.write('</clipPath>')
+                f.write('<text clip-path="url(#clip-%s)">' % i)
+                f.write('<tspan x="3" y="1.1em">')
+                f.write(label__)
+                f.write('</tspan>')
+                if t.children:
+                    f.write('<tspan dx="3" y="1.1em" fill-opacity="0.7">')
+                    f.write(str(t.value))
+                    f.write('</tspan>')
+                else:
+                    f.write('<tspan x="3" y="2.2em" fill-opacity="0.7">')
+                    f.write(str(t.value))
+                    f.write('</tspan>')
+                f.write('</text>')
+            f.write('</g>')
 
-    for x__, y__, label__ in labels_:
-        canvas.label(x__, y__, label__)
+        f.write('</svg>')
+
 
     # print some summary info
-    if not no_header:
+    if not quiet:
         stat = tile.stat()
-        stat_ = 'total %d, avg %d +-%dσ, min %d, max %d' % (
-                stat['total'],
+        print('updated %s, total %d, avg %d +-%dσ, min %d, max %d' % (
+                output, stat['total'],
                 stat['mean'], stat['stddev'],
-                stat['min'], stat['max'])
-    if title and not no_header:
-        print('%s%*s%s' % (title, width_-len(stat_)-len(title), '', stat_))
-    elif title:
-        print(title)
-    elif not no_header:
-        print(stat_)
-
-    # draw canvas
-    for row in range(1 if title or not no_header else 0, height_):
-        line = canvas.draw(row)
-        print(line)
+                stat['min'], stat['max']))
 
 
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Render CSV files as a treemap.",
+            description="Render CSV files as a treemap to a d3-esque svg.",
             allow_abbrev=False)
     parser.add_argument(
             'csv_paths',
             nargs='*',
             help="Input *.csv files.")
+    parser.add_argument(
+            '-o', '--output',
+            required=True,
+            help="Output *.svg file.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't print info.")
     parser.add_argument(
             '-b', '--by',
             action='append',
@@ -843,39 +743,17 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             help="Only include results where this field is this value.")
     parser.add_argument(
-            '--color',
-            choices=['never', 'always', 'auto'],
-            default='auto',
-            help="When to use terminal colors. Defaults to 'auto'.")
-    parser.add_argument(
-            '-:', '--dots',
-            action='store_true',
-            help="Use 1x2 ascii dot characters.")
-    parser.add_argument(
-            '-⣿', '--braille',
-            action='store_true',
-            help="Use 2x4 unicode braille characters. Note that braille "
-                "characters sometimes suffer from inconsistent widths.")
-    parser.add_argument(
-            '--chars',
-            help="Characters to use for tiles.")
-    parser.add_argument(
             '--colors',
             type=lambda x: [x.strip() for x in x.split(',')],
-            help="Colors to use for tiles.")
+            help="Comma-separated hex colors to use.")
     parser.add_argument(
             '-W', '--width',
-            nargs='?',
             type=lambda x: int(x, 0),
-            const=0,
-            help="Width in columns. 0 uses the terminal width. Defaults to "
-                "min(terminal, 80).")
+            help="Width in pixels. Defaults to %r." % WIDTH)
     parser.add_argument(
             '-H', '--height',
-            nargs='?',
             type=lambda x: int(x, 0),
-            const=0,
-            help="Height in rows. 0 uses the terminal height. Defaults to 1.")
+            help="Height in pixels. Defaults to %r." % HEIGHT)
     parser.add_argument(
             '-N', '--no-header',
             action='store_true',
@@ -925,13 +803,41 @@ if __name__ == "__main__":
             default=(1, 1),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
+            '-t', '--tiny',
+            action='store_true',
+            help="Tiny mode, alias for --to-scale=1, --no-header, and "
+                "--no-label.")
+    parser.add_argument(
+            '-r', '--nested',
+            action='store_true',
+            help="Show nested tiles.")
+    parser.add_argument(
             '--title',
             help="Add a title.")
     parser.add_argument(
             '--padding',
             type=float,
-            default=0,
-            help="Padding to add to each level of the treemap. Defaults to 0.")
+            default=1,
+            help="Padding to add to each level of the treemap. Defaults to 1.")
+    parser.add_argument(
+            '--no-label',
+            action='store_true',
+            help="Don't render any labels or text.")
+    parser.add_argument(
+            '--dark',
+            action='store_true',
+            help="Use the dark style.")
+    parser.add_argument(
+            '--font',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Font family to use.")
+    parser.add_argument(
+            '--font-size',
+            help="Font size to use. Defaults to %r." % FONT_SIZE)
+    parser.add_argument(
+            '--background',
+            help="Background color to use. Note #00000000 can make the "
+                "background transparent.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
