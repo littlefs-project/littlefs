@@ -489,7 +489,16 @@ def partition_dice(children, total, x, y, width, height):
 
         y_ += t.height
 
-def partition_squarify(children, total, x, y, width, height):
+def partition_squarify(children, total, x, y, width, height, *,
+        aspect_ratio=(1,1)):
+    if width == 0 or height == 0:
+        for t in children:
+            t.x = x
+            t.y = y
+            t.width = width
+            t.height = height
+        return
+
     # this algorithm is described here:
     # https://www.win.tue.nl/~vanwijk/stm.pdf
     i = 0
@@ -498,9 +507,10 @@ def partition_squarify(children, total, x, y, width, height):
     total_ = total
     width_ = width
     height_ = height
-    # derive target aspect ratio from top-level tile, note we don't
-    # really care about width vs height until actually slicing
-    ratio = max(width/height, height/width)
+    # note we don't really care about width vs height until
+    # actually slicing
+    ratio = max(aspect_ratio[0]/aspect_ratio[1],
+            aspect_ratio[1]/aspect_ratio[0])
 
     while i < len(children):
         # calculate initial aspect ratio
@@ -734,6 +744,10 @@ def main(csv_paths, *,
             elif args.get('squarify'):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__)
+            elif args.get('rectify'):
+                partition_squarify(tile.children, tile.value,
+                        x__, y__, width__, height__,
+                        aspect_ratio=(width_, height_))
             else:
                 # default to binary partitioning
                 partition_binary(tile.children, tile.value,
@@ -912,6 +926,12 @@ if __name__ == "__main__":
             help="Use the squarify partitioning scheme. This is a greedy "
                 "algorithm created by Mark Bruls et al that tries to "
                 "minimize tile aspect ratios.")
+    parser.add_argument(
+            '--rectify',
+            action='store_true',
+            help="Use the rectify partitioning scheme. This is like "
+                "squarify, but tries to match the aspect ratio of the "
+                "window.")
     parser.add_argument(
             '--to-scale',
             nargs='?',
