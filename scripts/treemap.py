@@ -111,6 +111,8 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
     for key in (keys if by else [()]):
         for field in fields:
             # organize by 'by' and field
+            dataset = []
+            label = None
             for r in results:
                 # filter by 'by'
                 if by and not all(
@@ -129,20 +131,23 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
                 else:
                     v = None
 
-                # hide 'field' if there is only one field
-                key_ = key
-                if len(fields or []) > 1 or not key_:
-                    key_ += (field,)
                 # do _not_ sum v here, it's tempting but risks
                 # incorrect and misleading results
-                datasets[key_] = v
+                dataset.append(v)
 
                 # also find label?
                 if labels is not None:
                     for label_ in labels:
-                        if label_ not in r:
-                            continue
-                        labels_[key_] = r[label_]
+                        if label_ in r:
+                            label = r[label_]
+
+            # hide 'field' if there is only one field
+            key_ = key
+            if len(fields or []) > 1 or not key_:
+                key_ += (field,)
+            datasets[key_] = dataset
+            if label is not None:
+                labels_[key_] = label
 
     return datasets, labels_
 
@@ -422,7 +427,12 @@ class Tile:
         }
 
 
-# our parititioning schemes
+# bounded division, limits result to dividend, useful for avoiding
+# divide-by-zero issues
+def bdiv(a, b):
+    return a / max(b, 1)
+
+# our partitioning schemes
 
 def partition_binary(children, total, x, y, width, height):
     sums = [0]
@@ -455,13 +465,13 @@ def partition_binary(children, total, x, y, width, height):
 
         # split horizontally?
         if width > height:
-            dx = ((sums[k] - sums[i]) / value) * width
+            dx = bdiv(sums[k] - sums[i], value) * width
             partition_(i, k, l, x, y, dx, height)
             partition_(k, j, r, x+dx, y, width-dx, height)
 
         # split vertically?
         else:
-            dy = ((sums[k] - sums[i]) / value) * height
+            dy = bdiv(sums[k] - sums[i], value) * height
             partition_(i, k, l, x, y, width, dy)
             partition_(k, j, r, x, y+dy, width, height-dy)
 
@@ -473,7 +483,7 @@ def partition_slice(children, total, x, y, width, height):
     for t in children:
         t.x = x_
         t.y = y
-        t.width = (t.value / total) * width
+        t.width = bdiv(t.value, total) * width
         t.height = height
 
         x_ += t.width
@@ -485,20 +495,12 @@ def partition_dice(children, total, x, y, width, height):
         t.x = x
         t.y = y_
         t.width = width
-        t.height = (t.value / total) * height
+        t.height = bdiv(t.value, total) * height
 
         y_ += t.height
 
 def partition_squarify(children, total, x, y, width, height, *,
         aspect_ratio=(1,1)):
-    if width == 0 or height == 0:
-        for t in children:
-            t.x = x
-            t.y = y
-            t.width = width
-            t.height = height
-        return
-
     # this algorithm is described here:
     # https://www.win.tue.nl/~vanwijk/stm.pdf
     i = 0
@@ -509,16 +511,17 @@ def partition_squarify(children, total, x, y, width, height, *,
     height_ = height
     # note we don't really care about width vs height until
     # actually slicing
-    ratio = max(aspect_ratio[0]/aspect_ratio[1],
-            aspect_ratio[1]/aspect_ratio[0])
+    ratio = max(bdiv(aspect_ratio[0], aspect_ratio[1]),
+            bdiv(aspect_ratio[1], aspect_ratio[0]))
 
     while i < len(children):
         # calculate initial aspect ratio
         sum_ = children[i].value
         min_ = children[i].value
         max_ = children[i].value
-        w = total_ * (ratio / max(width_/height_, height_/width_))
-        ratio_ = max((max_*w)/(sum_**2), (sum_**2)/(min_*w))
+        w = total_ * bdiv(ratio,
+                max(bdiv(width_, height_), bdiv(height_, width_)))
+        ratio_ = max(bdiv(max_*w, sum_**2), bdiv(sum_**2, min_*w))
 
         # keep adding children to this row/col until it starts to hurt
         # our aspect ratio
@@ -527,7 +530,7 @@ def partition_squarify(children, total, x, y, width, height, *,
             sum__ = sum_ + children[j].value
             min__ = min(min_, children[j].value)
             max__ = max(max_, children[j].value)
-            ratio__ = max((max__*w)/(sum__**2), (sum__**2)/(min__*w))
+            ratio__ = max(bdiv(max__*w, sum__**2), bdiv(sum__**2, min__*w))
             if ratio__ > ratio_:
                 break
 
@@ -539,14 +542,14 @@ def partition_squarify(children, total, x, y, width, height, *,
 
         # vertical col? dice horizontally?
         if width_ > height_:
-            dx = (sum_ / total_) * width_
+            dx = bdiv(sum_, total_) * width_
             partition_dice(children[i:j], sum_, x_, y_, dx, height_)
             x_ += dx
             width_ -= dx
 
         # horizontal row? slice vertically?
         else:
-            dy = (sum_ / total_) * height_
+            dy = bdiv(sum_, total_) * height_
             partition_slice(children[i:j], sum_, x_, y_, width_, dy)
             y_ += dy
             height_ -= dy
@@ -634,12 +637,15 @@ def main(csv_paths, *,
     datasets, labels_ = fold(results, by, fields, labels, defines)
 
     # build tile heirarchy
-    tile = Tile.merge([
-            Tile(k, v, label=labels_.get(k))
-            for k, v in datasets.items()
-            # discard anything with the value 0 early, otherwise these
-            # cause a lot of problems
-            if v != 0])
+    children = []
+    for key, dataset in datasets.items():
+        for i, v in enumerate(dataset):
+            children.append(Tile(
+                key + ((str(i),) if len(dataset) > 1 else ()),
+                v,
+                label=labels_.get(key)))
+
+    tile = Tile.merge(children)
 
     # sort
     tile.sort()
@@ -657,7 +663,7 @@ def main(csv_paths, *,
         t.char = chars_[i % len(chars_)]
 
     # scale width/height if requested now that we have our data
-    if to_scale and (width is None or height is None) and tile.value:
+    if to_scale and (width is None or height is None) and tile.value != 0:
         # scale if needed
         if braille:
             xscale, yscale = 2, 4
