@@ -162,46 +162,51 @@ class Attr:
         # include defaults?
         if (defaults is not None
                 and not any(
-                    not isinstance(attr, tuple) or attr[0] is None
+                    not isinstance(attr, tuple)
+                        or attr[0] in {None, (), ('',)}
                     for attr in (attrs or []))):
             attrs = defaults + (attrs or [])
 
-        # normalize and split out keyed vs indexed attrs
+        # normalize
         self.attrs = []
-        self.indexed = []
-        self.keyed = []
+        self.keyed = co.OrderedDict()
         for attr in (attrs or []):
             if not isinstance(attr, tuple):
-                attr = (None, attr)
+                attr = ((), attr)
+            elif attr[0] in {None, (), ('',)}:
+                attr = ((), attr[1])
 
             self.attrs.append(attr)
-            if attr[0] is None:
-                self.indexed.append(attr[1])
-            else:
-                self.keyed.append(attr)
+            if attr[0] not in self.keyed:
+                self.keyed[attr[0]] = []
+            self.keyed[attr[0]].append(attr[1])
 
     def __repr__(self):
         return 'Attr(%r)' % [
-                (','.join(key), a) if key is not None else a
-                for key, a in self.attrs]
+                (','.join(attr[0]), attr[1])
+                for attr in self.attrs]
 
     def __iter__(self):
-        return it.cycle(self.indexed)
-
-    def __len__(self):
-        return len(self.indexed)
+        return it.cycle(self.keyed[()])
 
     def __bool__(self):
-        # note this is not just the indexed attrs
         return bool(self.attrs)
 
-    def lookup(self, key):
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            if len(key) > 0 and not isinstance(key[0], str):
+                i, key = key
+            else:
+                i, key = 0, key
+        else:
+            i, key = key, ()
+
         # try to lookup by key
         best = None
-        for attr in self.keyed:
+        for ks, vs in self.keyed.items():
             prefix = []
-            for i, k in enumerate(attr[0]):
-                if i < len(key) and (not k or key[i] == k):
+            for j, k in enumerate(ks):
+                if j < len(key) and (not k or key[j] == k):
                     prefix.append(k)
                 else:
                     prefix = None
@@ -209,31 +214,11 @@ class Attr:
 
             if prefix is not None and (
                     best is None or len(prefix) >= len(best[0])):
-                best = (prefix, attr[1])
+                best = (prefix, vs)
 
         if best is not None:
-            return best[1]
-        else:
-            return None
-
-    def __getitem__(self, key):
-        if isinstance(key, tuple):
-            if len(key) > 0 and not isinstance(key[0], str):
-                i, key = key
-            else:
-                i, key = None, key
-        else:
-            i, key = key, None
-
-        # try to lookup by key
-        if key is not None:
-            attr = self.lookup(key)
-            if attr is not None:
-                return attr
-
-        # otherwise fallback to index
-        if i is not None and self.indexed:
-            return self.indexed[i % len(self.indexed)]
+            # cycle based on index
+            return best[1][i % len(best[1])]
 
         return None
 
@@ -287,14 +272,16 @@ class Canvas:
             braille=False):
         # scale if we're printing with dots or braille
         if braille:
-            self.width = 2*width
-            self.height = 4*height
+            xscale, yscale = 2, 4
         elif dots:
-            self.width = width
-            self.height = 2*height
+            xscale, yscale = 1, 2
         else:
-            self.width = width
-            self.height = height
+            xscale, yscale = 1, 1
+
+        self.width = xscale*width
+        self.height = yscale*height
+        self.xscale = xscale
+        self.yscale = yscale
         self.color_ = color
         self.dots = dots
         self.braille = braille
@@ -332,11 +319,9 @@ class Canvas:
     def point(self, x, y, *,
             char=True,
             color=''):
-        # scale if needed
-        if self.braille and char is not True and char is not False:
-            xscale, yscale = 2, 4
-        elif self.dots and char is not True and char is not False:
-            xscale, yscale = 1, 2
+        # make sure non-bool chars map attrs to all points under char
+        if not isinstance(char, bool):
+            xscale, yscale = self.xscale, self.yscale
         else:
             xscale, yscale = 1, 1
 
@@ -386,34 +371,21 @@ class Canvas:
 
     def label(self, x, y, label, width=None, height=None, *,
             color=''):
-        # scale if needed
-        if self.braille:
-            xscale, yscale = 2, 4
-        elif self.dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
-
         x_ = x
         y_ = y
         for char in label:
             if char == '\n':
                 x_ = x
-                y_ -= 1
+                y_ -= self.yscale
             else:
                 if ((width is None or x_ < x+width)
                         and (height is None or y_ > y-height)):
                     self.point(x_, y_, char=char, color=color)
-                x_ += xscale
+                x_ += self.xscale
 
     def draw(self, row):
         # scale if needed
-        if self.braille:
-            xscale, yscale = 2, 4
-        elif self.dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
+        xscale, yscale = self.xscale, self.yscale
 
         y = self.height//yscale-1 - row
         row_ = []
@@ -726,13 +698,11 @@ def main(csv_paths, *,
 
     # what chars/colors/labels to use?
     chars_ = []
-    for char in chars:
+    for char in (chars or []):
         if isinstance(char, tuple):
-            for char_ in char[1]:
-                chars_.append((char[0], char_))
+            chars_.extend((char[0], c) for c in char[1])
         else:
-            for char_ in char:
-                chars_.append(char_)
+            chars_.extend(char)
     chars_ = Attr(chars_, defaults=CHARS)
 
     colors_ = Attr(colors, defaults=COLORS)
@@ -752,7 +722,7 @@ def main(csv_paths, *,
     elif height:
         height_ = height
     else:
-        height_ = shutil.get_terminal_size((80, 5))[1]
+        height_ = shutil.get_terminal_size((80, 5))[1] - 1
 
     # first collect results from CSV files
     fields_, results = collect(csv_paths, defines)
@@ -847,7 +817,9 @@ def main(csv_paths, *,
                         / yscale)
 
     # create a canvas
-    canvas = Canvas(width_, height_,
+    canvas = Canvas(
+            width_,
+            height_ - (1 if title or not no_header else 0),
             color=color,
             dots=dots,
             braille=braille)
@@ -876,11 +848,6 @@ def main(csv_paths, *,
             y__ = tile.y
             width__ = tile.width
             height__ = tile.height
-
-            # create space for header
-            if title is not None or not no_header:
-                y__ += 1
-                height__ -= min(1, height__)
 
         else:
             # apply bottom padding
@@ -989,7 +956,7 @@ def main(csv_paths, *,
         print(stat_)
 
     # draw canvas
-    for row in range(1 if title or not no_header else 0, height_):
+    for row in range(canvas.height//canvas.yscale):
         line = canvas.draw(row)
         print(line)
 
@@ -1028,8 +995,8 @@ if __name__ == "__main__":
             dest='labels',
             action='append',
             type=lambda x: (
-                    lambda key, v: (
-                        tuple(k.strip() for k in key.split(',')),
+                    lambda ks, v: (
+                        tuple(k.strip() for k in ks.split(',')),
                         v.strip())
                     )(*x.split('=', 1))
                     if '=' in x else x.strip(),
@@ -1041,8 +1008,8 @@ if __name__ == "__main__":
             dest='chars',
             action='append',
             type=lambda x: (
-                    lambda key, v: (
-                        tuple(k.strip() for k in key.split(',')),
+                    lambda ks, v: (
+                        tuple(k.strip() for k in ks.split(',')),
                         v.strip())
                     )(*x.split('=', 1))
                     if '=' in x else x.strip(),
@@ -1053,8 +1020,8 @@ if __name__ == "__main__":
             dest='colors',
             action='append',
             type=lambda x: (
-                    lambda key, v: (
-                        tuple(k.strip() for k in key.split(',')),
+                    lambda ks, v: (
+                        tuple(k.strip() for k in ks.split(',')),
                         v.strip())
                     )(*x.split('=', 1))
                     if '=' in x else x.strip(),

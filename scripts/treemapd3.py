@@ -178,46 +178,51 @@ class Attr:
         # include defaults?
         if (defaults is not None
                 and not any(
-                    not isinstance(attr, tuple) or attr[0] is None
+                    not isinstance(attr, tuple)
+                        or attr[0] in {None, (), ('',)}
                     for attr in (attrs or []))):
             attrs = defaults + (attrs or [])
 
-        # normalize and split out keyed vs indexed attrs
+        # normalize
         self.attrs = []
-        self.indexed = []
-        self.keyed = []
+        self.keyed = co.OrderedDict()
         for attr in (attrs or []):
             if not isinstance(attr, tuple):
-                attr = (None, attr)
+                attr = ((), attr)
+            elif attr[0] in {None, (), ('',)}:
+                attr = ((), attr[1])
 
             self.attrs.append(attr)
-            if attr[0] is None:
-                self.indexed.append(attr[1])
-            else:
-                self.keyed.append(attr)
+            if attr[0] not in self.keyed:
+                self.keyed[attr[0]] = []
+            self.keyed[attr[0]].append(attr[1])
 
     def __repr__(self):
         return 'Attr(%r)' % [
-                (','.join(key), a) if key is not None else a
-                for key, a in self.attrs]
+                (','.join(attr[0]), attr[1])
+                for attr in self.attrs]
 
     def __iter__(self):
-        return it.cycle(self.indexed)
-
-    def __len__(self):
-        return len(self.indexed)
+        return it.cycle(self.keyed[()])
 
     def __bool__(self):
-        # note this is not just the indexed attrs
         return bool(self.attrs)
 
-    def lookup(self, key):
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            if len(key) > 0 and not isinstance(key[0], str):
+                i, key = key
+            else:
+                i, key = 0, key
+        else:
+            i, key = key, ()
+
         # try to lookup by key
         best = None
-        for attr in self.keyed:
+        for ks, vs in self.keyed.items():
             prefix = []
-            for i, k in enumerate(attr[0]):
-                if i < len(key) and (not k or key[i] == k):
+            for j, k in enumerate(ks):
+                if j < len(key) and (not k or key[j] == k):
                     prefix.append(k)
                 else:
                     prefix = None
@@ -225,31 +230,11 @@ class Attr:
 
             if prefix is not None and (
                     best is None or len(prefix) >= len(best[0])):
-                best = (prefix, attr[1])
+                best = (prefix, vs)
 
         if best is not None:
-            return best[1]
-        else:
-            return None
-
-    def __getitem__(self, key):
-        if isinstance(key, tuple):
-            if len(key) > 0 and not isinstance(key[0], str):
-                i, key = key
-            else:
-                i, key = None, key
-        else:
-            i, key = key, None
-
-        # try to lookup by key
-        if key is not None:
-            attr = self.lookup(key)
-            if attr is not None:
-                return attr
-
-        # otherwise fallback to index
-        if i is not None and self.indexed:
-            return self.indexed[i % len(self.indexed)]
+            # cycle based on index
+            return best[1][i % len(best[1])]
 
         return None
 
@@ -908,8 +893,8 @@ if __name__ == "__main__":
             dest='labels',
             action='append',
             type=lambda x: (
-                    lambda key, v: (
-                        tuple(k.strip() for k in key.split(',')),
+                    lambda ks, v: (
+                        tuple(k.strip() for k in ks.split(',')),
                         v.strip())
                     )(*x.split('=', 1))
                     if '=' in x else x.strip(),
@@ -921,8 +906,8 @@ if __name__ == "__main__":
             dest='colors',
             action='append',
             type=lambda x: (
-                    lambda key, v: (
-                        tuple(k.strip() for k in key.split(',')),
+                    lambda ks, v: (
+                        tuple(k.strip() for k in ks.split(',')),
                         v.strip())
                     )(*x.split('=', 1))
                     if '=' in x else x.strip(),
