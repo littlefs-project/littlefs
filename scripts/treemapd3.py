@@ -13,6 +13,7 @@ import collections as co
 import csv
 import itertools as it
 import math as mt
+import re
 import shutil
 
 
@@ -83,6 +84,12 @@ def dat(x):
     # else give up
     raise ValueError("invalid dat %r" % x)
 
+def try_dat(x):
+    try:
+        return dat(x)
+    except ValueError:
+        return None
+
 def collect(csv_paths, defines=[]):
     # collect results from CSV files
     fields = []
@@ -105,7 +112,7 @@ def collect(csv_paths, defines=[]):
 
     return fields, results
 
-def fold(results, by=None, fields=None, labels=None, defines=[]):
+def fold(results, by=None, fields=None, defines=[]):
     # filter by matching defines
     if defines:
         results_ = []
@@ -121,14 +128,14 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
             keys.add(tuple(r.get(k, '') for k in by))
         keys = sorted(keys)
 
-    # collect dataset
+    # collect datasets
     datasets = co.OrderedDict()
-    labels_ = co.OrderedDict()
+    dataattrs = co.OrderedDict()
     for key in (keys if by else [()]):
         for field in fields:
             # organize by 'by' and field
             dataset = []
-            label = None
+            dataattr = {}
             for r in results:
                 # filter by 'by'
                 if by and not all(
@@ -151,21 +158,142 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
                 # incorrect and misleading results
                 dataset.append(v)
 
-                # also find label?
-                if labels is not None:
-                    for label_ in labels:
-                        if label_ in r:
-                            label = r[label_]
+                # include all fields in dataattrs in case we use
+                # them for % modifiers
+                dataattr.update(r)
 
             # hide 'field' if there is only one field
             key_ = key
             if len(fields or []) > 1 or not key_:
                 key_ += (field,)
             datasets[key_] = dataset
-            if label is not None:
-                labels_[key_] = label
+            dataattrs[key_] = dataattr
 
-    return datasets, labels_
+    return datasets, dataattrs
+
+# a representation of optionally key-mapped attrs
+class Attr:
+    def __init__(self, attrs, *,
+            defaults=None):
+        # include defaults?
+        if (defaults is not None
+                and not any(
+                    not isinstance(attr, tuple) or attr[0] is None
+                    for attr in (attrs or []))):
+            attrs = defaults + (attrs or [])
+
+        # normalize and split out keyed vs indexed attrs
+        self.attrs = []
+        self.indexed = []
+        self.keyed = []
+        for attr in (attrs or []):
+            if not isinstance(attr, tuple):
+                attr = (None, attr)
+
+            self.attrs.append(attr)
+            if attr[0] is None:
+                self.indexed.append(attr[1])
+            else:
+                self.keyed.append(attr)
+
+    def __repr__(self):
+        return 'Attr(%r)' % [
+                (','.join(key), a) if key is not None else a
+                for key, a in self.attrs]
+
+    def __iter__(self):
+        return it.cycle(self.indexed)
+
+    def __len__(self):
+        return len(self.indexed)
+
+    def __bool__(self):
+        # note this is not just the indexed attrs
+        return bool(self.attrs)
+
+    def lookup(self, key):
+        # try to lookup by key
+        best = None
+        for attr in self.keyed:
+            prefix = []
+            for i, k in enumerate(attr[0]):
+                if i < len(key) and (not k or key[i] == k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, attr[1])
+
+        if best is not None:
+            return best[1]
+        else:
+            return None
+
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            if len(key) > 0 and not isinstance(key[0], str):
+                i, key = key
+            else:
+                i, key = None, key
+        else:
+            i, key = key, None
+
+        # try to lookup by key
+        if key is not None:
+            attr = self.lookup(key)
+            if attr is not None:
+                return attr
+
+        # otherwise fallback to index
+        if i is not None and self.indexed:
+            return self.indexed[i % len(self.indexed)]
+
+        return None
+
+    def __contains__(self, key):
+        return self.__getitem__(key) is not None
+
+# parse %-escaped strings
+def punescape(s, attrs=None):
+    if attrs is None:
+        attrs = {}
+    if isinstance(attrs, dict):
+        attrs_ = attrs
+        attrs = lambda k: attrs_[k]
+
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[scdboxXfFeEgG])')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == '(':
+            try:
+                v = attrs(m.group('field'))
+            except KeyError:
+                return m.group()
+            if m.group('format')[-1] in 'dboxXfFeEgG':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+            else:
+                if not isinstance(v, str):
+                    v = str(v)
+            # note we need Python's new format syntax for binary
+            f = '{:%s}' % m.group('format')
+            return f.format(v)
+        else: assert False
+    return re.sub(pattern, unescape, s)
+
 
 
 # a type to represent tiles
@@ -173,6 +301,7 @@ class Tile:
     def __init__(self, key, children,
             x=None, y=None, width=None, height=None, *,
             depth=None,
+            attrs=None,
             label=None,
             color=None):
         self.key = key
@@ -188,6 +317,7 @@ class Tile:
         self.width = width
         self.height = height
         self.depth = depth
+        self.attrs = attrs
         self.label = label
         self.color = color
 
@@ -410,8 +540,8 @@ def main(csv_paths, output, *,
         quiet=False,
         by=None,
         fields=None,
-        labels=None,
         defines=[],
+        labels=None,
         colors=None,
         width=None,
         height=None,
@@ -434,13 +564,10 @@ def main(csv_paths, output, *,
         no_header = True
         no_label = True
 
-    # what colors to use?
-    if colors is not None:
-        colors_ = colors
-    elif dark:
-        colors_ = COLORS_DARK
-    else:
-        colors_ = COLORS
+    # what colors/labels to use?
+    colors_ = Attr(colors, defaults=COLORS_DARK if dark else COLORS)
+
+    labels_ = Attr(labels)
 
     if background is not None:
         background_ = background
@@ -483,7 +610,7 @@ def main(csv_paths, output, *,
                     and not any(k == k_ for k_, _ in defines)]
 
     # then extract the requested dataset
-    datasets, labels_ = fold(results, by, fields, labels, defines)
+    datasets, dataattrs = fold(results, by, fields, defines)
 
     # build tile heirarchy
     children = []
@@ -492,20 +619,34 @@ def main(csv_paths, output, *,
             children.append(Tile(
                 key + ((str(i),) if len(dataset) > 1 else ()),
                 v,
-                label=labels_.get(key)))
+                attrs=dataattrs[key]))
 
     tile = Tile.merge(children)
 
-    # sort
-    tile.sort()
+    # merge attrs
+    for t in tile.tiles():
+        if t.children:
+            t.attrs = {k: v
+                    for t_ in t.leaves()
+                    for k, v in t_.attrs.items()}
+            # also sum fields here in case they're used by % modifiers,
+            # note other fields are _not_ summed
+            for k in fields:
+                t.attrs[k] = sum(t_.value
+                        for t_ in t.leaves()
+                        if len(fields) == 1 or t_.key[len(by)] == k)
 
-    # assign colors after sorting to try to minimize touching
-    # colors, while keeping things somewhat reproducible
+    # assign colors/labels before sorting to keep things reproducible
 
     # use colors for top of tree
     for i, t in enumerate(tile.children):
         for t_ in t.tiles():
-            t_.color = colors_[i % len(colors_)]
+            t_.color = colors_[i, t_.key]
+
+    # and labels everywhere
+    for i, t in enumerate(tile.tiles()):
+        if (i, t.key) in labels_:
+            t.label = punescape(labels_[i, t.key], t.attrs)
 
     # scale width/height if requested now that we have our data
     if to_scale and (width is None or height is None) and tile.value != 0:
@@ -520,6 +661,9 @@ def main(csv_paths, output, *,
             width_ = mt.ceil(mt.sqrt(tile.value * to_scale)
                     * (aspect_ratio[0] / aspect_ratio[1]))
             height_ = mt.ceil((tile.value * to_scale) / width_)
+
+    # sort
+    tile.sort()
 
     # recursively partition tiles
     tile.x = 0
@@ -569,7 +713,6 @@ def main(csv_paths, output, *,
             if nested:
                 y__ += mt.ceil(FONT_SIZE * 1.3)
                 height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
-            
 
         # partition via requested scheme
         if tile.children:
@@ -638,7 +781,7 @@ def main(csv_paths, output, *,
                 stat = tile.stat()
             if title:
                 f.write('<tspan x="3" y="1.1em">')
-                f.write(title)
+                f.write(punescape(title, tile.attrs))
                 f.write('</tspan>')
                 if not no_header:
                     f.write('<tspan x="%(x)d" y="1.1em" '
@@ -670,11 +813,11 @@ def main(csv_paths, output, *,
             if t.label is not None:
                 label__ = t.label
             else:
-                label__ = ','.join(t.key)
+                label__ = '%s\n%d' % (','.join(t.key), t.value)
 
             f.write('<g transform="translate(%d,%d)">' % (t.x, t.y))
             f.write('<title>')
-            f.write('\n'.join([label__, str(t.value)]))
+            f.write(label__)
             f.write('</title>')
             f.write('<rect '
                     'id="tile-%(id)s" '
@@ -692,17 +835,22 @@ def main(csv_paths, output, *,
                 f.write('</use>')
                 f.write('</clipPath>')
                 f.write('<text clip-path="url(#clip-%s)">' % i)
-                f.write('<tspan x="3" y="1.1em">')
-                f.write(label__)
-                f.write('</tspan>')
-                if t.children:
-                    f.write('<tspan dx="3" y="1.1em" fill-opacity="0.7">')
-                    f.write(str(t.value))
-                    f.write('</tspan>')
-                else:
-                    f.write('<tspan x="3" y="2.2em" fill-opacity="0.7">')
-                    f.write(str(t.value))
-                    f.write('</tspan>')
+                for j, l in enumerate(label__.split('\n')):
+                    if j == 0:
+                        f.write('<tspan x="3" y="1.1em">')
+                        f.write(l)
+                        f.write('</tspan>')
+                    else:
+                        if t.children:
+                            f.write('<tspan dx="3" y="1.1em" '
+                                    'fill-opacity="0.7">')
+                            f.write(l)
+                            f.write('</tspan>')
+                        else:
+                            f.write('<tspan x="3" dy="1.1em" '
+                                    'fill-opacity="0.7">')
+                            f.write(l)
+                            f.write('</tspan>')
                 f.write('</text>')
             f.write('</g>')
 
@@ -746,12 +894,6 @@ if __name__ == "__main__":
             action='append',
             help="Field to use for tile sizes.")
     parser.add_argument(
-            '-l', '--label',
-            nargs='?',
-            dest='labels',
-            action='append',
-            help="Field to use as tile label.")
-    parser.add_argument(
             '-D', '--define',
             dest='defines',
             action='append',
@@ -762,9 +904,30 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             help="Only include results where this field is this value.")
     parser.add_argument(
-            '--colors',
-            type=lambda x: [x.strip() for x in x.split(',')],
-            help="Comma-separated hex colors to use.")
+            '-L', '--add-label',
+            dest='labels',
+            action='append',
+            type=lambda x: (
+                    lambda key, v: (
+                        tuple(k.strip() for k in key.split(',')),
+                        v.strip())
+                    )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a label to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
+    parser.add_argument(
+            '-C', '--add-color',
+            dest='colors',
+            action='append',
+            type=lambda x: (
+                    lambda key, v: (
+                        tuple(k.strip() for k in key.split(',')),
+                        v.strip())
+                    )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a color to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields.")
     parser.add_argument(
             '-W', '--width',
             type=lambda x: int(x, 0),
@@ -847,7 +1010,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--no-label',
             action='store_true',
-            help="Don't render any labels or text.")
+            help="Don't render any labels.")
     parser.add_argument(
             '--dark',
             action='store_true',

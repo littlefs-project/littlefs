@@ -13,6 +13,7 @@ import collections as co
 import csv
 import itertools as it
 import math as mt
+import re
 import shutil
 
 
@@ -67,6 +68,12 @@ def dat(x):
     # else give up
     raise ValueError("invalid dat %r" % x)
 
+def try_dat(x):
+    try:
+        return dat(x)
+    except ValueError:
+        return None
+
 def collect(csv_paths, defines=[]):
     # collect results from CSV files
     fields = []
@@ -89,7 +96,7 @@ def collect(csv_paths, defines=[]):
 
     return fields, results
 
-def fold(results, by=None, fields=None, labels=None, defines=[]):
+def fold(results, by=None, fields=None, defines=[]):
     # filter by matching defines
     if defines:
         results_ = []
@@ -105,14 +112,14 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
             keys.add(tuple(r.get(k, '') for k in by))
         keys = sorted(keys)
 
-    # collect dataset
+    # collect datasets
     datasets = co.OrderedDict()
-    labels_ = co.OrderedDict()
+    dataattrs = co.OrderedDict()
     for key in (keys if by else [()]):
         for field in fields:
             # organize by 'by' and field
             dataset = []
-            label = None
+            dataattr = {}
             for r in results:
                 # filter by 'by'
                 if by and not all(
@@ -135,21 +142,141 @@ def fold(results, by=None, fields=None, labels=None, defines=[]):
                 # incorrect and misleading results
                 dataset.append(v)
 
-                # also find label?
-                if labels is not None:
-                    for label_ in labels:
-                        if label_ in r:
-                            label = r[label_]
+                # include all fields in dataattrs in case we use
+                # them for % modifiers
+                dataattr.update(r)
 
             # hide 'field' if there is only one field
             key_ = key
             if len(fields or []) > 1 or not key_:
                 key_ += (field,)
             datasets[key_] = dataset
-            if label is not None:
-                labels_[key_] = label
+            dataattrs[key_] = dataattr
 
-    return datasets, labels_
+    return datasets, dataattrs
+
+# a representation of optionally key-mapped attrs
+class Attr:
+    def __init__(self, attrs, *,
+            defaults=None):
+        # include defaults?
+        if (defaults is not None
+                and not any(
+                    not isinstance(attr, tuple) or attr[0] is None
+                    for attr in (attrs or []))):
+            attrs = defaults + (attrs or [])
+
+        # normalize and split out keyed vs indexed attrs
+        self.attrs = []
+        self.indexed = []
+        self.keyed = []
+        for attr in (attrs or []):
+            if not isinstance(attr, tuple):
+                attr = (None, attr)
+
+            self.attrs.append(attr)
+            if attr[0] is None:
+                self.indexed.append(attr[1])
+            else:
+                self.keyed.append(attr)
+
+    def __repr__(self):
+        return 'Attr(%r)' % [
+                (','.join(key), a) if key is not None else a
+                for key, a in self.attrs]
+
+    def __iter__(self):
+        return it.cycle(self.indexed)
+
+    def __len__(self):
+        return len(self.indexed)
+
+    def __bool__(self):
+        # note this is not just the indexed attrs
+        return bool(self.attrs)
+
+    def lookup(self, key):
+        # try to lookup by key
+        best = None
+        for attr in self.keyed:
+            prefix = []
+            for i, k in enumerate(attr[0]):
+                if i < len(key) and (not k or key[i] == k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, attr[1])
+
+        if best is not None:
+            return best[1]
+        else:
+            return None
+
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            if len(key) > 0 and not isinstance(key[0], str):
+                i, key = key
+            else:
+                i, key = None, key
+        else:
+            i, key = key, None
+
+        # try to lookup by key
+        if key is not None:
+            attr = self.lookup(key)
+            if attr is not None:
+                return attr
+
+        # otherwise fallback to index
+        if i is not None and self.indexed:
+            return self.indexed[i % len(self.indexed)]
+
+        return None
+
+    def __contains__(self, key):
+        return self.__getitem__(key) is not None
+
+# parse %-escaped strings
+def punescape(s, attrs=None):
+    if attrs is None:
+        attrs = {}
+    if isinstance(attrs, dict):
+        attrs_ = attrs
+        attrs = lambda k: attrs_[k]
+
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[scdboxXfFeEgG])')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == '(':
+            try:
+                v = attrs(m.group('field'))
+            except KeyError:
+                return m.group()
+            if m.group('format')[-1] in 'dboxXfFeEgG':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+            else:
+                if not isinstance(v, str):
+                    v = str(v)
+            # note we need Python's new format syntax for binary
+            f = '{:%s}' % m.group('format')
+            return f.format(v)
+        else: assert False
+    return re.sub(pattern, unescape, s)
 
 
 # a little ascii renderer
@@ -257,7 +384,7 @@ class Canvas:
             for i in range(w):
                 self.point(x+i, y+j, char=char, color=color)
 
-    def label(self, x, y, label, *,
+    def label(self, x, y, label, width=None, height=None, *,
             color=''):
         # scale if needed
         if self.braille:
@@ -267,8 +394,17 @@ class Canvas:
         else:
             xscale, yscale = 1, 1
 
-        for i, char in enumerate(label):
-            self.point(x+i*xscale, y, char=char, color=color)
+        x_ = x
+        y_ = y
+        for char in label:
+            if char == '\n':
+                x_ = x
+                y_ -= 1
+            else:
+                if ((width is None or x_ < x+width)
+                        and (height is None or y_ > y-height)):
+                    self.point(x_, y_, char=char, color=color)
+                x_ += xscale
 
     def draw(self, row):
         # scale if needed
@@ -326,6 +462,7 @@ class Tile:
     def __init__(self, key, children,
             x=None, y=None, width=None, height=None, *,
             depth=None,
+            attrs=None,
             label=None,
             color=None):
         self.key = key
@@ -341,6 +478,7 @@ class Tile:
         self.width = width
         self.height = height
         self.depth = depth
+        self.attrs = attrs
         self.label = label
         self.color = color
 
@@ -562,13 +700,13 @@ def partition_squarify(children, total, x, y, width, height, *,
 def main(csv_paths, *,
         by=None,
         fields=None,
-        labels=None,
         defines=[],
+        labels=None,
+        chars=None,
+        colors=None,
         color=False,
         dots=False,
         braille=False,
-        chars=None,
-        colors=None,
         width=None,
         height=None,
         no_header=False,
@@ -576,6 +714,7 @@ def main(csv_paths, *,
         aspect_ratio=(1,1),
         title=None,
         padding=0,
+        label=False,
         **args):
     # figure out what color should be
     if color == 'auto':
@@ -585,16 +724,20 @@ def main(csv_paths, *,
     else:
         color = False
 
-    # figure out chars/colors
-    if chars is not None:
-        chars_ = chars
-    else:
-        chars_ = CHARS
+    # what chars/colors/labels to use?
+    chars_ = []
+    for char in chars:
+        if isinstance(char, tuple):
+            for char_ in char[1]:
+                chars_.append((char[0], char_))
+        else:
+            for char_ in char:
+                chars_.append(char_)
+    chars_ = Attr(chars_, defaults=CHARS)
 
-    if colors is not None:
-        colors_ = colors
-    else:
-        colors_ = COLORS
+    colors_ = Attr(colors, defaults=COLORS)
+
+    labels_ = Attr(labels)
 
     # figure out width/height
     if width is None:
@@ -634,7 +777,7 @@ def main(csv_paths, *,
                     and not any(k == k_ for k_, _ in defines)]
 
     # then extract the requested dataset
-    datasets, labels_ = fold(results, by, fields, labels, defines)
+    datasets, dataattrs = fold(results, by, fields, defines)
 
     # build tile heirarchy
     children = []
@@ -643,24 +786,35 @@ def main(csv_paths, *,
             children.append(Tile(
                 key + ((str(i),) if len(dataset) > 1 else ()),
                 v,
-                label=labels_.get(key)))
+                attrs=dataattrs[key]))
 
     tile = Tile.merge(children)
 
-    # sort
-    tile.sort()
+    # merge attrs
+    for t in tile.tiles():
+        if t.children:
+            t.attrs = {k: v
+                    for t_ in t.leaves()
+                    for k, v in t_.attrs.items()}
+            # also sum fields here in case they're used by % modifiers,
+            # note other fields are _not_ summed
+            for k in fields:
+                t.attrs[k] = sum(t_.value
+                        for t_ in t.leaves()
+                        if len(fields) == 1 or t_.key[len(by)] == k)
 
-    # assign colors/chars after sorting to try to minimize touching
-    # colors, while keeping things somewhat reproducible
+    # assign colors/labels before sorting to keep things reproducible
 
     # use colors for top of tree
     for i, t in enumerate(tile.children):
         for t_ in t.tiles():
-            t_.color = colors_[i % len(colors_)]
+            t_.color = colors_[i, t.key]
 
-    # and chars for bottom of tree
+    # and chars/labels for bottom of tree
     for i, t in enumerate(tile.leaves()):
-        t.char = chars_[i % len(chars_)]
+        t.char = chars_[i, t.key]
+        if (i, t.key) in labels_:
+            t.label = punescape(labels_[i, t.key], t.attrs)
 
     # scale width/height if requested now that we have our data
     if to_scale and (width is None or height is None) and tile.value != 0:
@@ -698,18 +852,25 @@ def main(csv_paths, *,
             dots=dots,
             braille=braille)
 
+    # sort
+    tile.sort()
+
     # recursively partition tiles
     tile.x = 0
     tile.y = 0
     tile.width = canvas.width
     tile.height = canvas.height
     def partition(tile):
-        # apply top padding
         if tile.depth == 0:
+            # apply top padding
             tile.x += padding
             tile.y += padding
             tile.width  -= min(padding, tile.width)
             tile.height -= min(padding, tile.height)
+            # apply bottom padding
+            if not tile.children:
+                tile.width  -= min(padding, tile.width)
+                tile.height -= min(padding, tile.height)
 
             x__ = tile.x
             y__ = tile.y
@@ -769,7 +930,7 @@ def main(csv_paths, *,
     tile.align()
 
     # render to canvas
-    labels_ = []
+    labels__ = []
     for t in tile.leaves():
         x__ = t.x
         y__ = t.y
@@ -795,19 +956,22 @@ def main(csv_paths, *,
                     else t.char if t.char is not None else chars_[0]),
                 color=t.color if t.color is not None else colors_[0])
 
-        if labels:
+        if label:
             if t.label is not None:
                 label__ = t.label
             else:
                 label__ = ','.join(t.key)
 
             # render these later so they get priority
-            labels_.append((x__, y__+height__-1, label__[:width__]))
+            labels__.append((x__, y__+height__-1, label__,
+                    width__, height__))
 
-    for x__, y__, label__ in labels_:
-        canvas.label(x__, y__, label__)
+    for label__ in labels__:
+        canvas.label(*label__)
 
     # print some summary info
+    if title:
+        title_ = punescape(title, tile.attrs)
     if not no_header:
         stat = tile.stat()
         stat_ = 'total %d, avg %d +-%dσ, min %d, max %d' % (
@@ -815,9 +979,12 @@ def main(csv_paths, *,
                 stat['mean'], stat['stddev'],
                 stat['min'], stat['max'])
     if title and not no_header:
-        print('%s%*s%s' % (title, width_-len(stat_)-len(title), '', stat_))
+        print('%s%*s%s' % (
+                title_,
+                max(width_-len(stat_)-len(title_), 0), ' ',
+                stat_))
     elif title:
-        print(title)
+        print(title_)
     elif not no_header:
         print(stat_)
 
@@ -847,12 +1014,6 @@ if __name__ == "__main__":
             action='append',
             help="Field to use for tile sizes.")
     parser.add_argument(
-            '-l', '--label',
-            nargs='?',
-            dest='labels',
-            action='append',
-            help="Field to use as tile label.")
-    parser.add_argument(
             '-D', '--define',
             dest='defines',
             action='append',
@@ -862,6 +1023,43 @@ if __name__ == "__main__":
                     {v.strip() for v in vs.split(',')})
                 )(*x.split('=', 1)),
             help="Only include results where this field is this value.")
+    parser.add_argument(
+            '-L', '--add-label',
+            dest='labels',
+            action='append',
+            type=lambda x: (
+                    lambda key, v: (
+                        tuple(k.strip() for k in key.split(',')),
+                        v.strip())
+                    )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a label to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
+    parser.add_argument(
+            '-.', '--add-char', '--chars',
+            dest='chars',
+            action='append',
+            type=lambda x: (
+                    lambda key, v: (
+                        tuple(k.strip() for k in key.split(',')),
+                        v.strip())
+                    )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add characters to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields.")
+    parser.add_argument(
+            '-C', '--add-color',
+            dest='colors',
+            action='append',
+            type=lambda x: (
+                    lambda key, v: (
+                        tuple(k.strip() for k in key.split(',')),
+                        v.strip())
+                    )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a color to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
@@ -876,13 +1074,6 @@ if __name__ == "__main__":
             action='store_true',
             help="Use 2x4 unicode braille characters. Note that braille "
                 "characters sometimes suffer from inconsistent widths.")
-    parser.add_argument(
-            '--chars',
-            help="Characters to use for tiles.")
-    parser.add_argument(
-            '--colors',
-            type=lambda x: [x.strip() for x in x.split(',')],
-            help="Colors to use for tiles.")
     parser.add_argument(
             '-W', '--width',
             nargs='?',
@@ -958,6 +1149,10 @@ if __name__ == "__main__":
             type=float,
             default=0,
             help="Padding to add to each level of the treemap. Defaults to 0.")
+    parser.add_argument(
+            '-l', '--label',
+            action='store_true',
+            help="Render labels.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
