@@ -420,15 +420,20 @@ def punescape(s, attrs=None):
                 v = attrs(m.group('field'))
             except KeyError:
                 return m.group()
-            if m.group('format')[-1] in 'dboxXfFeEgG':
+            f = m.group('format')
+            if f[-1] in 'dboxX':
                 if isinstance(v, str):
                     v = try_dat(v) or 0
+                v = int(v)
+            elif f[-1] in 'fFeEgG':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+                v = float(v)
             else:
-                if not isinstance(v, str):
-                    v = str(v)
+                f = ('<' if '-' in f else '>') + f.replace('-', '')
+                v = str(v)
             # note we need Python's new format syntax for binary
-            f = '{:%s}' % m.group('format')
-            return f.format(v)
+            return ('{:%s}' % f).format(v)
         else: assert False
     return re.sub(pattern, unescape, s)
 
@@ -1020,63 +1025,96 @@ def main(csv_paths, output, *,
                         for dataset in subdatasets.values()
                         for _, y in dataset
                         if y is not None))))
-        # axes ticks
-        if x2_:
-            ax.xaxis.set_major_formatter(lambda x, pos:
-                    si2(x)+(xunits_ if xunits_ else ''))
-            if xticklabels_ is not None:
-                ax.xaxis.set_ticklabels([punescape(l, submergedattrs)
-                        for l in xticklabels_])
+        # x-axes ticks
+        if xticklabels_ and any(isinstance(l, tuple) for l in xticklabels_):
+            ax.xaxis.set_major_locator(mpl.ticker.FixedLocator([
+                    x for x, _ in xticklabels_]))
+            ax.xaxis.set_major_formatter(mpl.ticker.FixedFormatter([
+                    punescape(l, submergedattrs | {'x': x})
+                        for x, l in xticklabels_]))
+        elif x2_:
             if xticks_ is None:
                 ax.xaxis.set_major_locator(AutoMultipleLocator(2))
-            elif isinstance(xticks_, list):
-                ax.xaxis.set_major_locator(mpl.ticker.FixedLocator(xticks_))
             elif xticks_ != 0:
                 ax.xaxis.set_major_locator(AutoMultipleLocator(2, xticks_-1))
             else:
                 ax.xaxis.set_major_locator(mpl.ticker.NullLocator())
+            if xticklabels_:
+                ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda xticklabels_: lambda x, pos:
+                            punescape(
+                                xticklabels_[pos % len(xticklabels_)],
+                                submergedattrs | {'x': x})
+                        )(xticklabels_)))
+            else:
+                ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda xunits_: lambda x, pos:
+                            si2(x)+(xunits_ if xunits_ else '')
+                        )(xunits_)))
         else:
-            ax.xaxis.set_major_formatter(lambda x, pos:
-                    si(x)+(xunits_ if xunits_ else ''))
-            if xticklabels_ is not None:
-                ax.xaxis.set_ticklabels([punescape(l, submergedattrs)
-                        for l in xticklabels_])
             if xticks_ is None:
                 ax.xaxis.set_major_locator(mpl.ticker.AutoLocator())
-            elif isinstance(xticks_, list):
-                ax.xaxis.set_major_locator(mpl.ticker.FixedLocator(xticks_))
             elif xticks_ != 0:
                 ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(xticks_-1))
             else:
                 ax.xaxis.set_major_locator(mpl.ticker.NullLocator())
-        if y2_:
-            ax.yaxis.set_major_formatter(lambda x, pos:
-                    si2(x)+(yunits_ if yunits_ else ''))
-            if yticklabels_ is not None:
-                ax.xaxis.set_ticklabels([punescape(l, submergedattrs)
-                        for l in yticklabels_])
+            if xticklabels_:
+                ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda xticklabels_: lambda x, pos:
+                            punescape(
+                                xticklabels_[pos % len(xticklabels_)],
+                                submergedattrs | {'x': x})
+                        )(xticklabels_)))
+            else:
+                ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda xunits_: lambda x, pos:
+                            si(x)+(xunits_ if xunits_ else '')
+                        )(xunits_)))
+        # y-axes ticks
+        if yticklabels_ and any(isinstance(l, tuple) for l in yticklabels_):
+            ax.yaxis.set_major_locator(mpl.ticker.FixedLocator([
+                    y for y, _ in yticklabels_]))
+            ax.yaxis.set_major_formatter(mpl.ticker.FixedFormatter([
+                    punescape(l, submergedattrs | {'y': y})
+                        for y, l in yticklabels_]))
+        elif y2_:
             if yticks_ is None:
                 ax.yaxis.set_major_locator(AutoMultipleLocator(2))
-            elif isinstance(yticks_, list):
-                ax.yaxis.set_major_locator(mpl.ticker.FixedLocator(yticks_))
             elif yticks_ != 0:
                 ax.yaxis.set_major_locator(AutoMultipleLocator(2, yticks_-1))
             else:
                 ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
+            if yticklabels_:
+                ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda yticklabels_: lambda y, pos:
+                            punescape(
+                                yticklabels_[pos % len(yticklabels_)],
+                                submergedattrs | {'y': y})
+                        )(yticklabels_)))
+            else:
+                ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda yunits_: lambda y, pos:
+                            si2(y)+(yunits_ if yunits_ else '')
+                        )(yunits_)))
         else:
-            ax.yaxis.set_major_formatter(lambda x, pos:
-                    si(x)+(yunits_ if yunits_ else ''))
-            if yticklabels_ is not None:
-                ax.xaxis.set_ticklabels([punescape(l, submergedattrs)
-                        for l in yticklabels_])
             if yticks_ is None:
                 ax.yaxis.set_major_locator(mpl.ticker.AutoLocator())
-            elif isinstance(yticks_, list):
-                ax.yaxis.set_major_locator(mpl.ticker.FixedLocator(yticks_))
             elif yticks_ != 0:
                 ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(yticks_-1))
             else:
                 ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
+            if yticklabels_:
+                ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda yticklabels_: lambda y, pos:
+                            punescape(
+                                yticklabels_[pos % len(yticklabels_)],
+                                submergedattrs | {'y': y})
+                        )(yticklabels_)))
+            else:
+                ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(
+                        (lambda yunits_: lambda y, pos:
+                            si(y)+(yunits_ if yunits_ else '')
+                        )(yunits_)))
         if ggplot:
             ax.grid(sketch_params=None)
 
@@ -1270,10 +1308,10 @@ if __name__ == "__main__":
             dest='labels',
             action='append',
             type=lambda x: (
-                    lambda ks, v: (
-                        tuple(k.strip() for k in ks.split(',')),
-                        v.strip())
-                    )(*x.split('=', 1))
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a label to use. Can be assigned to a specific group "
                 "where a group is the comma-separated 'by' fields. Accepts %% "
@@ -1283,10 +1321,10 @@ if __name__ == "__main__":
             dest='colors',
             action='append',
             type=lambda x: (
-                    lambda ks, v: (
-                        tuple(k.strip() for k in ks.split(',')),
-                        v.strip())
-                    )(*x.split('=', 1))
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific group "
                 "where a group is the comma-separated 'by' fields.")
@@ -1295,10 +1333,10 @@ if __name__ == "__main__":
             dest='formats',
             action='append',
             type=lambda x: (
-                    lambda ks, v: (
-                        tuple(k.strip() for k in ks.split(',')),
-                        v.strip())
-                    )(*x.split('=', 1))
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a matplotlib format to use. Can be assigned to a "
                 "specific group where a group is the comma-separated 'by' "
@@ -1349,16 +1387,16 @@ if __name__ == "__main__":
             help="Use base-2 prefixes for the y-axis.")
     parser.add_argument(
             '--xticks',
-            type=lambda x: int(x, 0) if ',' not in x
-                else [dat(x) for x in x.split(',')],
-            help="Ticks for the x-axis. This can be explicit comma-separated "
-                "ticks, the number of ticks, or 0 to disable.")
+            type=lambda x: int(x, 0),
+            help="Number of ticks for the x-axis, or 0 to disable. "
+                "Alternatively, --add-xticklabel can provide explicit tick "
+                "locations.")
     parser.add_argument(
             '--yticks',
-            type=lambda x: int(x, 0) if ',' not in x
-                else [dat(x) for x in x.split(',')],
-            help="Ticks for the y-axis. This can be explicit comma-separated "
-                "ticks, the number of ticks, or 0 to disable.")
+            type=lambda x: int(x, 0),
+            help="Number of ticks for the y-axis, or 0 to disable. "
+                "Alternatively, --add-yticklabel can provide explicit tick "
+                "locations.")
     parser.add_argument(
             '--xunits',
             help="Units for the x-axis.")
@@ -1372,17 +1410,25 @@ if __name__ == "__main__":
             '--ylabel',
             help="Add a label to the y-axis. Accepts %% modifiers.")
     parser.add_argument(
-            '--xticklabels',
-            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
-                if x.strip() else [],
-            help="Comma separated xticklabels. Accepts %%, and other "
-                "%%-escaped codes.")
+            '--add-xticklabel',
+            dest='xticklabels',
+            action='append',
+            type=lambda x: (
+                    lambda k, v: (dat(k), v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add an xticklabel. Can be assigned to an explicit "
+                "location. Accepts %% modifiers.")
     parser.add_argument(
-            '--yticklabels',
-            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
-                if x.strip() else [],
-            help="Comma separated yticklabels. Accepts %%, and other "
-                "%%-escaped codes.")
+            '--add-yticklabel',
+            dest='yticklabels',
+            action='append',
+            type=lambda x: (
+                    lambda k, v: (dat(k), v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add an yticklabel. Can be assigned to an explicit "
+                "location. Accepts %% modifiers.")
     parser.add_argument(
             '--title',
             help="Add a title. Accepts %% modifiers.")

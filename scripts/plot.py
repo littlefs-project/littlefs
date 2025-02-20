@@ -495,19 +495,20 @@ def punescape(s, attrs=None):
                 v = attrs(m.group('field'))
             except KeyError:
                 return m.group()
-            if m.group('format')[-1] in 'dboxX':
+            f = m.group('format')
+            if f[-1] in 'dboxX':
                 if isinstance(v, str):
                     v = try_dat(v) or 0
                 v = int(v)
-            elif m.group('format')[-1] in 'fFeEgG':
+            elif f[-1] in 'fFeEgG':
                 if isinstance(v, str):
                     v = try_dat(v) or 0
                 v = float(v)
             else:
+                f = ('<' if '-' in f else '>') + f.replace('-', '')
                 v = str(v)
             # note we need Python's new format syntax for binary
-            f = '{:%s}' % m.group('format')
-            return f.format(v)
+            return ('{:%s}' % f).format(v)
         else: assert False
     return re.sub(pattern, unescape, s)
 
@@ -1121,7 +1122,7 @@ def main(csv_paths, *,
                     else max(
                         # bit of a hack, we just guess the yticklabel size
                         # since we don't have the data yet
-                        (len(punescape(l)) for l in s.yticklabels),
+                        (len(punescape(l, {'y': 0})) for l in s.yticklabels),
                         default=0))
                 + (1 if s.yticklabels != [] else 0),
         )
@@ -1298,7 +1299,8 @@ def main(csv_paths, *,
                         if s.xticklabels is None
                         # bit of a hack, we just guess the xticklabel size
                         # since we don't have the data yet
-                        else sum(len(punescape(l)) for l in s.xticklabels))
+                        else sum(len(punescape(l, {'x': 0}))
+                            for l in s.xticklabels))
             # fit yunits
             minheight = sum(s.ymargin) + 2
 
@@ -1390,10 +1392,12 @@ def main(csv_paths, *,
             subxlabel = [punescape(l, submergedattrs) for l in s.xlabel]
             subylabel = [punescape(l, submergedattrs) for l in s.ylabel]
             subxticklabels = (
-                    [punescape(l, submergedattrs) for l in s.xticklabels]
+                    [punescape(l, submergedattrs | {'x': x})
+                            for l, x in zip(s.xticklabels, xlim_)]
                         if s.xticklabels is not None else None)
             subyticklabels = (
-                    [punescape(l, submergedattrs) for l in s.yticklabels]
+                    [punescape(l, submergedattrs | {'y': y})
+                            for l, y in zip(s.yticklabels, ylim_)]
                         if s.yticklabels is not None else None)
 
             # find actual width/height
@@ -1790,17 +1794,15 @@ if __name__ == "__main__":
             '--ylabel',
             help="Add a label to the y-axis. Accepts %% modifiers.")
     parser.add_argument(
-            '--xticklabels',
-            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
-                if x.strip() else [],
-            help="Comma separated xticklabels. Accepts %%, and other "
-                "%% modifiers.")
+            '--add-xticklabel',
+            dest='xticklabels',
+            action='append',
+            help="Add an xticklabel. Accepts %% modifiers.")
     parser.add_argument(
-            '--yticklabels',
-            type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
-                if x.strip() else [],
-            help="Comma separated yticklabels. Accepts %%, and other "
-                "%% modifiers.")
+            '--add-yticklabel',
+            dest='yticklabels',
+            action='append',
+            help="Add an yticklabel.  Accepts %% modifiers.")
     parser.add_argument(
             '--title',
             help="Add a title. Accepts %% modifiers.")

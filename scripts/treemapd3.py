@@ -295,15 +295,20 @@ def punescape(s, attrs=None):
                 v = attrs(m.group('field'))
             except KeyError:
                 return m.group()
-            if m.group('format')[-1] in 'dboxXfFeEgG':
+            f = m.group('format')
+            if f[-1] in 'dboxX':
                 if isinstance(v, str):
                     v = try_dat(v) or 0
+                v = int(v)
+            elif f[-1] in 'fFeEgG':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+                v = float(v)
             else:
-                if not isinstance(v, str):
-                    v = str(v)
+                f = ('<' if '-' in f else '>') + f.replace('-', '')
+                v = str(v)
             # note we need Python's new format syntax for binary
-            f = '{:%s}' % m.group('format')
-            return f.format(v)
+            return ('{:%s}' % f).format(v)
         else: assert False
     return re.sub(pattern, unescape, s)
 
@@ -921,10 +926,10 @@ if __name__ == "__main__":
             dest='labels',
             action='append',
             type=lambda x: (
-                    lambda ks, v: (
-                        tuple(k.strip() for k in ks.split(',')),
-                        v.strip())
-                    )(*x.split('=', 1))
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a label to use. Can be assigned to a specific group "
                 "where a group is the comma-separated 'by' fields. Accepts %% "
@@ -934,10 +939,10 @@ if __name__ == "__main__":
             dest='colors',
             action='append',
             type=lambda x: (
-                    lambda ks, v: (
-                        tuple(k.strip() for k in ks.split(',')),
-                        v.strip())
-                    )(*x.split('=', 1))
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific group "
                 "where a group is the comma-separated 'by' fields.")
