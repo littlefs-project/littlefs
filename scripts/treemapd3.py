@@ -11,6 +11,7 @@ if __name__ == "__main__":
 import bisect
 import collections as co
 import csv
+import fnmatch
 import itertools as it
 import math as mt
 import re
@@ -179,7 +180,7 @@ class Attr:
         if (defaults is not None
                 and not any(
                     not isinstance(attr, tuple)
-                        or attr[0] in {None, (), ('',)}
+                        or attr[0] in {None, (), ('*',)}
                     for attr in (attrs or []))):
             attrs = defaults + (attrs or [])
 
@@ -189,7 +190,7 @@ class Attr:
         for attr in (attrs or []):
             if not isinstance(attr, tuple):
                 attr = ((), attr)
-            elif attr[0] in {None, (), ('',)}:
+            elif attr[0] in {None, (), ('*',)}:
                 attr = ((), attr[1])
 
             self.attrs.append(attr)
@@ -222,7 +223,7 @@ class Attr:
         for ks, vs in self.keyed.items():
             prefix = []
             for j, k in enumerate(ks):
-                if j < len(key) and (not k or key[j] == k):
+                if j < len(key) and fnmatch.fnmatchcase(key[j], k):
                     prefix.append(k)
                 else:
                     prefix = None
@@ -240,6 +241,33 @@ class Attr:
 
     def __contains__(self, key):
         return self.__getitem__(key) is not None
+
+    # a key function for sorting by key order
+    def key(self, key):
+        # allow key to be a tuple to make sorting dicts easier
+        if (isinstance(key, tuple)
+                and len(key) >= 1
+                and isinstance(key[0], tuple)):
+            key = key[0]
+
+        best = None
+        for i, ks in enumerate(self.keyed.keys()):
+            prefix = []
+            for j, k in enumerate(ks):
+                if j < len(key) and (not k or key[j] == k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, i)
+
+        if best is not None:
+            return best[1]
+
+        return len(self.keyed)
 
 # parse %-escaped strings
 def punescape(s, attrs=None):
@@ -526,8 +554,8 @@ def main(csv_paths, output, *,
         by=None,
         fields=None,
         defines=[],
-        labels=None,
-        colors=None,
+        labels=[],
+        colors=[],
         width=None,
         height=None,
         no_header=False,

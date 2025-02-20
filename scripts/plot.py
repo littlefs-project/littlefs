@@ -16,6 +16,7 @@ if __name__ == "__main__":
 import bisect
 import collections as co
 import csv
+import fnmatch
 import io
 import itertools as it
 import math as mt
@@ -130,31 +131,6 @@ def si2(x, w=5):
         s = s.rstrip('0')
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
-
-# parse %-escaped strings
-def unescape(s):
-    pattern = re.compile(
-        '%[%=,abfnrtv0]'
-            '|' '%x..'
-            '|' '%u....'
-            '|' '%U........')
-    def unescape(m):
-        if m.group()[1] == '%': return '%'
-        elif m.group()[1] == '=': return '='
-        elif m.group()[1] == ',': return ','
-        elif m.group()[1] == 'a': return '\a'
-        elif m.group()[1] == 'b': return '\b'
-        elif m.group()[1] == 'f': return '\f'
-        elif m.group()[1] == 'n': return '\n'
-        elif m.group()[1] == 'r': return '\r'
-        elif m.group()[1] == 't': return '\t'
-        elif m.group()[1] == 'v': return '\v'
-        elif m.group()[1] == '0': return '\0'
-        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
-        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
-        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
-        else: assert False
-    return re.sub(pattern, unescape, s)
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
@@ -291,6 +267,249 @@ def dat(x):
 
     # else give up
     raise ValueError("invalid dat %r" % x)
+
+def try_dat(x):
+    try:
+        return dat(x)
+    except ValueError:
+        return None
+
+def collect(csv_paths, defines=[]):
+    # collect results from CSV files
+    fields = []
+    results = []
+    for path in csv_paths:
+        try:
+            with openio(path) as f:
+                reader = csv.DictReader(f, restval='')
+                fields.extend(
+                        k for k in reader.fieldnames
+                            if k not in fields)
+                for r in reader:
+                    # filter by matching defines
+                    if not all(k in r and r[k] in vs for k, vs in defines):
+                        continue
+
+                    results.append(r)
+        except FileNotFoundError:
+            pass
+
+    return fields, results
+
+def fold(results, by=None, x=None, y=None, defines=[]):
+    # filter by matching defines
+    if defines:
+        results_ = []
+        for r in results:
+            if all(k in r and r[k] in vs for k, vs in defines):
+                results_.append(r)
+        results = results_
+
+    if by:
+        # find all 'by' values
+        keys = set()
+        for r in results:
+            keys.add(tuple(r.get(k, '') for k in by))
+        keys = sorted(keys)
+
+    # collect all datasets
+    datasets = co.OrderedDict()
+    dataattrs = co.OrderedDict()
+    for key in (keys if by else [()]):
+        for x_ in (x if x else [None]):
+            for y_ in y:
+                # organize by 'by', x, and y
+                dataset = []
+                dataattr = {}
+                i = 0
+                for r in results:
+                    # filter by 'by'
+                    if by and not all(
+                            k in r and r[k] == v
+                                for k, v in zip(by, key)):
+                        continue
+
+                    # find xs
+                    if x_ is not None:
+                        if x_ not in r:
+                            continue
+                        try:
+                            x__ = dat(r[x_])
+                        except ValueError:
+                            continue
+                    else:
+                        # fallback to enumeration
+                        x__ = i
+                        i += 1
+
+                    # find ys
+                    if y_ is not None:
+                        if y_ not in r:
+                            continue
+                        try:
+                            y__ = dat(r[y_])
+                        except ValueError:
+                            continue
+                    else:
+                        y__ = None
+
+                    # do _not_ sum ys here, it's tempting but risks
+                    # incorrect and misleading results
+                    dataset.append((x__, y__))
+
+                    # include all fields in dataattrs in case we use
+                    # them for % modifiers
+                    dataattr.update(r)
+
+                # hide x/y if there is only one field
+                key_ = key
+                if len(x or []) > 1:
+                    key_ += (x_,)
+                if len(y or []) > 1 or not key_:
+                    key_ += (y_,)
+                datasets[key_] = dataset
+                dataattrs[key_] = dataattr
+
+    return datasets, dataattrs
+
+# a representation of optionally key-mapped attrs
+class Attr:
+    def __init__(self, attrs, *,
+            defaults=None):
+        # include defaults?
+        if (defaults is not None
+                and not any(
+                    not isinstance(attr, tuple)
+                        or attr[0] in {None, (), ('*',)}
+                    for attr in (attrs or []))):
+            attrs = defaults + (attrs or [])
+
+        # normalize
+        self.attrs = []
+        self.keyed = co.OrderedDict()
+        for attr in (attrs or []):
+            if not isinstance(attr, tuple):
+                attr = ((), attr)
+            elif attr[0] in {None, (), ('*',)}:
+                attr = ((), attr[1])
+
+            self.attrs.append(attr)
+            if attr[0] not in self.keyed:
+                self.keyed[attr[0]] = []
+            self.keyed[attr[0]].append(attr[1])
+
+    def __repr__(self):
+        return 'Attr(%r)' % [
+                (','.join(attr[0]), attr[1])
+                for attr in self.attrs]
+
+    def __iter__(self):
+        return it.cycle(self.keyed[()])
+
+    def __bool__(self):
+        return bool(self.attrs)
+
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            if len(key) > 0 and not isinstance(key[0], str):
+                i, key = key
+            else:
+                i, key = 0, key
+        else:
+            i, key = key, ()
+
+        # try to lookup by key
+        best = None
+        for ks, vs in self.keyed.items():
+            prefix = []
+            for j, k in enumerate(ks):
+                if j < len(key) and fnmatch.fnmatchcase(key[j], k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, vs)
+
+        if best is not None:
+            # cycle based on index
+            return best[1][i % len(best[1])]
+
+        return None
+
+    def __contains__(self, key):
+        return self.__getitem__(key) is not None
+
+    # a key function for sorting by key order
+    def key(self, key):
+        # allow key to be a tuple to make sorting dicts easier
+        if (isinstance(key, tuple)
+                and len(key) >= 1
+                and isinstance(key[0], tuple)):
+            key = key[0]
+
+        best = None
+        for i, ks in enumerate(self.keyed.keys()):
+            prefix = []
+            for j, k in enumerate(ks):
+                if j < len(key) and (not k or key[j] == k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, i)
+
+        if best is not None:
+            return best[1]
+
+        return len(self.keyed)
+
+# parse %-escaped strings
+def punescape(s, attrs=None):
+    if attrs is None:
+        attrs = {}
+    if isinstance(attrs, dict):
+        attrs_ = attrs
+        attrs = lambda k: attrs_[k]
+
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[scdboxXfFeEgG])')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == '(':
+            try:
+                v = attrs(m.group('field'))
+            except KeyError:
+                return m.group()
+            if m.group('format')[-1] in 'dboxX':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+                v = int(v)
+            elif m.group('format')[-1] in 'fFeEgG':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+                v = float(v)
+            else:
+                v = str(v)
+            # note we need Python's new format syntax for binary
+            f = '{:%s}' % m.group('format')
+            return f.format(v)
+        else: assert False
+    return re.sub(pattern, unescape, s)
 
 
 # a hack log that preserves sign, with a linear region between -1 and 1
@@ -475,110 +694,6 @@ class Plot:
             row_.append(c)
 
         return ''.join(row_)
-
-
-def collect(csv_paths, defines=[]):
-    # collect results from CSV files
-    fields = []
-    results = []
-    for path in csv_paths:
-        try:
-            with openio(path) as f:
-                reader = csv.DictReader(f, restval='')
-                fields.extend(
-                        k for k in reader.fieldnames
-                            if k not in fields)
-                for r in reader:
-                    # filter by matching defines
-                    if not all(k in r and r[k] in vs for k, vs in defines):
-                        continue
-
-                    results.append(r)
-        except FileNotFoundError:
-            pass
-
-    return fields, results
-
-def fold(results, by=None, x=None, y=None, defines=[], labels=None):
-    # filter by matching defines
-    if defines:
-        results_ = []
-        for r in results:
-            if all(k in r and r[k] in vs for k, vs in defines):
-                results_.append(r)
-        results = results_
-
-    if by:
-        # find all 'by' values
-        keys = set()
-        for r in results:
-            keys.add(tuple(r.get(k, '') for k in by))
-        keys = sorted(keys)
-
-    # collect all datasets
-    datasets = co.OrderedDict()
-    for key in (keys if by else [()]):
-        for x_ in (x if x else [None]):
-            for y_ in y:
-                # organize by 'by', x, and y
-                dataset = []
-                i = 0
-                for r in results:
-                    # filter by 'by'
-                    if by and not all(
-                            k in r and r[k] == v
-                                for k, v in zip(by, key)):
-                        continue
-
-                    # find xs
-                    if x_ is not None:
-                        if x_ not in r:
-                            continue
-                        try:
-                            x__ = dat(r[x_])
-                        except ValueError:
-                            continue
-                    else:
-                        # fallback to enumeration
-                        x__ = i
-                        i += 1
-
-                    # find ys
-                    if y_ is not None:
-                        if y_ not in r:
-                            continue
-                        try:
-                            y__ = dat(r[y_])
-                        except ValueError:
-                            continue
-                    else:
-                        y__ = None
-
-                    # do _not_ sum ys here, it's tempting but risks
-                    # incorrect and misleading results
-                    dataset.append((x__, y__))
-
-                # hide x/y if there is only one field
-                key_ = key
-                if len(x or []) > 1:
-                    key_ += (x_,)
-                if len(y or []) > 1 or not key_:
-                    key_ += (y_,)
-                datasets[key_] = dataset
-
-    # order by labels
-    if labels:
-        datasets_ = co.OrderedDict()
-        for _, key in labels:
-            if key in datasets:
-                datasets_[key] = datasets[key]
-        # include unlabeled data to help with debugging
-        for key, dataset in datasets.items():
-            if key not in datasets_:
-                datasets_[key] = datasets[key]
-        datasets = datasets_
-
-    return datasets
 
 
 # some classes for organizing subplots into a grid
@@ -850,12 +965,12 @@ def main(csv_paths, *,
         x=None,
         y=None,
         define=[],
-        label=None,
+        labels=[],
+        chars=[],
+        line_chars=[],
+        colors=[],
         color=False,
         braille=False,
-        colors=None,
-        chars=None,
-        line_chars=None,
         points=False,
         points_and_lines=False,
         width=None,
@@ -891,30 +1006,38 @@ def main(csv_paths, *,
     else:
         color = False
 
-    # what colors to use?
-    if colors is not None:
-        colors_ = colors
-    else:
-        colors_ = COLORS
+    # what chars/colors to use?
+    chars_ = []
+    for char in chars:
+        if isinstance(char, tuple):
+            chars_.extend((char[0], c) for c in char[1])
+        else:
+            chars_.extend(char)
+    chars_ = Attr(chars_, defaults=(
+            CHARS_POINTS_AND_LINES if points_and_lines
+                else [True]))
 
-    if chars is not None:
-        chars_ = chars
-    elif points_and_lines:
-        chars_ = CHARS_POINTS_AND_LINES
-    else:
-        chars_ = [True]
+    line_chars_ = []
+    for line_char in line_chars:
+        if isinstance(line_char, tuple):
+            line_chars_.extend((line_char[0], c) for c in line_char[1])
+        else:
+            line_chars_.extend(line_char)
+    line_chars_ = Attr(line_chars_, defaults=(
+            [True] if points_and_lines or not points
+                else [False]))
 
-    if line_chars is not None:
-        line_chars_ = line_chars
-    elif points_and_lines or not points:
-        line_chars_ = [True]
-    else:
-        line_chars_ = [False]
+    colors_ = Attr(colors, defaults=COLORS)
 
-    # allow %-escaped codes in labels/titles
-    title = unescape(title).splitlines() if title is not None else []
-    xlabel = unescape(xlabel).splitlines() if xlabel is not None else []
-    ylabel = unescape(ylabel).splitlines() if ylabel is not None else []
+    labels_ = Attr(labels)
+
+    # split %n newlines early
+    title = (title.replace('%n', '\n').split('\n')
+            if title is not None else [])
+    xlabel = (xlabel.replace('%n', '\n').split('\n')
+            if xlabel is not None else [])
+    ylabel = (ylabel.replace('%n', '\n').split('\n')
+            if ylabel is not None else [])
 
     # subplot can also contribute to subplots, resolve this here or things
     # become a mess...
@@ -935,9 +1058,6 @@ def main(csv_paths, *,
             subplots_get('define', **subplot, subplots=subplots)):
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
-    all_labels = [(unescape(k), vs) for k, vs in (
-            (label or [])
-                + subplots_get('label', **subplot, subplots=subplots))]
 
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
@@ -961,23 +1081,21 @@ def main(csv_paths, *,
         xsublabel = s.args.get('xlabel')
         ysublabel = s.args.get('ylabel')
 
-        # allow escape codes in sublabels/subtitles
-        subtitle = (unescape(subtitle).splitlines()
+        # split %n newlines early
+        subtitle = (subtitle.replace('%n', '\n').split('\n')
                 if subtitle is not None else [])
-        xsublabel = (unescape(xsublabel).splitlines()
+        xsublabel = (xsublabel.replace('%n', '\n').split('\n')
                 if xsublabel is not None else [])
-        ysublabel = (unescape(ysublabel).splitlines()
+        ysublabel = (ysublabel.replace('%n', '\n').split('\n')
                 if ysublabel is not None else [])
 
         # don't allow >2 ticklabels and render single ticklabels only once
         if xticklabels_ is not None:
-            xticklabels_ = [unescape(l) for l in xticklabels_]
             if len(xticklabels_) == 1:
                 xticklabels_ = ["", xticklabels_[0]]
             elif len(xticklabels_) > 2:
                 xticklabels_ = [xticklabels_[0], xticklabels_[-1]]
         if yticklabels_ is not None:
-            yticklabels_ = [unescape(l) for l in yticklabels_]
             if len(yticklabels_) == 1:
                 yticklabels_ = ["", yticklabels_[0]]
             elif len(yticklabels_) > 2:
@@ -1000,7 +1118,11 @@ def main(csv_paths, *,
                 + (1 if s.x > 0 else 0),           # space between
             ((5 if s.y2 else 4) + len(s.yunits)    # fit yticklabels
                     if s.yticklabels is None
-                    else max((len(t) for t in s.yticklabels), default=0))
+                    else max(
+                        # bit of a hack, we just guess the yticklabel size
+                        # since we don't have the data yet
+                        (len(punescape(l)) for l in s.yticklabels),
+                        default=0))
                 + (1 if s.yticklabels != [] else 0),
         )
         s.ymargin = (
@@ -1029,7 +1151,7 @@ def main(csv_paths, *,
         f.writeln = writeln
 
         # first collect results from CSV files
-        fields_, results = collect(csv_paths, all_defines)
+        fields_, results = collect(csv_paths)
 
         # if y not specified, guess it's anything not in by/defines/x
         all_y_ = all_y
@@ -1039,43 +1161,61 @@ def main(csv_paths, *,
                         and not any(k == k_ for k_, _ in all_defines)]
 
         # then extract the requested datasets
-        datasets_ = fold(results, all_by, all_x, all_y_, None, all_labels)
+        #
+        # note we don't need to filter by defines again
+        datasets_, dataattrs_ = fold(results, all_by, all_x, all_y)
+
+        # order by labels
+        datasets_ = co.OrderedDict(sorted(
+                datasets_.items(),
+                key=labels_.key))
+
+        # and merge dataattrs
+        mergedattrs_ = {k: v
+                for dataattr in dataattrs_.values()
+                for k, v in dataattr.items()}
+
+        # figure out labels/titles now that we have our data
+        title_ = [punescape(l, mergedattrs_) for l in title]
+        xlabel_ = [punescape(l, mergedattrs_) for l in xlabel]
+        ylabel_ = [punescape(l, mergedattrs_) for l in ylabel]
 
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
-        datacolors_ = {
-                name: colors_[i % len(colors_)]
-                    for i, name in enumerate(datasets_.keys())}
-        datachars_ = {
-                name: chars_[i % len(chars_)]
-                    for i, name in enumerate(datasets_.keys())}
-        dataline_chars_ = {
-                name: line_chars_[i % len(line_chars_)]
-                    for i, name in enumerate(datasets_.keys())}
+        datachars_ = {name: chars_[i, name]
+                for i, name in enumerate(datasets_.keys())}
+        dataline_chars_ = {name: line_chars_[i, name]
+                for i, name in enumerate(datasets_.keys())}
+        datacolors_ = {name: colors_[i, name]
+                for i, name in enumerate(datasets_.keys())}
+        datalabels_ = {name: punescape(labels_[i, name], mergedattrs_)
+                for i, name in enumerate(datasets_.keys())
+                if (i, name) in labels_}
 
         # build legend?
         legend_width = 0
         if legend_right or legend_above or legend_below:
             legend_ = []
-            if all_labels:
-                all_labels_ = {key: l for l, key in all_labels}
             for i, name in enumerate(datasets_.keys()):
-                if (all_labels
-                        and name in all_labels_
-                        and not all_labels_[name]):
+                if name in datalabels_ and not datalabels_[name]:
                     continue
                 label = '%s%s' % (
-                        '%s ' % datachars_[name]
-                            if chars is not None
+                        '. ' if chars
+                                and isinstance(datachars_[name], bool)
+                            else '%s ' % datachars_[name]
+                            if chars
+                            else '. '
+                            if line_chars
+                                and isinstance(dataline_chars_[name], bool)
                             else '%s ' % dataline_chars_[name]
-                            if line_chars is not None
+                            if line_chars
                             else '',
-                        all_labels_[name]
-                            if all_labels and name in all_labels_
+                        datalabels_[name]
+                            if name in datalabels_
                             else ','.join(name))
 
                 if label:
-                    legend_.append((label, colors_[i % len(colors_)]))
+                    legend_.append((label, colors_[i, name]))
                     legend_width = max(legend_width, len(label)+1)
 
         # figure out our canvas size
@@ -1087,22 +1227,22 @@ def main(csv_paths, *,
             width_ = shutil.get_terminal_size((80, None))[0]
 
         if height is None:
-            height_ = 17 + len(title) + len(xlabel)
+            height_ = 17 + len(title_) + len(xlabel_)
         elif height:
             height_ = height
         else:
             height_ = shutil.get_terminal_size((None,
-                    17 + len(title) + len(xlabel)))[1]
+                    17 + len(title_) + len(xlabel_)))[1]
             # make space for shell prompt
             if not keep_open:
                 height_ -= 1
 
         # carve out space for the xlabel
-        height_ -= len(xlabel)
+        height_ -= len(xlabel_)
         # carve out space for the ylabel
-        width_ -= len(ylabel) + (1 if ylabel else 0)
+        width_ -= len(ylabel_) + (1 if ylabel_ else 0)
         # carve out space for title
-        height_ -= len(title)
+        height_ -= len(title_)
 
         # carve out space for the legend
         if legend_right and legend_:
@@ -1156,7 +1296,9 @@ def main(csv_paths, *,
                     2,
                     2*((5 if s.x2 else 4)+len(s.xunits))
                         if s.xticklabels is None
-                        else sum(len(t) for t in s.xticklabels))
+                        # bit of a hack, we just guess the xticklabel size
+                        # since we don't have the data yet
+                        else sum(len(punescape(l)) for l in s.xticklabels))
             # fit yunits
             minheight = sum(s.ymargin) + 2
 
@@ -1192,8 +1334,13 @@ def main(csv_paths, *,
 
             # data can be constrained by subplot-specific defines,
             # so re-extract for each plot
-            subdatasets = fold(results,
-                    all_by, all_x, all_y_, define_, all_labels)
+            subdatasets, subdataattrs = fold(
+                    results, all_by, all_x, all_y_, define_)
+
+            # order by labels
+            subdatasets = co.OrderedDict(sorted(
+                    subdatasets.items(),
+                    key=labels_.key))
 
             # filter by subplot x/y
             subdatasets = co.OrderedDict([(name, dataset)
@@ -1202,6 +1349,16 @@ def main(csv_paths, *,
                         or name[-(1 if len(all_y_) <= 1 else 2)] in x_
                     if len(all_y_) <= 1
                         or name[-1] in y_])
+            subdataattrs = co.OrderedDict([(name, dataattr)
+                    for name, dataattr in subdataattrs.items()
+                    if len(all_x) <= 1
+                        or name[-(1 if len(all_y) <= 1 else 2)] in x_
+                    if len(all_y) <= 1
+                        or name[-1] in y_])
+            # and merge dataattrs
+            submergedattrs = {k: v
+                    for dataattr in subdataattrs.values()
+                    for k, v in dataattr.items()}
 
             # find actual xlim/ylim
             xlim_ = (
@@ -1228,6 +1385,17 @@ def main(csv_paths, *,
                             for _, y in dataset
                             if y is not None))))
 
+            # figure out labels/titles now that we have our data
+            subtitle = [punescape(l, submergedattrs) for l in s.title]
+            subxlabel = [punescape(l, submergedattrs) for l in s.xlabel]
+            subylabel = [punescape(l, submergedattrs) for l in s.ylabel]
+            subxticklabels = (
+                    [punescape(l, submergedattrs) for l in s.xticklabels]
+                        if s.xticklabels is not None else None)
+            subyticklabels = (
+                    [punescape(l, submergedattrs) for l in s.yticklabels]
+                        if s.yticklabels is not None else None)
+
             # find actual width/height
             subwidth = sum(widths[s.x:s.x+s.xspan]) - sum(s.xmargin)
             subheight = sum(heights[s.y:s.y+s.yspan]) - sum(s.ymargin)
@@ -1240,28 +1408,33 @@ def main(csv_paths, *,
                     ylim=ylim_,
                     xlog=xlog_,
                     ylog=ylog_,
-                    braille=line_chars is None and braille,
-                    dots=line_chars is None and not braille)
+                    braille=not line_chars and braille,
+                    dots=not line_chars and not braille)
 
             for name, dataset in subdatasets.items():
                 plot.plot(
                         sorted((x,y) for x,y in dataset),
-                        color=datacolors_[name],
                         char=datachars_[name],
-                        line_char=dataline_chars_[name])
+                        line_char=dataline_chars_[name],
+                        color=datacolors_[name])
 
-            s.plot = plot
-            s.width = subwidth
-            s.height = subheight
-            s.xlim = xlim_
-            s.ylim = ylim_
+            s.plot_ = plot
+            s.width_ = subwidth
+            s.height_ = subheight
+            s.xlim_ = xlim_
+            s.ylim_ = ylim_
+            s.title_ = subtitle
+            s.xlabel_ = subxlabel
+            s.ylabel_ = subylabel
+            s.xticklabels_ = subxticklabels
+            s.yticklabels_ = subyticklabels
 
 
         # now that everything's plotted, let's render things to the terminal
 
         # figure out margin
         xmargin = (
-            len(ylabel) + (1 if ylabel else 0),
+            len(ylabel_) + (1 if ylabel_ else 0),
             sum(grid[0,0].xmargin[:2]),
         )
         ymargin = (
@@ -1270,7 +1443,7 @@ def main(csv_paths, *,
         )
 
         # draw title?
-        for line in title:
+        for line in title_:
             f.writeln('%*s%s' % (
                     sum(xmargin[:2]), '',
                     line.center(width_-xmargin[1])))
@@ -1298,8 +1471,8 @@ def main(csv_paths, *,
                                 ymargin[-1], '',
                                 line.center(height_-sum(ymargin)),
                                 ymargin[0], ''))[row]
-                            for line in ylabel)
-                    if ylabel else '')
+                            for line in ylabel_)
+                    if ylabel_ else '')
 
             for x_ in range(grid.width):
                 # figure out the grid x/y position
@@ -1315,82 +1488,83 @@ def main(csv_paths, *,
                 # header
                 if subrow < s.ymargin[-1]:
                     # draw subtitle?
-                    if subrow < len(s.title):
+                    if subrow < len(s.title_):
                         f.write('%*s%s' % (
                                 sum(s.xmargin[:2]), '',
-                                s.title[subrow].center(s.width)))
+                                s.title_[subrow].center(s.width_)))
                     else:
                         f.write('%*s%*s' % (
                                 sum(s.xmargin[:2]), '',
-                                s.width, ''))
+                                s.width_, ''))
                 # draw plot?
-                elif subrow-s.ymargin[-1] < s.height:
+                elif subrow-s.ymargin[-1] < s.height_:
                     subrow = subrow-s.ymargin[-1]
 
                     # draw ysublabel?
                     f.write('%-*s' % (
                             s.xmargin[0],
                             '%s ' % ''.join(
-                                    line.center(s.height)[subrow]
-                                    for line in s.ylabel)
-                                if s.ylabel else ''))
+                                line.center(s.height_)[subrow]
+                                    for line in s.ylabel_)
+                                    if s.ylabel_ else ''))
 
                     # draw yunits?
-                    if subrow == 0 and s.yticklabels != []:
+                    if subrow == 0 and s.yticklabels_ != []:
                         f.write('%*s' % (
                                 s.xmargin[1],
-                                ((si2 if s.y2 else si)(s.ylim[1]) + s.yunits
-                                        if s.yticklabels is None
-                                        else s.yticklabels[1])
+                                ((si2 if s.y2 else si)(s.ylim_[1]) + s.yunits
+                                        if s.yticklabels_ is None
+                                        else s.yticklabels_[1])
                                     + ' '))
-                    elif subrow == s.height-1 and s.yticklabels != []:
+                    elif subrow == s.height_-1 and s.yticklabels_ != []:
                         f.write('%*s' % (
                                 s.xmargin[1],
-                                ((si2 if s.y2 else si)(s.ylim[0]) + s.yunits
-                                        if s.yticklabels is None
-                                        else s.yticklabels[0])
+                                ((si2 if s.y2 else si)(s.ylim_[0]) + s.yunits
+                                        if s.yticklabels_ is None
+                                        else s.yticklabels_[0])
                                     + ' '))
                     else:
                         f.write('%*s' % (
                                 s.xmargin[1], ''))
 
                     # draw plot!
-                    f.write(s.plot.draw(subrow, color=color))
+                    f.write(s.plot_.draw(subrow, color=color))
 
                 # footer
                 else:
-                    subrow = subrow-s.ymargin[-1]-s.height
+                    subrow = subrow-s.ymargin[-1]-s.height_
 
                     # draw xunits?
-                    if subrow < (1 if s.xticklabels != [] else 0):
+                    if subrow < (1 if s.xticklabels_ != [] else 0):
                         f.write('%*s%-*s%*s%*s' % (
                                 sum(s.xmargin[:2]), '',
                                 (5 if s.x2 else 4) + len(s.xunits)
-                                    if s.xticklabels is None
-                                    else len(s.xticklabels[0]),
-                                (si2 if s.x2 else si)(s.xlim[0]) + s.xunits
-                                    if s.xticklabels is None
-                                    else s.xticklabels[0],
-                                s.width - (2*((5 if s.x2 else 4)+len(s.xunits))
-                                    if s.xticklabels is None
+                                    if s.xticklabels_ is None
+                                    else len(s.xticklabels_[0]),
+                                (si2 if s.x2 else si)(s.xlim_[0]) + s.xunits
+                                    if s.xticklabels_ is None
+                                    else s.xticklabels_[0],
+                                s.width_ - (2*((5 if s.x2 else 4)+len(s.xunits))
+                                    if s.xticklabels_ is None
                                     else sum(len(t)
-                                        for t in s.xticklabels)), '',
+                                        for t in s.xticklabels_)), '',
                                 (5 if s.x2 else 4) + len(s.xunits)
-                                    if s.xticklabels is None
-                                    else len(s.xticklabels[1]),
-                                (si2 if s.x2 else si)(s.xlim[1]) + s.xunits
-                                    if s.xticklabels is None
-                                    else s.xticklabels[1]))
+                                    if s.xticklabels_ is None
+                                    else len(s.xticklabels_[1]),
+                                (si2 if s.x2 else si)(s.xlim_[1]) + s.xunits
+                                    if s.xticklabels_ is None
+                                    else s.xticklabels_[1]))
                     # draw xsublabel?
                     elif (subrow < s.ymargin[1]
-                            or subrow-s.ymargin[1] >= len(s.xlabel)):
+                            or subrow-s.ymargin[1] >= len(s.xlabel_)):
                         f.write('%*s%*s' % (
                                 sum(s.xmargin[:2]), '',
-                                s.width, ''))
+                                s.width_, ''))
                     else:
                         f.write('%*s%s' % (
                                 sum(s.xmargin[:2]), '',
-                                s.xlabel[subrow-s.ymargin[1]].center(s.width)))
+                                s.xlabel_[subrow-s.ymargin[1]]
+                                    .center(s.width_)))
 
             # draw legend_right?
             if (legend_right and legend_
@@ -1405,7 +1579,7 @@ def main(csv_paths, *,
             f.writeln()
 
         # draw xlabel?
-        for line in xlabel:
+        for line in xlabel_:
             f.writeln('%*s%s' % (
                     sum(xmargin[:2]), '',
                     line.center(width_-xmargin[1])))
@@ -1494,17 +1668,56 @@ if __name__ == "__main__":
             help="Only include results where this field is this value. May "
                 "include comma-separated options.")
     parser.add_argument(
-            '-L', '--label',
+            '-L', '--add-label',
+            dest='labels',
             action='append',
             type=lambda x: (
-                lambda k, vs: (
-                    k.strip(),
-                    tuple(v.strip() for v in vs.split(',')))
-                )(*re.split(r'(?<!%)=', x, 1)),
-            help="Use this label for a given group, where a group is roughly "
-                "the comma-separated values in the -b/--by, -x, and -y "
-                "fields. Also provides an ordering. Accepts %= and other "
-                "%-escaped codes.")
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a label to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers. Also provides an ordering.")
+    parser.add_argument(
+            '-*', '--add-char', '--chars',
+            dest='chars',
+            action='append',
+            type=lambda x: (
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add characters to use for points. Can be assigned to a "
+                "specific group where a group is the comma-separated "
+                "'by' fields.")
+    parser.add_argument(
+            '-_', '--add-line-char', '--line-chars',
+            dest='line_chars',
+            action='append',
+            type=lambda x: (
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add characters to use for lines. Can be assigned to a "
+                "specific group where a group is the comma-separated "
+                "'by' fields.")
+    parser.add_argument(
+            '-C', '--add-color',
+            dest='colors',
+            action='append',
+            type=lambda x: (
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a color to use. Can be assigned to a specific group "
+                "where a group is the comma-separated 'by' fields.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
@@ -1523,16 +1736,6 @@ if __name__ == "__main__":
             '-!', '--points-and-lines',
             action='store_true',
             help="Draw data points and lines.")
-    parser.add_argument(
-            '--colors',
-            type=lambda x: [x.strip() for x in x.split(',')],
-            help="Comma-separated colors to use.")
-    parser.add_argument(
-            '--chars',
-            help="Characters to use for points.")
-    parser.add_argument(
-            '--line-chars',
-            help="Characters to use for lines.")
     parser.add_argument(
             '-W', '--width',
             nargs='?',
@@ -1582,25 +1785,25 @@ if __name__ == "__main__":
             help="Units for the y-axis.")
     parser.add_argument(
             '--xlabel',
-            help="Add a label to the x-axis. Accepts %-escaped codes.")
+            help="Add a label to the x-axis. Accepts %% modifiers.")
     parser.add_argument(
             '--ylabel',
-            help="Add a label to the y-axis. Accepts %-escaped codes.")
+            help="Add a label to the y-axis. Accepts %% modifiers.")
     parser.add_argument(
             '--xticklabels',
             type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
                 if x.strip() else [],
-            help="Comma separated xticklabels. Accepts %, and other "
-                "%-escaped codes.")
+            help="Comma separated xticklabels. Accepts %%, and other "
+                "%% modifiers.")
     parser.add_argument(
             '--yticklabels',
             type=lambda x: [x.strip() for x in re.split(r'(?<!%),', x)]
                 if x.strip() else [],
-            help="Comma separated yticklabels. Accepts %, and other "
-                "%-escaped codes.")
+            help="Comma separated yticklabels. Accepts %%, and other "
+                "%% modifiers.")
     parser.add_argument(
             '--title',
-            help="Add a title. Accepts %-escaped codes.")
+            help="Add a title. Accepts %% modifiers.")
     parser.add_argument(
             '-l', '--legend', '--legend-right',
             dest='legend_right',
