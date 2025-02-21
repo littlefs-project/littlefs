@@ -392,7 +392,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 				<(./scripts/ctx.py $(OBJ) -q $(CTXFLAGS) -o-) \
 				-fctx='max(size)' -q -o-) \
 			-fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
-			-bbuild='"AFTER"' -q -o-) \
+			-bbuild=AFTER -q -o-) \
 		<(./scripts/csv.py \
 			<(./scripts/csv.py $(BUILDDIR)/lfs.code.csv \
 				-fcode=size -q -o-) \
@@ -403,7 +403,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 			<(./scripts/csv.py $(BUILDDIR)/lfs.ctx.csv \
 				-fctx='max(size)' -q -o-) \
 			-fcode -fdata -fstack='max(stack)' -fctx='max(ctx)' \
-			-bbuild='"BEFORE"' -q -o-) \
+			-bbuild=BEFORE -q -o-) \
 		-bbuild -cBEFORE -Q $(SUMMARYFLAGS))
 
 ## Build the test-runner

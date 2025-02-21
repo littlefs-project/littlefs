@@ -488,13 +488,6 @@ class RExpr:
     # expr nodes
 
     # literal exprs
-    class StrLit(Expr):
-        def fields(self):
-            return set()
-
-        def eval(self, fields={}):
-            return self.a
-
     class IntLit(Expr):
         def fields(self):
             return set()
@@ -968,10 +961,7 @@ class RExpr:
         def eval(self, fields={}):
             a = self.a.eval(fields)
             b = self.b.eval(fields)
-            if isinstance(a, str) or isinstance(b, str):
-                return str(a) + str(b)
-            else:
-                return a + b
+            return a + b
 
     @bop('-', 9)
     class Sub(Expr):
@@ -1130,10 +1120,6 @@ class RExpr:
                     raise RExpr.Error("mismatched parens? %s" % p)
                 p.chomp()
 
-            # strings
-            elif p.match('(?:"(?:\\.|[^"])*"|\'(?:\\.|[^\'])\')'):
-                a = RExpr.StrLit(p.chomp()[1:-1])
-
             # floats
             elif p.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)'):
                 a = RExpr.FloatLit(RFloat(p.chomp()))
@@ -1281,6 +1267,50 @@ class RExpr:
             sys.exit(3)
 
 
+# parse %-escaped strings
+def punescape(s, attrs=None):
+    if attrs is None:
+        attrs = {}
+    if isinstance(attrs, dict):
+        attrs_ = attrs
+        attrs = lambda k: attrs_[k]
+
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[scdboxXfFeEgG])')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == '(':
+            try:
+                v = attrs(m.group('field'))
+            except KeyError:
+                return m.group()
+            f = m.group('format')
+            if f[-1] in 'dboxX':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+                v = int(v)
+            elif f[-1] in 'fFeEgG':
+                if isinstance(v, str):
+                    v = try_dat(v) or 0
+                v = float(v)
+            else:
+                f = ('<' if '-' in f else '>') + f.replace('-', '')
+                v = str(v)
+            # note we need Python's new format syntax for binary
+            return ('{:%s}' % f).format(v)
+        else: assert False
+    return re.sub(pattern, unescape, s)
+
+
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
     if path == '-':
@@ -1313,45 +1343,29 @@ def collect(csv_paths, defines=[]):
 
     return fields, results
 
-def infer(fields_, results,
+def compile(fields_, results,
         by=None,
         fields=None,
+        mods=[],
         exprs=[],
         defines=[],
         sort=None):
-    # we only really care about the last expr for each field
-    exprs = {k: expr for k, expr in exprs}
-
-    # find all fields our exprs depend on
-    fields__ = set(it.chain.from_iterable(
-            expr.fields() for _, expr in exprs.items()))
-
-    # if by not specified, guess it's anything not in fields/exprs/defines
-    if by is None:
-        by = [k for k in fields_
-                if k not in (fields or [])
-                    and k not in fields__
-                    and not any(k == k_ for k_, _ in defines)]
-
-    # if fields not specified, guess it's anything not in by/exprs/defines
-    if fields is None:
-        fields = [k for k in fields_
-                if k not in (by or [])
-                    and k not in fields__
-                    and not any(k == k_ for k_, _ in defines)]
-
     # deduplicate by/fields
     by = list(co.OrderedDict.fromkeys(by).keys())
     fields = list(co.OrderedDict.fromkeys(fields).keys())
 
     # make sure sort fields are included
     if sort is not None:
-        by.extend(k for k, reverse in sort
-                if k and k not in by and k not in fields)
+        fields.extend(k for k, reverse in sort
+                if k and k not in fields)
+
+    # we only really care about the last mod/expr for each field
+    mods = {k: mod for k, mod in mods}
+    exprs = {k: expr for k, expr in exprs}
 
     # find best type for all fields used by field exprs
     fields__ = set(it.chain.from_iterable(
-            exprs[k].fields() if k in exprs else {k}
+            exprs[k].fields() if k in exprs else [k]
                 for k in fields))
     types = {}
     for k in fields__:
@@ -1375,18 +1389,16 @@ def infer(fields_, results,
                     file=sys.stderr)
             sys.exit(2)
 
-    # typecheck field exprs, note these may reference input fields
+    # typecheck exprs, note these may reference input fields
     # with the same name
     types__ = types.copy()
     for k, expr in exprs.items():
-        if k in fields:
-            types__[k] = expr.type(types)
+        types__[k] = expr.type(types)
 
     # foldcheck field exprs
     folds = {k: (RSum, t) for k, v in types.items()}
     for k, expr in exprs.items():
-        if k in fields:
-            folds[k] = expr.fold(types)
+        folds[k] = expr.fold(types)
     folds = {k: (f(), t) for k, (f, t) in folds.items()}
 
     # create result class
@@ -1399,11 +1411,17 @@ def infer(fields_, results,
         r__ = r_.copy()
         for k, expr in exprs.items():
             r__[k] = expr.eval(r_)
+        r_ = r__
+        # evaluate mods
+        r__ = r_.copy()
+        for k, m in mods.items():
+            r__[k] = punescape(m, r_)
+        r_ = r__
 
         # return result
         return cls.__mro__[1].__new__(cls,
-                **{k: r__.get(k, '') for k in by},
-                **{k: ([r__[k]], 1) if k in r__ else ([], 0)
+                **{k: r_.get(k, '') for k in by},
+                **{k: ([r_[k]], 1) if k in r_ else ([], 0)
                     for k in fields})
 
     def __add__(self, other):
@@ -1443,6 +1461,8 @@ def infer(fields_, results,
         '_fields': fields,
         '_sort': fields,
         '_types': {k: t for k, (_, t) in folds.items()},
+        '_mods': mods,
+        '_exprs': exprs,
     })
 
 
@@ -1829,10 +1849,14 @@ def main(csv_paths, *,
     if args.get('help_exprs'):
         return RExpr.help()
 
-    # separate out exprs
+    # separate out mods/exprs
+    # by supports mods => -ba=%(b)s
+    # fields/sort support exprs => -fa=b+c
+    mods = [(k, v)
+            for k, v in (by or [])
+            if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
-                by or [],
                 fields or [],
                 ((k, v) for (k, v), reverse in sort or []))
             if v is not None]
@@ -1861,13 +1885,36 @@ def main(csv_paths, *,
     # collect info
     fields_, results = collect(csv_paths, defines)
 
-    # homogenize
-    Result = infer(fields_, results,
+    # if by not specified, guess it's anything not in fields/defines/sort/exprs
+    if not by:
+        by = [k for k in fields_
+                if k not in (fields or [])
+                    and not any(k == k_ for k_, _ in defines)
+                    and not any(k == k_ for k_, _ in (sort or []))
+                    and not any(k == k_
+                        for _, expr in exprs
+                        for k_ in expr.fields())]
+
+    # if fields not specified, guess it's anything not in by/defines/sort/exprs
+    if not fields:
+        fields = [k for k in fields_
+                if k not in (by or [])
+                    and not any(k == k_ for k_, _ in defines)
+                    and not any(k == k_ for k_, _ in (sort or []))
+                    and not any(k == k_
+                        for _, expr in exprs
+                        for k_ in expr.fields())]
+
+    # build result type
+    Result = compile(fields_, results,
             by=by,
             fields=fields,
+            mods=mods,
             exprs=exprs,
             defines=defines,
             sort=sort)
+
+    # homogenize
     results_ = []
     for r in results:
         results_.append(Result(**{
@@ -1974,10 +2021,10 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    RExpr(v) if v is not None else None)
+                    v.strip() if v is not None else None)
                 )(*x.split('=', 1)),
-            help="Group by this field. Can include an expression of the form "
-                "field=expr.")
+            help="Group by this field. This does _not_ support expressions, "
+                "but can be assigned a string with %% modifiers.")
     parser.add_argument(
             '-f', '--field',
             dest='fields',
