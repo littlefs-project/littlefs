@@ -168,7 +168,6 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-
 # parse different data representations
 def dat(x):
     # allow the first part of an a/b fraction
@@ -184,9 +183,6 @@ def dat(x):
     # then try as float
     try:
         return float(x)
-        # just don't allow infinity or nan
-        if mt.isinf(x) or mt.isnan(x):
-            raise ValueError("invalid dat %r" % x)
     except ValueError:
         pass
 

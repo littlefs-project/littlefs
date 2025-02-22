@@ -259,9 +259,6 @@ def dat(x):
     # then try as float
     try:
         return float(x)
-        # just don't allow infinity or nan
-        if mt.isinf(x) or mt.isnan(x):
-            raise ValueError("invalid dat %r" % x)
     except ValueError:
         pass
 
