@@ -922,11 +922,13 @@ def write_csv(path, Result, results, *,
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else Result._by)
-                        + [k for k in (fields
-                            if fields is not None
-                            else Result._fields)])
+            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
+                    by
+                        if by is not None
+                        else Result._by,
+                    fields
+                        if fields is not None
+                        else Result._fields)).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap

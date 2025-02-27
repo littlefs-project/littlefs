@@ -147,31 +147,30 @@ class RInt(co.namedtuple('RInt', 'x')):
 
 # perf results
 class PerfResult(co.namedtuple('PerfResult', [
-        'i', 'file', 'function', 'line',
+        'z', 'file', 'function', 'line',
         'cycles', 'bmisses', 'branches', 'cmisses', 'caches',
         'children'])):
-    _by = ['i', 'file', 'function', 'line']
+    _by = ['z', 'file', 'function', 'line']
     _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
     _sort = ['cycles', 'bmisses', 'cmisses', 'branches', 'caches']
     _types = {
             'cycles': RInt,
             'bmisses': RInt, 'branches': RInt,
             'cmisses': RInt, 'caches': RInt}
-    _i = 'i'
     _children = 'children'
 
     __slots__ = ()
-    def __new__(cls, i=None, file='', function='', line=0,
+    def __new__(cls, z=0, file='', function='', line=0,
             cycles=0, bmisses=0, branches=0, cmisses=0, caches=0,
             children=None):
-        return super().__new__(cls, i, file, function, int(RInt(line)),
+        return super().__new__(cls, z, file, function, int(RInt(line)),
                 RInt(cycles),
                 RInt(bmisses), RInt(branches),
                 RInt(cmisses), RInt(caches),
                 children if children is not None else [])
 
     def __add__(self, other):
-        return PerfResult(self.i, self.file, self.function, self.line,
+        return PerfResult(self.z, self.file, self.function, self.line,
                 self.cycles + other.cycles,
                 self.bmisses + other.bmisses,
                 self.branches + other.branches,
@@ -756,15 +755,15 @@ def collect_decompressed(path, *,
         raise sp.CalledProcessError(proc.returncode, proc.args)
 
     # rearrange results into result type
-    def to_results(results):
+    def to_results(results, z):
         results_ = []
         for name, (r, children) in results.items():
-            results_.append(PerfResult(None, *name,
+            results_.append(PerfResult(z, *name,
                     **{events[k]: v for k, v in r.items()},
-                    children=to_results(children)))
+                    children=to_results(children, z+1)))
         return results_
 
-    return to_results(results)
+    return to_results(results, 0)
 
 def collect_job(path, i, **args):
     # decompress into a temporary file, this is to work around
@@ -896,17 +895,17 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        fields=None,
-        sort=None,
+        enumerate=None,
         depth=1,
         hot=None,
         **_):
-    # hotify only makes sense for recursive results
-    assert hasattr(Result, '_i')
-    assert hasattr(Result, '_children')
+    # note! hotifying risks confusion if you don't enumerate/have a z
+    # field, since it will allow folding across recursive boundaries
+    import builtins
+    enumerate_, enumerate = enumerate, builtins.enumerate
 
-    if fields is None:
-        fields = Result._fields
+    # hotify only makes sense for recursive results
+    assert hasattr(Result, '_children')
 
     results_ = []
     for r in results:
@@ -927,9 +926,10 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**{
-                    Result._i: RInt(len(hot_)),
-                    Result._children: []}))
+            hot_.append(r._replace(**(
+                    ({enumerate_: len(hot_)}
+                            if enumerate_ is not None else {})
+                        | {Result._children: []})))
 
             # recurse?
             if depth_ > 1:
@@ -937,8 +937,7 @@ def hotify(Result, results, *,
                         depth_-1)
 
         recurse(getattr(r, Result._children), depth-1)
-        results_.append(r._replace(**{
-                Result._children: hot_}))
+        results_.append(r._replace(**{Result._children: hot_}))
 
     return results_
 
@@ -1285,11 +1284,13 @@ def write_csv(path, Result, results, *,
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else Result._by)
-                        + [k for k in (fields
-                            if fields is not None
-                            else Result._fields)])
+            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
+                    by
+                        if by is not None
+                        else Result._by,
+                    fields
+                        if fields is not None
+                        else Result._fields)).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -1491,10 +1492,8 @@ def report(perf_paths, *,
     # hotify?
     if hot:
         results = hotify(PerfResult, results,
-                fields=fields,
                 depth=depth,
-                hot=hot,
-                **args)
+                hot=hot)
 
     # write results to CSV/JSON
     if args.get('output'):

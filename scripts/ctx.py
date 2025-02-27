@@ -133,27 +133,27 @@ class RInt(co.namedtuple('RInt', 'x')):
 
 # ctx size results
 class CtxResult(co.namedtuple('CtxResult', [
-        'i', 'file', 'function',
-        'size',
+        'z', 'i', 'file', 'function',
+        'off', 'size',
         'children', 'notes'])):
-    _by = ['i', 'file', 'function']
-    _fields = ['size']
+    _by = ['z', 'i', 'file', 'function']
+    _fields = ['off', 'size']
     _sort = ['size']
-    _types = {'size': RInt}
-    _i = 'i'
+    _types = {'off': RInt, 'size': RInt}
     _children = 'children'
     _notes = 'notes'
 
     __slots__ = ()
-    def __new__(cls, i=None, file='', function='', size=0,
+    def __new__(cls, z=0, i=0, file='', function='', off=0, size=0,
             children=None, notes=None):
-        return super().__new__(cls, i, file, function,
-                RInt(size),
+        return super().__new__(cls, z, i, file, function,
+                RInt(off), RInt(size),
                 children if children is not None else [],
                 notes if notes is not None else set())
 
     def __add__(self, other):
-        return CtxResult(self.i, self.file, self.function,
+        return CtxResult(self.z, self.i, self.file, self.function,
+                min(self.off, other.off),
                 max(self.size, other.size),
                 self.children + other.children,
                 self.notes | other.notes)
@@ -596,11 +596,13 @@ def collect_ctx(obj_paths, *,
                         type = info[int(type['DW_AT_type'].strip('<>'), 0)]
                     if (type.name is not None
                             and type.tag != 'DW_TAG_subroutine_type'):
+                        # find size, etc
                         name_ = type.name
                         size_ = sizeof(type, seen | {entry.off})
                         children_, notes_, dirty_ = childrenof(
                                 type, depth-1, seen | {entry.off})
-                        children.append(CtxResult(0, file, name_, size_,
+                        children.append(CtxResult(
+                                0, 0, file, name_, 0, size_,
                                 children=children_,
                                 notes=notes_))
                         dirty = dirty or dirty_
@@ -608,15 +610,22 @@ def collect_ctx(obj_paths, *,
             elif entry.tag in {
                     'DW_TAG_structure_type',
                     'DW_TAG_union_type'}:
+                # iterate over children in struct/union
                 children, notes, dirty = [], set(), False
                 for child in entry.children:
                     if child.tag != 'DW_TAG_member':
                         continue
+                    # find name
                     name_ = child.name
+                    # try to find offset for struct members, note this
+                    # is _not_ the same as the dwarf entry offset
+                    off_ = int(child.get('DW_AT_data_member_location', 0))
+                    # find size, children, etc
                     size_ = sizeof(child, seen | {entry.off})
                     children_, notes_, dirty_ = childrenof(
                             child, depth-1, seen | {entry.off})
-                    children.append(CtxResult(child.off, file, name_, size_,
+                    children.append(CtxResult(
+                            0, len(children), file, name_, off_, size_,
                             children=children_,
                             notes=notes_))
                     dirty = dirty or dirty_
@@ -678,15 +687,23 @@ def collect_ctx(obj_paths, *,
                 # find children, recursing if necessary
                 children_, notes_, _ = childrenof(param, depth-2)
 
-                params.append(CtxResult(param.off, file, name_, size_,
+                params.append(CtxResult(
+                        0, len(params), file, name_, 0, size_,
                         children=children_,
                         notes=notes_))
 
             # context = sum of params
             name = entry.name
             size = sum((param.size for param in params), start=RInt(0))
-            results.append(CtxResult(None, file, name, size,
+            results.append(CtxResult(
+                    0, 0, file, name, 0, size,
                     children=params))
+
+    # assign z at the end to avoid issues with caching
+    def zed(results, z):
+        return [r._replace(z=z, children=zed(r.children, z+1))
+                for r in results]
+    results = zed(results, 0)
 
     return results
 
@@ -774,17 +791,17 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        fields=None,
-        sort=None,
+        enumerate=None,
         depth=1,
         hot=None,
         **_):
-    # hotify only makes sense for recursive results
-    assert hasattr(Result, '_i')
-    assert hasattr(Result, '_children')
+    # note! hotifying risks confusion if you don't enumerate/have a z
+    # field, since it will allow folding across recursive boundaries
+    import builtins
+    enumerate_, enumerate = enumerate, builtins.enumerate
 
-    if fields is None:
-        fields = Result._fields
+    # hotify only makes sense for recursive results
+    assert hasattr(Result, '_children')
 
     results_ = []
     for r in results:
@@ -805,9 +822,10 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**{
-                    Result._i: RInt(len(hot_)),
-                    Result._children: []}))
+            hot_.append(r._replace(**(
+                    ({enumerate_: len(hot_)}
+                            if enumerate_ is not None else {})
+                        | {Result._children: []})))
 
             # recurse?
             if depth_ > 1:
@@ -815,8 +833,7 @@ def hotify(Result, results, *,
                         depth_-1)
 
         recurse(getattr(r, Result._children), depth-1)
-        results_.append(r._replace(**{
-                Result._children: hot_}))
+        results_.append(r._replace(**{Result._children: hot_}))
 
     return results_
 
@@ -1163,11 +1180,13 @@ def write_csv(path, Result, results, *,
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else Result._by)
-                        + [k for k in (fields
-                            if fields is not None
-                            else Result._fields)])
+            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
+                    by
+                        if by is not None
+                        else Result._by,
+                    fields
+                        if fields is not None
+                        else Result._fields)).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -1260,10 +1279,8 @@ def main(obj_paths, *,
     # hotify?
     if hot:
         results = hotify(CtxResult, results,
-                fields=fields,
                 depth=depth,
-                hot=hot,
-                **args)
+                hot=hot)
 
     # write results to CSV/JSON
     if args.get('output'):
@@ -1302,7 +1319,7 @@ def main(obj_paths, *,
     if not args.get('quiet'):
         table(CtxResult, results, diff_results,
                 by=by if by is not None else ['function'],
-                fields=fields,
+                fields=fields if fields is not None else ['size'],
                 sort=sort,
                 depth=depth,
                 **args)

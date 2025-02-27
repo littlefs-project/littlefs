@@ -133,27 +133,26 @@ class RInt(co.namedtuple('RInt', 'x')):
 
 # stack size results
 class StackResult(co.namedtuple('StackResult', [
-        'i', 'file', 'function',
+        'z', 'file', 'function',
         'frame', 'limit',
         'children', 'notes'])):
-    _by = ['i', 'file', 'function']
+    _by = ['z', 'file', 'function']
     _fields = ['frame', 'limit']
     _sort = ['limit', 'frame']
     _types = {'frame': RInt, 'limit': RInt}
-    _i = 'i'
     _children = 'children'
     _notes = 'notes'
 
     __slots__ = ()
-    def __new__(cls, i=None, file='', function='', frame=0, limit=0,
+    def __new__(cls, z=0, file='', function='', frame=0, limit=0,
             children=None, notes=None):
-        return super().__new__(cls, i, file, function,
+        return super().__new__(cls, z, file, function,
                 RInt(frame), RInt(limit),
                 children if children is not None else [],
                 notes if notes is not None else set())
 
     def __add__(self, other):
-        return StackResult(self.i, self.file, self.function,
+        return StackResult(self.z, self.file, self.function,
                 self.frame + other.frame,
                 max(self.limit, other.limit),
                 self.children + other.children,
@@ -417,7 +416,8 @@ def collect_stack(ci_paths, *,
             limit_ = limitof(node_, seen | {node.name})
             children_, notes_, dirty_ = childrenof(
                     node_, depth-1, seen | {node.name})
-            children.append(StackResult(None, file_, name_, frame_, limit_,
+            children.append(StackResult(
+                    file=file_, function=name_, frame=frame_, limit=limit_,
                     children=children_,
                     notes=notes_))
             dirty = dirty or dirty_
@@ -440,9 +440,16 @@ def collect_stack(ci_paths, *,
         frame = frameof(node)
         limit = limitof(node)
         children, notes, _ = childrenof(node, depth-1)
-        results.append(StackResult(None, file, name, frame, limit,
+        results.append(StackResult(
+                file=file, function=name, frame=frame, limit=limit,
                 children=children,
                 notes=notes))
+
+    # assign z at the end to avoid issues with caching
+    def zed(results, z):
+        return [r._replace(z=z, children=zed(r.children, z+1))
+                for r in results]
+    results = zed(results, 0)
 
     return results
 
@@ -530,17 +537,17 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        fields=None,
-        sort=None,
+        enumerate=None,
         depth=1,
         hot=None,
         **_):
-    # hotify only makes sense for recursive results
-    assert hasattr(Result, '_i')
-    assert hasattr(Result, '_children')
+    # note! hotifying risks confusion if you don't enumerate/have a z
+    # field, since it will allow folding across recursive boundaries
+    import builtins
+    enumerate_, enumerate = enumerate, builtins.enumerate
 
-    if fields is None:
-        fields = Result._fields
+    # hotify only makes sense for recursive results
+    assert hasattr(Result, '_children')
 
     results_ = []
     for r in results:
@@ -561,9 +568,10 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**{
-                    Result._i: RInt(len(hot_)),
-                    Result._children: []}))
+            hot_.append(r._replace(**(
+                    ({enumerate_: len(hot_)}
+                            if enumerate_ is not None else {})
+                        | {Result._children: []})))
 
             # recurse?
             if depth_ > 1:
@@ -571,8 +579,7 @@ def hotify(Result, results, *,
                         depth_-1)
 
         recurse(getattr(r, Result._children), depth-1)
-        results_.append(r._replace(**{
-                Result._children: hot_}))
+        results_.append(r._replace(**{Result._children: hot_}))
 
     return results_
 
@@ -919,11 +926,13 @@ def write_csv(path, Result, results, *,
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else Result._by)
-                        + [k for k in (fields
-                            if fields is not None
-                            else Result._fields)])
+            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
+                    by
+                        if by is not None
+                        else Result._by,
+                    fields
+                        if fields is not None
+                        else Result._fields)).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -1016,10 +1025,8 @@ def main(ci_paths,
     # hotify?
     if hot:
         results = hotify(StackResult, results,
-                fields=fields,
                 depth=depth,
-                hot=hot,
-                **args)
+                hot=hot)
 
     # write results to CSV/JSON
     if args.get('output'):
@@ -1058,7 +1065,7 @@ def main(ci_paths,
     if not args.get('quiet'):
         table(StackResult, results, diff_results,
                 by=by if by is not None else ['function'],
-                fields=fields,
+                fields=fields if fields is not None else ['frame', 'limit'],
                 sort=sort,
                 depth=depth,
                 **args)

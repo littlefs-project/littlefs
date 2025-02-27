@@ -1399,20 +1399,16 @@ def compile(fields_, results,
         sort=None,
         enumerate=None,
         children=None,
-        notes=None,
-        hot=None):
+        hot=None,
+        notes=None):
     import builtins
     enumerate_, enumerate = enumerate, builtins.enumerate
 
     by = by.copy()
     fields = fields.copy()
 
-    # we need _something_ to order hot results by, so default to
-    # i if no enumerate field is specified
-    if hot is not None and enumerate_ is None:
-        enumerate_ = 'i'
     # make sure enumerate fields are included
-    if enumerate_ is not None or hot is not None:
+    if enumerate_ is not None:
         if enumerate_ not in by:
             by.insert(0, enumerate_)
     # make sure define fields are included
@@ -1543,15 +1539,12 @@ def compile(fields_, results,
                 _types={k: t for k, (_, t) in folds.items()},
                 _mods=mods,
                 _exprs=exprs,
-                **{'_i': enumerate_} if enumerate_ is not None else {},
                 **{'_children': children} if children is not None else {},
                 **{'_notes': notes} if notes is not None else {}))
 
 def homogenize(Result, results, *,
-        depth=1,
-        hot=None,
         enumerate=None,
-        children=None):
+        depth=1):
     import builtins
     enumerate_, enumerate = enumerate, builtins.enumerate
 
@@ -1562,19 +1555,17 @@ def homogenize(Result, results, *,
         results_.append(Result(**(
                 r
                     # enumerate?
-                    | ({Result._i: RInt(i)}
+                    | ({enumerate_: RInt(i)}
                         if enumerate_ is not None
                         else {})
                     # recurse?
-                    | ({children: homogenize(
-                            Result, r[children],
-                            depth=depth-1,
-                            # only enumerate top-level if hotifying
-                            enumerate=(enumerate_ if hot is None else None),
-                            children=children)}
-                        if children is not None
-                            and children in r
-                            and r[children] is not None
+                    | ({Result._children: homogenize(
+                            Result, r[Result._children],
+                            enumerate=enumerate_,
+                            depth=depth-1)}
+                        if hasattr(Result, '_children')
+                            and Result._children in r
+                            and r[Result._children] is not None
                             and depth > 1
                         else {}))))
     return results_
@@ -1663,17 +1654,17 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        fields=None,
-        sort=None,
+        enumerate=None,
         depth=1,
         hot=None,
         **_):
-    # hotify only makes sense for recursive results
-    assert hasattr(Result, '_i')
-    assert hasattr(Result, '_children')
+    # note! hotifying risks confusion if you don't enumerate/have a z
+    # field, since it will allow folding across recursive boundaries
+    import builtins
+    enumerate_, enumerate = enumerate, builtins.enumerate
 
-    if fields is None:
-        fields = Result._fields
+    # hotify only makes sense for recursive results
+    assert hasattr(Result, '_children')
 
     results_ = []
     for r in results:
@@ -1694,9 +1685,10 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**{
-                    Result._i: RInt(len(hot_)),
-                    Result._children: []}))
+            hot_.append(r._replace(**(
+                    ({enumerate_: len(hot_)}
+                            if enumerate_ is not None else {})
+                        | {Result._children: []})))
 
             # recurse?
             if depth_ > 1:
@@ -1704,8 +1696,7 @@ def hotify(Result, results, *,
                         depth_-1)
 
         recurse(getattr(r, Result._children), depth-1)
-        results_.append(r._replace(**{
-                Result._children: hot_}))
+        results_.append(r._replace(**{Result._children: hot_}))
 
     return results_
 
@@ -2052,11 +2043,13 @@ def write_csv(path, Result, results, *,
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else Result._by)
-                        + [k for k in (fields
-                            if fields is not None
-                            else Result._fields)])
+            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
+                    by
+                        if by is not None
+                        else Result._by,
+                    fields
+                        if fields is not None
+                        else Result._fields)).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -2113,11 +2106,11 @@ def main(csv_paths, *,
         fields=None,
         defines=[],
         sort=None,
-        depth=None,
         enumerate=None,
+        depth=None,
         children=None,
-        notes=None,
         hot=None,
+        notes=None,
         **args):
     import builtins
     enumerate_, enumerate = enumerate, builtins.enumerate
@@ -2194,8 +2187,8 @@ def main(csv_paths, *,
                     and not any(k == k_ for k_, _ in (sort or []))
                     and k != enumerate_
                     and k != children
-                    and k != notes
                     and not any(k == k_ for k_, _ in (hot or []))
+                    and k != notes
                     and not any(k == k_
                         for _, expr in exprs
                         for k_ in expr.fields())]
@@ -2208,8 +2201,8 @@ def main(csv_paths, *,
                     and not any(k == k_ for k_, _ in (sort or []))
                     and k != enumerate_
                     and k != children
-                    and k != notes
                     and not any(k == k_ for k_, _ in (hot or []))
+                    and k != notes
                     and not any(k == k_
                         for _, expr in exprs
                         for k_ in expr.fields())]
@@ -2224,14 +2217,13 @@ def main(csv_paths, *,
             sort=sort,
             enumerate=enumerate_,
             children=children,
-            notes=notes,
-            hot=hot)
+            hot=hot,
+            notes=notes)
 
     # homogenize
     results = homogenize(Result, results,
-            depth=depth,
             enumerate=enumerate_,
-            children=children)
+            depth=depth)
 
     # fold
     results = fold(Result, results,
@@ -2242,10 +2234,9 @@ def main(csv_paths, *,
     # hotify?
     if hot:
         results = hotify(Result, results,
-                fields=fields,
+                enumerate=enumerate_,
                 depth=depth,
-                hot=hot,
-                **args)
+                hot=hot)
 
     # write results to CSV/JSON
     if args.get('output'):
@@ -2395,6 +2386,12 @@ if __name__ == "__main__":
             help="Sort by this field, but backwards. Can include an expression "
                 "of the form field=expr.")
     parser.add_argument(
+            '-i', '--enumerate',
+            nargs='?',
+            const='i',
+            help="Field to use for enumerating results. This will prevent "
+                "result folding.")
+    parser.add_argument(
             '-z', '--depth',
             nargs='?',
             type=lambda x: int(x, 0),
@@ -2402,23 +2399,11 @@ if __name__ == "__main__":
             help="Depth of function calls to show. 0 shows all calls unless "
                 "we find a cycle. Defaults to 0.")
     parser.add_argument(
-            '-i', '--enumerate',
-            nargs='?',
-            const='i',
-            help="Field to use for enumerating results. This will prevent "
-                "result folding. This can also be used to override which "
-                "field -r/--hot uses to order results.")
-    parser.add_argument(
             '-Z', '--children',
             nargs='?',
             const='children',
             help="Field to use for recursive results. This expects a list "
                 "and really only works with JSON input.")
-    parser.add_argument(
-            '-N', '--notes',
-            nargs='?',
-            const='notes',
-            help="Field to use for notes.")
     class AppendHot(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.hot is None:
@@ -2448,6 +2433,11 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             const=(None, None),
             help="Like -r/--hot, but backwards.")
+    parser.add_argument(
+            '-N', '--notes',
+            nargs='?',
+            const='notes',
+            help="Field to use for notes.")
     parser.add_argument(
             '--no-header',
             action='store_true',

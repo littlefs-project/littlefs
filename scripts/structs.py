@@ -133,25 +133,25 @@ class RInt(co.namedtuple('RInt', 'x')):
 
 # struct size results
 class StructResult(co.namedtuple('StructResult', [
-        'i', 'file', 'struct',
-        'size', 'align',
+        'z', 'i', 'file', 'struct',
+        'off', 'size', 'align',
         'children'])):
-    _by = ['i', 'file', 'struct']
-    _fields = ['size', 'align']
+    _by = ['z', 'i', 'file', 'struct']
+    _fields = ['off', 'size', 'align']
     _sort = ['size', 'align']
-    _types = {'size': RInt, 'align': RInt}
-    _i = 'i'
+    _types = {'off': RInt, 'size': RInt, 'align': RInt}
     _children = 'children'
 
     __slots__ = ()
-    def __new__(cls, i=None, file='', struct='', size=0, align=0,
+    def __new__(cls, z=0, i=0, file='', struct='', off=0, size=0, align=0,
             children=None):
-        return super().__new__(cls, i, file, struct,
-                RInt(size), RInt(align),
+        return super().__new__(cls, z, i, file, struct,
+                RInt(off), RInt(size), RInt(align),
                 children if children is not None else [])
 
     def __add__(self, other):
-        return StructResult(self.i, self.file, self.struct,
+        return StructResult(self.z, self.i, self.file, self.struct,
+                min(self.off, other.off),
                 self.size + other.size,
                 max(self.align, other.align),
                 self.children + other.children)
@@ -437,14 +437,22 @@ def collect_structs(obj_paths, *,
             elif entry.tag in {
                     'DW_TAG_structure_type',
                     'DW_TAG_union_type'}:
+                # iterate over children in struct/union
                 children = []
                 for child in entry.children:
+                    if child.tag != 'DW_TAG_member':
+                        continue
+                    # find name
                     name_ = child.name
+                    # try to find offset for struct members, note this
+                    # is _not_ the same as the dwarf entry offset
+                    off_ = int(child.get('DW_AT_data_member_location', 0))
+                    # find size, align, children, etc
                     size_ = sizeof(child)
                     align_ = alignof(child)
                     children_ = childrenof(child, depth-1)
                     children.append(StructResult(
-                            child.off, file, name_, size_, align_,
+                            0, len(children), file, name_, off_, size_, align_,
                             children=children_))
             # indirect type?
             elif entry.tag in {
@@ -497,12 +505,12 @@ def collect_structs(obj_paths, *,
             # these separately
             if entry.tag == 'DW_TAG_typedef':
                 typedefs[entry.off] = StructResult(
-                        None, file, name, size, align,
+                        0, 0, file, name, 0, size, align,
                         children=children)
                 typedefed.add(int(entry['DW_AT_type'].strip('<>'), 0))
             else:
                 types[entry.off] = StructResult(
-                        None, file, name, size, align,
+                        0, 0, file, name, 0, size, align,
                         children=children)
 
         # let typedefs take priority
@@ -510,6 +518,12 @@ def collect_structs(obj_paths, *,
         results.extend(type
                 for off, type in types.items()
                 if off not in typedefed)
+
+    # assign z at the end to avoid issues with caching
+    def zed(results, z):
+        return [r._replace(z=z, children=zed(r.children, z+1))
+                for r in results]
+    results = zed(results, 0)
 
     return results
 
@@ -597,17 +611,17 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        fields=None,
-        sort=None,
+        enumerate=None,
         depth=1,
         hot=None,
         **_):
-    # hotify only makes sense for recursive results
-    assert hasattr(Result, '_i')
-    assert hasattr(Result, '_children')
+    # note! hotifying risks confusion if you don't enumerate/have a z
+    # field, since it will allow folding across recursive boundaries
+    import builtins
+    enumerate_, enumerate = enumerate, builtins.enumerate
 
-    if fields is None:
-        fields = Result._fields
+    # hotify only makes sense for recursive results
+    assert hasattr(Result, '_children')
 
     results_ = []
     for r in results:
@@ -628,9 +642,10 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**{
-                    Result._i: RInt(len(hot_)),
-                    Result._children: []}))
+            hot_.append(r._replace(**(
+                    ({enumerate_: len(hot_)}
+                            if enumerate_ is not None else {})
+                        | {Result._children: []})))
 
             # recurse?
             if depth_ > 1:
@@ -638,8 +653,7 @@ def hotify(Result, results, *,
                         depth_-1)
 
         recurse(getattr(r, Result._children), depth-1)
-        results_.append(r._replace(**{
-                Result._children: hot_}))
+        results_.append(r._replace(**{Result._children: hot_}))
 
     return results_
 
@@ -986,11 +1000,13 @@ def write_csv(path, Result, results, *,
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else Result._by)
-                        + [k for k in (fields
-                            if fields is not None
-                            else Result._fields)])
+            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
+                    by
+                        if by is not None
+                        else Result._by,
+                    fields
+                        if fields is not None
+                        else Result._fields)).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -1083,10 +1099,8 @@ def main(obj_paths, *,
     # hotify?
     if hot:
         results = hotify(StructResult, results,
-                fields=fields,
                 depth=depth,
-                hot=hot,
-                **args)
+                hot=hot)
 
     # write results to CSV/JSON
     if args.get('output'):
@@ -1125,7 +1139,7 @@ def main(obj_paths, *,
     if not args.get('quiet'):
         table(StructResult, results, diff_results,
                 by=by if by is not None else ['struct'],
-                fields=fields,
+                fields=fields if fields is not None else ['size', 'align'],
                 sort=sort,
                 depth=depth,
                 **args)
