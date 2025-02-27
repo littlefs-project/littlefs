@@ -667,7 +667,7 @@ def find_runner(runner, id=None, main=True, **args):
     # run under perf?
     if args.get('perf'):
         cmd[:0] = args['perf_script'] + list(filter(None, [
-                '-R',
+                '--record',
                 '--perf-freq=%s' % args['perf_freq']
                     if args.get('perf_freq') else None,
                 '--perf-period=%s' % args['perf_period']

@@ -19,6 +19,7 @@ import bisect
 import collections as co
 import csv
 import functools as ft
+import io
 import itertools as it
 import math as mt
 import multiprocessing as mp
@@ -137,25 +138,26 @@ class RInt(co.namedtuple('RInt', 'x')):
 
 # perf results
 class PerfBdResult(co.namedtuple('PerfBdResult', [
-        'file', 'function', 'line',
+        'i', 'file', 'function', 'line',
         'readed', 'proged', 'erased',
         'children'])):
-    _by = ['file', 'function', 'line']
+    _by = ['i', 'file', 'function', 'line']
     _fields = ['readed', 'proged', 'erased']
     _sort = ['erased', 'proged', 'readed']
     _types = {'readed': RInt, 'proged': RInt, 'erased': RInt}
+    _i = 'i'
     _children = 'children'
 
     __slots__ = ()
-    def __new__(cls, file='', function='', line=0,
+    def __new__(cls, i=None, file='', function='', line=0,
             readed=0, proged=0, erased=0,
             children=None):
-        return super().__new__(cls, file, function, int(RInt(line)),
+        return super().__new__(cls, i, file, function, int(RInt(line)),
                 RInt(readed), RInt(proged), RInt(erased),
                 children if children is not None else [])
 
     def __add__(self, other):
-        return PerfBdResult(self.file, self.function, self.line,
+        return PerfBdResult(self.i, self.file, self.function, self.line,
                 self.readed + other.readed,
                 self.proged + other.proged,
                 self.erased + other.erased,
@@ -716,7 +718,7 @@ def collect_job(path, start, stop, syms, lines, *,
     def to_results(results):
         results_ = []
         for name, (r, p, e, children) in results.items():
-            results_.append(PerfBdResult(*name,
+            results_.append(PerfBdResult(None, *name,
                     r, p, e,
                     children=to_results(children)))
         return results_
@@ -727,7 +729,7 @@ def starapply(args):
     f, args, kwargs = args
     return f(*args, **kwargs)
 
-def collect(elf_path, trace_paths, *,
+def collect_perfbd(elf_path, trace_paths, *,
         jobs=None,
         **args):
     # automatic job detection?
@@ -781,7 +783,31 @@ def collect(elf_path, trace_paths, *,
     return results
 
 
-def fold(Result, results, by=None, defines=[]):
+# common folding/tabling/read/write code
+
+class Rev(co.namedtuple('Rev', 'x')):
+    __slots__ = ()
+    # yes we need all of these because we're a namedtuple
+    def __lt__(self, other):
+        return self.x > other.x
+    def __gt__(self, other):
+        return self.x < other.x
+    def __le__(self, other):
+        return self.x >= other.x
+    def __ge__(self, other):
+        return self.x <= other.x
+
+def fold(Result, results, *,
+        by=None,
+        defines=[],
+        sort=None,
+        depth=1,
+        **_):
+    # stop when depth hits zero
+    if depth == 0:
+        return []
+
+    # organize by by
     if by is None:
         by = Result._by
 
@@ -795,7 +821,7 @@ def fold(Result, results, by=None, defines=[]):
     if defines:
         results_ = []
         for r in results:
-            if all(getattr(r, k) in vs for k, vs in defines):
+            if all(str(getattr(r, k)) in vs for k, vs in defines):
                 results_.append(r)
         results = results_
 
@@ -812,7 +838,79 @@ def fold(Result, results, by=None, defines=[]):
     for name, rs in folding.items():
         folded.append(sum(rs[1:], start=rs[0]))
 
+    # sort, note that python's sort is stable
+    folded.sort(key=lambda r: (
+            # sort by explicit sort fields
+            tuple((Rev
+                        if reverse ^ (not k or k in Result._fields)
+                        else lambda x: x)(
+                    tuple((getattr(r, k_),)
+                            if getattr(r, k_) is not None
+                            else ()
+                        for k_ in ([k] if k else Result._sort)))
+                for k, reverse in (sort or [])),
+            # sort by result
+            r))
+
+    # recurse if we have recursive results
+    if hasattr(Result, '_children'):
+        folded = [r._replace(**{
+                Result._children: fold(
+                        Result, getattr(r, Result._children),
+                        by=by,
+                        defines=defines,
+                        sort=sort,
+                        depth=depth-1)})
+                    for r in folded]
+
     return folded
+
+def hotify(Result, results, *,
+        fields=None,
+        sort=None,
+        depth=1,
+        hot=None,
+        **_):
+    # hotify only makes sense for recursive results
+    assert hasattr(Result, '_i')
+    assert hasattr(Result, '_children')
+
+    if fields is None:
+        fields = Result._fields
+
+    results_ = []
+    for r in results:
+        hot_ = []
+        def recurse(results_, depth_):
+            nonlocal hot_
+            if not results_:
+                return
+
+            # find the hottest result
+            r = min(results_, key=lambda r:
+                    tuple((Rev
+                                if reverse ^ (not k or k in Result._fields)
+                                else lambda x: x)(
+                            tuple((getattr(r, k_),)
+                                    if getattr(r, k_) is not None
+                                    else ()
+                                for k_ in ([k] if k else Result._sort)))
+                        for k, reverse in it.chain(hot, [(None, False)])))
+
+            hot_.append(r._replace(**{
+                    Result._i: RInt(len(hot_)),
+                    Result._children: []}))
+
+            # recurse?
+            if depth_ > 1:
+                recurse(getattr(r, Result._children),
+                        depth_-1)
+
+        recurse(getattr(r, Result._children), depth-1)
+        results_.append(r._replace(**{
+                Result._children: hot_}))
+
+    return results_
 
 def table(Result, results, diff_results=None, *,
         by=None,
@@ -839,124 +937,32 @@ def table(Result, results, diff_results=None, *,
         fields = Result._fields
     types = Result._types
 
-    # fold again
-    results = fold(Result, results, by=by)
+    # fold again, otherwise results risk being hidden
+    results = fold(Result, results,
+            by=by,
+            depth=depth)
     if diff_results is not None:
-        diff_results = fold(Result, diff_results, by=by)
-
-    # reduce children to hot paths? only used by some scripts
-    if hot:
-        # subclass to reintroduce __dict__
-        Result_ = Result
-        class HotResult(Result_):
-            _i = '_hot_i'
-            _children = '_hot_children'
-
-            def __new__(cls, r, i=None, children=None, notes=None):
-                self = HotResult._make(r)
-                self._hot_i = i
-                self._hot_children = children if children is not None else []
-                return self
-
-            def __add__(self, other):
-                return HotResult(
-                        Result_.__add__(self, other),
-                        self._hot_i if other._hot_i is None
-                            else other._hot_i if self._hot_i is None
-                            else min(self._hot_i, other._hot_i),
-                        self._hot_children + other._hot_children)
-
-        results_ = []
-        for r in results:
-            hot_ = []
-            def recurse(results_, depth_):
-                nonlocal hot_
-                if not results_:
-                    return
-
-                # find the hottest result
-                r = max(results_,
-                        key=lambda r: tuple(
-                            tuple((getattr(r, k),)
-                                        if getattr(r, k, None) is not None
-                                        else ()
-                                    for k in (
-                                        [k] if k else [
-                                            k for k in Result._sort
-                                                if k in fields])
-                                    if k in fields)
-                                for k in it.chain(hot, [None])))
-                hot_.append(HotResult(r, i=len(hot_)))
-
-                # recurse?
-                if depth_ > 1:
-                    recurse(getattr(r, Result._children),
-                            depth_-1)
-
-            recurse(getattr(r, Result._children), depth-1)
-            results_.append(HotResult(r, children=hot_))
-
-        Result = HotResult
-        results = results_
+        diff_results = fold(Result, diff_results,
+                by=by,
+                depth=depth)
 
     # organize by name
     table = {
-            ','.join(str(getattr(r, k) or '') for k in by): r
+            ','.join(str(getattr(r, k)
+                        if getattr(r, k) is not None
+                        else '')
+                    for k in by): r
                 for r in results}
     diff_table = {
-            ','.join(str(getattr(r, k) or '') for k in by): r
+            ','.join(str(getattr(r, k)
+                        if getattr(r, k) is not None
+                        else '')
+                    for k in by): r
                 for r in diff_results or []}
-    names = [name
-            for name in table.keys() | diff_table.keys()
-            if diff_results is None
-                or all_
-                or any(
-                    types[k].ratio(
-                            getattr(table.get(name), k, None),
-                            getattr(diff_table.get(name), k, None))
-                        for k in fields)]
 
     # find compare entry if there is one
     if compare:
-        compare_result = table.get(','.join(str(k) for k in compare))
-
-    # sort again, now with diff info, note that python's sort is stable
-    names.sort()
-    if compare:
-        names.sort(
-                key=lambda n: (
-                    # move compare entry to the top, note this can be
-                    # overridden by explicitly sorting by fields
-                    table.get(n) == compare_result,
-                    # sort by ratio if comparing
-                    tuple(
-                        types[k].ratio(
-                                getattr(table.get(n), k, None),
-                                getattr(compare_result, k, None))
-                            for k in fields)),
-                reverse=True)
-    if diff or percent:
-        names.sort(
-                # sort by ratio if diffing
-                key=lambda n: tuple(
-                    types[k].ratio(
-                            getattr(table.get(n), k, None),
-                            getattr(diff_table.get(n), k, None))
-                        for k in fields),
-                reverse=True)
-    if sort:
-        for k, reverse in reversed(sort):
-            names.sort(
-                    key=lambda n: tuple(
-                        (getattr(table[n], k),)
-                                if getattr(table.get(n), k, None) is not None
-                                else ()
-                            for k in (
-                                [k] if k else [
-                                    k for k in Result._sort
-                                        if k in fields])),
-                    reverse=reverse ^ (not k or k in Result._fields))
-
+        compare_r = table.get(','.join(str(k) for k in compare))
 
     # build up our lines
     lines = []
@@ -983,11 +989,16 @@ def table(Result, results, diff_results=None, *,
                 header.append('d'+k)
         lines.append(header)
 
+    # delete these to try to catch typos below, we need to rebuild
+    # these tables at each recursive layer
+    del table
+    del diff_table
+
     # entry helper
     def table_entry(name, r, diff_r=None):
         entry = [name]
         # normal entry?
-        if ((compare is None or r == compare_result)
+        if ((compare is None or r == compare_r)
                 and not percent
                 and not diff):
             for k in fields:
@@ -1008,7 +1019,7 @@ def table(Result, results, diff_results=None, *,
                                     else ['%+.1f%%' % (100*t)])(
                                 types[k].ratio(
                                     getattr(r, k, None),
-                                    getattr(compare_result, k, None)))))
+                                    getattr(compare_r, k, None)))))
         # percent entry?
         elif not diff:
             for k in fields:
@@ -1054,71 +1065,94 @@ def table(Result, results, diff_results=None, *,
 
         return entry
 
-    # recursive entry helper, only used by some scripts
-    def recurse(results_, depth_,
+    # recursive entry helper
+    def table_recurse(results_, diff_results_,
+            depth_,
             prefixes=('', '', '', '')):
         # build the children table at each layer
-        results_ = fold(Result, results_, by=by)
         table_ = {
-                ','.join(str(getattr(r, k) or '') for k in by): r
+                ','.join(str(getattr(r, k)
+                            if getattr(r, k) is not None
+                            else '')
+                        for k in by): r
                     for r in results_}
-        names_ = list(table_.keys())
+        diff_table_ = {
+                ','.join(str(getattr(r, k)
+                            if getattr(r, k) is not None
+                            else '')
+                        for k in by): r
+                    for r in diff_results_ or []}
+        names_ = [n
+                for n in table_.keys() | diff_table_.keys()
+                if diff_results_ is None
+                    or all_
+                    or any(
+                        types[k].ratio(
+                                getattr(table_.get(n), k, None),
+                                getattr(diff_table_.get(n), k, None))
+                            for k in fields)]
 
-        # sort the children layer
-        names_.sort()
-        if hasattr(Result, '_i'):
-            names_.sort(key=lambda n: getattr(table_[n], Result._i))
-        if sort:
-            for k, reverse in reversed(sort):
-                names_.sort(
-                        key=lambda n: tuple(
-                            (getattr(table_[n], k),)
-                                    if getattr(table_.get(n), k, None)
-                                        is not None
-                                    else ()
-                                for k in (
-                                    [k] if k else [
-                                        k for k in Result._sort
-                                            if k in fields])),
-                        reverse=reverse ^ (not k or k in Result._fields))
+        # sort again, now with diff info, note that python's sort is stable
+        names_.sort(key=lambda n: (
+                # sort by explicit sort fields
+                tuple((Rev
+                            if reverse ^ (not k or k in Result._fields)
+                            else lambda x: x)(
+                        tuple((getattr(table_[n], k_),)
+                                if getattr(table_.get(n), k_, None) is not None
+                                else ()
+                            for k_ in ([k] if k else Result._sort)))
+                    for k, reverse in (sort or [])),
+                # sort by ratio if diffing
+                Rev(tuple(types[k].ratio(
+                            getattr(table_.get(n), k, None),
+                            getattr(diff_table_.get(n), k, None))
+                        for k in fields))
+                    if diff or percent
+                    else (),
+                # move compare entry to the top, note this can be
+                # overridden by explicitly sorting by fields
+                (table_.get(n) != compare_r,
+                        # sort by ratio if comparing
+                        Rev(tuple(
+                            types[k].ratio(
+                                    getattr(table_.get(n), k, None),
+                                    getattr(compare_r, k, None))
+                                for k in fields)))
+                    if compare
+                    else (),
+                # sort by result
+                (table_[n],) if n in table_ else (),
+                # and finally by name (diffs may be missing results)
+                n))
 
-        for i, name in enumerate(names_):
-            r = table_[name]
-            is_last = (i == len(names_)-1)
+        for i, n in enumerate(names_):
+            # find comparable results
+            r = table_.get(n)
+            diff_r = diff_table_.get(n)
 
-            line = table_entry(name, r)
-            line = [x if isinstance(x, tuple) else (x, []) for x in line]
+            # build line
+            line = table_entry(n, r, diff_r)
+
             # add prefixes
-            line[0] = (prefixes[0+is_last] + line[0][0], line[0][1])
+            line = [x if isinstance(x, tuple) else (x, []) for x in line]
+            line[0] = (prefixes[0+(i==len(names_)-1)] + line[0][0], line[0][1])
             lines.append(line)
 
             # recurse?
-            if depth_ > 1:
-                recurse(getattr(r, Result._children),
+            if n in table_ and depth_ > 1:
+                table_recurse(
+                        getattr(r, Result._children),
+                        getattr(diff_r, Result._children, None) or [],
                         depth_-1,
-                        (prefixes[2+is_last] + "|-> ",
-                         prefixes[2+is_last] + "'-> ",
-                         prefixes[2+is_last] + "|   ",
-                         prefixes[2+is_last] + "    "))
+                        (prefixes[2+(i==len(names_)-1)] + "|-> ",
+                         prefixes[2+(i==len(names_)-1)] + "'-> ",
+                         prefixes[2+(i==len(names_)-1)] + "|   ",
+                         prefixes[2+(i==len(names_)-1)] + "    "))
 
-    # entries
+    # build entries
     if not summary:
-        for name in names:
-            r = table.get(name)
-            if diff_results is None:
-                diff_r = None
-            else:
-                diff_r = diff_table.get(name)
-            lines.append(table_entry(name, r, diff_r))
-
-            # recursive entries
-            if name in table and depth > 1:
-                recurse(getattr(table[name], Result._children),
-                        depth-1,
-                        ("|-> ",
-                         "'-> ",
-                         "|   ",
-                         "    "))
+        table_recurse(results, diff_results, depth)
 
     # total
     if not no_total and not (small_table and not summary):
@@ -1130,9 +1164,8 @@ def table(Result, results, diff_results=None, *,
         lines.append(table_entry('TOTAL', r, diff_r))
 
     # homogenize
-    lines = [
-            [x if isinstance(x, tuple) else (x, []) for x in line]
-                for line in lines]
+    lines = [[x if isinstance(x, tuple) else (x, []) for x in line]
+            for line in lines]
 
     # find the best widths, note that column 0 contains the names and is
     # handled a bit differently
@@ -1152,6 +1185,130 @@ def table(Result, results, diff_results=None, *,
                         widths[i], x[0],
                         nwidths[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
                     for i, x in enumerate(line[1:], 1))))
+
+def read_csv(path, Result, *,
+        depth=1,
+        **_):
+    with openio(path, 'r') as f:
+        # csv or json? assume json starts with [
+        json = (f.buffer.peek(1)[:1] == b'[')
+
+        # read csv?
+        if not json:
+            results = []
+            reader = csv.DictReader(f, restval='')
+            for r in reader:
+                if not any(k in r and r[k].strip()
+                        for k in Result._fields):
+                    continue
+                try:
+                    # note this allows by/fields to overlap
+                    results.append(Result(**(
+                            {k: r[k] for k in Result._by
+                                    if k in r and r[k].strip()}
+                                | {k: r[k] for k in Result._fields
+                                    if k in r and r[k].strip()})))
+                except TypeError:
+                    pass
+            return results
+
+        # read json?
+        else:
+            import json
+            def unjsonify(results, depth_):
+                results_ = []
+                for r in results:
+                    if not any(k in r and r[k].strip()
+                            for k in Result._fields):
+                        continue
+                    try:
+                        # note this allows by/fields to overlap
+                        results_.append(Result(**(
+                                {k: r[k] for k in Result._by
+                                        if k in r and r[k] is not None}
+                                    | {k: r[k] for k in Result._fields
+                                        if k in r and r[k] is not None}
+                                    | ({Result._children: unjsonify(
+                                            r[Result._children],
+                                            depth_-1)}
+                                        if hasattr(Result, '_children')
+                                            and Result._children in r
+                                            and r[Result._children] is not None
+                                            and depth_ > 1
+                                        else {})
+                                    | ({Result._notes: set(r[Result._notes])}
+                                        if hasattr(Result, '_notes')
+                                            and Result._notes in r
+                                            and r[Result._notes] is not None
+                                        else {}))))
+                    except TypeError:
+                        pass
+                return results_
+            return unjsonify(json.load(f), depth)
+
+def write_csv(path, Result, results, *,
+        json=False,
+        by=None,
+        fields=None,
+        depth=1,
+        **_):
+    with openio(path, 'w') as f:
+        # write csv?
+        if not json:
+            writer = csv.DictWriter(f,
+                    (by if by is not None else Result._by)
+                        + [k for k in (fields
+                            if fields is not None
+                            else Result._fields)])
+            writer.writeheader()
+            for r in results:
+                # note this allows by/fields to overlap
+                writer.writerow(
+                        {k: getattr(r, k)
+                                for k in (by
+                                    if by is not None
+                                    else Result._by)
+                                if getattr(r, k) is not None}
+                            | {k: str(getattr(r, k))
+                                for k in (fields
+                                    if fields is not None
+                                    else Result._fields)
+                                if getattr(r, k) is not None})
+
+        # write json?
+        else:
+            import json
+            # the neat thing about json is we can include recursive results
+            def jsonify(results, depth_):
+                results_ = []
+                for r in results:
+                    # note this allows by/fields to overlap
+                    results_.append(
+                            {k: getattr(r, k)
+                                    for k in (by
+                                        if by is not None
+                                        else Result._by)
+                                    if getattr(r, k) is not None}
+                                | {k: str(getattr(r, k))
+                                    for k in (fields
+                                        if fields is not None
+                                        else Result._fields)
+                                    if getattr(r, k) is not None}
+                                | ({Result._children: jsonify(
+                                        getattr(r, Result._children),
+                                        depth_-1)}
+                                    if hasattr(Result, '_children')
+                                        and getattr(r, Result._children)
+                                        and depth_ > 1
+                                    else {})
+                                | ({Result._notes: list(
+                                        getattr(r, Result._notes))}
+                                    if hasattr(Result, '_notes')
+                                        and getattr(r, Result._notes)
+                                    else {}))
+                return results_
+            json.dump(jsonify(results, depth), f,
+                    separators=(',', ':'))
 
 
 def annotate(Result, results, *,
@@ -1272,6 +1429,8 @@ def report(paths, *,
         fields=None,
         defines=[],
         sort=None,
+        depth=None,
+        hot=None,
         **args):
     # figure out what color should be
     if args.get('color') == 'auto':
@@ -1282,10 +1441,10 @@ def report(paths, *,
         args['color'] = False
 
     # figure out depth
-    if args.get('depth') is None:
-        args['depth'] = mt.inf if args.get('hot') else 1
-    elif args.get('depth') == 0:
-        args['depth'] = mt.inf
+    if depth is None:
+        depth = mt.inf if hot else 1
+    elif depth == 0:
+        depth = mt.inf
 
     # find sizes
     if not args.get('use', None):
@@ -1313,87 +1472,61 @@ def report(paths, *,
             sys.exit(1)
 
         # collect info
-        results = collect(elf_paths[0], trace_paths, **args)
+        results = collect_perfbd(elf_paths[0], trace_paths,
+                depth=depth,
+                **args)
 
     else:
-        results = []
-        with openio(args['use']) as f:
-            reader = csv.DictReader(f, restval='')
-            for r in reader:
-                # filter by matching defines
-                if not all(k in r and r[k] in vs for k, vs in defines):
-                    continue
-
-                if not any(k in r and r[k].strip()
-                        for k in PerfBdResult._fields):
-                    continue
-                try:
-                    results.append(PerfBdResult(
-                            **{k: r[k] for k in PerfBdResult._by
-                                if k in r and r[k].strip()},
-                            **{k: r[k] for k in PerfBdResult._fields
-                                if k in r and r[k].strip()}))
-                except TypeError:
-                    pass
+        results = read_csv(args['use'], PerfBdResult,
+                depth=depth,
+                **args)
 
     # fold
-    results = fold(PerfBdResult, results, by=by, defines=defines)
+    results = fold(PerfBdResult, results,
+            by=by,
+            defines=defines,
+            depth=depth)
 
-    # sort, note that python's sort is stable
-    results.sort()
-    if sort:
-        for k, reverse in reversed(sort):
-            results.sort(
-                    key=lambda r: tuple(
-                        (getattr(r, k),) if getattr(r, k) is not None else ()
-                            for k in ([k] if k else PerfBdResult._sort)),
-                    reverse=reverse ^ (not k or k in PerfBdResult._fields))
+    # hotify?
+    if hot:
+        results = hotify(PerfBdResult, results,
+                fields=fields,
+                depth=depth,
+                hot=hot,
+                **args)
 
-    # write results to CSV
+    # write results to CSV/JSON
     if args.get('output'):
-        with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f,
-                    (by if by is not None else PerfBdResult._by)
-                        + [k for k in (
-                            fields if fields is not None
-                                else PerfBdResult._fields)])
-            writer.writeheader()
-            for r in results:
-                writer.writerow(
-                        {k: getattr(r, k) for k in (
-                                by if by is not None else PerfBdResult._by)}
-                            | {k: getattr(r, k) for k in (
-                                fields if fields is not None
-                                    else PerfBdResult._fields)})
+         write_csv(args['output'], PerfBdResult, results,
+                 by=by,
+                 fields=fields,
+                 depth=depth,
+                 **args)
+    if args.get('output_json'):
+         write_csv(args['output_json'], PerfBdResult, results,
+                 json=True,
+                 by=by,
+                 fields=fields,
+                 depth=depth,
+                 **args)
 
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
-        diff_results = []
         try:
-            with openio(args.get('diff') or args.get('percent')) as f:
-                reader = csv.DictReader(f, restval='')
-                for r in reader:
-                    # filter by matching defines
-                    if not all(k in r and r[k] in vs for k, vs in defines):
-                        continue
-
-                    if not any(k in r and r[k].strip()
-                            for k in PerfBdResult._fields):
-                        continue
-                    try:
-                        diff_results.append(PerfBdResult(
-                                **{k: r[k] for k in PerfBdResult._by
-                                    if k in r and r[k].strip()},
-                                **{k: r[k] for k in PerfBdResult._fields
-                                    if k in r and r[k].strip()}))
-                    except TypeError:
-                        pass
+            diff_results = read_csv(
+                    args.get('diff') or args.get('percent'),
+                    PerfBdResult,
+                    depth=depth,
+                    **args)
         except FileNotFoundError:
-            pass
+            diff_results = []
 
         # fold
-        diff_results = fold(PerfBdResult, diff_results, by=by, defines=defines)
+        diff_results = fold(PerfBdResult, diff_results,
+                by=by,
+                defines=defines,
+                depth=depth)
 
     # print table
     if not args.get('quiet'):
@@ -1410,6 +1543,7 @@ def report(paths, *,
                     by=by if by is not None else ['function'],
                     fields=fields,
                     sort=sort,
+                    depth=depth,
                     **args)
 
 
@@ -1459,23 +1593,27 @@ if __name__ == "__main__":
             '-o', '--output',
             help="Specify CSV file to store results.")
     parser.add_argument(
+            '-O', '--output-json',
+            help="Specify JSON file to store results. This may contain "
+                "recursive info.")
+    parser.add_argument(
             '-u', '--use',
-            help="Don't parse anything, use this CSV file.")
+            help="Don't parse anything, use this CSV/JSON file.")
     parser.add_argument(
             '-d', '--diff',
-            help="Specify CSV file to diff against.")
+            help="Specify CSV/JSON file to diff against.")
     parser.add_argument(
             '-p', '--percent',
-            help="Specify CSV file to diff against, but only show precentage "
-                "change, not a full diff.")
-    parser.add_argument(
-            '-a', '--all',
-            action='store_true',
-            help="Show all, not just the ones that changed.")
+            help="Specify CSV/JSON file to diff against, but only show "
+                "percentage change, not a full diff.")
     parser.add_argument(
             '-c', '--compare',
             type=lambda x: tuple(v.strip() for v in x.split(',')),
             help="Compare results to the row matching this by pattern.")
+    parser.add_argument(
+            '-a', '--all',
+            action='store_true',
+            help="Show all, not just the ones that changed.")
     parser.add_argument(
             '-b', '--by',
             action='append',
@@ -1501,7 +1639,7 @@ if __name__ == "__main__":
         def __call__(self, parser, namespace, value, option):
             if namespace.sort is None:
                 namespace.sort = []
-            namespace.sort.append((value, True if option == '-S' else False))
+            namespace.sort.append((value, option in {'-S', '--reverse-sort'}))
     parser.add_argument(
             '-s', '--sort',
             nargs='?',
@@ -1512,6 +1650,34 @@ if __name__ == "__main__":
             nargs='?',
             action=AppendSort,
             help="Sort by this field, but backwards.")
+    parser.add_argument(
+            '-z', '--depth',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Depth of function calls to show. 0 shows all calls unless "
+                "we find a cycle. Defaults to 0.")
+    parser.add_argument(
+            '-g', '--propagate',
+            type=lambda x: int(x, 0),
+            help="Depth to propagate samples up the call-stack. 0 propagates "
+                "up to the entry point, 1 does no propagation. Defaults to 0.")
+    class AppendHot(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.hot is None:
+                namespace.hot = []
+            namespace.hot.append((value, option in {'-R', '--reverse-hot'}))
+    parser.add_argument(
+            '-r', '--hot',
+            nargs='?',
+            action=AppendHot,
+            help="Show only the hot path for each function call. Can "
+                "optionally provide fields like sort.")
+    parser.add_argument(
+            '-R', '--reverse-hot',
+            nargs='?',
+            action=AppendHot,
+            help="Like -r/--hot, but backwards.")
     parser.add_argument(
             '--no-header',
             action='store_true',
@@ -1542,23 +1708,6 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
-    parser.add_argument(
-            '-g', '--propagate',
-            type=lambda x: int(x, 0),
-            help="Depth to propagate samples up the call-stack. 0 propagates "
-                "up to the entry point, 1 does no propagation. Defaults to 0.")
-    parser.add_argument(
-            '-z', '--depth',
-            nargs='?',
-            type=lambda x: int(x, 0),
-            const=0,
-            help="Depth of function calls to show. 0 shows all calls unless "
-                "we find a cycle. Defaults to 0.")
-    parser.add_argument(
-            '-t', '--hot',
-            nargs='?',
-            action='append',
-            help="Show only the hot path for each function call.")
     parser.add_argument(
             '-A', '--annotate',
             action='store_true',
