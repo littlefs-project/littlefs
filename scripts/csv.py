@@ -1397,20 +1397,12 @@ def compile(fields_, results,
         exprs=[],
         defines=[],
         sort=None,
-        enumerate=None,
         children=None,
         hot=None,
         notes=None):
-    import builtins
-    enumerate_, enumerate = enumerate, builtins.enumerate
-
     by = by.copy()
     fields = fields.copy()
 
-    # make sure enumerate fields are included
-    if enumerate_ is not None:
-        if enumerate_ not in by:
-            by.insert(0, enumerate_)
     # make sure define fields are included
     for k, _ in defines:
         if k not in by and k not in fields:
@@ -1430,6 +1422,10 @@ def compile(fields_, results,
                 for k in fields))
     types = {}
     for k in fields__:
+        # check if dependency is in original fields
+        #
+        # it's tempting to also allow enumerate fields here, but this
+        # currently doesn't work when hotifying
         if k not in fields_:
             print("error: no field %r?" % k,
                     file=sys.stderr)
@@ -1472,17 +1468,14 @@ def compile(fields_, results,
         r__ = r_.copy()
         for k, expr in exprs.items():
             r__[k] = expr.eval(r_)
-        r_ = r__
         # evaluate mods
-        r__ = r_.copy()
         for k, m in mods.items():
-            r__[k] = punescape(m, r_)
-        r_ = r__
+            r__[k] = punescape(m, r)
 
         # return result
         return cls.__mro__[1].__new__(cls, **(
-                {k: r_.get(k, '') for k in by}
-                    | {k: ([r_[k]], 1) if k in r_ else ([], 0)
+                {k: r__.get(k, '') for k in by}
+                    | {k: ([r__[k]], 1) if k in r__ else ([], 0)
                         for k in fields}
                     | ({children: r[children] if children in r else []}
                         if children is not None else {})
@@ -1555,7 +1548,7 @@ def homogenize(Result, results, *,
         results_.append(Result(**(
                 r
                     # enumerate?
-                    | ({enumerate_: RInt(i)}
+                    | ({enumerate_: i}
                         if enumerate_ is not None
                         else {})
                     # recurse?
@@ -1704,6 +1697,9 @@ def table(Result, results, diff_results=None, *,
         by=None,
         fields=None,
         sort=None,
+        labels=None,
+        depth=1,
+        hot=None,
         diff=None,
         percent=None,
         all=False,
@@ -1713,8 +1709,6 @@ def table(Result, results, diff_results=None, *,
         no_total=False,
         small_table=False,
         summary=False,
-        depth=1,
-        hot=None,
         **_):
     import builtins
     all_, all = all, builtins.all
@@ -1758,7 +1752,7 @@ def table(Result, results, diff_results=None, *,
     # header
     if not no_header:
         header = ['%s%s' % (
-                    ','.join(by),
+                    ','.join(labels if labels is not None else by),
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
@@ -1784,7 +1778,9 @@ def table(Result, results, diff_results=None, *,
 
     # entry helper
     def table_entry(name, r, diff_r=None):
+        # prepend name
         entry = [name]
+
         # normal entry?
         if ((compare is None or r == compare_r)
                 and not percent
@@ -1843,6 +1839,7 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+
         # append any notes
         if hasattr(Result, '_notes') and r is not None:
             notes = sorted(getattr(r, Result._notes))
@@ -1914,13 +1911,22 @@ def table(Result, results, diff_results=None, *,
                 # and finally by name (diffs may be missing results)
                 n))
 
-        for i, n in enumerate(names_):
+        for i, name in enumerate(names_):
             # find comparable results
-            r = table_.get(n)
-            diff_r = diff_table_.get(n)
+            r = table_.get(name)
+            diff_r = diff_table_.get(name)
+
+            # figure out a good label
+            if labels is not None:
+                label = ','.join(str(getattr(r, k)
+                            if getattr(r, k) is not None
+                            else '')
+                        for k in labels)
+            else:
+                label = name
 
             # build line
-            line = table_entry(n, r, diff_r)
+            line = table_entry(label, r, diff_r)
 
             # add prefixes
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
@@ -1928,7 +1934,7 @@ def table(Result, results, diff_results=None, *,
             lines.append(line)
 
             # recurse?
-            if n in table_ and depth_ > 1:
+            if name in table_ and depth_ > 1:
                 table_recurse(
                         getattr(r, Result._children),
                         getattr(diff_r, Result._children, None) or [],
@@ -2107,6 +2113,7 @@ def main(csv_paths, *,
         defines=[],
         sort=None,
         enumerate=None,
+        labels=None,
         depth=None,
         children=None,
         hot=None,
@@ -2119,10 +2126,31 @@ def main(csv_paths, *,
     if args.get('help_exprs'):
         return RExpr.help()
 
-    if by is None and fields is None:
+    if by is None and enumerate_ is None and labels is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
                 file=sys.stderr)
         sys.exit(-1)
+
+    if enumerate_ is not None:
+        if len(enumerate_) > 1:
+            print("error: multiple --enumerate fields currently not supported",
+                    file=sys.stderr)
+            sys.exit(-1)
+        enumerate_ = enumerate_[0]
+
+    if children is not None:
+        if len(children) > 1:
+            print("error: multiple --children fields currently not supported",
+                    file=sys.stderr)
+            sys.exit(-1)
+        children = children[0]
+
+    if notes is not None:
+        if len(notes) > 1:
+            print("error: multiple --notes fields currently not supported",
+                    file=sys.stderr)
+            sys.exit(-1)
+        notes = notes[0]
 
     # recursive results imply --children
     if (depth is not None or hot is not None) and children is None:
@@ -2139,7 +2167,9 @@ def main(csv_paths, *,
     # by supports mods => -ba=%(b)s
     # fields/sort/hot support exprs => -fa=b+c
     mods = [(k, v)
-            for k, v in (by or [])
+            for k, v in it.chain(
+                by or [],
+                labels or [])
             if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
@@ -2153,8 +2183,21 @@ def main(csv_paths, *,
         fields = [k for k, _ in fields]
     if sort is not None:
         sort = [(k, reverse) for (k, v), reverse in sort]
+    if labels is not None:
+        labels = [k for k, _ in labels]
     if hot is not None:
         hot = [(k, reverse) for (k, v), reverse in hot]
+
+    # include enumerate and label fields in by
+    if enumerate_ is not None:
+        by = by or []
+        if enumerate_ not in by:
+            by.insert(0, enumerate_)
+    if labels is not None:
+        by = by or []
+        for k in labels:
+            if k not in by:
+                by.append(k)
 
     # find results
     if not args.get('use', None):
@@ -2185,7 +2228,6 @@ def main(csv_paths, *,
                 if k not in (fields or [])
                     and not any(k == k_ for k_, _ in defines)
                     and not any(k == k_ for k_, _ in (sort or []))
-                    and k != enumerate_
                     and k != children
                     and not any(k == k_ for k_, _ in (hot or []))
                     and k != notes
@@ -2199,7 +2241,6 @@ def main(csv_paths, *,
                 if k not in (by or [])
                     and not any(k == k_ for k_, _ in defines)
                     and not any(k == k_ for k_, _ in (sort or []))
-                    and k != enumerate_
                     and k != children
                     and not any(k == k_ for k_, _ in (hot or []))
                     and k != notes
@@ -2215,7 +2256,6 @@ def main(csv_paths, *,
             exprs=exprs,
             defines=defines,
             sort=sort,
-            enumerate=enumerate_,
             children=children,
             hot=hot,
             notes=notes)
@@ -2246,8 +2286,7 @@ def main(csv_paths, *,
                 depth=depth,
                 **args)
     if args.get('output_json'):
-        write_csv(args['output_json'], Result, results,
-                json=True,
+        write_csv(args['output_json'], Result, results, json=True,
                 by=by,
                 fields=fields,
                 depth=depth,
@@ -2277,6 +2316,7 @@ def main(csv_paths, *,
                 by=by,
                 fields=fields,
                 sort=sort,
+                labels=labels,
                 depth=depth,
                 **args)
 
@@ -2389,8 +2429,20 @@ if __name__ == "__main__":
             '-i', '--enumerate',
             nargs='?',
             const='i',
+            action='append',
             help="Field to use for enumerating results. This will prevent "
                 "result folding.")
+    parser.add_argument(
+            '-l', '--label',
+            dest='labels',
+            action='append',
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    v.strip() if v is not None else None)
+                )(*x.split('=', 1)),
+            help="Field to use for labeling results. This defaults to all "
+                "-b/--by fields. Can be assigned a string with %% modifiers.")
     parser.add_argument(
             '-z', '--depth',
             nargs='?',
@@ -2402,6 +2454,7 @@ if __name__ == "__main__":
             '-Z', '--children',
             nargs='?',
             const='children',
+            action='append',
             help="Field to use for recursive results. This expects a list "
                 "and really only works with JSON input.")
     class AppendHot(argparse.Action):
@@ -2437,6 +2490,7 @@ if __name__ == "__main__":
             '-N', '--notes',
             nargs='?',
             const='notes',
+            action='append',
             help="Field to use for notes.")
     parser.add_argument(
             '--no-header',

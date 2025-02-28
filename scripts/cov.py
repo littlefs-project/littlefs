@@ -444,6 +444,9 @@ def table(Result, results, diff_results=None, *,
         by=None,
         fields=None,
         sort=None,
+        labels=None,
+        depth=1,
+        hot=None,
         diff=None,
         percent=None,
         all=False,
@@ -453,8 +456,6 @@ def table(Result, results, diff_results=None, *,
         no_total=False,
         small_table=False,
         summary=False,
-        depth=1,
-        hot=None,
         **_):
     import builtins
     all_, all = all, builtins.all
@@ -498,7 +499,7 @@ def table(Result, results, diff_results=None, *,
     # header
     if not no_header:
         header = ['%s%s' % (
-                    ','.join(by),
+                    ','.join(labels if labels is not None else by),
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
@@ -524,7 +525,9 @@ def table(Result, results, diff_results=None, *,
 
     # entry helper
     def table_entry(name, r, diff_r=None):
+        # prepend name
         entry = [name]
+
         # normal entry?
         if ((compare is None or r == compare_r)
                 and not percent
@@ -583,6 +586,7 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
+
         # append any notes
         if hasattr(Result, '_notes') and r is not None:
             notes = sorted(getattr(r, Result._notes))
@@ -654,13 +658,22 @@ def table(Result, results, diff_results=None, *,
                 # and finally by name (diffs may be missing results)
                 n))
 
-        for i, n in enumerate(names_):
+        for i, name in enumerate(names_):
             # find comparable results
-            r = table_.get(n)
-            diff_r = diff_table_.get(n)
+            r = table_.get(name)
+            diff_r = diff_table_.get(name)
+
+            # figure out a good label
+            if labels is not None:
+                label = ','.join(str(getattr(r, k)
+                            if getattr(r, k) is not None
+                            else '')
+                        for k in labels)
+            else:
+                label = name
 
             # build line
-            line = table_entry(n, r, diff_r)
+            line = table_entry(label, r, diff_r)
 
             # add prefixes
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
@@ -668,7 +681,7 @@ def table(Result, results, diff_results=None, *,
             lines.append(line)
 
             # recurse?
-            if n in table_ and depth_ > 1:
+            if name in table_ and depth_ > 1:
                 table_recurse(
                         getattr(r, Result._children),
                         getattr(diff_r, Result._children, None) or [],
@@ -959,8 +972,7 @@ def main(gcda_paths, *,
                 fields=fields,
                 **args)
     if args.get('output_json'):
-        write_csv(args['output_json'], CovResult, results,
-                json=True,
+        write_csv(args['output_json'], CovResult, results, json=True,
                 by=by,
                 fields=fields,
                 **args)
