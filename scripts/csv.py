@@ -1426,7 +1426,15 @@ def compile(fields_, results,
             by.append(k)
     # make sure sort/hot fields are included
     for k, reverse in it.chain(sort or [], hot or []):
+        # this defaults to typechecking sort/hot fields, which is
+        # probably safer, if you really want to sort by strings you
+        # can use --by + --label to create hidden by fields
         if k and k not in by and k not in fields:
+            fields.append(k)
+    # make sure all expr targets are in fields so they get typechecked
+    # correctly
+    for k, _ in exprs:
+        if k not in fields:
             fields.append(k)
 
     # we only really care about the last mod/expr for each field
