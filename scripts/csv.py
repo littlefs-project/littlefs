@@ -1281,7 +1281,7 @@ def punescape(s, attrs=None):
             '|' '%u....'
             '|' '%U........'
             '|' '%\((?P<field>[^)]*)\)'
-                '(?P<format>[+\- #0-9\.]*[scdboxXfFeEgG])')
+                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
     def unescape(m):
         if m.group()[1] == '%': return '%'
         elif m.group()[1] == 'n': return '\n'
@@ -1309,6 +1309,23 @@ def punescape(s, attrs=None):
             return ('{:%s}' % f).format(v)
         else: assert False
     return re.sub(pattern, unescape, s)
+
+def punescape_help():
+    print('mods:')
+    print('  %-21s %s' % ('%%', 'A literal % character'))
+    print('  %-21s %s' % ('%n', 'A newline'))
+    print('  %-21s %s' % (
+            '%xaa', 'A character with the hex value aa'))
+    print('  %-21s %s' % (
+            '%uaaaa', 'A character with the hex value aaaa'))
+    print('  %-21s %s' % (
+            '%Uaaaaaaaa', 'A character with the hex value aaaaaaaa'))
+    print('  %-21s %s' % (
+            '%(field)s', 'An existing field formatted as a string'))
+    print('  %-21s %s' % (
+            '%(field)[dboxX]', 'An existing field formatted as an integer'))
+    print('  %-21s %s' % (
+            '%(field)[fFeEgG]', 'An existing field formatted as a float'))
 
 
 def openio(path, mode='r', buffering=-1):
@@ -2122,6 +2139,9 @@ def main(csv_paths, *,
     import builtins
     enumerate_, enumerate = enumerate, builtins.enumerate
 
+    # show mod help text?
+    if args.get('help_mods'):
+        return punescape_help()
     # show expr help text?
     if args.get('help_exprs'):
         return RExpr.help()
@@ -2331,6 +2351,10 @@ if __name__ == "__main__":
             'csv_paths',
             nargs='*',
             help="Input *.csv files.")
+    parser.add_argument(
+            '--help-mods',
+            action='store_true',
+            help="Show what %% modifiers are available.")
     parser.add_argument(
             '--help-exprs',
             action='store_true',

@@ -404,7 +404,7 @@ def punescape(s, attrs=None):
             '|' '%u....'
             '|' '%U........'
             '|' '%\((?P<field>[^)]*)\)'
-                '(?P<format>[+\- #0-9\.]*[scdboxXfFeEgG])')
+                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
     def unescape(m):
         if m.group()[1] == '%': return '%'
         elif m.group()[1] == 'n': return '\n'
