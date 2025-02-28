@@ -937,15 +937,6 @@ def table(Result, results, diff_results=None, *,
         fields = Result._fields
     types = Result._types
 
-    # fold again, otherwise results risk being hidden
-    results = fold(Result, results,
-            by=by,
-            depth=depth)
-    if diff_results is not None:
-        diff_results = fold(Result, diff_results,
-                by=by,
-                depth=depth)
-
     # organize by name
     table = {
             ','.join(str(getattr(r, k)
@@ -959,6 +950,12 @@ def table(Result, results, diff_results=None, *,
                         else '')
                     for k in by): r
                 for r in diff_results or []}
+
+    # lost results? this only happens if we didn't fold by the same
+    # by field, which is an error and risks confusing results
+    assert len(table) == len(results)
+    if diff_results is not None:
+        assert len(diff_table) == len(diff_results)
 
     # find compare entry if there is one
     if compare:
@@ -1454,6 +1451,24 @@ def report(paths, *,
     else:
         args['color'] = False
 
+    # figure out what fields we're interested in
+    labels = None
+    if by is None:
+        if (args.get('annotate')
+                or args.get('threshold')
+                or args.get('read_threshold')
+                or args.get('prog_threshold')
+                or args.get('erase_threshold')):
+            by = ['file', 'line']
+        elif depth is not None or hot is not None:
+            by = ['z', 'function']
+            labels = ['function']
+        else:
+            by = ['function']
+
+    if fields is None:
+        fields = ['readed', 'proged', 'erased']
+
     # figure out depth
     if depth is None:
         depth = mt.inf if hot else 1
@@ -1551,11 +1566,10 @@ def report(paths, *,
         else:
             # print table
             table(PerfBdResult, results, diff_results,
-                    by=by if by is not None else ['z', 'function'],
-                    fields=fields if fields is not None
-                        else ['readed', 'proged', 'erased'],
+                    by=by,
+                    fields=fields,
                     sort=sort,
-                    labels=by if by is not None else ['function'],
+                    labels=labels,
                     depth=depth,
                     **args)
 

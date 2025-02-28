@@ -863,15 +863,6 @@ def table(Result, results, diff_results=None, *,
         fields = Result._fields
     types = Result._types
 
-    # fold again, otherwise results risk being hidden
-    results = fold(Result, results,
-            by=by,
-            depth=depth)
-    if diff_results is not None:
-        diff_results = fold(Result, diff_results,
-                by=by,
-                depth=depth)
-
     # organize by name
     table = {
             ','.join(str(getattr(r, k)
@@ -885,6 +876,12 @@ def table(Result, results, diff_results=None, *,
                         else '')
                     for k in by): r
                 for r in diff_results or []}
+
+    # lost results? this only happens if we didn't fold by the same
+    # by field, which is an error and risks confusing results
+    assert len(table) == len(results)
+    if diff_results is not None:
+        assert len(diff_table) == len(diff_results)
 
     # find compare entry if there is one
     if compare:
@@ -1259,6 +1256,18 @@ def main(obj_paths, *,
         depth=None,
         hot=None,
         **args):
+    # figure out what fields we're interested in
+    labels = None
+    if by is None:
+        if depth is not None or hot is not None:
+            by = ['z', 'i', 'function']
+            labels = ['function']
+        else:
+            by = ['function']
+
+    if fields is None:
+        fields = ['size']
+
     # figure out depth
     if depth is None:
         depth = mt.inf if hot else 1
@@ -1330,10 +1339,10 @@ def main(obj_paths, *,
     # print table
     if not args.get('quiet'):
         table(CtxResult, results, diff_results,
-                by=by if by is not None else ['z', 'i', 'function'],
-                fields=fields if fields is not None else ['size'],
+                by=by,
+                fields=fields,
                 sort=sort,
-                labels=by if by is not None else ['function'],
+                labels=labels,
                 depth=depth,
                 **args)
 
