@@ -199,6 +199,18 @@ The tests assume a Linux environment and can be started with make:
 make test
 ```
 
+Tests are defined as C code in toml files in the `tests/` directory.
+When developing a feature or fixing a bug, it is frequently useful to run a single suite of tests.
+To run individual tests or suite of tests:
+
+``` bash
+make test-runner
+python scripts/test.py --help  # See all available options
+python scripts/test.py --list-suites  # prints out all available test suites.
+python scripts/test.py --list-cases  # prints out all available individual test cases.
+python scripts/test.py runners/test_runner test_attrs  # runs the test_attrs suite.
+```
+
 ## License
 
 The littlefs is provided under the [BSD-3-Clause] license. See
