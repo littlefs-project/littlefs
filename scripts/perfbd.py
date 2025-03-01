@@ -1095,14 +1095,17 @@ def table(Result, results, diff_results=None, *,
         # sort again, now with diff info, note that python's sort is stable
         names_.sort(key=lambda n: (
                 # sort by explicit sort fields
-                tuple((Rev
-                            if reverse ^ (not k or k in Result._fields)
-                            else lambda x: x)(
-                        tuple((getattr(table_[n], k_),)
-                                if getattr(table_.get(n), k_, None) is not None
-                                else ()
-                            for k_ in ([k] if k else Result._sort)))
-                    for k, reverse in (sort or [])),
+                next(
+                    tuple((Rev
+                                    if reverse ^ (not k or k in Result._fields)
+                                    else lambda x: x)(
+                                tuple((getattr(r_, k_),)
+                                        if getattr(r_, k_) is not None
+                                        else ()
+                                    for k_ in ([k] if k else Result._sort)))
+                            for k, reverse in (sort or []))
+                        for r_ in [table_.get(n), diff_table_.get(n)]
+                        if r_ is not None),
                 # sort by ratio if diffing
                 Rev(tuple(types[k].ratio(
                             getattr(table_.get(n), k, None),
