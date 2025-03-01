@@ -857,7 +857,7 @@ def fold(Result, results, *,
                 Result._children: fold(
                         Result, getattr(r, Result._children),
                         by=by,
-                        defines=defines,
+                        # only filter defines at the top level!
                         sort=sort,
                         depth=depth-1)})
                     for r in folded]

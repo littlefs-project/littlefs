@@ -1412,7 +1412,6 @@ def compile(fields_, results,
         fields=None,
         mods=[],
         exprs=[],
-        defines=[],
         sort=None,
         children=None,
         hot=None,
@@ -1420,10 +1419,6 @@ def compile(fields_, results,
     by = by.copy()
     fields = fields.copy()
 
-    # make sure define fields are included
-    for k, _ in defines:
-        if k not in by and k not in fields:
-            by.append(k)
     # make sure sort/hot fields are included
     for k, reverse in it.chain(sort or [], hot or []):
         # this defaults to typechecking sort/hot fields, which is
@@ -1562,20 +1557,32 @@ def compile(fields_, results,
 
 def homogenize(Result, results, *,
         enumerates=None,
+        defines=[],
         depth=1):
     # this just converts all (possibly recursive) results to our
     # result type
     results_ = []
-    for i, r in enumerate(results):
+    for r in results:
+        # filter by matching defines
+        #
+        # we do this here instead of in fold to be consistent with
+        # evaluation order of exprs/mods/etc, note this isn't really
+        # inconsistent with the other scripts, since they don't really
+        # evaluate anything
+        if not all(k in r and str(r[k]) in vs for k, vs in defines):
+            continue
+
+        # append a result
         results_.append(Result(**(
                 r
                     # enumerate?
-                    | ({e: i for e in enumerates}
+                    | ({e: len(results_) for e in enumerates}
                         if enumerates is not None
                         else {})
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
+                            # only filter defines at the top level!
                             enumerates=enumerates,
                             depth=depth-1)}
                         if hasattr(Result, '_children')
@@ -1661,7 +1668,7 @@ def fold(Result, results, *,
                 Result._children: fold(
                         Result, getattr(r, Result._children),
                         by=by,
-                        defines=defines,
+                        # only filter defines at the top level!
                         sort=sort,
                         depth=depth-1)})
                     for r in folded]
@@ -2260,7 +2267,6 @@ def main(csv_paths, *,
             fields=fields,
             mods=mods,
             exprs=exprs,
-            defines=defines,
             sort=sort,
             children=children,
             hot=hot,
@@ -2269,12 +2275,12 @@ def main(csv_paths, *,
     # homogenize
     results = homogenize(Result, results,
             enumerates=enumerates,
+            defines=defines,
             depth=depth)
 
     # fold
     results = fold(Result, results,
             by=by,
-            defines=defines,
             depth=depth)
 
     # hotify?
