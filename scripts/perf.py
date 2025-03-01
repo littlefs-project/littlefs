@@ -1484,13 +1484,15 @@ def report(perf_paths, *,
         else:
             by = ['function']
 
+    visible = None
     if fields is None:
+        fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
         if not branches and not caches:
-            fields = ['cycles']
+            visible = ['cycles']
         elif branches:
-            fields = ['bmisses', 'branches']
+            visible = ['bmisses', 'branches']
         else:
-            fields = ['cmisses', 'caches']
+            visible = ['cmisses', 'caches']
 
     # figure out depth
     if depth is None:
@@ -1579,7 +1581,7 @@ def report(perf_paths, *,
             # print table
             table(PerfResult, results, diff_results,
                     by=by,
-                    fields=fields,
+                    fields=visible if visible is not None else fields,
                     sort=sort,
                     labels=labels,
                     depth=depth,

@@ -1088,8 +1088,10 @@ def main(obj_paths, *,
         else:
             by = ['struct']
 
+    visible = None
     if fields is None:
-        fields = ['size', 'align']
+        fields = ['off', 'size', 'align']
+        visible = ['size', 'align']
 
     # figure out depth
     if depth is None:
@@ -1169,7 +1171,7 @@ def main(obj_paths, *,
     if not args.get('quiet'):
         table(StructResult, results, diff_results,
                 by=by,
-                fields=fields,
+                fields=visible if visible is not None else fields,
                 sort=sort,
                 labels=labels,
                 depth=depth,

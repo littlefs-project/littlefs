@@ -1268,8 +1268,10 @@ def main(obj_paths, *,
         else:
             by = ['function']
 
+    visible = None
     if fields is None:
-        fields = ['size']
+        fields = ['off', 'size']
+        visible = ['size']
 
     # figure out depth
     if depth is None:
@@ -1349,7 +1351,7 @@ def main(obj_paths, *,
     if not args.get('quiet'):
         table(CtxResult, results, diff_results,
                 by=by,
-                fields=fields,
+                fields=visible if visible is not None else fields,
                 sort=sort,
                 labels=labels,
                 depth=depth,

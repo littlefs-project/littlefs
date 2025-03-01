@@ -953,11 +953,13 @@ def main(gcda_paths, *,
         else:
             by = ['function']
 
+    visible = None
     if fields is None:
+        fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
         if not hits:
-            fields = ['lines', 'branches']
+            visible = ['lines', 'branches']
         else:
-            fields = ['calls', 'hits']
+            visible = ['calls', 'hits']
 
     # find sizes
     if not args.get('use', None):
@@ -1019,7 +1021,7 @@ def main(gcda_paths, *,
             # print table
             table(CovResult, results, diff_results,
                     by=by,
-                    fields=fields,
+                    fields=visible if visible is not None else fields,
                     sort=sort,
                     **args)
 

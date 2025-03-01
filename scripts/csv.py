@@ -2346,7 +2346,6 @@ def main(csv_paths, *,
     # print table
     if not args.get('quiet'):
         table(Result, results, diff_results,
-                # note the use of labels + visible here
                 by=by,
                 fields=visible if visible is not None else fields,
                 sort=sort,
