@@ -1338,7 +1338,7 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def collect(csv_paths, *,
+def collect_csv(csv_paths, *,
         depth=1,
         children=None,
         notes=None,
@@ -1944,10 +1944,13 @@ def table(Result, results, diff_results=None, *,
 
             # figure out a good label
             if labels is not None:
-                label = ','.join(str(getattr(r, k)
-                            if getattr(r, k) is not None
-                            else '')
-                        for k in labels)
+                label = next(
+                        ','.join(str(getattr(r_, k)
+                                    if getattr(r_, k) is not None
+                                    else '')
+                                for k in labels)
+                            for r_ in [r, diff_r]
+                            if r_ is not None)
             else:
                 label = name
 
@@ -2221,7 +2224,7 @@ def main(csv_paths, *,
             sys.exit(1)
 
         # collect info
-        fields_, results = collect(csv_paths,
+        fields_, results = collect_csv(csv_paths,
                 depth=depth,
                 children=children,
                 notes=notes,
@@ -2229,7 +2232,7 @@ def main(csv_paths, *,
 
     else:
         # use is just an alias but takes priority
-        fields_, results = collect([args['use']],
+        fields_, results = collect_csv([args['use']],
                 depth=depth,
                 children=children,
                 notes=notes,
@@ -2307,20 +2310,38 @@ def main(csv_paths, *,
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
+        # note! don't use read_csv here
+        #
+        # it's tempting now that we have a Result type, but we want to
+        # make sure all the defines/exprs/mods/etc are evaluated in the
+        # same order
         try:
-            diff_results = read_csv(
-                    args.get('diff') or args.get('percent'),
-                    Result,
+            _, diff_results = collect_csv(
+                    [args.get('diff') or args.get('percent')],
                     depth=depth,
+                    children=children,
+                    notes=notes,
                     **args)
         except FileNotFoundError:
             diff_results = []
 
+        # homogenize
+        diff_results = homogenize(Result, diff_results,
+                enumerates=enumerates,
+                defines=defines,
+                depth=depth)
+
         # fold
         diff_results = fold(Result, diff_results,
                 by=by,
-                defines=defines,
                 depth=depth)
+
+        # hotify?
+        if hot:
+            diff_results = hotify(Result, diff_results,
+                    enumerates=enumerates,
+                    depth=depth,
+                    hot=hot)
 
     # print table
     if not args.get('quiet'):

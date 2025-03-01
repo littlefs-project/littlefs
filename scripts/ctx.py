@@ -995,7 +995,6 @@ def table(Result, results, diff_results=None, *,
     def table_recurse(results_, diff_results_,
             depth_,
             prefixes=('', '', '', '')):
-
         # build the children table at each layer
         table_ = {
                 ','.join(str(getattr(r, k)
@@ -1060,10 +1059,13 @@ def table(Result, results, diff_results=None, *,
 
             # figure out a good label
             if labels is not None:
-                label = ','.join(str(getattr(r, k)
-                            if getattr(r, k) is not None
-                            else '')
-                        for k in labels)
+                label = next(
+                        ','.join(str(getattr(r_, k)
+                                    if getattr(r_, k) is not None
+                                    else '')
+                                for k in labels)
+                            for r_ in [r, diff_r]
+                            if r_ is not None)
             else:
                 label = name
 
@@ -1336,6 +1338,12 @@ def main(obj_paths, *,
                 by=by,
                 defines=defines,
                 depth=depth)
+
+        # hotify?
+        if hot:
+            diff_results = hotify(CtxResult, diff_results,
+                    depth=depth,
+                    hot=hot)
 
     # print table
     if not args.get('quiet'):
