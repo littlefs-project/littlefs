@@ -1053,20 +1053,6 @@ def main(ci_paths,
                 depth=depth,
                 hot=hot)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-        write_csv(args['output'], StackResult, results,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-    if args.get('output_json'):
-        write_csv(args['output_json'], StackResult, results, json=True,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -1091,8 +1077,22 @@ def main(ci_paths,
                     depth=depth,
                     hot=hot)
 
+    # write results to JSON
+    if args.get('output_json'):
+        write_csv(args['output_json'], StackResult, results, json=True,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
+    # write results to CSV
+    elif args.get('output'):
+        write_csv(args['output'], StackResult, results,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
     # print table
-    if not args.get('quiet'):
+    else:
         table(StackResult, results, diff_results,
                 by=by,
                 fields=fields,
@@ -1121,10 +1121,6 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")

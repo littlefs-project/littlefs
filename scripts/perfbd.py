@@ -1525,20 +1525,6 @@ def report(paths, *,
                 depth=depth,
                 hot=hot)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-         write_csv(args['output'], PerfBdResult, results,
-                 by=by,
-                 fields=fields,
-                 depth=depth,
-                 **args)
-    if args.get('output_json'):
-         write_csv(args['output_json'], PerfBdResult, results, json=True,
-                 by=by,
-                 fields=fields,
-                 depth=depth,
-                 **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -1564,23 +1550,35 @@ def report(paths, *,
                     hot=hot)
 
     # print table
-    if not args.get('quiet'):
-        if (args.get('annotate')
-                or args.get('threshold')
-                or args.get('read_threshold')
-                or args.get('prog_threshold')
-                or args.get('erase_threshold')):
-            # annotate sources
-            annotate(PerfBdResult, results, **args)
-        else:
-            # print table
-            table(PerfBdResult, results, diff_results,
-                    by=by,
-                    fields=fields,
-                    sort=sort,
-                    labels=labels,
-                    depth=depth,
-                    **args)
+    if (args.get('annotate')
+            or args.get('threshold')
+            or args.get('read_threshold')
+            or args.get('prog_threshold')
+            or args.get('erase_threshold')):
+        annotate(PerfBdResult, results, **args)
+    # write results to JSON
+    elif args.get('output_json'):
+         write_csv(args['output_json'], PerfBdResult, results, json=True,
+                 by=by,
+                 fields=fields,
+                 depth=depth,
+                 **args)
+    # write results to CSV
+    elif args.get('output'):
+         write_csv(args['output'], PerfBdResult, results,
+                 by=by,
+                 fields=fields,
+                 depth=depth,
+                 **args)
+    # print table
+    else:
+        table(PerfBdResult, results, diff_results,
+                by=by,
+                fields=fields,
+                sort=sort,
+                labels=labels,
+                depth=depth,
+                **args)
 
 
 def main(**args):
@@ -1621,10 +1619,6 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")

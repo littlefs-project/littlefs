@@ -1027,18 +1027,6 @@ def main(obj_paths, *,
             by=by,
             defines=defines)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-        write_csv(args['output'], DataResult, results,
-                by=by,
-                fields=fields,
-                **args)
-    if args.get('output_json'):
-        write_csv(args['output_json'], DataResult, results, json=True,
-                by=by,
-                fields=fields,
-                **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -1055,8 +1043,20 @@ def main(obj_paths, *,
                 by=by,
                 defines=defines)
 
+    # write results to JSON
+    if args.get('output_json'):
+        write_csv(args['output_json'], DataResult, results, json=True,
+                by=by,
+                fields=fields,
+                **args)
+    # write results to CSV
+    elif args.get('output'):
+        write_csv(args['output'], DataResult, results,
+                by=by,
+                fields=fields,
+                **args)
     # print table
-    if not args.get('quiet'):
+    else:
         table(DataResult, results, diff_results,
                 by=by,
                 fields=fields,
@@ -1078,10 +1078,6 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")

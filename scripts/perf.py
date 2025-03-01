@@ -1484,15 +1484,18 @@ def report(perf_paths, *,
         else:
             by = ['function']
 
-    visible = None
     if fields is None:
-        fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
-        if not branches and not caches:
-            visible = ['cycles']
+        if (args.get('annotate')
+                or args.get('threshold')
+                or args.get('output')
+                or args.get('output_json')):
+            fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
+        elif not branches and not caches:
+            fields = ['cycles']
         elif branches:
-            visible = ['bmisses', 'branches']
+            fields = ['bmisses', 'branches']
         else:
-            visible = ['cmisses', 'caches']
+            fields = ['cmisses', 'caches']
 
     # figure out depth
     if depth is None:
@@ -1530,20 +1533,6 @@ def report(perf_paths, *,
                 depth=depth,
                 hot=hot)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-        write_csv(args['output'], PerfResult, results,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-    if args.get('output_json'):
-        write_csv(args['output_json'], PerfResult, results, json=True,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -1569,23 +1558,35 @@ def report(perf_paths, *,
                     hot=hot)
 
     # print table
-    if not args.get('quiet'):
-        if (args.get('annotate')
-                or args.get('threshold')):
-            # annotate sources
-            annotate(PerfResult, results,
-                    branches=branches,
-                    caches=caches,
-                    **args)
-        else:
-            # print table
-            table(PerfResult, results, diff_results,
-                    by=by,
-                    fields=visible if visible is not None else fields,
-                    sort=sort,
-                    labels=labels,
-                    depth=depth,
-                    **args)
+    if (args.get('annotate')
+            or args.get('threshold')):
+        annotate(PerfResult, results,
+                branches=branches,
+                caches=caches,
+                **args)
+    # write results to JSON
+    elif args.get('output_json'):
+        write_csv(args['output_json'], PerfResult, results, json=True,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
+    # write results to CSV
+    elif args.get('output'):
+        write_csv(args['output'], PerfResult, results,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
+    else:
+        # print table
+        table(PerfResult, results, diff_results,
+                by=by,
+                fields=fields,
+                sort=sort,
+                labels=labels,
+                depth=depth,
+                **args)
 
 
 def main(**args):
@@ -1621,10 +1622,6 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")

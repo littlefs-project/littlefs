@@ -1268,10 +1268,12 @@ def main(obj_paths, *,
         else:
             by = ['function']
 
-    visible = None
     if fields is None:
-        fields = ['off', 'size']
-        visible = ['size']
+        if (args.get('output')
+                or args.get('output_json')):
+            fields = ['off', 'size']
+        else:
+            fields = ['size']
 
     # figure out depth
     if depth is None:
@@ -1309,20 +1311,6 @@ def main(obj_paths, *,
                 depth=depth,
                 hot=hot)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-        write_csv(args['output'], CtxResult, results,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-    if args.get('output_json'):
-        write_csv(args['output_json'], CtxResult, results, json=True,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -1347,11 +1335,25 @@ def main(obj_paths, *,
                     depth=depth,
                     hot=hot)
 
+    # write results to JSON
+    if args.get('output_json'):
+        write_csv(args['output_json'], CtxResult, results, json=True,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
+    # write results to CSV
+    elif args.get('output'):
+        write_csv(args['output'], CtxResult, results,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
     # print table
-    if not args.get('quiet'):
+    else:
         table(CtxResult, results, diff_results,
                 by=by,
-                fields=visible if visible is not None else fields,
+                fields=fields,
                 sort=sort,
                 labels=labels,
                 depth=depth,
@@ -1372,10 +1374,6 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")

@@ -953,13 +953,17 @@ def main(gcda_paths, *,
         else:
             by = ['function']
 
-    visible = None
     if fields is None:
-        fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
-        if not hits:
-            visible = ['lines', 'branches']
+        if (args.get('annotate')
+                or args.get('lines')
+                or args.get('branches')
+                or args.get('output')
+                or args.get('output_json')):
+            fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
+        elif not hits:
+            fields = ['lines', 'branches']
         else:
-            visible = ['calls', 'hits']
+            fields = ['calls', 'hits']
 
     # find sizes
     if not args.get('use', None):
@@ -982,18 +986,6 @@ def main(gcda_paths, *,
             by=by,
             defines=defines)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-        write_csv(args['output'], CovResult, results,
-                by=by,
-                fields=fields,
-                **args)
-    if args.get('output_json'):
-        write_csv(args['output_json'], CovResult, results, json=True,
-                by=by,
-                fields=fields,
-                **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -1010,20 +1002,30 @@ def main(gcda_paths, *,
                 by=by,
                 defines=defines)
 
+    # annotate sources
+    if (args.get('annotate')
+            or args.get('lines')
+            or args.get('branches')):
+        annotate(CovResult, results, **args)
+    # write results to JSON
+    elif args.get('output_json'):
+        write_csv(args['output_json'], CovResult, results, json=True,
+                by=by,
+                fields=fields,
+                **args)
+    # write results to CSV
+    elif args.get('output'):
+        write_csv(args['output'], CovResult, results,
+                by=by,
+                fields=fields,
+                **args)
     # print table
-    if not args.get('quiet'):
-        if (args.get('annotate')
-                or args.get('lines')
-                or args.get('branches')):
-            # annotate sources
-            annotate(CovResult, results, **args)
-        else:
-            # print table
-            table(CovResult, results, diff_results,
-                    by=by,
-                    fields=visible if visible is not None else fields,
-                    sort=sort,
-                    **args)
+    else:
+        table(CovResult, results, diff_results,
+                by=by,
+                fields=fields,
+                sort=sort,
+                **args)
 
     # catch lack of coverage
     if args.get('error_on_lines') and any(
@@ -1048,10 +1050,6 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")

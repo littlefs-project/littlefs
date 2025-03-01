@@ -2206,10 +2206,11 @@ def main(csv_paths, *,
     if by is not None:
         labels = [k for (k, v), hidden in by if not hidden]
         by = [k for (k, v), hidden in by]
-    visible = None
     if fields is not None:
-        visible = [k for (k, v), hidden in fields if not hidden]
-        fields = [k for (k, v), hidden in fields]
+        fields = [k for (k, v), hidden in fields
+                if not hidden
+                    or args.get('output')
+                    or args.get('output_json')]
     if sort is not None:
         sort = [(k, reverse) for (k, v), reverse in sort]
     if hot is not None:
@@ -2293,20 +2294,6 @@ def main(csv_paths, *,
                 depth=depth,
                 hot=hot)
 
-    # write results to CSV/JSON
-    if args.get('output'):
-        write_csv(args['output'], Result, results,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-    if args.get('output_json'):
-        write_csv(args['output_json'], Result, results, json=True,
-                by=by,
-                fields=fields,
-                depth=depth,
-                **args)
-
     # find previous results?
     diff_results = None
     if args.get('diff') or args.get('percent'):
@@ -2343,11 +2330,25 @@ def main(csv_paths, *,
                     depth=depth,
                     hot=hot)
 
+    # write results to JSON
+    if args.get('output_json'):
+        write_csv(args['output_json'], Result, results, json=True,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
+    # write results to CSV
+    elif args.get('output'):
+        write_csv(args['output'], Result, results,
+                by=by,
+                fields=fields,
+                depth=depth,
+                **args)
     # print table
-    if not args.get('quiet'):
+    else:
         table(Result, results, diff_results,
                 by=by,
-                fields=visible if visible is not None else fields,
+                fields=fields,
                 sort=sort,
                 labels=labels,
                 depth=depth,
@@ -2372,10 +2373,6 @@ if __name__ == "__main__":
             '--help-exprs',
             action='store_true',
             help="Show what field exprs are available.")
-    parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't show anything, useful with -o.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")
