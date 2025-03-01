@@ -756,7 +756,7 @@ def table(Result, results, diff_results=None, *,
                     for r in diff_results_ or []}
         names_ = [n
                 for n in table_.keys() | diff_table_.keys()
-                if diff_results_ is None
+                if diff_results is None
                     or all_
                     or any(
                         types[k].ratio(
@@ -824,7 +824,7 @@ def table(Result, results, diff_results=None, *,
             if name in table_ and depth_ > 1:
                 table_recurse(
                         getattr(r, Result._children),
-                        getattr(diff_r, Result._children, None) or [],
+                        getattr(diff_r, Result._children, None),
                         depth_-1,
                         (prefixes[2+(i==len(names_)-1)] + "|-> ",
                          prefixes[2+(i==len(names_)-1)] + "'-> ",
