@@ -895,14 +895,12 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        enumerate=None,
+        enumerates=None,
         depth=1,
         hot=None,
         **_):
-    # note! hotifying risks confusion if you don't enumerate/have a z
-    # field, since it will allow folding across recursive boundaries
-    import builtins
-    enumerate_, enumerate = enumerate, builtins.enumerate
+    # note! hotifying risks confusion if you don't enumerate/have a
+    # z field, since it will allow folding across recursive boundaries
 
     # hotify only makes sense for recursive results
     assert hasattr(Result, '_children')
@@ -927,8 +925,10 @@ def hotify(Result, results, *,
                         for k, reverse in it.chain(hot, [(None, False)])))
 
             hot_.append(r._replace(**(
-                    ({enumerate_: len(hot_)}
-                            if enumerate_ is not None else {})
+                    # enumerate?
+                    ({e: len(hot_) for e in enumerates}
+                            if enumerates is not None
+                            else {})
                         | {Result._children: []})))
 
             # recurse?

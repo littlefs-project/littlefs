@@ -1561,11 +1561,8 @@ def compile(fields_, results,
                 **{'_notes': notes} if notes is not None else {}))
 
 def homogenize(Result, results, *,
-        enumerate=None,
+        enumerates=None,
         depth=1):
-    import builtins
-    enumerate_, enumerate = enumerate, builtins.enumerate
-
     # this just converts all (possibly recursive) results to our
     # result type
     results_ = []
@@ -1573,13 +1570,13 @@ def homogenize(Result, results, *,
         results_.append(Result(**(
                 r
                     # enumerate?
-                    | ({enumerate_: i}
-                        if enumerate_ is not None
+                    | ({e: i for e in enumerates}
+                        if enumerates is not None
                         else {})
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
-                            enumerate=enumerate_,
+                            enumerates=enumerates,
                             depth=depth-1)}
                         if hasattr(Result, '_children')
                             and Result._children in r
@@ -1672,14 +1669,12 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        enumerate=None,
+        enumerates=None,
         depth=1,
         hot=None,
         **_):
-    # note! hotifying risks confusion if you don't enumerate/have a z
-    # field, since it will allow folding across recursive boundaries
-    import builtins
-    enumerate_, enumerate = enumerate, builtins.enumerate
+    # note! hotifying risks confusion if you don't enumerate/have a
+    # z field, since it will allow folding across recursive boundaries
 
     # hotify only makes sense for recursive results
     assert hasattr(Result, '_children')
@@ -1704,8 +1699,10 @@ def hotify(Result, results, *,
                         for k, reverse in it.chain(hot, [(None, False)])))
 
             hot_.append(r._replace(**(
-                    ({enumerate_: len(hot_)}
-                            if enumerate_ is not None else {})
+                    # enumerate?
+                    ({e: len(hot_) for e in enumerates}
+                            if enumerates is not None
+                            else {})
                         | {Result._children: []})))
 
             # recurse?
@@ -2134,16 +2131,11 @@ def main(csv_paths, *,
         fields=None,
         defines=[],
         sort=None,
-        enumerate=None,
-        labels=None,
         depth=None,
         children=None,
         hot=None,
         notes=None,
         **args):
-    import builtins
-    enumerate_, enumerate = enumerate, builtins.enumerate
-
     # show mod help text?
     if args.get('help_mods'):
         return punescape_help()
@@ -2151,17 +2143,10 @@ def main(csv_paths, *,
     if args.get('help_exprs'):
         return RExpr.help()
 
-    if by is None and enumerate_ is None and labels is None and fields is None:
+    if by is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
                 file=sys.stderr)
         sys.exit(-1)
-
-    if enumerate_ is not None:
-        if len(enumerate_) > 1:
-            print("error: multiple --enumerate fields currently not supported",
-                    file=sys.stderr)
-            sys.exit(-1)
-        enumerate_ = enumerate_[0]
 
     if children is not None:
         if len(children) > 1:
@@ -2187,42 +2172,38 @@ def main(csv_paths, *,
     elif depth == 0:
         depth = mt.inf
 
-    # separate out mods/exprs
+    # separate out enumerates/mods/exprs
     #
-    # by supports mods => -ba=%(b)s
-    # fields/sort/hot support exprs => -fa=b+c
+    # enumerate enumerates: -ia
+    # by supports mods: -ba=%(b)s
+    # fields/sort/etc supports exprs: -fa=b+c
+    #
+    enumerates = [k
+            for (k, v), hidden in (by or [])
+                if v == enumerate]
     mods = [(k, v)
             for k, v in it.chain(
-                by or [],
-                labels or [])
+                ((k, v) for (k, v), hidden in (by or [])
+                    if v != enumerate))
             if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
-                fields or [],
+                ((k, v) for (k, v), hidden in (fields or [])),
                 ((k, v) for (k, v), reverse in (sort or [])),
                 ((k, v) for (k, v), reverse in (hot or [])))
             if v is not None]
+    labels = None
     if by is not None:
-        by = [k for k, _ in by]
+        labels = [k for (k, v), hidden in by if not hidden]
+        by = [k for (k, v), hidden in by]
+    visible = None
     if fields is not None:
-        fields = [k for k, _ in fields]
+        visible = [k for (k, v), hidden in fields if not hidden]
+        fields = [k for (k, v), hidden in fields]
     if sort is not None:
         sort = [(k, reverse) for (k, v), reverse in sort]
-    if labels is not None:
-        labels = [k for k, _ in labels]
     if hot is not None:
         hot = [(k, reverse) for (k, v), reverse in hot]
-
-    # include enumerate and label fields in by
-    if enumerate_ is not None:
-        by = by or []
-        if enumerate_ not in by:
-            by.insert(0, enumerate_)
-    if labels is not None:
-        by = by or []
-        for k in labels:
-            if k not in by:
-                by.append(k)
 
     # find results
     if not args.get('use', None):
@@ -2287,7 +2268,7 @@ def main(csv_paths, *,
 
     # homogenize
     results = homogenize(Result, results,
-            enumerate=enumerate_,
+            enumerates=enumerates,
             depth=depth)
 
     # fold
@@ -2299,7 +2280,7 @@ def main(csv_paths, *,
     # hotify?
     if hot:
         results = hotify(Result, results,
-                enumerate=enumerate_,
+                enumerates=enumerates,
                 depth=depth,
                 hot=hot)
 
@@ -2338,8 +2319,9 @@ def main(csv_paths, *,
     # print table
     if not args.get('quiet'):
         table(Result, results, diff_results,
+                # note the use of labels + visible here
                 by=by,
-                fields=fields,
+                fields=visible if visible is not None else fields,
                 sort=sort,
                 labels=labels,
                 depth=depth,
@@ -2393,9 +2375,31 @@ if __name__ == "__main__":
             '-a', '--all',
             action='store_true',
             help="Show all, not just the ones that changed.")
+    class AppendBy(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.by is None:
+                namespace.by = []
+            namespace.by.append((value, option in {
+                    '-B', '--hidden-by',
+                    '-I', '--hidden-enumerate'}))
+    parser.add_argument(
+            '-i', '--enumerate',
+            action=AppendBy,
+            nargs='?',
+            type=lambda x: (x, enumerate),
+            const=('i', enumerate),
+            help="Enumerate results with this field. This will prevent "
+                "result folding.")
+    parser.add_argument(
+            '-I', '--hidden-enumerate',
+            action=AppendBy,
+            nargs='?',
+            type=lambda x: (x, enumerate),
+            const=('i', enumerate),
+            help="Like -i/--enumerate, but hidden from the table renderer.")
     parser.add_argument(
             '-b', '--by',
-            action='append',
+            action=AppendBy,
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
@@ -2404,9 +2408,24 @@ if __name__ == "__main__":
             help="Group by this field. This does _not_ support expressions, "
                 "but can be assigned a string with %% modifiers.")
     parser.add_argument(
+            '-B', '--hidden-by',
+            action=AppendBy,
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    v.strip() if v is not None else None)
+                )(*x.split('=', 1)),
+            help="Like -b/--by, but hidden from the table renderer.")
+    class AppendField(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.fields is None:
+                namespace.fields = []
+            namespace.fields.append((value, option in {
+                    '-F', '--hidden-field'}))
+    parser.add_argument(
             '-f', '--field',
             dest='fields',
-            action='append',
+            action=AppendField,
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
@@ -2414,6 +2433,16 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             help="Show this field. Can include an expression of the form "
                 "field=expr.")
+    parser.add_argument(
+            '-F', '--hidden-field',
+            dest='fields',
+            action=AppendField,
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    v.strip() if v is not None else None)
+                )(*x.split('=', 1)),
+            help="Like -f/--field, but hidden from the table renderer.")
     parser.add_argument(
             '-D', '--define',
             dest='defines',
@@ -2454,24 +2483,6 @@ if __name__ == "__main__":
             const=(None, None),
             help="Sort by this field, but backwards. Can include an expression "
                 "of the form field=expr.")
-    parser.add_argument(
-            '-i', '--enumerate',
-            nargs='?',
-            const='i',
-            action='append',
-            help="Field to use for enumerating results. This will prevent "
-                "result folding.")
-    parser.add_argument(
-            '-l', '--label',
-            dest='labels',
-            action='append',
-            type=lambda x: (
-                lambda k, v=None: (
-                    k.strip(),
-                    v.strip() if v is not None else None)
-                )(*x.split('=', 1)),
-            help="Field to use for labeling results. This defaults to all "
-                "-b/--by fields. Can be assigned a string with %% modifiers.")
     parser.add_argument(
             '-z', '--depth',
             nargs='?',
