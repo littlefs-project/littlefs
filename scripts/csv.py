@@ -1356,7 +1356,7 @@ def collect_csv(csv_paths, *,
                 if not json:
                     reader = csv.DictReader(f, restval='')
                     # collect fields
-                    fields.update((k, True) for k in reader.fieldnames)
+                    fields.update((k, True) for k in reader.fieldnames or [])
                     for r in reader:
                         # strip and drop empty fields
                         r_ = {k: v.strip()
@@ -1415,7 +1415,13 @@ def compile(fields_, results,
         sort=None,
         children=None,
         hot=None,
-        notes=None):
+        notes=None,
+        prefix=None,
+        **_):
+    # default to no prefix
+    if prefix is None:
+        prefix = ''
+
     by = by.copy()
     fields = fields.copy()
 
@@ -1440,57 +1446,58 @@ def compile(fields_, results,
     fields__ = set(it.chain.from_iterable(
             exprs[k].fields() if k in exprs else [k]
                 for k in fields))
-    types = {}
+    types__ = {}
     for k in fields__:
         # check if dependency is in original fields
         #
         # it's tempting to also allow enumerate fields here, but this
         # currently doesn't work when hotifying
-        if k not in fields_:
+        if prefix+k not in fields_:
             print("error: no field %r?" % k,
                     file=sys.stderr)
             sys.exit(2)
 
         for t in [RInt, RFloat, RFrac]:
             for r in results:
-                if k in r and r[k].strip():
+                if prefix+k in r and r[prefix+k].strip():
                     try:
-                        t(r[k])
+                        t(r[prefix+k])
                     except ValueError:
                         break
             else:
-                types[k] = t
+                types__[k] = t
                 break
         else:
             print("error: no type matches field %r?" % k,
                     file=sys.stderr)
             sys.exit(2)
 
-    # typecheck exprs, note these may reference input fields
-    # with the same name
-    types__ = types.copy()
+    # typecheck exprs, note these may reference input fields with
+    # the same name, which is why we only do a single eval pass
+    types___ = types__.copy()
     for k, expr in exprs.items():
-        types__[k] = expr.type(types)
+        types___[k] = expr.type(types__)
 
     # foldcheck field exprs
-    folds = {k: (RSum, t) for k, v in types.items()}
+    folds___ = {k: (RSum, t) for k, v in types__.items()}
     for k, expr in exprs.items():
-        folds[k] = expr.fold(types)
-    folds = {k: (f(), t) for k, (f, t) in folds.items()}
+        folds___[k] = expr.fold(types__)
+    folds___ = {k: (f(), t) for k, (f, t) in folds___.items()}
 
     # create result class
     def __new__(cls, **r):
-        # evaluate types
         r_ = r.copy()
-        for k, t in types.items():
-            r_[k] = t(r[k]) if k in r else t()
-        # evaluate exprs
+        # evaluate types, strip prefix
+        for k, t in types__.items():
+            r_[k] = t(r[prefix+k]) if prefix+k in r else t()
+
         r__ = r_.copy()
+        # evaluate exprs
         for k, expr in exprs.items():
             r__[k] = expr.eval(r_)
         # evaluate mods
         for k, m in mods.items():
-            r__[k] = punescape(m, r)
+            r__[k] = punescape(m, r_)
 
         # return result
         return cls.__mro__[1].__new__(cls, **(
@@ -1529,7 +1536,7 @@ def compile(fields_, results,
         if k in fields:
             v = object.__getattribute__(self, k)
             if v[1]:
-                return folds[k][0](v[0][:v[1]])
+                return folds___[k][0](v[0][:v[1]])
             else:
                 return None
         return object.__getattribute__(self, k)
@@ -1549,7 +1556,7 @@ def compile(fields_, results,
                 _by=by,
                 _fields=fields,
                 _sort=fields,
-                _types={k: t for k, (_, t) in folds.items()},
+                _types={k: t for k, (_, t) in folds___.items()},
                 _mods=mods,
                 _exprs=exprs,
                 **{'_children': children} if children is not None else {},
@@ -1558,7 +1565,8 @@ def compile(fields_, results,
 def homogenize(Result, results, *,
         enumerates=None,
         defines=[],
-        depth=1):
+        depth=1,
+        **_):
     # this just converts all (possibly recursive) results to our
     # result type
     results_ = []
@@ -2014,7 +2022,18 @@ def table(Result, results, diff_results=None, *,
 
 def read_csv(path, Result, *,
         depth=1,
+        prefix=None,
         **_):
+    # prefix? this only applies to field fields
+    if prefix is None:
+        if hasattr(Result, '_prefix'):
+            prefix = '%s_' % Result._prefix
+        else:
+            prefix = ''
+
+    by = Result._by
+    fields = Result._fields
+
     with openio(path, 'r') as f:
         # csv or json? assume json starts with [
         json = (f.buffer.peek(1)[:1] == b'[')
@@ -2024,16 +2043,18 @@ def read_csv(path, Result, *,
             results = []
             reader = csv.DictReader(f, restval='')
             for r in reader:
-                if not any(k in r and r[k].strip()
-                        for k in Result._fields):
+                if not any(prefix+k in r and r[prefix+k].strip()
+                        for k in fields):
                     continue
                 try:
                     # note this allows by/fields to overlap
                     results.append(Result(**(
-                            {k: r[k] for k in Result._by
-                                    if k in r and r[k].strip()}
-                                | {k: r[k] for k in Result._fields
-                                    if k in r and r[k].strip()})))
+                            {k: r[k] for k in by
+                                    if k in r
+                                        and r[k].strip()}
+                                | {k: r[prefix+k] for k in fields
+                                    if prefix+k in r
+                                        and r[prefix+k].strip()})))
                 except TypeError:
                     pass
             return results
@@ -2044,16 +2065,18 @@ def read_csv(path, Result, *,
             def unjsonify(results, depth_):
                 results_ = []
                 for r in results:
-                    if not any(k in r and r[k].strip()
-                            for k in Result._fields):
+                    if not any(prefix+k in r and r[prefix+k].strip()
+                            for k in fields):
                         continue
                     try:
                         # note this allows by/fields to overlap
                         results_.append(Result(**(
-                                {k: r[k] for k in Result._by
-                                        if k in r and r[k] is not None}
-                                    | {k: r[k] for k in Result._fields
-                                        if k in r and r[k] is not None}
+                                {k: r[k] for k in by
+                                        if k in r
+                                            and r[k] is not None}
+                                    | {k: r[prefix+k] for k in fields
+                                        if prefix+k in r
+                                            and r[prefix+k] is not None}
                                     | ({Result._children: unjsonify(
                                             r[Result._children],
                                             depth_-1)}
@@ -2077,30 +2100,36 @@ def write_csv(path, Result, results, *,
         by=None,
         fields=None,
         depth=1,
+        prefix=None,
         **_):
+    # prefix? this only applies to field fields
+    if prefix is None:
+        if hasattr(Result, '_prefix'):
+            prefix = '%s_' % Result._prefix
+        else:
+            prefix = ''
+
+    if by is None:
+        by = Result._by
+    if fields is None:
+        fields = Result._fields
+
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
-                    by
-                        if by is not None
-                        else Result._by,
-                    fields
-                        if fields is not None
-                        else Result._fields)).keys()))
+            writer = csv.DictWriter(f, list(
+                    co.OrderedDict.fromkeys(it.chain(
+                        by,
+                        (prefix+k for k in fields))).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
                 writer.writerow(
                         {k: getattr(r, k)
-                                for k in (by
-                                    if by is not None
-                                    else Result._by)
+                                for k in by
                                 if getattr(r, k) is not None}
-                            | {k: str(getattr(r, k))
-                                for k in (fields
-                                    if fields is not None
-                                    else Result._fields)
+                            | {prefix+k: str(getattr(r, k))
+                                for k in fields
                                 if getattr(r, k) is not None})
 
         # write json?
@@ -2113,14 +2142,10 @@ def write_csv(path, Result, results, *,
                     # note this allows by/fields to overlap
                     results_.append(
                             {k: getattr(r, k)
-                                    for k in (by
-                                        if by is not None
-                                        else Result._by)
+                                    for k in by
                                     if getattr(r, k) is not None}
-                                | {k: str(getattr(r, k))
-                                    for k in (fields
-                                        if fields is not None
-                                        else Result._fields)
+                                | {prefix+k: str(getattr(r, k))
+                                    for k in fields
                                     if getattr(r, k) is not None}
                                 | ({Result._children: jsonify(
                                         getattr(r, Result._children),
@@ -2277,7 +2302,8 @@ def main(csv_paths, *,
             sort=sort,
             children=children,
             hot=hot,
-            notes=notes)
+            notes=notes,
+            **args)
 
     # homogenize
     results = homogenize(Result, results,
@@ -2578,6 +2604,9 @@ if __name__ == "__main__":
             '-Y', '--summary',
             action='store_true',
             help="Only show the total.")
+    parser.add_argument(
+            '--prefix',
+            help="Prefix to use for fields in CSV/JSON output.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))

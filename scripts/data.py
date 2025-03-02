@@ -139,6 +139,7 @@ class RInt(co.namedtuple('RInt', 'x')):
 class DataResult(co.namedtuple('DataResult', [
         'file', 'function',
         'size'])):
+    _prefix = 'data'
     _by = ['file', 'function']
     _fields = ['size']
     _sort = ['size']
@@ -492,7 +493,7 @@ def collect_data(obj_paths, *,
             if not everything and sym.name.startswith('__'):
                 continue
 
-            results.append(CodeResult(file, sym.name, sym.size))
+            results.append(DataResult(file, sym.name, sym.size))
 
     return results
 
@@ -871,7 +872,18 @@ def table(Result, results, diff_results=None, *,
 
 def read_csv(path, Result, *,
         depth=1,
+        prefix=None,
         **_):
+    # prefix? this only applies to field fields
+    if prefix is None:
+        if hasattr(Result, '_prefix'):
+            prefix = '%s_' % Result._prefix
+        else:
+            prefix = ''
+
+    by = Result._by
+    fields = Result._fields
+
     with openio(path, 'r') as f:
         # csv or json? assume json starts with [
         json = (f.buffer.peek(1)[:1] == b'[')
@@ -881,16 +893,18 @@ def read_csv(path, Result, *,
             results = []
             reader = csv.DictReader(f, restval='')
             for r in reader:
-                if not any(k in r and r[k].strip()
-                        for k in Result._fields):
+                if not any(prefix+k in r and r[prefix+k].strip()
+                        for k in fields):
                     continue
                 try:
                     # note this allows by/fields to overlap
                     results.append(Result(**(
-                            {k: r[k] for k in Result._by
-                                    if k in r and r[k].strip()}
-                                | {k: r[k] for k in Result._fields
-                                    if k in r and r[k].strip()})))
+                            {k: r[k] for k in by
+                                    if k in r
+                                        and r[k].strip()}
+                                | {k: r[prefix+k] for k in fields
+                                    if prefix+k in r
+                                        and r[prefix+k].strip()})))
                 except TypeError:
                     pass
             return results
@@ -901,16 +915,18 @@ def read_csv(path, Result, *,
             def unjsonify(results, depth_):
                 results_ = []
                 for r in results:
-                    if not any(k in r and r[k].strip()
-                            for k in Result._fields):
+                    if not any(prefix+k in r and r[prefix+k].strip()
+                            for k in fields):
                         continue
                     try:
                         # note this allows by/fields to overlap
                         results_.append(Result(**(
-                                {k: r[k] for k in Result._by
-                                        if k in r and r[k] is not None}
-                                    | {k: r[k] for k in Result._fields
-                                        if k in r and r[k] is not None}
+                                {k: r[k] for k in by
+                                        if k in r
+                                            and r[k] is not None}
+                                    | {k: r[prefix+k] for k in fields
+                                        if prefix+k in r
+                                            and r[prefix+k] is not None}
                                     | ({Result._children: unjsonify(
                                             r[Result._children],
                                             depth_-1)}
@@ -934,30 +950,36 @@ def write_csv(path, Result, results, *,
         by=None,
         fields=None,
         depth=1,
+        prefix=None,
         **_):
+    # prefix? this only applies to field fields
+    if prefix is None:
+        if hasattr(Result, '_prefix'):
+            prefix = '%s_' % Result._prefix
+        else:
+            prefix = ''
+
+    if by is None:
+        by = Result._by
+    if fields is None:
+        fields = Result._fields
+
     with openio(path, 'w') as f:
         # write csv?
         if not json:
-            writer = csv.DictWriter(f, list(co.OrderedDict.fromkeys(it.chain(
-                    by
-                        if by is not None
-                        else Result._by,
-                    fields
-                        if fields is not None
-                        else Result._fields)).keys()))
+            writer = csv.DictWriter(f, list(
+                    co.OrderedDict.fromkeys(it.chain(
+                        by,
+                        (prefix+k for k in fields))).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
                 writer.writerow(
                         {k: getattr(r, k)
-                                for k in (by
-                                    if by is not None
-                                    else Result._by)
+                                for k in by
                                 if getattr(r, k) is not None}
-                            | {k: str(getattr(r, k))
-                                for k in (fields
-                                    if fields is not None
-                                    else Result._fields)
+                            | {prefix+k: str(getattr(r, k))
+                                for k in fields
                                 if getattr(r, k) is not None})
 
         # write json?
@@ -970,14 +992,10 @@ def write_csv(path, Result, results, *,
                     # note this allows by/fields to overlap
                     results_.append(
                             {k: getattr(r, k)
-                                    for k in (by
-                                        if by is not None
-                                        else Result._by)
+                                    for k in by
                                     if getattr(r, k) is not None}
-                                | {k: str(getattr(r, k))
-                                    for k in (fields
-                                        if fields is not None
-                                        else Result._fields)
+                                | {prefix+k: str(getattr(r, k))
+                                    for k in fields
                                     if getattr(r, k) is not None}
                                 | ({Result._children: jsonify(
                                         getattr(r, Result._children),
@@ -1162,6 +1180,10 @@ if __name__ == "__main__":
             '-Y', '--summary',
             action='store_true',
             help="Only show the total.")
+    parser.add_argument(
+            '--prefix',
+            help="Prefix to use for fields in CSV/JSON output. Defaults "
+                "to %r." % ("%s_" % DataResult._prefix))
     parser.add_argument(
             '--everything',
             action='store_true',

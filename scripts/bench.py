@@ -1130,12 +1130,12 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     **last_defines,
                                     'm': m_,
                                     'n': n_,
-                                    'readed': readed__,
-                                    'proged': proged__,
-                                    'erased': erased__,
-                                    'creaded': readed_,
-                                    'cproged': proged_,
-                                    'cerased': erased_})
+                                    'bench_readed': readed__,
+                                    'bench_proged': proged__,
+                                    'bench_erased': erased__,
+                                    'bench_creaded': readed_,
+                                    'bench_cproged': proged_,
+                                    'bench_cerased': erased_})
                         # keep track of total for summary
                         readed += readed__
                         proged += proged__
@@ -1313,7 +1313,14 @@ def run(runner, bench_ids=[], **args):
     if args.get('output'):
         output = BenchOutput(args['output'],
                 ['suite', 'case'],
-                ['m', 'n', 'readed', 'proged', 'erased'])
+                # defines go here
+                ['m', 'n',
+                    'bench_readed',
+                    'bench_proged',
+                    'bench_erased',
+                    'bench_creaded',
+                    'bench_cproged',
+                    'bench_cerased'])
 
     # measure runtime
     start = time.time()
