@@ -1163,7 +1163,7 @@ if __name__ == "__main__":
             help="Only consider definitions in this file. Defaults to "
                 "anything in the current directory.")
     parser.add_argument(
-            '--everything',
+            '-!', '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
     parser.add_argument(

@@ -1191,7 +1191,7 @@ if __name__ == "__main__":
             help="Prefix to use for fields in CSV/JSON output. Defaults "
                 "to %r." % ("%s_" % CodeResult._prefix))
     parser.add_argument(
-            '--everything',
+            '-!', '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
     parser.add_argument(

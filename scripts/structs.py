@@ -1398,7 +1398,7 @@ if __name__ == "__main__":
             help="Include internal symbols. Useful for introspection, but "
                 "usually you don't care about these.")
     parser.add_argument(
-            '--everything',
+            '-!', '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
     parser.add_argument(
