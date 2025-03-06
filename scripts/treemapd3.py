@@ -577,7 +577,8 @@ def main(csv_paths, output, *,
         **args):
     # tiny mode?
     if tiny:
-        to_scale = True
+        if to_scale is None:
+            to_scale = 1
         no_header = True
         no_label = True
 
@@ -666,7 +667,9 @@ def main(csv_paths, output, *,
             t.label = punescape(labels_[i, t.key], t.attrs)
 
     # scale width/height if requested now that we have our data
-    if to_scale and (width is None or height is None) and tile.value != 0:
+    if (to_scale is not None
+            and (width is None or height is None)
+            and tile.value != 0):
         # scale width only
         if height is not None:
             width_ = mt.ceil((tile.value * to_scale) / height_)
@@ -907,7 +910,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Render CSV files as a treemap to a d3-esque svg.",
+            description="Render CSV files as a d3-esque treemap.",
             allow_abbrev=False)
     parser.add_argument(
             'csv_paths',
@@ -1022,14 +1025,17 @@ if __name__ == "__main__":
     parser.add_argument(
             '--to-scale',
             nargs='?',
-            type=float,
+            type=lambda x: (
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
             const=1,
             help="Scale the resulting treemap such that 1 pixel ~= 1/scale "
                 "units. Defaults to scale=1. ")
     parser.add_argument(
             '-R', '--aspect-ratio',
-            type=lambda x: tuple(float(v) for v in x.split(':', 1)),
-            default=(1, 1),
+            type=lambda x: (
+                tuple(float(v) for v in x.split(':', 1))
+                    if ':' in x else (float(x), 1)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
             '-t', '--tiny',
@@ -1042,11 +1048,10 @@ if __name__ == "__main__":
             help="Show nested tiles.")
     parser.add_argument(
             '--title',
-            help="Add a title.")
+            help="Add a title. Accepts %% modifiers.")
     parser.add_argument(
             '--padding',
             type=float,
-            default=1,
             help="Padding to add to each level of the treemap. Defaults to 1.")
     parser.add_argument(
             '--no-label',

@@ -1141,22 +1141,24 @@ if __name__ == "__main__":
     parser.add_argument(
             '--to-scale',
             nargs='?',
-            type=float,
+            type=lambda x: (
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
             const=1,
             help="Scale the resulting treemap such that 1 pixel ~= 1/scale "
                 "units. Defaults to scale=1. ")
     parser.add_argument(
             '-R', '--aspect-ratio',
-            type=lambda x: tuple(float(v) for v in x.split(':', 1)),
-            default=(1, 1),
+            type=lambda x: (
+                tuple(float(v) for v in x.split(':', 1))
+                    if ':' in x else (float(x), 1)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
             '--title',
-            help="Add a title.")
+            help="Add a title. Accepts %% modifiers.")
     parser.add_argument(
             '--padding',
             type=float,
-            default=0,
             help="Padding to add to each level of the treemap. Defaults to 0.")
     parser.add_argument(
             '-l', '--label',
