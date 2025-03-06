@@ -1604,7 +1604,7 @@ def report(perf_paths, *,
                 fields=fields,
                 depth=depth,
                 **args)
-    else:
+    elif not args.get('quiet'):
         # print table
         table(PerfResult, results, diff_results,
                 by=by,
@@ -1648,6 +1648,10 @@ if __name__ == "__main__":
             '-v', '--verbose',
             action='store_true',
             help="Output commands that run behind the scenes.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful when checking for errors.")
     parser.add_argument(
             '-o', '--output',
             help="Specify CSV file to store results.")
