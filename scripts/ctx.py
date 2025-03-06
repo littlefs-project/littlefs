@@ -457,6 +457,7 @@ def collect_dwarf_info(obj_path, tags=None, *,
     return DwarfInfo(info)
 
 def collect_ctx(obj_paths, *,
+        internal=False,
         everything=False,
         no_strip=False,
         depth=1,
@@ -466,7 +467,8 @@ def collect_ctx(obj_paths, *,
         # find global symbols
         syms = collect_syms(obj_path,
                 sections=['.text'],
-                global_=not everything,
+                # only include internal symbols if explicitly requested
+                global_=not internal and not everything,
                 **args)
 
         # find dwarf info
@@ -1509,6 +1511,11 @@ if __name__ == "__main__":
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
                 "to %r." % ("%s_" % CtxResult._prefix))
+    parser.add_argument(
+            '-i', '--internal',
+            action='store_true',
+            help="Include internal symbols. Useful for introspection, but "
+                "usually you don't care about these.")
     parser.add_argument(
             '--everything',
             action='store_true',

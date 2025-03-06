@@ -153,7 +153,7 @@ class StructResult(co.namedtuple('StructResult', [
     def __add__(self, other):
         return StructResult(self.z, self.i, self.file, self.struct,
                 min(self.off, other.off),
-                self.size + other.size,
+                max(self.size, other.size),
                 max(self.align, other.align),
                 self.children + other.children)
 
@@ -167,6 +167,61 @@ def openio(path, mode='r', buffering=-1):
             return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
+
+def collect_dwarf_files(obj_path, *,
+        objdump_path=OBJDUMP_PATH,
+        **args):
+    line_pattern = re.compile(
+            '^\s*(?P<no>[0-9]+)'
+                '(?:\s+(?P<dir>[0-9]+))?'
+                '.*\s+(?P<path>[^\s]+)\s*$')
+
+    # find source paths
+    dirs = co.OrderedDict()
+    files = co.OrderedDict()
+    # note objdump-path may contain extra args
+    cmd = objdump_path + ['--dwarf=rawline', obj_path]
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    for line in proc.stdout:
+        # note that files contain references to dirs, which we
+        # dereference as soon as we see them as each file table
+        # follows a dir table
+        m = line_pattern.match(line)
+        if m:
+            if not m.group('dir'):
+                # found a directory entry
+                dirs[int(m.group('no'))] = m.group('path')
+            else:
+                # found a file entry
+                dir = int(m.group('dir'))
+                if dir in dirs:
+                    files[int(m.group('no'))] = os.path.join(
+                            dirs[dir],
+                            m.group('path'))
+                else:
+                    files[int(m.group('no'))] = m.group('path')
+    proc.wait()
+    if proc.returncode != 0:
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    # simplify paths
+    files_ = co.OrderedDict()
+    for no, file in files.items():
+        if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(file)]) == os.getcwd():
+            files_[no] = os.path.relpath(file)
+        else:
+            files_[no] = os.path.abspath(file)
+    files = files_
+
+    return files
 
 # each dwarf entry can have attrs and children entries
 class DwarfEntry:
@@ -316,6 +371,7 @@ def collect_dwarf_info(obj_path, tags=None, *,
     return DwarfInfo(info)
 
 def collect_structs(obj_paths, *,
+        internal=False,
         everything=False,
         depth=1,
         **args):
@@ -323,6 +379,9 @@ def collect_structs(obj_paths, *,
     for obj_path in obj_paths:
         # find dwarf info
         info = collect_dwarf_info(obj_path, **args)
+
+        # find related file info
+        files = collect_dwarf_files(obj_path, **args)
 
         # find source file from dwarf info
         for entry in info:
@@ -489,6 +548,16 @@ def collect_structs(obj_paths, *,
             # discard internal types
             if not everything and entry.name.startswith('__'):
                 continue
+
+            # find source file
+            if 'DW_AT_decl_file' in entry:
+                src = files.get(int(entry['DW_AT_decl_file']), '?')
+                # discard internal/stdlib types
+                if not everything and src.startswith('/usr/include'):
+                    continue
+                # limit to .h files unless explicitly requested
+                if not everything and not internal and not src.endswith('.h'):
+                    continue
 
             # find name
             name = entry.name
@@ -1323,6 +1392,11 @@ if __name__ == "__main__":
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
                 "to %r." % ("%s_" % StructResult._prefix))
+    parser.add_argument(
+            '-i', '--internal',
+            action='store_true',
+            help="Include internal symbols. Useful for introspection, but "
+                "usually you don't care about these.")
     parser.add_argument(
             '--everything',
             action='store_true',
