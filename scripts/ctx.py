@@ -458,6 +458,7 @@ def collect_dwarf_info(obj_path, tags=None, *,
 
 def collect_ctx(obj_paths, *,
         everything=False,
+        no_strip=False,
         depth=1,
         **args):
     results = []
@@ -693,9 +694,14 @@ def collect_ctx(obj_paths, *,
                         children=children_,
                         notes=notes_))
 
+            # strip compiler suffixes
+            name = sym.name
+            if not no_strip:
+                name = name.split('.', 1)[0]
+
             # context = sum of params
-            name = entry.name
             size = sum((param.size for param in params), start=RInt(0))
+
             results.append(CtxResult(
                     0, 0, file, name, 0, size,
                     children=params))
@@ -1507,6 +1513,10 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+            '-x', '--no-strip',
+            action='store_true',
+            help="Don't strip compiler optimization suffixes from symbols.")
     parser.add_argument(
             '--objdump-path',
             type=lambda x: x.split(),

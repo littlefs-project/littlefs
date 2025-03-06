@@ -485,6 +485,7 @@ def collect_dwarf_lines(obj_path, *,
 def collect_job(path, start, stop, syms, lines, *,
         sources=None,
         everything=False,
+        no_strip=False,
         propagate=0,
         depth=1,
         **args):
@@ -550,6 +551,10 @@ def collect_job(path, start, stop, syms, lines, *,
                 file = os.path.relpath(file)
             else:
                 file = os.path.abspath(file)
+
+            # strip compiler suffixes
+            if not no_strip:
+                sym = sym.split('.', 1)[0]
 
             results[(file, sym, line)] = (
                     last_readed,
@@ -704,6 +709,10 @@ def collect_job(path, start, stop, syms, lines, *,
                             file = os.path.abspath(file)
 
                         at_cache[addr] = file, sym, line
+
+                    # strip compiler suffixes
+                    if not no_strip:
+                        sym = sym.split('.', 1)[0]
 
                     last_stack.append((file, sym, line))
 
@@ -1763,6 +1772,10 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+            '-x', '--no-strip',
+            action='store_true',
+            help="Don't strip compiler optimization suffixes from symbols.")
     parser.add_argument(
             '-A', '--annotate',
             action='store_true',

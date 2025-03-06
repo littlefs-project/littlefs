@@ -453,6 +453,7 @@ def collect_dwarf_info(obj_path, tags=None, *,
 
 def collect_data(obj_paths, *,
         everything=False,
+        no_strip=False,
         **args):
     results = []
     for obj_path in obj_paths:
@@ -493,7 +494,12 @@ def collect_data(obj_paths, *,
             if not everything and sym.name.startswith('__'):
                 continue
 
-            results.append(DataResult(file, sym.name, sym.size))
+            # strip compiler suffixes
+            name = sym.name
+            if not no_strip:
+                name = name.split('.', 1)[0]
+
+            results.append(DataResult(file, name, sym.size))
 
     return results
 
@@ -1188,6 +1194,10 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+            '-x', '--no-strip',
+            action='store_true',
+            help="Don't strip compiler optimization suffixes from symbols.")
     parser.add_argument(
             '--objdump-path',
             type=lambda x: x.split(),

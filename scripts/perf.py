@@ -576,6 +576,7 @@ def collect_decompressed(path, *,
         perf_path=PERF_PATH,
         sources=None,
         everything=False,
+        no_strip=False,
         propagate=0,
         depth=1,
         **args):
@@ -741,6 +742,10 @@ def collect_decompressed(path, *,
                         at_cache[(dso,addr)] = file, line
                 else:
                     file, line = re.sub('(\.o)?$', '.c', dso, 1), 0
+
+                # strip compiler suffixes
+                if not no_strip:
+                    sym = sym.split('.', 1)[0]
 
                 last_stack.append((file, sym, line))
 
@@ -1766,6 +1771,10 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+            '-x', '--no-strip',
+            action='store_true',
+            help="Don't strip compiler optimization suffixes from symbols.")
     parser.add_argument(
             '--branches',
             action='store_true',

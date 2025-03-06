@@ -323,6 +323,7 @@ def collect_callgraph(ci_path,
 
 def collect_stack(ci_paths, *,
         everything=False,
+        no_strip=False,
         depth=1,
         **args):
     # parse the callgraphs
@@ -350,6 +351,10 @@ def collect_stack(ci_paths, *,
             file = os.path.relpath(file)
         else:
             file = os.path.abspath(file)
+
+        # strip compiler suffixes
+        if not no_strip:
+            name = name.split('.', 1)[0]
 
         nameof.cache[node.name] = name, file
         return name, file
@@ -1254,6 +1259,10 @@ if __name__ == "__main__":
             '--everything',
             action='store_true',
             help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+            '-x', '--no-strip',
+            action='store_true',
+            help="Don't strip compiler optimization suffixes from symbols.")
     parser.add_argument(
             '-e', '--error-on-recursion',
             action='store_true',
