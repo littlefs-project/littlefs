@@ -712,6 +712,7 @@ def main(csv_paths, *,
         width=None,
         height=None,
         no_header=False,
+        no_stats=False,
         to_scale=None,
         aspect_ratio=(1,1),
         title=None,
@@ -748,7 +749,10 @@ def main(csv_paths, *,
         width_ = shutil.get_terminal_size((80, 5))[0]
 
     if height is None:
-        height_ = 2 if title is not None or not no_header else 1
+        height_ = (2
+                if not no_header
+                    and (title is not None or not no_stats)
+                else 1)
     elif height:
         height_ = height
     else:
@@ -849,7 +853,10 @@ def main(csv_paths, *,
     # create a canvas
     canvas = Canvas(
             width_,
-            height_ - (1 if title or not no_header else 0),
+            height_ - (1
+                if not no_header
+                    and (title is not None or not no_stats)
+                else 0),
             color=color,
             dots=dots,
             braille=braille)
@@ -967,23 +974,24 @@ def main(csv_paths, *,
         canvas.label(*label__)
 
     # print some summary info
-    if title:
-        title_ = punescape(title, tile.attrs)
     if not no_header:
-        stat = tile.stat()
-        stat_ = 'total %d, avg %d +-%dσ, min %d, max %d' % (
-                stat['total'],
-                stat['mean'], stat['stddev'],
-                stat['min'], stat['max'])
-    if title and not no_header:
-        print('%s%*s%s' % (
-                title_,
-                max(width_-len(stat_)-len(title_), 0), ' ',
-                stat_))
-    elif title:
-        print(title_)
-    elif not no_header:
-        print(stat_)
+        if title:
+            title_ = punescape(title, tile.attrs)
+        if not no_stats:
+            stat = tile.stat()
+            stat_ = 'total %d, avg %d +-%dσ, min %d, max %d' % (
+                    stat['total'],
+                    stat['mean'], stat['stddev'],
+                    stat['min'], stat['max'])
+        if title and not no_stats:
+            print('%s%*s%s' % (
+                    title_,
+                    max(width_-len(stat_)-len(title_), 0), ' ',
+                    stat_))
+        elif title:
+            print(title_)
+        elif not no_stats:
+            print(stat_)
 
     # draw canvas
     for row in range(canvas.height//canvas.yscale):
@@ -1088,6 +1096,10 @@ if __name__ == "__main__":
             '-N', '--no-header',
             action='store_true',
             help="Don't show the header.")
+    parser.add_argument(
+            '--no-stats',
+            action='store_true',
+            help="Don't show data stats in the header.")
     parser.add_argument(
             '--binary',
             action='store_true',

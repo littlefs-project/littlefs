@@ -561,6 +561,7 @@ def main(csv_paths, output, *,
         width=None,
         height=None,
         no_header=False,
+        no_stats=False,
         to_scale=None,
         aspect_ratio=(1,1),
         title=None,
@@ -703,7 +704,7 @@ def main(csv_paths, output, *,
             height__ = tile.height
 
             # create space for header
-            if title is not None or not no_header:
+            if not no_header and (title is not None or not no_stats):
                 y__ += mt.ceil(FONT_SIZE * 1.3)
                 height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
 
@@ -789,16 +790,16 @@ def main(csv_paths, output, *,
                     background=background_))
 
         # create header
-        if title is not None or not no_header:
+        if not no_header and (title is not None or not no_stats):
             f.write('<text fill="%(color)s">' % dict(
                     color='#ffffff' if dark else '#000000'))
-            if not no_header:
+            if not no_stats:
                 stat = tile.stat()
             if title:
                 f.write('<tspan x="3" y="1.1em">')
                 f.write(punescape(title, tile.attrs))
                 f.write('</tspan>')
-                if not no_header:
+                if not no_stats:
                     f.write('<tspan x="%(x)d" y="1.1em" '
                             'text-anchor="end">' % dict(
                                 x=tile.width-3))
@@ -807,7 +808,7 @@ def main(csv_paths, output, *,
                             stat['mean'], stat['stddev'],
                             stat['min'], stat['max']))
                     f.write('</tspan>')
-            else:
+            elif not no_stats:
                 f.write('<tspan x="3" y="1.1em">')
                 f.write('total %d, avg %d +-%dσ, min %d, max %d' % (
                         stat['total'],
@@ -955,6 +956,10 @@ if __name__ == "__main__":
             '-N', '--no-header',
             action='store_true',
             help="Don't show the header.")
+    parser.add_argument(
+            '--no-stats',
+            action='store_true',
+            help="Don't show data stats in the header.")
     parser.add_argument(
             '--binary',
             action='store_true',
