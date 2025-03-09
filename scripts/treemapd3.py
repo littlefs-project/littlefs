@@ -21,28 +21,28 @@ import shutil
 # some nicer colors borrowed from Seaborn
 # note these include a non-opaque alpha
 COLORS = [
-    '#4c72b0bf', # blue
-    '#dd8452bf', # orange
-    '#55a868bf', # green
-    '#c44e52bf', # red
-    '#8172b3bf', # purple
-    '#937860bf', # brown
-    '#da8bc3bf', # pink
-    '#8c8c8cbf', # gray
-    '#ccb974bf', # yellow
-    '#64b5cdbf', # cyan
+    '#7995c4', # was '#4c72b0bf', # blue
+    '#e6a37d', # was '#dd8452bf', # orange
+    '#80be8e', # was '#55a868bf', # green
+    '#d37a7d', # was '#c44e52bf', # red
+    '#a195c6', # was '#8172b3bf', # purple
+    '#ae9a88', # was '#937860bf', # brown
+    '#e3a8d2', # was '#da8bc3bf', # pink
+    '#a9a9a9', # was '#8c8c8cbf', # gray
+    '#d9cb97', # was '#ccb974bf', # yellow
+    '#8bc8da', # was '#64b5cdbf', # cyan
 ]
 COLORS_DARK = [
-    '#a1c9f4bf', # blue
-    '#ffb482bf', # orange
-    '#8de5a1bf', # green
-    '#ff9f9bbf', # red
-    '#d0bbffbf', # purple
-    '#debb9bbf', # brown
-    '#fab0e4bf', # pink
-    '#cfcfcfbf', # gray
-    '#fffea3bf', # yellow
-    '#b9f2f0bf', # cyan
+    '#7997b7', # was '#a1c9f4bf', # blue
+    '#bf8761', # was '#ffb482bf', # orange
+    '#6aac79', # was '#8de5a1bf', # green
+    '#bf7774', # was '#ff9f9bbf', # red
+    '#9c8cbf', # was '#d0bbffbf', # purple
+    '#a68c74', # was '#debb9bbf', # brown
+    '#bb84ab', # was '#fab0e4bf', # pink
+    '#9b9b9b', # was '#cfcfcfbf', # gray
+    '#bfbe7a', # was '#fffea3bf', # yellow
+    '#8bb5b4', # was '#b9f2f0bf', # cyan
 ]
 
 WIDTH = 750
@@ -358,6 +358,7 @@ class Tile:
         tiles__ = []
         for key, t in tiles_.items():
             if isinstance(t, Tile):
+                t.depth = len(prefix)+1
                 tiles__.append(t)
             else:
                 tiles__.append(Tile.merge(t, key))
@@ -818,6 +819,7 @@ def main(csv_paths, output, *,
             f.write('</text>')
 
         # create tiles
+        filters = set()
         for i, t in enumerate(tile.tiles() if nested else tile.leaves()):
             # skip the top tile
             if t.depth == 0:
@@ -828,6 +830,8 @@ def main(csv_paths, output, *,
 
             if t.label is not None:
                 label__ = t.label
+            elif nested:
+                label__ = '%s\n%d' % (t.key[-1], t.value)
             else:
                 label__ = '%s\n%d' % (','.join(t.key), t.value)
 
@@ -835,13 +839,30 @@ def main(csv_paths, output, *,
             f.write('<title>')
             f.write(label__)
             f.write('</title>')
+            # create a color filter per nested depth
+            if nested and 'depth-%d' % t.depth not in filters:
+                f.write('<filter id="depth-%(id)d">' % dict(id=t.depth))
+                f.write('<feColorMatrix '
+                        'in="SourceGraphic" '
+                        'type="matrix" '
+                        'values="'
+                            '%(v)f 0     0     0 0 '
+                            '0     %(v)f 0     0 0 '
+                            '0     0     %(v)f 0 0 '
+                            '0     0     0     1 0"/>' % dict(
+                                v=0.5*((t.depth-1)/(len(by)-1))+0.5))
+                f.write('</filter>')
+                filters.add('depth-%d' % t.depth)
             f.write('<rect '
                     'id="tile-%(id)s" '
                     'fill="%(color)s" '
+                    'filter="%(filter)s" '
                     'width="%(width)d" '
                     'height="%(height)d">' % dict(
                         id=i,
                         color=t.color,
+                        filter='url(#depth-%d)' % t.depth
+                            if nested else 'none',
                         width=t.width,
                         height=t.height))
             f.write('</rect>')
