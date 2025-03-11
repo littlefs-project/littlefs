@@ -511,6 +511,17 @@ def punescape(s, attrs=None):
         else: assert False
     return re.sub(pattern, unescape, s)
 
+# split %-escaped strings into chars
+def psplit(s):
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
+    return [m.group() for m in re.finditer(pattern.pattern + '|.', s)]
+
 
 # a hack log that preserves sign, with a linear region between -1 and 1
 def symlog(x):
@@ -1010,9 +1021,9 @@ def main(csv_paths, *,
     chars_ = []
     for char in chars:
         if isinstance(char, tuple):
-            chars_.extend((char[0], c) for c in char[1])
+            chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
-            chars_.extend(char)
+            chars_.extend(psplit(char))
     chars_ = Attr(chars_, defaults=(
             CHARS_POINTS_AND_LINES if points_and_lines
                 else [True]))
@@ -1020,9 +1031,9 @@ def main(csv_paths, *,
     line_chars_ = []
     for line_char in line_chars:
         if isinstance(line_char, tuple):
-            line_chars_.extend((line_char[0], c) for c in line_char[1])
+            line_chars_.extend((line_char[0], c) for c in psplit(line_char[1]))
         else:
-            line_chars_.extend(line_char)
+            line_chars_.extend(psplit(line_char))
     line_chars_ = Attr(line_chars_, defaults=(
             [True] if points_and_lines or not points
                 else [False]))
@@ -1182,13 +1193,21 @@ def main(csv_paths, *,
 
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
-        datachars_ = {name: chars_[i, name]
+        datachars_ = {name: (lambda c:
+                    c if isinstance(c, bool)
+                            # limit to 1 char
+                            else punescape(c, dataattrs_[name])[0])(
+                        chars_[i, name])
                 for i, name in enumerate(datasets_.keys())}
-        dataline_chars_ = {name: line_chars_[i, name]
+        dataline_chars_ = {name: (lambda c:
+                    c if isinstance(c, bool)
+                            # limit to 1 char
+                            else punescape(c, dataattrs_[name])[0])(
+                        line_chars_[i, name])
                 for i, name in enumerate(datasets_.keys())}
-        datacolors_ = {name: colors_[i, name]
+        datacolors_ = {name: punescape(colors_[i, name], dataattrs_[name])
                 for i, name in enumerate(datasets_.keys())}
-        datalabels_ = {name: punescape(labels_[i, name], mergedattrs_)
+        datalabels_ = {name: punescape(labels_[i, name], dataattrs_[name])
                 for i, name in enumerate(datasets_.keys())
                 if (i, name) in labels_}
 
@@ -1215,7 +1234,7 @@ def main(csv_paths, *,
                             else ','.join(name))
 
                 if label:
-                    legend_.append((label, colors_[i, name]))
+                    legend_.append((label, datacolors_[name]))
                     legend_width = max(legend_width, len(label)+1)
 
         # figure out our canvas size
@@ -1695,7 +1714,7 @@ if __name__ == "__main__":
                     if '=' in x else x.strip(),
             help="Add characters to use for points. Can be assigned to a "
                 "specific group where a group is the comma-separated "
-                "'by' fields.")
+                "'by' fields. Accepts %% modifiers.")
     parser.add_argument(
             '-_', '--add-line-char', '--line-chars',
             dest='line_chars',
@@ -1708,7 +1727,7 @@ if __name__ == "__main__":
                     if '=' in x else x.strip(),
             help="Add characters to use for lines. Can be assigned to a "
                 "specific group where a group is the comma-separated "
-                "'by' fields.")
+                "'by' fields. Accepts %% modifiers.")
     parser.add_argument(
             '-C', '--add-color',
             dest='colors',
@@ -1720,7 +1739,8 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields.")
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],

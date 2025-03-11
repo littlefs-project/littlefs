@@ -21,7 +21,7 @@ import shutil
 # we don't actually need that many chars/colors thanks to the
 # 4-colorability of all 2d maps
 CHARS = ['.']
-COLORS = [34, 31, 32, 35, 33, 36]
+COLORS = ['34', '31', '32', '35', '33', '36']
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
@@ -294,6 +294,17 @@ def punescape(s, attrs=None):
             return ('{:%s}' % f).format(v)
         else: assert False
     return re.sub(pattern, unescape, s)
+
+# split %-escaped strings into chars
+def psplit(s):
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
+    return [m.group() for m in re.finditer(pattern.pattern + '|.', s)]
 
 
 # a little ascii renderer
@@ -740,9 +751,9 @@ def main(csv_paths, *,
     chars_ = []
     for char in chars:
         if isinstance(char, tuple):
-            chars_.extend((char[0], c) for c in char[1])
+            chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
-            chars_.extend(char)
+            chars_.extend(psplit(char))
     chars_ = Attr(chars_, defaults=CHARS)
 
     colors_ = Attr(colors, defaults=COLORS)
@@ -821,11 +832,11 @@ def main(csv_paths, *,
     # use colors for top of tree
     for i, t in enumerate(tile.children):
         for t_ in t.tiles():
-            t_.color = colors_[i, t.key]
+            t_.color = punescape(colors_[i, t.key], t_.attrs)
 
     # and chars/labels for bottom of tree
     for i, t in enumerate(tile.leaves()):
-        t.char = chars_[i, t.key]
+        t.char = punescape(chars_[i, t.key], t.attrs)[0] # limit to 1 char
         if (i, t.key) in labels_:
             t.label = punescape(labels_[i, t.key], t.attrs)
 
@@ -1061,7 +1072,8 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add characters to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields.")
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
     parser.add_argument(
             '-C', '--add-color',
             dest='colors',
@@ -1073,7 +1085,8 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields.")
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],

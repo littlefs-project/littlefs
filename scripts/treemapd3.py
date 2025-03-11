@@ -661,7 +661,7 @@ def main(csv_paths, output, *,
     # use colors for top of tree
     for i, t in enumerate(tile.children):
         for t_ in t.tiles():
-            t_.color = colors_[i, t_.key]
+            t_.color = punescape(colors_[i, t_.key], t_.attrs)
 
     # and labels everywhere
     for i, t in enumerate(tile.tiles()):
@@ -969,7 +969,8 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields.")
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
     parser.add_argument(
             '-W', '--width',
             type=lambda x: int(x, 0),

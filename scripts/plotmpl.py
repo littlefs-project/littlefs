@@ -890,9 +890,9 @@ def main(csv_paths, output, *,
 
     # figure out formats/colors here so that subplot defines don't change
     # them later, that'd be bad
-    dataformats_ = {name: formats_[i, name]
+    dataformats_ = {name: punescape(formats_[i, name], dataattrs_[name])
             for i, name in enumerate(datasets_.keys())}
-    datacolors_ = {name: colors_[i, name]
+    datacolors_ = {name: punescape(colors_[i, name], dataattrs_[name])
             for i, name in enumerate(datasets_.keys())}
     datalabels_ = {name: punescape(labels_[i, name], dataattrs_[name])
             for i, name in enumerate(datasets_.keys())
@@ -1325,7 +1325,8 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields.")
+                "where a group is the comma-separated 'by' fields. Accepts %% "
+                "modifiers.")
     parser.add_argument(
             '-F', '--add-format',
             dest='formats',
@@ -1338,7 +1339,7 @@ if __name__ == "__main__":
                     if '=' in x else x.strip(),
             help="Add a matplotlib format to use. Can be assigned to a "
                 "specific group where a group is the comma-separated 'by' "
-                "fields.")
+                "fields. Accepts %% modifiers.")
     parser.add_argument(
             '-.', '--points',
             action='store_true',
