@@ -1747,6 +1747,10 @@ if __name__ == "__main__":
             default='auto',
             help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
+            '-:', '--dots',
+            action='store_true',
+            help="Use 1x2 ascii dot characters. This is the default.")
+    parser.add_argument(
             '-⣿', '--braille',
             action='store_true',
             help="Use 2x4 unicode braille characters. Note that braille "
