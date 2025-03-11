@@ -596,8 +596,8 @@ def partition_squarify(children, total, x, y, width, height, *,
     height_ = height
     # note we don't really care about width vs height until
     # actually slicing
-    ratio = max(bdiv(aspect_ratio[0], aspect_ratio[1]),
-            bdiv(aspect_ratio[1], aspect_ratio[0]))
+    ratio = max(aspect_ratio[0] / aspect_ratio[1],
+            aspect_ratio[1] / aspect_ratio[0])
 
     while i < len(children):
         # calculate initial aspect ratio
@@ -1046,13 +1046,16 @@ def main(paths, *,
                     or (args.get('dice_and_slice') and (tile.depth & 1) == 0)):
                 partition_dice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif args.get('squarify'):
-                partition_squarify(tile.children, tile.value,
-                        x__, y__, width__, height__)
-            elif args.get('rectify'):
+            elif (args.get('squarify')
+                    or args.get('squarify_ratio')
+                    or args.get('rectify')):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__,
-                        aspect_ratio=(width_, height_))
+                        aspect_ratio=(args['squarify_ratio'], 1)
+                                if args.get('squarify_ratio')
+                            else (width_, height_)
+                                if args.get('rectify')
+                            else (1, 1))
             else:
                 # default to binary partitioning
                 partition_binary(tile.children, tile.value,
@@ -1288,6 +1291,13 @@ if __name__ == "__main__":
             help="Use the rectify partitioning scheme. This is like "
                 "squarify, but tries to match the aspect ratio of the "
                 "window.")
+    parser.add_argument(
+            '--squarify-ratio',
+            type=lambda x: (
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
+            help="Specify an explicit ratio for the squarify algorithm. "
+                "Implies --squarify.")
     parser.add_argument(
             '--to-scale',
             nargs='?',
