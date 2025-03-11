@@ -717,6 +717,7 @@ def main(paths, *,
         title=None,
         padding=0,
         label=False,
+        no_label=False,
         **args):
     # figure out what color should be
     if color == 'auto':
@@ -1100,7 +1101,7 @@ def main(paths, *,
                     else chars_[0]),
                 color=t.color if t.color is not None else colors_[0])
 
-        if label:
+        if label or (labels and not no_label):
             if t.label is not None:
                 label__ = t.label
             else:
@@ -1315,6 +1316,10 @@ if __name__ == "__main__":
             '-l', '--label',
             action='store_true',
             help="Render labels.")
+    parser.add_argument(
+            '--no-label',
+            action='store_true',
+            help="Don't render any labels.")
     parser.add_argument(
             '--code-path',
             type=lambda x: x.split(),

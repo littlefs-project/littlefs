@@ -619,14 +619,12 @@ def main(csv_paths, output, *,
     if not by:
         by = [k for k in fields_
                 if k not in (fields or [])
-                    and k not in (labels or [])
                     and not any(k == k_ for k_, _ in defines)]
 
     # if fields not specified, guess it's anything not in by/labels/defines
     if not fields:
         fields = [k for k in fields_
                 if k not in (by or [])
-                    and k not in (labels or [])
                     and not any(k == k_ for k_, _ in defines)]
 
     # then extract the requested dataset

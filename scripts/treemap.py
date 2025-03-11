@@ -731,6 +731,7 @@ def main(csv_paths, *,
         title=None,
         padding=0,
         label=False,
+        no_label=False,
         **args):
     # figure out what color should be
     if color == 'auto':
@@ -785,18 +786,16 @@ def main(csv_paths, *,
                 file=sys.stderr)
         sys.exit(-1)
 
-    # if by not specified, guess it's anything not in fields/labels/defines
+    # if by not specified, guess it's anything not in fields/defines
     if not by:
         by = [k for k in fields_
                 if k not in (fields or [])
-                    and k not in (labels or [])
                     and not any(k == k_ for k_, _ in defines)]
 
-    # if fields not specified, guess it's anything not in by/labels/defines
+    # if fields not specified, guess it's anything not in by/defines
     if not fields:
         fields = [k for k in fields_
                 if k not in (by or [])
-                    and k not in (labels or [])
                     and not any(k == k_ for k_, _ in defines)]
 
     # then extract the requested dataset
@@ -977,7 +976,7 @@ def main(csv_paths, *,
                     else chars_[0]),
                 color=t.color if t.color is not None else colors_[0])
 
-        if label:
+        if label or (labels and not no_label):
             if t.label is not None:
                 label__ = t.label
             else:
@@ -1187,6 +1186,10 @@ if __name__ == "__main__":
             '-l', '--label',
             action='store_true',
             help="Render labels.")
+    parser.add_argument(
+            '--no-label',
+            action='store_true',
+            help="Don't render any labels.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
