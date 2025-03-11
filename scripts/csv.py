@@ -1296,11 +1296,11 @@ def punescape(s, attrs=None):
             f = m.group('format')
             if f[-1] in 'dboxX':
                 if isinstance(v, str):
-                    v = try_dat(v) or 0
+                    v = dat(v, 0)
                 v = int(v)
             elif f[-1] in 'fFeEgG':
                 if isinstance(v, str):
-                    v = try_dat(v) or 0
+                    v = dat(v, 0)
                 v = float(v)
             else:
                 f = ('<' if '-' in f else '>') + f.replace('-', '')

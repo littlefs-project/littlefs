@@ -46,31 +46,33 @@ def openio(path, mode='r', buffering=-1):
         return open(path, mode, buffering)
 
 # parse different data representations
-def dat(x):
-    # allow the first part of an a/b fraction
-    if '/' in x:
-        x, _ = x.split('/', 1)
-
-    # first try as int
+def dat(x, *args):
     try:
-        return int(x, 0)
-    except ValueError:
-        pass
+        # allow the first part of an a/b fraction
+        if '/' in x:
+            x, _ = x.split('/', 1)
 
-    # then try as float
-    try:
-        return float(x)
-    except ValueError:
-        pass
+        # first try as int
+        try:
+            return int(x, 0)
+        except ValueError:
+            pass
 
-    # else give up
-    raise ValueError("invalid dat %r" % x)
+        # then try as float
+        try:
+            return float(x)
+        except ValueError:
+            pass
 
-def try_dat(x):
-    try:
-        return dat(x)
-    except ValueError:
-        return None
+        # else give up
+        raise ValueError("invalid dat %r" % x)
+
+    # default on error?
+    except ValueError as e:
+        if args:
+            return args[0]
+        else:
+            raise
 
 def collect(csv_paths, defines=[]):
     # collect results from CSV files
@@ -279,11 +281,11 @@ def punescape(s, attrs=None):
             f = m.group('format')
             if f[-1] in 'dboxX':
                 if isinstance(v, str):
-                    v = try_dat(v) or 0
+                    v = dat(v, 0)
                 v = int(v)
             elif f[-1] in 'fFeEgG':
                 if isinstance(v, str):
-                    v = try_dat(v) or 0
+                    v = dat(v, 0)
                 v = float(v)
             else:
                 f = ('<' if '-' in f else '>') + f.replace('-', '')
