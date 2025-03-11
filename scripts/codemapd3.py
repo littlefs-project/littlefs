@@ -805,6 +805,24 @@ def main(paths, output, *,
                     attrs=f)
                 for f in functions.values())
 
+    # assign colors/labels to code tiles
+    for i, t in enumerate(code.leaves()):
+        t.color = subsystems[t.attrs['subsystem']]['color']
+        if (i, (t.attrs['name'],)) in labels_:
+            t.label = punescape(
+                    labels_[i, (t.attrs['name'],)],
+                    t.attrs['attrs'] | t.attrs)
+        else:
+            t.label = '%s%s%s%s' % (
+                    t.attrs['name'],
+                    '\ncode %d' % t.attrs.get('code', 0)
+                        if not nil_code else '',
+                    '\nstack %s' % (lambda s: '∞' if mt.isinf(s) else s)(
+                            t.attrs.get('stack', 0))
+                        if not nil_frames else '',
+                    '\nctx %d' % t.attrs.get('ctx', 0)
+                        if not nil_ctx else '')
+
     # build stack heirarchies
     if not no_stack and not no_frames:
         stacks = co.OrderedDict()
@@ -831,6 +849,18 @@ def main(paths, output, *,
                             attrs=f)
                         for f in stack)
 
+            # assign colors/labels to stack tiles
+            for i, t in enumerate(stacks[k].leaves()):
+                t.color = subsystems[t.attrs['subsystem']]['color']
+                if (i, (t.attrs['name'],)) in labels_:
+                    t.label = punescape(
+                            labels_[i, (t.attrs['name'],)],
+                            t.attrs['attrs'] | t.attrs)
+                else:
+                    t.label = '%s\nframe %d' % (
+                            t.attrs['name'],
+                            t.attrs.get('frame', 0))
+
     # build ctx heirarchies
     if not no_stack and not no_ctx:
         ctxs = co.OrderedDict()
@@ -849,6 +879,18 @@ def main(paths, output, *,
                             a.get('ctx', 0),
                             attrs=a)
                         for a in args)
+
+            # assign colors/labels to ctx tiles
+            for i, t in enumerate(ctxs[k].leaves()):
+                t.color = subsystems[t.attrs['subsystem']]['color']
+                if (i, (t.attrs['name'],)) in labels_:
+                    t.label = punescape(
+                            labels_[i, (t.attrs['name'],)],
+                            t.attrs['attrs'] | t.attrs)
+                else:
+                    t.label = '%s\nctx %d' % (
+                            t.attrs['name'],
+                            t.attrs.get('ctx', 0))
 
     # scale width/height if requested now that we have our data
     if (to_scale is not None
@@ -1089,20 +1131,6 @@ def main(paths, output, *,
             if t.width == 0 or t.height == 0:
                 continue
 
-            label__ = labels_[i, (t.attrs['name'],)]
-            if label__ is not None:
-                label__ = punescape(label__, t.attrs['attrs'] | t.attrs)
-            else:
-                label__ = '%s%s%s%s' % (
-                        t.attrs['name'],
-                        '\ncode %d' % t.attrs.get('code', 0)
-                            if not nil_code else '',
-                        '\nstack %s' % (lambda s: '∞' if mt.isinf(s) else s)(
-                                t.attrs.get('stack', 0))
-                            if not nil_frames else '',
-                        '\nctx %d' % t.attrs.get('ctx', 0)
-                            if not nil_ctx else '')
-
             f.write('<g '
                     'id="c-%(name)s" '
                     'class="tile code" '
@@ -1136,7 +1164,7 @@ def main(paths, output, *,
                         height=t.height + padding))
             f.write('</rect>')
             f.write('<title>')
-            f.write(label__)
+            f.write(t.label)
             f.write('</title>')
             f.write('<rect '
                     'id="c-tile-%(id)s" '
@@ -1144,7 +1172,7 @@ def main(paths, output, *,
                     'width="%(width)d" '
                     'height="%(height)d">' % dict(
                         id=i,
-                        color=subsystems[t.attrs['subsystem']]['color'],
+                        color=t.color,
                         width=t.width,
                         height=t.height))
             f.write('</rect>')
@@ -1154,7 +1182,7 @@ def main(paths, output, *,
                 f.write('</use>')
                 f.write('</clipPath>')
                 f.write('<text clip-path="url(#c-clip-%s)">' % i)
-                for j, l in enumerate(label__.split('\n')):
+                for j, l in enumerate(t.label.split('\n')):
                     if j == 0:
                         f.write('<tspan x="3" y="1.1em">')
                         f.write(l)
@@ -1222,14 +1250,6 @@ def main(paths, output, *,
                 if t.width == 0 or t.height == 0:
                     continue
 
-                label__ = labels_[j, (t.attrs['name'],)]
-                if label__ is not None:
-                    label__ = punescape(label__, t.attrs['attrs'] | t.attrs)
-                else:
-                    label__ = '%s\nctx %d' % (
-                            t.attrs['name'],
-                            t.value)
-
                 f.write('<g '
                         'id="x-%(id)s" '
                         'class="tile ctx" '
@@ -1266,7 +1286,7 @@ def main(paths, output, *,
                             height=t.height + padding))
                 f.write('</rect>')
                 f.write('<title>')
-                f.write(label__)
+                f.write(t.label)
                 f.write('</title>')
                 f.write('<rect '
                         'id="x-tile-%(id)s" '
@@ -1274,7 +1294,7 @@ def main(paths, output, *,
                         'width="%(width)d" '
                         'height="%(height)d">' % dict(
                             id='%s-%s' % (i, j),
-                            color=subsystems[t.attrs['subsystem']]['color'],
+                            color=t.color,
                             width=t.width,
                             height=t.height))
                 f.write('</rect>')
@@ -1285,7 +1305,7 @@ def main(paths, output, *,
                     f.write('</clipPath>')
                     f.write('<text clip-path="url(#x-clip-%s)">' % (
                             '%s-%s' % (i, j)))
-                    for j, l in enumerate(label__.split('\n')):
+                    for j, l in enumerate(t.label.split('\n')):
                         if j == 0:
                             f.write('<tspan x="3" y="1.1em">')
                             f.write(l)
@@ -1325,14 +1345,6 @@ def main(paths, output, *,
                 if t.width == 0 or t.height == 0:
                     continue
 
-                label__ = labels_[j, (t.attrs['name'],)]
-                if label__ is not None:
-                    label__ = punescape(label__, t.attrs['attrs'] | t.attrs)
-                else:
-                    label__ = '%s\nframe %d' % (
-                            t.attrs['name'],
-                            t.attrs.get('frame', 0))
-
                 f.write('<g '
                         'id="f-%(id)s" '
                         'class="tile frame" '
@@ -1369,7 +1381,7 @@ def main(paths, output, *,
                             height=t.height + padding))
                 f.write('</rect>')
                 f.write('<title>')
-                f.write(label__)
+                f.write(t.label)
                 f.write('</title>')
                 f.write('<rect '
                         'id="f-tile-%(id)s" '
@@ -1377,7 +1389,7 @@ def main(paths, output, *,
                         'width="%(width)d" '
                         'height="%(height)d">' % dict(
                             id='%s-%s' % (i, j),
-                            color=subsystems[t.attrs['subsystem']]['color'],
+                            color=t.color,
                             width=t.width,
                             height=t.height))
                 f.write('</rect>')
@@ -1388,7 +1400,7 @@ def main(paths, output, *,
                     f.write('</clipPath>')
                     f.write('<text clip-path="url(#f-clip-%s)">' % (
                             '%s-%s' % (i, j)))
-                    for j, l in enumerate(label__.split('\n')):
+                    for j, l in enumerate(t.label.split('\n')):
                         if j == 0:
                             f.write('<tspan x="3" y="1.1em">')
                             f.write(l)

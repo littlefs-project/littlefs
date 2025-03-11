@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 #
-# Inspired by d3:
-# https://d3js.org
+# Inspired by d3 and brendangregg's flamegraph svg:
+# - https://d3js.org
+# - https://github.com/brendangregg/FlameGraph
 #
 
 # prevent local imports
@@ -13,9 +14,11 @@ import collections as co
 import csv
 import fnmatch
 import itertools as it
+import json
 import math as mt
 import re
 import shutil
+import subprocess as sp
 
 
 # we don't actually need that many chars/colors thanks to the
@@ -34,6 +37,10 @@ CHARS_BRAILLE = (
         '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
         '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
+CODE_PATH = ['./scripts/code.py']
+STACK_PATH = ['./scripts/stack.py']
+CTX_PATH = ['./scripts/ctx.py']
+
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
@@ -44,6 +51,11 @@ def openio(path, mode='r', buffering=-1):
             return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
+
+def iself(path):
+    # check for an elf file's magic string (\x7fELF)
+    with open(path, 'rb') as f:
+        return f.read(4) == b'\x7fELF'
 
 # parse different data representations
 def dat(x, *args):
@@ -73,87 +85,6 @@ def dat(x, *args):
             return args[0]
         else:
             raise
-
-def collect(csv_paths, defines=[]):
-    # collect results from CSV files
-    fields = []
-    results = []
-    for path in csv_paths:
-        try:
-            with openio(path) as f:
-                reader = csv.DictReader(f, restval='')
-                fields.extend(
-                        k for k in reader.fieldnames
-                            if k not in fields)
-                for r in reader:
-                    # filter by matching defines
-                    if not all(k in r and r[k] in vs for k, vs in defines):
-                        continue
-
-                    results.append(r)
-        except FileNotFoundError:
-            pass
-
-    return fields, results
-
-def fold(results, by=None, fields=None, defines=[]):
-    # filter by matching defines
-    if defines:
-        results_ = []
-        for r in results:
-            if all(k in r and r[k] in vs for k, vs in defines):
-                results_.append(r)
-        results = results_
-
-    if by:
-        # find all 'by' values
-        keys = set()
-        for r in results:
-            keys.add(tuple(r.get(k, '') for k in by))
-        keys = sorted(keys)
-
-    # collect datasets
-    datasets = co.OrderedDict()
-    dataattrs = co.OrderedDict()
-    for key in (keys if by else [()]):
-        for field in fields:
-            # organize by 'by' and field
-            dataset = []
-            dataattr = {}
-            for r in results:
-                # filter by 'by'
-                if by and not all(
-                        k in r and r[k] == v
-                            for k, v in zip(by, key)):
-                    continue
-
-                # find field
-                if field is not None:
-                    if field not in r:
-                        continue
-                    try:
-                        v = dat(r[field])
-                    except ValueError:
-                        continue
-                else:
-                    v = None
-
-                # do _not_ sum v here, it's tempting but risks
-                # incorrect and misleading results
-                dataset.append(v)
-
-                # include all fields in dataattrs in case we use
-                # them for % modifiers
-                dataattr.update(r)
-
-            # hide 'field' if there is only one field
-            key_ = key
-            if len(fields or []) > 1 or not key_:
-                key_ += (field,)
-            datasets[key_] = dataset
-            dataattrs[key_] = dataattr
-
-    return datasets, dataattrs
 
 # a representation of optionally key-mapped attrs
 class Attr:
@@ -712,10 +643,66 @@ def partition_squarify(children, total, x, y, width, height, *,
         i = j
 
 
-def main(csv_paths, *,
-        by=None,
-        fields=None,
-        defines=[],
+def collect_code(obj_paths, *,
+        code_path=CODE_PATH,
+        **args):
+    # note code-path may contain extra args
+    cmd = code_path + ['-O-'] + obj_paths
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    code = json.load(proc.stdout)
+    proc.wait()
+    if proc.returncode != 0:
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return code
+
+def collect_stack(ci_paths, *,
+        stack_path=STACK_PATH,
+        **args):
+    # note stack-path may contain extra args
+    cmd = stack_path + ['-O-', '--depth=2'] + ci_paths
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    stack = json.load(proc.stdout)
+    proc.wait()
+    if proc.returncode != 0:
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return stack
+
+def collect_ctx(obj_paths, *,
+        ctx_path=CTX_PATH,
+        **args):
+    # note stack-path may contain extra args
+    cmd = ctx_path + ['-O-', '--depth=2', '--internal'] + obj_paths
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+    ctx = json.load(proc.stdout)
+    proc.wait()
+    if proc.returncode != 0:
+        raise sp.CalledProcessError(proc.returncode, proc.args)
+
+    return ctx
+
+
+def main(paths, *,
+        namespace_depth=2,
         labels=[],
         chars=[],
         colors=[],
@@ -725,7 +712,6 @@ def main(csv_paths, *,
         width=None,
         height=None,
         no_header=False,
-        no_stats=False,
         to_scale=None,
         aspect_ratio=(1,1),
         tiny=False,
@@ -769,129 +755,246 @@ def main(csv_paths, *,
         width_ = shutil.get_terminal_size((80, 5))[0]
 
     if height is None:
-        height_ = (2
-                if not no_header
-                    and (title is not None or not no_stats)
-                else 1)
+        height_ = 2 if not no_header else 1
     elif height:
         height_ = height
     else:
         height_ = shutil.get_terminal_size((80, 5))[1] - 1
 
-    # first collect results from CSV files
-    fields_, results = collect(csv_paths, defines)
+    # try to parse files as CSV/JSON
+    results = []
+    try:
+        # if any file starts with elf magic (\x7fELF), assume input is
+        # elf/callgraph files
+        fs = []
+        for path in paths:
+            f = openio(path)
+            if f.buffer.peek(4)[:4] == b'\x7fELF':
+                for f_ in fs:
+                    f_.close()
+                raise StopIteration()
+            fs.append(f)
 
-    if not by and not fields:
-        print("error: needs --by or --fields to figure out fields",
-                file=sys.stderr)
-        sys.exit(-1)
+        for f in fs:
+            with f:
+                # csv or json? assume json starts with [
+                is_json = (f.buffer.peek(1)[:1] == b'[')
 
-    # if by not specified, guess it's anything not in fields/labels/defines
-    if not by:
-        by = [k for k in fields_
-                if k not in (fields or [])
-                    and k not in (labels or [])
-                    and not any(k == k_ for k_, _ in defines)]
+                # read csv?
+                if not is_json:
+                    results.extend(csv.DictReader(f, restval=''))
 
-    # if fields not specified, guess it's anything not in by/labels/defines
-    if not fields:
-        fields = [k for k in fields_
-                if k not in (by or [])
-                    and k not in (labels or [])
-                    and not any(k == k_ for k_, _ in defines)]
+                # read json?
+                else:
+                    results.extend(json.load(f))
 
-    # then extract the requested dataset
-    datasets, dataattrs = fold(results, by, fields, defines)
+    # fall back to extracting code/stack/ctx info from elf/callgraph files
+    except StopIteration:
+        # figure out paths
+        obj_paths = []
+        ci_paths = []
+        for path in paths:
+            if iself(path):
+                obj_paths.append(path)
+            else:
+                ci_paths.append(path)
 
-    # build tile heirarchy
-    children = []
-    for key, dataset in datasets.items():
-        for i, v in enumerate(dataset):
-            children.append(Tile(
-                key + ((str(i),) if len(dataset) > 1 else ()),
-                v,
-                attrs=dataattrs[key]))
+        # find code/stack/ctx sizes
+        if obj_paths:
+            results.extend(collect_code(obj_paths, **args))
+        if ci_paths:
+            results.extend(collect_stack(ci_paths, **args))
+        if obj_paths:
+            results.extend(collect_ctx(obj_paths, **args))
 
-    tile = Tile.merge(children)
+    # don't render code/stack/ctx results if we don't have any
+    nil_code = not any('code_size' in r for r in results)
+    nil_frames = not any('stack_frame' in r for r in results)
+    nil_ctx = not any('ctx_size' in r for r in results)
 
-    # merge attrs
-    for t in tile.tiles():
-        if t.children:
-            t.attrs = {k: v
-                    for t_ in t.leaves()
-                    for k, v in t_.attrs.items()}
-            # also sum fields here in case they're used by % modifiers,
-            # note other fields are _not_ summed
-            for k in fields:
-                t.attrs[k] = sum(t_.value
-                        for t_ in t.leaves()
-                        if len(fields) == 1 or t_.key[len(by)] == k)
+    # merge code/stack/ctx results
+    functions = co.OrderedDict()
+    for r in results:
+        if r['function'] not in functions:
+            functions[r['function']] = {'name': r['function']}
+        # code things
+        if 'code_size' in r:
+            functions[r['function']]['code'] = dat(r['code_size'])
+        # stack things, including callgraph
+        if 'stack_frame' in r:
+            functions[r['function']]['frame'] = dat(r['stack_frame'])
+        if 'stack_limit' in r:
+            functions[r['function']]['stack'] = dat(r['stack_limit'], mt.inf)
+        if 'children' in r:
+            if 'children' not in functions[r['function']]:
+                functions[r['function']]['children'] = []
+            functions[r['function']]['children'].extend(
+                    r_['function']
+                        for r_ in r['children']
+                        if r_.get('stack_frame', '') != '')
+        # ctx things, including any arguments
+        if 'ctx_size' in r:
+            functions[r['function']]['ctx'] = dat(r['ctx_size'])
+        if 'children' in r:
+            if 'args' not in functions[r['function']]:
+                functions[r['function']]['args'] = []
+            functions[r['function']]['args'].extend(
+                    {'name': r_['function'],
+                            'ctx': dat(r_['ctx_size']),
+                            'attrs': r_}
+                        for r_ in r['children']
+                        if r_.get('ctx_size', '') != '')
+        # keep track of other attrs for punescaping
+        if 'attrs' not in functions[r['function']]:
+            functions[r['function']]['attrs'] = {}
+        functions[r['function']]['attrs'].update(r)
 
-    # assign colors/labels before sorting to keep things reproducible
+    # stack.py returns infinity for recursive functions, so we need to
+    # recompute a bounded stack limit to show something useful
+    def limitof(k, f, seen=set()):
+        # found a cycle? stop here
+        if k in seen:
+            return 0
 
-    # use colors for top of tree
-    for i, t in enumerate(tile.children):
-        for t_ in t.tiles():
-            t_.color = punescape(colors_[i, t.key], t_.attrs)
+        limit = 0
+        for child in f.get('children', []):
+            if child not in functions:
+                continue
+            limit = max(limit, limitof(child, functions[child], seen | {k}))
 
-    # and chars/labels for bottom of tree
-    for i, t in enumerate(tile.leaves()):
-        t.char = punescape(chars_[i, t.key], t.attrs)[0] # limit to 1 char
-        if (i, t.key) in labels_:
-            t.label = punescape(labels_[i, t.key], t.attrs)
+        return f['frame'] + limit
+
+    for k, f in functions.items():
+        if 'stack' in f:
+            if mt.isinf(f['stack']):
+                f['limit'] = limitof(k, f)
+            else:
+                f['limit'] = f['stack']
+
+    # organize into subsystems
+    namespace_pattern = re.compile('_*[^_]+(?:_*$)?')
+    namespace_slice = slice(namespace_depth if namespace_depth else None)
+    subsystems = {}
+    for k, f in functions.items():
+        # ignore leading/trailing underscores
+        f['subsystem'] = ''.join(
+                namespace_pattern.findall(k)[
+                    namespace_slice])
+
+        if f['subsystem'] not in subsystems:
+            subsystems[f['subsystem']] = {'name': f['subsystem']}
+
+    # include ctx in subsystems to give them different colors
+    for _, f in functions.items():
+        for a in f.get('args', []):
+            a['subsystem'] = a['name']
+
+            if a['subsystem'] not in subsystems:
+                subsystems[a['subsystem']] = {'name': a['subsystem']}
+
+    # sort to try to keep things reproducible
+    functions = co.OrderedDict(sorted(functions.items()))
+    subsystems = co.OrderedDict(sorted(subsystems.items()))
+
+    # sum code/stack/ctx/attrs for punescaping
+    for k, s in subsystems.items():
+        s['code'] = sum(
+                f.get('code', 0) for f in functions.values()
+                    if f['subsystem'] == k)
+        s['stack'] = max(
+                (f.get('stack', 0) for f in functions.values()
+                    if f['subsystem'] == k),
+                default=0)
+        s['ctx'] = max(
+                (f.get('ctx', 0) for f in functions.values()
+                    if f['subsystem'] == k),
+                default=0)
+        s['attrs'] = {k_: v_
+                for f in functions.values()
+                if f['subsystem'] == k
+                for k_, v_ in f['attrs'].items()}
+
+    # also build totals
+    totals = {}
+    totals['code'] = sum(
+            f.get('code', 0) for f in functions.values())
+    totals['stack'] = max(
+            (f.get('stack', 0) for f in functions.values()),
+            default=0)
+    totals['ctx'] = max(
+            (f.get('ctx', 0) for f in functions.values()),
+            default=0)
+    totals['attrs'] = {k: v
+            for f in functions.values()
+            for k, v in f['attrs'].items()}
+
+    # assign colors to subsystems, note this is after sorting, but
+    # before tile generation, we want code and stack tiles to have the
+    # same color if they're in the same subsystem
+    for i, (k, s) in enumerate(subsystems.items()):
+        s['color'] = punescape(colors_[i, (k,)], s['attrs'] | s)
+
+
+    # build code heirarchy
+    code = Tile.merge(
+            Tile(   (f['subsystem'], f['name']),
+                    # fallback to stack/ctx
+                    f.get('code', 0) if not nil_code
+                        else f.get('frame', 0) if not nil_frames
+                        else f.get('ctx', 0),
+                    attrs=f)
+                for f in functions.values())
+
+    # assign colors/chars/labels to code tiles
+    for i, t in enumerate(code.leaves()):
+        t.color = subsystems[t.attrs['subsystem']]['color']
+        t.char = punescape(
+                chars_[i, (t.attrs['name'],)],
+                t.attrs['attrs'] | t.attrs)[0] # limit to 1 char
+        if (i, (t.attrs['name'],)) in labels_:
+            t.label = punescape(
+                    labels_[i, (t.attrs['name'],)],
+                    t.attrs['attrs'] | t.attrs)
+        else:
+            t.label = t.attrs['name']
 
     # scale width/height if requested now that we have our data
-    if (to_scale
-            and (width is None or height is None)
-            and tile.value != 0):
-        # scale if needed
-        if braille:
-            xscale, yscale = 2, 4
-        elif dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
+    if (to_scale is not None
+            and (width is None or height is None)):
+        total_value = (totals.get('code', 0) if not nil_code
+                else totals.get('frame', 0) if not nil_frames
+                else totals.get('ctx', 0))
+        if total_value:
+            # scale if needed
+            if braille:
+                xscale, yscale = 2, 4
+            elif dots:
+                xscale, yscale = 1, 2
+            else:
+                xscale, yscale = 1, 1
 
-        # scale width only
-        if height is not None:
-            width_ = mt.ceil(
-                    ((tile.value * to_scale) / (height_*yscale))
-                        / xscale)
-        # scale height only
-        elif width is not None:
-            height_ = mt.ceil(
-                    ((tile.value * to_scale) / (width_*xscale))
-                        / yscale)
-        # scale based on aspect-ratio
-        else:
-            width_ = mt.ceil(
-                    (mt.sqrt(tile.value * to_scale)
-                            * (aspect_ratio[0] / aspect_ratio[1]))
-                        / xscale)
-            height_ = mt.ceil(
-                    ((tile.value * to_scale) / (width_*xscale))
-                        / yscale)
+            # scale width only
+            if height is not None:
+                width_ = mt.ceil(
+                        ((total_value * to_scale) / (height_*yscale))
+                            / xscale)
+            # scale height only
+            elif width is not None:
+                height_ = mt.ceil(
+                        ((total_value * to_scale) / (width_*xscale))
+                            / yscale)
+            # scale based on aspect-ratio
+            else:
+                width_ = mt.ceil(
+                        (mt.sqrt(total_value * to_scale)
+                                * (aspect_ratio[0] / aspect_ratio[1]))
+                            / xscale)
+                height_ = mt.ceil(
+                        ((total_value * to_scale) / (width_*xscale))
+                            / yscale)
 
-    # create a canvas
-    canvas = Canvas(
-            width_,
-            height_ - (1
-                if not no_header
-                    and (title is not None or not no_stats)
-                else 0),
-            color=color,
-            dots=dots,
-            braille=braille)
-
-    # sort
-    tile.sort()
-
-    # recursively partition tiles
-    tile.x = 0
-    tile.y = 0
-    tile.width = canvas.width
-    tile.height = canvas.height
-    def partition(tile):
+    # our general purpose partition function
+    def partition(tile, scheme):
         if tile.depth == 0:
             # apply top padding
             tile.x += padding
@@ -921,23 +1024,23 @@ def main(csv_paths, *,
 
         # partition via requested scheme
         if tile.children:
-            if args.get('binary'):
+            if scheme == 'binary':
                 partition_binary(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif (args.get('slice')
-                    or (args.get('slice_and_dice') and (tile.depth & 1) == 0)
-                    or (args.get('dice_and_slice') and (tile.depth & 1) == 1)):
+            elif (scheme == 'slice'
+                    or (scheme == 'slice_and_dice' and (tile.depth & 1) == 0)
+                    or (scheme == 'dice_and_slice' and (tile.depth & 1) == 1)):
                 partition_slice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif (args.get('dice')
-                    or (args.get('slice_and_dice') and (tile.depth & 1) == 1)
-                    or (args.get('dice_and_slice') and (tile.depth & 1) == 0)):
+            elif (scheme == 'dice'
+                    or (scheme == 'slice_and_dice' and (tile.depth & 1) == 1)
+                    or (scheme == 'dice_and_slice' and (tile.depth & 1) == 0)):
                 partition_dice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif args.get('squarify'):
+            elif scheme == 'squarify':
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif args.get('rectify'):
+            elif scheme == 'rectify':
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__,
                         aspect_ratio=(width_, height_))
@@ -948,16 +1051,30 @@ def main(csv_paths, *,
 
         # recursively partition
         for t in tile.children:
-            partition(t)
+            partition(t, scheme)
 
-    partition(tile)
+    # create a canvas
+    canvas = Canvas(
+            width_,
+            height_ - (1 if not no_header else 0),
+            color=color,
+            dots=dots,
+            braille=braille)
 
+    # sort and partition code
+    code.sort()
+    code.x = 0
+    code.y = 0
+    code.width = canvas.width
+    code.height = canvas.height
+    partition(code, 'binary')
     # align to pixel boundaries
-    tile.align()
+    code.align()
+
 
     # render to canvas
     labels__ = []
-    for t in tile.leaves():
+    for t in code.leaves():
         x__ = t.x
         y__ = t.y
         width__ = t.width
@@ -998,22 +1115,13 @@ def main(csv_paths, *,
     # print some summary info
     if not no_header:
         if title:
-            title_ = punescape(title, tile.attrs)
-        if not no_stats:
-            stat = tile.stat()
-            stat_ = 'total %d, avg %d +-%dσ, min %d, max %d' % (
-                    stat['total'],
-                    stat['mean'], stat['stddev'],
-                    stat['min'], stat['max'])
-        if title and not no_stats:
-            print('%s%*s%s' % (
-                    title_,
-                    max(width_-len(stat_)-len(title_), 0), ' ',
-                    stat_))
-        elif title:
-            print(title_)
-        elif not no_stats:
-            print(stat_)
+            print(punescape(title, totals['attrs'] | totals))
+        else:
+            print('code %d stack %s ctx %d' % (
+                        totals.get('code', 0),
+                        (lambda s: '∞' if mt.isinf(s) else s)(
+                            totals.get('stack', 0)),
+                        totals.get('ctx', 0)))
 
     # draw canvas
     for row in range(canvas.height//canvas.yscale):
@@ -1025,31 +1133,52 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Render CSV files as a treemap.",
+            description="Render code info as a treemap.",
             allow_abbrev=False)
+    class AppendPath(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if getattr(namespace, 'paths', None) is None:
+                namespace.paths = []
+            if value is None:
+                pass
+            elif isinstance(value, str):
+                namespace.paths.append(value)
+            else:
+                namespace.paths.extend(value)
+    parser.add_argument(
+            'obj_paths',
+            nargs='*',
+            action=AppendPath,
+            help="Input *.o files.")
+    parser.add_argument(
+            'ci_paths',
+            nargs='*',
+            action=AppendPath,
+            help="Input *.ci files.")
     parser.add_argument(
             'csv_paths',
             nargs='*',
+            action=AppendPath,
             help="Input *.csv files.")
     parser.add_argument(
-            '-b', '--by',
-            action='append',
-            help="Group by this field.")
+            'json_paths',
+            nargs='*',
+            action=AppendPath,
+            help="Input *.json files.")
     parser.add_argument(
-            '-f', '--field',
-            dest='fields',
-            action='append',
-            help="Field to use for tile sizes.")
+            '-n', '--namespace-depth',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Number of underscore-separated namespaces to partition by. "
+                "0 treats every function as its own subsystem, while -1 uses "
+                "the longest matching prefix. Defaults to 2, which is "
+                "probably a good level of detail for most standalone "
+                "libraries.")
     parser.add_argument(
-            '-D', '--define',
-            dest='defines',
-            action='append',
-            type=lambda x: (
-                lambda k, vs: (
-                    k.strip(),
-                    {v.strip() for v in vs.split(',')})
-                )(*x.split('=', 1)),
-            help="Only include results where this field is this value.")
+            '-v', '--verbose',
+            action='store_true',
+            help="Output commands that run behind the scenes.")
     parser.add_argument(
             '-L', '--add-label',
             dest='labels',
@@ -1060,9 +1189,8 @@ if __name__ == "__main__":
                     v.strip())
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
-            help="Add a label to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields. Accepts %% "
-                "modifiers.")
+            help="Add a label to use. Can be assigned to a specific "
+                "function/subsystem. Accepts %% modifiers.")
     parser.add_argument(
             '-*', '--add-char', '--chars',
             dest='chars',
@@ -1073,9 +1201,8 @@ if __name__ == "__main__":
                     v.strip())
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
-            help="Add characters to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields. Accepts %% "
-                "modifiers.")
+            help="Add characters to use. Can be assigned to a specific "
+                "function/subsystem. Accepts %% modifiers.")
     parser.add_argument(
             '-C', '--add-color',
             dest='colors',
@@ -1086,9 +1213,8 @@ if __name__ == "__main__":
                     v.strip())
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
-            help="Add a color to use. Can be assigned to a specific group "
-                "where a group is the comma-separated 'by' fields. Accepts %% "
-                "modifiers.")
+            help="Add a color to use. Can be assigned to a specific "
+                "function/subsystem. Accepts %% modifiers.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
@@ -1120,10 +1246,6 @@ if __name__ == "__main__":
             '-N', '--no-header',
             action='store_true',
             help="Don't show the header.")
-    parser.add_argument(
-            '--no-stats',
-            action='store_true',
-            help="Don't show data stats in the header.")
     parser.add_argument(
             '--binary',
             action='store_true',
@@ -1192,6 +1314,24 @@ if __name__ == "__main__":
             '-l', '--label',
             action='store_true',
             help="Render labels.")
+    parser.add_argument(
+            '--code-path',
+            type=lambda x: x.split(),
+            default=CODE_PATH,
+            help="Path to the code.py script, may include flags. "
+                "Defaults to %r." % CODE_PATH)
+    parser.add_argument(
+            '--stack-path',
+            type=lambda x: x.split(),
+            default=STACK_PATH,
+            help="Path to the stack.py script, may include flags. "
+                "Defaults to %r." % STACK_PATH)
+    parser.add_argument(
+            '--ctx-path',
+            type=lambda x: x.split(),
+            default=CTX_PATH,
+            help="Path to the ctx.py script, may include flags. "
+                "Defaults to %r." % CTX_PATH)
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
