@@ -74,8 +74,6 @@ def iself(path):
     with open(path, 'rb') as f:
         return f.read(4) == b'\x7fELF'
 
-
-# TODO adopt this default scheme elsewhere?
 # parse different data representations
 def dat(x, *args):
     try:
@@ -104,87 +102,6 @@ def dat(x, *args):
             return args[0]
         else:
             raise
-
-def collect(csv_paths, defines=[]):
-    # collect results from CSV files
-    fields = []
-    results = []
-    for path in csv_paths:
-        try:
-            with openio(path) as f:
-                reader = csv.DictReader(f, restval='')
-                fields.extend(
-                        k for k in reader.fieldnames
-                            if k not in fields)
-                for r in reader:
-                    # filter by matching defines
-                    if not all(k in r and r[k] in vs for k, vs in defines):
-                        continue
-
-                    results.append(r)
-        except FileNotFoundError:
-            pass
-
-    return fields, results
-
-def fold(results, by=None, fields=None, defines=[]):
-    # filter by matching defines
-    if defines:
-        results_ = []
-        for r in results:
-            if all(k in r and r[k] in vs for k, vs in defines):
-                results_.append(r)
-        results = results_
-
-    if by:
-        # find all 'by' values
-        keys = set()
-        for r in results:
-            keys.add(tuple(r.get(k, '') for k in by))
-        keys = sorted(keys)
-
-    # collect datasets
-    datasets = co.OrderedDict()
-    dataattrs = co.OrderedDict()
-    for key in (keys if by else [()]):
-        for field in fields:
-            # organize by 'by' and field
-            dataset = []
-            dataattr = {}
-            for r in results:
-                # filter by 'by'
-                if by and not all(
-                        k in r and r[k] == v
-                            for k, v in zip(by, key)):
-                    continue
-
-                # find field
-                if field is not None:
-                    if field not in r:
-                        continue
-                    try:
-                        v = dat(r[field])
-                    except ValueError:
-                        continue
-                else:
-                    v = None
-
-                # do _not_ sum v here, it's tempting but risks
-                # incorrect and misleading results
-                dataset.append(v)
-
-                # include all fields in dataattrs in case we use
-                # them for % modifiers
-                dataattr.update(r)
-
-            # hide 'field' if there is only one field
-            key_ = key
-            if len(fields or []) > 1 or not key_:
-                key_ += (field,)
-            datasets[key_] = dataset
-            dataattrs[key_] = dataattr
-
-    return datasets, dataattrs
 
 # a representation of optionally key-mapped attrs
 class Attr:
@@ -283,7 +200,6 @@ class Attr:
 
         return len(self.keyed)
 
-# TODO adopt this elsewhere (try_dat -> default)
 # parse %-escaped strings
 def punescape(s, attrs=None):
     if attrs is None:
@@ -715,7 +631,6 @@ def main(paths, output, *,
 
         for f in fs:
             with f:
-                # TODO adopt this rename (json -> is_json) in other scripts
                 # csv or json? assume json starts with [
                 is_json = (f.buffer.peek(1)[:1] == b'[')
 
@@ -780,7 +695,6 @@ def main(paths, output, *,
         # ctx things, including any arguments
         if 'ctx_size' in r:
             functions[r['function']]['ctx'] = dat(r['ctx_size'])
-        # TODO, what if not children in ctx? in stack?
         if 'children' in r:
             if 'args' not in functions[r['function']]:
                 functions[r['function']]['args'] = []
@@ -795,55 +709,12 @@ def main(paths, output, *,
             functions[r['function']]['attrs'] = {}
         functions[r['function']]['attrs'].update(r)
 
-#    import pprint
-#    pprint.pprint(functions)
-
-#    # figure out paths
-#    obj_paths = []
-#    ci_paths = []
-#    for path in paths:
-#        if iself(path):
-#            obj_paths.append(path)
-#        else:
-#            ci_paths.append(path)
-#
-#    # find code/stack/ctx sizes
-#    functions = co.OrderedDict()
-#    if obj_paths:
-#        for r in collect_code(obj_paths, **args):
-#            if r['function'] not in functions:
-#                functions[r['function']] = {}
-#            functions[r['function']]['code'] = dat(r['code_size'])
-#    if ci_paths:
-#        for r in collect_stack(ci_paths, **args):
-#            if r['function'] not in functions:
-#                functions[r['function']] = {}
-#            functions[r['function']]['frame'] = dat(r['stack_frame'])
-#            functions[r['function']]['stack'] = dat(r['stack_limit'], mt.inf)
-#            if 'children' in r:
-#                functions[r['function']]['children'] = [
-#                        r_['function'] for r_ in r['children']]
-#    if obj_paths:
-#        for r in collect_ctx(obj_paths, **args):
-#            if r['function'] not in functions:
-#                functions[r['function']] = {}
-#            functions[r['function']]['ctx'] = dat(r['ctx_size'])
-#            if 'children' in r:
-#                functions[r['function']]['args'] = [
-#                        (r_['function'], dat(r_['ctx_size']))
-#                            for r_ in r['children']]
-
     # stack.py returns infinity for recursive functions, so we need to
     # recompute a bounded stack limit to show something useful
     def limitof(k, f, seen=set()):
         # found a cycle? stop here
         if k in seen:
             return 0
-#        # cached?
-#        if not hasattr(limitof, 'cache'):
-#            limitof.cache = {}
-#        if k in limitof.cache:
-#            return limitof.cache[k]
 
         limit = 0
         for child in f.get('children', []):
@@ -851,7 +722,6 @@ def main(paths, output, *,
                 continue
             limit = max(limit, limitof(child, functions[child], seen | {k}))
 
-#        limitof.cache[k] = f['frame'] + limit
         return f['frame'] + limit
 
     for k, f in functions.items():
@@ -918,96 +788,12 @@ def main(paths, output, *,
             for f in functions.values()
             for k, v in f['attrs'].items()}
 
-#    import pprint
-#    pprint.pprint(functions)
-
     # assign colors to subsystems, note this is after sorting, but
     # before tile generation, we want code and stack tiles to have the
     # same color if they're in the same subsystem
     for i, (k, s) in enumerate(subsystems.items()):
         s['color'] = punescape(colors_[i, (k,)], s['attrs'] | s)
 
-#    # TODO make this configurable?
-#    stack_ratio = 1/5
-
-#    # use colors for top of tree
-#    for i, t in enumerate(tile.children):
-#        for t_ in t.tiles():
-#            t_.color = colors_[i, t_.key]
-
-#    # build functions
-#    datasets = co.OrderedDict()
-#    dataattrs = co.OrderedDict()
-#    for k, v in functions.items():
-#        name = ('_'.join(k.split('_')[:2]), k)
-#
-#        try:
-#            if 'code' in v:
-#                datasets[name] = [dat(v['code'])]
-#        except ValueError:
-#            pass
-#
-#        # bring over everything else
-#        if name not in dataattrs:
-#            dataattrs[name] = {}
-#        dataattrs[name].update(v | {
-#                'subsystem': name[0],
-#                'name': name[1],
-#                'code': datasets[name][0],
-#                'stack': v.get('stack', 0),
-#                'ctx': v.get('ctx', 0)})
-
-#    # break down by namespace
-#    # TODO namespace depth?
-#    results_ = []
-#    for r in results:
-#        name = (r['function'] if 'function' in r
-#                else r['struct'] if 'struct' in r
-#                else r['name'] if name in r
-#                else '?')
-#        results_.append({
-#            'subsystem': '_'.join(name.split('_')[:2]),
-#            'name': name,
-#            'code': r['code'] if 'code' in r
-#                    else r['size'] if 'size' in r
-#                    else '0',
-#            'frame': r['frame'] if 'code' in r
-#                    else '0',
-#            'limit': r['stack'] if 'stack' in r
-#                    else r['limit'] if 'limit' in r
-#                    else '0',
-#            'ctx': r['ctx'] if 'ctx' in r
-#                    else '0'})
-#    results = results_
-#
-#    by = ['subsystem', 'name']
-#    fields = ['code']
-#    labels_ = Attr(['%(name)s%ncode %(code)d%nstack %(stack)d%nctx %(ctx)d'])
-#
-#    if not by and not fields:
-#        print("error: needs --by or --fields to figure out fields",
-#                file=sys.stderr)
-#        sys.exit(-1)
-#
-#    # if by not specified, guess it's anything not in fields/labels/defines
-#    if not by:
-#        by = [k for k in fields_
-#                if k not in (fields or [])
-#                    and k not in (labels or [])
-#                    and not any(k == k_ for k_, _ in defines)]
-#
-#    # if fields not specified, guess it's anything not in by/labels/defines
-#    if not fields:
-#        fields = [k for k in fields_
-#                if k not in (by or [])
-#                    and k not in (labels or [])
-#                    and not any(k == k_ for k_, _ in defines)]
-#
-#    # then extract the requested dataset
-#    datasets, dataattrs = fold(results, by, fields, defines)
-#
-#    import pprint
-#    pprint.pprint(datasets)
 
     # build code heirarchy
     code = Tile.merge(
@@ -1063,51 +849,6 @@ def main(paths, output, *,
                             a.get('ctx', 0),
                             attrs=a)
                         for a in args)
-
-#                ctxs[k].attrs = {'name': k, 'subsystem': f['subsystem']}
-#                print(ctxs[k])
-
-
-#    children = []
-#    for k, f in functions.items():
-#        children.append(Tile(
-#                k,
-#                f['code'],
-#                attrs=f))
-#
-##    for key, dataset in datasets.items():
-##        for i, v in enumerate(dataset):
-##            children.append(Tile(
-##                key + ((str(i),) if len(dataset) > 1 else ()),
-##                v,
-##                attrs=dataattrs[key]))
-#
-#    tile = Tile.merge(children)
-#
-#    # merge attrs
-#    for t in tile.tiles():
-#        if t.children:
-#            t.attrs = {k: v
-#                    for t_ in t.leaves()
-#                    for k, v in t_.attrs.items()}
-#            # also sum fields here in case they're used by % modifiers,
-#            # note other fields are _not_ summed
-#            for k in fields:
-#                t.attrs[k] = sum(t_.value
-#                        for t_ in t.leaves()
-#                        if len(fields) == 1 or t_.key[len(by)] == k)
-#
-#    # assign colors/labels before sorting to keep things reproducible
-#
-#    # use colors for top of tree
-#    for i, t in enumerate(tile.children):
-#        for t_ in t.tiles():
-#            t_.color = colors_[i, t_.key]
-#
-#    # and labels everywhere
-#    for i, t in enumerate(tile.tiles()):
-#        if (i, t.key) in labels_:
-#            t.label = punescape(labels_[i, t.key], t.attrs)
 
     # scale width/height if requested now that we have our data
     if (to_scale is not None
@@ -1275,6 +1016,7 @@ def main(paths, output, *,
                 # align to pixel boundaries
                 stack.align()
 
+
     # create svg file
     with openio(output, 'w') as f:
         def writeln(s=''):
@@ -1293,9 +1035,6 @@ def main(paths, output, *,
                         'font: %(font_size)dpx %(font)s; '
                         'background-color: %(background)s; '
                         'user-select: %(user_select)s;">' % dict(
-#                'pointer-events="none" '
-#                'onkeydown="keydown(this,event)" '
-#                'onkeyup="keydown(this,event)" '
                     width=width_,
                     height=height_,
                     font=','.join(font),
@@ -1344,21 +1083,6 @@ def main(paths, output, *,
             f.write('</text>')
             f.write('</g>')
 
-#        # put all our tiles in a big group to catch clicks
-#        f.write('<g id="body" onclick="click_tile(this,event)">')
-#        # add an invisible rect to make things more clickable
-#        f.write('<rect '
-#                'x="%(x)d" '
-#                'y="%(y)d" '
-#                'width="%(width)d" '
-#                'height="%(height)d" '
-#                'opacity="0">' % dict(
-#                    x=0,
-#                    y=y__,
-#                    width=width_,
-#                    height=height_ - y__))
-#        f.write('</rect>')
-
         # create code tiles
         for i, t in enumerate(code.leaves()):
             # skip anything with zero weight/height after aligning things
@@ -1394,7 +1118,6 @@ def main(paths, output, *,
                             'data-y="%(y)d" '
                             'data-width="%(width)d" '
                             'data-height="%(height)d" '
-        #                    'cursor="pointer" '
                             'onmouseenter="enter_tile(this,event)" '
                             'onmouseleave="leave_tile(this,event)" '
                             'onclick="click_tile(this,event)">' % dict(
@@ -1450,10 +1173,6 @@ def main(paths, output, *,
                 f.write('</text>')
             f.write('</g>')
 
-#        # show the deepest stack/ctx by default
-#        default = max(functions.values(),
-#                key=lambda f: f.get('stack', 0) + f.get('ctx', 0))
-
         # create stack/ctx tiles
         if not no_stack and (not no_ctx or not no_frames):
           for i, k in enumerate(functions.keys()):
@@ -1496,24 +1215,6 @@ def main(paths, output, *,
                             - code.y - padding))
             f.write('</rect>')
 
-#            # create a group to catch stack-enter events
-#            f.write('<g '
-#                    'data-func="%(func)s" '
-#                    'onmouseenter="enter_stack(this,event)">' % dict(
-#                        func=k))
-#            # add an invisible rect to make things more clickable
-#            f.write('<rect '
-#                    'x="%(x)d" '
-#                    'y="%(y)d" '
-#                    'width="%(width)d" '
-#                    'height="%(height)d" '
-#                    'opacity="0">' % dict(
-#                        x=code.x + code.width + 2,
-#                        y=y__,
-#                        width=width_ - (code.x + code.width + 2),
-#                        height=height_ - y__))
-#            f.write('</rect>')
-
             # create ctx tiles
             if not no_ctx:
               for j, t in enumerate(ctxs[k].leaves()):
@@ -1521,7 +1222,6 @@ def main(paths, output, *,
                 if t.width == 0 or t.height == 0:
                     continue
 
-#                print(ctx)
                 label__ = labels_[j, (t.attrs['name'],)]
                 if label__ is not None:
                     label__ = punescape(label__, t.attrs['attrs'] | t.attrs)
@@ -1547,7 +1247,6 @@ def main(paths, output, *,
                                 'data-y="%(y)d" '
                                 'data-width="%(width)d" '
                                 'data-height="%(height)d" '
-        #                        'cursor="pointer" '
                                 'onmouseenter="enter_tile(this,event)" '
                                 'onmouseleave="leave_tile(this,event)" '
                                 'onclick="click_tile(this,event)">' % dict(
@@ -1651,7 +1350,6 @@ def main(paths, output, *,
                                 'data-y="%(y)d" '
                                 'data-width="%(width)d" '
                                 'data-height="%(height)d" '
-#                                'cursor="pointer" '
                                 'onmouseenter="enter_tile(this,event)" '
                                 'onmouseleave="leave_tile(this,event)" '
                                 'onclick="click_tile(this,event)"' % dict(
@@ -1711,10 +1409,6 @@ def main(paths, output, *,
 
             f.write('</g>')
 
-#            f.write('</g>')
-
-#        f.write('</g>')
-
         if not no_javascript:
             # arrowhead for arrows
             f.write('<defs>')
@@ -1731,32 +1425,12 @@ def main(paths, output, *,
             f.write('</marker>')
             f.write('</defs>')
 
-            # TODO why are we running into NaNs? for v1?
-
             # javascript for arrows
             #
             # why tf does svg support javascript?
             f.write('<script><![CDATA[')
 
-            # number of tiles
-    #        n = sum(1 for _ in code.leaves())
-
-            # function names
-    #        f.write('const functions = %s;' % json.dumps(
-    #                [f['name'] for f in functions.values()]))
-            # dict of all children
-    #        children = {}
-    #        children_stack = {}
-    #        for t in code.leaves():
-    #            if 'children' in t.attrs:
-    #                for child in t.attrs['children']:
-    #                    for t_ in code.leaves():
-    #                        if t_.attrs['name'] == child:
-    #                            if 'code-%s' % t.id not in children:
-    #                                children['code-%s' % t.id] = set()
-    #                            children['code-%s' % t.id].add('code-%s' % t_.id)
-    #                            children_stack['code-%s' % t_.id] = (
-    #                                    t_.attrs['stack'])
+            # embed our callgraph
             f.write('const children = %s;' % json.dumps(
                     {f['name']: sorted(f.get('children', []),
                             key=lambda c: functions[c]['limit'],
@@ -1839,8 +1513,6 @@ def main(paths, output, *,
 
             # draw full callgraph
             f.write('function draw_callgraph(a) {')
-    #                    # clear the old arrows
-    #        f.write(    'undraw();')
                         # track visited children to avoid cycles
             f.write(    'let seen = {};')
                         # create new arrows
@@ -1883,10 +1555,6 @@ def main(paths, output, *,
 
             # draw deepest set of calls
             f.write('function draw_deepest(a) {')
-    #                    # clear the old arrows
-    #        f.write(    'undraw();')
-    #                    # lower opacity of unfocused tiles
-    #        f.write(    'draw_unfocus();')
                         # track visited children to avoid cycles
             f.write(    'let seen = {};')
                         # create/ new arrows
@@ -1948,10 +1616,6 @@ def main(paths, output, *,
 
             # draw one level of calls
             f.write('function draw_callees(a) {')
-    #                    # clear the old arrows
-    #        f.write(    'undraw();')
-    #                    # lower opacity of unfocused tiles
-    #        f.write(    'draw_unfocus();')
                         # create new arrows
             f.write(    'for (let child of children[a.dataset.name] || []) {')
             f.write(        'let b = document.getElementById("c-"+child);')
@@ -1972,10 +1636,6 @@ def main(paths, output, *,
 
             # draw one level of callers
             f.write('function draw_callers(a) {')
-    #                    # clear the old arrows
-    #        f.write(    'undraw();')
-    #                    # lower opacity of unfocused tiles
-    #        f.write(    'draw_unfocus();')
                         # create new arrows
             f.write(    'for (let parent in children) {')
             f.write(        'if ((children[parent] || []).includes(')
@@ -2001,55 +1661,6 @@ def main(paths, output, *,
                         # move our tile to the top
             f.write(    'draw_focus(a);')
             f.write('}')
-
-    #        # draw path stack takes through the code, this is left rendered
-    #        # for all frame/context tiles
-    #        f.write('function draw_stackpath(name) {')
-    #        f.write(    'let a = document.getElementById("c-"+name);')
-    #                    # clear the old arrows
-    #        f.write(    'undraw();')
-    #                    # lower opacity of unfocused tiles
-    #        f.write(    'draw_unfocus();')
-    #                    # track visited children to avoid cycles
-    #        f.write(    'let seen = {};')
-    #                    # create/ new arrows
-    #        f.write(    'let recurse = function(a) {')
-    #        f.write(        'if (a.dataset.name in seen) {')
-    #        f.write(            'return;')
-    #        f.write(        '}')
-    #        f.write(        'seen[a.dataset.name] = true;')
-    #        f.write(        'if (children[a.dataset.name]) {')
-    #        f.write(            'let child = children[a.dataset.name][0];')
-    #        f.write(            'let b = document.getElementById("c-"+child);')
-    #        f.write(            'if (b) {')
-    #        f.write(                'draw_arrow(a, b);')
-    #        f.write(                'recurse(b);')
-    #        f.write(            '}')
-    #        f.write(        '}')
-    #        f.write(    '};')
-    #        f.write(    'recurse(a);')
-    #                    # track visited children to avoid cycles
-    #        f.write(    'seen = {};')
-    #                    # move in-focus tiles to the top, but don't change
-    #                    # their opacity
-    #        f.write(    'recurse = function(a) {')
-    #        f.write(        'if (a.dataset.name in seen) {')
-    #        f.write(            'return;')
-    #        f.write(        '}')
-    #        f.write(        'seen[a.dataset.name] = true;')
-    #        f.write(        'if (children[a.dataset.name]) {')
-    #        f.write(            'let child = children[a.dataset.name][0];')
-    #        f.write(            'let b = document.getElementById("c-"+child);')
-    #        f.write(            'if (b) {')
-    #        f.write(                'b.parentElement.appendChild(b);')
-    #        f.write(                'recurse(b);')
-    #        f.write(            '}')
-    #        f.write(        '}')
-    #        f.write(    '};')
-    #        f.write(    'recurse(a);')
-    #                    # move our tile to the top, but don't change its opacity
-    #        f.write(    'a.parentElement.appendChild(a);')
-    #        f.write('}')
 
             # clear old arrows/tiles if we leave
             f.write('function undraw() {')
@@ -2085,12 +1696,7 @@ def main(paths, output, *,
 
             # draw stack frame/ctx tile
             f.write('function draw_stack(a) {')
-    #                    # clear the old arrows
-    #        f.write(    'undraw();')
-    #                    # lower opacity of unfocused tiles
-    #        f.write(    'draw_unfocus();')
-
-    #                    # if a is null we just refocus the stack
+                        # if a is null we just refocus the stack
             f.write(    'if (!a) {')
             f.write(        'let s = document.querySelector('
                                     '".stack[visibility=\\"visible\\"]");')
@@ -2136,7 +1742,6 @@ def main(paths, output, *,
                 f.write('{name: "callers",      draw: draw_callers  },')
             f.write('];')
             f.write('let state = 0;')
-    #        f.write('let frozen = 0;')
             f.write('let hovered = null;')
             f.write('let active_code = null;')
             f.write('let active_stack = null;')
@@ -2148,11 +1753,7 @@ def main(paths, output, *,
             f.write(    'if (paused) {')
             f.write(        'return;')
             f.write(    '}')
-                        # do nothing if ctrl is held
-    #        f.write(    'if (event.ctrlKey) { return; }')
-    #        f.write(    'console.log(event);')
-    #        f.write(    'console.log("enter", a);')
-    #        f.write(    'if (!frozen) {')
+
                         # code tile or stack tile?
             f.write(    'if (a.classList.contains("code")) {')
             f.write(        'if (!active_code && !active_stack) {')
@@ -2164,7 +1765,6 @@ def main(paths, output, *,
             if not no_stack:
                                 # render relevant stack tiles
                 f.write(        'switch_stack(a.dataset.name);')
-    #        f.write(            'active_code = a;')
             f.write(        '}')
             f.write(    '} else if (a.classList.contains("frame") '
                                 '|| a.classList.contains("ctx")) {')
@@ -2175,11 +1775,8 @@ def main(paths, output, *,
             if not no_stack:
                                 # draw stack mode
                 f.write(        'draw_stack(a);')
-    #        f.write(            'active_stack = a;')
             f.write(        '}')
             f.write(    '}')
-    #        f.write(    'last = a;')
-    #        f.write(    '}')
             f.write('}')
 
             f.write('function leave_tile(a, event) {')
@@ -2188,8 +1785,8 @@ def main(paths, output, *,
             f.write(    'if (paused) {')
             f.write(        'return;')
             f.write(    '}')
+
                         # do nothing if ctrl is held
-    #        f.write(    'if (event.ctrlKey) { return; }')
             f.write(    'if (!active_stack) {')
                             # reset
             f.write(        'undraw();')
@@ -2197,7 +1794,6 @@ def main(paths, output, *,
             if not no_stack:
                                 # reset to deepest stack
                 f.write(        'switch_stack("%s");' % deepest['name'])
-    #        f.write(            'active_code = null;')
             f.write(        '} else {')
                                 # reset to active code
             f.write(            'draw_unfocus();')
@@ -2205,7 +1801,6 @@ def main(paths, output, *,
             if not no_stack:
                 f.write(        'draw_stack();')
             f.write(        '}')
-    #        f.write(        'active_stack = null;')
             f.write(    '}')
             f.write('}')
 
@@ -2213,11 +1808,6 @@ def main(paths, output, *,
             f.write('function draw_mode() {')
             f.write(    'let mode = document.getElementById("mode");')
             f.write(    'if (mode) {')
-    #        f.write(    'let mode_ = modes[state].name;')
-    #        f.write(    'let notes '
-    #                            '= (paused) ? ["paused"]'
-    #                            ': (active_code || active_stack) ? ["frozen"]'
-    #                            ': [];')
             f.write(        'mode.textContent = "mode: "'
                                     '+ modes[state].name'
                                     '+ ((paused) ? " (paused)"'
@@ -2248,135 +1838,29 @@ def main(paths, output, *,
             f.write(    '}')
             f.write('}')
 
-    #        f.write('function redraw() {')
-    #                    # do nothing if ctrl is held
-    ##        f.write(    'if (event.ctrlKey) { return; }')
-    #                    # reset
-    #        f.write(    'undraw();')
-    #        f.write(    'draw_unfocus();')
-    #        f.write(    'if (active_code) {')
-    #                        # redraw code
-    #        f.write(        'modes[state].draw(active_code);')
-    #        f.write(        'switch_stack(active_code.dataset.name);')
-    #        f.write(    '} else {')
-    #                        # reset to deepest stack
-    #        f.write(        'switch_stack("%s");' % default['name'])
-    #        f.write(    '}')
-    #        f.write(    'if (active_stack) {')
-    #        f.write(        'draw_stack(active_stack);')
-    #        f.write(    '}')
-    #        f.write('}')
-
             # clicking the mode element changes the mode
             f.write('function click_header(a, event) {')
                         # do nothing if paused
             f.write(    'if (paused) {')
             f.write(        'return;')
             f.write(    '}')
-    #        f.write(    'console.log(document.getSelection());')
-    #        #f.write(    'document.getSelection().empty();')
-    #        f.write(    'console.log(event);')
-                        # do nothing if ctrl is held
-    #        f.write(    'if (event.altKey) { event.altKey = false; return; }')
-                        # don't do anything if selecting text
-    #        f.write(    'if (document.getSelection '
-    #                            '&& document.getSelection().toString()) {')
-    #        f.write(        'return;')
-    #        f.write(    '}')
-    #        f.write(    'event.preventDefault();')
-    #        f.write(    'event.stopPropagation();')
-    #        f.write(    'event.stopImmediatePropagation();')
-    #        f.write(    'console.log(event);')
-
                         # update state
             f.write(    'state = (state + 1) % modes.length;')
                         # update the mode string
             f.write(    'draw_mode();')
                         # redraw with new mode
             f.write(    'redraw();')
-    #        f.write(    'if (!active_stack) {')
-    #                        # redraw with new mode
-    #        f.write(        'let code = active_code;')
-    #        f.write(        'if (!code '
-    #                                '&& hovered '
-    #                                '&& hovered.classList.contains("code")) {')
-    #        f.write(            'code = hovered;')
-    #        f.write(        '}')
-    #        f.write(        'if (code) {')
-    #        f.write(            'undraw();')
-    #        f.write(            'draw_unfocus();')
-    #        f.write(            'modes[state].draw(code);')
-    #        f.write(            'draw_stack();')
-    #        f.write(        '}')
-    #        f.write(    '}')
-    #        f.write(    'console.log("h", active_code, active_stack);')
-    #        f.write(    'if (active_stack) {')
-    #        f.write(        'enter_tile(active_stack);')
-    #        f.write(    '} else if (active_code) {')
-    #        f.write(        'enter_tile(active_code);')
-    #        f.write(    '} else {')
-    #        f.write(        'leave_tile();')
-    #        f.write(    '}')
-                        # prevent text highlighting
-    #        f.write(    'e.stopPropagation();')
-    #        f.write(    'leave_tile();')
-    #        f.write(    'frozen = false;')
-    #        f.write(    'if (last) {')
-    #        f.write(        'enter_tile(last);')
-    #        f.write(    '}')
-                        # prevent text highlighting
-    #        f.write(    'event.preventDefault();')
-    #        f.write(    'event.stopPropagation();')
-    #        f.write(    'event.stopImmediatePropagation();')
-    #        f.write(    'return false;')
             f.write('}')
 
-    ##        f.write(    'console.log("leave", a);')
-    #        f.write(    'if (frozen == 0) {')
-    #        f.write(        'undraw();')
-    #                        # reset to deepest stack
-    #        f.write(        'switch_stack("%s");' % default['name'])
-    ##        f.write(        'active_code = null;')
-    ##        f.write(        'active_stack = null;')
-    #        f.write(    '} else if (frozen == 1) {')
-    #        f.write(        'undraw();')
-    #        f.write(        'modes[state].draw(active_code);')
-    #        f.write(        'switch_stack(active_code.dataset.name);')
-    #        f.write(        'active_stack = null;')
-    #        f.write(    '}')
-    #        f.write('}')
-
-    #        f.write('let prev_frozen = 0;')
+            # click handler is kinda complicated, we handle both single
+            # and double clicks here
             f.write('let prev_code = null;')
             f.write('let prev_stack = null;')
-    #        f.write('let p_frozen = false;')
             f.write('function click_tile(a, event) {')
                         # do nothing if paused
             f.write(    'if (paused) {')
             f.write(        'return;')
             f.write(    '}')
-                        # do nothing if ctrl is held
-    #        f.write(    'if (event.ctrlKey) { return; }')
-                        # don't do anything if selecting text
-    #        f.write(    'if (document.getSelection '
-    #                            '&& document.getSelection().toString()) {')
-    #        f.write(        'return;')
-    #        f.write(    '}')
-
-    #                    # triply clicking clears any frozen tiles
-    #        f.write(    'if (event && event.detail == 3) {')
-    #        f.write(        'console.log("TRIPLE");')
-    #                        # undo the mode change
-    #        f.write(        'state = (state - 1 + modes.length) % modes.length;')
-    #                        # clear active tiles
-    #        f.write(        'active_code = null;')
-    #        f.write(        'active_stack = null;')
-    #                        # update the mode string
-    #        f.write(        'draw_mode();')
-    #                        # use leave_tile to trigger a redraw
-    #        f.write(        'leave_tile();')
-    #        f.write(        'return;')
-    #        f.write(    '}')
 
                         # double clicking changes the mode
             f.write(    'if (event && event.detail == 2 '
@@ -2384,119 +1868,21 @@ def main(paths, output, *,
                                 '&& ((!prev_code && !prev_stack)'
                                     '|| (a == prev_code && !prev_stack)'
                                     '|| a == prev_stack)) {')
-    #                        # undo single click
-    ##        f.write(        'frozen = prev_frozen;')
-    #        f.write(        'active_code = prev_code;')
-    #        f.write(        'active_stack = prev_stack;')
-    ##        f.write(        'last = a;')
-    #        f.write(        'click_header(a, event);')
                             # undo single-click
             f.write(        'active_code = prev_code;')
             f.write(        'active_stack = prev_stack;')
-    #        f.write(        'frozen = p_frozen;')
                             # trigger a mode change if double-clicking code,
                             # note we could also change stack modes here if we
                             # had more than one
             f.write(        'if (a.classList.contains("code")) {')
             f.write(            'click_header();')
-    #        f.write(            'enter_tile(a);')
             f.write(        '}')
-    #                        # update state
-    #        f.write(        'state = (state + 1) % modes.length;')
-    #                        # trigger a redraw
-    #        f.write(        'redraw();')
-    #        f.write(        'enter_tile(a);')
-
-    #                        # double-clicking tiles can still change state
-    #                        # if tile changes
-    #        f.write(        'if ((frozen == 1 && a != active_code)'
-    #                                '|| (frozen == 2 && a != active_stack)) {')
-    #        f.write(            'click_tile(a);')
-    #        f.write(        '}')
-
-    #        f.write(        'if ((a.classList.contains("code")'
-    #                                    '&& ((active_code && a != active_code)'
-    #                                        '|| active_stack))'
-    #                                '|| ((a.classList.contains("frame")'
-    #                                        '|| a.classList.contains("ctx"))'
-    #                                    '&& active_stack && a != active_stack)) {')
-    #        f.write(            'click_tile(a);')
-    #        f.write(        '}')
-
-    #        f.write(        'if (a.classList.contains("code")) {')
-    #        f.write(            'if ((active_code && a != active_code) '
-    #                                    '|| active_stack) {')
-    #        f.write(                'active_code = null;')
-    #        f.write(                'active_stack = null;')
-    #        f.write(                'enter_tile(a);')
-    #        f.write(                'active_code = a;')
-    ##        f.write(            '} else {')
-    ##        f.write(                'active_code = null;')
-    ##        f.write(                'active_stack = null;')
-    ###        f.write(                'leave_tile(a);')
-    #        f.write(            '}')
-    #        f.write(        '} else if (a.classList.contains("frame")'
-    #                                '|| a.classList.contains("ctx")) {')
-    #        f.write(            'if (active_stack && a != active_stack) {')
-    #        f.write(                'active_stack = null;')
-    #        f.write(                'enter_tile(a);')
-    #        f.write(                'active_stack = a;')
-    ##        f.write(            '} else {')
-    ##        f.write(                'active_code = null;')
-    ##        f.write(                'active_stack = null;')
-    ##                                # use leave_tile to rerender the stack, which
-    ##                                # will trigger mouseenter, hacky, but avoids
-    ##                                # needing to figure out the new stack state
-    ##        f.write(                'leave_tile(a);')
-    #        f.write(            '}')
-    #        f.write(        '}')
-    #
-    #                        # update the mode string
-    #        f.write(        'draw_mode(modes[state].name, '
-    #                            'active_code || active_stack);')
-
             f.write(        'return;')
-
-    #        f.write(        'active_code = prev_code;')
-    #        f.write(        'active_stack = prev_stack;')
-    #                        # trigger a redraw
-    #        f.write(        'redraw();')
-    ##                        # use leave_tile to trigger a redraw
-    ##        f.write(        'leave_tile();')
-    ##        f.write(        'click_tile(a);')
-    ##        f.write(        'active_code = prev_code && active_code;')
-    ##        f.write(        'active_stack = prev_stack && active_stack;')
-    #        f.write(        'switch_mode(modes[state].name, '
-    #                            'active_code || active_stack);')
-    #        f.write(        'enter_tile(a);')
-    ###        f.write(        'frozen = 0;')
-    ###        f.write(        'switch_mode(modes[state].name, frozen);')
-    ###        f.write(        'enter_tile(active_code);')
-    ###        f.write(        'event.sto#pPropagation();')
-    #                        # prevent text highlighting
-    ##        f.write(        'event.preventDefault();')
-    ##        f.write(        'event.stopPropagation();')
-    ##        f.write(        'event.stopImmediatePropagation();')
-    #
-    #                        # only let a click through if we were previously
-    #                        # frozen and the tile is different
-    #        f.write(        'if (a == active_stack '
-    #                                '|| (!active_stack && a == active_code)'
-    #                                '|| (!active_stack && !active_code)) {')
-    #        f.write(        'console.log("weeee");')
-    ##        f.write(        'if (!((active_code'
-    ##                                    '&& !active_stack'
-    ##                                    '&& a != active_code)'
-    ##                                '|| (active_stack && a != active_stack))) {')
-    #        f.write(            'return;')
-    #        f.write(        '}')
             f.write(    '}')
                         # save state in case we are trying to double click,
                         # double clicks always send a single click first
-    #        f.write(   'prev_frozen = frozen;')
             f.write(    'prev_code = active_code;')
             f.write(    'prev_stack = active_stack;')
-            #f.write(    'p_frozen = frozen;')
 
                         # clicking tiles toggles frozen mode
             f.write(    'if (a.classList.contains("code")) {')
@@ -2516,87 +1902,14 @@ def main(paths, output, *,
             f.write(            'active_stack = null;')
             f.write(            'enter_tile(a);')
             f.write(            'active_stack = a;')
-    #        f.write(            'active_code = null;')
-    #        f.write(            'active_stack = null;')
-    #                            # use leave_tile to rerender the stack, which
-    #                            # will trigger mouseenter, hacky, but avoids
-    #                            # needing to figure out the new stack state
-    #        f.write(            'leave_tile(a);')
             f.write(        '}')
             f.write(    '}')
-
-    #                    # clicking tiles toggles frozen mode
-    #        f.write(    'if (a.classList.contains("code")) {')
-    #        f.write(        'if (frozen < 1) {')
-    #        f.write(            'frozen = 1;')
-    #        f.write(        '} else {')
-    #        f.write(            'frozen = 0;')
-    #        f.write(            'enter_tile(a);')
-    #        f.write(        '}')
-    #        f.write(        'switch_mode(modes[state].name, frozen);')
-    #        f.write(    '} else if (a.classList.contains("frame")'
-    #                            '|| a.classList.contains("ctx")) {')
-    #        f.write(        'if (frozen < 2) {')
-    #        f.write(            'frozen = 2;')
-    #        f.write(        '} else if (active_code) {')
-    #        f.write(            'frozen = 1;')
-    #        f.write(            'enter_tile(active_code);')
-    #        f.write(        '} else {')
-    #        f.write(            'frozen = 0;')
-    #        f.write(            'leave_tile();')
-    #        f.write(        '}')
-    #
-    ##        f.write(        'frozen = 2;')
-    ##        f.write(        'switch_mode(modes[state].name, frozen);')
-    #        f.write(    '} else {')
-    #        f.write(        'frozen = 0;')
-    ##                        # redraw code if the clicked tile is code,
-    ##                        # conveniently for us frame/ctx redraws already
-    ##                        # happen accidentally due to visibility updates,
-    ##                        # which is nice because figuring out what the
-    ##                        # new stack frame/ctx would be a huge pain (it's
-    ##                        # not a)
-    ##        f.write(        'if (a.classList.contains("code")) {')
-    ##        f.write(            'enter_tile(a);')
-    ##        f.write(        '} else {')
-    #        f.write(        'leave_tile();')
-    ##        f.write(        '}')
-    #        f.write(    '}')
-
                         # update mode string
             f.write(    'draw_mode();')
-                        # prevent text highlighting
-    #        f.write(    'if (event) {')
-    #        f.write(        'event.preventDefault();')
-    #        f.write(        'event.stopPropagation();')
-    #        f.write(        'event.stopImmediatePropagation();')
-    #        f.write(    '}')
-    #                    # we also bind click_tile to the top body element,
-    #                    # so we need to stop propagation if we did anything
-    #                    # prevent text highlighting
-    #        f.write(    'e.stopPropagation();')
             f.write('}')
-
-    #        f.write('function enter_stack(a, e) {')
-    ##        f.write(    'if (!frozen) {')
-    ##        f.write(        'draw_stackpath(a.dataset.func);')
-    ##        f.write(    '}')
-    #        f.write('}')
-    #        f.write('function click_body(a, e) {')
-    #        f.write(    'console.log("hi!!!!!");')
-    #        f.write('}')
-    #        f.write('function leave_body(a, e) {')
-    #        f.write(    'if (!frozen) {')
-    #        f.write(        'undraw();')
-    #        f.write(        'last = null;')
-    #                        # reset to deepest stack
-    #        f.write(        'draw_stack("%s");' % deepest['name'])
-    #        f.write(    '}')
-    #        f.write('}')
 
             # include some minor keybindings
             f.write('function keydown(event) {')
-    #        f.write(    'console.log(event);')
                         # m => change mode
             f.write(    'if (event.key == "m") {')
             f.write(        'click_header();')
@@ -2613,12 +1926,8 @@ def main(paths, output, *,
                             # redraw things
             f.write(        'draw_mode();')
             f.write(        'redraw();')
-    #        f.write(        'if (hovered) {')
-    #        f.write(            'enter_tile(hovered);')
-    #        f.write(        '} else {')
-    #        f.write(            'leave_tile();')
-    #        f.write(        '}')
-                        # pause/p  => pause all interactivity and allow copy-paste
+                        # pause/p  => pause all interactivity and allow
+                        # copy-paste
             f.write(    '} else if (event.key == "Pause"'
                                 '|| event.key == "p") {')
             f.write(        'paused = !paused;')
@@ -2649,24 +1958,6 @@ def main(paths, output, *,
             f.write(    '}')
             f.write('}')
             f.write('window.addEventListener("keydown", keydown);')
-
-    #        f.write('function keyup(event) {')
-    #        f.write(    'console.log(event);')
-    #        f.write('}')
-
-    #        f.write('function scroll(event) {')
-    #        f.write(    'console.log(event);')
-    #        f.write('}')
-    #
-    #        f.write('function wheel(event) {')
-    #        f.write(    'console.log(event);')
-    #        f.write(    'event.preventDefault();')
-    #        f.write(    'event.stopPropagation();')
-    #        f.write('}')
-
-    #        f.write('window.addEventListener("keyup", keyup);')
-    #        f.write('window.addEventListener("scroll", scroll);')
-    #        f.write('window.addEventListener("wheel", wheel, {passive: false});')
 
             f.write(']]></script>')
 
@@ -2764,7 +2055,6 @@ if __name__ == "__main__":
                     v.strip())
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
-            # TODO % modifiers in color everywhere? chars? formats? etc?
             help="Add a color to use. Can be assigned to a specific "
                 "function/subsystem. Accepts %% modifiers.")
     parser.add_argument(
@@ -2874,7 +2164,6 @@ if __name__ == "__main__":
                 tuple(float(v) for v in x.split(':', 1))
                     if ':' in x else (float(x), 1)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
-    # TODO add tiny to treemap.py / codemap.py?
     parser.add_argument(
             '-t', '--tiny',
             action='store_true',
