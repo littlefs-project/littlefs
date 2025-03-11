@@ -43,6 +43,7 @@ CTX_PATH = ['./scripts/ctx.py']
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
+    import os
     if path == '-':
         if 'r' in mode:
             return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
