@@ -23,7 +23,6 @@ import subprocess as sp
 
 # we don't actually need that many chars/colors thanks to the
 # 4-colorability of all 2d maps
-CHARS = ['.']
 COLORS = ['34', '31', '32', '35', '33', '36']
 
 CHARS_DOTS = " .':"
@@ -740,7 +739,7 @@ def main(paths, *,
             chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
             chars_.extend(psplit(char))
-    chars_ = Attr(chars_, defaults=CHARS)
+    chars_ = Attr(chars_)
 
     colors_ = Attr(colors, defaults=COLORS)
 
@@ -948,9 +947,16 @@ def main(paths, *,
     # assign colors/chars/labels to code tiles
     for i, t in enumerate(code.leaves()):
         t.color = subsystems[t.attrs['subsystem']]['color']
-        t.char = punescape(
-                chars_[i, (t.attrs['name'],)],
-                t.attrs['attrs'] | t.attrs)[0] # limit to 1 char
+        if (i, (t.attrs['name'],)) in chars_:
+            t.char = punescape(
+                    chars_[i, (t.attrs['name'],)],
+                    t.attrs['attrs'] | t.attrs)[0] # limit to 1 char
+        elif len(t.attrs['subsystem']) < len(t.attrs['name']):
+            t.char = (t.attrs['name'][len(t.attrs['subsystem']):].lstrip('_')
+                    or '')[0]
+        else:
+            t.char = (t.attrs['subsystem'].rstrip('_').rsplit('_', 1)[-1]
+                    or '')[0]
         if (i, (t.attrs['name'],)) in labels_:
             t.label = punescape(
                     labels_[i, (t.attrs['name'],)],
@@ -1087,16 +1093,11 @@ def main(paths, *,
         y__ = canvas.height - (y__+height__)
 
         canvas.rect(x__, y__, width__, height__,
-                # default to first letter in each label/key
+                # default to first letter of the last part of the key
                 char=(True if braille or dots
-                    else t.label[0]
-                        if chars is None
-                            and t.label is not None
-                    else t.key[-1][0]
-                        if chars is None
-                            and t.key
-                            and t.key[-1]
-                    else t.char if t.char is not None else chars_[0]),
+                    else t.char if getattr(t, 'char', None)
+                    else t.key[len(by)-1][0] if t.key and t.key[len(by)-1]
+                    else chars_[0]),
                 color=t.color if t.color is not None else colors_[0])
 
         if label:
