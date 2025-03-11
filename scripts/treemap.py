@@ -717,6 +717,7 @@ def main(csv_paths, *,
         no_stats=False,
         to_scale=None,
         aspect_ratio=(1,1),
+        tiny=False,
         title=None,
         padding=0,
         label=False,
@@ -728,6 +729,12 @@ def main(csv_paths, *,
         color = True
     else:
         color = False
+
+    # tiny mode?
+    if tiny:
+        if to_scale is None:
+            to_scale = 1
+        no_header = True
 
     # what chars/colors/labels to use?
     chars_ = []
@@ -1155,6 +1162,10 @@ if __name__ == "__main__":
                 tuple(float(v) for v in x.split(':', 1))
                     if ':' in x else (float(x), 1)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
+    parser.add_argument(
+            '-t', '--tiny',
+            action='store_true',
+            help="Tiny mode, alias for --to-scale=1 and --no-header.")
     parser.add_argument(
             '--title',
             help="Add a title. Accepts %% modifiers.")
