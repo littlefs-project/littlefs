@@ -867,9 +867,9 @@ def main(paths, output, *,
         ctxs = co.OrderedDict()
         for k, f in functions.items():
             if f.get('args'):
-                args = f['args']
+                args_ = f['args']
             else:
-                args = [{
+                args_ = [{
                     'name': k,
                     'subsystem': f['subsystem'],
                     'ctx': f.get('ctx', 0),
@@ -879,7 +879,7 @@ def main(paths, output, *,
                     Tile(   (a['name'],),
                             a.get('ctx', 0),
                             attrs=a)
-                        for a in args)
+                        for a in args_)
 
             # assign colors/labels to ctx tiles
             for i, t in enumerate(ctxs[k].leaves()):
@@ -932,7 +932,7 @@ def main(paths, output, *,
                     height_ = mt.ceil((total_value * to_scale) / width_)
 
     # our general purpose partition function
-    def partition(tile, scheme):
+    def partition(tile, **args):
         if tile.depth == 0:
             # apply top padding
             tile.x += padding
@@ -962,23 +962,23 @@ def main(paths, output, *,
 
         # partition via requested scheme
         if tile.children:
-            if scheme == 'binary':
+            if args.get('binary'):
                 partition_binary(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif (scheme == 'slice'
-                    or (scheme == 'slice_and_dice' and (tile.depth & 1) == 0)
-                    or (scheme == 'dice_and_slice' and (tile.depth & 1) == 1)):
+            elif (args.get('slice')
+                    or (args.get('slice_and_dice') and (tile.depth & 1) == 0)
+                    or (args.get('dice_and_slice') and (tile.depth & 1) == 1)):
                 partition_slice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif (scheme == 'dice'
-                    or (scheme == 'slice_and_dice' and (tile.depth & 1) == 1)
-                    or (scheme == 'dice_and_slice' and (tile.depth & 1) == 0)):
+            elif (args.get('dice')
+                    or (args.get('slice_and_dice') and (tile.depth & 1) == 1)
+                    or (args.get('dice_and_slice') and (tile.depth & 1) == 0)):
                 partition_dice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif scheme == 'squarify':
+            elif args.get('squarify'):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif scheme == 'rectify':
+            elif args.get('rectify'):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__,
                         aspect_ratio=(width_, height_))
@@ -989,7 +989,7 @@ def main(paths, output, *,
 
         # recursively partition
         for t in tile.children:
-            partition(t, scheme)
+            partition(t, **args)
 
     # create space for header
     x__ = 0
@@ -1012,7 +1012,7 @@ def main(paths, output, *,
     code.y = y__
     code.width = code_split
     code.height = height__
-    partition(code, 'binary')
+    partition(code, **args)
     # align to pixel boundaries
     code.align()
 
@@ -1044,7 +1044,7 @@ def main(paths, output, *,
                 ctx.y = y__
                 ctx.width = width__ - ctx.x
                 ctx.height = ctx_split
-                partition(ctx, 'slice')
+                partition(ctx, slice=True)
                 # align to pixel boundaries
                 ctx.align()
 
@@ -1055,7 +1055,7 @@ def main(paths, output, *,
                 stack.y = ctx.y + ctx.height + 2 if ctx_split > 0 else y__
                 stack.width = width__ - stack.x
                 stack.height = height___ - (stack.y - y__)
-                partition(stack, 'dice')
+                partition(stack, dice=True)
                 # align to pixel boundaries
                 stack.align()
 

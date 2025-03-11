@@ -17,6 +17,7 @@ import itertools as it
 import json
 import math as mt
 import re
+import shlex
 import shutil
 import subprocess as sp
 
@@ -1002,7 +1003,7 @@ def main(paths, *,
                             / yscale)
 
     # our general purpose partition function
-    def partition(tile, scheme):
+    def partition(tile, **args):
         if tile.depth == 0:
             # apply top padding
             tile.x += padding
@@ -1032,23 +1033,23 @@ def main(paths, *,
 
         # partition via requested scheme
         if tile.children:
-            if scheme == 'binary':
+            if args.get('binary'):
                 partition_binary(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif (scheme == 'slice'
-                    or (scheme == 'slice_and_dice' and (tile.depth & 1) == 0)
-                    or (scheme == 'dice_and_slice' and (tile.depth & 1) == 1)):
+            elif (args.get('slice')
+                    or (args.get('slice_and_dice') and (tile.depth & 1) == 0)
+                    or (args.get('dice_and_slice') and (tile.depth & 1) == 1)):
                 partition_slice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif (scheme == 'dice'
-                    or (scheme == 'slice_and_dice' and (tile.depth & 1) == 1)
-                    or (scheme == 'dice_and_slice' and (tile.depth & 1) == 0)):
+            elif (args.get('dice')
+                    or (args.get('slice_and_dice') and (tile.depth & 1) == 1)
+                    or (args.get('dice_and_slice') and (tile.depth & 1) == 0)):
                 partition_dice(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif scheme == 'squarify':
+            elif args.get('squarify'):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__)
-            elif scheme == 'rectify':
+            elif args.get('rectify'):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__,
                         aspect_ratio=(width_, height_))
@@ -1059,7 +1060,7 @@ def main(paths, *,
 
         # recursively partition
         for t in tile.children:
-            partition(t, scheme)
+            partition(t, **args)
 
     # create a canvas
     canvas = Canvas(
@@ -1075,7 +1076,7 @@ def main(paths, *,
     code.y = 0
     code.width = canvas.width
     code.height = canvas.height
-    partition(code, 'binary')
+    partition(code, **args)
     # align to pixel boundaries
     code.align()
 
