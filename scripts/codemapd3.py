@@ -113,7 +113,7 @@ class Attr:
                     not isinstance(attr, tuple)
                         or attr[0] in {None, (), ('*',)}
                     for attr in (attrs or []))):
-            attrs = defaults + (attrs or [])
+            attrs = list(defaults) + (attrs or [])
 
         # normalize
         self.attrs = []

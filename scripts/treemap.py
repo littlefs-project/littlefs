@@ -164,7 +164,7 @@ class Attr:
                     not isinstance(attr, tuple)
                         or attr[0] in {None, (), ('*',)}
                     for attr in (attrs or []))):
-            attrs = defaults + (attrs or [])
+            attrs = list(defaults) + (attrs or [])
 
         # normalize
         self.attrs = []
@@ -1058,7 +1058,7 @@ if __name__ == "__main__":
                 "where a group is the comma-separated 'by' fields. Accepts %% "
                 "modifiers.")
     parser.add_argument(
-            '-*', '--add-char', '--chars',
+            '-.', '--add-char', '--chars',
             dest='chars',
             action='append',
             type=lambda x: (

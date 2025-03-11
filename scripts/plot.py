@@ -381,7 +381,7 @@ class Attr:
                     not isinstance(attr, tuple)
                         or attr[0] in {None, (), ('*',)}
                     for attr in (attrs or []))):
-            attrs = defaults + (attrs or [])
+            attrs = list(defaults) + (attrs or [])
 
         # normalize
         self.attrs = []
@@ -1703,7 +1703,7 @@ if __name__ == "__main__":
                 "where a group is the comma-separated 'by' fields. Accepts %% "
                 "modifiers. Also provides an ordering.")
     parser.add_argument(
-            '-*', '--add-char', '--chars',
+            '-.', '--add-char', '--chars',
             dest='chars',
             action='append',
             type=lambda x: (
@@ -1756,11 +1756,11 @@ if __name__ == "__main__":
             help="Use 2x4 unicode braille characters. Note that braille "
                 "characters sometimes suffer from inconsistent widths.")
     parser.add_argument(
-            '-.', '--points',
+            '-p', '--points',
             action='store_true',
             help="Only draw data points.")
     parser.add_argument(
-            '-!', '--points-and-lines',
+            '-P', '--points-and-lines',
             action='store_true',
             help="Draw data points and lines.")
     parser.add_argument(
