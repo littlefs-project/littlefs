@@ -1350,10 +1350,10 @@ def collect_csv(csv_paths, *,
         try:
             with openio(path) as f:
                 # csv or json? assume json starts with [
-                json = (f.buffer.peek(1)[:1] == b'[')
+                is_json = (f.buffer.peek(1)[:1] == b'[')
 
                 # read csv?
-                if not json:
+                if not is_json:
                     reader = csv.DictReader(f, restval='')
                     # collect fields
                     fields.update((k, True) for k in reader.fieldnames or [])

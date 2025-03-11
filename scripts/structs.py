@@ -1033,10 +1033,10 @@ def read_csv(path, Result, *,
 
     with openio(path, 'r') as f:
         # csv or json? assume json starts with [
-        json = (f.buffer.peek(1)[:1] == b'[')
+        is_json = (f.buffer.peek(1)[:1] == b'[')
 
         # read csv?
-        if not json:
+        if not is_json:
             results = []
             reader = csv.DictReader(f, restval='')
             for r in reader:
