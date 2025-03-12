@@ -1035,14 +1035,16 @@ def main(ci_paths,
     # figure out what fields we're interested in
     labels = None
     if by is None:
-        if depth is not None or hot is not None:
+        if args.get('output') or args.get('output_json'):
+            by = StackResult._by
+        elif depth is not None or hot is not None:
             by = ['z', 'function']
             labels = ['function']
         else:
             by = ['function']
 
     if fields is None:
-        fields = ['frame', 'limit']
+        fields = StackResult._fields
 
     # figure out depth
     if depth is None:

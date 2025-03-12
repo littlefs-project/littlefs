@@ -1503,8 +1503,10 @@ def report(perf_paths, *,
     labels = None
     if by is None:
         if (args.get('annotate')
-                or args.get('threshold')):
-            by = ['file', 'line']
+                or args.get('threshold')
+                or args.get('output')
+                or args.get('output_json')):
+            by = PerfResult._by
         elif depth is not None or hot is not None:
             by = ['z', 'function']
             labels = ['function']
@@ -1516,7 +1518,7 @@ def report(perf_paths, *,
                 or args.get('threshold')
                 or args.get('output')
                 or args.get('output_json')):
-            fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
+            fields = PerfResult._fields
         elif not branches and not caches:
             fields = ['cycles']
         elif branches:

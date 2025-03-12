@@ -1029,10 +1029,13 @@ def main(obj_paths, *,
         **args):
     # figure out what fields we're interested in
     if by is None:
-        by = ['function']
+        if args.get('output') or args.get('output_json'):
+            by = DataResult._by
+        else:
+            by = ['function']
 
     if fields is None:
-        fields = ['size']
+        fields = DataResult._fields
 
     # find sizes
     if not args.get('use', None):

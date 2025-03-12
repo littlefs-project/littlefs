@@ -1173,16 +1173,17 @@ def main(obj_paths, *,
     # figure out what fields we're interested in
     labels = None
     if by is None:
-        if depth is not None or hot is not None:
+        if args.get('output') or args.get('output_json'):
+            by = StructResult._by
+        elif depth is not None or hot is not None:
             by = ['z', 'i', 'struct']
             labels = ['struct']
         else:
             by = ['struct']
 
     if fields is None:
-        if (args.get('output')
-                or args.get('output_json')):
-            fields = ['off', 'size', 'align']
+        if args.get('output') or args.get('output_json'):
+            fields = StructResult._fields
         else:
             fields = ['size', 'align']
 

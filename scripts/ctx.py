@@ -1292,16 +1292,17 @@ def main(obj_paths, *,
     # figure out what fields we're interested in
     labels = None
     if by is None:
-        if depth is not None or hot is not None:
+        if args.get('output') or args.get('output_json'):
+            by = CtxResult._by
+        elif depth is not None or hot is not None:
             by = ['z', 'i', 'function']
             labels = ['function']
         else:
             by = ['function']
 
     if fields is None:
-        if (args.get('output')
-                or args.get('output_json')):
-            fields = ['off', 'size']
+        if args.get('output') or args.get('output_json'):
+            fields = CtxResult._fields
         else:
             fields = ['size']
 

@@ -1492,8 +1492,10 @@ def report(paths, *,
                 or args.get('threshold')
                 or args.get('read_threshold')
                 or args.get('prog_threshold')
-                or args.get('erase_threshold')):
-            by = ['file', 'line']
+                or args.get('erase_threshold')
+                or args.get('output')
+                or args.get('output_json')):
+            by = PerfBdResult._by
         elif depth is not None or hot is not None:
             by = ['z', 'function']
             labels = ['function']
@@ -1501,7 +1503,7 @@ def report(paths, *,
             by = ['function']
 
     if fields is None:
-        fields = ['readed', 'proged', 'erased']
+        fields = PerfBdResult._fields
 
     # figure out depth
     if depth is None:

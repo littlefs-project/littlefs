@@ -970,8 +970,10 @@ def main(gcda_paths, *,
     if by is None:
         if (args.get('annotate')
                 or args.get('lines')
-                or args.get('branches')):
-            by = ['file', 'line']
+                or args.get('branches')
+                or args.get('output')
+                or args.get('output_json')):
+            by = CovResult._by
         else:
             by = ['function']
 
@@ -981,7 +983,7 @@ def main(gcda_paths, *,
                 or args.get('branches')
                 or args.get('output')
                 or args.get('output_json')):
-            fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
+            fields = CovResult._fields
         elif not hits:
             fields = ['lines', 'branches']
         else:
