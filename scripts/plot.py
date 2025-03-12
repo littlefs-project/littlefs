@@ -524,6 +524,168 @@ def psplit(s):
     return [m.group() for m in re.finditer(pattern.pattern + '|.', s)]
 
 
+# a little ascii renderer
+class Canvas:
+    def __init__(self, width, height, *,
+            color=False,
+            dots=False,
+            braille=False):
+        # scale if we're printing with dots or braille
+        if braille:
+            xscale, yscale = 2, 4
+        elif dots:
+            xscale, yscale = 1, 2
+        else:
+            xscale, yscale = 1, 1
+
+        self.width_ = width
+        self.height_ = height
+        self.width = xscale*width
+        self.height = yscale*height
+        self.xscale = xscale
+        self.yscale = yscale
+        self.color_ = color
+        self.dots = dots
+        self.braille = braille
+
+        # create initial canvas
+        self.chars = [0] * (width*height)
+        self.colors = [''] * (width*height)
+
+    def char(self, x, y, char=None):
+        # ignore out of bounds
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            return False
+
+        x_ = x // self.xscale
+        y_ = y // self.yscale
+        if char is not None:
+            c = self.chars[x_ + y_*self.width_]
+            # mask in sub-char pixel?
+            if isinstance(char, bool):
+                if not isinstance(c, int):
+                    c = 0
+                self.chars[x_ + y_*self.width_] = (c
+                        | (1
+                            << ((y%self.yscale)*self.xscale
+                                + (self.xscale-1)-(x%self.xscale))))
+            else:
+                self.chars[x_ + y_*self.width_] = char
+        else:
+            c = self.chars[x_ + y_*self.width_]
+            if isinstance(c, int):
+                return ((c
+                            >> ((y%self.yscale)*self.xscale
+                                + (self.xscale-1)-(x%self.xscale)))
+                        & 1) == 1
+            else:
+                return c
+
+    def color(self, x, y, color=None):
+        # ignore out of bounds
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            return ''
+
+        x_ = x // self.xscale
+        y_ = y // self.yscale
+        if color is not None:
+            self.colors[x_ + y_*self.width_] = color
+        else:
+            return self.colors[x_ + y_*self.width_]
+
+    def __getitem__(self, xy):
+        x, y = xy
+        return self.char(x, y)
+
+    def __setitem__(self, xy, char):
+        x, y = xy
+        self.char(x, y, char)
+
+    def point(self, x, y, *,
+            char=True,
+            color=''):
+        self.char(x, y, char)
+        self.color(x, y, color)
+
+    def line(self, x1, y1, x2, y2, *,
+            char=True,
+            color=''):
+        # incremental error line algorithm
+        ex = abs(x2 - x1)
+        ey = -abs(y2 - y1)
+        dx = +1 if x1 < x2 else -1
+        dy = +1 if y1 < y2 else -1
+        e = ex + ey
+
+        while True:
+            self.point(x1, y1, char=char, color=color)
+            e2 = 2*e
+
+            if x1 == x2 and y1 == y2:
+                break
+
+            if e2 > ey:
+                e += ey
+                x1 += dx
+
+            if x1 == x2 and y1 == y2:
+                break
+
+            if e2 < ex:
+                e += ex
+                y1 += dy
+
+        self.point(x2, y2, char=char, color=color)
+
+    def rect(self, x, y, w, h, *,
+            char=True,
+            color=''):
+        for j in range(h):
+            for i in range(w):
+                self.point(x+i, y+j, char=char, color=color)
+
+    def label(self, x, y, label, width=None, height=None, *,
+            color=''):
+        x_ = x
+        y_ = y
+        for char in label:
+            if char == '\n':
+                x_ = x
+                y_ -= self.yscale
+            else:
+                if ((width is None or x_ < x+width)
+                        and (height is None or y_ > y-height)):
+                    self.point(x_, y_, char=char, color=color)
+                x_ += self.xscale
+
+    def draw(self, row):
+        y_ = self.height_-1 - row
+        row_ = []
+        for x_ in range(self.width_):
+            # char?
+            c = self.chars[x_ + y_*self.width_]
+            if isinstance(c, int):
+                if self.braille:
+                    assert c < 256
+                    c = CHARS_BRAILLE[c]
+                elif self.dots:
+                    assert c < 4
+                    c = CHARS_DOTS[c]
+                else:
+                    assert c < 2
+                    c = '.' if c else ' '
+
+            # color?
+            if self.color_:
+                color = self.colors[x_ + y_*self.width_]
+                if color:
+                    c = '\x1b[%sm%s\x1b[m' % (color, c)
+
+            row_.append(c)
+
+        return ''.join(row_)
+
+
 # a hack log that preserves sign, with a linear region between -1 and 1
 def symlog(x):
     if x > 1:
@@ -533,30 +695,47 @@ def symlog(x):
     else:
         return x
 
+# our main plot class
 class Plot:
     def __init__(self, width, height, *,
+            color=False,
+            dots=False,
+            braille=False,
             xlim=None,
             ylim=None,
             xlog=False,
-            ylog=False,
-            braille=False,
-            dots=False):
-        # scale if we're printing with dots or braille
-        self.width = 2*width if braille else width
-        self.height = (4*height if braille
-                else 2*height if dots
-                else height)
+            ylog=False):
+        # let Canvas handle braille/dots scaling
+        self.canvas = Canvas(width, height,
+                color=color,
+                dots=dots,
+                braille=braille)
 
+        # we handle xlim/ylim scaling
         self.xlim = xlim or (0, width)
         self.ylim = ylim or (0, height)
         self.xlog = xlog
         self.ylog = ylog
-        self.braille = braille
-        self.dots = dots
 
-        self.grid = [('',False)]*(self.width*self.height)
+        # go ahead and draw out axis first, we let data overwrite this
+        # to make the best of the limited space
+        for x in range(self.width):
+            self.canvas.point(x, 0, char='-')
+        for y in range(self.height):
+            self.canvas.point(0, y, char='|')
+        self.canvas.point(self.width-1, 0, char='>')
+        self.canvas.point(0, self.height-1, char='^')
+        self.canvas.point(0, 0, char='+')
 
-    def scale(self, x, y):
+    @property
+    def width(self):
+        return self.canvas.width
+
+    @property
+    def height(self):
+        return self.canvas.height
+
+    def _scale(self, x, y):
         # scale and clamp
         try:
             if self.xlog:
@@ -581,131 +760,50 @@ class Plot:
         return x, y
 
     def point(self, x, y, *,
-            color=COLORS[0],
-            char=True):
+            char=True,
+            color=''):
         # scale
-        x, y = self.scale(x, y)
+        x, y = self._scale(x, y)
 
-        # ignore out of bounds points
-        if x >= 0 and x < self.width and y >= 0 and y < self.height:
-            self.grid[x + y*self.width] = (color, char)
+        # render to canvas
+        self.canvas.point(x, y,
+                char=char,
+                color=color)
 
     def line(self, x1, y1, x2, y2, *,
-            color=COLORS[0],
-            char=True):
+            char=True,
+            color=''):
         # scale
-        x1, y1 = self.scale(x1, y1)
-        x2, y2 = self.scale(x2, y2)
+        x1, y1 = self._scale(x1, y1)
+        x2, y2 = self._scale(x2, y2)
 
-        # incremental error line algorithm
-        ex = abs(x2 - x1)
-        ey = -abs(y2 - y1)
-        dx = +1 if x1 < x2 else -1
-        dy = +1 if y1 < y2 else -1
-        e = ex + ey
-
-        while True:
-            if x1 >= 0 and x1 < self.width and y1 >= 0 and y1 < self.height:
-                self.grid[x1 + y1*self.width] = (color, char)
-            e2 = 2*e
-
-            if x1 == x2 and y1 == y2:
-                break
-
-            if e2 > ey:
-                e += ey
-                x1 += dx
-
-            if x1 == x2 and y1 == y2:
-                break
-
-            if e2 < ex:
-                e += ex
-                y1 += dy
-
-        if x2 >= 0 and x2 < self.width and y2 >= 0 and y2 < self.height:
-            self.grid[x2 + y2*self.width] = (color, char)
+        # render to canvas
+        self.canvas.line(x1, y1, x2, y2,
+                char=char,
+                color=color)
 
     def plot(self, coords, *,
-            color=COLORS[0],
             char=True,
-            line_char=True):
+            line_char=True,
+            color=''):
         # draw lines
         if line_char:
             for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
                 if y1 is not None and y2 is not None:
                     self.line(x1, y1, x2, y2,
-                            color=color,
-                            char=line_char)
+                            char=line_char,
+                            color=color)
 
         # draw points
         if char and (not line_char or char is not True):
             for x, y in coords:
                 if y is not None:
                     self.point(x, y,
-                            color=color,
-                            char=char)
+                            char=char,
+                            color=color)
 
-    def draw(self, row, *,
-            color=False):
-        # scale if needed
-        if self.braille:
-            xscale, yscale = 2, 4
-        elif self.dots:
-            xscale, yscale = 1, 2
-        else:
-            xscale, yscale = 1, 1
-
-        y = self.height//yscale-1 - row
-        row_ = []
-        for x in range(self.width//xscale):
-            best_f = ''
-            best_c = False
-
-            # encode into a byte
-            b = 0
-            for i in range(xscale*yscale):
-                f, c = self.grid[x*xscale+(xscale-1-(i%xscale))
-                        + (y*yscale+(i//xscale))*self.width]
-                if c:
-                    b |= 1 << i
-
-                if f:
-                    best_f = f
-                if c and c is not True:
-                    best_c = c
-
-            # use byte to lookup character
-            if b:
-                if best_c:
-                    c = best_c
-                elif self.braille:
-                    c = CHARS_BRAILLE[b]
-                else:
-                    c = CHARS_DOTS[b]
-            else:
-                c = ' '
-
-            # color?
-            if b and color and best_f:
-                c = '\x1b[%sm%s\x1b[m' % (best_f, c)
-
-            # draw axis in blank spaces
-            if not b:
-                if x == 0 and y == 0:
-                    c = '+'
-                elif x == 0 and y == self.height//yscale-1:
-                    c = '^'
-                elif x == self.width//xscale-1 and y == 0:
-                    c = '>'
-                elif x == 0:
-                    c = '|'
-                elif y == 0:
-                    c = '-'
-
-            row_.append(c)
-
-        return ''.join(row_)
+    def draw(self, row):
+        return self.canvas.draw(row)
 
 
 # some classes for organizing subplots into a grid
@@ -982,6 +1080,7 @@ def main(csv_paths, *,
         line_chars=[],
         colors=[],
         color=False,
+        dots=False,
         braille=False,
         points=False,
         points_and_lines=False,
@@ -1427,12 +1526,13 @@ def main(csv_paths, *,
             plot = Plot(
                     subwidth,
                     subheight,
+                    color=color,
+                    dots=dots or not line_chars,
+                    braille=braille,
                     xlim=xlim_,
                     ylim=ylim_,
                     xlog=xlog_,
-                    ylog=ylog_,
-                    braille=not line_chars and braille,
-                    dots=not line_chars and not braille)
+                    ylog=ylog_)
 
             for name, dataset in subdatasets.items():
                 plot.plot(
@@ -1551,7 +1651,7 @@ def main(csv_paths, *,
                                 s.xmargin[1], ''))
 
                     # draw plot!
-                    f.write(s.plot_.draw(subrow, color=color))
+                    f.write(s.plot_.draw(subrow))
 
                 # footer
                 else:

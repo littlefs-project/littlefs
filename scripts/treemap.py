@@ -321,6 +321,8 @@ class Canvas:
         else:
             xscale, yscale = 1, 1
 
+        self.width_ = width
+        self.height_ = height
         self.width = xscale*width
         self.height = yscale*height
         self.xscale = xscale
@@ -330,50 +332,63 @@ class Canvas:
         self.braille = braille
 
         # create initial canvas
-        self.grid = [False] * (self.width*self.height)
-        self.colors = [''] * (self.width*self.height)
+        self.chars = [0] * (width*height)
+        self.colors = [''] * (width*height)
 
-    def __getitem__(self, xy):
-        x, y = xy
+    def char(self, x, y, char=None):
         # ignore out of bounds
         if x < 0 or y < 0 or x >= self.width or y >= self.height:
-            return
+            return False
 
-        return self.grid[x + y*self.width]
-
-    def __setitem__(self, xy, char):
-        x, y = xy
-        # ignore out of bounds
-        if x < 0 or y < 0 or x >= self.width or y >= self.height:
-            return
-
-        self.grid[x + y*self.width] = char
+        x_ = x // self.xscale
+        y_ = y // self.yscale
+        if char is not None:
+            c = self.chars[x_ + y_*self.width_]
+            # mask in sub-char pixel?
+            if isinstance(char, bool):
+                if not isinstance(c, int):
+                    c = 0
+                self.chars[x_ + y_*self.width_] = (c
+                        | (1
+                            << ((y%self.yscale)*self.xscale
+                                + (self.xscale-1)-(x%self.xscale))))
+            else:
+                self.chars[x_ + y_*self.width_] = char
+        else:
+            c = self.chars[x_ + y_*self.width_]
+            if isinstance(c, int):
+                return ((c
+                            >> ((y%self.yscale)*self.xscale
+                                + (self.xscale-1)-(x%self.xscale)))
+                        & 1) == 1
+            else:
+                return c
 
     def color(self, x, y, color=None):
         # ignore out of bounds
         if x < 0 or y < 0 or x >= self.width or y >= self.height:
-            return
+            return ''
 
+        x_ = x // self.xscale
+        y_ = y // self.yscale
         if color is not None:
-            self.colors[x + y*self.width] = color
+            self.colors[x_ + y_*self.width_] = color
         else:
-            return self.colors[x + y*self.width]
+            return self.colors[x_ + y_*self.width_]
+
+    def __getitem__(self, xy):
+        x, y = xy
+        return self.char(x, y)
+
+    def __setitem__(self, xy, char):
+        x, y = xy
+        self.char(x, y, char)
 
     def point(self, x, y, *,
             char=True,
             color=''):
-        # make sure non-bool chars map attrs to all points under char
-        if not isinstance(char, bool):
-            xscale, yscale = self.xscale, self.yscale
-        else:
-            xscale, yscale = 1, 1
-
-        for i in range(xscale*yscale):
-            x_ = x-(x%xscale) + (xscale-1-(i%xscale))
-            y_ = y-(y%yscale) + (i//xscale)
-
-            self[x_, y_] = char
-            self.color(x_, y_, color)
+        self.char(x, y, char)
+        self.color(x, y, color)
 
     def line(self, x1, y1, x2, y2, *,
             char=True,
@@ -386,7 +401,7 @@ class Canvas:
         e = ex + ey
 
         while True:
-            self.point(x1, y1, color=color, char=char)
+            self.point(x1, y1, char=char, color=color)
             e2 = 2*e
 
             if x1 == x2 and y1 == y2:
@@ -403,7 +418,7 @@ class Canvas:
                 e += ex
                 y1 += dy
 
-        self.point(x2, y2, color=color, char=char)
+        self.point(x2, y2, char=char, color=color)
 
     def rect(self, x, y, w, h, *,
             char=True,
@@ -427,47 +442,29 @@ class Canvas:
                 x_ += self.xscale
 
     def draw(self, row):
-        # scale if needed
-        xscale, yscale = self.xscale, self.yscale
-
-        y = self.height//yscale-1 - row
+        y_ = self.height_-1 - row
         row_ = []
-        for x in range(self.width//xscale):
-            color = ''
-            char = False
-            byte = 0
-            for i in range(xscale*yscale):
-                x_ = x*xscale + (xscale-1-(i%xscale))
-                y_ = y*yscale + (i//xscale)
-
-                # calculate char
-                char_ = self[x_, y_]
-                if char_:
-                    byte |= 1 << i
-                    if char_ is not True and char_ is not False:
-                        char = char_
-
-                # keep track of best color
-                color_ = self.color(x_, y_)
-                if color_:
-                    color = color_
-
-            # figure out winning char
-            if byte:
-                if char is not True and char is not False:
-                    pass
-                elif self.braille:
-                    char = CHARS_BRAILLE[byte]
+        for x_ in range(self.width_):
+            # char?
+            c = self.chars[x_ + y_*self.width_]
+            if isinstance(c, int):
+                if self.braille:
+                    assert c < 256
+                    c = CHARS_BRAILLE[c]
+                elif self.dots:
+                    assert c < 4
+                    c = CHARS_DOTS[c]
                 else:
-                    char = CHARS_DOTS[byte]
-            else:
-                char = ' '
+                    assert c < 2
+                    c = '.' if c else ' '
 
             # color?
-            if byte and self.color_ and color:
-                char = '\x1b[%sm%s\x1b[m' % (color, char)
+            if self.color_:
+                color = self.colors[x_ + y_*self.width_]
+                if color:
+                    c = '\x1b[%sm%s\x1b[m' % (color, c)
 
-            row_.append(char)
+            row_.append(c)
 
         return ''.join(row_)
 
