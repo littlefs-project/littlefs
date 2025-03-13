@@ -199,16 +199,45 @@ The tests assume a Linux environment and can be started with make:
 make test
 ```
 
-Tests are defined as C code in toml files in the `tests/` directory.
-When developing a feature or fixing a bug, it is frequently useful to run a single suite of tests.
-To run individual tests or suite of tests:
+Tests are implemented in C in the .toml files found in the `tests` directory.
+When developing a feature or fixing a bug, it is frequently useful to run a
+single test case or suite of tests:
 
 ``` bash
-make test-runner
-python scripts/test.py --help  # See all available options
-python scripts/test.py --list-suites  # prints out all available test suites.
-python scripts/test.py --list-cases  # prints out all available individual test cases.
-python scripts/test.py runners/test_runner test_attrs  # runs the test_attrs suite.
+./scripts/test.py -l runners/test_runner  # list available test suites
+./scripts/test.py -L runners/test_runner test_dirs  # list available test cases
+./scripts/test.py runners/test_runner test_dirs  # run a specific test suite
+```
+
+If an assert fails in a test, test.py will try to print information about the
+failure:
+
+``` bash
+tests/test_dirs.toml:1:failure: test_dirs_root:1g12gg2 (PROG_SIZE=16, ERASE_SIZE=512) failed
+tests/test_dirs.toml:5:assert: assert failed with 0, expected eq 42
+    lfs_mount(&lfs, cfg) => 42;
+```
+
+This includes the test id, which can be passed to test.py to run only that
+specific test permutation:
+
+``` bash
+./scripts/test.py runners/test_runner test_dirs_root:1g12gg2  # run a specific test permutation
+./scripts/test.py runners/test_runner test_dirs_root:1g12gg2 --gdb  # drop into gdb on failure
+```
+
+Some other flags that may be useful:
+
+```bash
+./scripts/test.py runners/test_runner -b -j  # run tests in parallel
+./scripts/test.py runners/test_runner -v -O-  # redirect stdout to stdout
+./scripts/test.py runners/test_runner -ddisk  # capture resulting disk image
+```
+
+See `-h/--help` for a full list of available flags:
+
+``` bash
+./scripts/test.py --help
 ```
 
 ## License
