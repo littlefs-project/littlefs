@@ -1070,7 +1070,9 @@ class Grid:
         return grid
 
 
-def main(csv_paths, *,
+# TODO adopt main_ in all result scripts? (vs report)
+# TODO adopt this keep_open pattern in all ascii-art scripts?
+def main_(f, csv_paths, *,
         by=None,
         x=None,
         y=None,
@@ -1104,11 +1106,14 @@ def main(csv_paths, *,
         legend_below=False,
         subplot={},
         subplots=[],
-        head=False,
-        cat=False,
         keep_open=False,
-        sleep=None,
         **args):
+    # give f an writeln function
+    def writeln(s=''):
+        f.write(s)
+        f.write('\n')
+    f.writeln = writeln
+
     # figure out what color should be
     if color == 'auto':
         color = sys.stdout.isatty()
@@ -1255,492 +1260,501 @@ def main(csv_paths, *,
         )
 
 
-    def draw(f):
-        def writeln(s=''):
-            f.write(s)
-            f.write('\n')
-        f.writeln = writeln
+    ## our main drawing logic
 
-        # first collect results from CSV files
-        fields_, results = collect(csv_paths)
+    # first collect results from CSV files
+    fields_, results = collect(csv_paths)
 
-        # if y not specified, guess it's anything not in by/defines/x
-        all_y_ = all_y
-        if not all_y:
-            all_y_ = [k for k in fields_
-                    if k not in all_by
-                        and not any(k == k_ for k_, _ in all_defines)]
+    # if y not specified, guess it's anything not in by/defines/x
+    all_y_ = all_y
+    if not all_y:
+        all_y_ = [k for k in fields_
+                if k not in all_by
+                    and not any(k == k_ for k_, _ in all_defines)]
 
-        # then extract the requested datasets
-        #
-        # note we don't need to filter by defines again
-        datasets_, dataattrs_ = fold(results, all_by, all_x, all_y)
+    # then extract the requested datasets
+    #
+    # note we don't need to filter by defines again
+    datasets_, dataattrs_ = fold(results, all_by, all_x, all_y)
+
+    # order by labels
+    datasets_ = co.OrderedDict(sorted(
+            datasets_.items(),
+            key=labels_.key))
+
+    # and merge dataattrs
+    mergedattrs_ = {k: v
+            for dataattr in dataattrs_.values()
+            for k, v in dataattr.items()}
+
+    # figure out labels/titles now that we have our data
+    title_ = [punescape(l, mergedattrs_) for l in title]
+    xlabel_ = [punescape(l, mergedattrs_) for l in xlabel]
+    ylabel_ = [punescape(l, mergedattrs_) for l in ylabel]
+
+    # figure out colors/chars here so that subplot defines
+    # don't change them later, that'd be bad
+    datachars_ = {name: (lambda c:
+                c if isinstance(c, bool)
+                        # limit to 1 char
+                        else punescape(c, dataattrs_[name])[0])(
+                    chars_[i, name])
+            for i, name in enumerate(datasets_.keys())}
+    dataline_chars_ = {name: (lambda c:
+                c if isinstance(c, bool)
+                        # limit to 1 char
+                        else punescape(c, dataattrs_[name])[0])(
+                    line_chars_[i, name])
+            for i, name in enumerate(datasets_.keys())}
+    datacolors_ = {name: punescape(colors_[i, name], dataattrs_[name])
+            for i, name in enumerate(datasets_.keys())}
+    datalabels_ = {name: punescape(labels_[i, name], dataattrs_[name])
+            for i, name in enumerate(datasets_.keys())
+            if (i, name) in labels_}
+
+    # build legend?
+    legend_width = 0
+    if legend_right or legend_above or legend_below:
+        legend_ = []
+        for i, name in enumerate(datasets_.keys()):
+            if name in datalabels_ and not datalabels_[name]:
+                continue
+            label = '%s%s' % (
+                    '. ' if chars
+                            and isinstance(datachars_[name], bool)
+                        else '%s ' % datachars_[name]
+                        if chars
+                        else '. '
+                        if line_chars
+                            and isinstance(dataline_chars_[name], bool)
+                        else '%s ' % dataline_chars_[name]
+                        if line_chars
+                        else '',
+                    datalabels_[name]
+                        if name in datalabels_
+                        else ','.join(name))
+
+            if label:
+                legend_.append((label, datacolors_[name]))
+                legend_width = max(legend_width, len(label)+1)
+
+    # figure out our canvas size
+    if width is None:
+        width_ = min(80, shutil.get_terminal_size((80, None))[0])
+    elif width:
+        width_ = width
+    else:
+        width_ = shutil.get_terminal_size((80, None))[0]
+
+    if height is None:
+        height_ = 17 + len(title_) + len(xlabel_)
+    elif height:
+        height_ = height
+    else:
+        height_ = shutil.get_terminal_size((None,
+                17 + len(title_) + len(xlabel_)))[1]
+        # make space for shell prompt
+        if not keep_open:
+            height_ -= 1
+
+    # carve out space for the xlabel
+    height_ -= len(xlabel_)
+    # carve out space for the ylabel
+    width_ -= len(ylabel_) + (1 if ylabel_ else 0)
+    # carve out space for title
+    height_ -= len(title_)
+
+    # carve out space for the legend
+    if legend_right and legend_:
+        width_ -= legend_width
+    if legend_above and legend_:
+        legend_cols = len(legend_)
+        while True:
+            legend_widths = [
+                    max(len(l) for l, _ in legend_[i::legend_cols])
+                        for i in range(legend_cols)]
+            if (legend_cols <= 1
+                    or sum(legend_widths)+2*(legend_cols-1)
+                            + max(sum(s.xmargin[:2])
+                                for s in grid
+                                if s.x == 0)
+                        <= width_):
+                break
+            legend_cols -= 1
+        height_ -= (len(legend_)+legend_cols-1) // legend_cols
+    if legend_below and legend_:
+        legend_cols = len(legend_)
+        while True:
+            legend_widths = [
+                    max(len(l) for l, _ in legend_[i::legend_cols])
+                        for i in range(legend_cols)]
+            if (legend_cols <= 1
+                    or sum(legend_widths)+2*(legend_cols-1)
+                            + max(sum(s.xmargin[:2])
+                                for s in grid
+                                if s.x == 0)
+                        <= width_):
+                break
+            legend_cols -= 1
+        height_ -= (len(legend_)+legend_cols-1) // legend_cols
+
+    # figure out the grid dimensions
+    #
+    # note we floor to give the dimension tweaks the best chance of not
+    # exceeding the requested dimensions, this means we usually are less
+    # than the requested dimensions by quite a bit when we have many
+    # subplots, but it's a tradeoff for a relatively simple implementation
+    widths = [mt.floor(w*width_) for w in grid.xweights]
+    heights = [mt.floor(w*height_) for w in grid.yweights]
+
+    # tweak dimensions to allow all plots to have a minimum width,
+    # this may force the plot to be larger than the requested dimensions,
+    # but that's the best we can do
+    for s in grid:
+        # fit xunits
+        minwidth = sum(s.xmargin) + max(
+                2,
+                2*((5 if s.x2 else 4)+len(s.xunits))
+                    if s.xticklabels is None
+                    # bit of a hack, we just guess the xticklabel size
+                    # since we don't have the data yet
+                    else sum(len(punescape(l, {'x': 0}))
+                        for l in s.xticklabels))
+        # fit yunits
+        minheight = sum(s.ymargin) + 2
+
+        i = 0
+        while minwidth > sum(widths[s.x:s.x+s.xspan]):
+            widths[s.x+i] += 1
+            i = (i + 1) % s.xspan
+
+        i = 0
+        while minheight > sum(heights[s.y:s.y+s.yspan]):
+            heights[s.y+i] += 1
+            i = (i + 1) % s.yspan
+
+    width_ = sum(widths)
+    height_ = sum(heights)
+
+    # create a plot for each subplot
+    for s in grid:
+        # allow subplot params to override global params
+        x_ = set((x or []) + s.args.get('x', []))
+        y_ = set((y or []) + s.args.get('y', []))
+        define_ = define + s.args.get('define', [])
+        xlim_ = s.args.get('xlim', xlim)
+        ylim_ = s.args.get('ylim', ylim)
+        xlog_ = s.args.get('xlog', False) or xlog
+        ylog_ = s.args.get('ylog', False) or ylog
+
+        # allow shortened ranges
+        if len(xlim_) == 1:
+            xlim_ = (0, xlim_[0])
+        if len(ylim_) == 1:
+            ylim_ = (0, ylim_[0])
+
+        # data can be constrained by subplot-specific defines,
+        # so re-extract for each plot
+        subdatasets, subdataattrs = fold(
+                results, all_by, all_x, all_y_, define_)
 
         # order by labels
-        datasets_ = co.OrderedDict(sorted(
-                datasets_.items(),
+        subdatasets = co.OrderedDict(sorted(
+                subdatasets.items(),
                 key=labels_.key))
 
+        # filter by subplot x/y
+        subdatasets = co.OrderedDict([(name, dataset)
+                for name, dataset in subdatasets.items()
+                if len(all_x) <= 1
+                    or name[-(1 if len(all_y_) <= 1 else 2)] in x_
+                if len(all_y_) <= 1
+                    or name[-1] in y_])
+        subdataattrs = co.OrderedDict([(name, dataattr)
+                for name, dataattr in subdataattrs.items()
+                if len(all_x) <= 1
+                    or name[-(1 if len(all_y) <= 1 else 2)] in x_
+                if len(all_y) <= 1
+                    or name[-1] in y_])
         # and merge dataattrs
-        mergedattrs_ = {k: v
-                for dataattr in dataattrs_.values()
+        submergedattrs = {k: v
+                for dataattr in subdataattrs.values()
                 for k, v in dataattr.items()}
 
+        # find actual xlim/ylim
+        xlim_ = (
+                xlim_[0] if xlim_[0] is not None
+                    else min(it.chain([0], (x
+                        for dataset in subdatasets.values()
+                        for x, y in dataset
+                        if y is not None))),
+                xlim_[1] if xlim_[1] is not None
+                    else max(it.chain([0], (x
+                        for dataset in subdatasets.values()
+                        for x, y in dataset
+                        if y is not None))))
+
+        ylim_ = (
+                ylim_[0] if ylim_[0] is not None
+                    else min(it.chain([0], (y
+                        for dataset in subdatasets.values()
+                        for _, y in dataset
+                        if y is not None))),
+                ylim_[1] if ylim_[1] is not None
+                    else max(it.chain([0], (y
+                        for dataset in subdatasets.values()
+                        for _, y in dataset
+                        if y is not None))))
+
         # figure out labels/titles now that we have our data
-        title_ = [punescape(l, mergedattrs_) for l in title]
-        xlabel_ = [punescape(l, mergedattrs_) for l in xlabel]
-        ylabel_ = [punescape(l, mergedattrs_) for l in ylabel]
+        subtitle = [punescape(l, submergedattrs) for l in s.title]
+        subxlabel = [punescape(l, submergedattrs) for l in s.xlabel]
+        subylabel = [punescape(l, submergedattrs) for l in s.ylabel]
+        subxticklabels = (
+                [punescape(l, submergedattrs | {'x': x})
+                        for l, x in zip(s.xticklabels, xlim_)]
+                    if s.xticklabels is not None else None)
+        subyticklabels = (
+                [punescape(l, submergedattrs | {'y': y})
+                        for l, y in zip(s.yticklabels, ylim_)]
+                    if s.yticklabels is not None else None)
 
-        # figure out colors/chars here so that subplot defines
-        # don't change them later, that'd be bad
-        datachars_ = {name: (lambda c:
-                    c if isinstance(c, bool)
-                            # limit to 1 char
-                            else punescape(c, dataattrs_[name])[0])(
-                        chars_[i, name])
-                for i, name in enumerate(datasets_.keys())}
-        dataline_chars_ = {name: (lambda c:
-                    c if isinstance(c, bool)
-                            # limit to 1 char
-                            else punescape(c, dataattrs_[name])[0])(
-                        line_chars_[i, name])
-                for i, name in enumerate(datasets_.keys())}
-        datacolors_ = {name: punescape(colors_[i, name], dataattrs_[name])
-                for i, name in enumerate(datasets_.keys())}
-        datalabels_ = {name: punescape(labels_[i, name], dataattrs_[name])
-                for i, name in enumerate(datasets_.keys())
-                if (i, name) in labels_}
+        # find actual width/height
+        subwidth = sum(widths[s.x:s.x+s.xspan]) - sum(s.xmargin)
+        subheight = sum(heights[s.y:s.y+s.yspan]) - sum(s.ymargin)
 
-        # build legend?
-        legend_width = 0
-        if legend_right or legend_above or legend_below:
-            legend_ = []
-            for i, name in enumerate(datasets_.keys()):
-                if name in datalabels_ and not datalabels_[name]:
-                    continue
-                label = '%s%s' % (
-                        '. ' if chars
-                                and isinstance(datachars_[name], bool)
-                            else '%s ' % datachars_[name]
-                            if chars
-                            else '. '
-                            if line_chars
-                                and isinstance(dataline_chars_[name], bool)
-                            else '%s ' % dataline_chars_[name]
-                            if line_chars
-                            else '',
-                        datalabels_[name]
-                            if name in datalabels_
-                            else ','.join(name))
+        # plot!
+        plot = Plot(
+                subwidth,
+                subheight,
+                color=color,
+                dots=dots or not line_chars,
+                braille=braille,
+                xlim=xlim_,
+                ylim=ylim_,
+                xlog=xlog_,
+                ylog=ylog_)
 
-                if label:
-                    legend_.append((label, datacolors_[name]))
-                    legend_width = max(legend_width, len(label)+1)
+        for name, dataset in subdatasets.items():
+            plot.plot(
+                    sorted((x,y) for x,y in dataset),
+                    char=datachars_[name],
+                    line_char=dataline_chars_[name],
+                    color=datacolors_[name])
 
-        # figure out our canvas size
-        if width is None:
-            width_ = min(80, shutil.get_terminal_size((80, None))[0])
-        elif width:
-            width_ = width
-        else:
-            width_ = shutil.get_terminal_size((80, None))[0]
-
-        if height is None:
-            height_ = 17 + len(title_) + len(xlabel_)
-        elif height:
-            height_ = height
-        else:
-            height_ = shutil.get_terminal_size((None,
-                    17 + len(title_) + len(xlabel_)))[1]
-            # make space for shell prompt
-            if not keep_open:
-                height_ -= 1
-
-        # carve out space for the xlabel
-        height_ -= len(xlabel_)
-        # carve out space for the ylabel
-        width_ -= len(ylabel_) + (1 if ylabel_ else 0)
-        # carve out space for title
-        height_ -= len(title_)
-
-        # carve out space for the legend
-        if legend_right and legend_:
-            width_ -= legend_width
-        if legend_above and legend_:
-            legend_cols = len(legend_)
-            while True:
-                legend_widths = [
-                        max(len(l) for l, _ in legend_[i::legend_cols])
-                            for i in range(legend_cols)]
-                if (legend_cols <= 1
-                        or sum(legend_widths)+2*(legend_cols-1)
-                                + max(sum(s.xmargin[:2])
-                                    for s in grid
-                                    if s.x == 0)
-                            <= width_):
-                    break
-                legend_cols -= 1
-            height_ -= (len(legend_)+legend_cols-1) // legend_cols
-        if legend_below and legend_:
-            legend_cols = len(legend_)
-            while True:
-                legend_widths = [
-                        max(len(l) for l, _ in legend_[i::legend_cols])
-                            for i in range(legend_cols)]
-                if (legend_cols <= 1
-                        or sum(legend_widths)+2*(legend_cols-1)
-                                + max(sum(s.xmargin[:2])
-                                    for s in grid
-                                    if s.x == 0)
-                            <= width_):
-                    break
-                legend_cols -= 1
-            height_ -= (len(legend_)+legend_cols-1) // legend_cols
-
-        # figure out the grid dimensions
-        #
-        # note we floor to give the dimension tweaks the best chance of not
-        # exceeding the requested dimensions, this means we usually are less
-        # than the requested dimensions by quite a bit when we have many
-        # subplots, but it's a tradeoff for a relatively simple implementation
-        widths = [mt.floor(w*width_) for w in grid.xweights]
-        heights = [mt.floor(w*height_) for w in grid.yweights]
-
-        # tweak dimensions to allow all plots to have a minimum width,
-        # this may force the plot to be larger than the requested dimensions,
-        # but that's the best we can do
-        for s in grid:
-            # fit xunits
-            minwidth = sum(s.xmargin) + max(
-                    2,
-                    2*((5 if s.x2 else 4)+len(s.xunits))
-                        if s.xticklabels is None
-                        # bit of a hack, we just guess the xticklabel size
-                        # since we don't have the data yet
-                        else sum(len(punescape(l, {'x': 0}))
-                            for l in s.xticklabels))
-            # fit yunits
-            minheight = sum(s.ymargin) + 2
-
-            i = 0
-            while minwidth > sum(widths[s.x:s.x+s.xspan]):
-                widths[s.x+i] += 1
-                i = (i + 1) % s.xspan
-
-            i = 0
-            while minheight > sum(heights[s.y:s.y+s.yspan]):
-                heights[s.y+i] += 1
-                i = (i + 1) % s.yspan
-
-        width_ = sum(widths)
-        height_ = sum(heights)
-
-        # create a plot for each subplot
-        for s in grid:
-            # allow subplot params to override global params
-            x_ = set((x or []) + s.args.get('x', []))
-            y_ = set((y or []) + s.args.get('y', []))
-            define_ = define + s.args.get('define', [])
-            xlim_ = s.args.get('xlim', xlim)
-            ylim_ = s.args.get('ylim', ylim)
-            xlog_ = s.args.get('xlog', False) or xlog
-            ylog_ = s.args.get('ylog', False) or ylog
-
-            # allow shortened ranges
-            if len(xlim_) == 1:
-                xlim_ = (0, xlim_[0])
-            if len(ylim_) == 1:
-                ylim_ = (0, ylim_[0])
-
-            # data can be constrained by subplot-specific defines,
-            # so re-extract for each plot
-            subdatasets, subdataattrs = fold(
-                    results, all_by, all_x, all_y_, define_)
-
-            # order by labels
-            subdatasets = co.OrderedDict(sorted(
-                    subdatasets.items(),
-                    key=labels_.key))
-
-            # filter by subplot x/y
-            subdatasets = co.OrderedDict([(name, dataset)
-                    for name, dataset in subdatasets.items()
-                    if len(all_x) <= 1
-                        or name[-(1 if len(all_y_) <= 1 else 2)] in x_
-                    if len(all_y_) <= 1
-                        or name[-1] in y_])
-            subdataattrs = co.OrderedDict([(name, dataattr)
-                    for name, dataattr in subdataattrs.items()
-                    if len(all_x) <= 1
-                        or name[-(1 if len(all_y) <= 1 else 2)] in x_
-                    if len(all_y) <= 1
-                        or name[-1] in y_])
-            # and merge dataattrs
-            submergedattrs = {k: v
-                    for dataattr in subdataattrs.values()
-                    for k, v in dataattr.items()}
-
-            # find actual xlim/ylim
-            xlim_ = (
-                    xlim_[0] if xlim_[0] is not None
-                        else min(it.chain([0], (x
-                            for dataset in subdatasets.values()
-                            for x, y in dataset
-                            if y is not None))),
-                    xlim_[1] if xlim_[1] is not None
-                        else max(it.chain([0], (x
-                            for dataset in subdatasets.values()
-                            for x, y in dataset
-                            if y is not None))))
-
-            ylim_ = (
-                    ylim_[0] if ylim_[0] is not None
-                        else min(it.chain([0], (y
-                            for dataset in subdatasets.values()
-                            for _, y in dataset
-                            if y is not None))),
-                    ylim_[1] if ylim_[1] is not None
-                        else max(it.chain([0], (y
-                            for dataset in subdatasets.values()
-                            for _, y in dataset
-                            if y is not None))))
-
-            # figure out labels/titles now that we have our data
-            subtitle = [punescape(l, submergedattrs) for l in s.title]
-            subxlabel = [punescape(l, submergedattrs) for l in s.xlabel]
-            subylabel = [punescape(l, submergedattrs) for l in s.ylabel]
-            subxticklabels = (
-                    [punescape(l, submergedattrs | {'x': x})
-                            for l, x in zip(s.xticklabels, xlim_)]
-                        if s.xticklabels is not None else None)
-            subyticklabels = (
-                    [punescape(l, submergedattrs | {'y': y})
-                            for l, y in zip(s.yticklabels, ylim_)]
-                        if s.yticklabels is not None else None)
-
-            # find actual width/height
-            subwidth = sum(widths[s.x:s.x+s.xspan]) - sum(s.xmargin)
-            subheight = sum(heights[s.y:s.y+s.yspan]) - sum(s.ymargin)
-
-            # plot!
-            plot = Plot(
-                    subwidth,
-                    subheight,
-                    color=color,
-                    dots=dots or not line_chars,
-                    braille=braille,
-                    xlim=xlim_,
-                    ylim=ylim_,
-                    xlog=xlog_,
-                    ylog=ylog_)
-
-            for name, dataset in subdatasets.items():
-                plot.plot(
-                        sorted((x,y) for x,y in dataset),
-                        char=datachars_[name],
-                        line_char=dataline_chars_[name],
-                        color=datacolors_[name])
-
-            s.plot_ = plot
-            s.width_ = subwidth
-            s.height_ = subheight
-            s.xlim_ = xlim_
-            s.ylim_ = ylim_
-            s.title_ = subtitle
-            s.xlabel_ = subxlabel
-            s.ylabel_ = subylabel
-            s.xticklabels_ = subxticklabels
-            s.yticklabels_ = subyticklabels
+        s.plot_ = plot
+        s.width_ = subwidth
+        s.height_ = subheight
+        s.xlim_ = xlim_
+        s.ylim_ = ylim_
+        s.title_ = subtitle
+        s.xlabel_ = subxlabel
+        s.ylabel_ = subylabel
+        s.xticklabels_ = subxticklabels
+        s.yticklabels_ = subyticklabels
 
 
-        # now that everything's plotted, let's render things to the terminal
+    ## now that everything's plotted, let's render things to the terminal
 
-        # figure out margin
-        xmargin = (
-            len(ylabel_) + (1 if ylabel_ else 0),
-            sum(grid[0,0].xmargin[:2]),
-        )
-        ymargin = (
-            sum(grid[0,0].ymargin[:2]),
-            grid[-1,-1].ymargin[-1],
-        )
+    # figure out margin
+    xmargin = (
+        len(ylabel_) + (1 if ylabel_ else 0),
+        sum(grid[0,0].xmargin[:2]),
+    )
+    ymargin = (
+        sum(grid[0,0].ymargin[:2]),
+        grid[-1,-1].ymargin[-1],
+    )
 
-        # draw title?
-        for line in title_:
+    # draw title?
+    for line in title_:
+        f.writeln('%*s%s' % (
+                sum(xmargin[:2]), '',
+                line.center(width_-xmargin[1])))
+
+    # draw legend_above?
+    if legend_above and legend_:
+        for i in range(0, len(legend_), legend_cols):
             f.writeln('%*s%s' % (
-                    sum(xmargin[:2]), '',
-                    line.center(width_-xmargin[1])))
+                    max(
+                        sum(xmargin[:2])
+                            + (width_-xmargin[1]
+                                - (sum(legend_widths)+2*(legend_cols-1)))
+                            // 2,
+                        0), '',
+                    '  '.join('%s%s%s' % (
+                            '\x1b[%sm' % legend_[i+j][1] if color else '',
+                            '%-*s' % (legend_widths[j], legend_[i+j][0]),
+                            '\x1b[m' if color else '')
+                        for j in range(min(legend_cols, len(legend_)-i)))))
 
-        # draw legend_above?
-        if legend_above and legend_:
-            for i in range(0, len(legend_), legend_cols):
-                f.writeln('%*s%s' % (
-                        max(
-                            sum(xmargin[:2])
-                                + (width_-xmargin[1]
-                                    - (sum(legend_widths)+2*(legend_cols-1)))
-                                // 2,
-                            0), '',
-                        '  '.join('%s%s%s' % (
-                                '\x1b[%sm' % legend_[i+j][1] if color else '',
-                                '%-*s' % (legend_widths[j], legend_[i+j][0]),
-                                '\x1b[m' if color else '')
-                            for j in range(min(legend_cols, len(legend_)-i)))))
+    for row in range(height_):
+        # draw ylabel?
+        f.write('%s ' % ''.join(
+                    ('%*s%s%*s' % (
+                            ymargin[-1], '',
+                            line.center(height_-sum(ymargin)),
+                            ymargin[0], ''))[row]
+                        for line in ylabel_)
+                if ylabel_ else '')
 
-        for row in range(height_):
-            # draw ylabel?
-            f.write('%s ' % ''.join(
-                        ('%*s%s%*s' % (
-                                ymargin[-1], '',
-                                line.center(height_-sum(ymargin)),
-                                ymargin[0], ''))[row]
-                            for line in ylabel_)
-                    if ylabel_ else '')
+        for x_ in range(grid.width):
+            # figure out the grid x/y position
+            subrow = row
+            y_ = len(heights)-1
+            while subrow >= heights[y_]:
+                subrow -= heights[y_]
+                y_ -= 1
 
-            for x_ in range(grid.width):
-                # figure out the grid x/y position
-                subrow = row
-                y_ = len(heights)-1
-                while subrow >= heights[y_]:
-                    subrow -= heights[y_]
-                    y_ -= 1
+            s = grid[x_, y_]
+            subrow = row - sum(heights[s.y+s.yspan:])
 
-                s = grid[x_, y_]
-                subrow = row - sum(heights[s.y+s.yspan:])
-
-                # header
-                if subrow < s.ymargin[-1]:
-                    # draw subtitle?
-                    if subrow < len(s.title_):
-                        f.write('%*s%s' % (
-                                sum(s.xmargin[:2]), '',
-                                s.title_[subrow].center(s.width_)))
-                    else:
-                        f.write('%*s%*s' % (
-                                sum(s.xmargin[:2]), '',
-                                s.width_, ''))
-                # draw plot?
-                elif subrow-s.ymargin[-1] < s.height_:
-                    subrow = subrow-s.ymargin[-1]
-
-                    # draw ysublabel?
-                    f.write('%-*s' % (
-                            s.xmargin[0],
-                            '%s ' % ''.join(
-                                line.center(s.height_)[subrow]
-                                    for line in s.ylabel_)
-                                    if s.ylabel_ else ''))
-
-                    # draw yunits?
-                    if subrow == 0 and s.yticklabels_ != []:
-                        f.write('%*s' % (
-                                s.xmargin[1],
-                                ((si2 if s.y2 else si)(s.ylim_[1]) + s.yunits
-                                        if s.yticklabels_ is None
-                                        else s.yticklabels_[1])
-                                    + ' '))
-                    elif subrow == s.height_-1 and s.yticklabels_ != []:
-                        f.write('%*s' % (
-                                s.xmargin[1],
-                                ((si2 if s.y2 else si)(s.ylim_[0]) + s.yunits
-                                        if s.yticklabels_ is None
-                                        else s.yticklabels_[0])
-                                    + ' '))
-                    else:
-                        f.write('%*s' % (
-                                s.xmargin[1], ''))
-
-                    # draw plot!
-                    f.write(s.plot_.draw(subrow))
-
-                # footer
+            # header
+            if subrow < s.ymargin[-1]:
+                # draw subtitle?
+                if subrow < len(s.title_):
+                    f.write('%*s%s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.title_[subrow].center(s.width_)))
                 else:
-                    subrow = subrow-s.ymargin[-1]-s.height_
+                    f.write('%*s%*s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.width_, ''))
+            # draw plot?
+            elif subrow-s.ymargin[-1] < s.height_:
+                subrow = subrow-s.ymargin[-1]
 
-                    # draw xunits?
-                    if subrow < (1 if s.xticklabels_ != [] else 0):
-                        f.write('%*s%-*s%*s%*s' % (
-                                sum(s.xmargin[:2]), '',
-                                (5 if s.x2 else 4) + len(s.xunits)
-                                    if s.xticklabels_ is None
-                                    else len(s.xticklabels_[0]),
-                                (si2 if s.x2 else si)(s.xlim_[0]) + s.xunits
-                                    if s.xticklabels_ is None
-                                    else s.xticklabels_[0],
-                                s.width_ - (2*((5 if s.x2 else 4)+len(s.xunits))
-                                    if s.xticklabels_ is None
-                                    else sum(len(t)
-                                        for t in s.xticklabels_)), '',
-                                (5 if s.x2 else 4) + len(s.xunits)
-                                    if s.xticklabels_ is None
-                                    else len(s.xticklabels_[1]),
-                                (si2 if s.x2 else si)(s.xlim_[1]) + s.xunits
-                                    if s.xticklabels_ is None
-                                    else s.xticklabels_[1]))
-                    # draw xsublabel?
-                    elif (subrow < s.ymargin[1]
-                            or subrow-s.ymargin[1] >= len(s.xlabel_)):
-                        f.write('%*s%*s' % (
-                                sum(s.xmargin[:2]), '',
-                                s.width_, ''))
-                    else:
-                        f.write('%*s%s' % (
-                                sum(s.xmargin[:2]), '',
-                                s.xlabel_[subrow-s.ymargin[1]]
-                                    .center(s.width_)))
+                # draw ysublabel?
+                f.write('%-*s' % (
+                        s.xmargin[0],
+                        '%s ' % ''.join(
+                            line.center(s.height_)[subrow]
+                                for line in s.ylabel_)
+                                if s.ylabel_ else ''))
 
-            # draw legend_right?
-            if (legend_right and legend_
-                    and row >= ymargin[-1]
-                    and row-ymargin[-1] < len(legend_)):
-                j = row-ymargin[-1]
-                f.write(' %s%s%s' % (
-                        '\x1b[%sm' % legend_[j][1] if color else '',
-                        legend_[j][0],
-                        '\x1b[m' if color else ''))
+                # draw yunits?
+                if subrow == 0 and s.yticklabels_ != []:
+                    f.write('%*s' % (
+                            s.xmargin[1],
+                            ((si2 if s.y2 else si)(s.ylim_[1]) + s.yunits
+                                    if s.yticklabels_ is None
+                                    else s.yticklabels_[1])
+                                + ' '))
+                elif subrow == s.height_-1 and s.yticklabels_ != []:
+                    f.write('%*s' % (
+                            s.xmargin[1],
+                            ((si2 if s.y2 else si)(s.ylim_[0]) + s.yunits
+                                    if s.yticklabels_ is None
+                                    else s.yticklabels_[0])
+                                + ' '))
+                else:
+                    f.write('%*s' % (
+                            s.xmargin[1], ''))
 
-            f.writeln()
+                # draw plot!
+                f.write(s.plot_.draw(subrow))
 
-        # draw xlabel?
-        for line in xlabel_:
+            # footer
+            else:
+                subrow = subrow-s.ymargin[-1]-s.height_
+
+                # draw xunits?
+                if subrow < (1 if s.xticklabels_ != [] else 0):
+                    f.write('%*s%-*s%*s%*s' % (
+                            sum(s.xmargin[:2]), '',
+                            (5 if s.x2 else 4) + len(s.xunits)
+                                if s.xticklabels_ is None
+                                else len(s.xticklabels_[0]),
+                            (si2 if s.x2 else si)(s.xlim_[0]) + s.xunits
+                                if s.xticklabels_ is None
+                                else s.xticklabels_[0],
+                            s.width_ - (2*((5 if s.x2 else 4)+len(s.xunits))
+                                if s.xticklabels_ is None
+                                else sum(len(t)
+                                    for t in s.xticklabels_)), '',
+                            (5 if s.x2 else 4) + len(s.xunits)
+                                if s.xticklabels_ is None
+                                else len(s.xticklabels_[1]),
+                            (si2 if s.x2 else si)(s.xlim_[1]) + s.xunits
+                                if s.xticklabels_ is None
+                                else s.xticklabels_[1]))
+                # draw xsublabel?
+                elif (subrow < s.ymargin[1]
+                        or subrow-s.ymargin[1] >= len(s.xlabel_)):
+                    f.write('%*s%*s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.width_, ''))
+                else:
+                    f.write('%*s%s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.xlabel_[subrow-s.ymargin[1]]
+                                .center(s.width_)))
+
+        # draw legend_right?
+        if (legend_right and legend_
+                and row >= ymargin[-1]
+                and row-ymargin[-1] < len(legend_)):
+            j = row-ymargin[-1]
+            f.write(' %s%s%s' % (
+                    '\x1b[%sm' % legend_[j][1] if color else '',
+                    legend_[j][0],
+                    '\x1b[m' if color else ''))
+
+        f.writeln()
+
+    # draw xlabel?
+    for line in xlabel_:
+        f.writeln('%*s%s' % (
+                sum(xmargin[:2]), '',
+                line.center(width_-xmargin[1])))
+
+    # draw legend below?
+    if legend_below and legend_:
+        for i in range(0, len(legend_), legend_cols):
             f.writeln('%*s%s' % (
-                    sum(xmargin[:2]), '',
-                    line.center(width_-xmargin[1])))
-
-        # draw legend below?
-        if legend_below and legend_:
-            for i in range(0, len(legend_), legend_cols):
-                f.writeln('%*s%s' % (
-                        max(
-                            sum(xmargin[:2])
-                                + (width_-xmargin[1]
-                                    - (sum(legend_widths)+2*(legend_cols-1)))
-                                // 2,
-                            0), '',
-                        '  '.join('%s%s%s' % (
-                                '\x1b[%sm' % legend_[i+j][1] if color else '',
-                                '%-*s' % (legend_widths[j], legend_[i+j][0]),
-                                '\x1b[m' if color else '')
-                            for j in range(min(legend_cols, len(legend_)-i)))))
+                    max(
+                        sum(xmargin[:2])
+                            + (width_-xmargin[1]
+                                - (sum(legend_widths)+2*(legend_cols-1)))
+                            // 2,
+                        0), '',
+                    '  '.join('%s%s%s' % (
+                            '\x1b[%sm' % legend_[i+j][1] if color else '',
+                            '%-*s' % (legend_widths[j], legend_[i+j][0]),
+                            '\x1b[m' if color else '')
+                        for j in range(min(legend_cols, len(legend_)-i)))))
 
 
+def main(csv_paths, *,
+        keep_open=False,
+        head=False,
+        cat=False,
+        sleep=False,
+        **args):
+    # note main_ still wants keep-open for header padding
+
+    # keep-open?
     if keep_open:
         try:
             while True:
                 # register inotify before running the command, this avoids
                 # modification race conditions
-                if keep_open and Inotify:
+                if Inotify:
                     inotify = Inotify(csv_paths)
 
                 if cat:
-                    draw(sys.stdout)
+                    main_(sys.stdout, csv_paths,
+                            keep_open=False,
+                            **args)
                 else:
                     ring = RingIO(head=head)
-                    draw(ring)
+                    main_(ring, csv_paths,
+                            keep_open=True,
+                            **args)
                     ring.draw()
 
                 # try to inotifywait
-                if keep_open and Inotify:
+                if Inotify:
                     ptime = time.time()
                     inotify.read()
                     inotify.close()
@@ -1753,8 +1767,12 @@ def main(csv_paths, *,
 
         if not cat:
             sys.stdout.write('\n')
+
+    # single-pass?
     else:
-        draw(sys.stdout)
+        main_(sys.stdout, csv_paths,
+                keep_open=False,
+                **args)
 
 
 if __name__ == "__main__":
@@ -1985,6 +2003,10 @@ if __name__ == "__main__":
             type=AppendSubplot.parse,
             help="Add subplot-specific arguments to the main plot.")
     parser.add_argument(
+            '-k', '--keep-open',
+            action='store_true',
+            help="Continue to open and redraw the CSV files in a loop.")
+    parser.add_argument(
             '-^', '--head',
             action='store_true',
             help="Show the first n lines.")
@@ -1992,10 +2014,6 @@ if __name__ == "__main__":
             '-z', '--cat',
             action='store_true',
             help="Pipe directly to stdout.")
-    parser.add_argument(
-            '-k', '--keep-open',
-            action='store_true',
-            help="Continue to open and redraw the CSV files in a loop.")
     parser.add_argument(
             '-s', '--sleep',
             type=float,
