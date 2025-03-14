@@ -1125,7 +1125,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Reset wear on block device initialization.")
     parser.add_argument(
-            '-N', '--no-header',
+            '--no-header',
             action='store_true',
             help="Don't show the header.")
     parser.add_argument(

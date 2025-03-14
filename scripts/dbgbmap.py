@@ -1451,7 +1451,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Render data blocks.")
     parser.add_argument(
-            '-N', '--no-header',
+            '--no-header',
             action='store_true',
             help="Don't show the header.")
     parser.add_argument(

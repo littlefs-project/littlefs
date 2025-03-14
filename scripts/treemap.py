@@ -1112,7 +1112,7 @@ if __name__ == "__main__":
             const=0,
             help="Height in rows. 0 uses the terminal height. Defaults to 1.")
     parser.add_argument(
-            '-N', '--no-header',
+            '--no-header',
             action='store_true',
             help="Don't show the header.")
     parser.add_argument(

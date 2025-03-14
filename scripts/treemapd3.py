@@ -982,7 +982,7 @@ if __name__ == "__main__":
             type=lambda x: int(x, 0),
             help="Height in pixels. Defaults to %r." % HEIGHT)
     parser.add_argument(
-            '-N', '--no-header',
+            '--no-header',
             action='store_true',
             help="Don't show the header.")
     parser.add_argument(
