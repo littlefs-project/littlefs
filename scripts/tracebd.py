@@ -334,9 +334,9 @@ class Pixel(int):
             return self.wear / max(max_wear, len(wear_chars))
 
     def draw(self, max_wear, char=None, *,
-            read=True,
-            prog=True,
-            erase=True,
+            reads=True,
+            progs=True,
+            erases=True,
             wear=False,
             block_cycles=None,
             color=True,
@@ -378,13 +378,13 @@ class Pixel(int):
             c = wear_chars[int(w * (len(wear_chars)-1))]
             f.append(wear_colors[int(w * (len(wear_colors)-1))])
 
-        if prog and self.proged:
+        if progs and self.proged:
             c = chars[1]
             f.append(colors[1])
-        elif erase and self.erased:
+        elif erases and self.erased:
             c = chars[2]
             f.append(colors[2])
-        elif read and self.readed:
+        elif reads and self.readed:
             c = chars[0]
             f.append(colors[0])
 
@@ -541,9 +541,9 @@ class Bmap:
         self.pixels = pixels
 
     def draw(self, row, *,
-            read=False,
-            prog=False,
-            erase=False,
+            reads=False,
+            progs=False,
+            erases=False,
             wear=False,
             hilbert=False,
             lebesgue=False,
@@ -600,10 +600,10 @@ class Bmap:
                 for i in range(2*4):
                     p = grid[x+(2-1-(i%2)) + ((row*4)+(4-1-(i//2)))*self.width]
                     best_p |= p
-                    if ((read and p.readed)
-                            or (prog and p.proged)
-                            or (erase and p.erased)
-                            or (not read and not prog and not erase
+                    if ((reads and p.readed)
+                            or (progs and p.proged)
+                            or (erases and p.erased)
+                            or (not reads and not progs and not erases
                                 and wear and p.worn(max_wear, **args) >= 0.7)):
                         byte_p |= 1 << i
 
@@ -611,9 +611,9 @@ class Bmap:
                         max_wear,
                         CHARS_BRAILLE[byte_p],
                         braille=True,
-                        read=read,
-                        prog=prog,
-                        erase=erase,
+                        reads=reads,
+                        progs=progs,
+                        erases=erases,
                         wear=wear,
                         **args))
         elif dots:
@@ -624,10 +624,10 @@ class Bmap:
                 for i in range(2):
                     p = grid[x + ((row*2)+(2-1-i))*self.width]
                     best_p |= p
-                    if ((read and p.readed)
-                            or (prog and p.proged)
-                            or (erase and p.erased)
-                            or (not read and not prog and not erase
+                    if ((reads and p.readed)
+                            or (progs and p.proged)
+                            or (erases and p.erased)
+                            or (not reads and not progs and not erases
                                 and wear and p.worn(max_wear, **args) >= 0.7)):
                         byte_p |= 1 << i
 
@@ -635,18 +635,18 @@ class Bmap:
                         max_wear,
                         CHARS_DOTS[byte_p],
                         dots=True,
-                        read=read,
-                        prog=prog,
-                        erase=erase,
+                        reads=reads,
+                        progs=progs,
+                        erases=erases,
                         wear=wear,
                         **args))
         else:
             for x in range(self.width):
                 line.append(grid[x + row*self.width].draw(
                         max_wear,
-                        read=read,
-                        prog=prog,
-                        erase=erase,
+                        reads=reads,
+                        progs=progs,
+                        erases=erases,
                         wear=wear,
                         **args))
 
@@ -661,9 +661,9 @@ def main(path='-', *,
         block=None,
         off=None,
         size=None,
-        read=False,
-        prog=False,
-        erase=False,
+        reads=False,
+        progs=False,
+        erases=False,
         wear=False,
         reset=False,
         no_header=False,
@@ -689,11 +689,11 @@ def main(path='-', *,
     else:
         color = False
 
-    # exclusive wear or read/prog/erase by default
-    if not read and not prog and not erase and not wear:
-        read = True
-        prog = True
-        erase = True
+    # exclusive wear or reads/progs/erases by default
+    if not reads and not progs and not erases and not wear:
+        reads = True
+        progs = True
+        erases = True
 
     # assume a reasonable lines/height if not specified
     #
@@ -877,7 +877,7 @@ def main(path='-', *,
                             else block_count_)
             return True
 
-        elif m.group('read') and read:
+        elif m.group('read') and reads:
             block = int(m.group('read_block'), 0)
             off = int(m.group('read_off'), 0)
             size = int(m.group('read_size'), 0)
@@ -894,7 +894,7 @@ def main(path='-', *,
             readed += size
             return True
 
-        elif m.group('prog') and prog:
+        elif m.group('prog') and progs:
             block = int(m.group('prog_block'), 0)
             off = int(m.group('prog_off'), 0)
             size = int(m.group('prog_size'), 0)
@@ -911,7 +911,7 @@ def main(path='-', *,
             proged += size
             return True
 
-        elif m.group('erase') and (erase or wear):
+        elif m.group('erase') and (erases or wear):
             block = int(m.group('erase_block'), 0)
             size = int(m.group('erase_size'), 0)
 
@@ -947,9 +947,9 @@ def main(path='-', *,
                     else mt.ceil(bmap.height/2) if dots
                     else bmap.height):
             line = bmap.draw(row,
-                    read=read,
-                    prog=prog,
-                    erase=erase,
+                    reads=reads,
+                    progs=progs,
+                    erases=erases,
                     wear=wear,
                     block_cycles=block_cycles,
                     color=color,
@@ -961,7 +961,7 @@ def main(path='-', *,
             if line:
                 f.writeln(line)
 
-        # print some information about read/prog/erases
+        # print some information about reads/progs/erases
         #
         # cat implies no-header, because a header wouldn't really make sense
         if not no_header and not cat:
@@ -969,7 +969,7 @@ def main(path='-', *,
             total = readed+proged+erased
 
             # compute stddev of wear using our bmap, this is a bit different
-            # from read/prog/erase which ignores any bmap window, but it's
+            # from reads/progs/erases which ignores any bmap window, but it's
             # what we have
             if wear:
                 mean = (sum(p.wear for p in bmap.pixels)
@@ -985,11 +985,11 @@ def main(path='-', *,
             f.lines[0] = 'bd %dx%d%s%s%s%s' % (
                     bmap.block_size, bmap.block_count,
                     ', %6s read' % ('%.1f%%' % (100*readed  / max(total, 1)))
-                        if read else '',
+                        if reads else '',
                     ', %6s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
-                        if prog else '',
+                        if progs else '',
                     ', %6s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
-                        if erase else '',
+                        if erases else '',
                     ', %13s wear' % ('%.1fσ (%.1f%%)' % (
                             worst / max(stddev, 1),
                             100*stddev / max(worst, 1)))
@@ -1105,19 +1105,19 @@ if __name__ == "__main__":
                     for x in x.split(',')),
             help="Show this many bytes, may be a range.")
     parser.add_argument(
-            '-r', '--read',
+            '--reads',
             action='store_true',
             help="Render reads.")
     parser.add_argument(
-            '-p', '--prog',
+            '--progs',
             action='store_true',
             help="Render progs.")
     parser.add_argument(
-            '-e', '--erase',
+            '--erases',
             action='store_true',
             help="Render erases.")
     parser.add_argument(
-            '-w', '--wear',
+            '--wear',
             action='store_true',
             help="Render wear.")
     parser.add_argument(

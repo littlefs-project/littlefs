@@ -1135,7 +1135,7 @@ def main(disk, mroots=None, *,
             # mark mroots in our bmap
             for block in mroot.blocks:
                 bmap.mdir(block,
-                        mroot.eoff if args.get('in_use') else block_size)
+                        mroot.eoff if args.get('usage') else block_size)
                 mdirs_ += 1;
 
             # find any file btrees in our mroot
@@ -1174,7 +1174,7 @@ def main(disk, mroots=None, *,
                     # mark mdir in our bmap
                     for block in mdir.blocks:
                         bmap.mdir(block,
-                                mdir.eoff if args.get('in_use')
+                                mdir.eoff if args.get('usage')
                                     else block_size)
                         mdirs_ += 1
 
@@ -1222,7 +1222,7 @@ def main(disk, mroots=None, *,
                         d, (mid_, w_, rbyd_, rid_, tags_) = x
                         for block in rbyd_.blocks:
                             bmap.btree(block,
-                                    rbyd_.eoff if args.get('in_use')
+                                    rbyd_.eoff if args.get('usage')
                                         else block_size)
                             btrees_ += 1
                     ppath = path
@@ -1255,7 +1255,7 @@ def main(disk, mroots=None, *,
                             # mark mdir in our bmap
                             for block in mdir_.blocks:
                                 bmap.mdir(block, 0,
-                                        mdir_.eoff if args.get('in_use')
+                                        mdir_.eoff if args.get('usage')
                                             else block_size)
                                 mdirs_ += 1
 
@@ -1280,8 +1280,8 @@ def main(disk, mroots=None, *,
                     size, block, off = frombptr(data)
                     # mark block in our bmap
                     bmap.data(block,
-                            off if args.get('in_use') else 0,
-                            size if args.get('in_use') else block_size)
+                            off if args.get('usage') else 0,
+                            size if args.get('usage') else block_size)
                     datas_ += 1
                     continue
 
@@ -1332,7 +1332,7 @@ def main(disk, mroots=None, *,
                             continue
                         for block in rbyd_.blocks:
                             bmap.btree(block,
-                                    rbyd_.eoff if args.get('in_use')
+                                    rbyd_.eoff if args.get('usage')
                                         else block_size)
                             btrees_ += 1
                     ppath = path
@@ -1359,8 +1359,8 @@ def main(disk, mroots=None, *,
 
                         # mark blocks in our bmap
                         bmap.data(block,
-                                off if args.get('in_use') else 0,
-                                size if args.get('in_use') else block_size)
+                                off if args.get('usage') else 0,
+                                size if args.get('usage') else block_size)
                         datas_ += 1
 
     #### actual rendering begins here
@@ -1439,15 +1439,16 @@ if __name__ == "__main__":
                     for x in x.split(',')),
             help="Show this many bytes, may be a range.")
     parser.add_argument(
-            '-M', '--mdirs',
+            '--mdirs',
             action='store_true',
             help="Render mdir blocks.")
     parser.add_argument(
-            '-B', '--btrees',
+            '--btrees',
             action='store_true',
             help="Render btree blocks.")
     parser.add_argument(
-            '-D', '--datas',
+            '--data', '--datas',
+            dest='datas',
             action='store_true',
             help="Render data blocks.")
     parser.add_argument(
@@ -1503,9 +1504,13 @@ if __name__ == "__main__":
             '-Z', '--lebesgue',
             action='store_true',
             help="Render as a space-filling Z-curve.")
+    # need a special Action here because this % causes problems
+    class StoreTrueUsage(argparse._StoreTrueAction):
+        def format_usage(self):
+            return '-%%'
     parser.add_argument(
-            '-i', '--in-use',
-            action='store_true',
+            '-%', '--usage',
+            action=StoreTrueUsage,
             help="Show how much of each block is in use.")
     parser.add_argument(
             '-z', '--depth',
