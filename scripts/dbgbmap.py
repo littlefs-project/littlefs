@@ -10,6 +10,7 @@ import functools as ft
 import itertools as it
 import math as mt
 import os
+import shlex
 import shutil
 import struct
 
@@ -952,8 +953,6 @@ def main(disk, mroots=None, *,
         block_size=None,
         block_count=None,
         block=None,
-        off=None,
-        size=None,
         mdirs=False,
         btrees=False,
         datas=False,
@@ -1005,6 +1004,13 @@ def main(disk, mroots=None, *,
             block_count = block_count_
 
     # try to simplify the block/off/size arguments a bit
+    if not isinstance(block, dict):
+        block = {'block': block}
+    block, off, size = (
+            block.get('block'),
+            block.get('off'),
+            block.get('size'))
+
     if not isinstance(block, tuple):
         block = block,
     if isinstance(off, tuple) and len(off) == 1:
@@ -1419,25 +1425,38 @@ if __name__ == "__main__":
             '--block-count',
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
-    parser.add_argument(
-            '-@', '--block',
+    # subparser for block arguments
+    blockparser = argparse.ArgumentParser(
+            prog="%s -@/--block" % parser.prog,
+            allow_abbrev=False)
+    blockparser.add_argument(
+            'block',
             nargs='?',
             type=lambda x: tuple(
                 rbydaddr(x) if x.strip() else None
                     for x in x.split(',')),
-            help="Optional block to show, may be a range.")
-    parser.add_argument(
+            help="Block address, may be a range.")
+    blockparser.add_argument(
             '--off',
             type=lambda x: tuple(
                 int(x, 0) if x.strip() else None
                     for x in x.split(',')),
             help="Show a specific offset, may be a range.")
-    parser.add_argument(
-            '--size',
+    blockparser.add_argument(
+            '-n', '--size',
             type=lambda x: tuple(
                 int(x, 0) if x.strip() else None
                     for x in x.split(',')),
             help="Show this many bytes, may be a range.")
+    parser.add_argument(
+            '-@', '--block',
+            type=lambda x: {k: v
+                    for k, v in vars(blockparser.parse_intermixed_args(
+                        shlex.split(x))).items()
+                    if v is not None},
+            help="Optional block to show, may be a range. Can also include "
+                "--off and -n/--size flags to indicate a range inside the "
+                "block, both which may also be ranges.")
     parser.add_argument(
             '--mdirs',
             action='store_true',

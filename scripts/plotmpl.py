@@ -1479,6 +1479,7 @@ if __name__ == "__main__":
         def parse(value):
             import copy
             subparser = copy.deepcopy(parser)
+            subparser.prog = "%s --subplot" % parser.prog
             next(a for a in subparser._actions
                     if '--output' in a.option_strings).required = False
             next(a for a in subparser._actions

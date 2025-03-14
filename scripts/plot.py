@@ -1948,6 +1948,7 @@ if __name__ == "__main__":
         def parse(value):
             import copy
             subparser = copy.deepcopy(parser)
+            subparser.prog = "%s --subplot" % parser.prog
             next(a for a in subparser._actions
                     if '--width' in a.option_strings).type = float
             next(a for a in subparser._actions
