@@ -179,7 +179,7 @@ def main(command, *,
                         re.sub('^-.', '', p),
                         re.sub('^--[^=]+=', '', p)}:
                     if p and os.path.exists(p):
-                        paths.add(p)
+                        keep_open_paths.add(p)
 
     returncode = 0
     try:

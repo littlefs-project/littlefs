@@ -283,7 +283,7 @@ def collect(csv_paths, defines=[]):
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 fields.extend(
-                        k for k in reader.fieldnames
+                        k for k in reader.fieldnames or []
                             if k not in fields)
                 for r in reader:
                     # filter by matching defines
