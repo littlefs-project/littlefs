@@ -1070,7 +1070,6 @@ class Grid:
         return grid
 
 
-# TODO adopt this keep_open pattern in all ascii-art scripts?
 def main_(f, csv_paths, *,
         by=None,
         x=None,
