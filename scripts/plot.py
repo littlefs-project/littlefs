@@ -1105,7 +1105,6 @@ def main_(f, csv_paths, *,
         legend_below=False,
         subplot={},
         subplots=[],
-        keep_open=False,
         **args):
     # give f an writeln function
     def writeln(s=''):
@@ -1339,22 +1338,18 @@ def main_(f, csv_paths, *,
 
     # figure out our canvas size
     if width is None:
-        width_ = min(80, shutil.get_terminal_size((80, None))[0])
-    elif width:
+        width_ = min(80, shutil.get_terminal_size((80, 5))[0])
+    elif width > 0:
         width_ = width
     else:
-        width_ = shutil.get_terminal_size((80, None))[0]
+        width_ = max(0, shutil.get_terminal_size((80, 5))[0] + width)
 
     if height is None:
         height_ = 17 + len(title_) + len(xlabel_)
-    elif height:
+    elif height > 0:
         height_ = height
     else:
-        height_ = shutil.get_terminal_size((None,
-                17 + len(title_) + len(xlabel_)))[1]
-        # make space for shell prompt
-        if not keep_open:
-            height_ -= 1
+        height_ = max(0, shutil.get_terminal_size((80, 5))[1] + height)
 
     # carve out space for the xlabel
     height_ -= len(xlabel_)
@@ -1725,13 +1720,12 @@ def main_(f, csv_paths, *,
 
 
 def main(csv_paths, *,
+        height=None,
         keep_open=False,
         head=False,
         cat=False,
         sleep=False,
         **args):
-    # note main_ still wants keep-open for header padding
-
     # keep-open?
     if keep_open:
         try:
@@ -1743,12 +1737,13 @@ def main(csv_paths, *,
 
                 if cat:
                     main_(sys.stdout, csv_paths,
-                            keep_open=False,
+                            # make space for shell prompt
+                            height=height if height is not False else -1,
                             **args)
                 else:
                     ring = RingIO(head=head)
                     main_(ring, csv_paths,
-                            keep_open=True,
+                            height=height if height is not False else 0,
                             **args)
                     ring.draw()
 
@@ -1770,7 +1765,8 @@ def main(csv_paths, *,
     # single-pass?
     else:
         main_(sys.stdout, csv_paths,
-                keep_open=False,
+                # make space for shell prompt
+                height=height if height is not False else -1,
                 **args)
 
 
@@ -1886,14 +1882,15 @@ if __name__ == "__main__":
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,
-            help="Width in columns. 0 uses the terminal width. Defaults to "
-                "min(terminal, 80).")
+            help="Width in columns. <=0 uses the terminal width. Defaults "
+                "to min(terminal, 80).")
     parser.add_argument(
             '-H', '--height',
             nargs='?',
             type=lambda x: int(x, 0),
-            const=0,
-            help="Height in rows. 0 uses the terminal height. Defaults to 17.")
+            const=False,
+            help="Height in rows. <=0 uses the terminal height. Defaults "
+                "to 17.")
     parser.add_argument(
             '-X', '--xlim',
             type=lambda x: tuple(
