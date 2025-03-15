@@ -1469,7 +1469,7 @@ def annotate(Result, results, *,
                 print(line)
 
 
-def report(paths, *,
+def main_(paths, *,
         by=None,
         fields=None,
         defines=[],
@@ -1618,7 +1618,7 @@ def main(**args):
     if args.get('record'):
         return record(**args)
     else:
-        return report(**args)
+        return main_(**args)
 
 
 if __name__ == "__main__":

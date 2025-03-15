@@ -1481,7 +1481,7 @@ def annotate(Result, results, *,
                 print(line)
 
 
-def report(perf_paths, *,
+def main_(perf_paths, *,
         by=None,
         fields=None,
         defines=[],
@@ -1622,7 +1622,7 @@ def main(**args):
     if args.get('record'):
         return record(**args)
     else:
-        return report(**args)
+        return main_(**args)
 
 
 if __name__ == "__main__":
