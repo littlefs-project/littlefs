@@ -33,9 +33,10 @@ def parity(x):
 def main(paths, **args):
     # interpret as sequence of hex bytes
     if args.get('hex'):
+        bytes_ = [b for path in paths for b in path.split()]
         print('%01x' % parity(ft.reduce(
                 op.xor,
-                bytes(int(path, 16) for path in paths),
+                bytes(int(b, 16) for b in bytes_),
                 0)))
 
     # interpret as strings

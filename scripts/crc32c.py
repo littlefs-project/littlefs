@@ -33,7 +33,8 @@ def crc32c(data, crc=0):
 def main(paths, **args):
     # interpret as sequence of hex bytes
     if args.get('hex'):
-        print('%08x' % crc32c(bytes(int(path, 16) for path in paths)))
+        bytes_ = [b for path in paths for b in path.split()]
+        print('%08x' % crc32c(bytes(int(b, 16) for b in bytes_)))
 
     # interpret as strings
     elif args.get('string'):

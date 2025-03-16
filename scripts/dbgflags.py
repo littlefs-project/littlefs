@@ -303,7 +303,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Decode littlefs error codes.",
+            description="Decode littlefs flags.",
             allow_abbrev=False)
     class AppendFlags(argparse.Action):
         def __call__(self, parser, namespace, value, option):
