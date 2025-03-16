@@ -4,6 +4,7 @@
 if __name__ == "__main__":
     __import__('sys').path.pop(0)
 
+import itertools as it
 import os
 
 
@@ -85,7 +86,7 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
-def main(disk, block=None, *,
+def main(disk, blocks=None, *,
         block_size=None,
         block_count=None,
         off=None,
@@ -103,15 +104,31 @@ def main(disk, block=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # block may also encode an offset
-        block, off, size = (
-                block[0] if isinstance(block, tuple)
-                    else block,
-                off.start if isinstance(off, slice)
-                    else off if off is not None
-                    else size.start if isinstance(size, slice)
-                    else block[1] if isinstance(block, tuple)
-                    else None,
+        # if block_count is omitted, derive the block_count from our file size
+        if block_count is None:
+            f.seek(0, os.SEEK_END)
+            block_count = f.tell() // block_size
+
+        # flatten blocks, default to block 0
+        blocks = (list(it.chain.from_iterable(
+                    range(block.start or 0, block.stop or block_count)
+                            if isinstance(block, slice)
+                            else block
+                        for block in blocks))
+                if blocks
+                else [0])
+
+        # blocks may also encode offsets
+        blocks, offs, size = (
+                [block[0] if isinstance(block, tuple)
+                        else block
+                    for block in blocks],
+                [off.start if isinstance(off, slice)
+                        else off if off is not None
+                        else size.start if isinstance(size, slice)
+                        else block[1] if isinstance(block, tuple)
+                        else None
+                    for block in blocks],
                 (size.stop - (size.start or 0)
                         if size.stop is not None
                         else None) if isinstance(size, slice)
@@ -121,29 +138,30 @@ def main(disk, block=None, *,
                         else None) if isinstance(off, slice)
                     else None)
 
-        # bound to block_size
-        block_ = block if block is not None else 0
-        off_ = off if off is not None else 0
-        size_ = size if size is not None else block_size - off_
+        # hexdump the blocks
+        for block, off in zip(blocks, offs):
+            block_ = block if block is not None else 0
+            off_ = off if off is not None else 0
+            size_ = size if size is not None else block_size - off_
 
-        # read the block
-        f.seek((block_ * block_size) + off_)
-        data = f.read(size_)
+            # read the block
+            f.seek((block_ * block_size) + off_)
+            data = f.read(size_)
 
-        # calculate checksum
-        cksum = crc32c(data)
+            # calculate checksum
+            cksum = crc32c(data)
 
-        # print the header
-        print('block %s, size %d, cksum %08x' % (
-                '0x%x.%x' % (block_, off_)
-                    if off is not None
-                    else '0x%x' % block_,
-                size_,
-                cksum))
+            # print the header
+            print('block %s, size %d, cksum %08x' % (
+                    '0x%x.%x' % (block_, off_)
+                        if off is not None
+                        else '0x%x' % block_,
+                    size_,
+                    cksum))
 
-        # render the hex view
-        for o, line in enumerate(xxd(data)):
-            print('%08x: %s' % (off_ + 16*o, line))
+            # render the hex view
+            for o, line in enumerate(xxd(data)):
+                print('%08x: %s' % (off_ + 16*o, line))
 
 
 if __name__ == "__main__":
@@ -156,10 +174,14 @@ if __name__ == "__main__":
             'disk',
             help="File containing the block device.")
     parser.add_argument(
-            'block',
-            nargs='?',
-            type=lambda x: (lambda x: x)(*rbydaddr(x)),
-            help="Block address.")
+            'blocks',
+            nargs='*',
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x and '{' not in x
+                    else rbydaddr(x)),
+            help="Block addresses, may be a range.")
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
