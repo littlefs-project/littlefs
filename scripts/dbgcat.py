@@ -4,6 +4,7 @@
 if __name__ == "__main__":
     __import__('sys').path.pop(0)
 
+import itertools as it
 import os
 
 
@@ -96,40 +97,59 @@ def main(disk, blocks=None, *,
         if block_count is None:
             block_count = block_count_
 
-    # flatten block, default to block 0
-    if not blocks:
-        blocks = [(0,)]
-    blocks = [block for blocks_ in blocks for block in blocks_]
-
     with open(disk, 'rb') as f:
         # if block_size is omitted, assume the block device is one big block
         if block_size is None:
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
+            block_count = 1
+
+        # if block_count is omitted, derive the block_count from our file size
+        if block_count is None:
+            f.seek(0, os.SEEK_END)
+            block_count = f.tell() // block_size
+
+        # flatten blocks, default to block 0
+        blocks = (list(it.chain.from_iterable(
+                    range(block.start or 0, block.stop or block_count)
+                            if isinstance(block, slice)
+                            else block
+                        for block in blocks))
+                if blocks
+                else [0])
 
         # blocks may also encode offsets
         blocks, offs, size = (
-                [block[0] if isinstance(block, tuple) else block
+                [block[0] if isinstance(block, tuple)
+                        else block
                     for block in blocks],
-                [off[0] if isinstance(off, tuple)
+                [off.start if isinstance(off, slice)
                         else off if off is not None
-                        else size[0]
-                        if isinstance(size, tuple) and len(size) > 1
+                        else size.start if isinstance(size, slice)
                         else block[1] if isinstance(block, tuple)
                         else None
                     for block in blocks],
-                size[1] - size[0] if isinstance(size, tuple) and len(size) > 1
-                    else size[0] if isinstance(size, tuple)
+                (size.stop - (size.start or 0)
+                        if size.stop is not None
+                        else None) if isinstance(size, slice)
                     else size if size is not None
-                    else off[1] - off[0]
-                    if isinstance(off, tuple) and len(off) > 1
-                    else block_size)
+                    else ((off.stop - (off.start or 0))
+                        if off.stop is not None
+                        else None) if isinstance(off, slice)
+                    else None)
 
         # cat the blocks
         for block, off in zip(blocks, offs):
-            f.seek((block * block_size) + (off or 0))
-            data = f.read(size)
+            # bound to block_size
+            block_ = block if block is not None else 0
+            off_ = off if off is not None else 0
+            size_ = size if size is not None else block_size - off_
+
+            # cat the block
+            f.seek((block_ * block_size) + off_)
+            data = f.read(size_)
             sys.stdout.buffer.write(data)
+
         sys.stdout.flush()
 
 
@@ -145,8 +165,12 @@ if __name__ == "__main__":
     parser.add_argument(
             'blocks',
             nargs='*',
-            type=rbydaddr,
-            help="Block address.")
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x and '{' not in x
+                    else rbydaddr(x)),
+            help="Block addresses, may be a range.")
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
@@ -157,15 +181,19 @@ if __name__ == "__main__":
             help="Block count in blocks.")
     parser.add_argument(
             '--off',
-            type=lambda x: tuple(
-                int(x, 0) if x.strip() else None
-                    for x in x.split(',')),
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x
+                    else int(x, 0)),
             help="Show a specific offset, may be a range.")
     parser.add_argument(
             '-n', '--size',
-            type=lambda x: tuple(
-                int(x, 0) if x.strip() else None
-                    for x in x.split(',')),
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x
+                    else int(x, 0)),
             help="Show this many bytes, may be a range.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()

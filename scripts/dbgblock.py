@@ -97,17 +97,6 @@ def main(disk, block=None, *,
         if block_count is None:
             block_count = block_count_
 
-    # flatten block, default to block 0
-    if not block:
-        block = (0,)
-
-    if len(block) > 1:
-        print("error: more than one block address?",
-                file=sys.stderr)
-        sys.exit(-1)
-
-    block = block[0]
-
     with open(disk, 'rb') as f:
         # if block_size is omitted, assume the block device is one big block
         if block_size is None:
@@ -116,37 +105,45 @@ def main(disk, block=None, *,
 
         # block may also encode an offset
         block, off, size = (
-                block[0] if isinstance(block, tuple) else block,
-                off[0] if isinstance(off, tuple)
+                block[0] if isinstance(block, tuple)
+                    else block,
+                off.start if isinstance(off, slice)
                     else off if off is not None
-                    else size[0] if isinstance(size, tuple) and len(size) > 1
+                    else size.start if isinstance(size, slice)
                     else block[1] if isinstance(block, tuple)
                     else None,
-                size[1] - size[0] if isinstance(size, tuple) and len(size) > 1
-                    else size[0] if isinstance(size, tuple)
+                (size.stop - (size.start or 0)
+                        if size.stop is not None
+                        else None) if isinstance(size, slice)
                     else size if size is not None
-                    else off[1] - off[0]
-                    if isinstance(off, tuple) and len(off) > 1
-                    else block_size)
+                    else ((off.stop - (off.start or 0))
+                        if off.stop is not None
+                        else None) if isinstance(off, slice)
+                    else None)
+
+        # bound to block_size
+        block_ = block if block is not None else 0
+        off_ = off if off is not None else 0
+        size_ = size if size is not None else block_size - off_
 
         # read the block
-        f.seek((block * block_size) + (off or 0))
-        data = f.read(size)
+        f.seek((block_ * block_size) + off_)
+        data = f.read(size_)
 
         # calculate checksum
         cksum = crc32c(data)
 
         # print the header
         print('block %s, size %d, cksum %08x' % (
-                '0x%x.%x' % (block, off)
+                '0x%x.%x' % (block_, off_)
                     if off is not None
-                    else '0x%x' % block,
-                size,
+                    else '0x%x' % block_,
+                size_,
                 cksum))
 
         # render the hex view
         for o, line in enumerate(xxd(data)):
-            print('%08x: %s' % ((off or 0) + 16*o, line))
+            print('%08x: %s' % (off_ + 16*o, line))
 
 
 if __name__ == "__main__":
@@ -161,7 +158,7 @@ if __name__ == "__main__":
     parser.add_argument(
             'block',
             nargs='?',
-            type=rbydaddr,
+            type=lambda x: (lambda x: x)(*rbydaddr(x)),
             help="Block address.")
     parser.add_argument(
             '-b', '--block-size',
@@ -173,15 +170,19 @@ if __name__ == "__main__":
             help="Block count in blocks.")
     parser.add_argument(
             '--off',
-            type=lambda x: tuple(
-                int(x, 0) if x.strip() else None
-                    for x in x.split(',')),
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x
+                    else int(x, 0)),
             help="Show a specific offset, may be a range.")
     parser.add_argument(
             '-n', '--size',
-            type=lambda x: tuple(
-                int(x, 0) if x.strip() else None
-                    for x in x.split(',')),
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x
+                    else int(x, 0)),
             help="Show this many bytes, may be a range.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
