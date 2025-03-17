@@ -143,6 +143,7 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
+# keep-open stuff
 if inotify_simple is None:
     Inotify = None
 else:
@@ -2006,7 +2007,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Show the first n lines.")
     parser.add_argument(
-            '-z', '--cat',
+            '-c', '--cat',
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(

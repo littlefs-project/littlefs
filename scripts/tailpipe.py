@@ -178,7 +178,7 @@ if __name__ == "__main__":
             help="Show this many lines of history. 0 uses the terminal "
                 "height. Defaults to 5.")
     parser.add_argument(
-            '-z', '--cat',
+            '-c', '--cat',
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
