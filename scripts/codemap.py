@@ -1247,6 +1247,10 @@ def main_(f, paths, *,
         line = canvas.draw(row)
         f.writeln(line)
 
+    if (args.get('error_on_recursion')
+            and mt.isinf(totals.get('stack', 0))):
+        sys.exit(2)
+
 
 def main(paths, *,
         height=None,
@@ -1496,6 +1500,10 @@ if __name__ == "__main__":
             '--no-label',
             action='store_true',
             help="Don't render any labels.")
+    parser.add_argument(
+            '-e', '--error-on-recursion',
+            action='store_true',
+            help="Error if any functions are recursive.")
     parser.add_argument(
             '--code-path',
             type=lambda x: x.split(),

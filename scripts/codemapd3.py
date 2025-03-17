@@ -1990,6 +1990,10 @@ def main(paths, output, *,
                         totals.get('stack', 0)),
                     totals.get('ctx', 0)))
 
+    if (args.get('error_on_recursion')
+            and mt.isinf(totals.get('stack', 0))):
+        sys.exit(2)
+
 
 if __name__ == "__main__":
     import argparse
@@ -2218,6 +2222,10 @@ if __name__ == "__main__":
             '--background',
             help="Background color to use. Note #00000000 can make the "
                 "background transparent.")
+    parser.add_argument(
+            '-e', '--error-on-recursion',
+            action='store_true',
+            help="Error if any functions are recursive.")
     parser.add_argument(
             '--code-path',
             type=lambda x: x.split(),
