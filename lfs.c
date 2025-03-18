@@ -410,16 +410,9 @@ static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
 }
 
 static inline bool lfs_gstate_iszero(const lfs_gstate_t *a) {
-    if (a->tag != 0) {
-        return false;
-    }
-    if (a->pair[0] != 0) {
-        return false;
-    }
-    if (a->pair[1] != 0) {
-        return false;
-    }
-    return true;
+    return a->tag == 0
+            && a->pair[0] == 0
+            && a->pair[1] == 0;
 }
 
 #ifndef LFS_READONLY
