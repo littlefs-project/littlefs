@@ -88,7 +88,6 @@ def bdgeom(s):
     else:
         return int(s, b)
 
-# TODO sync across scripts
 # parse some rbyd addr encodings
 # 0xa       -> [0xa]
 # 0xa.c     -> [(0xa, 0xc)]
@@ -169,7 +168,6 @@ def xxd(data, width=16):
                     b if b >= ' ' and b <= '~' else '.'
                         for b in map(chr, data[i:i+width])))
 
-# TODO sync across scripts
 def tagrepr(tag, weight=None, size=None, off=None):
     if (tag & 0x6fff) == TAG_NULL:
         return '%snull%s%s' % (
@@ -387,7 +385,7 @@ class Rbyd:
 
     @classmethod
     def fetch(cls, data, block, trunk=None, cksum=None):
-        # multiple blocks?
+        # multiple blocks? unfortunately this must be a list
         if isinstance(block, list):
             # fetch all blocks
             rbyds = [cls.fetch(data, block, trunk, cksum) for block in block]

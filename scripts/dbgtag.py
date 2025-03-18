@@ -62,11 +62,11 @@ def fromleb128(data):
             return word, i+1
     return word, len(data)
 
-def tagrepr(tag, w=None, size=None, off=None):
+def tagrepr(tag, weight=None, size=None, off=None):
     if (tag & 0x6fff) == TAG_NULL:
         return '%snull%s%s' % (
                 'shrub' if tag & TAG_SHRUB else '',
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %d' % size if size else '')
     elif (tag & 0x6f00) == TAG_CONFIG:
         return '%s%s%s%s' % (
@@ -80,14 +80,14 @@ def tagrepr(tag, w=None, size=None, off=None):
                     else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                     else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
                     else 'config 0x%02x' % (tag & 0xff),
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_GDELTA:
         return '%s%s%s%s' % (
                 'shrub' if tag & TAG_SHRUB else '',
                 'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
                     else 'gdelta 0x%02x' % (tag & 0xff),
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_NAME:
         return '%s%s%s%s' % (
@@ -98,7 +98,7 @@ def tagrepr(tag, w=None, size=None, off=None):
                     else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                     else 'stickynote' if (tag & 0xfff) == TAG_STICKYNOTE
                     else 'name 0x%02x' % (tag & 0xff),
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x6f00) == TAG_STRUCT:
         return '%s%s%s%s' % (
@@ -113,21 +113,21 @@ def tagrepr(tag, w=None, size=None, off=None):
                     else 'did' if (tag & 0xfff) == TAG_DID
                     else 'branch' if (tag & 0xfff) == TAG_BRANCH
                     else 'struct 0x%02x' % (tag & 0xff),
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x6e00) == TAG_ATTR:
         return '%s%sattr 0x%02x%s%s' % (
                 'shrub' if tag & TAG_SHRUB else '',
                 's' if tag & 0x100 else 'u',
                 ((tag & 0x100) >> 1) ^ (tag & 0xff),
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif tag & TAG_ALT:
         return 'alt%s%s 0x%03x%s%s' % (
                 'r' if tag & TAG_R else 'b',
                 'gt' if tag & TAG_GT else 'le',
                 tag & 0x0fff,
-                ' w%d' % w if w is not None else '',
+                ' w%d' % weight if weight is not None else '',
                 ' 0x%x' % (0xffffffff & (off-size))
                     if size and off is not None
                     else ' -%d' % size if size
@@ -136,27 +136,27 @@ def tagrepr(tag, w=None, size=None, off=None):
         return 'cksum%s%s%s%s' % (
                 'p' if not tag & 0xfe and tag & TAG_P else '',
                 ' 0x%02x' % (tag & 0xff) if tag & 0xfe else '',
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_NOTE:
         return 'note%s%s%s' % (
                 ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_ECKSUM:
         return 'ecksum%s%s%s' % (
                 ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     elif (tag & 0x7f00) == TAG_GCKSUMDELTA:
         return 'gcksumdelta%s%s%s' % (
                 ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                ' w%d' % w if w else '',
+                ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     else:
         return '0x%04x%s%s' % (
                 tag,
-                ' w%d' % w if w is not None else '',
+                ' w%d' % weight if weight is not None else '',
                 ' %d' % size if size is not None else '')
 
 
