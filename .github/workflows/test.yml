@@ -374,6 +374,29 @@ jobs:
         run: |
           CFLAGS="$CFLAGS -DLFS_NO_INTRINSICS" make test
 
+  # run with all trace options enabled to at least make sure these
+  # all compile
+  test-yes-trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - name: test-yes-trace
+        run: |
+          CFLAGS="$CFLAGS \
+            -DLFS_YES_TRACE \
+            -DLFS_RAMBD_YES_TRACE \
+            -DLFS_FILEBD_YES_TRACE \
+            -DLFS_RAMBD_YES_TRACE" \
+            make test
+
   # run LFS_MULTIVERSION tests
   test-multiversion:
     runs-on: ubuntu-latest
