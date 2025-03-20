@@ -725,6 +725,82 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
+[cases.test_dirs_remove_read]
+defines.N = 10
+if = 'N < BLOCK_COUNT/2'
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_mkdir(&lfs2, "prickly-pear") => 0;
+    for (int i = 0; i < N; i++) {
+        char path[1024];
+        sprintf(path, "prickly-pear/cactus%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_dir_t dir;
+    lfs2_dir_open(&lfs2, &dir, "prickly-pear") => 0;
+    struct lfs2_info info;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        char path[1024];
+        sprintf(path, "cactus%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+
+    for (lfs2_size_t k = 0; k < N; k++) {
+        for (lfs2_size_t j = 0; j < N; j++) {
+            lfs2_mount(&lfs2, cfg) => 0;
+            lfs2_dir_open(&lfs2, &dir, "prickly-pear") => 0;
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            assert(info.type == LFS2_TYPE_DIR);
+            assert(strcmp(info.name, ".") == 0);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            assert(info.type == LFS2_TYPE_DIR);
+            assert(strcmp(info.name, "..") == 0);
+            // iterate over dirs < j
+            for (unsigned i = 0; i < j; i++) {
+                char path[1024];
+                sprintf(path, "cactus%03d", i);
+                lfs2_dir_read(&lfs2, &dir, &info) => 1;
+                assert(info.type == LFS2_TYPE_DIR);
+                assert(strcmp(info.name, path) == 0);
+            }
+
+            // remove k while iterating
+            char path[1024];
+            sprintf(path, "prickly-pear/cactus%03d", k);
+            lfs2_remove(&lfs2, path) => 0;
+
+            // iterate over dirs >= j
+            for (unsigned i = j; i < ((k >= j) ? N-1 : N); i++) {
+                char path[1024];
+                sprintf(path, "cactus%03d", (k >= j && i >= k) ? i+1 : i);
+                lfs2_dir_read(&lfs2, &dir, &info) => 1;
+                assert(info.type == LFS2_TYPE_DIR);
+                assert(strcmp(info.name, path) == 0);
+            }
+            lfs2_dir_read(&lfs2, &dir, &info) => 0;
+            lfs2_dir_close(&lfs2, &dir) => 0;
+
+            // recreate k
+            sprintf(path, "prickly-pear/cactus%03d", k);
+            lfs2_mkdir(&lfs2, path) => 0;
+            lfs2_unmount(&lfs2) => 0;
+        }
+    }
+'''
+
 [cases.test_dirs_other_errors]
 code = '''
     lfs2_t lfs2;

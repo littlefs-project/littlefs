@@ -35,10 +35,10 @@ LEXEMES = {
     'assert':   ['assert'],
     'arrow':    ['=>'],
     'string':   [r'"(?:\\.|[^"])*"', r"'(?:\\.|[^'])\'"],
-    'paren':    ['\(', '\)'],
+    'paren':    [r'\(', r'\)'],
     'cmp':      CMP.keys(),
-    'logic':    ['\&\&', '\|\|'],
-    'sep':      [':', ';', '\{', '\}', ','],
+    'logic':    [r'\&\&', r'\|\|'],
+    'sep':      [':', ';', r'\{', r'\}', ','],
     'op':       ['->'], # specifically ops that conflict with cmp
 }
 

@@ -404,18 +404,15 @@ struct lfs2_diskoff {
 
 // operations on global state
 static inline void lfs2_gstate_xor(lfs2_gstate_t *a, const lfs2_gstate_t *b) {
-    for (int i = 0; i < 3; i++) {
-        ((uint32_t*)a)[i] ^= ((const uint32_t*)b)[i];
-    }
+    a->tag ^= b->tag;
+    a->pair[0] ^= b->pair[0];
+    a->pair[1] ^= b->pair[1];
 }
 
 static inline bool lfs2_gstate_iszero(const lfs2_gstate_t *a) {
-    for (int i = 0; i < 3; i++) {
-        if (((uint32_t*)a)[i] != 0) {
-            return false;
-        }
-    }
-    return true;
+    return a->tag == 0
+            && a->pair[0] == 0
+            && a->pair[1] == 0;
 }
 
 #ifndef LFS2_READONLY
@@ -2369,7 +2366,8 @@ fixmlist:;
             if (d->m.pair != pair) {
                 for (int i = 0; i < attrcount; i++) {
                     if (lfs2_tag_type3(attrs[i].tag) == LFS2_TYPE_DELETE &&
-                            d->id == lfs2_tag_id(attrs[i].tag)) {
+                            d->id == lfs2_tag_id(attrs[i].tag) &&
+                            d->type != LFS2_TYPE_DIR) {
                         d->m.pair[0] = LFS2_BLOCK_NULL;
                         d->m.pair[1] = LFS2_BLOCK_NULL;
                     } else if (lfs2_tag_type3(attrs[i].tag) == LFS2_TYPE_DELETE &&
@@ -2558,7 +2556,7 @@ static int lfs2_dir_orphaningcommit(lfs2_t *lfs2, lfs2_mdir_t *dir,
         if (err != LFS2_ERR_NOENT) {
             if (lfs2_gstate_hasorphans(&lfs2->gstate)) {
                 // next step, clean up orphans
-                err = lfs2_fs_preporphans(lfs2, -hasparent);
+                err = lfs2_fs_preporphans(lfs2, -(int8_t)hasparent);
                 if (err) {
                     return err;
                 }
@@ -6288,7 +6286,7 @@ lfs2_soff_t lfs2_file_size(lfs2_t *lfs2, lfs2_file_t *file) {
 
     lfs2_soff_t res = lfs2_file_size_(lfs2, file);
 
-    LFS2_TRACE("lfs2_file_size -> %"PRId32, res);
+    LFS2_TRACE("lfs2_file_size -> %"PRIu32, res);
     LFS2_UNLOCK(lfs2->cfg);
     return res;
 }

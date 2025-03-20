@@ -133,7 +133,7 @@ int lfs2_filebd_prog(const struct lfs2_config *cfg, lfs2_block_t block,
 
 int lfs2_filebd_erase(const struct lfs2_config *cfg, lfs2_block_t block) {
     LFS2_FILEBD_TRACE("lfs2_filebd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
-            (void*)cfg, block, ((lfs2_file_t*)cfg->context)->cfg->erase_size);
+            (void*)cfg, block, ((lfs2_filebd_t*)cfg->context)->cfg->erase_size);
     lfs2_filebd_t *bd = cfg->context;
 
     // check if erase is valid
