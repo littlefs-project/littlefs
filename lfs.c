@@ -2558,7 +2558,7 @@ static int lfs_dir_orphaningcommit(lfs_t *lfs, lfs_mdir_t *dir,
         if (err != LFS_ERR_NOENT) {
             if (lfs_gstate_hasorphans(&lfs->gstate)) {
                 // next step, clean up orphans
-                err = lfs_fs_preporphans(lfs, -hasparent);
+                err = lfs_fs_preporphans(lfs, -(int8_t)hasparent);
                 if (err) {
                     return err;
                 }
