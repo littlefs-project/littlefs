@@ -3876,78 +3876,68 @@ static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info) {
 }
 
 #ifndef LFS_READONLY
-static int lfs_remove_(lfs_t *lfs, const char *path) {
-    // deorphan if we haven't yet, needed at most once after poweron
-    int err = lfs_fs_forceconsistency(lfs);
-    if (err) {
-        return err;
-    }
-
+struct lfs_remove_state
+{
+    // File to be removed pointer (cwd and tag)
     lfs_mdir_t cwd;
-    lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
-    if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
-        return (tag < 0) ? (int)tag : LFS_ERR_INVAL;
-    }
+    lfs_stag_t tag;
 
+    // Global state accumulations from a split folder
+    lfs_gstate_t gstate;
+
+    // Directory that needs to be removed from linked list pointer
     struct lfs_mlist dir;
-    dir.next = lfs->mlist;
-    if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
-        // must be empty before removal
-        lfs_block_t pair[2];
-        lfs_stag_t res = lfs_dir_get(lfs, &cwd, LFS_MKTAG(0x700, 0x3ff, 0),
-                LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
-        if (res < 0) {
-            return (int)res;
-        }
-        lfs_pair_fromle32(pair);
 
-        err = lfs_dir_fetch(lfs, &dir.m, pair);
-        if (err) {
-            return err;
+    // First block-pair in the directory to be removed; this gets
+    // destroyed in lfs_mlist below as it traverses the splits in
+    // the directory.
+    lfs_block_t dir_head[2];
+};
+typedef int (*lfs_dir_prep_helper_t)(lfs_t *, struct lfs_remove_state *);
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_dir_prep_remove_nonempty_folders(lfs_t *lfs, struct lfs_remove_state *p) {
+    uint16_t id = 0;
+
+    // Walk tags stored in this directory and check for any directory
+    // tags.
+    while(true) {
+        if (p->dir.m.count == id) {
+            if (!p->dir.m.split) {
+                // We have iterated through the folder to the last
+                // tag.
+                break;
+            }
+
+            // Before we fetch the next block, update our view of gstate
+            lfs_dir_getgstate(lfs, &p->dir.m, &p->gstate);
+
+            int err = lfs_dir_fetch(lfs, &p->dir.m, p->dir.m.tail);
+            if (err) {
+                return err;
+            }
+
+            id = 0;
         }
 
-        if (dir.m.count > 0 || dir.m.split) {
+        char name[lfs->name_max + 1];
+        lfs_stag_t tag = lfs_dir_get(lfs, &p->dir.m, LFS_MKTAG(0x780, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max + 1), name);
+        if (tag < 0) {
+            return tag;
+        }
+
+        if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
+            // In case we are finding leafs, we need to update our tag, too,
+            // so that the upper routine knows where this folder was in the
+            // parent folder.  The parent routine will decide if we need
+            // to return LFS_ERR_NOTEMPTY all the way back out.
+            p->tag = tag;
             return LFS_ERR_NOTEMPTY;
         }
 
-        // mark fs as orphaned
-        err = lfs_fs_preporphans(lfs, +1);
-        if (err) {
-            return err;
-        }
-
-        // I know it's crazy but yes, dir can be changed by our parent's
-        // commit (if predecessor is child)
-        dir.type = 0;
-        dir.id = 0;
-        lfs->mlist = &dir;
-    }
-
-    // delete the entry
-    err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0), NULL}));
-    if (err) {
-        lfs->mlist = dir.next;
-        return err;
-    }
-
-    lfs->mlist = dir.next;
-    if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
-        // fix orphan
-        err = lfs_fs_preporphans(lfs, -1);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_fs_pred(lfs, dir.m.pair, &cwd);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_dir_drop(lfs, &cwd, &dir.m);
-        if (err) {
-            return err;
-        }
+        id += 1;
     }
 
     return 0;
@@ -3955,7 +3945,161 @@ static int lfs_remove_(lfs_t *lfs, const char *path) {
 #endif
 
 #ifndef LFS_READONLY
-static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
+// Note: This returns 1 when it had to descend to find a leaf node,
+//       0 when it didn't have to descend.
+static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_remove_state *p,
+        lfs_dir_prep_helper_t helper, bool find_leaf) {
+    lfs_block_t depth = 0;
+    lfs_stag_t res;
+
+new_leaf:
+    res = lfs_dir_get(lfs, &p->cwd, LFS_MKTAG(0x700, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(p->tag), 8), p->dir_head);
+    if (res < 0) {
+        return (int)res;
+    }
+    lfs_pair_fromle32(p->dir_head);
+
+    int err = lfs_dir_fetch(lfs, &p->dir.m, p->dir_head);
+    if (err) {
+        return err;
+    }
+
+    memset(&p->gstate, 0, sizeof(p->gstate));
+
+    if (p->dir.m.count > 0 || p->dir.m.split) {
+        // Normal POSIX behavior wouldn't allow a non-empty
+        // folder to be removed/renamed into in this manner
+        if (NULL == helper) {
+            return LFS_ERR_NOTEMPTY;
+        }
+
+        err = helper(lfs, p);
+        if (err == LFS_ERR_NOTEMPTY && find_leaf) {
+            if (depth++ > lfs->cfg->block_count / 2) {
+                return LFS_ERR_CORRUPT;
+            }
+
+            // Descend CWD
+            memcpy(&p->cwd, &p->dir.m, sizeof(p->cwd));
+
+            // And loop
+            goto new_leaf;
+        }
+
+        if (err)
+        {
+            return err;
+        }
+    }
+
+    // mark fs as orphaned
+    err = lfs_fs_preporphans(lfs, +1);
+    if (err) {
+        return err;
+    }
+
+    // I know it's crazy but yes, dir can be changed by our parent's
+    // commit (if predecessor is child)
+    p->dir.type = 0;
+    p->dir.id = 0;
+    lfs->mlist = &p->dir;
+
+    return depth != 0;
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_dir_finish_removal(lfs_t *lfs, struct lfs_remove_state *p)
+{
+    // fix orphan
+    int err = lfs_fs_preporphans(lfs, -1);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_fs_pred(lfs, p->dir_head, &p->cwd);
+    if (err) {
+        return err;
+    }
+
+    // Merge in gstate from first block splits within the directory;
+    // lfs_dir_drop will pick up the last gstate entry.
+    lfs_gstate_xor(&lfs->gdelta, &p->gstate);
+
+    err = lfs_dir_drop(lfs, &p->cwd, &p->dir.m);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_remove_(lfs_t *lfs, const char *path, lfs_dir_prep_helper_t helper, bool recursive) {
+    // For the recursive flag to work, we must have the helper defined.
+    if (recursive && NULL == helper) {
+        return LFS_ERR_INVAL;
+    }
+
+    // deorphan if we haven't yet, needed at most once after poweron
+    int err = lfs_fs_forceconsistency(lfs);
+    if (err) {
+        return err;
+    }
+
+    bool at_toplevel = true;
+    struct lfs_remove_state s;
+    do {
+        // Since we want to keep our in-memory usage minimal, we rely on
+        // the disk structure to "recurse".  We'll go back to the top
+        // level path every time we need to find a new leaf.  Technically
+        // we could remember the top-level path state so we don't have
+        // to search again for this folder entry...
+        at_toplevel = true;
+        s.tag = lfs_dir_find(lfs, &s.cwd, &path, NULL);
+        if (s.tag < 0 || lfs_tag_id(s.tag) == 0x3ff) {
+            return (s.tag < 0) ? (int)s.tag : LFS_ERR_INVAL;
+        }
+
+        s.dir.next = lfs->mlist;
+        if (lfs_tag_type3(s.tag) == LFS_TYPE_DIR) {
+            err = lfs_dir_prep_removal(lfs, &s, helper, recursive);
+            if (err == 1) {
+                // We had to switch folders and we're no longer in the top-level folder.
+                // This means we need to go back from the top after we finish the
+                // removal process.
+                at_toplevel = false;
+            } else if (err < 0) {
+                return err;
+            }
+        }
+
+        // delete the entry
+        err = lfs_dir_commit(lfs, &s.cwd, LFS_MKATTRS(
+                {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(s.tag), 0), NULL}));
+        if (err) {
+            lfs->mlist = s.dir.next;
+            return err;
+        }
+
+        lfs->mlist = s.dir.next;
+        if (lfs_tag_type3(s.tag) == LFS_TYPE_DIR) {
+            err = lfs_dir_finish_removal(lfs, &s);
+            if (err) {
+                return err;
+            }
+        }
+    } while(!at_toplevel);
+
+    return 0;
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath,
+        lfs_dir_prep_helper_t helper) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
@@ -3970,21 +4114,20 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // find new entry
-    lfs_mdir_t newcwd;
+    struct lfs_remove_state n;
     uint16_t newid;
-    lfs_stag_t prevtag = lfs_dir_find(lfs, &newcwd, &newpath, &newid);
-    if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
-            !(prevtag == LFS_ERR_NOENT && lfs_path_islast(newpath))) {
-        return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
+    n.tag = lfs_dir_find(lfs, &n.cwd, &newpath, &newid);
+    if ((n.tag < 0 || lfs_tag_id(n.tag) == 0x3ff) &&
+            !(n.tag == LFS_ERR_NOENT && lfs_path_islast(newpath))) {
+        return (n.tag < 0) ? (int)n.tag : LFS_ERR_INVAL;
     }
 
     // if we're in the same pair there's a few special cases...
-    bool samepair = (lfs_pair_cmp(oldcwd.pair, newcwd.pair) == 0);
+    bool samepair = (lfs_pair_cmp(oldcwd.pair, n.cwd.pair) == 0);
     uint16_t newoldid = lfs_tag_id(oldtag);
 
-    struct lfs_mlist prevdir;
-    prevdir.next = lfs->mlist;
-    if (prevtag == LFS_ERR_NOENT) {
+    n.dir.next = lfs->mlist;
+    if (n.tag == LFS_ERR_NOENT) {
         // if we're a file, don't allow trailing slashes
         if (lfs_path_isdir(newpath)
                 && lfs_tag_type3(oldtag) != LFS_TYPE_DIR) {
@@ -4003,44 +4146,18 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
         if (samepair && newid <= newoldid) {
             newoldid += 1;
         }
-    } else if (lfs_tag_type3(prevtag) != lfs_tag_type3(oldtag)) {
-        return (lfs_tag_type3(prevtag) == LFS_TYPE_DIR)
+    } else if (lfs_tag_type3(n.tag) != lfs_tag_type3(oldtag)) {
+        return (lfs_tag_type3(n.tag) == LFS_TYPE_DIR)
                 ? LFS_ERR_ISDIR
                 : LFS_ERR_NOTDIR;
     } else if (samepair && newid == newoldid) {
         // we're renaming to ourselves??
         return 0;
-    } else if (lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
-        // must be empty before removal
-        lfs_block_t prevpair[2];
-        lfs_stag_t res = lfs_dir_get(lfs, &newcwd, LFS_MKTAG(0x700, 0x3ff, 0),
-                LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
-        if (res < 0) {
-            return (int)res;
-        }
-        lfs_pair_fromle32(prevpair);
-
-        // must be empty before removal
-        err = lfs_dir_fetch(lfs, &prevdir.m, prevpair);
+    } else if (lfs_tag_type3(n.tag) == LFS_TYPE_DIR) {
+        err = lfs_dir_prep_removal(lfs, &n, helper, false);
         if (err) {
             return err;
         }
-
-        if (prevdir.m.count > 0 || prevdir.m.split) {
-            return LFS_ERR_NOTEMPTY;
-        }
-
-        // mark fs as orphaned
-        err = lfs_fs_preporphans(lfs, +1);
-        if (err) {
-            return err;
-        }
-
-        // I know it's crazy but yes, dir can be changed by our parent's
-        // commit (if predecessor is child)
-        prevdir.type = 0;
-        prevdir.id = 0;
-        lfs->mlist = &prevdir;
     }
 
     if (!samepair) {
@@ -4048,8 +4165,8 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // move over all attributes
-    err = lfs_dir_commit(lfs, &newcwd, LFS_MKATTRS(
-            {LFS_MKTAG_IF(prevtag != LFS_ERR_NOENT,
+    err = lfs_dir_commit(lfs, &n.cwd, LFS_MKATTRS(
+            {LFS_MKTAG_IF(n.tag != LFS_ERR_NOENT,
                 LFS_TYPE_DELETE, newid, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0), NULL},
             {LFS_MKTAG(lfs_tag_type3(oldtag),
@@ -4058,7 +4175,7 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
             {LFS_MKTAG_IF(samepair,
                 LFS_TYPE_DELETE, newoldid, 0), NULL}));
     if (err) {
-        lfs->mlist = prevdir.next;
+        lfs->mlist = n.dir.next;
         return err;
     }
 
@@ -4070,26 +4187,15 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
         err = lfs_dir_commit(lfs, &oldcwd, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(oldtag), 0), NULL}));
         if (err) {
-            lfs->mlist = prevdir.next;
+            lfs->mlist = n.dir.next;
             return err;
         }
     }
 
-    lfs->mlist = prevdir.next;
-    if (prevtag != LFS_ERR_NOENT
-            && lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
-        // fix orphan
-        err = lfs_fs_preporphans(lfs, -1);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_fs_pred(lfs, prevdir.m.pair, &newcwd);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_dir_drop(lfs, &newcwd, &prevdir.m);
+    lfs->mlist = n.dir.next;
+    if (n.tag != LFS_ERR_NOENT
+            && lfs_tag_type3(n.tag) == LFS_TYPE_DIR) {
+        err = lfs_dir_finish_removal(lfs, &n);
         if (err) {
             return err;
         }
@@ -6018,9 +6124,43 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
 
-    err = lfs_remove_(lfs, path);
+    err = lfs_remove_(lfs, path, NULL, false);
 
     LFS_TRACE("lfs_remove -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_remove_recursive(lfs_t *lfs, const char *path) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_remove_recursive(%p, \"%s\")", (void*)lfs, path);
+
+    err = lfs_remove_(lfs, path, lfs_dir_prep_remove_nonempty_folders, true);
+
+    LFS_TRACE("lfs_remove_recursive -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_atomic_remove(lfs_t *lfs, const char *path) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_atomic_remove(%p, \"%s\")", (void*)lfs, path);
+
+    // Note: We pass in a helper pointer here so that this extra
+    //       logic can be dropped if it is never referenced
+    err = lfs_remove_(lfs, path, lfs_dir_prep_remove_nonempty_folders, false);
+
+    LFS_TRACE("lfs_atomic_remove -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
@@ -6034,9 +6174,27 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
     LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
 
-    err = lfs_rename_(lfs, oldpath, newpath);
+    err = lfs_rename_(lfs, oldpath, newpath, NULL);
 
     LFS_TRACE("lfs_rename -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_atomic_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_atomic_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
+
+    // Note: We pass in a helper pointer here so that this extra
+    //       logic can be dropped if it is never referenced
+    err = lfs_rename_(lfs, oldpath, newpath, lfs_dir_prep_remove_nonempty_folders);
+
+    LFS_TRACE("lfs_atomic_rename -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
