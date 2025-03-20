@@ -404,18 +404,15 @@ struct lfs_diskoff {
 
 // operations on global state
 static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
-    for (int i = 0; i < 3; i++) {
-        ((uint32_t*)a)[i] ^= ((const uint32_t*)b)[i];
-    }
+    a->tag ^= b->tag;
+    a->pair[0] ^= b->pair[0];
+    a->pair[1] ^= b->pair[1];
 }
 
 static inline bool lfs_gstate_iszero(const lfs_gstate_t *a) {
-    for (int i = 0; i < 3; i++) {
-        if (((uint32_t*)a)[i] != 0) {
-            return false;
-        }
-    }
-    return true;
+    return a->tag == 0
+            && a->pair[0] == 0
+            && a->pair[1] == 0;
 }
 
 #ifndef LFS_READONLY
