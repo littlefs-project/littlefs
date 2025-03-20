@@ -2369,7 +2369,8 @@ fixmlist:;
             if (d->m.pair != pair) {
                 for (int i = 0; i < attrcount; i++) {
                     if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_DELETE &&
-                            d->id == lfs_tag_id(attrs[i].tag)) {
+                            d->id == lfs_tag_id(attrs[i].tag) &&
+                            d->type != LFS_TYPE_DIR) {
                         d->m.pair[0] = LFS_BLOCK_NULL;
                         d->m.pair[1] = LFS_BLOCK_NULL;
                     } else if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_DELETE &&
