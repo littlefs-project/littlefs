@@ -59,12 +59,28 @@ BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
 
-CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
 CFLAGS += -Wmissing-prototypes
+
+ifneq ($(CC),clang)
+CFLAGS += -fcallgraph-info=su
 CFLAGS += -ftrack-macro-expansion=0
+endif
+
+ifdef FUZZ
+CFLAGS += -fsanitize=fuzzer-no-link
+endif
+
+ifdef ASAN
+CFLAGS += -fsanitize=address
+endif
+
+ifdef UBSAN
+CFLAGS += -fsanitize=undefined
+endif
+
 ifdef DEBUG
 CFLAGS += -O0
 else
@@ -472,6 +488,14 @@ benchmarks-diff: $(BENCH_CSV)
 $(BUILDDIR)/lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
+# Libfuzzer is only supported on clang
+ifeq ($(CC),clang)
+ifdef FUZZ
+$(BUILDDIR)/fuzz_mount: $(OBJ) fuzz/fuzz_mount.c
+	$(CC) $(CFLAGS) $^ -fsanitize=fuzzer -DCUSTOM_MUTATOR $(LFLAGS)  -o $@
+endif
+endif
+
 $(BUILDDIR)/liblfs.a: $(OBJ)
 	$(AR) rcs $@ $^
 
@@ -583,3 +607,4 @@ clean:
 	rm -f $(BENCH_PERF)
 	rm -f $(BENCH_TRACE)
 	rm -f $(BENCH_CSV)
+	rm -f fuzz_mount
