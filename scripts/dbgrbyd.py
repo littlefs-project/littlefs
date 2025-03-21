@@ -387,17 +387,8 @@ class Rattr:
     def tagrepr(self):
         return tagrepr(self.tag, self.weight, self.size)
 
-    def __bool__(self):
-        return bool(self.data)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, key):
-        return self.data[key]
-
     def __iter__(self):
-        return iter(self.data)
+        return iter((self.tag, self.weight, self.data))
 
     def __eq__(self, other):
         return ((self.tag, self.weight, self.data)
@@ -410,7 +401,8 @@ class Rattr:
         return hash((self.tag, self.weight, self.data))
 
 class Ralt:
-    def __init__(self, tag, weight, block, toff, off, jump, color=None):
+    def __init__(self, tag, weight, block, toff, off, jump,
+            color=None, followed=None):
         self.tag = tag
         self.weight = weight
         self.block = block
@@ -422,6 +414,7 @@ class Ralt:
             self.color = color
         else:
             self.color = 'r' if tag & TAG_R else 'b'
+        self.followed = followed
 
     @property
     def joff(self):
@@ -432,6 +425,9 @@ class Ralt:
 
     def tagrepr(self):
         return tagrepr(self.tag, self.weight, self.jump, self.toff)
+
+    def __iter__(self):
+        return iter((self.tag, self.weight, self.jump))
 
     def __eq__(self, other):
         return ((self.tag, self.weight, self.jump)
@@ -639,7 +635,7 @@ class Rbyd:
     def lookupnext(self, rid=-1, tag=None, *,
             path=False):
         if not self:
-            return None, None, None, None, *(([],) if path else ())
+            return None, None, *(([],) if path else ())
 
         tag = max(tag or 0, 0x1)
         lower = 0
@@ -673,10 +669,10 @@ class Rbyd:
                         else:
                             color = 'b'
 
-                        path_.append((
-                                Ralt(alt, w, self.block, j+jump, j+jump+d,
-                                    jump, color),
-                                True))
+                        path_.append(Ralt(
+                                alt, w, self.block, j+jump, j+jump+d, jump,
+                                color=color,
+                                followed=True))
 
                 # stay on path
                 else:
@@ -695,10 +691,10 @@ class Rbyd:
                         else:
                             color = 'b'
 
-                        path_.append((
-                                Ralt(alt, w, self.block, j-d, j,
-                                    jump, color),
-                                False))
+                        path_.append(Ralt(
+                                alt, w, self.block, j-d, j, jump,
+                                color=color,
+                                followed=False))
 
             # found tag
             else:
@@ -707,11 +703,9 @@ class Rbyd:
                 w_ = upper-lower
 
                 if not tag_ or (rid_, tag_) < (rid, tag):
-                    return None, None, None, None, *(([],) if path else ())
+                    return None, None, *(([],) if path else ())
 
                 return (rid_,
-                        tag_,
-                        w_,
                         Rattr(tag_, w_, self.block, j, j+d,
                             self.data[j+d:j+d+jump]),
                         *((path_,) if path else ()))
@@ -721,22 +715,17 @@ class Rbyd:
         if tag is None:
             tag, mask = 0, 0xffff
 
-        rid_, tag_, w_, rattr_, *path_ = self.lookupnext(
-                rid, tag & ~(mask or 0),
+        rid_, rattr_, *path_ = self.lookupnext(rid, tag & ~(mask or 0),
                 path=path)
         if (rid_ is None
                 or rid_ != rid
-                or (tag_ & ~(mask or 0)) != (tag & ~(mask or 0))):
-            if mask is not None:
-                return None, None, *path_
-            elif path:
+                or (rattr_.tag_ & ~(mask or 0)) != (tag & ~(mask or 0))):
+            if path:
                 return None, *path_
             else:
                 return None
 
-        if mask is not None:
-            return tag_, rattr_, *path_
-        elif path:
+        if path:
             return rattr_, *path_
         else:
             return rattr_
@@ -761,13 +750,13 @@ class Rbyd:
             path=False):
         rid = -1
         while True:
-            rid, tag, w, rattr, *path_ = self.lookupnext(rid,
+            rid, rattr, *path_ = self.lookupnext(rid,
                     path=path)
             # found end of tree?
             if rid is None:
                 break
 
-            yield rid, tag, w, rattr, *path_
+            yield rid, rattr, *path_
             rid += 1
 
     def rattrs(self, rid=None, *,
@@ -775,23 +764,28 @@ class Rbyd:
         if rid is None:
             rid, tag = -1, 0
             while True:
-                rid, tag, w, rattr, *path_ = self.lookupnext(rid, tag+0x1,
+                rid, rattr, *path_ = self.lookupnext(rid, tag+0x1,
                         path=path)
                 # found end of tree?
                 if rid is None:
                     break
 
-                yield rid, tag, w, rattr, *path_
+                yield rid, rattr, *path_
+                tag = rattr.tag
         else:
             tag = 0
             while True:
-                rid_, tag, w, rattr, *path_ = self.lookupnext(rid, tag+0x1,
+                rid_, rattr, *path_ = self.lookupnext(rid, tag+0x1,
                         path=path)
                 # found end of tree?
                 if rid_ is None or rid_ != rid:
                     break
 
-                yield tag, rattr, *path_
+                if path:
+                    yield rattr, *path_
+                else:
+                    yield rattr
+                tag = rattr.tag
 
     def __iter__(self):
         return self.rattrs()
@@ -803,19 +797,18 @@ class Rbyd:
         lower = 0
         upper = self.weight
         while lower < upper:
-            rid, tag, w, rattr = self.lookupnext(
-                    lower + (upper-1-lower)//2)
+            rid, rattr = self.lookupnext(lower + (upper-1-lower)//2)
             if rid is None:
                 break
 
             # treat vestigial names as a catch-all
-            if ((tag == TAG_NAME and rid-(w-1) == 0)
-                    or (tag & 0xff00) != TAG_NAME):
+            if ((rattr.tag == TAG_NAME and rid-(rattr.weight-1) == 0)
+                    or (rattr.tag & 0xff00) != TAG_NAME):
                 did_ = 0
                 name_ = b''
             else:
-                did_, d = fromleb128(rattr[:])
-                name_ = rattr[d:]
+                did_, d = fromleb128(rattr.data)
+                name_ = rattr.data[d:]
 
             # bisect search space
             if (did_, name_) > (did, name):
@@ -823,10 +816,10 @@ class Rbyd:
             elif (did_, name_) < (did, name):
                 lower = rid + 1
                 # keep track of best match
-                best = (False, rid, tag, w, rattr)
+                best = (False, rid, rattr)
             else:
                 # found a match
-                return True, rid, tag, w, rattr
+                return True, rid, rattr
 
         return best
 
@@ -835,12 +828,12 @@ class Rbyd:
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
 
-        for rid, tag, w, rattr, path in self.rattrs(path=True):
+        for rid, rattr, path in self.rattrs(path=True):
             # keep track of trunks/alts
-            trunks[rattr.toff] = (rid, tag)
+            trunks[rattr.toff] = (rid, rattr.tag)
 
-            for ralt, followed in path:
-                if followed:
+            for ralt in path:
+                if ralt.followed:
                     alts[ralt.toff] |= {'f': ralt.joff, 'c': ralt.color}
                 else:
                     alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
@@ -1311,21 +1304,22 @@ def dbg_tree(rbyd, *,
     # dynamically size the id field
     w_width = mt.ceil(mt.log10(max(1, rbyd.weight)+1))
 
-    for i, (rid, tag, w, rattr) in enumerate(rbyd):
+    for i, (rid, rattr) in enumerate(rbyd):
         # show human-readable tag representation
         print('%08x: %s%*s %-*s  %s' % (
                 rattr.toff,
-                treerepr(tree, (rid, tag), t_depth, color)
+                treerepr(tree, (rid, rattr.tag), t_depth, color)
                     if args.get('tree') or args.get('tree_rbyd')
                     else '',
-                2*w_width+1, '%d-%d' % (rid-(w-1), rid) if w > 1
-                    else rid if w > 0 or i == 0
+                2*w_width+1, '%d-%d' % (rid-(rattr.weight-1), rid)
+                    if rattr.weight > 1
+                    else rid if rattr.weight > 0 or i == 0
                     else '',
                 21+w_width, rattr.tagrepr(),
-                next(xxd(rattr[:8], 8), '')
+                next(xxd(rattr.data[:8], 8), '')
                     if not args.get('raw')
                         and not args.get('no_truncate')
-                        and not tag & TAG_ALT
+                        and not rattr.tag & TAG_ALT
                     else ''))
 
         # show on-disk encoding of tags
@@ -1337,8 +1331,8 @@ def dbg_tree(rbyd, *,
                         2*w_width+1, '',
                         line))
         if args.get('raw') or args.get('no_truncate'):
-            if not tag & TAG_ALT:
-                for o, line in enumerate(xxd(rattr[:])):
+            if not rattr.tag & TAG_ALT:
+                for o, line in enumerate(xxd(rattr.data)):
                     print('%8s: %*s%*s %s' % (
                             '%04x' % (rattr.off + o*16),
                             t_width, '',
