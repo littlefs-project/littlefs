@@ -155,7 +155,7 @@ def frommdir(data):
         block, d_ = fromleb128(data[d:])
         blocks.append(block)
         d += d_
-    return tuple(blocks)
+    return blocks
 
 def frombranch(data):
     d = 0
@@ -277,25 +277,200 @@ def tagrepr(tag, weight=None, size=None, off=None):
                 ' w%d' % weight if weight is not None else '',
                 ' %d' % size if size is not None else '')
 
+# tree branches are an abstract thing for tree rendering
+class TreeBranch(co.namedtuple('TreeBranch', ['a', 'b', 'depth', 'color'])):
+    __slots__ = ()
+    def __new__(cls, a, b, depth=0, color='b'):
+        # a and b are context specific
+        return super().__new__(cls, a, b, depth, color)
 
-# this type is used for tree representations
-TBranch = co.namedtuple('TBranch', 'a, b, d, c')
+    def __repr__(self):
+        return '%s(%s, %s, %s, %s)' % (
+                self.__class__.__name__,
+                self.a,
+                self.b,
+                self.depth,
+                self.color)
+
+def treerepr(tree, x, depth=None, color=False):
+    # find the max depth from the tree
+    if depth is None:
+        depth = max((t.depth+1 for t in tree), default=0)
+    if depth == 0:
+        return ''
+
+    def branchrepr(tree, x, d, was):
+        for t in tree:
+            if t.depth == d and t.b == x:
+                if any(t.depth == d and t.a == x
+                        for t in tree):
+                    return '+-', t.color, t.color
+                elif any(t.depth == d
+                            and x > min(t.a, t.b)
+                            and x < max(t.a, t.b)
+                        for t in tree):
+                    return '|-', t.color, t.color
+                elif t.a < t.b:
+                    return '\'-', t.color, t.color
+                else:
+                    return '.-', t.color, t.color
+        for t in tree:
+            if t.depth == d and t.a == x:
+                return '+ ', t.color, None
+        for t in tree:
+            if (t.depth == d
+                    and x > min(t.a, t.b)
+                    and x < max(t.a, t.b)):
+                return '| ', t.color, was
+        if was:
+            return '--', was, was
+        return '  ', None, None
+
+    trunk = []
+    was = None
+    for d in range(depth):
+        t, c, was = branchrepr(tree, x, d, was)
+
+        trunk.append('%s%s%s%s' % (
+                '\x1b[33m' if color and c == 'y'
+                    else '\x1b[31m' if color and c == 'r'
+                    else '\x1b[90m' if color and c == 'b'
+                    else '',
+                t,
+                ('>' if was else ' ') if d == depth-1 else '',
+                '\x1b[m' if color and c else ''))
+
+    return '%s ' % ''.join(trunk)
+
+# compute the difference between two paths, returning everything
+# in a after the paths diverge, as well as the relevant index
+def pathdelta(a, b):
+    if not isinstance(a, list):
+        a = list(a)
+    i = 0
+    for a_, b_ in zip(a, b):
+        if type(a_) == type(b_) and a_ == b_:
+            i += 1
+        else:
+            break
+
+    return [(i+j, a_) for j, a_ in enumerate(a[i:])]
+
+
+# a simple wrapper over an open file with bd geometry
+class Bd:
+    def __init__(self, f, block_size=None, block_count=None):
+        self.f = f
+        self.block_size = block_size
+        self.block_count = block_count
+
+    def __repr__(self):
+        return '<%s %sx%s>' % (
+                self.__class__.__name__,
+                self.block_size,
+                self.block_count)
+
+    def read(self, size=-1):
+        return self.f.read(size)
+
+    def seek(self, block, off, whence=0):
+        pos = self.f.seek(block*self.block_size + off, whence)
+        return pos // block_size, pos % block_size
+
+    def readblock(self, block):
+        self.f.seek(block*self.block_size)
+        return self.f.read(self.block_size)
+
+# tagged data in an rbyd
+class Rattr:
+    def __init__(self, tag, weight, block, toff, off, data):
+        self.tag = tag
+        self.weight = weight
+        self.block = block
+        self.toff = toff
+        self.off = off
+        self.data = data
+
+    @property
+    def size(self):
+        return len(self.data)
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self)
+
+    def __str__(self):
+        return tagrepr(self.tag, self.weight, self.size)
+
+    def __iter__(self):
+        return iter((self.tag, self.weight, self.data))
+
+    def __eq__(self, other):
+        return ((self.tag, self.weight, self.data)
+                == (other.tag, other.weight, other.data))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.tag, self.weight, self.data))
+
+class Ralt:
+    def __init__(self, tag, weight, block, toff, off, jump,
+            color=None, followed=None):
+        self.tag = tag
+        self.weight = weight
+        self.block = block
+        self.toff = toff
+        self.off = off
+        self.jump = jump
+
+        if color is not None:
+            self.color = color
+        else:
+            self.color = 'r' if tag & TAG_R else 'b'
+        self.followed = followed
+
+    @property
+    def joff(self):
+        return self.toff - self.jump
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self)
+
+    def __str__(self):
+        return tagrepr(self.tag, self.weight, self.jump, self.toff)
+
+    def __iter__(self):
+        return iter((self.tag, self.weight, self.jump))
+
+    def __eq__(self, other):
+        return ((self.tag, self.weight, self.jump)
+                == (other.tag, other.weight, other.jump))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.tag, self.weight, self.jump))
+
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, blocks, data, rev, eoff, trunk, weight, cksum,
-            gcksumdelta):
+    def __init__(self, data, blocks, trunk, weight, rev, eoff, cksum, *,
+            gcksumdelta=None,
+            corrupt=False):
         if isinstance(blocks, int):
-            blocks = (blocks,)
+            blocks = [blocks]
 
-        self.blocks = tuple(blocks)
         self.data = data
-        self.rev = rev
-        self.eoff = eoff
+        self.blocks = list(blocks)
         self.trunk = trunk
         self.weight = weight
+        self.rev = rev
+        self.eoff = eoff
         self.cksum = cksum
         self.gcksumdelta = gcksumdelta
+        self.corrupt = corrupt
 
     @property
     def block(self):
@@ -309,15 +484,31 @@ class Rbyd:
                     ','.join('%x' % block for block in self.blocks),
                     self.trunk)
 
+    def __repr__(self):
+        return '<%s %s w%s>' % (
+                self.__class__.__name__,
+                self.addr(),
+                self.weight)
+
+    def __bool__(self):
+        return not self.corrupt
+
+    def __eq__(self, other):
+        return ((frozenset(self.blocks), self.trunk)
+                == (frozenset(other.blocks), other.trunk))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((frozenset(self.blocks), self.trunk))
+
     @classmethod
-    def fetch(cls, f, block_size, block, trunk=None, cksum=None):
-        # multiple blocks?
-        if (not isinstance(block, int)
-                and not isinstance(block, Rbyd)
-                and len(block) > 1):
+    def fetch(cls, bd, blocks, trunk=None, cksum=None):
+        # multiple blocks? unfortunately this must be a list
+        if isinstance(blocks, list):
             # fetch all blocks
-            rbyds = [cls.fetch(f, block_size, block, trunk, cksum)
-                    for block in block]
+            rbyds = [cls.fetch(bd, block, trunk, cksum) for block in blocks]
             # determine most recent revision
             i = 0
             for i_, rbyd in enumerate(rbyds):
@@ -335,26 +526,25 @@ class Rbyd:
                         for j in range(len(rbyds)-1))
             return rbyd
 
-        # block may be an rbyd, in which case we inherit the
-        # already-read data
-        #
-        # this helps avoid race conditions with cksums and shrubs
-        if isinstance(block, Rbyd):
-            # inherit the trunk too I guess?
-            if trunk is None:
-                trunk = block.trunk
-            block, data = block.block, block.data
-        else:
-            # block may encode a trunk
-            block = block[0] if not isinstance(block, int) else block
-            if isinstance(block, tuple):
-                if trunk is None:
-                    trunk = block[1]
-                block = block[0]
+        block = blocks
 
-            # seek to the block
-            f.seek(block * block_size)
-            data = f.read(block_size)
+        # blocks may also encode trunks
+        block, trunk = (
+                block[0] if isinstance(block, tuple)
+                    else block,
+                trunk if trunk is not None
+                    else block[1] if isinstance(block, tuple)
+                    else None)
+
+        # bd can be either a bd reference or preread data
+        #
+        # preread data can be useful for avoiding race conditions
+        # with cksums and shrubs
+        if isinstance(bd, Bd):
+            # seek/read the block
+            data = bd.readblock(block)
+        else:
+            data = bd
 
         # fetch the rbyd
         rev = fromle32(data[0:4])
@@ -391,7 +581,8 @@ class Rbyd:
 
                     # found a gcksumdelta?
                     if (tag & 0xff00) == TAG_GCKSUMDELTA:
-                        gcksumdelta_ = (tag, w, j_-d, d, data[j_:j_+size])
+                        gcksumdelta_ = Rattr(tag, w,
+                                block, j_-d, d, data[j_:j_+size])
 
                 # found a cksum?
                 else:
@@ -448,60 +639,76 @@ class Rbyd:
 
         # cksum mismatch?
         if cksum is not None and cksum_ != cksum:
-            return cls(block, data, rev, 0, 0, 0, cksum_, gcksumdelta)
+            return cls(data, block, 0, 0, rev, 0, cksum_,
+                    corrupt=True)
 
-        return cls(block, data, rev, eoff, trunk_, weight, cksum_, gcksumdelta)
+        return cls(data, block, trunk_, weight, rev, eoff, cksum_,
+                gcksumdelta=gcksumdelta,
+                corrupt=not trunk_)
 
-    def lookup(self, rid, tag):
+    def lookupnext(self, rid, tag=None, *,
+            path=False):
         if not self:
-            return True, 0, -1, 0, 0, 0, b'', []
+            return None, None, *(([],) if path else ())
 
-        tag = max(tag, 0x1)
+        tag = max(tag or 0, 0x1)
         lower = 0
         upper = self.weight
-        path = []
+        path_ = []
 
         # descend down tree
         j = self.trunk
         while True:
-            _, alt, weight_, jump, d = fromtag(self.data[j:])
+            _, alt, w, jump, d = fromtag(self.data[j:])
 
             # found an alt?
             if alt & TAG_ALT:
                 # follow?
-                if ((rid, tag & 0xfff) > (upper-weight_-1, alt & 0xfff)
+                if ((rid, tag & 0xfff) > (upper-w-1, alt & 0xfff)
                         if alt & TAG_GT
                         else ((rid, tag & 0xfff)
-                            <= (lower+weight_-1, alt & 0xfff))):
-                    lower += upper-lower-weight_ if alt & TAG_GT else 0
-                    upper -= upper-lower-weight_ if not alt & TAG_GT else 0
+                            <= (lower+w-1, alt & 0xfff))):
+                    lower += upper-lower-w if alt & TAG_GT else 0
+                    upper -= upper-lower-w if not alt & TAG_GT else 0
                     j = j - jump
 
-                    # figure out which color
-                    if alt & TAG_R:
-                        _, nalt, _, _, _ = fromtag(self.data[j+jump+d:])
-                        if nalt & TAG_R:
-                            path.append((j+jump, j, True, 'y'))
+                    if path:
+                        # figure out which color
+                        if alt & TAG_R:
+                            _, nalt, _, _, _ = fromtag(self.data[j+jump+d:])
+                            if nalt & TAG_R:
+                                color = 'y'
+                            else:
+                                color = 'r'
                         else:
-                            path.append((j+jump, j, True, 'r'))
-                    else:
-                        path.append((j+jump, j, True, 'b'))
+                            color = 'b'
+
+                        path_.append(Ralt(
+                                alt, w, self.block, j+jump, j+jump+d, jump,
+                                color=color,
+                                followed=True))
 
                 # stay on path
                 else:
-                    lower += weight_ if not alt & TAG_GT else 0
-                    upper -= weight_ if alt & TAG_GT else 0
+                    lower += w if not alt & TAG_GT else 0
+                    upper -= w if alt & TAG_GT else 0
                     j = j + d
 
-                    # figure out which color
-                    if alt & TAG_R:
-                        _, nalt, _, _, _ = fromtag(self.data[j:])
-                        if nalt & TAG_R:
-                            path.append((j-d, j, False, 'y'))
+                    if path:
+                        # figure out which color
+                        if alt & TAG_R:
+                            _, nalt, _, _, _ = fromtag(self.data[j:])
+                            if nalt & TAG_R:
+                                color = 'y'
+                            else:
+                                color = 'r'
                         else:
-                            path.append((j-d, j, False, 'r'))
-                    else:
-                        path.append((j-d, j, False, 'b'))
+                            color = 'b'
+
+                        path_.append(Ralt(
+                                alt, w, self.block, j-d, j, jump,
+                                color=color,
+                                followed=False))
 
             # found tag
             else:
@@ -509,55 +716,154 @@ class Rbyd:
                 tag_ = alt
                 w_ = upper-lower
 
-                done = not tag_ or (rid_, tag_) < (rid, tag)
+                if not tag_ or (rid_, tag_) < (rid, tag):
+                    return None, None, *(([],) if path else ())
 
-                return (done, rid_, tag_, w_, j, d,
-                        self.data[j+d:j+d+jump],
-                        path)
+                return (rid_,
+                        Rattr(tag_, w_, self.block, j, j+d,
+                            self.data[j+d:j+d+jump]),
+                        *((path_,) if path else ()))
 
-    def __bool__(self):
-        return bool(self.trunk)
+    def lookup_(self, rid, tag=None, mask=None, *,
+            path=False):
+        if tag is None:
+            tag, mask = 0, 0xffff
+        if mask is None:
+            mask = 0
 
-    def __eq__(self, other):
-        return self.block == other.block and self.trunk == other.trunk
+        rid_, rattr_, *path_ = self.lookupnext(rid, tag & ~mask,
+                path=path)
+        if (rid_ is None
+                or rid_ != rid
+                or (rattr_.tag & ~mask) != (tag & ~mask)):
+            return None, *path_
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        return rattr_, *path_
 
-    def __iter__(self):
-        tag = 0
+    def lookup(self, rid, tag=None, mask=None, *,
+            path=False):
+        rattr_, *path_ = self.lookup_(rid, tag, mask,
+                path=path)
+        if path:
+            return rattr_, *path_
+        else:
+            return rattr_
+
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup(*key)
+
+    def __contains__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup_(*key)[0] is not None
+
+    def rids(self, *,
+            path=False):
         rid = -1
-
         while True:
-            done, rid, tag, w, j, d, data, _ = self.lookup(rid, tag+0x1)
-            if done:
+            rid, name, *path_ = self.lookupnext(rid,
+                    path=path)
+            # found end of tree?
+            if rid is None:
                 break
 
-            yield rid, tag, w, j, d, data
+            yield rid, name, *path_
+            rid += 1
 
-    # create tree representation for debugging
-    def tree(self, *,
-            rbyd=False):
+    def rattrs_(self, rid=None, *,
+            path=False):
+        if rid is None:
+            rid, tag = -1, 0
+            while True:
+                rid, rattr, *path_ = self.lookupnext(rid, tag+0x1,
+                        path=path)
+                # found end of tree?
+                if rid is None:
+                    break
+
+                yield rid, rattr, *path_
+                tag = rattr.tag
+        else:
+            tag = 0
+            while True:
+                rid_, rattr, *path_ = self.lookupnext(rid, tag+0x1,
+                        path=path)
+                # found end of tree?
+                if rid_ is None or rid_ != rid:
+                    break
+
+                yield rattr, *path_
+                tag = rattr.tag
+
+    def rattrs(self, rid=None, *,
+            path=False):
+        if rid is None:
+            yield from self.rattrs_(rid,
+                    path=path)
+        else:
+            for rattr, *path_ in self.rattrs_(rid,
+                    path=path):
+                if path:
+                    yield rattr, *path_
+                else:
+                    yield rattr
+
+    def __iter__(self):
+        return self.rattrs()
+
+    # lookup by name
+    def namelookup(self, did, name):
+        # binary search
+        best = (False, None, None, None, None)
+        lower = 0
+        upper = self.weight
+        while lower < upper:
+            rid, rattr = self.lookupnext(lower + (upper-1-lower)//2)
+            if rid is None:
+                break
+
+            # treat vestigial names as a catch-all
+            if ((rattr.tag == TAG_NAME and rid-(rattr.weight-1) == 0)
+                    or (rattr.tag & 0xff00) != TAG_NAME):
+                did_ = 0
+                name_ = b''
+            else:
+                did_, d = fromleb128(rattr.data)
+                name_ = rattr.data[d:]
+
+            # bisect search space
+            if (did_, name_) > (did, name):
+                upper = rid-(w-1)
+            elif (did_, name_) < (did, name):
+                lower = rid + 1
+                # keep track of best match
+                best = (False, rid, rattr)
+            else:
+                # found a match
+                return True, rid, rattr
+
+        return best
+
+    # create an rbyd tree for debugging
+    def _tree_rtree(self, **args):
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
 
-        rid, tag = -1, 0
-        while True:
-            done, rid, tag, w, j, d, data, path = self.lookup(rid, tag+0x1)
-            # found end of tree?
-            if done:
-                break
-
+        for rid, rattr, path in self.rattrs(path=True):
             # keep track of trunks/alts
-            trunks[j] = (rid, tag)
+            trunks[rattr.toff] = (rid, rattr.tag)
 
-            for j_, j__, followed, c in path:
-                if followed:
-                    alts[j_] |= {'f': j__, 'c': c}
+            for ralt in path:
+                if ralt.followed:
+                    alts[ralt.toff] |= {'f': ralt.joff, 'c': ralt.color}
                 else:
-                    alts[j_] |= {'nf': j__, 'c': c}
+                    alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
 
-        if rbyd:
+        if args.get('tree_rbyd'):
             # treat unreachable alts as converging paths
             for j_, alt in alts.items():
                 if 'f' not in alt:
@@ -568,324 +874,1396 @@ class Rbyd:
         else:
             # prune any alts with unreachable edges
             pruned = {}
-            for j_, alt in alts.items():
+            for j, alt in alts.items():
                 if 'f' not in alt:
-                    pruned[j_] = alt['nf']
+                    pruned[j] = alt['nf']
                 elif 'nf' not in alt:
-                    pruned[j_] = alt['f']
-            for j_ in pruned.keys():
-                del alts[j_]
+                    pruned[j] = alt['f']
+            for j in pruned.keys():
+                del alts[j]
 
-            for j_, alt in alts.items():
+            for j, alt in alts.items():
                 while alt['f'] in pruned:
                     alt['f'] = pruned[alt['f']]
                 while alt['nf'] in pruned:
                     alt['nf'] = pruned[alt['nf']]
 
         # find the trunk and depth of each alt
-        def rec_trunk(j_):
-            if j_ not in alts:
-                return trunks[j_]
+        def rec_trunk(j):
+            if j not in alts:
+                return trunks[j]
             else:
-                if 'nft' not in alts[j_]:
-                    alts[j_]['nft'] = rec_trunk(alts[j_]['nf'])
-                return alts[j_]['nft']
+                if 'nft' not in alts[j]:
+                    alts[j]['nft'] = rec_trunk(alts[j]['nf'])
+                return alts[j]['nft']
 
-        for j_ in alts.keys():
-            rec_trunk(j_)
-        for j_, alt in alts.items():
+        for j in alts.keys():
+            rec_trunk(j)
+        for j, alt in alts.items():
             if alt['f'] in alts:
                 alt['ft'] = alts[alt['f']]['nft']
             else:
                 alt['ft'] = trunks[alt['f']]
 
-        def rec_height(j_):
-            if j_ not in alts:
+        def rec_height(j):
+            if j not in alts:
                 return 0
             else:
-                if 'h' not in alts[j_]:
-                    alts[j_]['h'] = max(
-                            rec_height(alts[j_]['f']),
-                            rec_height(alts[j_]['nf'])) + 1
-                return alts[j_]['h']
+                if 'h' not in alts[j]:
+                    alts[j]['h'] = max(
+                            rec_height(alts[j]['f']),
+                            rec_height(alts[j]['nf'])) + 1
+                return alts[j]['h']
 
-        for j_ in alts.keys():
-            rec_height(j_)
+        for j in alts.keys():
+            rec_height(j)
 
         t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
 
         # convert to more general tree representation
         tree = set()
         for j, alt in alts.items():
-            # note all non-trunk edges should be black
-            tree.add(TBranch(
-                a=alt['nft'],
-                b=alt['nft'],
-                d=t_depth-1 - alt['h'],
-                c=alt['c'],
-            ))
+            # note all non-trunk edges should be colored black
+            tree.add(TreeBranch(
+                    alt['nft'],
+                    alt['nft'],
+                    t_depth-1 - alt['h'],
+                    alt['c']))
             if alt['ft'] != alt['nft']:
-                tree.add(TBranch(
-                    a=alt['nft'],
-                    b=alt['ft'],
-                    d=t_depth-1 - alt['h'],
-                    c='b',
-                ))
+                tree.add(TreeBranch(
+                        alt['nft'],
+                        alt['ft'],
+                        t_depth-1 - alt['h'],
+                        'b'))
 
-        return tree, t_depth
+        return tree
 
-    # btree lookup with this rbyd as the root
-    def btree_lookup(self, f, block_size, bid, *,
-            depth=None):
-        rbyd = self
-        rid = bid
-        depth_ = 1
-        path = []
-
-        # corrupted? return a corrupted block once
-        if not rbyd:
-            return bid > 0, bid, 0, rbyd, -1, [], path
-
-        while True:
-            # collect all tags, normally you don't need to do this
-            # but we are debugging here
-            name = None
-            tags = []
-            branch = None
-            rid_ = rid
-            tag = 0
-            w = 0
-            for i in it.count():
-                done, rid__, tag, w_, j, d, data, _ = rbyd.lookup(
-                        rid_, tag+0x1)
-                if done or (i != 0 and rid__ != rid_):
-                    break
-
-                # first tag indicates the branch's weight
-                if i == 0:
-                    rid_, w = rid__, w_
-
-                # catch any branches
-                if tag & 0xfff == TAG_BRANCH:
-                    branch = (tag, j, d, data)
-
-                tags.append((tag, j, d, data))
-
-            # keep track of path
-            path.append((bid + (rid_-rid), w, rbyd, rid_, tags))
-
-            # descend down branch?
-            if branch is not None and (
-                    not depth or depth_ < depth):
-                tag, j, d, data = branch
-                block, trunk, cksum = frombranch(data)
-                rbyd = Rbyd.fetch(f, block_size, block, trunk, cksum)
-
-                # corrupted? bail here so we can keep traversing the tree
-                if not rbyd:
-                    return False, bid + (rid_-rid), w, rbyd, -1, [], path
-
-                rid -= (rid_-(w-1))
-                depth_ += 1
-            else:
-                return not tags, bid + (rid_-rid), w, rbyd, rid_, tags, path
-
-    # btree rbyd-tree generation for debugging
-    def btree_tree(self, f, block_size, *,
-            depth=None,
-            inner=False,
-            rbyd=False):
-        # find the max depth of each layer to nicely align trees
-        bdepths = {}
-        bid = -1
-        while True:
-            done, bid, w, rbyd_, rid, tags, path = self.btree_lookup(
-                    f, block_size, bid+1, depth=depth)
-            if done:
-                break
-
-            for d, (bid, w, rbyd_, rid, tags) in enumerate(path):
-                _, rdepth = rbyd_.tree(rbyd=rbyd)
-                bdepths[d] = max(bdepths.get(d, 0), rdepth)
-
-        # find all branches
+    # create a btree tree for debugging
+    def _tree_btree(self, **args):
+        # for rbyds this is just a pointer to ever rid
         tree = set()
         root = None
-        branches = {}
-        bid = -1
+        for rid, name in self.rids():
+            b = (rid, name.tag)
+            if root is None:
+                root = b
+            tree.add(TreeBranch(root, b))
+        return tree
+
+    # create tree representation for debugging
+    def tree(self, **args):
+        if args.get('tree_btree'):
+            return self._tree_btree(**args)
+        else:
+            return self._tree_rtree(**args)
+
+
+# our rbyd btree type
+class Btree:
+    def __init__(self, bd, rbyd):
+        self.bd = bd
+        self.rbyd = rbyd
+
+    @property
+    def block(self):
+        return self.rbyd.block
+
+    @property
+    def blocks(self):
+        return self.rbyd.blocks
+
+    @property
+    def trunk(self):
+        return self.rbyd.trunk
+
+    @property
+    def weight(self):
+        return self.rbyd.weight
+
+    @property
+    def rev(self):
+        return self.rbyd.rev
+
+    @property
+    def eoff(self):
+        return self.rbyd.eoff
+
+    @property
+    def cksum(self):
+        return self.rbyd.cksum
+
+    def addr(self):
+        return self.rbyd.addr()
+
+    def __repr__(self):
+        return '<%s %s w%s>' % (
+                self.__class__.__name__,
+                self.addr(),
+                self.weight)
+
+    def __eq__(self, other):
+        return self.rbyd == other.rbyd
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.rbyd)
+
+    @classmethod
+    def fetch(cls, bd, blocks, trunk=None, cksum=None):
+        # we need a real bd reference here
+        assert isinstance(bd, Bd)
+
+        rbyd = Rbyd.fetch(bd, blocks, trunk, cksum)
+        return cls(bd, rbyd)
+
+    def lookupleaf(self, bid, *,
+            path=None,
+            depth=None):
+        rbyd = self.rbyd
+        rid = bid
+        depth_ = 1
+        path_ = []
+
         while True:
-            done, bid, w, rbyd_, rid, tags, path = self.btree_lookup(
-                    f, block_size, bid+1, depth=depth)
-            if done:
+            # corrupt branch?
+            if not rbyd:
+                return (bid, rbyd, rid, None,
+                        *((path_,) if path else ()))
+
+            # first tag indicates the branch's weight
+            rid_, name_ = rbyd.lookupnext(rid)
+            if rid_ is None:
+                return (None, None, None, None,
+                        *((path_,) if path else ()))
+
+            # keep track of path
+            if path:
+                path_.append((bid + (rid_-rid), rbyd, rid_, name_))
+
+            # find branch tag if there is one
+            branch_ = rbyd.lookup(rid_, TAG_BRANCH, 0x3)
+
+            # descend down branch?
+            if branch_ is not None and (
+                    not depth or depth_ < depth):
+                block, trunk, cksum = frombranch(branch_.data)
+                rbyd = Rbyd.fetch(self.bd, block, trunk, cksum)
+                # keep track of expected trunk/weight if corrupted
+                if not rbyd:
+                    rbyd.trunk = trunk
+                    rbyd.weight = name_.weight
+
+                rid -= (rid_-(name_.weight-1))
+                depth_ += 1
+
+            else:
+                return (bid + (rid_-rid), rbyd, rid_, name_,
+                        *((path_,) if path else ()))
+
+    def lookup(self, bid, tag=None, mask=None, *,
+            path=False,
+            depth=None):
+        # lookup rbyd in btree
+        bid_, rbyd_, rid_, name_, *path_ = self.lookupleaf(bid,
+                path=path,
+                depth=depth)
+        if bid_ is None:
+            return None, None, None, None, None, *path_
+
+        # lookup tag in rbyd
+        rattr_ = rbyd_.lookup(rid_, tag, mask)
+        if rattr_ is None:
+            return None, None, None, None, None, *path_
+
+        return bid_, rbyd_, rid_, name_, rattr_, *path_
+
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup(*key)
+
+    def __contains__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup(*key)[0] is not None
+
+    # note leaves only iterates over leaf rbyds, whereas traverse
+    # traverses all rbyds
+    def leaves(self, *,
+            path=False,
+            depth=None):
+        # include our root rbyd even if the weight is zero
+        if self.weight == 0:
+            yield -1, self.rbyd, *(([],) if path else())
+
+        bid = 0
+        while True:
+            bid, rbyd, rid, name, *path_ = self.lookupleaf(bid,
+                    path=path,
+                    depth=depth)
+            if bid is None:
                 break
 
-            d_ = 0
-            leaf = None
-            for d, (bid, w, rbyd_, rid, tags) in enumerate(path):
-                if not tags:
-                    continue
+            yield (bid-rid + (rbyd.weight-1), rbyd,
+                    *((path_[0][:-1],) if path else ()))
+            bid += rbyd.weight - rid + 1
 
-                # map rbyd tree into B-tree space
-                rtree, rdepth = rbyd_.tree(rbyd=rbyd)
+    def traverse(self, *,
+            path=False,
+            depth=None):
+        ptrunk_ = []
+        for bid, rbyd, path_ in self.leaves(
+                path=True,
+                depth=depth):
+            # we only care about the rbyds here
+            trunk_ = ([(bid_-rid_ + (rbyd_.weight-1), rbyd_)
+                        for bid_, rbyd_, rid_, name_ in path_]
+                    + [(bid, rbyd)])
+            for d, (bid_, rbyd_) in pathdelta(
+                    trunk_, ptrunk_):
+                # but include branch rids in the path if requested
+                yield bid_, rbyd_, *((path_[:d],) if path else ())
+            ptrunk_ = trunk_
 
-                # note we adjust our bid/rids to be left-leaning,
-                # this allows a global order and make tree rendering quite
-                # a bit easier
-                rtree_ = set()
-                for branch in rtree:
-                    a_rid, a_tag = branch.a
-                    b_rid, b_tag = branch.b
-                    _, _, _, a_w, _, _, _, _ = rbyd_.lookup(a_rid, 0)
-                    _, _, _, b_w, _, _, _, _ = rbyd_.lookup(b_rid, 0)
-                    rtree_.add(TBranch(
-                        a=(a_rid-(a_w-1), a_tag),
-                        b=(b_rid-(b_w-1), b_tag),
-                        d=branch.d,
-                        c=branch.c,
-                    ))
-                rtree = rtree_
+    def bids(self, *,
+            path=False,
+            depth=None):
+        for bid, rbyd, *path_ in self.leaves(
+                path=path,
+                depth=depth):
+            for rid, name in rbyd.rids():
+                yield (bid-(rbyd.weight-1) + rid,
+                        rbyd, rid, name,
+                        *((path_[0]+[
+                                (bid-(rbyd.weight-1) + rid,
+                                    rbyd, rid, name)],)
+                            if path else ()))
 
-                # connect our branch to the rbyd's root
-                if leaf is not None:
-                    root = min(rtree,
-                            key=lambda branch: branch.d,
-                            default=None)
+    def rattrs_(self, bid=None, *,
+            path=False,
+            depth=None):
+        if bid is None:
+            for bid, rbyd, *path_ in self.leaves(
+                    path=path,
+                    depth=depth):
+                for rid, name in rbyd.rids():
+                    for rattr in rbyd.rattrs(rid):
+                        yield (bid-(rbyd.weight-1) + rid,
+                                rbyd, rid, name, rattr,
+                                *((path_[0]+[
+                                        (bid-(rbyd.weight-1) + rid,
+                                            rbyd, rid, name)],)
+                                    if path else ()))
+        else:
+            bid, rbyd, rid, name, *path_ = self.lookupleaf(bid,
+                    path=path,
+                    depth=depth)
+            for rattr in rbyd.rattrs(rid):
+                yield rattr, *path_
 
-                    if root is not None:
-                        r_rid, r_tag = root.a
-                    else:
-                        r_rid, r_tag = rid-(w-1), tags[0][0]
-                    tree.add(TBranch(
-                        a=leaf,
-                        b=(bid-rid+r_rid, d, r_rid, r_tag),
-                        d=d_-1,
-                        c='b',
-                    ))
+    def rattrs(self, bid=None, *,
+            path=False,
+            depth=None):
+        if bid is None:
+            yield from self.rattrs_(bid,
+                    path=path,
+                    depth=depth)
+        else:
+            for rattr, *path_ in self.rattrs_(bid,
+                    path=path,
+                    depth=depth):
+                if path:
+                    yield rattr, *path_
+                else:
+                    yield rattr
 
-                for branch in rtree:
-                    # map rbyd branches into our btree space
-                    a_rid, a_tag = branch.a
-                    b_rid, b_tag = branch.b
-                    tree.add(TBranch(
-                        a=(bid-rid+a_rid, d, a_rid, a_tag),
-                        b=(bid-rid+b_rid, d, b_rid, b_tag),
-                        d=branch.d + d_ + bdepths.get(d, 0)-rdepth,
-                        c=branch.c,
-                    ))
+    def __iter__(self):
+        return self.rattrs()
 
-                d_ += max(bdepths.get(d, 0), 1)
-                leaf = (bid-(w-1), d, rid-(w-1),
-                        next(
-                            (tag for tag, _, _, _ in tags
-                                if tag & 0xfff == TAG_BRANCH),
-                            TAG_BRANCH))
+    # lookup by name
+    def namelookup(self, did, name, *,
+            depth=None):
+        rbyd = self.rbyd
+        bid = 0
+        depth_ = 1
+
+        while True:
+            found_, rid_, name_ = rbyd.namelookup(did, name)
+
+            # find branch tag if there is one
+            branch_ = rbyd.lookup(rid_, TAG_BRANCH, 0x3)
+
+            # found another branch
+            if branch_ is not None and (
+                    not depth or depth_ < depth):
+                # update our bid
+                bid += rid_ - (name_.weight-1)
+
+                block, trunk, cksum = frombranch(branch_.data)
+                rbyd = Rbyd.fetch(self.bd, block, trunk, cksum)
+                # keep track of expected trunk/weight if corrupted
+                if not rbyd:
+                    rbyd.trunk = trunk
+                    rbyd.weight = name_.weight
+
+                depth_ += 1
+
+            # found best match
+            else:
+                return found_, bid + rid_, rbyd, rid_, name_
+
+    # create an rbyd tree for debugging
+    def _tree_rtree(self, *,
+            depth=None,
+            inner=False,
+            **args):
+        # precompute rbyd trees so we know the max depth at each layer
+        # to nicely align trees
+        rtrees = {}
+        rdepths = {}
+        for bid, rbyd, path in self.traverse(path=True, depth=depth):
+            if not rbyd:
+                continue
+
+            rtrees[rbyd] = rbyd.tree(**args)
+            rdepths[len(path)] = max(
+                    rdepths.get(len(path), 0),
+                    max((t.depth+1 for t in rtrees[rbyd]), default=0))
+
+        # map rbyd branches into our btree space
+        tree = set()
+        for bid, rbyd, path in self.traverse(path=True, depth=depth):
+            if not rbyd:
+                continue
+
+            # yes we can find new rbyds if disk is being mutated, just
+            # ignore these
+            if rbyd not in rtrees:
+                continue
+
+            rtree = rtrees[rbyd]
+            rdepth = max((t.depth+1 for t in rtree), default=0)
+            d = sum(rdepths[d]+1 for d in range(len(path)))
+
+            # map into our btree space
+            for t in rtree:
+                # note we adjust our bid to be left-leaning, this allows
+                # a global order and makes tree rendering quite a bit easier
+                a_rid, a_tag = t.a
+                b_rid, b_tag = t.b
+                _, (_, a_w, _) = rbyd.lookupnext(a_rid)
+                _, (_, b_w, _) = rbyd.lookupnext(b_rid)
+                tree.add(TreeBranch(
+                        (bid-(rbyd.weight-1)+a_rid-(a_w-1), len(path), a_tag),
+                        (bid-(rbyd.weight-1)+b_rid-(b_w-1), len(path), b_tag),
+                        d + rdepths[len(path)]-rdepth + t.depth,
+                        t.color))
+
+            # connect rbyd branches to rbyd roots
+            if path:
+                l_bid, l_rbyd, l_rid, l_name = path[-1]
+                l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
+
+                if rtree:
+                    r_rid, r_tag = min(rtree, key=lambda t: t.depth).a
+                    _, (_, r_w, _) = rbyd.lookupnext(r_rid)
+                else:
+                    r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
+
+                tree.add(TreeBranch(
+                        (l_bid-(l_name.weight-1), len(path)-1, l_branch.tag),
+                        (bid-(rbyd.weight-1)+r_rid-(r_w-1), len(path), r_tag),
+                        d-1))
 
         # remap branches to leaves if we aren't showing inner branches
         if not inner:
-            # step through each layer backwards
-            b_depth = max((branch.a[1]+1 for branch in tree), default=0)
+            # step through each btree layer backwards
+            b_depth = max((t.a[1]+1 for t in tree), default=0)
 
-            # keep track of the original bids, unfortunately because we
-            # store the bids in the branches we overwrite these
-            tree = {(branch.b[0] - branch.b[2], branch) for branch in tree}
+            for d in reversed(range(b_depth-1)):
+                # find bid ranges at this level
+                bids = set()
+                for t in tree:
+                    if t.a[1] == d:
+                        bids.add(t.a[0])
+                bids = sorted(bids)
 
-            for bd in reversed(range(b_depth-1)):
-                # find leaf-roots at this level
+                # find the best root for each bid range
                 roots = {}
-                for bid, branch in tree:
-                    # choose the highest node as the root
-                    if (branch.b[1] == b_depth-1
-                            and (bid not in roots
-                                or branch.d < roots[bid].d)):
-                        roots[bid] = branch
+                for i in range(len(bids)):
+                    for t in tree:
+                        if (t.b[1] > d
+                                and t.b[0] >= bids[i]
+                                and (i == len(bids)-1 or t.b[0] < bids[i+1])
+                                and (bids[i] not in roots
+                                    or t.depth < roots[bids[i]].depth)):
+                            roots[bids[i]] = t
 
                 # remap branches to leaf-roots
                 tree_ = set()
-                for bid, branch in tree:
-                    if branch.a[1] == bd and branch.a[0] in roots:
-                        branch = TBranch(
-                            a=roots[branch.a[0]].b,
-                            b=branch.b,
-                            d=branch.d,
-                            c=branch.c,
-                        )
-                    if branch.b[1] == bd and branch.b[0] in roots:
-                        branch = TBranch(
-                            a=branch.a,
-                            b=roots[branch.b[0]].b,
-                            d=branch.d,
-                            c=branch.c,
-                        )
-                    tree_.add((bid, branch))
+                for t in tree:
+                    if t.a[1] == d and t.a[0] in roots:
+                        t = TreeBranch(
+                                roots[t.a[0]].b,
+                                t.b,
+                                t.depth,
+                                t.color)
+                    if t.b[1] == d and t.b[0] in roots:
+                        t = TreeBranch(
+                                t.a,
+                                roots[t.b[0]].b,
+                                t.depth,
+                                t.color)
+                    tree_.add(t)
                 tree = tree_
 
-            # strip out bids
-            tree = {branch for _, branch in tree}
+        return tree
 
-        return tree, max((branch.d+1 for branch in tree), default=0)
-
-    # btree B-tree generation for debugging
-    def btree_btree(self, f, block_size, *,
+    # create a btree tree for debugging
+    def _tree_btree(self, *,
             depth=None,
-            inner=False):
+            inner=False,
+            **args):
         # find all branches
         tree = set()
         root = None
         branches = {}
-        bid = -1
-        while True:
-            done, bid, w, rbyd, rid, tags, path = self.btree_lookup(
-                    f, block_size, bid+1, depth=depth)
-            if done:
-                break
-
-            # if we're not showing inner nodes, prefer names higher in
-            # the tree since this avoids showing vestigial names
-            name = None
-            if not inner:
-                name = None
-                for bid_, w_, rbyd_, rid_, tags_ in reversed(path):
-                    for tag_, j_, d_, data_ in tags_:
-                        if tag_ & 0x7f00 == TAG_NAME:
-                            name = (tag_, j_, d_, data_)
-
-                    if rid_-(w_-1) != 0:
-                        break
-
+        for bid, rbyd, rid, name, path in self.bids(
+                path=True,
+                depth=depth):
+            # create branch for each jump in path
+            #
+            # note we adjust our bid to be left-leaning, this allows
+            # a global order and makes tree rendering quite a bit easier
             a = root
-            for d, (bid, w, rbyd, rid, tags) in enumerate(path):
-                if not tags:
-                    continue
+            for d, (bid_, rbyd_, rid_, name_) in enumerate(path):
+                # map into our btree space
+                bid__ = bid_-(name_.weight-1)
+                b = (bid__, d, name_.tag)
 
-                b = (bid-(w-1), d, rid-(w-1),
-                        (name if name else tags[0])[0])
-
-                # remap branches to leaves if we aren't showing
-                # inner branches
+                # remap branches to leaves if we aren't showing inner
+                # branches
                 if not inner:
                     if b not in branches:
-                        bid, w, rbyd, rid, tags = path[-1]
-                        if not tags:
-                            continue
-                        branches[b] = (
-                                bid-(w-1), len(path)-1, rid-(w-1),
-                                (name if name else tags[0])[0])
+                        bid_, rbyd_, rid_, name_ = path[-1]
+                        bid__ = bid_-(name_.weight-1)
+                        branches[b] = (bid__, len(path)-1, name_.tag)
                     b = branches[b]
 
-                # found entry point?
+                # render the root path on first rid, this is arbitrary
                 if root is None:
-                    root = b
-                    a = root
+                    root, a = b, b
 
-                tree.add(TBranch(
-                    a=a,
-                    b=b,
-                    d=d,
-                    c='b',
-                ))
+                tree.add(TreeBranch(a, b, d))
                 a = b
 
-        return tree, max((branch.d+1 for branch in tree), default=0)
+        return tree
+
+    # create tree representation for debugging
+    def tree(self, **args):
+        if args.get('tree_btree'):
+            return self._tree_btree(**args)
+        else:
+            return self._tree_rtree(**args)
+
+
+# a metadata id, this includes mbits for convenience
+class Mid:
+    def __init__(self, mbid, mrid=None, *,
+            mbits=None):
+        # we need one of these to figure out mbits
+        if mbits is not None:
+            self.mbits = mbits
+        elif isinstance(mbid, Mid):
+            self.mbits = mbid.mbits
+        else:
+            assert mbits is not None, "mbits?"
+
+        # accept other mids which can be useful for changing mrids
+        if isinstance(mbid, Mid):
+            mbid = mbid.mbid
+
+        # accept either merged mid or separate mbid+mrid
+        if mrid is None:
+            mid = mbid
+            mbid = mid | ((1 << self.mbits) - 1)
+            mrid = mid & ((1 << self.mbits) - 1)
+
+        # map mrid=-1
+        if mrid == ((1 << self.mbits) - 1):
+            mrid = -1
+
+        self.mbid = mbid
+        self.mrid = mrid
+
+    @property
+    def mid(self):
+        return ((self.mbid & ~((1 << self.mbits) - 1))
+                | (self.mrid & ((1 << self.mbits) - 1)))
+
+    def mbid_(self):
+        return self.mid >> self.mbits
+
+    def mrid_(self):
+        return self.mrid
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self)
+
+    def __str__(self):
+        return '%s.%s' % (self.mbid_(), self.mrid_())
+
+    def __iter__(self):
+        return iter((self.mbid, self.mrid))
+
+    # note this is slightly different from mid order when mrid=-1
+    def __eq__(self, other):
+        if isinstance(other, Mid):
+            return (self.mbid, self.mrid) == (other.mbid, other.mrid)
+        else:
+            return self.mid == other
+
+    def __ne__(self, other):
+        if isinstance(other, Mid):
+            return (self.mbid, self.mrid) != (other.mbid, other.mrid)
+        else:
+            return self.mid != other
+
+    def __hash__(self):
+        return hash((self.mbid, self.mrid))
+
+    def __lt__(self, other):
+        return (self.mbid, self.mrid) < (other.mbid, other.mrid)
+
+    def __le__(self, other):
+        return (self.mbid, self.mrid) <= (other.mbid, other.mrid)
+
+    def __gt__(self, other):
+        return (self.mbid, self.mrid) > (other.mbid, other.mrid)
+
+    def __ge__(self, other):
+        return (self.mbid, self.mrid) >= (other.mbid, other.mrid)
+
+# mdirs, the gooey atomic center of littlefs
+#
+# really the only difference between this and our rbyd class is the
+# implicit mbid associated with the mdir
+class Mdir:
+    def __init__(self, mid, rbyd, *,
+            mbits=None,
+            corrupt=False):
+        # we need one of these to figure out mbits
+        if mbits is not None:
+            self.mbits = mbits
+        elif isinstance(mid, Mid):
+            self.mbits = mid.mbits
+        elif isinstance(rbyd, Mdir):
+            self.mbits = rbyd.mbits
+        else:
+            assert mbits is not None, "mbits?"
+
+        # strip mrid, bugs will happen if caller relies on mrid here
+        self.mid = Mid(mid, -1, mbits=self.mbits)
+
+        # accept either another mdir or rbyd
+        if isinstance(rbyd, Mdir):
+            self.rbyd = rbyd.rbyd
+            self.corrupt = corrupt or rbyd.corrupt
+        else:
+            self.rbyd = rbyd
+            self.corrupt = corrupt or rbyd.corrupt
+
+    @property
+    def data(self):
+        return self.rbyd.data
+
+    @property
+    def block(self):
+        return self.rbyd.block
+
+    @property
+    def blocks(self):
+        return self.rbyd.blocks
+
+    @property
+    def trunk(self):
+        return self.rbyd.trunk
+
+    @property
+    def weight(self):
+        return self.rbyd.weight
+
+    @property
+    def rev(self):
+        return self.rbyd.rev
+
+    @property
+    def eoff(self):
+        return self.rbyd.eoff
+
+    @property
+    def cksum(self):
+        return self.rbyd.cksum
+
+    @property
+    def gcksumdelta(self):
+        return self.rbyd.gcksumdelta
+
+    def addr(self):
+        return self.rbyd.addr()
+
+    def __repr__(self):
+        return '<%s %s %s>' % (
+                self.__class__.__name__,
+                self.mid.mbid_(),
+                self.addr())
+
+    def __bool__(self):
+        return not self.corrupt
+
+    # we _don't_ care about mid for equality, or trunk even
+    def __eq__(self, other):
+        return frozenset(self.blocks) == frozenset(other.blocks)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(frozenset(self.blocks))
+
+    @classmethod
+    def fetch(cls, bd, mid, blocks):
+        rbyd = Rbyd.fetch(bd, blocks)
+        # this affects mbits
+        if isinstance(bd, Bd):
+            return cls(mid, rbyd, mbits=Mtree.mbits_(bd))
+        else:
+            return cls(mid, rbyd)
+
+    def lookup_(self, mid, tag=None, mask=None, *,
+            path=False):
+        if not isinstance(mid, Mid):
+            mid = Mid(mid, mbits=self.mbits)
+        return self.rbyd.lookup_(mid.mrid, tag,
+                path=path)
+
+    def lookup(self, mid, tag=None, mask=None, *,
+            path=False):
+        rattr_, *path_ = self.lookup_(mid, tag, mask,
+                path=path)
+        if path:
+            return rattr_, *path_
+        else:
+            return rattr_
+
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup(*key)
+
+    def __contains__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup_(*key)[0] is not None
+
+    def mids(self, *,
+            path=False):
+        for rid, name, *path_ in self.rbyd.rids(
+                path=path):
+            mid = Mid(self.mid, rid)
+            yield mid, name, *path_
+
+    def rattrs_(self, mid=None, *,
+            path=False):
+        if mid is None:
+            for rid, rattr, *path_ in self.rbyd.rattrs_(
+                    path=path):
+                mid = Mid(self.mid, rid)
+                yield mid, rattr, *path_
+        else:
+            yield from self.rbyd.rattrs_(mid.mrid,
+                    path=path)
+
+    def rattrs(self, mid=None, *,
+            path=False):
+        if mid is None:
+            yield from self.rattrs_(mid,
+                    path=path)
+        else:
+            for rattr, *path_ in self.rattrs_(mid,
+                    path=path):
+                if path:
+                    yield rattr, *path_
+                else:
+                    yield rattr
+
+    def __iter__(self):
+        return self.rattrs()
+
+    # lookup by name
+    def namelookup(self, did, name):
+        found, rid, rattr = self.rbyd.namelookup(did, name)
+        if rid is None:
+            return found, None, None
+        else:
+            return found, Mid(self.mid, rid), rattr
+
+    # create tree representation for debugging
+    def tree(self, **args):
+        tree = self.rbyd.tree(**args)
+
+        # map to mid
+        tree_ = set()
+        for t in tree:
+            a_rid, a_tag = t.a
+            b_rid, b_tag = t.b
+            tree_.add(TreeBranch(
+                    (Mid(self.mid, a_rid), a_tag),
+                    (Mid(self.mid, b_rid), b_tag),
+                    t.depth,
+                    t.color))
+        tree = tree_
+
+        return tree
+
+# the mtree, the skeletal structure of littlefs
+class Mtree:
+    def __init__(self, bd, mrootchain, mtree, *,
+            mrootpath=None,
+            mtreepath=None,
+            mbits=None):
+        if isinstance(mrootchain, Mdir):
+            mrootchain = [Mdir]
+        # we at least need the mrootanchor, even if it is corrupt
+        assert len(mrootchain) >= 1
+
+        self.bd = bd
+        if mbits is not None:
+            self.mbits = mbits
+        else:
+            self.mbits = Mtree.mbits_(self.bd)
+
+        self.mrootchain = mrootchain
+        self.mrootanchor = mrootchain[0]
+        self.mroot = mrootchain[-1]
+        self.mtree = mtree
+
+    # mbits is a static value derived from the block_size
+    @staticmethod
+    def mbits_(block_size):
+        if isinstance(block_size, Bd):
+            block_size = block_size.block_size
+        return mt.ceil(mt.log2(block_size // 8))
+
+    # convenience function for creating mbits-dependent mids
+    def mid(self, mbid, mrid=None):
+        return Mid(mbid, mrid, mbits=self.mbits)
+
+    @property
+    def block(self):
+        return self.mroot.block
+
+    @property
+    def blocks(self):
+        return self.mroot.blocks
+
+    @property
+    def trunk(self):
+        return self.mroot.trunk
+
+    @property
+    def weight(self):
+        if self.mtree is None:
+            return 0
+        else:
+            return self.mtree.weight
+
+    def mbweight(self):
+        return self.weight
+
+    def mrweight(self):
+        return 1 << self.mbits
+
+    def mbweight_(self):
+        return self.weight >> self.mbits
+
+    def mrweight_(self):
+        return 1 << self.mbits
+
+    @property
+    def rev(self):
+        return self.mroot.rev
+
+    @property
+    def eoff(self):
+        return self.mroot.eoff
+
+    @property
+    def cksum(self):
+        return self.mroot.cksum
+
+    def addr(self):
+        return self.mroot.addr()
+
+    def __repr__(self):
+        return '<%s %s w%s.%s>' % (
+                self.__class__.__name__,
+                self.addr(),
+                self.mbweight_(), self.mrweight_())
+
+    def __eq__(self, other):
+        return self.mrootanchor == other.mrootanchor
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.mrootanchor)
+
+    @classmethod
+    def fetch(cls, bd, blocks=None, *,
+            depth=None):
+        # we need a real bd reference here
+        assert isinstance(bd, Bd)
+
+        # default to blocks 0x{0,1}
+        if blocks is None:
+            blocks = [0, 1]
+
+        # figure out mbits
+        mbits = Mtree.mbits_(bd)
+
+        # fetch the mrootanchor
+        mrootanchor = Mdir.fetch(bd, -1, blocks)
+
+        # follow the mroot chain to try to find the active mroot
+        mroot = mrootanchor
+        mrootchain = [mrootanchor]
+        mrootseen = set()
+        while True:
+            # corrupted?
+            if not mroot:
+                break
+            # cycle detected?
+            if mroot in mrootseen:
+                break
+            mrootseen.add(mroot)
+
+            # stop here?
+            if depth and len(mrootchain) >= depth:
+                break
+
+            # fetch the next mroot
+            rattr_ = mroot.lookup(-1, TAG_MROOT, 0x3)
+            if rattr_ is None:
+                break
+            blocks_ = frommdir(rattr_.data)
+            mroot = Mdir.fetch(bd, -1, blocks_)
+            mrootchain.append(mroot)
+
+        # fetch the actual mtree, if there is one
+        mtree = None
+        if not depth or len(mrootchain) < depth:
+            rattr_ = mroot.lookup(-1, TAG_MTREE, 0x3)
+            if rattr_ is not None:
+                w_, block_, trunk_, cksum_ = frombtree(rattr_.data)
+                mtree = Btree.fetch(bd, block_, trunk_, cksum_)
+
+        return cls(bd, mrootchain, mtree,
+                mbits=mbits)
+
+    def lookupleaf_(self, mid, *,
+            path=None,
+            depth=None):
+        if not isinstance(mid, Mid):
+            mid = self.mid(mid)
+
+        if path or depth:
+            # iterate over mrootchain
+            path_ = []
+            for mroot in self.mrootchain:
+                path_.append((mroot.mid, mroot,
+                        mroot.lookup(-1, TAG_MAGIC)))
+                # stop here?
+                if depth and len(path_) >= depth:
+                    return mroot, path_
+
+        # no mtree? must be inlined in mroot
+        if self.mtree is None:
+            if mid.mbid >= (1 << self.mbits):
+                return None, *((path_,) if path else ())
+
+            mdir = Mdir(mid, self.mroot)
+            # corrupt mdir?
+            if not mdir:
+                return mdir, *((path_,) if path else ())
+            # not in mdir?
+            if mid.mrid >= mdir.weight:
+                return None, *((path_,) if path else ())
+
+            if path:
+                path_.append((mid, mdir, mdir.lookup(mid)))
+            return mdir, *((path_,) if path else ())
+
+        # mtree? lookup in mtree
+        else:
+            # need to do two steps here in case lookupleaf stops early
+            bid_, rbyd_, rid_, name_, *path__ = (
+                    self.mtree.lookupleaf(mid.mid,
+                        path=path or depth,
+                        depth=depth-len(path_) if depth else None))
+            if path or depth:
+                path_.extend((
+                            self.mid(bid__),
+                            (bid__, rbyd__, rid__, name__),
+                            name__)
+                        for bid__, rbyd__, rid__, name__ in path__[0])
+            if bid_ is None:
+                return None, *((path_,) if path else ())
+
+            # stop here? it's not an mdir, but we only return this if
+            # depth is explicitly requested
+            if depth and len(path_) >= depth:
+                return ((bid_, rbyd_, rid_, name_),
+                        *((path_,) if path else ()))
+
+            # fetch the mdir
+            rattr_ = rbyd_.lookup(rid_, TAG_MDIR, 0x3)
+            # mdir tag missing? weird
+            if rattr_ is None:
+                return None, *((path_,) if path else ())
+            blocks_ = frommdir(rattr_.data)
+            mdir = Mdir.fetch(self.bd, mid, blocks_)
+            # corrupt mdir?
+            if not mdir:
+                return mdir, *((path_,) if path else ())
+            # not in mdir?
+            if mid.mrid >= mdir.weight:
+                return None, *((path_,) if path else ())
+
+            if path:
+                path_.append((mid, mdir, mdir.lookup(mid)))
+            return mdir, *((path_,) if path else ())
+
+    def lookupleaf(self, mid, *,
+            path=None,
+            depth=None):
+        mdir, *path_ = self.lookupleaf_(mid,
+                path=path,
+                depth=depth)
+        if path:
+            return mdir, *path_
+        else:
+            return mdir
+
+    def lookup(self, mid, tag=None, mask=None, *,
+            path=False,
+            depth=None):
+        mdir_, *path_ = self.lookupleaf_(mid,
+                path=path,
+                depth=depth)
+        if (mdir_ is None
+                # these can happen if depth reached
+                or not isinstance(mdir_, Mdir)
+                or mdir_.mid == -1):
+            return None, None, *path_
+
+        # lookup tag in mdir
+        rattr_ = mdir_.lookup(mid, tag, mask)
+        if rattr_ is None:
+            return None, None, *path_
+
+        return mdir_, rattr_, *path_
+
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup(*key)
+
+    def __contains__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        return self.lookup(*key)[0] is not None
+
+    # iterate over all mdirs, this includes the mrootchain
+    def leaves_(self, *,
+            path=False,
+            depth=None):
+        # iterate over mrootchain
+        if path or depth:
+            path_ = []
+        for mroot in self.mrootchain:
+            yield mroot, *((path_,) if path else ())
+
+            if path or depth:
+                path_.append((mroot.mid, mroot,
+                        mroot.lookup(-1, TAG_MAGIC)))
+                # stop here?
+                if depth and len(path_) >= depth:
+                    return
+
+        # do we even have an mtree?
+        if self.mtree is not None:
+            # include the mtree root even if the weight is zero
+            if self.mtree.weight == 0:
+                yield (-1, self.mtree.rbyd), *((path_,) if path else ())
+
+            mid = self.mid(0)
+            while True:
+                mdir, *path__ = self.lookupleaf_(mid,
+                        path=path,
+                        depth=depth)
+                if mdir is None:
+                    break
+
+                # mdir?
+                if isinstance(mdir, Mdir):
+                    yield mdir, *((path__[0][:-1],) if path else ())
+                    mid = self.mid(mid.mbid+1)
+                # btree node?
+                else:
+                    bid, rbyd, rid, name = mdir
+                    yield ((bid-rid + (rbyd.weight-1), rbyd),
+                            *((path__[0][:-1],) if path else ()))
+                    mid = self.mid(bid-rid + (rbyd.weight-1) + 1)
+
+    def leaves(self, *,
+            path=False,
+            depth=None):
+        for mdir, *path_ in self.leaves_(
+                path=path,
+                depth=depth):
+            if path:
+                yield mdir, *path_
+            else:
+                yield mdir
+
+    # traverse over all mdirs and btree nodes
+    # - mdir       => Mdir
+    # - btree node => (bid, rbyd)
+    def traverse_(self, *,
+            path=False,
+            depth=None):
+        ptrunk_ = []
+        for mdir, path_ in self.leaves(
+                path=True,
+                depth=depth):
+            # we only care about the mdirs/rbyds here
+            trunk_ = ([mdir if isinstance(mdir, Mdir)
+                        else (lambda bid_, rbyd_, rid_, name_:
+                            (bid_-rid_ + (rbyd_.weight-1), rbyd_))(
+                                *mdir)
+                        for mid, mdir, name in path_]
+                    + [mdir])
+            for d, mdir in pathdelta(
+                    trunk_, ptrunk_):
+                # but include branch mids/rids in the path if requested
+                yield mdir, *((path_[:d],) if path else ())
+            ptrunk_ = trunk_
+
+    def traverse(self, *,
+            path=False,
+            depth=None):
+        for mdir, *path_ in self.traverse_(
+                path=path,
+                depth=depth):
+            if path:
+                yield mdir, *path_
+            else:
+                yield mdir
+
+    # these are just aliases
+    mdirs_ = leaves_
+    mdirs = leaves
+
+    def mids(self, *,
+            path=False,
+            depth=None):
+        for mdir, *path_ in self.leaves_(
+                path=path,
+                depth=depth):
+            if isinstance(mdir, Mdir):
+                for mid, name in mdir.mids():
+                    yield (mid, mdir, name,
+                            *((path_[0]+[(mid, mdir, mdir.lookup(mid))],)
+                                if path else ()))
+            else:
+                bid, rbyd = mdir
+                for rid, name in rbyd.rids():
+                    bid_ = bid-(rbyd.weight-1) + rid
+                    mid_ = self.mid(bid_)
+                    mdir_ = (bid_, rbyd, rid, name)
+                    yield (mid_, mdir_, name,
+                            *((path_[0]+[(mid_, mdir_, name)],)
+                                if path else ()))
+
+    def rattrs_(self, mid=None, *,
+            path=False,
+            depth=None):
+        if mid is None:
+            for mdir, *path_ in self.leaves_(
+                    path=path,
+                    depth=depth):
+                if isinstance(mdir, Mdir):
+                    for mid, rattr in mdir.rattrs():
+                        yield (mid, mdir, rattr,
+                                *((path_[0]+[(mid, mdir, mdir.lookup(mid))],)
+                                    if path else ()))
+                else:
+                    bid, rbyd = mdir
+                    for rid, name in rbyd.rids():
+                        bid_ = bid-(rbyd.weight-1) + rid
+                        mid_ = self.mid(bid_)
+                        mdir_ = (bid_, rbyd, rid, name)
+                        for rattr in rbyd.rattrs(rid):
+                            yield (mid_, mdir_, rattr,
+                                    *((path_[0]+[(mid_, mdir_, name)],)
+                                        if path else ()))
+        else:
+            if not isinstance(mid, Mid):
+                mid = self.mid(mid)
+
+            mdir, *path_ = self.lookupleaf_(mid,
+                    path=path,
+                    depth=depth)
+            if isinstance(mdir, Mdir):
+                for rattr in mdir.rattrs(mid):
+                    yield rattr, *path_
+            else:
+                bid, rbyd, rid, name = mdir
+                for rattr in rbyd.rattrs(rid):
+                    yield rattr, *path_
+
+    def rattrs(self, mid=None, *,
+            path=False,
+            depth=None):
+        if mid is None:
+            yield from self.rattrs_(mid,
+                    path=path,
+                    depth=depth)
+        else:
+            for rattr, *path_ in self.rattrs_(mid,
+                    path=path,
+                    depth=depth):
+                if path:
+                    yield rattr, *path_
+                else:
+                    yield rattr
+
+    def __iter__(self):
+        return self.rattrs()
+
+    # lookup by name
+    def namelookup(self, did, name, *,
+            depth=None):
+        # TODO
+        pass
+
+    # create an rbyd tree for debugging
+    def _tree_rtree(self, *,
+            depth=None,
+            inner=False,
+            **args):
+        # precompute rbyd trees so we know the max depth at each layer
+        # to nicely align trees
+        rtrees = {}
+        rdepths = {}
+        for mdir, path in self.traverse(path=True, depth=depth):
+            if isinstance(mdir, Mdir):
+                if not mdir:
+                    continue
+                rbyd = mdir.rbyd
+            else:
+                bid, rbyd = mdir
+                if not rbyd:
+                    continue
+
+            rtrees[rbyd] = rbyd.tree(**args)
+            rdepths[len(path)] = max(
+                    rdepths.get(len(path), 0),
+                    max((t.depth+1 for t in rtrees[rbyd]), default=0))
+
+        # map rbyd branches into our mtree space
+        tree = set()
+        branches = {}
+        for mdir, path in self.traverse(path=True, depth=depth):
+            if isinstance(mdir, Mdir):
+                if not mdir:
+                    continue
+                rbyd = mdir.rbyd
+            else:
+                bid, rbyd = mdir
+                if not rbyd:
+                    continue
+
+            # yes we can find new rbyds if disk is being mutated, just
+            # ignore these
+            if rbyd not in rtrees:
+                continue
+
+            rtree = rtrees[rbyd]
+            rdepth = max((t.depth+1 for t in rtree), default=0)
+            d = sum(rdepths[d]+1 for d in range(len(path)))
+
+            # map into our mtree space
+            for t in rtree:
+                # note we adjust our mid/bid to be left-leaning, this allows
+                # a global order and makes tree rendering quite a bit easier
+                #
+                # we also need to give btree nodes mrid=-1 so they come
+                # before and mrid=-1 mdir attrs
+                a_rid, a_tag = t.a
+                b_rid, b_tag = t.b
+                _, (_, a_w, _) = rbyd.lookupnext(a_rid)
+                _, (_, b_w, _) = rbyd.lookupnext(b_rid)
+                if isinstance(mdir, Mdir):
+                    a_mid = self.mid(mdir.mid, a_rid)
+                    b_mid = self.mid(mdir.mid, b_rid)
+                else:
+                    a_mid = self.mid(bid-(rbyd.weight-1)+a_rid-(a_w-1), -1)
+                    b_mid = self.mid(bid-(rbyd.weight-1)+b_rid-(b_w-1), -1)
+
+                tree.add(TreeBranch(
+                        (a_mid, len(path), a_tag),
+                        (b_mid, len(path), b_tag),
+                        d + rdepths[len(path)]-rdepth + t.depth,
+                        t.color))
+
+            # connect rbyd branches to rbyd roots
+            if path:
+                # figure out branch mid/attr
+                l_mid, l_mdir, l_name = path[-1]
+                if isinstance(l_mdir, Mdir):
+                    l_branch = (l_mdir.lookup(l_mid, TAG_MROOT, 0x3)
+                            or l_mdir.lookup(l_mid, TAG_MTREE, 0x3))
+                else:
+                    l_bid, l_rbyd, l_rid, l_name = l_mdir
+                    l_mid = self.mid(l_bid-(l_name.weight-1), -1)
+                    l_branch = (l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
+                            or l_rbyd.lookup(l_rid, TAG_MDIR, 0x3))
+
+                # figure out root mid/rattr
+                if rtree:
+                    r_rid, r_tag = min(rtree, key=lambda t: t.depth).a
+                    _, (_, r_w, _) = rbyd.lookupnext(r_rid)
+                else:
+                    r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
+
+                if isinstance(mdir, Mdir):
+                    r_mid = self.mid(mdir.mid, r_rid)
+                else:
+                    r_mid = self.mid(bid-(rbyd.weight-1)+r_rid-(r_w-1), -1)
+
+                tree.add(TreeBranch(
+                        (l_mid, len(path)-1, l_branch.tag),
+                        (r_mid, len(path), r_tag),
+                        d-1))
+
+        # remap branches to leaves if we aren't showing inner branches
+        if not inner:
+            # step through each btree layer backwards
+            b_depth = max((t.a[1]+1 for t in tree), default=0)
+
+            for d in reversed(range(len(self.mrootchain), b_depth-1)):
+                # find mid ranges at this level
+                mids = set()
+                for t in tree:
+                    if t.a[1] == d:
+                        mids.add(t.a[0])
+                mids = sorted(mids)
+
+                # find the best root for each mid range
+                roots = {}
+                for i in range(len(mids)):
+                    for t in tree:
+                        if (t.b[1] > d
+                                and t.b[0] >= mids[i]
+                                and (i == len(mids)-1 or t.b[0] < mids[i+1])
+                                and (mids[i] not in roots
+                                    or t.depth < roots[mids[i]].depth)):
+                            roots[mids[i]] = t
+
+                # remap branches to leaf-roots
+                tree_ = set()
+                for t in tree:
+                    if t.a[1] == d and t.a[0] in roots:
+                        t = TreeBranch(
+                                roots[t.a[0]].b,
+                                t.b,
+                                t.depth,
+                                t.color)
+                    if t.b[1] == d and t.b[0] in roots:
+                        t = TreeBranch(
+                                t.a,
+                                roots[t.b[0]].b,
+                                t.depth,
+                                t.color)
+                    tree_.add(t)
+                tree = tree_
+
+        return tree
+
+    # create a btree tree for debugging
+    def _tree_btree(self, *,
+            depth=None,
+            inner=False,
+            **args):
+        tree = set()
+        root = None
+        branches = {}
+        for mid, mdir, name, path in self.mids(
+                path=True,
+                depth=depth):
+            # create branch for each jump in path
+            #
+            # note we adjust our mid/bid to be left-leaning, this allows
+            # a global order and makes tree rendering quite a bit easier
+            #
+            # we also need to give btree nodes mrid=-1 so they come
+            # before and mrid=-1 mdir attrs
+            a = root
+            for d, (mid_, mdir_, name_) in enumerate(path):
+                # map into our mtree space
+                if not isinstance(mdir_, Mdir):
+                    bid_, rbyd_, rid_, name_ = mdir_
+                    mid_ = self.mid(bid_-(name_.weight-1), -1)
+                b = (mid_, d, name_.tag)
+
+                # remap branches to leaves if we aren't showing inner
+                # branches
+                if not inner:
+                    if b not in branches:
+                        mid_, mdir_, name_ = path[-1]
+                        if not isinstance(mdir_, Mdir):
+                            bid_, rbyd_, rid_, name_ = mdir_
+                            mid_ = self.mid(bid_-(name_.weight-1), -1)
+                        branches[b] = (mid_, len(path)-1, name_.tag)
+                    b = branches[b]
+
+                # render the root path on first rid, this is arbitrary
+                if root is None:
+                    root, a = b, b
+
+                tree.add(TreeBranch(a, b, d))
+                a = b
+
+        return tree
+
+    # create tree representation for debugging
+    def tree(self, **args):
+        if args.get('tree_btree'):
+            return self._tree_btree(**args)
+        else:
+            return self._tree_rtree(**args)
+
 
 
 def main(disk, mroots=None, *,
@@ -910,7 +2288,7 @@ def main(disk, mroots=None, *,
     # flatten mroots, default to 0x{0,1}
     if not mroots:
         mroots = [(0,1)]
-    mroots = tuple(block for mroots_ in mroots for block in mroots_)
+    mroots = [block for mroots_ in mroots for block in mroots_]
 
     # we seek around a bunch, so just keep the disk open
     with open(disk, 'rb') as f:
@@ -919,633 +2297,110 @@ def main(disk, mroots=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # determine the mleaf_weight from the block_size, this is just for
-        # printing purposes
-        mleaf_weight = 1 << mt.ceil(mt.log2(block_size // 8))
+        # fetch the mtree
+        bd = Bd(f, block_size, block_count)
+        mtree = Mtree.fetch(bd, mroots,
+                depth=args.get('depth'))
 
-        # before we print, we need to do a pass for a few things:
-        # - find the actual mroot
-        # - find the total weight
-        bweight = 0
-        rweight = 0
+        # print some information about the mtree
+        print('mtree %s w%s.%s, rev %08x, cksum %08x' % (
+                mtree.addr(),
+                mtree.mbweight_(), mtree.mrweight_(),
+                mtree.rev,
+                mtree.cksum))
 
-        mroot = Rbyd.fetch(f, block_size, mroots)
-        mdepth = 1
-        mseen = set()
-        while True:
-            # corrupted?
-            if not mroot:
-                break
-            # cycle detected?
-            elif mroot.blocks in mseen:
-                break
-
-            mseen.add(mroot.blocks)
-
-            rweight = max(rweight, mroot.weight)
-
-            # stop here?
-            if args.get('depth') and mdepth >= args.get('depth'):
-                break
-
-            # fetch the next mroot
-            done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MROOT)
-            if not (not done and rid == -1 and tag == TAG_MROOT):
-                break
-
-            blocks = frommdir(data)
-            mroot = Rbyd.fetch(f, block_size, blocks)
-            mdepth += 1
-
-        # fetch the mdir, if there is one
-        mdir = None
-        if not args.get('depth') or mdepth < args.get('depth'):
-            done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MDIR)
-            if not done and rid == -1 and tag == TAG_MDIR:
-                blocks = frommdir(data)
-                mdir = Rbyd.fetch(f, block_size, blocks)
-
-                # corrupted?
-                if mdir:
-                    rweight = max(rweight, mdir.weight)
-
-        # fetch the actual mtree, if there is one
-        mtree = None
-        if not args.get('depth') or mdepth < args.get('depth'):
-            done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
-            if not done and rid == -1 and tag == TAG_MTREE:
-                w, block, trunk, cksum = frombtree(data)
-                mtree = Rbyd.fetch(f, block_size, block, trunk, cksum)
-
-                bweight = w
-
-                # traverse entries
-                mbid = -1
-                while True:
-                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                            f, block_size, mbid+1,
-                            depth=args.get('depth', mdepth)-mdepth)
-                    if done:
-                        break
-
-                    # corrupted?
-                    if not rbyd:
-                        continue
-
-                    mdir__ = None
-                    if (not args.get('depth')
-                            or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(
-                                ((tag, j, d, data)
-                                    for tag, j, d, data in tags
-                                    if tag == TAG_MDIR),
-                                None)
-
-                    if mdir__:
-                        # fetch the mdir
-                        _, _, _, data = mdir__
-                        blocks = frommdir(data)
-                        mdir_ = Rbyd.fetch(f, block_size, blocks)
-
-                        # corrupted?
-                        if mdir_:
-                            rweight = max(rweight, mdir_.weight)
-
-        # precompute rbyd-tree if requested
+        # precompute tree renderings
         t_width = 0
-        if args.get('tree') or args.get('rbyd'):
-            # compute mroot chain "tree", prefix our actual mtree with this
-            tree = set()
-            d_ = 0
-            mroot_ = Rbyd.fetch(f, block_size, mroots)
-            mdepth_ = 1
-            mseen_ = set()
-            for d in it.count():
-                # corrupted?
-                if not mroot_:
-                    break
-                # cycle detected?
-                elif mroot_.blocks in mseen_:
-                    break
+        if (args.get('tree')
+                or args.get('tree_rbyd')
+                or args.get('tree_btree')):
+            tree = mtree.tree(**args)
 
-                mseen_.add(mroot_.blocks)
-
-                # compute the mroots rbyd-tree
-                rtree, rdepth = mroot_.tree(rbyd=args.get('rbyd'))
-
-                # connect branch to our root
-                if d > 0:
-                    root = min(rtree,
-                            key=lambda branch: branch.d,
-                            default=None)
-
-                    if root:
-                        r_rid, r_tag = root.a
-                    else:
-                        _, r_rid, r_tag, _, _, _, _, _ = mroot_.lookup(-1, 0x1)
-                    tree.add(TBranch(
-                        a=(-1, d-1, 0, -1, TAG_MROOT),
-                        b=(-1, d, 0, r_rid, r_tag),
-                        d=d_-1,
-                        c='b',
-                    ))
-
-                # map the tree into our metadata space
-                for branch in rtree:
-                    a_rid, a_tag = branch.a
-                    b_rid, b_tag = branch.b
-                    tree.add(TBranch(
-                        a=(-1, d, 0, a_rid, a_tag),
-                        b=(-1, d, 0, b_rid, b_tag),
-                        d=d_ + branch.d,
-                        c=branch.c,
-                    ))
-                d_ += rdepth
-
-                # stop here?
-                if args.get('depth') and mdepth_ >= args.get('depth'):
-                    break
-
-                # fetch the next mroot
-                done, rid, tag, w, j, _, data, _ = mroot_.lookup(-1, TAG_MROOT)
-                if not (not done and rid == -1 and tag == TAG_MROOT):
-                    break
-
-                blocks = frommdir(data)
-                mroot_ = Rbyd.fetch(f, block_size, blocks)
-                mdepth_ += 1
-
-            # compute mdir's rbyd-tree if there is one
-            if mdir:
-                rtree, rdepth = mdir.tree(rbyd=args.get('rbyd'))
-
-                # connect branch to our root
-                root = min(rtree,
-                        key=lambda branch: branch.d,
-                        default=None)
-
-                if root:
-                    r_rid, r_tag = root.a
-                else:
-                    _, r_rid, r_tag, _, _, _, _, _ = mdir.lookup(-1, 0x1)
-                tree.add(TBranch(
-                    a=(-1, d, 0, -1, TAG_MDIR),
-                    b=(0, 0, 0, r_rid, r_tag),
-                    d=d_-1,
-                    c='b',
-                ))
-
-                # map the tree into our metadata space
-                for branch in rtree:
-                    a_rid, a_tag = branch.a
-                    b_rid, b_tag = branch.b
-                    tree.add(TBranch(
-                        a=(0, 0, 0, a_rid, a_tag),
-                        b=(0, 0, 0, b_rid, b_tag),
-                        d=d_ + branch.d,
-                        c=branch.c,
-                    ))
-
-            # compute the mtree's rbyd-tree if there is one
-            if mtree:
-                tree_, tdepth = mtree.btree_tree(
-                        f, block_size,
-                        depth=args.get('depth', mdepth)-mdepth,
-                        inner=args.get('inner'),
-                        rbyd=args.get('rbyd'))
-
-                # connect a branch to the root of the tree
-                root = min(tree_, key=lambda branch: branch.d, default=None)
-                if root:
-                    r_bid, r_bd, r_rid, r_tag = root.a
-                    tree.add(TBranch(
-                        a=(-1, d, 0, -1, TAG_MTREE),
-                        b=(r_bid, r_bd, r_rid, 0, r_tag),
-                        d=d_-1,
-                        c='b',
-                    ))
-
-                # map the tree into our metadata space
-                for branch in tree_:
-                    a_bid, a_bd, a_rid, a_tag = branch.a
-                    b_bid, b_bd, b_rid, b_tag = branch.b
-                    tree.add(TBranch(
-                        a=(a_bid, a_bd, a_rid, 0, a_tag),
-                        b=(b_bid, b_bd, b_rid, 0, b_tag),
-                        d=d_ + branch.d,
-                        c=branch.c,
-                    ))
-
-                # find the max depth of each mdir to nicely align trees
-                mdepth_ = 0
-                mbid = -1
-                while True:
-                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                            f, block_size, mbid+1,
-                            depth=args.get('depth', mdepth)-mdepth)
-                    if done:
-                        break
-
-                    # corrupted?
-                    if not rbyd:
-                        continue
-
-                    mdir__ = None
-                    if (not args.get('depth')
-                            or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(
-                                ((tag, j, d, data)
-                                    for tag, j, d, data in tags
-                                    if tag == TAG_MDIR),
-                                None)
-
-                    if mdir__:
-                        # fetch the mdir
-                        _, _, _, data = mdir__
-                        blocks = frommdir(data)
-                        mdir_ = Rbyd.fetch(f, block_size, blocks)
-
-                        rtree, rdepth = mdir_.tree(rbyd=args.get('rbyd'))
-                        mdepth_ = max(mdepth_, rdepth)
-
-                # compute the rbyd-tree for each mdir
-                mbid = -1
-                while True:
-                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                            f, block_size, mbid+1,
-                            depth=args.get('depth', mdepth)-mdepth)
-                    if done:
-                        break
-
-                    # corrupted?
-                    if not rbyd:
-                        continue
-
-                    mdir__ = None
-                    if (not args.get('depth')
-                            or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(
-                                ((tag, j, d, data)
-                                    for tag, j, d, data in tags
-                                    if tag == TAG_MDIR),
-                                None)
-
-                    if mdir__:
-                        # fetch the mdir
-                        _, _, _, data = mdir__
-                        blocks = frommdir(data)
-                        mdir_ = Rbyd.fetch(f, block_size, blocks)
-
-                        rtree, rdepth = mdir_.tree(rbyd=args.get('rbyd'))
-
-                        # connect the root to the mtree
-                        branch = max(
-                                (branch for branch in tree
-                                    if branch.b[0] == mbid-(mw-1)),
-                                key=lambda branch: branch.d,
-                                default=None)
-                        if branch:
-                            root = min(rtree,
-                                    key=lambda branch: branch.d,
-                                    default=None)
-                            if root:
-                                r_rid, r_tag = root.a
-                            else:
-                                _, r_rid, r_tag, _, _, _, _, _ = (
-                                        mdir_.lookup(-1, 0x1))
-                            tree.add(TBranch(
-                                a=branch.b,
-                                b=(mbid-(mw-1), len(path), 0, r_rid, r_tag),
-                                d=d_ + tdepth,
-                                c='b',
-                            ))
-
-                        # map the tree into our metadata space
-                        for branch in rtree:
-                            a_rid, a_tag = branch.a
-                            b_rid, b_tag = branch.b
-                            tree.add(TBranch(
-                                a=(mbid-(mw-1), len(path), 0, a_rid, a_tag),
-                                b=(mbid-(mw-1), len(path), 0, b_rid, b_tag),
-                                d=(d_ + tdepth + 1
-                                    + branch.d + mdepth_-rdepth),
-                                c=branch.c,
-                            ))
-
-                # remap branches to leaves if we aren't showing inner branches
-                if not args.get('inner'):
-                    # step through each layer backwards
-                    b_depth = max((branch.b[1]+1 for branch in tree), default=0)
-
-                    # keep track of the original bids, unfortunately because we
-                    # store the bids in the branches we overwrite these
-                    tree = {(branch.b[0] - branch.b[2], branch)
-                            for branch in tree}
-
-                    for bd in reversed(range(b_depth-1)):
-                        # find leaf-roots at this level
-                        roots = {}
-                        for bid, branch in tree:
-                            # choose the highest node as the root
-                            if (branch.b[1] == b_depth-1
-                                    and (bid not in roots
-                                        or branch.d < roots[bid].d)):
-                                roots[bid] = branch
-
-                        # remap branches to leaf-roots
-                        tree_ = set()
-                        for bid, branch in tree:
-                            # note we ignore mroot branches, we don't collapse
-                            # normally these
-                            if (branch.a[0] != -1
-                                    and branch.a[1] == bd
-                                    and branch.a[0] in roots):
-                                branch = TBranch(
-                                    a=roots[branch.a[0]].b,
-                                    b=branch.b,
-                                    d=branch.d,
-                                    c=branch.c,
-                                )
-                            if (branch.b[0] != -1
-                                    and branch.b[1] == bd
-                                    and branch.b[0] in roots):
-                                branch = TBranch(
-                                    a=branch.a,
-                                    b=roots[branch.b[0]].b,
-                                    d=branch.d,
-                                    c=branch.c,
-                                )
-                            tree_.add((bid, branch))
-                        tree = tree_
-
-                    # strip out bids
-                    tree = {branch for _, branch in tree}
-
-        # precompute B-tree if requested
-        elif args.get('btree'):
-            # compute mroot chain "tree", prefix our actual mtree with this
-            tree = set()
-            mroot_ = Rbyd.fetch(f, block_size, mroots)
-            mdepth_ = 1
-            mseen_ = set()
-            for d in it.count():
-                # corrupted?
-                if not mroot_:
-                    break
-                # cycle detected?
-                elif mroot_.blocks in mseen_:
-                    break
-
-                mseen_.add(mroot_.blocks)
-
-                # connect branch to our first tag
-                if d > 0:
-                    done, rid, tag, w, j, _, data, _ = mroot_.lookup(-1, 0x1)
-                    if not done:
-                        tree.add(TBranch(
-                            a=(-1, d-1, 0, -1, TAG_MROOT),
-                            b=(-1, d, 0, rid, tag),
-                            d=0,
-                            c='b',
-                        ))
-
-                # stop here?
-                if args.get('depth') and mdepth_ >= args.get('depth'):
-                    break
-
-                # fetch the next mroot
-                done, rid, tag, w, j, _, data, _ = mroot_.lookup(-1, TAG_MROOT)
-                if not (not done and rid == -1 and tag == TAG_MROOT):
-                    break
-
-                blocks = frommdir(data)
-                mroot_ = Rbyd.fetch(f, block_size, blocks)
-                mdepth_ += 1
-
-            # create a branch to our mdir if there is one
-            if mdir:
-                # connect branch to our first tag
-                done, rid, tag, w, j, _, data, _ = mdir.lookup(-1, 0x1)
-                if not done:
-                    tree.add(TBranch(
-                        a=(-1, d, 0, -1, TAG_MDIR),
-                        b=(0, 0, 0, rid, tag),
-                        d=0,
-                        c='b',
-                    ))
-
-            # compute the mtree's B-tree if there is one
-            if mtree:
-                tree_, tdepth = mtree.btree_btree(
-                        f, block_size,
-                        depth=args.get('depth', mdepth)-mdepth,
-                        inner=args.get('inner'))
-
-                # connect a branch to the root of the tree
-                root = min(tree_, key=lambda branch: branch.d, default=None)
-                if root:
-                    r_bid, r_bd, r_rid, r_tag = root.a
-                    tree.add(TBranch(
-                        a=(-1, d, 0, -1, TAG_MTREE),
-                        b=(r_bid, r_bd, r_rid, 0, r_tag),
-                        d=0,
-                        c='b',
-                    ))
-
-                # map the tree into our metadata space
-                for branch in tree_:
-                    a_bid, a_bd, a_rid, a_tag = branch.a
-                    b_bid, b_bd, b_rid, b_tag = branch.b
-                    tree.add(TBranch(
-                        a=(a_bid, a_bd, a_rid, 0, a_tag),
-                        b=(b_bid, b_bd, b_rid, 0, b_tag),
-                        d=1 + branch.d,
-                        c=branch.c,
-                    ))
-
-                # remap branches to leaves if we aren't showing inner branches
-                if not args.get('inner'):
-                    mbid = -1
-                    while True:
-                        done, mbid, mw, rbyd, rid, tags, path = (
-                            mtree.btree_lookup(
-                                    f, block_size, mbid+1,
-                                    depth=args.get('depth', mdepth)-mdepth))
-                        if done:
-                            break
-
-                        # corrupted?
-                        if not rbyd:
-                            continue
-
-                        mdir__ = None
-                        if (not args.get('depth')
-                                or mdepth+len(path) < args.get('depth')):
-                            mdir__ = next(
-                                    ((tag, j, d, data)
-                                        for tag, j, d, data in tags
-                                        if tag == TAG_MDIR),
-                                    None)
-
-                        if mdir__:
-                            # fetch the mdir
-                            _, _, _, data = mdir__
-                            blocks = frommdir(data)
-                            mdir_ = Rbyd.fetch(f, block_size, blocks)
-
-                            # find the first entry in the mdir, map branches
-                            # to this entry
-                            done, rid, tag, _, j, d, data, _ = (
-                                    mdir_.lookup(-1, 0x1))
-
-                            tree_ = set()
-                            for branch in tree:
-                                if branch.a[0] == mbid-(mw-1):
-                                    a_bid, a_bd, _, _, _ = branch.a
-                                    branch = TBranch(
-                                        a=(a_bid, a_bd+1, 0, rid, tag),
-                                        b=branch.b,
-                                        d=branch.d,
-                                        c=branch.c,
-                                    )
-                                if branch.b[0] == mbid-(mw-1):
-                                    b_bid, b_bd, _, _, _ = branch.b
-                                    branch = TBranch(
-                                        a=branch.a,
-                                        b=(b_bid, b_bd+1, 0, rid, tag),
-                                        d=branch.d,
-                                        c=branch.c,
-                                    )
-                                tree_.add(branch)
-                            tree = tree_
-
-        # common tree renderer
-        if args.get('tree') or args.get('rbyd') or args.get('btree'):
             # find the max depth from the tree
-            t_depth = max((branch.d+1 for branch in tree), default=0)
+            t_depth = max((t.depth+1 for t in tree), default=0)
             if t_depth > 0:
                 t_width = 2*t_depth + 2
 
-            def treerepr(mbid, mw, md, mrid, rid, tag):
-                if t_depth == 0:
-                    return ''
+        # dynamically size the id field
+        w_width = max(
+                mt.ceil(mt.log10(max(1, mtree.mbweight_())+1)),
+                mt.ceil(mt.log10(max(1, mtree.mrweight_())+1)),
+                # in case of -1.-1
+                2)
 
-                def branchrepr(x, d, was):
-                    for branch in tree:
-                        if branch.d == d and branch.b == x:
-                            if any(branch.d == d and branch.a == x
-                                    for branch in tree):
-                                return '+-', branch.c, branch.c
-                            elif any(branch.d == d
-                                        and x > min(branch.a, branch.b)
-                                        and x < max(branch.a, branch.b)
-                                    for branch in tree):
-                                return '|-', branch.c, branch.c
-                            elif branch.a < branch.b:
-                                return '\'-', branch.c, branch.c
-                            else:
-                                return '.-', branch.c, branch.c
-                    for branch in tree:
-                        if branch.d == d and branch.a == x:
-                            return '+ ', branch.c, None
-                    for branch in tree:
-                        if (branch.d == d
-                                and x > min(branch.a, branch.b)
-                                and x < max(branch.a, branch.b)):
-                            return '| ', branch.c, was
-                    if was:
-                        return '--', was, was
-                    return '  ', None, None
-
-                trunk = []
-                was = None
-                for d in range(t_depth):
-                    t, c, was = branchrepr(
-                            (mbid-max(mw-1, 0), md,
-                                mrid-max(mw-1, 0), rid, tag),
-                            d, was)
-
-                    trunk.append('%s%s%s%s' % (
-                            '\x1b[33m' if color and c == 'y'
-                                else '\x1b[31m' if color and c == 'r'
-                                else '\x1b[90m' if color and c == 'b'
-                                else '',
-                            t,
-                            ('>' if was else ' ') if d == t_depth-1 else '',
-                            '\x1b[m' if color and c else ''))
-
-                return '%s ' % ''.join(trunk)
-
-
-        def dbg_mdir(mdir, mbid, mw, md):
-            for i, (rid, tag, w, j, d, data) in enumerate(mdir):
-                # show human-readable tag representation
+        def dbg_mdir(d, mdir):
+            # show human-readable tag representation
+            for i, (mid, rattr) in enumerate(mdir.rattrs()):
                 print('%12s %s%s' % (
                         '{%s}:' % ','.join('%04x' % block
                                 for block in mdir.blocks)
                             if i == 0 else '',
-                        treerepr(mbid-max(mw-1, 0), 0, md, 0, rid, tag)
+                        treerepr(tree, (mid, d, rattr.tag),
+                                t_depth, color)
                             if args.get('tree')
-                                or args.get('rbyd')
-                                or args.get('btree')
+                                or args.get('tree_rbyd')
+                                or args.get('tree_btree')
                             else '',
                         '%*s %-*s%s' % (
                             2*w_width+1, '%d.%d-%d' % (
-                                    mbid//mleaf_weight, rid-(w-1), rid)
-                                if w > 1
-                                else '%d.%d' % (mbid//mleaf_weight, rid)
-                                if w > 0 or i == 0
+                                    mid.mbid_(),
+                                    mid.mrid_()-(rattr.weight-1),
+                                    mid.mrid_())
+                                if rattr.weight > 1
+                                else '%d.%d' % (mid.mbid_(), mid.mrid_())
+                                if rattr.weight > 0 or i == 0
                                 else '',
-                            21+w_width, tagrepr(tag, w, len(data), j),
-                            '  %s' % next(xxd(data, 8), '')
+                            21+w_width, rattr,
+                            '  %s' % next(xxd(rattr.data, 8), '')
                                 if not args.get('raw')
                                     and not args.get('no_truncate')
                                 else '')))
 
                 # show on-disk encoding of tags
                 if args.get('raw'):
-                    for o, line in enumerate(xxd(mdir.data[j:j+d])):
+                    for o, line in enumerate(xxd(
+                            mdir.data[rattr.toff:rattr.off])):
                         print('%11s: %*s%*s %s' % (
-                                '%04x' % (j + o*16),
+                                '%04x' % (rattr.toff + o*16),
                                 t_width, '',
                                 2*w_width+1, '',
                                 line))
                 if args.get('raw') or args.get('no_truncate'):
-                    if not tag & TAG_ALT:
-                        for o, line in enumerate(xxd(data)):
-                            print('%11s: %*s%*s %s' % (
-                                    '%04x' % (j+d + o*16),
-                                    t_width, '',
-                                    2*w_width+1, '',
-                                    line))
+                    for o, line in enumerate(xxd(rattr.data)):
+                        print('%11s: %*s%*s %s' % (
+                                '%04x' % (rattr.off + o*16),
+                                t_width, '',
+                                2*w_width+1, '',
+                                line))
 
         # prbyd here means the last rendered rbyd, we update
         # in dbg_branch to always print interleaved addresses
         prbyd = None
-        def dbg_branch(bid, w, rbyd, rid, tags, bd):
+        def dbg_branch(d, bid, rbyd, rid, name):
             nonlocal prbyd
 
             # show human-readable representation
-            for i, (tag, j, d, data) in enumerate(tags):
+            for rattr in rbyd.rattrs(rid):
                 print('%12s %s%*s %-*s  %s' % (
                         '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                             if prbyd is None or rbyd != prbyd
                             else '',
-                        treerepr(bid, w, bd, rid, 0, tag)
+                        treerepr(tree,
+                                (mtree.mid(bid-(name.weight-1), -1),
+                                    d, rattr.tag),
+                                t_depth, color)
                             if args.get('tree')
-                                or args.get('rbyd')
-                                or args.get('btree')
+                                or args.get('tree_rbyd')
+                                or args.get('tree_btree')
                             else '',
-                        2*w_width+1, '' if i != 0
-                            else '%d-%d' % (
-                                (bid-(w-1))//mleaf_weight,
-                                bid//mleaf_weight)
-                            if (w//mleaf_weight) > 1
-                            else bid//mleaf_weight if w > 0
+                        2*w_width+1, '%d-%d' % (
+                                (bid-(rattr.weight-1)) >> mtree.mbits,
+                                bid >> mtree.mbits)
+                            if (rattr.weight >> mtree.mbits) > 1
+                            else bid >> mtree.mbits if rattr.weight > 0
                             else '',
-                        21+w_width, tagrepr(
-                            tag, w if i == 0 else 0, len(data), None),
-                        next(xxd(data, 8), '')
+                        21+w_width, rattr,
+                        next(xxd(rattr.data, 8), '')
                             if not args.get('raw')
                                 and not args.get('no_truncate')
                             else ''))
@@ -1553,204 +2408,94 @@ def main(disk, mroots=None, *,
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
-                    for o, line in enumerate(xxd(rbyd.data[j:j+d])):
+                    for o, line in enumerate(xxd(
+                            rbyd.data[rattr.toff:rattr.off])):
                         print('%11s: %*s%*s %s' % (
-                                '%04x' % (j + o*16),
+                                '%04x' % (rattr.toff + o*16),
                                 t_width, '',
                                 2*w_width+1, '',
                                 line))
                 if args.get('raw') or args.get('no_truncate'):
-                    for o, line in enumerate(xxd(data)):
+                    for o, line in enumerate(xxd(rattr.data)):
                         print('%11s: %*s%*s %s' % (
-                                '%04x' % (j+d + o*16),
+                                '%04x' % (rattr.off + o*16),
                                 t_width, '',
                                 2*w_width+1, '',
                                 line))
 
-
-        #### actual debugging begins here
-
-        # print some information about the mtree
-        print('mtree %s w%d.%d, rev %08x, cksum %08x' % (
-                mroot.addr(),
-                bweight//mleaf_weight, 1*mleaf_weight,
-                mroot.rev,
-                mroot.cksum))
-
-        # dynamically size the id field
-        w_width = max(
-                mt.ceil(mt.log10(max(1, bweight//mleaf_weight)+1)),
-                mt.ceil(mt.log10(max(1, rweight)+1)),
-                # in case of -1.-1
-                2)
-
-        # show each mroot
+        # traverse and print entries
         prbyd = None
         ppath = []
+        mrootseen = set()
         corrupted = False
-        mroot = Rbyd.fetch(f, block_size, mroots)
-        mdepth = 1
-        mseen = set()
-        for d in it.count():
-            # corrupted?
-            if not mroot:
-                print('{%s}: %s%s%s' % (
-                        ','.join('%04x' % block
-                            for block in mroot.blocks),
-                        '\x1b[31m' if color else '',
-                        '(corrupted mroot %s)' % mroot.addr(),
-                        '\x1b[m' if color else ''))
-                corrupted = True
-                break
-            # cycle detected?
-            elif mroot.blocks in mseen:
-                print('{%s}: %s%s%s' % (
-                        ','.join('%04x' % block
-                            for block in mroot.blocks),
-                        '\x1b[31m' if color else '',
-                        '(mroot cycle detected %s)' % mroot.addr(),
-                        '\x1b[m' if color else ''))
-                corrupted = True
-                break
-            else:
-                # show the mdir
-                dbg_mdir(mroot, -1, 0, d)
+        for mdir, path in mtree.leaves(
+                path=True,
+                depth=args.get('depth')):
+            # print inner branches if requested
+            if args.get('inner'):
+                for d, (mid_, (bid_, rbyd_, rid_, name_), name_) in pathdelta(
+                        # skip the mrootchain
+                        path[len(mtree.mrootchain):],
+                        ppath[len(mtree.mrootchain):]):
+                    dbg_branch(len(mtree.mrootchain)+d,
+                            bid_, rbyd_, rid_, name_)
+            ppath = path
 
-            mseen.add(mroot.blocks)
-
-            # stop here?
-            if args.get('depth') and mdepth >= args.get('depth'):
-                break
-
-            # fetch the next mroot
-            done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MROOT)
-            if not (not done and rid == -1 and tag == TAG_MROOT):
-                break
-
-            blocks = frommdir(data)
-            mroot = Rbyd.fetch(f, block_size, blocks)
-            mdepth += 1
-
-        # show the mdir, if there is one
-        if not args.get('depth') or mdepth < args.get('depth'):
-            done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MDIR)
-            if not done and rid == -1 and tag == TAG_MDIR:
-                blocks = frommdir(data)
-                mdir = Rbyd.fetch(f, block_size, blocks)
-
+            # mdir?
+            if isinstance(mdir, Mdir):
                 # corrupted?
                 if not mdir:
                     print('{%s}: %s%s%s' % (
                             ','.join('%04x' % block
                                 for block in mdir.blocks),
                             '\x1b[31m' if color else '',
-                            '(corrupted mdir %s)' % mdir.addr(),
+                            '(corrupted %s %s)' % (
+                                'mroot' if mdir.mid == -1 else 'mdir',
+                                mdir.addr()),
                             '\x1b[m' if color else ''))
                     corrupted = True
-                else:
-                    # show the mdir
-                    dbg_mdir(mdir, 0, 0, 0)
+                    prbyd = None
+                    continue
 
-        # fetch the actual mtree, if there is one
-        if not args.get('depth') or mdepth < args.get('depth'):
-            done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
-            if not done and rid == -1 and tag == TAG_MTREE:
-                w, block, trunk, cksum = frombtree(data)
-                mtree = Rbyd.fetch(f, block_size, block, trunk, cksum)
-
-                # traverse entries
-                mbid = -1
-                while True:
-                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
-                            f, block_size, mbid+1,
-                            depth=args.get('depth', mdepth)-mdepth)
-                    if done:
-                        break
-
-                    # print inner btree entries if requested
-                    if args.get('inner'):
-                        changed = False
-                        for (x, px) in it.zip_longest(
-                                enumerate(path[:-1]),
-                                enumerate(ppath[:-1])):
-                            if x is None:
-                                break
-                            if not (changed or px is None or x != px):
-                                continue
-                            changed = True
-
-                            # show the inner entry
-                            d, (mid_, w_, rbyd_, rid_, tags_) = x
-                            dbg_branch(mid_, w_, rbyd_, rid_, tags_, d)
-                    ppath = path
-
-                    # corrupted? try to keep printing the tree
-                    if not rbyd:
-                        print('%11s: %*s%s%s%s' % (
-                                '%04x.%04x' % (rbyd.block, rbyd.trunk),
-                                t_width, '',
-                                '\x1b[31m' if color else '',
-                                '(corrupted rbyd %s)' % rbyd.addr(),
-                                '\x1b[m' if color else ''))
-                        prbyd = rbyd
-                        corrupted = True
-                        continue
-
-                    # if we're not showing inner nodes, prefer names higher in
-                    # the tree since this avoids showing vestigial names
-                    if not args.get('inner'):
-                        name = None
-                        for mid_, w_, rbyd_, rid_, tags_ in reversed(path):
-                            for tag_, j_, d_, data_ in tags_:
-                                if tag_ & 0x7f00 == TAG_NAME:
-                                    name = (tag_, j_, d_, data_)
-
-                            if rid_-(w_-1) != 0:
-                                break
-
-                        if name is not None:
-                            tags = [name] + [(tag, j, d, data)
-                                    for tag, j, d, data in tags
-                                    if tag & 0x7f00 != TAG_NAME]
-
-                    # found an mdir in the tags?
-                    mdir__ = None
-                    if (not args.get('depth')
-                            or mdepth+len(path) < args.get('depth')):
-                        mdir__ = next(
-                                ((tag, j, d, data)
-                                    for tag, j, d, data in tags
-                                    if tag == TAG_MDIR),
-                                None)
-
-                    # show other btree entries in certain cases
-                    if args.get('inner') or not mdir__:
-                        dbg_branch(mbid, mw, rbyd, rid, tags, len(path)-1)
-
-                    if not mdir__:
-                        continue
-
-                    # fetch the mdir
-                    _, _, _, data = mdir__
-                    blocks = frommdir(data)
-                    mdir_ = Rbyd.fetch(f, block_size, blocks)
-
-                    # corrupted?
-                    if not mdir_:
-                        print('{%s}: %*s%s%s%s' % (
+                # cycle detected?
+                if mdir.mid == -1:
+                    if mdir in mrootseen:
+                        print('{%s}: %s%s%s' % (
                                 ','.join('%04x' % block
-                                    for block in mdir_.blocks),
-                                t_width, '',
+                                    for block in mdir.blocks),
                                 '\x1b[31m' if color else '',
-                                '(corrupted mdir %s)' % mdir_.addr(),
+                                '(mroot cycle detected %s)' % mdir.addr(),
                                 '\x1b[m' if color else ''))
                         corrupted = True
-                    else:
-                        # show the mdir
-                        dbg_mdir(mdir_, mbid, mw, len(path))
-
-                        # force next btree entry to be shown
                         prbyd = None
+                        continue
+                    mrootseen.add(mdir)
+
+                # show the mdir
+                dbg_mdir(len(path), mdir)
+
+                # force next btree entry to be shown
+                prbyd = None
+
+            # btree node?
+            else:
+                bid, rbyd = mdir
+                # corrupted? try to keep printing the tree
+                if not rbyd:
+                    print('%11s: %*s%s%s%s' % (
+                            '%04x.%04x' % (rbyd.block, rbyd.trunk),
+                            t_width, '',
+                            '\x1b[31m' if color else '',
+                            '(corrupted rbyd %s)' % rbyd.addr(),
+                            '\x1b[m' if color else ''))
+                    corrupted = True
+                    prbyd = rbyd
+                    continue
+
+                for rid, name in rbyd.rids():
+                    bid_ = bid-(rbyd.weight-1) + rid
+                    # show the leaf entry/branch
+                    dbg_branch(len(path), bid_, rbyd, rid, name)
 
     if args.get('error_on_corrupt') and corrupted:
         sys.exit(2)
@@ -1794,15 +2539,15 @@ if __name__ == "__main__":
     parser.add_argument(
             '-t', '--tree',
             action='store_true',
-            help="Show the underlying rbyd trees.")
+            help="Show the rbyd tree.")
     parser.add_argument(
-            '-B', '--btree',
+            '-R', '--tree-rbyd',
             action='store_true',
-            help="Show the underlying B-trees.")
+            help="Show the full rbyd tree.")
     parser.add_argument(
-            '-R', '--rbyd',
+            '-B', '--tree-btree',
             action='store_true',
-            help="Show the full underlying rbyd trees.")
+            help="Show a simplified btree tree.")
     parser.add_argument(
             '-i', '--inner',
             action='store_true',
