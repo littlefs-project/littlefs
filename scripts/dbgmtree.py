@@ -2324,7 +2324,10 @@ def main(disk, mroots=None, *,
         # dynamically size the id field
         w_width = max(
                 mt.ceil(mt.log10(max(1, mtree.mbweight_())+1)),
-                mt.ceil(mt.log10(max(1, mtree.mrweight_())+1)),
+                mt.ceil(mt.log10(max(1, max(
+                    mdir.weight for mdir in mtree.mdirs(
+                            depth=args.get('depth'))
+                        if isinstance(mdir, Mdir))))+1),
                 # in case of -1.-1
                 2)
 
