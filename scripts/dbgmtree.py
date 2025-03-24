@@ -292,6 +292,31 @@ class TreeBranch(co.namedtuple('TreeBranch', ['a', 'b', 'depth', 'color'])):
                 self.depth,
                 self.color)
 
+    # don't include color in branch comparisons, or else our tree
+    # renderings can end up with inconsistent colors between runs
+    def __eq__(self, other):
+        return (self.a, self.b, self.depth) == (other.a, other.b, other.depth)
+
+    def __ne__(self, other):
+        return (self.a, self.b, self.depth) != (other.a, other.b, other.depth)
+
+    def __hash__(self):
+        return hash((self.a, self.b, self.depth))
+
+    # also order by depth first, which can be useful for reproducibly
+    # prioritizing branches when simplifying trees
+    def __lt__(self, other):
+        return (self.depth, self.a, self.b) < (other.depth, other.a, other.b)
+
+    def __le__(self, other):
+        return (self.depth, self.a, self.b) <= (other.depth, other.a, other.b)
+
+    def __gt__(self, other):
+        return (self.depth, self.a, self.b) > (other.depth, other.a, other.b)
+
+    def __ge__(self, other):
+        return (self.depth, self.a, self.b) >= (other.depth, other.a, other.b)
+
 def treerepr(tree, x, depth=None, color=False):
     # find the max depth from the tree
     if depth is None:
@@ -1247,7 +1272,8 @@ class Btree:
 
             rtree = rtrees[rbyd]
             rdepth = max((t.depth+1 for t in rtree), default=0)
-            d = sum(rdepths[d]+1 for d in range(len(path)))
+            d = sum(rdepths[d]+(1 if inner or args.get('tree_rbyd') else 0)
+                for d in range(len(path)))
 
             # map into our btree space
             for t in rtree:
@@ -1264,7 +1290,7 @@ class Btree:
                         t.color))
 
             # connect rbyd branches to rbyd roots
-            if path:
+            if path and (inner or args.get('tree_rbyd')):
                 l_bid, l_rbyd, l_rid, l_name = path[-1]
                 l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
 
@@ -1288,19 +1314,19 @@ class Btree:
                 # find bid ranges at this level
                 bids = set()
                 for t in tree:
-                    if t.a[1] == d:
-                        bids.add(t.a[0])
+                    if t.b[1] == d:
+                        bids.add(t.b[0])
                 bids = sorted(bids)
 
                 # find the best root for each bid range
                 roots = {}
                 for i in range(len(bids)):
                     for t in tree:
-                        if (t.b[1] > d
-                                and t.b[0] >= bids[i]
-                                and (i == len(bids)-1 or t.b[0] < bids[i+1])
+                        if (t.a[1] > d
+                                and t.a[0] >= bids[i]
+                                and (i == len(bids)-1 or t.a[0] < bids[i+1])
                                 and (bids[i] not in roots
-                                    or t.depth < roots[bids[i]].depth)):
+                                    or t < roots[bids[i]])):
                             roots[bids[i]] = t
 
                 # remap branches to leaf-roots
@@ -1308,14 +1334,14 @@ class Btree:
                 for t in tree:
                     if t.a[1] == d and t.a[0] in roots:
                         t = TreeBranch(
-                                roots[t.a[0]].b,
+                                roots[t.a[0]].a,
                                 t.b,
                                 t.depth,
                                 t.color)
                     if t.b[1] == d and t.b[0] in roots:
                         t = TreeBranch(
                                 t.a,
-                                roots[t.b[0]].b,
+                                roots[t.b[0]].a,
                                 t.depth,
                                 t.color)
                     tree_.add(t)
@@ -2111,7 +2137,11 @@ class Mtree:
 
             rtree = rtrees[rbyd]
             rdepth = max((t.depth+1 for t in rtree), default=0)
-            d = sum(rdepths[d]+1 for d in range(len(path)))
+            d = sum(rdepths[d]
+                        + (1 if inner
+                            or args.get('tree_rbyd')
+                            or isinstance(mdir, Mdir) else 0)
+                    for d, (_, mdir, _) in enumerate(path))
 
             # map into our mtree space
             for t in rtree:
@@ -2138,7 +2168,9 @@ class Mtree:
                         t.color))
 
             # connect rbyd branches to rbyd roots
-            if path:
+            if path and (inner
+                    or args.get('tree_rbyd')
+                    or isinstance(path[-1][1], Mdir)):
                 # figure out branch mid/attr
                 l_mid, l_mdir, l_name = path[-1]
                 if isinstance(l_mdir, Mdir):
@@ -2176,19 +2208,19 @@ class Mtree:
                 # find mid ranges at this level
                 mids = set()
                 for t in tree:
-                    if t.a[1] == d:
-                        mids.add(t.a[0])
+                    if t.b[1] == d:
+                        mids.add(t.b[0])
                 mids = sorted(mids)
 
                 # find the best root for each mid range
                 roots = {}
                 for i in range(len(mids)):
                     for t in tree:
-                        if (t.b[1] > d
-                                and t.b[0] >= mids[i]
-                                and (i == len(mids)-1 or t.b[0] < mids[i+1])
+                        if (t.a[1] > d
+                                and t.a[0] >= mids[i]
+                                and (i == len(mids)-1 or t.a[0] < mids[i+1])
                                 and (mids[i] not in roots
-                                    or t.depth < roots[mids[i]].depth)):
+                                    or t < roots[mids[i]])):
                             roots[mids[i]] = t
 
                 # remap branches to leaf-roots
@@ -2196,14 +2228,14 @@ class Mtree:
                 for t in tree:
                     if t.a[1] == d and t.a[0] in roots:
                         t = TreeBranch(
-                                roots[t.a[0]].b,
+                                roots[t.a[0]].a,
                                 t.b,
                                 t.depth,
                                 t.color)
                     if t.b[1] == d and t.b[0] in roots:
                         t = TreeBranch(
                                 t.a,
-                                roots[t.b[0]].b,
+                                roots[t.b[0]].a,
                                 t.depth,
                                 t.color)
                     tree_.add(t)
