@@ -1524,8 +1524,7 @@ class Btree:
 
             rtree = rtrees[rbyd]
             rdepth = max((t.depth+1 for t in rtree), default=0)
-            d = sum(rdepths[d]+(1 if inner or args.get('tree_rbyd') else 0)
-                for d in range(len(path)))
+            d = sum(rdepths[d]+1 for d in range(len(path)))
 
             # map into our btree space
             for t in rtree:
@@ -1542,7 +1541,7 @@ class Btree:
                         t.color))
 
             # connect rbyd branches to rbyd roots
-            if path and (inner or args.get('tree_rbyd')):
+            if path:
                 l_bid, l_rbyd, l_rid, l_name = path[-1]
                 l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
 
@@ -2535,11 +2534,7 @@ class Mtree:
 
             rtree = rtrees[rbyd]
             rdepth = max((t.depth+1 for t in rtree), default=0)
-            d = sum(rdepths[d]
-                        + (1 if inner
-                            or args.get('tree_rbyd')
-                            or isinstance(p[1], Mdir) else 0)
-                    for d, p in enumerate(path))
+            d = sum(rdepths[d]+1 for d, p in enumerate(path))
 
             # map into our mtree space
             for t in rtree:
@@ -2566,9 +2561,7 @@ class Mtree:
                         t.color))
 
             # connect rbyd branches to rbyd roots
-            if path and (inner
-                    or args.get('tree_rbyd')
-                    or isinstance(path[-1][1], Mdir)):
+            if path:
                 # figure out branch mid/attr
                 if isinstance(path[-1][1], Mdir):
                     l_mid, l_mdir, l_name = path[-1]
@@ -3836,8 +3829,7 @@ class Lfs:
                     a = (pos, len(path)-1, data.tag)
                     b = (pos, len(path), data.tag)
                     bptrs[a] = b
-                    if args.get('inner'):
-                        tree.add(TreeBranch(a, b, t_depth))
+                    tree.add(TreeBranch(a, b, t_depth))
 
             # if we're not showing inner branches, nudge bptr tags to
             # their bptrs

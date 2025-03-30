@@ -1475,8 +1475,7 @@ class Btree:
 
             rtree = rtrees[rbyd]
             rdepth = max((t.depth+1 for t in rtree), default=0)
-            d = sum(rdepths[d]+(1 if inner or args.get('tree_rbyd') else 0)
-                for d in range(len(path)))
+            d = sum(rdepths[d]+1 for d in range(len(path)))
 
             # map into our btree space
             for t in rtree:
@@ -1493,7 +1492,7 @@ class Btree:
                         t.color))
 
             # connect rbyd branches to rbyd roots
-            if path and (inner or args.get('tree_rbyd')):
+            if path:
                 l_bid, l_rbyd, l_rid, l_name = path[-1]
                 l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
 
