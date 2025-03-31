@@ -210,8 +210,13 @@ def main(flags, *,
     flags_ = []
     prefix = set()
     for f in flags:
+        # accept prefix prefix
         if f.upper() in prefixes:
             prefix.update(prefixes[f.upper()])
+        # accept LFS_+prefix prefix
+        elif (f.upper().startswith('LFS_')
+                and f.upper()[len('LFS_'):] in prefixes):
+            prefix.update(prefixes[f.upper()[len('LFS_'):]])
         else:
             flags_.append(f)
 
