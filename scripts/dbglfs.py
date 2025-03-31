@@ -3345,8 +3345,7 @@ class Lfs:
     # lookup operations 
     def lookup(self, mid, mdir=None, *,
             all=False):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         # is this mid grmed?
         if not all_ and self.grmed(mid):
@@ -3367,8 +3366,7 @@ class Lfs:
 
     def namelookup(self, did, name, *,
             all=False):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         mid_, mdir_, name_ = self.mtree.namelookup(did, name)
         if mid_ is None:
@@ -3430,8 +3428,7 @@ class Lfs:
             all=False,
             path=False,
             depth=None):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         # default to the root directory
         if path_ is None:
@@ -3470,8 +3467,7 @@ class Lfs:
             all=False,
             path=False,
             depth=None):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         file, *path__ = self.pathlookup_(did, path_,
                 all=all_,
@@ -3486,8 +3482,7 @@ class Lfs:
             all=False,
             path=False,
             depth=None):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         # default to the root directory
         did = did or self.root.did
@@ -3536,8 +3531,7 @@ class Lfs:
             all=False,
             path=False,
             depth=None):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         for file, *path__ in self.files_(did,
                 all=all_,
@@ -3553,8 +3547,7 @@ class Lfs:
 
     def orphans(self,
             all=False):
-        import builtins
-        all_, all = all, builtins.all
+        all_ = all; del all
 
         # first find all reachable dids
         dids = {self.root.did}
@@ -4069,8 +4062,7 @@ def dbg_files(lfs, paths,
         all=False,
         no_orphans=False,
         **args):
-    import builtins
-    all_, all = all, builtins.all
+    all_ = all; del all
 
     # parse all paths first, error if anything is malformed
     dirs = []

@@ -194,9 +194,8 @@ FLAGS = [
 def main(flags, *,
         list=False,
         all=False):
-    import builtins
-    list_, list = list, builtins.list
-    all_, all = all, builtins.all
+    list_ = list; del list
+    all_ = all; del all
 
     # first compile prefixes
     prefixes = {}

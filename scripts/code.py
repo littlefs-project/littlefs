@@ -604,8 +604,7 @@ def table(Result, results, diff_results=None, *,
         small_table=False,
         summary=False,
         **_):
-    import builtins
-    all_, all = all, builtins.all
+    all_ = all; del all
 
     if by is None:
         by = Result._by
