@@ -1696,7 +1696,7 @@ if __name__ == "__main__":
             help="Path to the gdb executable, may include flags. "
                 "Defaults to %r." % GDB_PATH)
     test_parser.add_argument(
-            '--exec',
+            '-e', '--exec',
             type=lambda e: e.split(),
             help="Run under another executable.")
     test_parser.add_argument(
