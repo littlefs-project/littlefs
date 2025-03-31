@@ -80,10 +80,10 @@ def bdgeom(s):
         return int(s, b)
 
 # parse some rbyd addr encodings
-# 0xa       -> [0xa]
-# 0xa.c     -> [(0xa, 0xc)]
-# 0x{a,b}   -> [0xa, 0xb]
-# 0x{a,b}.c -> [(0xa, 0xc), (0xb, 0xc)]
+# 0xa       -> (0xa,)
+# 0xa.c     -> ((0xa, 0xc),)
+# 0x{a,b}   -> (0xa, 0xb)
+# 0x{a,b}.c -> ((0xa, 0xc), (0xb, 0xc))
 def rbydaddr(s):
     s = s.strip()
     b = 10
@@ -114,7 +114,7 @@ def rbydaddr(s):
         else:
             addr.append(int(s, b))
 
-    return addr
+    return tuple(addr)
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -471,9 +471,9 @@ class Rattr:
         self.tag = tag
         self.weight = weight
         if isinstance(blocks, int):
-            self.blocks = [blocks]
+            self.blocks = (blocks,)
         else:
-            self.blocks = list(blocks)
+            self.blocks = blocks
         self.toff = toff
         self.tdata = tdata
         self.data = data
@@ -547,9 +547,9 @@ class Ralt:
         self.tag = tag
         self.weight = weight
         if isinstance(blocks, int):
-            self.blocks = [blocks]
+            self.blocks = (blocks,)
         else:
-            self.blocks = list(blocks)
+            self.blocks = blocks
         self.toff = toff
         self.tdata = tdata
         self.jump = jump
@@ -602,9 +602,9 @@ class Rbyd:
             gcksumdelta=None,
             corrupt=False):
         if isinstance(blocks, int):
-            self.blocks = [blocks]
+            self.blocks = (blocks,)
         else:
-            self.blocks = list(blocks)
+            self.blocks = blocks
         self.trunk = trunk
         self.weight = weight
         self.rev = rev
@@ -647,51 +647,7 @@ class Rbyd:
         return hash((frozenset(self.blocks), self.trunk))
 
     @classmethod
-    def fetch(cls, bd, blocks, trunk=None):
-        # multiple blocks? unfortunately this must be a list
-        if isinstance(blocks, list):
-            # fetch all blocks
-            rbyds = [cls.fetch(bd, block, trunk) for block in blocks]
-            # determine most recent revision
-            i = 0
-            for i_, rbyd in enumerate(rbyds):
-                # compare with sequence arithmetic
-                if rbyd and (
-                        not rbyds[i]
-                            or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
-                            or (rbyd.rev == rbyds[i].rev
-                                and rbyd.trunk > rbyds[i].trunk)):
-                    i = i_
-            # keep track of the other blocks
-            rbyd = rbyds[i]
-            rbyd.blocks += tuple(
-                    rbyds[(i+1+j) % len(rbyds)].block
-                        for j in range(len(rbyds)-1))
-            # and patch the gcksumdelta if we have one
-            if rbyd.gcksumdelta is not None:
-                rbyd.gcksumdelta.blocks = rbyd.blocks
-            return rbyd
-
-        block = blocks
-
-        # blocks may also encode trunks
-        block, trunk = (
-                block[0] if isinstance(block, tuple)
-                    else block,
-                trunk if trunk is not None
-                    else block[1] if isinstance(block, tuple)
-                    else None)
-
-        # bd can be either a bd reference or a preread block
-        #
-        # preread blocks can be useful for avoiding race conditions
-        # with cksums and shrubs
-        if isinstance(bd, Bd):
-            # seek/read the block
-            data = bd.readblock(block)
-        else:
-            data = bd
-
+    def _fetch(cls, data, block, trunk=None):
         # fetch the rbyd
         rev = fromle32(data[0:4])
         cksum = 0
@@ -789,6 +745,39 @@ class Rbyd:
                 corrupt=not trunk_)
 
     @classmethod
+    def fetch(cls, bd, blocks, trunk=None):
+        # multiple blocks?
+        if not isinstance(blocks, int):
+            # fetch all blocks
+            rbyds = [cls.fetch(bd, block, trunk) for block in blocks]
+            # determine most recent revision
+            i = 0
+            for i_, rbyd in enumerate(rbyds):
+                # compare with sequence arithmetic
+                if rbyd and (
+                        not rbyds[i]
+                            or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
+                            or (rbyd.rev == rbyds[i].rev
+                                and rbyd.trunk > rbyds[i].trunk)):
+                    i = i_
+            # keep track of the other blocks
+            rbyd = rbyds[i]
+            rbyd.blocks += tuple(
+                    rbyds[(i+1+j) % len(rbyds)].block
+                        for j in range(len(rbyds)-1))
+            # and patch the gcksumdelta if we have one
+            if rbyd.gcksumdelta is not None:
+                rbyd.gcksumdelta.blocks = rbyd.blocks
+            return rbyd
+
+        # seek/read the block
+        block = blocks
+        data = bd.readblock(block)
+
+        # fetch the rbyd
+        return cls._fetch(data, block, trunk)
+
+    @classmethod
     def fetchck(cls, bd, blocks, trunk, weight, cksum):
         # try to fetch the rbyd normally
         rbyd = cls.fetch(bd, blocks, trunk)
@@ -803,6 +792,15 @@ class Rbyd:
             rbyd.weight = weight
 
         return rbyd
+
+    @classmethod
+    def fetchshrub(cls, rbyd, trunk):
+        # steal the original rbyd's data
+        #
+        # this helps avoid race conditions with cksums and stuff
+        shrub = cls._fetch(rbyd.data, rbyd.block, trunk)
+        shrub.blocks = rbyd.blocks
+        return shrub
 
     def lookupnext(self, rid, tag=None, *,
             path=False):
@@ -1172,31 +1170,20 @@ class Btree:
 
     @classmethod
     def fetch(cls, bd, blocks, trunk=None):
-        # bd can either be a bd reference or a tuple of bd + data to
-        # avoid rereads, but we need a real bd reference somehow
-        if isinstance(bd, tuple):
-            bd, data = bd
-        else:
-            bd, data = bd, bd
-        assert isinstance(bd, Bd)
-
         # rbyd fetch does most of the work here
-        rbyd = Rbyd.fetch(data, blocks, trunk)
+        rbyd = Rbyd.fetch(bd, blocks, trunk)
         return cls(bd, rbyd)
 
     @classmethod
     def fetchck(cls, bd, blocks, trunk, weight, cksum):
-        # bd can either be a bd reference or a tuple of bd + data to
-        # avoid rereads, but we need a real bd reference somehow
-        if isinstance(bd, tuple):
-            bd, data = bd
-        else:
-            bd, data = bd, bd
-        assert isinstance(bd, Bd)
-
         # rbyd fetchck does most of the work here
-        rbyd = Rbyd.fetchck(data, blocks, trunk, weight, cksum)
+        rbyd = Rbyd.fetchck(bd, blocks, trunk, weight, cksum)
         return cls(bd, rbyd)
+
+    @classmethod
+    def fetchshrub(cls, bd, rbyd, trunk):
+        shrub = Rbyd.fetchshrub(rbyd, trunk)
+        return cls(bd, shrub)
 
     def lookupleaf(self, bid, *,
             path=None,
@@ -1770,13 +1757,9 @@ class Mdir:
         return hash(frozenset(self.blocks))
 
     @classmethod
-    def fetch(cls, bd, mid, blocks):
-        rbyd = Rbyd.fetch(bd, blocks)
-        # this affects mbits
-        if isinstance(bd, Bd):
-            return cls(mid, rbyd, mbits=Mtree.mbits_(bd))
-        else:
-            return cls(mid, rbyd)
+    def fetch(cls, bd, mid, blocks, trunk=None):
+        rbyd = Rbyd.fetch(bd, blocks, trunk)
+        return cls(mid, rbyd, mbits=Mtree.mbits_(bd))
 
     def lookup_(self, mid, tag=None, mask=None, *,
             path=False):
@@ -1965,11 +1948,8 @@ class Mtree:
         return hash(self.mrootanchor)
 
     @classmethod
-    def fetch(cls, bd, blocks=None, *,
+    def fetch(cls, bd, blocks=None, trunk=None, *,
             depth=None):
-        # we need a real bd reference here
-        assert isinstance(bd, Bd)
-
         # default to blocks 0x{0,1}
         if blocks is None:
             blocks = [0, 1]
@@ -1978,7 +1958,7 @@ class Mtree:
         mbits = Mtree.mbits_(bd)
 
         # fetch the mrootanchor
-        mrootanchor = Mdir.fetch(bd, -1, blocks)
+        mrootanchor = Mdir.fetch(bd, -1, blocks, trunk)
 
         # follow the mroot chain to try to find the active mroot
         mroot = mrootanchor
@@ -2648,6 +2628,7 @@ class Mtree:
 
 
 def main(disk, mroots=None, *,
+        trunk=None,
         block_size=None,
         block_count=None,
         color='auto',
@@ -2667,9 +2648,19 @@ def main(disk, mroots=None, *,
             block_count = block_count_
 
     # flatten mroots, default to 0x{0,1}
-    if not mroots:
-        mroots = [(0,1)]
-    mroots = [block for mroots_ in mroots for block in mroots_]
+    mroots = list(it.chain.from_iterable(mroots)) if mroots else [0, 1]
+
+    # mroots may also encode trunks
+    mroots, trunk = (
+            [block[0] if isinstance(block, tuple)
+                    else block
+                for block in mroots],
+            trunk if trunk is not None
+                else ft.reduce(
+                    lambda x, y: y,
+                    (block[1] for block in mroots
+                        if isinstance(block, tuple)),
+                    None))
 
     # we seek around a bunch, so just keep the disk open
     with open(disk, 'rb') as f:
@@ -2680,7 +2671,7 @@ def main(disk, mroots=None, *,
 
         # fetch the mtree
         bd = Bd(f, block_size, block_count)
-        mtree = Mtree.fetch(bd, mroots,
+        mtree = Mtree.fetch(bd, mroots, trunk,
                 depth=args.get('depth'))
 
         # print some information about the mtree
@@ -2899,6 +2890,10 @@ if __name__ == "__main__":
             nargs='*',
             type=rbydaddr,
             help="Block address of the mroots. Defaults to 0x{0,1}.")
+    parser.add_argument(
+            '--trunk',
+            type=lambda x: int(x, 0),
+            help="Use this offset as the trunk of the mroots.")
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
