@@ -2851,13 +2851,20 @@ def main(disk, mroots=None, *,
                 # in case of -1.-1
                 2)
 
+        # pmdir keeps track of the last rendered mdir/rbyd, we update
+        # this in dbg_mdir/dbg_branch to always print interleaved
+        # addresses
+        pmdir = None
         def dbg_mdir(d, mdir):
+            nonlocal pmdir
+
             # show human-readable tag representation
             for i, (mid, rattr) in enumerate(mdir.rattrs()):
                 print('%12s %s%s' % (
                         '{%s}:' % ','.join('%04x' % block
                                 for block in mdir.blocks)
-                            if i == 0 else '',
+                            if not isinstance(pmdir, Mdir) or mdir != pmdir
+                            else '',
                         treeart.repr((mid, d, rattr.tag), color)
                             if args.get('tree')
                                 or args.get('tree_rbyd')
@@ -2879,6 +2886,7 @@ def main(disk, mroots=None, *,
                                 if not args.get('raw')
                                     and not args.get('no_truncate')
                                 else '')))
+                pmdir = mdir
 
                 # show on-disk encoding of tags
                 if args.get('raw'):
@@ -2896,17 +2904,14 @@ def main(disk, mroots=None, *,
                                 2*w_width+1, '',
                                 line))
 
-        # prbyd here means the last rendered rbyd, we update
-        # in dbg_branch to always print interleaved addresses
-        prbyd = None
         def dbg_branch(d, bid, rbyd, rid, name):
-            nonlocal prbyd
+            nonlocal pmdir
 
             # show human-readable representation
             for rattr in rbyd.rattrs(rid):
                 print('%12s %s%*s %-*s  %s' % (
                         '%04x.%04x:' % (rbyd.block, rbyd.trunk)
-                            if prbyd is None or rbyd != prbyd
+                            if not isinstance(pmdir, Rbyd) or rbyd != pmdir
                             else '',
                         treeart.repr(
                                 (mtree.mid(bid-(name.weight-1), -1),
@@ -2927,7 +2932,7 @@ def main(disk, mroots=None, *,
                             if not args.get('raw')
                                 and not args.get('no_truncate')
                             else ''))
-                prbyd = rbyd
+                pmdir = rbyd
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
@@ -2976,8 +2981,8 @@ def main(disk, mroots=None, *,
                                 'mroot' if mdir.mid == -1 else 'mdir',
                                 mdir.addr()),
                             '\x1b[m' if color else ''))
+                    pmdir = None
                     corrupted = True
-                    prbyd = None
                     continue
 
                 # cycle detected?
@@ -2989,16 +2994,13 @@ def main(disk, mroots=None, *,
                                 '\x1b[31m' if color else '',
                                 '(mroot cycle detected %s)' % mdir.addr(),
                                 '\x1b[m' if color else ''))
+                        pmdir = None
                         corrupted = True
-                        prbyd = None
                         continue
                     mrootseen.add(mdir)
 
                 # show the mdir
                 dbg_mdir(len(path), mdir)
-
-                # force next btree entry to be shown
-                prbyd = None
 
             # btree node?
             else:
@@ -3011,8 +3013,8 @@ def main(disk, mroots=None, *,
                             '\x1b[31m' if color else '',
                             '(corrupted rbyd %s)' % rbyd.addr(),
                             '\x1b[m' if color else ''))
+                    pmdir = None
                     corrupted = True
-                    prbyd = rbyd
                     continue
 
                 for rid, name in rbyd.rids():

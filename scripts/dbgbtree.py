@@ -1732,7 +1732,7 @@ def main(disk, roots=None, *,
         # dynamically size the id field
         w_width = mt.ceil(mt.log10(max(1, btree.weight)+1))
 
-        # prbyd here means the last rendered rbyd, we update
+        # prbyd keeps track of the last rendered rbyd, we update
         # in dbg_branch to always print interleaved addresses
         prbyd = None
         def dbg_branch(d, bid, rbyd, rid, name):
@@ -1797,7 +1797,7 @@ def main(disk, roots=None, *,
                         '\x1b[31m' if color else '',
                         '(corrupted rbyd %s)' % rbyd.addr(),
                         '\x1b[m' if color else ''))
-                prbyd = rbyd
+                prbyd = None
                 corrupted = True
                 continue
 

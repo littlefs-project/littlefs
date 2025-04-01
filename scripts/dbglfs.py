@@ -4091,12 +4091,12 @@ def dbg_files(lfs, paths,
             f_width = max(f_width, 4*len(path) + len(file.name.name))
 
     # only show the mdir/rbyd/block address on mdir change
-    pblock = None
+    pmdir = None
     # recursively print directories
     def dbg_dir(dir,
             depth,
             prefixes=('', '', '', '')):
-        nonlocal pblock
+        nonlocal pmdir
 
         # first figure out the dir length so we know when the dir ends
         if prefixes != ('', '', '', ''):
@@ -4130,7 +4130,8 @@ def dbg_files(lfs, paths,
                         else '',
                     '{%s}:' % ','.join('%04x' % block
                             for block in file.mdir.blocks)
-                        if pblock is None or file.mdir.block != pblock else '',
+                        if not isinstance(pmdir, Mdir) or file.mdir != pmdir
+                        else '',
                     2*w_width+1, file.mid.repr(),
                     f_width, '%s%s' % (
                         prefixes[0+(i==len_-1)],
@@ -4141,7 +4142,7 @@ def dbg_files(lfs, paths,
                     '\x1b[m'
                         if color and (notes or file.grmed or file.internal)
                         else ''))
-            pblock = file.mdir.block
+            pmdir = file.mdir
 
             # print attrs associated with each file?
             if args.get('attrs'):
@@ -4186,7 +4187,7 @@ def dbg_files(lfs, paths,
 
     # print file structures
     def dbg_struct(file):
-        nonlocal pblock
+        nonlocal pmdir
 
         # no tree?
         if file.bshrub is None:
@@ -4205,12 +4206,12 @@ def dbg_files(lfs, paths,
 
         # recursively print bshrub branches
         def dbg_branch(d, bid, rbyd, rid, name):
-            nonlocal pblock
+            nonlocal pmdir
 
             for rattr in rbyd.rattrs(rid):
                 print('%12s %*s %s%*s %-*s  %s' % (
                         '%04x.%04x:' % (rbyd.block, rbyd.trunk)
-                            if pblock is None or rbyd.block != pblock
+                            if not isinstance(pmdir, Rbyd) or rbyd != pmdir
                             else '',
                         2*w_width+1, '',
                         treeart.repr(
@@ -4229,7 +4230,7 @@ def dbg_files(lfs, paths,
                             if not args.get('raw')
                                 and not args.get('no_truncate')
                             else ''))
-                pblock = rbyd.block
+                pmdir = rbyd
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
@@ -4251,7 +4252,7 @@ def dbg_files(lfs, paths,
 
         # print inlined data, block pointers, etc
         def dbg_bptr(d, pos, bptr):
-            nonlocal pblock
+            nonlocal pmdir
             # some special situations worth reporting
             notes = []
             # cksum mismatch?
@@ -4262,7 +4263,7 @@ def dbg_files(lfs, paths,
             print('%s%12s%s %*s %s%s%s%-*s%s%s' % (
                     '\x1b[31m' if color and notes else '',
                     '%04x.%04x:' % (bptr.block, bptr.off)
-                        if pblock is None or bptr.block != pblock
+                        if not isinstance(pmdir, Bptr) or bptr != pmdir
                         else '',
                     '\x1b[0m' if color and notes else '',
                     2*w_width+1, '',
@@ -4285,7 +4286,7 @@ def dbg_files(lfs, paths,
                             else ''),
                     ' (%s)' % ', '.join(notes) if notes else '',
                     '\x1b[m' if color and notes else ''))
-            pblock = bptr.block
+            pmdir = bptr
 
             # show on-disk encoding of tag/bptr/data
             if args.get('raw'):
@@ -4307,9 +4308,7 @@ def dbg_files(lfs, paths,
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(bptr.data)):
                     print('%11s: %*s %*s%s%s' % (
-                            '%04x.%04x' % (bptr.block, bptr.off + o*16)
-                                if o == 0 and bptr.block != pblock
-                                else '%04x' % (bptr.off + o*16),
+                            '%04x' % (bptr.off + o*16),
                             2*w_width+1, '',
                             bt_width, '',
                             '%*s ' % (2*bw_width+1, ''),
@@ -4351,7 +4350,7 @@ def dbg_files(lfs, paths,
                             '\x1b[31m' if color else '',
                             '(corrupted rbyd %s)' % rbyd.addr(),
                             '\x1b[m' if color else ''))
-                    pblock = rbyd.block
+                    pmdir = None
                     continue
 
                 for rid, name in rbyd.rids():
