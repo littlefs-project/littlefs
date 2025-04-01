@@ -773,7 +773,10 @@ class Rbyd:
     def lookupnext(self, rid, tag=None, *,
             path=False):
         if not self or rid >= self.weight:
-            return None, None, *(([],) if path else ())
+            if path:
+                return None, None, []
+            else:
+                return None, None
 
         tag = max(tag or 0, 0x1)
         lower = 0
@@ -843,36 +846,42 @@ class Rbyd:
                 w_ = upper-lower
 
                 if not tag_ or (rid_, tag_) < (rid, tag):
-                    return None, None, *(([],) if path else ())
+                    if path:
+                        return None, None, path_
+                    else:
+                        return None, None
 
-                return (rid_,
-                        Rattr(tag_, w_, self.blocks, j,
-                            self.data[j:j+d],
-                            self.data[j+d:j+d+jump]),
-                        *((path_,) if path else ()))
+                rattr_ = Rattr(tag_, w_, self.blocks, j,
+                        self.data[j:j+d],
+                        self.data[j+d:j+d+jump])
+                if path:
+                    return rid_, rattr_, path_
+                else:
+                    return rid_, rattr_
 
-    def lookup_(self, rid, tag=None, mask=None, *,
+    def lookup(self, rid, tag=None, mask=None, *,
             path=False):
         if tag is None:
             tag, mask = 0, 0xffff
         if mask is None:
             mask = 0
 
-        rid_, rattr_, *path_ = self.lookupnext(rid, tag & ~mask,
+        r = self.lookupnext(rid, tag & ~mask,
                 path=path)
+        if path:
+            rid_, rattr_, path_ = r
+        else:
+            rid_, rattr_ = r
         if (rid_ is None
                 or rid_ != rid
                 or (rattr_.tag & ~mask) != (tag & ~mask)):
-            return None, *path_
+            if path:
+                return None, path_
+            else:
+                return None
 
-        return rattr_, *path_
-
-    def lookup(self, rid, tag=None, mask=None, *,
-            path=False):
-        rattr_, *path_ = self.lookup_(rid, tag, mask,
-                path=path)
         if path:
-            return rattr_, *path_
+            return rattr_, path_
         else:
             return rattr_
 
@@ -886,33 +895,47 @@ class Rbyd:
         if not isinstance(key, tuple):
             key = (key,)
 
-        return self.lookup_(*key)[0] is not None
+        return self.lookup(*key) is not None
 
     def rids(self, *,
             path=False):
         rid = -1
         while True:
-            rid, name, *path_ = self.lookupnext(rid,
+            r = self.lookupnext(rid,
                     path=path)
+            if path:
+                rid, name, path_ = r
+            else:
+                rid, name = r
             # found end of tree?
             if rid is None:
                 break
 
-            yield rid, name, *path_
+            if path:
+                yield rid, name, path_
+            else:
+                yield rid, name
             rid += 1
 
-    def rattrs_(self, rid=None, tag=None, mask=None, *,
+    def rattrs(self, rid=None, tag=None, mask=None, *,
             path=False):
         if rid is None:
             rid, tag = -1, 0
             while True:
-                rid, rattr, *path_ = self.lookupnext(rid, tag+0x1,
+                r = self.lookupnext(rid, tag+0x1,
                         path=path)
+                if path:
+                    rid, rattr, path_ = r
+                else:
+                    rid, rattr = r
                 # found end of tree?
                 if rid is None:
                     break
 
-                yield rid, rattr, *path_
+                if path:
+                    yield rid, rattr, path_
+                else:
+                    yield rid, rattr
                 tag = rattr.tag
         else:
             if tag is None:
@@ -922,29 +945,23 @@ class Rbyd:
 
             tag_ = max((tag & ~mask) - 1, 0)
             while True:
-                rid_, rattr_, *path_ = self.lookupnext(rid, tag_+0x1,
+                r = self.lookupnext(rid, tag_+0x1,
                         path=path)
+                if path:
+                    rid_, rattr_, path_ = r
+                else:
+                    rid_, rattr_ = r
                 # found end of tree?
                 if (rid_ is None
                         or rid_ != rid
                         or (rattr_.tag & ~mask) != (tag & ~mask)):
                     break
 
-                yield rattr_, *path_
-                tag_ = rattr_.tag
-
-    def rattrs(self, rid=None, tag=None, mask=None, *,
-            path=False):
-        if rid is None:
-            yield from self.rattrs_(rid, tag, mask,
-                    path=path)
-        else:
-            for rattr, *path_ in self.rattrs_(rid, tag, mask,
-                    path=path):
                 if path:
-                    yield rattr, *path_
+                    yield rattr_, path_
                 else:
-                    yield rattr
+                    yield rattr_
+                tag_ = rattr_.tag
 
     def __iter__(self):
         return self.rattrs()
