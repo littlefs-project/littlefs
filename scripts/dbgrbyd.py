@@ -295,119 +295,6 @@ def tagrepr(tag, weight=None, size=None, *,
                 ' w%d' % weight if weight is not None else '',
                 ' %d' % size if size is not None else '')
 
-# tree branches are an abstract thing for tree rendering
-class TreeBranch(co.namedtuple('TreeBranch', ['a', 'b', 'depth', 'color'])):
-    __slots__ = ()
-    def __new__(cls, a, b, depth=0, color='b'):
-        # a and b are context specific
-        return super().__new__(cls, a, b, depth, color)
-
-    def __repr__(self):
-        return '%s(%s, %s, %s, %s)' % (
-                self.__class__.__name__,
-                self.a,
-                self.b,
-                self.depth,
-                self.color)
-
-    # don't include color in branch comparisons, or else our tree
-    # renderings can end up with inconsistent colors between runs
-    def __eq__(self, other):
-        return (self.a, self.b, self.depth) == (other.a, other.b, other.depth)
-
-    def __ne__(self, other):
-        return (self.a, self.b, self.depth) != (other.a, other.b, other.depth)
-
-    def __hash__(self):
-        return hash((self.a, self.b, self.depth))
-
-    # also order by depth first, which can be useful for reproducibly
-    # prioritizing branches when simplifying trees
-    def __lt__(self, other):
-        return (self.depth, self.a, self.b) < (other.depth, other.a, other.b)
-
-    def __le__(self, other):
-        return (self.depth, self.a, self.b) <= (other.depth, other.a, other.b)
-
-    def __gt__(self, other):
-        return (self.depth, self.a, self.b) > (other.depth, other.a, other.b)
-
-    def __ge__(self, other):
-        return (self.depth, self.a, self.b) >= (other.depth, other.a, other.b)
-
-    # apply a function to a/b while trying to avoid copies
-    def map(self, filter_, map_=None):
-        if map_ is None:
-            filter_, map_ = None, filter_
-
-        a = self.a
-        if filter_ is None or filter_(a):
-            a = map_(a)
-
-        b = self.b
-        if filter_ is None or filter_(b):
-            b = map_(b)
-
-        if a != self.a or b != self.b:
-            return self.__class__(
-                    a if a != self.a else self.a,
-                    b if b != self.b else self.b,
-                    self.depth,
-                    self.color)
-        else:
-            return self
-
-# render some nice ascii trees
-def treerepr(tree, x, depth=None, color=False):
-    # find the max depth from the tree
-    if depth is None:
-        depth = max((t.depth+1 for t in tree), default=0)
-    if depth == 0:
-        return ''
-
-    def branchrepr(tree, x, d, was):
-        for t in tree:
-            if t.depth == d and t.b == x:
-                if any(t.depth == d and t.a == x
-                        for t in tree):
-                    return '+-', t.color, t.color
-                elif any(t.depth == d
-                            and x > min(t.a, t.b)
-                            and x < max(t.a, t.b)
-                        for t in tree):
-                    return '|-', t.color, t.color
-                elif t.a < t.b:
-                    return '\'-', t.color, t.color
-                else:
-                    return '.-', t.color, t.color
-        for t in tree:
-            if t.depth == d and t.a == x:
-                return '+ ', t.color, None
-        for t in tree:
-            if (t.depth == d
-                    and x > min(t.a, t.b)
-                    and x < max(t.a, t.b)):
-                return '| ', t.color, was
-        if was:
-            return '--', was, was
-        return '  ', None, None
-
-    trunk = []
-    was = None
-    for d in range(depth):
-        t, c, was = branchrepr(tree, x, d, was)
-
-        trunk.append('%s%s%s%s' % (
-                '\x1b[33m' if color and c == 'y'
-                    else '\x1b[31m' if color and c == 'r'
-                    else '\x1b[90m' if color and c == 'b'
-                    else '',
-                t,
-                ('>' if was else ' ') if d == depth-1 else '',
-                '\x1b[m' if color and c else ''))
-
-    return '%s ' % ''.join(trunk)
-
 
 # a simple wrapper over an open file with bd geometry
 class Bd:
@@ -991,115 +878,6 @@ class Rbyd:
 
         return best
 
-    # create an rbyd tree for debugging
-    def _tree_rtree(self, **args):
-        trunks = co.defaultdict(lambda: (-1, 0))
-        alts = co.defaultdict(lambda: {})
-
-        for rid, rattr, path in self.rattrs(path=True):
-            # keep track of trunks/alts
-            trunks[rattr.toff] = (rid, rattr.tag)
-
-            for ralt in path:
-                if ralt.followed:
-                    alts[ralt.toff] |= {'f': ralt.joff, 'c': ralt.color}
-                else:
-                    alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
-
-        if args.get('tree_rbyd'):
-            # treat unreachable alts as converging paths
-            for j_, alt in alts.items():
-                if 'f' not in alt:
-                    alt['f'] = alt['nf']
-                elif 'nf' not in alt:
-                    alt['nf'] = alt['f']
-
-        else:
-            # prune any alts with unreachable edges
-            pruned = {}
-            for j, alt in alts.items():
-                if 'f' not in alt:
-                    pruned[j] = alt['nf']
-                elif 'nf' not in alt:
-                    pruned[j] = alt['f']
-            for j in pruned.keys():
-                del alts[j]
-
-            for j, alt in alts.items():
-                while alt['f'] in pruned:
-                    alt['f'] = pruned[alt['f']]
-                while alt['nf'] in pruned:
-                    alt['nf'] = pruned[alt['nf']]
-
-        # find the trunk and depth of each alt
-        def rec_trunk(j):
-            if j not in alts:
-                return trunks[j]
-            else:
-                if 'nft' not in alts[j]:
-                    alts[j]['nft'] = rec_trunk(alts[j]['nf'])
-                return alts[j]['nft']
-
-        for j in alts.keys():
-            rec_trunk(j)
-        for j, alt in alts.items():
-            if alt['f'] in alts:
-                alt['ft'] = alts[alt['f']]['nft']
-            else:
-                alt['ft'] = trunks[alt['f']]
-
-        def rec_height(j):
-            if j not in alts:
-                return 0
-            else:
-                if 'h' not in alts[j]:
-                    alts[j]['h'] = max(
-                            rec_height(alts[j]['f']),
-                            rec_height(alts[j]['nf'])) + 1
-                return alts[j]['h']
-
-        for j in alts.keys():
-            rec_height(j)
-
-        t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
-
-        # convert to more general tree representation
-        tree = set()
-        for j, alt in alts.items():
-            # note all non-trunk edges should be colored black
-            tree.add(TreeBranch(
-                    alt['nft'],
-                    alt['nft'],
-                    t_depth-1 - alt['h'],
-                    alt['c']))
-            if alt['ft'] != alt['nft']:
-                tree.add(TreeBranch(
-                        alt['nft'],
-                        alt['ft'],
-                        t_depth-1 - alt['h'],
-                        'b'))
-
-        return tree
-
-    # create a btree tree for debugging
-    def _tree_btree(self, **args):
-        # for rbyds this is just a pointer to ever rid
-        tree = set()
-        root = None
-        for rid, name in self.rids():
-            b = (rid, name.tag)
-            if root is None:
-                root = b
-            tree.add(TreeBranch(root, b))
-        return tree
-
-    # create tree representation for debugging
-    def tree(self, **args):
-        if args.get('tree_btree'):
-            return self._tree_btree(**args)
-        else:
-            return self._tree_rtree(**args)
-
 
 
 # jump renderer
@@ -1133,18 +911,21 @@ class JumpArt:
         self.jumps = jumps
         self.width = 2*max((x for _, _, x, _ in jumps), default=0)
 
-    def collide(self):
+    @classmethod
+    def collide(cls, jumps):
         # figure out x-offsets to avoid collisions between jumps
-        for j in range(len(self.jumps)):
-            a, b, _, c = self.jumps[j]
+        for j in range(len(jumps)):
+            a, b, _, c = jumps[j]
             x = 0
             while any(
                     max(a, b) >= min(a_, b_)
                             and max(a_, b_) >= min(a, b)
                             and x == x_
-                        for a_, b_, x_, _ in self.jumps[:j]):
+                        for a_, b_, x_, _ in jumps[:j]):
                 x += 1
-            self.jumps[j] = self.Jump(a, b, x, c)
+            jumps[j] = cls.Jump(a, b, x, c)
+
+        return jumps
 
     @classmethod
     def fromrbyd(cls, rbyd, all=False):
@@ -1170,9 +951,8 @@ class JumpArt:
                 else:
                     jumps.append(cls.Jump(j, j-size, 0, 'b'))
 
-        jumpart = cls(jumps)
-        jumpart.collide()
-        return jumpart
+        jumps = cls.collide(jumps)
+        return cls(jumps)
 
     def repr(self, j, color=False):
         # render jumps
@@ -1438,6 +1218,240 @@ class LifetimeArt:
                 self.width - sum(len(r) for r in reprs), '')
 
 
+# tree renderer
+class TreeArt:
+    # tree branches are an abstract thing for tree rendering
+    class Branch(co.namedtuple('Branch', ['a', 'b', 'z', 'color'])):
+        __slots__ = ()
+        def __new__(cls, a, b, z=0, color='b'):
+            # a and b are context specific
+            return super().__new__(cls, a, b, z, color)
+
+        def __repr__(self):
+            return '%s(%s, %s, %s, %s)' % (
+                    self.__class__.__name__,
+                    self.a,
+                    self.b,
+                    self.z,
+                    self.color)
+
+        # don't include color in branch comparisons, or else our tree
+        # renderings can end up with inconsistent colors between runs
+        def __eq__(self, other):
+            return (self.a, self.b, self.z) == (other.a, other.b, other.z)
+
+        def __ne__(self, other):
+            return (self.a, self.b, self.z) != (other.a, other.b, other.z)
+
+        def __hash__(self):
+            return hash((self.a, self.b, self.z))
+
+        # also order by z first, which can be useful for reproducibly
+        # prioritizing branches when simplifying trees
+        def __lt__(self, other):
+            return (self.z, self.a, self.b) < (other.z, other.a, other.b)
+
+        def __le__(self, other):
+            return (self.z, self.a, self.b) <= (other.z, other.a, other.b)
+
+        def __gt__(self, other):
+            return (self.z, self.a, self.b) > (other.z, other.a, other.b)
+
+        def __ge__(self, other):
+            return (self.z, self.a, self.b) >= (other.z, other.a, other.b)
+
+        # apply a function to a/b while trying to avoid copies
+        def map(self, filter_, map_=None):
+            if map_ is None:
+                filter_, map_ = None, filter_
+
+            a = self.a
+            if filter_ is None or filter_(a):
+                a = map_(a)
+
+            b = self.b
+            if filter_ is None or filter_(b):
+                b = map_(b)
+
+            if a != self.a or b != self.b:
+                return self.__class__(
+                        a if a != self.a else self.a,
+                        b if b != self.b else self.b,
+                        self.z,
+                        self.color)
+            else:
+                return self
+
+    def __init__(self, tree):
+        self.tree = tree
+        self.depth = max((t.z+1 for t in tree), default=0)
+        if self.depth > 0:
+            self.width = 2*self.depth + 2
+        else:
+            self.width = 0
+
+    # render an rbyd rbyd tree for debugging
+    @classmethod
+    def _fromrbydrtree(cls, rbyd, **args):
+        trunks = co.defaultdict(lambda: (-1, 0))
+        alts = co.defaultdict(lambda: {})
+
+        for rid, rattr, path in rbyd.rattrs(path=True):
+            # keep track of trunks/alts
+            trunks[rattr.toff] = (rid, rattr.tag)
+
+            for ralt in path:
+                if ralt.followed:
+                    alts[ralt.toff] |= {'f': ralt.joff, 'c': ralt.color}
+                else:
+                    alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
+
+        if args.get('tree_rbyd'):
+            # treat unreachable alts as converging paths
+            for j_, alt in alts.items():
+                if 'f' not in alt:
+                    alt['f'] = alt['nf']
+                elif 'nf' not in alt:
+                    alt['nf'] = alt['f']
+
+        else:
+            # prune any alts with unreachable edges
+            pruned = {}
+            for j, alt in alts.items():
+                if 'f' not in alt:
+                    pruned[j] = alt['nf']
+                elif 'nf' not in alt:
+                    pruned[j] = alt['f']
+            for j in pruned.keys():
+                del alts[j]
+
+            for j, alt in alts.items():
+                while alt['f'] in pruned:
+                    alt['f'] = pruned[alt['f']]
+                while alt['nf'] in pruned:
+                    alt['nf'] = pruned[alt['nf']]
+
+        # find the trunk and depth of each alt
+        def rec_trunk(j):
+            if j not in alts:
+                return trunks[j]
+            else:
+                if 'nft' not in alts[j]:
+                    alts[j]['nft'] = rec_trunk(alts[j]['nf'])
+                return alts[j]['nft']
+
+        for j in alts.keys():
+            rec_trunk(j)
+        for j, alt in alts.items():
+            if alt['f'] in alts:
+                alt['ft'] = alts[alt['f']]['nft']
+            else:
+                alt['ft'] = trunks[alt['f']]
+
+        def rec_height(j):
+            if j not in alts:
+                return 0
+            else:
+                if 'h' not in alts[j]:
+                    alts[j]['h'] = max(
+                            rec_height(alts[j]['f']),
+                            rec_height(alts[j]['nf'])) + 1
+                return alts[j]['h']
+
+        for j in alts.keys():
+            rec_height(j)
+
+        t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
+
+        # convert to more general tree representation
+        tree = set()
+        for j, alt in alts.items():
+            # note all non-trunk edges should be colored black
+            tree.add(cls.Branch(
+                    alt['nft'],
+                    alt['nft'],
+                    t_depth-1 - alt['h'],
+                    alt['c']))
+            if alt['ft'] != alt['nft']:
+                tree.add(cls.Branch(
+                        alt['nft'],
+                        alt['ft'],
+                        t_depth-1 - alt['h'],
+                        'b'))
+
+        return cls(tree)
+
+    # render an rbyd btree tree for debugging
+    @classmethod
+    def _fromrbydbtree(cls, rbyd, **args):
+        # for rbyds this is just a pointer to every rid
+        tree = set()
+        root = None
+        for rid, name in rbyd.rids():
+            b = (rid, name.tag)
+            if root is None:
+                root = b
+            tree.add(cls.Branch(root, b))
+        return cls(tree)
+
+    # render an rbyd tree for debugging
+    @classmethod
+    def fromrbyd(cls, rbyd, **args):
+        if args.get('tree_btree'):
+            return cls._fromrbydbtree(rbyd, **args)
+        else:
+            return cls._fromrbydrtree(rbyd, **args)
+
+    # render some nice ascii trees
+    def repr(self, x, color=False):
+        if self.depth == 0:
+            return ''
+
+        def branchrepr(tree, x, d, was):
+            for t in tree:
+                if t.z == d and t.b == x:
+                    if any(t.z == d and t.a == x
+                            for t in tree):
+                        return '+-', t.color, t.color
+                    elif any(t.z == d
+                                and x > min(t.a, t.b)
+                                and x < max(t.a, t.b)
+                            for t in tree):
+                        return '|-', t.color, t.color
+                    elif t.a < t.b:
+                        return '\'-', t.color, t.color
+                    else:
+                        return '.-', t.color, t.color
+            for t in tree:
+                if t.z == d and t.a == x:
+                    return '+ ', t.color, None
+            for t in tree:
+                if (t.z == d
+                        and x > min(t.a, t.b)
+                        and x < max(t.a, t.b)):
+                    return '| ', t.color, was
+            if was:
+                return '--', was, was
+            return '  ', None, None
+
+        trunk = []
+        was = None
+        for d in range(self.depth):
+            t, c, was = branchrepr(self.tree, x, d, was)
+
+            trunk.append('%s%s%s%s' % (
+                    '\x1b[33m' if color and c == 'y'
+                        else '\x1b[31m' if color and c == 'r'
+                        else '\x1b[90m' if color and c == 'b'
+                        else '',
+                    t,
+                    ('>' if was else ' ') if d == self.depth-1 else '',
+                    '\x1b[m' if color and c else ''))
+
+        return '%s ' % ''.join(trunk)
+
+
+
 # show the rbyd log
 def dbg_log(rbyd, *,
         color=False,
@@ -1608,12 +1622,8 @@ def dbg_tree(rbyd, *,
     if (args.get('tree')
             or args.get('tree_rbyd')
             or args.get('tree_btree')):
-        tree = rbyd.tree(**args)
-
-        # find the max depth from the tree
-        t_depth = max((t.depth+1 for t in tree), default=0)
-        if t_depth > 0:
-            t_width = 2*t_depth + 2
+        tree = TreeArt.fromrbyd(rbyd, **args)
+        t_width = tree.width
 
     # dynamically size the id field
     w_width = mt.ceil(mt.log10(max(1, rbyd.weight)+1))
@@ -1622,7 +1632,7 @@ def dbg_tree(rbyd, *,
         # show human-readable tag representation
         print('%08x: %s%*s %-*s  %s' % (
                 rattr.toff,
-                treerepr(tree, (rid, rattr.tag), t_depth, color)
+                tree.repr((rid, rattr.tag), color)
                     if (args.get('tree')
                         or args.get('tree_rbyd')
                         or args.get('tree_btree'))
