@@ -2433,342 +2433,350 @@ class TreeArt:
 
         return '%s ' % ''.join(trunk)
 
-    # some more renderers
+# some more renderers
 
-    # render a btree rbyd tree for debugging
-    @classmethod
-    def _frombtreertree(cls, btree, *,
-            depth=None,
-            inner=False,
-            **args):
-        # precompute rbyd trees so we know the max depth at each layer
-        # to nicely align trees
-        rtrees = {}
-        rdepths = {}
-        for bid, rbyd, path in btree.traverse(path=True, depth=depth):
-            if not rbyd:
-                continue
+# render a btree rbyd tree for debugging
+@classmethod
+def _treeartfrombtreertree(cls, btree, *,
+        depth=None,
+        inner=False,
+        **args):
+    # precompute rbyd trees so we know the max depth at each layer
+    # to nicely align trees
+    rtrees = {}
+    rdepths = {}
+    for bid, rbyd, path in btree.traverse(path=True, depth=depth):
+        if not rbyd:
+            continue
 
-            rtree = cls.fromrbyd(rbyd, **args)
-            rtrees[rbyd] = rtree
-            rdepths[len(path)] = max(rdepths.get(len(path), 0), rtree.depth)
+        rtree = cls.fromrbyd(rbyd, **args)
+        rtrees[rbyd] = rtree
+        rdepths[len(path)] = max(rdepths.get(len(path), 0), rtree.depth)
 
-        # map rbyd branches into our btree space
-        tree = set()
-        for bid, rbyd, path in btree.traverse(path=True, depth=depth):
-            if not rbyd:
-                continue
+    # map rbyd branches into our btree space
+    tree = set()
+    for bid, rbyd, path in btree.traverse(path=True, depth=depth):
+        if not rbyd:
+            continue
 
-            # yes we can find new rbyds if disk is being mutated, just
-            # ignore these
-            if rbyd not in rtrees:
-                continue
+        # yes we can find new rbyds if disk is being mutated, just
+        # ignore these
+        if rbyd not in rtrees:
+            continue
 
-            rtree = rtrees[rbyd]
-            rz = max((t.z+1 for t in rtree), default=0)
-            d = sum(rdepths[d]+1 for d in range(len(path)))
+        rtree = rtrees[rbyd]
+        rz = max((t.z+1 for t in rtree), default=0)
+        d = sum(rdepths[d]+1 for d in range(len(path)))
 
-            # map into our btree space
-            for t in rtree:
-                # note we adjust our bid to be left-leaning, this allows
-                # a global order and makes tree rendering quite a bit easier
-                a_rid, a_tag = t.a
-                b_rid, b_tag = t.b
-                _, (_, a_w, _) = rbyd.lookupnext(a_rid)
-                _, (_, b_w, _) = rbyd.lookupnext(b_rid)
-                tree.add(cls.Branch(
-                        (bid-(rbyd.weight-1)+a_rid-(a_w-1), len(path), a_tag),
-                        (bid-(rbyd.weight-1)+b_rid-(b_w-1), len(path), b_tag),
-                        d + rdepths[len(path)]-rz + t.z,
-                        t.color))
-
-            # connect rbyd branches to rbyd roots
-            if path:
-                l_bid, l_rbyd, l_rid, l_name = path[-1]
-                l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
-
-                if rtree:
-                    r_rid, r_tag = min(rtree, key=lambda t: t.z).a
-                    _, (_, r_w, _) = rbyd.lookupnext(r_rid)
-                else:
-                    r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
-
-                tree.add(cls.Branch(
-                        (l_bid-(l_name.weight-1), len(path)-1, l_branch.tag),
-                        (bid-(rbyd.weight-1)+r_rid-(r_w-1), len(path), r_tag),
-                        d-1))
-
-        # remap branches to leaves if we aren't showing inner branches
-        if not inner:
-            # step through each btree layer backwards
-            b_depth = max((t.a[1]+1 for t in tree), default=0)
-
-            for d in reversed(range(b_depth-1)):
-                # find bid ranges at this level
-                bids = set()
-                for t in tree:
-                    if t.b[1] == d:
-                        bids.add(t.b[0])
-                bids = sorted(bids)
-
-                # find the best root for each bid range
-                roots = {}
-                for i in range(len(bids)):
-                    for t in tree:
-                        if (t.a[1] > d
-                                and t.a[0] >= bids[i]
-                                and (i == len(bids)-1 or t.a[0] < bids[i+1])
-                                and (bids[i] not in roots
-                                    or t < roots[bids[i]])):
-                            roots[bids[i]] = t
-
-                # remap branches to leaf-roots
-                tree = {t.map(
-                            lambda x: x[1] == d and x[0] in roots,
-                            lambda x: roots[x[0]].a)
-                        for t in tree}
-
-        return cls(tree)
-
-    # render a btree btree tree for debugging
-    @classmethod
-    def _frombtreebtree(cls, btree, *,
-            depth=None,
-            inner=False,
-            **args):
-        # find all branches
-        tree = set()
-        root = None
-        branches = {}
-        for bid, name, path in btree.bids(
-                path=True,
-                depth=depth):
-            # create branch for each jump in path
-            #
+        # map into our btree space
+        for t in rtree:
             # note we adjust our bid to be left-leaning, this allows
             # a global order and makes tree rendering quite a bit easier
-            a = root
-            for d, (bid_, rbyd_, rid_, name_) in enumerate(path):
-                # map into our btree space
-                bid__ = bid_-(name_.weight-1)
-                b = (bid__, d, name_.tag)
+            a_rid, a_tag = t.a
+            b_rid, b_tag = t.b
+            _, (_, a_w, _) = rbyd.lookupnext(a_rid)
+            _, (_, b_w, _) = rbyd.lookupnext(b_rid)
+            tree.add(cls.Branch(
+                    (bid-(rbyd.weight-1)+a_rid-(a_w-1), len(path), a_tag),
+                    (bid-(rbyd.weight-1)+b_rid-(b_w-1), len(path), b_tag),
+                    d + rdepths[len(path)]-rz + t.z,
+                    t.color))
 
-                # remap branches to leaves if we aren't showing inner
-                # branches
-                if not inner:
-                    if b not in branches:
-                        bid_, rbyd_, rid_, name_ = path[-1]
-                        bid__ = bid_-(name_.weight-1)
-                        branches[b] = (bid__, len(path)-1, name_.tag)
-                    b = branches[b]
+        # connect rbyd branches to rbyd roots
+        if path:
+            l_bid, l_rbyd, l_rid, l_name = path[-1]
+            l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
 
-                # render the root path on first rid, this is arbitrary
-                if root is None:
-                    root, a = b, b
+            if rtree:
+                r_rid, r_tag = min(rtree, key=lambda t: t.z).a
+                _, (_, r_w, _) = rbyd.lookupnext(r_rid)
+            else:
+                r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
 
-                tree.add(cls.Branch(a, b, d))
-                a = b
+            tree.add(cls.Branch(
+                    (l_bid-(l_name.weight-1), len(path)-1, l_branch.tag),
+                    (bid-(rbyd.weight-1)+r_rid-(r_w-1), len(path), r_tag),
+                    d-1))
 
-        return cls(tree)
+    # remap branches to leaves if we aren't showing inner branches
+    if not inner:
+        # step through each btree layer backwards
+        b_depth = max((t.a[1]+1 for t in tree), default=0)
 
-    # render a btree tree for debugging
-    @classmethod
-    def frombtree(cls, btree, **args):
-        if args.get('tree_btree'):
-            return cls._frombtreebtree(btree, **args)
+        for d in reversed(range(b_depth-1)):
+            # find bid ranges at this level
+            bids = set()
+            for t in tree:
+                if t.b[1] == d:
+                    bids.add(t.b[0])
+            bids = sorted(bids)
+
+            # find the best root for each bid range
+            roots = {}
+            for i in range(len(bids)):
+                for t in tree:
+                    if (t.a[1] > d
+                            and t.a[0] >= bids[i]
+                            and (i == len(bids)-1 or t.a[0] < bids[i+1])
+                            and (bids[i] not in roots
+                                or t < roots[bids[i]])):
+                        roots[bids[i]] = t
+
+            # remap branches to leaf-roots
+            tree = {t.map(
+                        lambda x: x[1] == d and x[0] in roots,
+                        lambda x: roots[x[0]].a)
+                    for t in tree}
+
+    return cls(tree)
+
+# render a btree btree tree for debugging
+@classmethod
+def _treeartfrombtreebtree(cls, btree, *,
+        depth=None,
+        inner=False,
+        **args):
+    # find all branches
+    tree = set()
+    root = None
+    branches = {}
+    for bid, name, path in btree.bids(
+            path=True,
+            depth=depth):
+        # create branch for each jump in path
+        #
+        # note we adjust our bid to be left-leaning, this allows
+        # a global order and makes tree rendering quite a bit easier
+        a = root
+        for d, (bid_, rbyd_, rid_, name_) in enumerate(path):
+            # map into our btree space
+            bid__ = bid_-(name_.weight-1)
+            b = (bid__, d, name_.tag)
+
+            # remap branches to leaves if we aren't showing inner
+            # branches
+            if not inner:
+                if b not in branches:
+                    bid_, rbyd_, rid_, name_ = path[-1]
+                    bid__ = bid_-(name_.weight-1)
+                    branches[b] = (bid__, len(path)-1, name_.tag)
+                b = branches[b]
+
+            # render the root path on first rid, this is arbitrary
+            if root is None:
+                root, a = b, b
+
+            tree.add(cls.Branch(a, b, d))
+            a = b
+
+    return cls(tree)
+
+# render a btree tree for debugging
+@classmethod
+def treeartfrombtree(cls, btree, **args):
+    if args.get('tree_btree'):
+        return cls._frombtreebtree(btree, **args)
+    else:
+        return cls._frombtreertree(btree, **args)
+
+TreeArt._frombtreertree = _treeartfrombtreertree
+TreeArt._frombtreebtree = _treeartfrombtreebtree
+TreeArt.frombtree = treeartfrombtree
+
+# render an mtree tree for debugging
+@classmethod
+def _treeartfrommtreertree(cls, mtree, *,
+        depth=None,
+        inner=False,
+        **args):
+    # precompute rbyd trees so we know the max depth at each layer
+    # to nicely align trees
+    rtrees = {}
+    rdepths = {}
+    for mdir, path in mtree.traverse(path=True, depth=depth):
+        if isinstance(mdir, Mdir):
+            if not mdir:
+                continue
+            rbyd = mdir.rbyd
         else:
-            return cls._frombtreertree(btree, **args)
-    
-    # render an mtree tree for debugging
-    @classmethod
-    def _frommtreertree(cls, mtree, *,
-            depth=None,
-            inner=False,
-            **args):
-        # precompute rbyd trees so we know the max depth at each layer
-        # to nicely align trees
-        rtrees = {}
-        rdepths = {}
-        for mdir, path in mtree.traverse(path=True, depth=depth):
-            if isinstance(mdir, Mdir):
-                if not mdir:
-                    continue
-                rbyd = mdir.rbyd
-            else:
-                bid, rbyd = mdir
-                if not rbyd:
-                    continue
-
-            rtree = cls.fromrbyd(rbyd, **args)
-            rtrees[rbyd] = rtree
-            rdepths[len(path)] = max(rdepths.get(len(path), 0), rtree.depth)
-
-        # map rbyd branches into our mtree space
-        tree = set()
-        branches = {}
-        for mdir, path in mtree.traverse(path=True, depth=depth):
-            if isinstance(mdir, Mdir):
-                if not mdir:
-                    continue
-                rbyd = mdir.rbyd
-            else:
-                bid, rbyd = mdir
-                if not rbyd:
-                    continue
-
-            # yes we can find new rbyds if disk is being mutated, just
-            # ignore these
-            if rbyd not in rtrees:
+            bid, rbyd = mdir
+            if not rbyd:
                 continue
 
-            rtree = rtrees[rbyd]
-            rz = max((t.z+1 for t in rtree), default=0)
-            d = sum(rdepths[d]+1 for d, p in enumerate(path))
+        rtree = cls.fromrbyd(rbyd, **args)
+        rtrees[rbyd] = rtree
+        rdepths[len(path)] = max(rdepths.get(len(path), 0), rtree.depth)
 
-            # map into our mtree space
-            for t in rtree:
-                # note we adjust our mid/bid to be left-leaning, this allows
-                # a global order and makes tree rendering quite a bit easier
-                #
-                # we also need to give btree nodes mrid=-1 so they come
-                # before and mrid=-1 mdir attrs
-                a_rid, a_tag = t.a
-                b_rid, b_tag = t.b
-                _, (_, a_w, _) = rbyd.lookupnext(a_rid)
-                _, (_, b_w, _) = rbyd.lookupnext(b_rid)
-                if isinstance(mdir, Mdir):
-                    a_mid = mtree.mid(mdir.mid, a_rid)
-                    b_mid = mtree.mid(mdir.mid, b_rid)
-                else:
-                    a_mid = mtree.mid(bid-(rbyd.weight-1)+a_rid-(a_w-1), -1)
-                    b_mid = mtree.mid(bid-(rbyd.weight-1)+b_rid-(b_w-1), -1)
+    # map rbyd branches into our mtree space
+    tree = set()
+    branches = {}
+    for mdir, path in mtree.traverse(path=True, depth=depth):
+        if isinstance(mdir, Mdir):
+            if not mdir:
+                continue
+            rbyd = mdir.rbyd
+        else:
+            bid, rbyd = mdir
+            if not rbyd:
+                continue
 
-                tree.add(cls.Branch(
-                        (a_mid, len(path), a_tag),
-                        (b_mid, len(path), b_tag),
-                        d + rdepths[len(path)]-rz + t.z,
-                        t.color))
+        # yes we can find new rbyds if disk is being mutated, just
+        # ignore these
+        if rbyd not in rtrees:
+            continue
 
-            # connect rbyd branches to rbyd roots
-            if path:
-                # figure out branch mid/attr
-                if isinstance(path[-1][1], Mdir):
-                    l_mid, l_mdir, l_name = path[-1]
-                    l_branch = (l_mdir.lookup(l_mid, TAG_MROOT, 0x3)
-                            or l_mdir.lookup(l_mid, TAG_MTREE, 0x3))
-                else:
-                    l_bid, l_rbyd, l_rid, l_name = path[-1]
-                    l_mid = mtree.mid(l_bid-(l_name.weight-1), -1)
-                    l_branch = (l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
-                            or l_rbyd.lookup(l_rid, TAG_MDIR, 0x3))
+        rtree = rtrees[rbyd]
+        rz = max((t.z+1 for t in rtree), default=0)
+        d = sum(rdepths[d]+1 for d, p in enumerate(path))
 
-                # figure out root mid/rattr
-                if rtree:
-                    r_rid, r_tag = min(rtree, key=lambda t: t.z).a
-                    _, (_, r_w, _) = rbyd.lookupnext(r_rid)
-                else:
-                    r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
-
-                if isinstance(mdir, Mdir):
-                    r_mid = mtree.mid(mdir.mid, r_rid)
-                else:
-                    r_mid = mtree.mid(bid-(rbyd.weight-1)+r_rid-(r_w-1), -1)
-
-                tree.add(cls.Branch(
-                        (l_mid, len(path)-1, l_branch.tag),
-                        (r_mid, len(path), r_tag),
-                        d-1))
-
-        # remap branches to leaves if we aren't showing inner branches
-        if not inner:
-            # step through each btree layer backwards
-            b_depth = max((t.a[1]+1 for t in tree), default=0)
-
-            for d in reversed(range(len(mtree.mrootchain), b_depth-1)):
-                # find mid ranges at this level
-                mids = set()
-                for t in tree:
-                    if t.b[1] == d:
-                        mids.add(t.b[0])
-                mids = sorted(mids)
-
-                # find the best root for each mid range
-                roots = {}
-                for i in range(len(mids)):
-                    for t in tree:
-                        if (t.a[1] > d
-                                and t.a[0] >= mids[i]
-                                and (i == len(mids)-1 or t.a[0] < mids[i+1])
-                                and (mids[i] not in roots
-                                    or t < roots[mids[i]])):
-                            roots[mids[i]] = t
-
-                # remap branches to leaf-roots
-                tree = {t.map(
-                            lambda x: x[1] == d and x[0] in roots,
-                            lambda x: roots[x[0]].a)
-                        for t in tree}
-
-        return cls(tree)
-
-    # render an mtree tree for debugging
-    @classmethod
-    def _frommtreebtree(cls, mtree, *,
-            depth=None,
-            inner=False,
-            **args):
-        tree = set()
-        root = None
-        branches = {}
-        for mid, mdir, name, path in mtree.mids(
-                mdirs_only=False,
-                path=True,
-                depth=depth):
-            # create branch for each jump in path
-            #
+        # map into our mtree space
+        for t in rtree:
             # note we adjust our mid/bid to be left-leaning, this allows
             # a global order and makes tree rendering quite a bit easier
             #
             # we also need to give btree nodes mrid=-1 so they come
             # before and mrid=-1 mdir attrs
-            a = root
-            for d, p in enumerate(path):
-                # map into our mtree space
-                if isinstance(p[1], Mdir):
-                    mid_, mdir_, name_ = p
-                else:
-                    bid_, rbyd_, rid_, name_ = p
-                    mid_ = mtree.mid(bid_-(name_.weight-1), -1)
-                b = (mid_, d, name_.tag)
+            a_rid, a_tag = t.a
+            b_rid, b_tag = t.b
+            _, (_, a_w, _) = rbyd.lookupnext(a_rid)
+            _, (_, b_w, _) = rbyd.lookupnext(b_rid)
+            if isinstance(mdir, Mdir):
+                a_mid = mtree.mid(mdir.mid, a_rid)
+                b_mid = mtree.mid(mdir.mid, b_rid)
+            else:
+                a_mid = mtree.mid(bid-(rbyd.weight-1)+a_rid-(a_w-1), -1)
+                b_mid = mtree.mid(bid-(rbyd.weight-1)+b_rid-(b_w-1), -1)
 
-                # remap branches to leaves if we aren't showing inner
-                # branches
-                if not inner:
-                    if b not in branches:
-                        if isinstance(path[-1][1], Mdir):
-                            mid_, mdir_, name_ = path[-1]
-                        else:
-                            bid_, rbyd_, rid_, name_ = path[-1]
-                            mid_ = mtree.mid(bid_-(name_.weight-1), -1)
-                        branches[b] = (mid_, len(path)-1, name_.tag)
-                    b = branches[b]
+            tree.add(cls.Branch(
+                    (a_mid, len(path), a_tag),
+                    (b_mid, len(path), b_tag),
+                    d + rdepths[len(path)]-rz + t.z,
+                    t.color))
 
-                # render the root path on first rid, this is arbitrary
-                if root is None:
-                    root, a = b, b
+        # connect rbyd branches to rbyd roots
+        if path:
+            # figure out branch mid/attr
+            if isinstance(path[-1][1], Mdir):
+                l_mid, l_mdir, l_name = path[-1]
+                l_branch = (l_mdir.lookup(l_mid, TAG_MROOT, 0x3)
+                        or l_mdir.lookup(l_mid, TAG_MTREE, 0x3))
+            else:
+                l_bid, l_rbyd, l_rid, l_name = path[-1]
+                l_mid = mtree.mid(l_bid-(l_name.weight-1), -1)
+                l_branch = (l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
+                        or l_rbyd.lookup(l_rid, TAG_MDIR, 0x3))
 
-                tree.add(cls.Branch(a, b, d))
-                a = b
+            # figure out root mid/rattr
+            if rtree:
+                r_rid, r_tag = min(rtree, key=lambda t: t.z).a
+                _, (_, r_w, _) = rbyd.lookupnext(r_rid)
+            else:
+                r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
 
-        return cls(tree)
+            if isinstance(mdir, Mdir):
+                r_mid = mtree.mid(mdir.mid, r_rid)
+            else:
+                r_mid = mtree.mid(bid-(rbyd.weight-1)+r_rid-(r_w-1), -1)
 
-    # render an mtree tree for debugging
-    @classmethod
-    def frommtree(cls, mtree, **args):
-        if args.get('tree_btree'):
-            return cls._frommtreebtree(mtree, **args)
-        else:
-            return cls._frommtreertree(mtree, **args)
+            tree.add(cls.Branch(
+                    (l_mid, len(path)-1, l_branch.tag),
+                    (r_mid, len(path), r_tag),
+                    d-1))
+
+    # remap branches to leaves if we aren't showing inner branches
+    if not inner:
+        # step through each btree layer backwards
+        b_depth = max((t.a[1]+1 for t in tree), default=0)
+
+        for d in reversed(range(len(mtree.mrootchain), b_depth-1)):
+            # find mid ranges at this level
+            mids = set()
+            for t in tree:
+                if t.b[1] == d:
+                    mids.add(t.b[0])
+            mids = sorted(mids)
+
+            # find the best root for each mid range
+            roots = {}
+            for i in range(len(mids)):
+                for t in tree:
+                    if (t.a[1] > d
+                            and t.a[0] >= mids[i]
+                            and (i == len(mids)-1 or t.a[0] < mids[i+1])
+                            and (mids[i] not in roots
+                                or t < roots[mids[i]])):
+                        roots[mids[i]] = t
+
+            # remap branches to leaf-roots
+            tree = {t.map(
+                        lambda x: x[1] == d and x[0] in roots,
+                        lambda x: roots[x[0]].a)
+                    for t in tree}
+
+    return cls(tree)
+
+# render an mtree tree for debugging
+@classmethod
+def _treeartfrommtreebtree(cls, mtree, *,
+        depth=None,
+        inner=False,
+        **args):
+    tree = set()
+    root = None
+    branches = {}
+    for mid, mdir, name, path in mtree.mids(
+            mdirs_only=False,
+            path=True,
+            depth=depth):
+        # create branch for each jump in path
+        #
+        # note we adjust our mid/bid to be left-leaning, this allows
+        # a global order and makes tree rendering quite a bit easier
+        #
+        # we also need to give btree nodes mrid=-1 so they come
+        # before and mrid=-1 mdir attrs
+        a = root
+        for d, p in enumerate(path):
+            # map into our mtree space
+            if isinstance(p[1], Mdir):
+                mid_, mdir_, name_ = p
+            else:
+                bid_, rbyd_, rid_, name_ = p
+                mid_ = mtree.mid(bid_-(name_.weight-1), -1)
+            b = (mid_, d, name_.tag)
+
+            # remap branches to leaves if we aren't showing inner
+            # branches
+            if not inner:
+                if b not in branches:
+                    if isinstance(path[-1][1], Mdir):
+                        mid_, mdir_, name_ = path[-1]
+                    else:
+                        bid_, rbyd_, rid_, name_ = path[-1]
+                        mid_ = mtree.mid(bid_-(name_.weight-1), -1)
+                    branches[b] = (mid_, len(path)-1, name_.tag)
+                b = branches[b]
+
+            # render the root path on first rid, this is arbitrary
+            if root is None:
+                root, a = b, b
+
+            tree.add(cls.Branch(a, b, d))
+            a = b
+
+    return cls(tree)
+
+# render an mtree tree for debugging
+@classmethod
+def treeartfrommtree(cls, mtree, **args):
+    if args.get('tree_btree'):
+        return cls._frommtreebtree(mtree, **args)
+    else:
+        return cls._frommtreertree(mtree, **args)
+
+TreeArt._frommtreertree = _treeartfrommtreertree
+TreeArt._frommtreebtree = _treeartfrommtreebtree
+TreeArt.frommtree = treeartfrommtree
 
 
 
