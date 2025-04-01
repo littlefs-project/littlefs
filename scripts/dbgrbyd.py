@@ -1101,20 +1101,60 @@ class Rbyd:
             return self._tree_rtree(**args)
 
 
-# show the rbyd log
-def dbg_log(rbyd, *,
-        block_size,
-        color=False,
-        **args):
-    data = rbyd.data
 
-    # preprocess jumps
-    if args.get('jumps'):
+# jump renderer
+class JumpArt:
+    # abstract thing for jump rendering
+    class Jump(co.namedtuple('Jump', ['a', 'b', 'x', 'color'])):
+        __slots__ = ()
+        def __new__(cls, a, b, x=0, color='b'):
+            return super().__new__(cls, a, b, x, color)
+
+        def __repr__(self):
+            return '%s(%s, %s, %s, %s)' % (
+                    self.__class__.__name__,
+                    self.a,
+                    self.b,
+                    self.x,
+                    self.color)
+
+        # don't include color in branch comparisons, or else our tree
+        # renderings can end up with inconsistent colors between runs
+        def __eq__(self, other):
+            return (self.a, self.b, self.x) == (other.a, other.b, other.x)
+
+        def __ne__(self, other):
+            return (self.a, self.b, self.x) != (other.a, other.b, other.x)
+
+        def __hash__(self):
+            return hash((self.a, self.b, self.x))
+
+    def __init__(self, jumps):
+        self.jumps = jumps
+        self.width = 2*max((x for _, _, x, _ in jumps), default=0)
+
+    def collide(self):
+        # figure out x-offsets to avoid collisions between jumps
+        for j in range(len(self.jumps)):
+            a, b, _, c = self.jumps[j]
+            x = 0
+            while any(
+                    max(a, b) >= min(a_, b_)
+                            and max(a_, b_) >= min(a, b)
+                            and x == x_
+                        for a_, b_, x_, _ in self.jumps[:j]):
+                x += 1
+            self.jumps[j] = self.Jump(a, b, x, c)
+
+    @classmethod
+    def fromrbyd(cls, rbyd, all=False):
+        all_ = all; del all
+
         jumps = []
         j_ = 4
-        while j_ < (block_size if args.get('all') else rbyd.eoff):
+        while j_ < (len(rbyd.data) if all_ else rbyd.eoff):
             j = j_
-            v, tag, w, size, d = fromtag(data[j_:])
+            v, tag, w, size, d = fromtag(rbyd.data[j_:])
             j_ += d
             if not tag & TAG_ALT:
                 j_ += size
@@ -1122,96 +1162,160 @@ def dbg_log(rbyd, *,
             if tag & TAG_ALT and size:
                 # figure out which alt color
                 if tag & TAG_R:
-                    _, ntag, _, _, _ = fromtag(data[j_:])
+                    _, ntag, _, _, _ = fromtag(rbyd.data[j_:])
                     if ntag & TAG_R:
-                        jumps.append((j, j-size, 0, 'y'))
+                        jumps.append(cls.Jump(j, j-size, 0, 'y'))
                     else:
-                        jumps.append((j, j-size, 0, 'r'))
+                        jumps.append(cls.Jump(j, j-size, 0, 'r'))
                 else:
-                    jumps.append((j, j-size, 0, 'b'))
+                    jumps.append(cls.Jump(j, j-size, 0, 'b'))
 
-        # figure out x-offsets to avoid collisions between jumps
-        for j in range(len(jumps)):
-            a, b, _, c = jumps[j]
-            x = 0
-            while any(
-                    max(a, b) >= min(a_, b_)
-                            and max(a_, b_) >= min(a, b)
-                            and x == x_
-                        for a_, b_, x_, _ in jumps[:j]):
-                x += 1
-            jumps[j] = a, b, x, c
+        jumpart = cls(jumps)
+        jumpart.collide()
+        return jumpart
 
-        def jumprepr(j):
-            # render jumps
-            chars = {}
-            for a, b, x, c in jumps:
-                c_start = (
-                    '\x1b[33m' if color and c == 'y'
-                        else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color
-                        else '')
-                c_stop = '\x1b[m' if color else ''
+    def repr(self, j, color=False):
+        # render jumps
+        chars = {}
+        for a, b, x, c in self.jumps:
+            c_start = (
+                '\x1b[33m' if color and c == 'y'
+                    else '\x1b[31m' if color and c == 'r'
+                    else '\x1b[90m' if color
+                    else '')
+            c_stop = '\x1b[m' if color else ''
 
-                if j == a:
-                    for x_ in range(2*x+1):
-                        chars[x_] = '%s-%s' % (c_start, c_stop)
-                    chars[2*x+1] = '%s\'%s' % (c_start, c_stop)
-                elif j == b:
-                    for x_ in range(2*x+1):
-                        chars[x_] = '%s-%s' % (c_start, c_stop)
-                    chars[2*x+1] = '%s.%s' % (c_start, c_stop)
-                    chars[0] = '%s<%s' % (c_start, c_stop)
-                elif j >= min(a, b) and j <= max(a, b):
-                    chars[2*x+1] = '%s|%s' % (c_start, c_stop)
+            if j == a:
+                for x_ in range(2*x+1):
+                    chars[x_] = '%s-%s' % (c_start, c_stop)
+                chars[2*x+1] = '%s\'%s' % (c_start, c_stop)
+            elif j == b:
+                for x_ in range(2*x+1):
+                    chars[x_] = '%s-%s' % (c_start, c_stop)
+                chars[2*x+1] = '%s.%s' % (c_start, c_stop)
+                chars[0] = '%s<%s' % (c_start, c_stop)
+            elif j >= min(a, b) and j <= max(a, b):
+                chars[2*x+1] = '%s|%s' % (c_start, c_stop)
 
-            return ''.join(chars.get(x, ' ')
-                    for x in range(max(chars.keys(), default=0)+1))
+        return ''.join(chars.get(x, ' ')
+                for x in range(max(chars.keys(), default=0)+1))
 
-    # preprocess lifetimes
-    lifetime_width = 0
-    if args.get('lifetimes'):
-        class Lifetime:
-            color_i = 0
-            def __init__(self, j):
-                self.origin = j
-                self.tags = set()
-                self.color = COLORS[self.__class__.color_i]
-                self.__class__.color_i = (
-                        self.__class__.color_i + 1) % len(COLORS)
 
-            def add(self, j):
-                self.tags.add(j)
+# lifetime renderer
+class LifetimeArt:
+    # abstract things for lifetime rendering
+    class Lifetime(co.namedtuple('Lifetime', ['id', 'origin', 'tags'])):
+        __slots__ = ()
+        def __new__(cls, id, origin, tags=None):
+            return super().__new__(cls, id, origin,
+                    set(tags) if tags is not None else set())
 
-            def __bool__(self):
-                return bool(self.tags)
+        def __repr__(self):
+            return '%s(%s, %s, %s)' % (
+                    self.__class__.__name__,
+                    self.id,
+                    self.origin,
+                    self.tags)
 
+        def add(self, j):
+            self.tags.add(j)
+
+        def __bool__(self):
+            return bool(self.tags)
+
+        # define equality by id
+        def __eq__(self, other):
+            return self.id == other.id
+
+        def __ne__(self, other):
+            return self.id != other.id
+
+        def __hash__(self):
+            return hash((self.id))
+
+        def __lt__(self, other):
+            return self.id < other.id
+
+        def __le__(self, other):
+            return self.id <= other.id
+
+        def __gt__(self, other):
+            return self.id > other.id
+
+        def __ge__(self, other):
+            return self.id >= other.id
+
+    class Checkpoint(co.namedtuple('Checkpoint', [
+            'j', 'weights', 'lifetimes', 'grows', 'shrinks', 'tags'])):
+        __slots__ = ()
+        def __new__(cls, j, weights, lifetimes,
+                grows=None, shrinks=None, tags=None):
+            return super().__new__(cls, j,
+                    # note we rely on tuple making frozen copies here
+                    tuple(weights),
+                    tuple(lifetimes),
+                    frozenset(grows) if grows is not None else frozenset(),
+                    frozenset(shrinks) if shrinks is not None else frozenset(),
+                    frozenset(tags) if tags is not None else frozenset())
+
+        # define equality by checkpoint offset
+        def __eq__(self, other):
+            return self.j == other.j
+
+        def __ne__(self, other):
+            return self.j != other.j
+
+        def __hash__(self):
+            return hash((self.j))
+
+        def __lt__(self, other):
+            return self.j < other.j
+
+        def __le__(self, other):
+            return self.j <= other.j
+
+        def __gt__(self, other):
+            return self.j > other.j
+
+        def __ge__(self, other):
+            return self.j >= other.j
+
+    def __init__(self, checkpoints):
+        self.lifetimes = sorted(set(
+                lifetime
+                    for checkpoint in checkpoints
+                    for lifetime in checkpoint.lifetimes))
+        self.checkpoints = checkpoints
+        self.width = 2*max(
+                (sum(1 for lifetime in checkpoint.lifetimes if lifetime)
+                    for checkpoint in checkpoints),
+                default=0)
+
+    @staticmethod
+    def index(weights, rid):
+        for i, w in enumerate(weights):
+            if rid < w:
+                return i, rid
+            rid -= w
+        return len(weights), 0
+
+    @classmethod
+    def fromrbyd(cls, rbyd, all=False):
+        all_ = all; del all
 
         # first figure out where each rid comes from
+        id = 0
         weights = []
         lifetimes = []
-        def index(weights, rid):
-            for i, w in enumerate(weights):
-                if rid < w:
-                    return i, rid
-                rid -= w
-            return len(weights), 0
-
-        checkpoint_js = [0]
-        checkpoints = [([], [], set(), set(), set())]
-        def checkpoint(j, weights, lifetimes, grows, shrinks, tags):
-            checkpoint_js.append(j)
-            checkpoints.append((
-                    weights.copy(), lifetimes.copy(),
-                    grows, shrinks, tags))
+        checkpoints = [cls.Checkpoint(0, [], [])]
 
         lower_, upper_ = 0, 0
         weight_ = 0
         trunk_ = 0
         j_ = 4
-        while j_ < (block_size if args.get('all') else rbyd.eoff):
+        while j_ < (len(rbyd.data) if all_ else rbyd.eoff):
             j = j_
-            v, tag, w, size, d = fromtag(data[j_:])
+            v, tag, w, size, d = fromtag(rbyd.data[j_:])
             j_ += d
             if not tag & TAG_ALT:
                 j_ += size
@@ -1238,20 +1342,24 @@ def dbg_log(rbyd, *,
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
-                    i, rid_ = index(weights, lower_)
+                    l = cls.Lifetime(id, j)
+                    id += 1
+                    i, rid_ = cls.index(weights, lower_)
                     if rid_ > 0:
                         weights[i:i+1] = [rid_, delta, weights[i]-rid_]
-                        lifetimes[i:i+1] = [
-                                lifetimes[i], Lifetime(j), lifetimes[i]]
+                        lifetimes[i:i+1] = [lifetimes[i], l, lifetimes[i]]
                     else:
                         weights[i:i] = [delta]
-                        lifetimes[i:i] = [Lifetime(j)]
+                        lifetimes[i:i] = [l]
 
-                    checkpoint(j, weights, lifetimes, {i}, set(), {i})
+                    checkpoints.append(cls.Checkpoint(
+                            j, weights, lifetimes,
+                            grows={i},
+                            tags={i}))
 
                 elif delta < 0:
                     # shrink lifetimes
-                    i, rid_ = index(weights, lower_)
+                    i, rid_ = cls.index(weights, lower_)
                     delta_ = -delta
                     weights_ = weights.copy()
                     lifetimes_ = lifetimes.copy()
@@ -1269,75 +1377,94 @@ def dbg_log(rbyd, *,
                             lifetimes_[i:i+1] = []
                             shrinks.add(i + len(shrinks))
 
-                    checkpoint(j, weights, lifetimes, set(), shrinks, {i})
+                    checkpoints.append(cls.Checkpoint(
+                            j, weights, lifetimes,
+                            shrinks=shrinks,
+                            tags={i}))
                     weights = weights_
                     lifetimes = lifetimes_
 
                 if rid >= 0:
                     # attach tag to lifetime
-                    i, rid_ = index(weights, rid)
+                    i, rid_ = cls.index(weights, rid)
                     if i < len(weights):
                         lifetimes[i].add(j)
 
                     if delta == 0:
-                        checkpoint(j, weights, lifetimes, set(), set(), {i})
+                        checkpoints.append(cls.Checkpoint(
+                                j, weights, lifetimes,
+                                tags={i}))
 
-        lifetime_width = 2*max((
-                sum(1 for lifetime in lifetimes if lifetime)
-                    for _, lifetimes, _, _, _ in checkpoints),
-                default=0)
+        return cls(checkpoints)
 
-        def lifetimerepr(j):
-            x = bisect.bisect(checkpoint_js, j)-1
-            j_ = checkpoint_js[x]
-            weights, lifetimes, grows, shrinks, tags = checkpoints[x]
+    def repr(self, j, color=False):
+        i = bisect.bisect(self.checkpoints, j,
+                key=lambda checkpoint: checkpoint.j) - 1
+        j_, weights, lifetimes, grows, shrinks, tags = self.checkpoints[i]
 
-            reprs = []
-            colors = []
-            was = None
-            for i, (w, lifetime) in enumerate(zip(weights, lifetimes)):
-                # skip lifetimes with no tags and shrinks
-                if not lifetime or (j != j_ and i in shrinks):
-                    if i in grows or i in shrinks or i in tags:
-                        tags = tags.copy()
-                        tags.add(i+1)
-                    continue
+        reprs = []
+        colors = []
+        was = None
+        for i, (w, lifetime) in enumerate(zip(weights, lifetimes)):
+            # skip lifetimes with no tags and shrinks
+            if not lifetime or (j != j_ and i in shrinks):
+                if i in grows or i in shrinks or i in tags:
+                    tags = tags | {i+1}
+                continue
 
-                if j == j_ and i in grows:
-                    reprs.append('.')
-                    was = 'grow'
-                elif j == j_ and i in shrinks:
-                    reprs.append('\'')
-                    was = 'shrink'
-                elif j == j_ and i in tags:
-                    reprs.append('* ')
-                elif was == 'grow':
-                    reprs.append('\\ ')
-                elif was == 'shrink':
-                    reprs.append('/ ')
-                else:
-                    reprs.append('| ')
+            if j == j_ and i in grows:
+                reprs.append('.')
+                was = 'grow'
+            elif j == j_ and i in shrinks:
+                reprs.append('\'')
+                was = 'shrink'
+            elif j == j_ and i in tags:
+                reprs.append('* ')
+            elif was == 'grow':
+                reprs.append('\\ ')
+            elif was == 'shrink':
+                reprs.append('/ ')
+            else:
+                reprs.append('| ')
 
-                colors.append(lifetime.color)
+            colors.append(COLORS[lifetime.id % len(COLORS)])
 
-            return '%s%*s' % (
-                    ''.join('%s%s%s' % (
-                            '\x1b[%sm' % c if color else '',
-                            r,
-                            '\x1b[m' if color else '')
-                        for r, c in zip(reprs, colors)),
-                    lifetime_width - sum(len(r) for r in reprs), '')
+        return '%s%*s' % (
+                ''.join('%s%s%s' % (
+                        '\x1b[%sm' % c if color else '',
+                        r,
+                        '\x1b[m' if color else '')
+                    for r, c in zip(reprs, colors)),
+                self.width - sum(len(r) for r in reprs), '')
 
+
+# show the rbyd log
+def dbg_log(rbyd, *,
+        color=False,
+        **args):
+    data = rbyd.data
+
+    # preprocess jumps
+    if args.get('jumps'):
+        jumpart = JumpArt.fromrbyd(rbyd,
+                all=args.get('all'))
+
+    # preprocess lifetimes
+    l_width = 0
+    if args.get('lifetimes'):
+        lifetimeart = LifetimeArt.fromrbyd(rbyd, all=args.get('all'))
+        l_width = lifetimeart.width
 
     # dynamically size the id field
     #
     # we need to do an additional pass to find this since our rbyd weight
     # does not include any shrub trees
+    data = rbyd.data
     weight_ = 0
     weight__ = 0
     trunk_ = 0
     j_ = 4
-    while j_ < (block_size if args.get('all') else rbyd.eoff):
+    while j_ < (len(data) if args.get('all') else rbyd.eoff):
         j = j_
         v, tag, w, size, d = fromtag(data[j_:])
         j_ += d
@@ -1364,7 +1491,7 @@ def dbg_log(rbyd, *,
     if args.get('raw'):
         print('%8s: %*s%*s %s' % (
                 '%04x' % 0,
-                lifetime_width, '',
+                l_width, '',
                 2*w_width+1, '',
                 next(xxd(data[0:4]))))
 
@@ -1375,7 +1502,7 @@ def dbg_log(rbyd, *,
     lower_, upper_ = 0, 0
     trunk_ = 0
     j_ = 4
-    while j_ < (block_size if args.get('all') else rbyd.eoff):
+    while j_ < (len(data) if args.get('all') else rbyd.eoff):
         notes = []
 
         # read next tag
@@ -1428,7 +1555,7 @@ def dbg_log(rbyd, *,
                 '\x1b[90m' if color and j >= rbyd.eoff else '',
                 j,
                 '\x1b[m' if color and j >= rbyd.eoff else '',
-                lifetime_width, lifetimerepr(j)
+                l_width, lifetimeart.repr(j, color)
                     if args.get('lifetimes')
                     else '',
                 '\x1b[90m' if color and j >= rbyd.eoff else '',
@@ -1444,7 +1571,7 @@ def dbg_log(rbyd, *,
                         else ''),
                 ' (%s)' % ', '.join(notes) if notes else '',
                 '\x1b[m' if color and j >= rbyd.eoff else '',
-                ' %s' % jumprepr(j)
+                ' %s' % jumpart.repr(j, color)
                     if args.get('jumps') and not notes
                     else ''))
 
@@ -1454,7 +1581,7 @@ def dbg_log(rbyd, *,
                 print('%s%8s: %*s%*s %s%s' % (
                         '\x1b[90m' if color and j >= rbyd.eoff else '',
                         '%04x' % (j + o*16),
-                        lifetime_width, '',
+                        l_width, '',
                         2*w_width+1, '',
                         line,
                         '\x1b[m' if color and j >= rbyd.eoff else ''))
@@ -1464,14 +1591,13 @@ def dbg_log(rbyd, *,
                     print('%s%8s: %*s%*s %s%s' % (
                             '\x1b[90m' if color and j >= rbyd.eoff else '',
                             '%04x' % (j+d + o*16),
-                            lifetime_width, '',
+                            l_width, '',
                             2*w_width+1, '',
                             line,
                             '\x1b[m' if color and j >= rbyd.eoff else ''))
 
 # show the rbyd tree
 def dbg_tree(rbyd, *,
-        block_size,
         color=False,
         **args):
     if not rbyd:
@@ -1585,12 +1711,10 @@ def main(disk, blocks=None, *,
 
     if args.get('log'):
         dbg_log(rbyd,
-                block_size=block_size,
                 color=color,
                 **args)
     else:
         dbg_tree(rbyd,
-                block_size=block_size,
                 color=color,
                 **args)
 
