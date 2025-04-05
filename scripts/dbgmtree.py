@@ -2992,10 +2992,10 @@ def main(disk, mroots=None, *,
                 # corrupted?
                 if not mdir:
                     if not quiet:
-                        print('{%s}: %s%s%s' % (
+                        print('%s{%s}: %s%s' % (
+                                '\x1b[31m' if color else '',
                                 ','.join('%04x' % block
                                     for block in mdir.blocks),
-                                '\x1b[31m' if color else '',
                                 '(corrupted %s %s)' % (
                                     'mroot' if mdir.mid == -1 else 'mdir',
                                     mdir.addr()),
@@ -3008,10 +3008,10 @@ def main(disk, mroots=None, *,
                 if mdir.mid == -1:
                     if mdir in mrootseen:
                         if not quiet:
-                            print('{%s}: %s%s%s' % (
+                            print('%s{%s}: %s%s' % (
+                                    '\x1b[31m' if color else '',
                                     ','.join('%04x' % block
                                         for block in mdir.blocks),
-                                    '\x1b[31m' if color else '',
                                     '(mroot cycle detected %s)' % mdir.addr(),
                                     '\x1b[m' if color else ''))
                         pmdir = None
@@ -3029,10 +3029,10 @@ def main(disk, mroots=None, *,
                 # corrupted? try to keep printing the tree
                 if not rbyd:
                     if not quiet:
-                        print('%11s: %*s%s%s%s' % (
+                        print('%s%11s: %*s%s%s' % (
+                                '\x1b[31m' if color else '',
                                 '%04x.%04x' % (rbyd.block, rbyd.trunk),
                                 t_width, '',
-                                '\x1b[31m' if color else '',
                                 '(corrupted rbyd %s)' % rbyd.addr(),
                                 '\x1b[m' if color else ''))
                     pmdir = None

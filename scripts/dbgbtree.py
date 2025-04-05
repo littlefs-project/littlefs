@@ -1803,10 +1803,10 @@ def main(disk, roots=None, *,
             # corrupted? try to keep printing the tree
             if not rbyd:
                 if not quiet:
-                    print('%04x.%04x: %*s%s%s%s' % (
+                    print('%s%04x.%04x: %*s%s%s' % (
+                            '\x1b[31m' if color else '',
                             rbyd.block, rbyd.trunk,
                             t_width, '',
-                            '\x1b[31m' if color else '',
                             '(corrupted rbyd %s)' % rbyd.addr(),
                             '\x1b[m' if color else ''))
                 prbyd = None

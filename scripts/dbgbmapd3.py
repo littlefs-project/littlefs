@@ -2771,9 +2771,9 @@ class Gstate:
         def repr(self):
             return 'grm %s' % (
                     'none' if self.count == 0
-                        else ' '.join(str(mid) for mid in self.rms)
+                        else ' '.join(mid.repr() for mid in self.rms)
                         if self.count <= 2
-                        else '0x%x %d' % (count, len(data)))
+                        else '0x%x %d' % (self.count, len(self.data)))
 
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]

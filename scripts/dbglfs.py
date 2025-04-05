@@ -2702,9 +2702,9 @@ class Gstate:
         def repr(self):
             return 'grm %s' % (
                     'none' if self.count == 0
-                        else ' '.join(str(mid) for mid in self.rms)
+                        else ' '.join(mid.repr() for mid in self.rms)
                         if self.count <= 2
-                        else '0x%x %d' % (count, len(data)))
+                        else '0x%x %d' % (self.count, len(self.data)))
 
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]
@@ -4430,11 +4430,11 @@ def dbg_files(lfs, paths, *,
                 bid, rbyd = data
                 # corrupted? try to keep printing the tree
                 if not rbyd:
-                    print('%11s: %*s %*s%s%s%s' % (
+                    print('%s%11s: %*s %*s%s%s' % (
+                            '\x1b[31m' if color else '',
                             '%04x.%04x' % (rbyd.block, rbyd.trunk),
                             2*w_width+1, '',
                             bt_width, '',
-                            '\x1b[31m' if color else '',
                             '(corrupted rbyd %s)' % rbyd.addr(),
                             '\x1b[m' if color else ''))
                     pmdir = None
@@ -4466,14 +4466,14 @@ def dbg_ck(lfs, *,
                     or (data and isinstance(child, Bptr)))
                 and not child):
             if not quiet:
-                print('%11s: %s%s%s' % (
+                print('%s%11s: %s%s' % (
+                        '\x1b[31m' if color else '',
                         '{%s}' % ','.join('%04x' % block
                                 for block in child.blocks)
                             if isinstance(child, Mdir)
                             else '%04x.%04x' % (child.block, child.trunk)
                             if isinstance(child, Rbyd)
                             else '%04x.%04x' % (child.block, child.off),
-                        '\x1b[31m' if color else '',
                         '(corrupted %s %s)' % (
                             'mroot' if isinstance(child, Mdir)
                                     and child.mid == -1
