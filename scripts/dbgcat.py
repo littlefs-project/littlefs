@@ -144,6 +144,9 @@ def main(disk, blocks=None, *,
             block_ = block if block is not None else 0
             off_ = off if off is not None else 0
             size_ = size if size is not None else block_size - off_
+            if off_ >= block_size:
+                continue
+            size_ = min(off_ + size_, block_size) - off_
 
             # cat the block
             f.seek((block_ * block_size) + off_)
@@ -174,7 +177,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
-            help="Block size/geometry in bytes.")
+            help="Block size/geometry in bytes. Accepts <size>x<count>.")
     parser.add_argument(
             '--block-count',
             type=lambda x: int(x, 0),

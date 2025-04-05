@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+#
+# Inspired by d3 and brendangregg's flamegraph svg:
+# - https://d3js.org
+# - https://github.com/brendangregg/FlameGraph
+#
 
 # prevent local imports
 if __name__ == "__main__":
@@ -6,12 +11,14 @@ if __name__ == "__main__":
 
 import bisect
 import collections as co
+import fnmatch
 import functools as ft
 import itertools as it
+import json
 import math as mt
-import os
+import re
+import shlex
 import struct
-import sys
 
 
 TAG_NULL        = 0x0000    ## 0x0000  v--- ---- ---- ----
@@ -56,6 +63,68 @@ TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
 TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
+
+# some nicer colors borrowed from Seaborn
+# note these include a non-opaque alpha
+# COLORS = [
+#     '#7995c4', # was '#4c72b0bf', # blue
+#     '#e6a37d', # was '#dd8452bf', # orange
+#     '#80be8e', # was '#55a868bf', # green
+#     '#d37a7d', # was '#c44e52bf', # red
+#     '#a195c6', # was '#8172b3bf', # purple
+#     '#ae9a88', # was '#937860bf', # brown
+#     '#e3a8d2', # was '#da8bc3bf', # pink
+#     '#a9a9a9', # was '#8c8c8cbf', # gray
+#     '#d9cb97', # was '#ccb974bf', # yellow
+#     '#8bc8da', # was '#64b5cdbf', # cyan
+# ]
+# COLORS_DARK = [
+#     '#7997b7', # was '#a1c9f4bf', # blue
+#     '#bf8761', # was '#ffb482bf', # orange
+#     '#6aac79', # was '#8de5a1bf', # green
+#     '#bf7774', # was '#ff9f9bbf', # red
+#     '#9c8cbf', # was '#d0bbffbf', # purple
+#     '#a68c74', # was '#debb9bbf', # brown
+#     '#bb84ab', # was '#fab0e4bf', # pink
+#     '#9b9b9b', # was '#cfcfcfbf', # gray
+#     '#bfbe7a', # was '#fffea3bf', # yellow
+#     '#8bb5b4', # was '#b9f2f0bf', # cyan
+# ]
+
+# assign colors to specific filesystem objects
+COLORS = {
+    'mdir':     '#d9cb97', # was '#ccb974bf', # yellow
+    'btree':    '#7995c4', # was '#4c72b0bf', # blue
+    'data':     '#80be8e', # was '#55a868bf', # green
+    'corrupt':  '#d37a7d', # was '#c44e52bf', # red
+    'conflict': '#d37a7d', # was '#c44e52bf', # red
+    'unused':   '#e5e5e5', # light gray
+}
+COLORS_DARK = {
+    'mdir':     '#bfbe7a', # was '#fffea3bf', # yellow
+    'btree':    '#7997b7', # was '#a1c9f4bf', # blue
+    'data':     '#6aac79', # was '#8de5a1bf', # green
+    'corrupt':  '#bf7774', # was '#ff9f9bbf', # red
+    'conflict': '#bf7774', # was '#ff9f9bbf', # red
+    'unused':   '#333333', # dark gray
+}
+
+WIDTH = 750
+HEIGHT = 350
+FONT = ['sans-serif']
+FONT_SIZE = 10
+
+
+def openio(path, mode='r', buffering=-1):
+    # allow '-' for stdin/stdout
+    import os
+    if path == '-':
+        if 'r' in mode:
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
+    else:
+        return open(path, mode, buffering)
 
 # some ways of block geometry representations
 # 512      -> 512
@@ -517,9 +586,11 @@ class Ralt:
         return hash((self.tag, self.weight, self.jump))
 
 
+# TODO sync
 # our core rbyd type
 class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
+            shrub=False,
             gcksumdelta=None,
             corrupt=False):
         if isinstance(blocks, int):
@@ -533,6 +604,7 @@ class Rbyd:
         self.cksum = cksum
         self.data = data
 
+        self.shrub = shrub
         self.gcksumdelta = gcksumdelta
         self.corrupt = corrupt
 
@@ -721,6 +793,7 @@ class Rbyd:
         # this helps avoid race conditions with cksums and stuff
         shrub = cls._fetch(rbyd.data, rbyd.block, trunk)
         shrub.blocks = rbyd.blocks
+        shrub.shrub = True
         return shrub
 
     def lookupnext(self, rid, tag=None, *,
@@ -945,6 +1018,7 @@ class Rbyd:
         return best
 
 
+# TODO sync
 # our rbyd btree type
 class Btree:
     def __init__(self, bd, rbyd):
@@ -978,6 +1052,10 @@ class Btree:
     @property
     def cksum(self):
         return self.rbyd.cksum
+
+    @property
+    def shrub(self):
+        return self.rbyd.shrub
 
     def addr(self):
         return self.rbyd.addr()
@@ -1161,7 +1239,9 @@ class Btree:
                 break
 
             if path:
-                yield bid-rid + (rbyd.weight-1), rbyd, path_[:-1]
+                yield (bid-rid + (rbyd.weight-1), rbyd,
+                        # path tail is usually redundant unless corrupt
+                        path_[:-1] if rbyd else path_)
             else:
                 yield bid-rid + (rbyd.weight-1), rbyd
             bid += rbyd.weight - rid + 1
@@ -1568,6 +1648,7 @@ class Mdir:
 
         return Mid(self.mid, rid), name_
 
+# TODO sync
 # the mtree, the skeletal structure of littlefs
 class Mtree:
     def __init__(self, bd, mrootchain, mtree, *,
@@ -1926,7 +2007,9 @@ class Mtree:
                 else:
                     bid, rbyd, rid = mdir
                     if path:
-                        yield (bid-rid + (rbyd.weight-1), rbyd), path_[:-1]
+                        yield ((bid-rid + (rbyd.weight-1), rbyd),
+                                # path tail is usually redundant unless corrupt
+                                path_[:-1] if rbyd else path_)
                     else:
                         yield (bid-rid + (rbyd.weight-1), rbyd)
                     mid = self.mid(bid-rid + (rbyd.weight-1) + 1)
@@ -2714,6 +2797,7 @@ class Gstate:
         locals()[g.__name__.lower()] = ft.cached_property(_parser(g))
 
 
+# TODO sync
 # high-level littlefs representation
 class Lfs:
     def __init__(self, bd, mtree, config=None, gstate=None, cksum=None, *,
@@ -3111,6 +3195,70 @@ class Lfs:
                 file.orphaned = True
                 yield file
 
+    # traverse the filesystem
+    def traverse(self, *,
+            mtree_only=False,
+            shrubs=False,
+            fragments=False,
+            path=False):
+        # traverse the mtree
+        for r in self.mtree.traverse(
+                path=path):
+            if path:
+                mdir, path_ = r
+            else:
+                mdir = r
+
+            # mdir?
+            if isinstance(mdir, Mdir):
+                if path:
+                    yield mdir, path_
+                else:
+                    yield mdir
+
+            # btree node? we only care about the rbyd for simplicity
+            else:
+                bid, rbyd = mdir
+                if path:
+                    yield rbyd, path_
+                else:
+                    yield rbyd
+
+            # traverse file bshrubs/btrees
+            if not mtree_only and isinstance(mdir, Mdir):
+                for mid, name in mdir.mids():
+                    file = self._open(mid, mdir, name.tag, name)
+                    for r in file.traverse(
+                            path=path):
+                        if path:
+                            pos, data, path__ = r
+                            path__ = [(mid, mdir, name)]+path__
+                        else:
+                            pos, data = r
+
+                        # inlined data? we usually ignore these
+                        if isinstance(data, Rattr):
+                            if fragments:
+                                if path:
+                                    yield data, path_+path__
+                                else:
+                                    yield data
+                        # block pointer?
+                        elif isinstance(data, Bptr):
+                            if path:
+                                yield data, path_+path__
+                            else:
+                                yield data
+                        # bshrub/btree node? we only care about the rbyd
+                        # for simplicity, we also usually ignore shrubs
+                        # since these live the the parent mdir
+                        else:
+                            if shrubs or not data.shrub:
+                                if path:
+                                    yield data, path_+path__
+                                else:
+                                    yield data
+
     # common file operations, note Reg extends this for regular files
     class File:
         tag = None
@@ -3216,6 +3364,13 @@ class Lfs:
         def _lookupleaf(self, pos, *,
                 path=False,
                 depth=None):
+            # no bshrub?
+            if self.bshrub is None:
+                if path:
+                    return None, None, []
+                else:
+                    return None, None
+
             # lookup data in our bshrub
             r = self.bshrub.lookupleaf(pos,
                     path=path or depth,
@@ -3228,7 +3383,7 @@ class Lfs:
                 if path:
                     return None, None, path_
                 else:
-                    return None, None, *path_
+                    return None, None
 
             # corrupt btree node?
             if not rbyd:
@@ -3317,7 +3472,8 @@ class Lfs:
                     bid, rbyd, rid = data
                     if path:
                         yield (pos, (bid-rid + (rbyd.weight-1), rbyd),
-                                path_[:-1])
+                                # path tail is usually redundant unless corrupt
+                                path_[:-1] if rbyd else path_)
                     else:
                         yield pos, (bid-rid + (rbyd.weight-1), rbyd)
                     pos += rbyd.weight
@@ -3512,884 +3668,1062 @@ class Lfs:
             return self.Unknown(self, mid, mdir, tag, name)
 
 
+# a representation of optionally key-mapped attrs
+class Attr:
+    def __init__(self, attrs, defaults=None):
+        if attrs is None:
+            attrs = []
+        if isinstance(attrs, dict):
+            attrs = attrs.items()
 
-# tree renderer
-class TreeArt:
-    # tree branches are an abstract thing for tree rendering
-    class Branch(co.namedtuple('Branch', ['a', 'b', 'z', 'color'])):
-        __slots__ = ()
-        def __new__(cls, a, b, z=0, color='b'):
-            # a and b are context specific
-            return super().__new__(cls, a, b, z, color)
+        # normalize
+        self.attrs = []
+        self.keyed = co.OrderedDict()
+        for attr in attrs:
+            if (not isinstance(attr, tuple)
+                    or attr[0] in {None, (), (None,), ('*',)}):
+                attr = ((), attr)
+            if not isinstance(attr[0], tuple):
+                attr = ((attr[0],), attr[1])
 
-        def __repr__(self):
-            return '%s(%s, %s, %s, %s)' % (
-                    self.__class__.__name__,
-                    self.a,
-                    self.b,
-                    self.z,
-                    self.color)
+            self.attrs.append(attr)
+            if attr[0] not in self.keyed:
+                self.keyed[attr[0]] = []
+            self.keyed[attr[0]].append(attr[1])
 
-        # don't include color in branch comparisons, or else our tree
-        # renderings can end up with inconsistent colors between runs
-        def __eq__(self, other):
-            return (self.a, self.b, self.z) == (other.a, other.b, other.z)
-
-        def __ne__(self, other):
-            return (self.a, self.b, self.z) != (other.a, other.b, other.z)
-
-        def __hash__(self):
-            return hash((self.a, self.b, self.z))
-
-        # also order by z first, which can be useful for reproducibly
-        # prioritizing branches when simplifying trees
-        def __lt__(self, other):
-            return (self.z, self.a, self.b) < (other.z, other.a, other.b)
-
-        def __le__(self, other):
-            return (self.z, self.a, self.b) <= (other.z, other.a, other.b)
-
-        def __gt__(self, other):
-            return (self.z, self.a, self.b) > (other.z, other.a, other.b)
-
-        def __ge__(self, other):
-            return (self.z, self.a, self.b) >= (other.z, other.a, other.b)
-
-        # apply a function to a/b while trying to avoid copies
-        def map(self, filter_, map_=None):
-            if map_ is None:
-                filter_, map_ = None, filter_
-
-            a = self.a
-            if filter_ is None or filter_(a):
-                a = map_(a)
-
-            b = self.b
-            if filter_ is None or filter_(b):
-                b = map_(b)
-
-            if a != self.a or b != self.b:
-                return self.__class__(
-                        a if a != self.a else self.a,
-                        b if b != self.b else self.b,
-                        self.z,
-                        self.color)
-            else:
-                return self
-
-    def __init__(self, tree):
-        self.tree = tree
-        self.depth = max((t.z+1 for t in tree), default=0)
-        if self.depth > 0:
-            self.width = 2*self.depth + 2
+        # create attrs object for defaults
+        if isinstance(defaults, Attr):
+            self.defaults = defaults
+        elif defaults is not None:
+            self.defaults = Attr(defaults)
         else:
-            self.width = 0
+            self.defaults = None
+
+    def __repr__(self):
+        if self.defaults is None:
+            return 'Attr(%r)' % (
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.attrs])
+        else:
+            return 'Attr(%r, %r)' % (
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.attrs],
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.defaults.attrs])
 
     def __iter__(self):
-        return iter(self.tree)
+        if () in self.keyed:
+            return it.cycle(self.keyed[()])
+        elif self.defaults is not None:
+            return iter(self.defaults)
+        else:
+            return iter(())
 
-    # render an rbyd rbyd tree for debugging
-    @classmethod
-    def _fromrbydrtree(cls, rbyd, **args):
-        trunks = co.defaultdict(lambda: (-1, 0))
-        alts = co.defaultdict(lambda: {})
+    def __bool__(self):
+        return bool(self.attrs)
 
-        for rid, rattr, path in rbyd.rattrs(path=True):
-            # keep track of trunks/alts
-            trunks[rattr.toff] = (rid, rattr.tag)
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            if len(key) > 0 and not isinstance(key[0], str):
+                i, key = key
+            else:
+                i, key = 0, key
+        else:
+            i, key = key, ()
 
-            for ralt in path:
-                if ralt.followed:
-                    alts[ralt.toff] |= {'f': ralt.joff, 'c': ralt.color}
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        # try to lookup by key
+        best = None
+        for ks, vs in self.keyed.items():
+            prefix = []
+            for j, k in enumerate(ks):
+                if j < len(key) and fnmatch.fnmatchcase(key[j], k):
+                    prefix.append(k)
                 else:
-                    alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
+                    prefix = None
+                    break
 
-        if args.get('tree_rbyd'):
-            # treat unreachable alts as converging paths
-            for j_, alt in alts.items():
-                if 'f' not in alt:
-                    alt['f'] = alt['nf']
-                elif 'nf' not in alt:
-                    alt['nf'] = alt['f']
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, vs)
 
+        if best is not None:
+            # cycle based on index
+            return best[1][i % len(best[1])]
+
+        # fallback to defaults?
+        if self.defaults is not None:
+            return self.defaults[i, key]
+
+        return None
+
+    def __contains__(self, key):
+        return self.__getitem__(key) is not None
+
+    # a key function for sorting by key order
+    def key(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        best = None
+        for i, ks in enumerate(self.keyed.keys()):
+            prefix = []
+            for j, k in enumerate(ks):
+                if j < len(key) and (not k or key[j] == k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, i)
+
+        if best is not None:
+            return best[1]
+
+        # fallback to defaults?
+        if self.defaults is not None:
+            return len(self.keyed) + self.defaults.key(key)
+
+        return len(self.keyed)
+
+# parse %-escaped strings
+def punescape(s, attrs=None):
+    if attrs is None:
+        attrs = {}
+    if isinstance(attrs, dict):
+        attrs_ = attrs
+        attrs = lambda k: attrs_[k]
+
+    pattern = re.compile(
+        '%[%n]'
+            '|' '%x..'
+            '|' '%u....'
+            '|' '%U........'
+            '|' '%\((?P<field>[^)]*)\)'
+                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
+    def unescape(m):
+        if m.group()[1] == '%': return '%'
+        elif m.group()[1] == 'n': return '\n'
+        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
+        elif m.group()[1] == '(':
+            try:
+                v = attrs(m.group('field'))
+            except KeyError:
+                return m.group()
+            f = m.group('format')
+            if f[-1] in 'dboxX':
+                if isinstance(v, str):
+                    v = dat(v, 0)
+                v = int(v)
+            elif f[-1] in 'fFeEgG':
+                if isinstance(v, str):
+                    v = dat(v, 0)
+                v = float(v)
+            else:
+                f = ('<' if '-' in f else '>') + f.replace('-', '')
+                v = str(v)
+            # note we need Python's new format syntax for binary
+            return ('{:%s}' % f).format(v)
+        else: assert False
+    return re.sub(pattern, unescape, s)
+
+
+# TODO sync these
+
+# naive space filling curve (the default)
+@ft.lru_cache(1)
+def naive_curve(width, height):
+    def naive_(width, height):
+        for y in range(height):
+            for x in range(width):
+                yield x, y
+
+    # we need to make this a list to cache correctly
+    return list(naive_(width, height))
+
+# space filling Hilbert-curve
+#
+# we memoize the last curve since this is a bit expensive
+#
+@ft.lru_cache(1)
+def hilbert_curve(width, height):
+    def hilbert_(width, height):
+        # based on generalized Hilbert curves:
+        # https://github.com/jakubcerveny/gilbert
+        #
+        def hilbert_(x, y, a_x, a_y, b_x, b_y):
+            w = abs(a_x+a_y)
+            h = abs(b_x+b_y)
+            a_dx = -1 if a_x < 0 else +1 if a_x > 0 else 0
+            a_dy = -1 if a_y < 0 else +1 if a_y > 0 else 0
+            b_dx = -1 if b_x < 0 else +1 if b_x > 0 else 0
+            b_dy = -1 if b_y < 0 else +1 if b_y > 0 else 0
+
+            # trivial row
+            if h == 1:
+                for _ in range(w):
+                    yield x, y
+                    x, y = x+a_dx, y+a_dy
+                return
+
+            # trivial column
+            if w == 1:
+                for _ in range(h):
+                    yield x, y
+                    x, y = x+b_dx, y+b_dy
+                return
+
+            a_x_, a_y_ = a_x//2, a_y//2
+            b_x_, b_y_ = b_x//2, b_y//2
+            w_ = abs(a_x_+a_y_)
+            h_ = abs(b_x_+b_y_)
+
+            if 2*w > 3*h:
+                # prefer even steps
+                if w_ % 2 != 0 and w > 2:
+                    a_x_, a_y_ = a_x_+a_dx, a_y_+a_dy
+
+                # split in two
+                yield from hilbert_(
+                        x, y,
+                        a_x_, a_y_, b_x, b_y)
+                yield from hilbert_(
+                        x+a_x_, y+a_y_,
+                        a_x-a_x_, a_y-a_y_, b_x, b_y)
+            else:
+                # prefer even steps
+                if h_ % 2 != 0 and h > 2:
+                    b_x_, b_y_ = b_x_+b_dx, b_y_+b_dy
+
+                # split in three
+                yield from hilbert_(
+                        x, y,
+                        b_x_, b_y_, a_x_, a_y_)
+                yield from hilbert_(
+                        x+b_x_, y+b_y_,
+                        a_x, a_y, b_x-b_x_, b_y-b_y_)
+                yield from hilbert_(
+                        x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
+                        -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
+
+        if width >= height:
+            yield from hilbert_(0, 0, +width, 0, 0, +height)
         else:
-            # prune any alts with unreachable edges
-            pruned = {}
-            for j, alt in alts.items():
-                if 'f' not in alt:
-                    pruned[j] = alt['nf']
-                elif 'nf' not in alt:
-                    pruned[j] = alt['f']
-            for j in pruned.keys():
-                del alts[j]
+            yield from hilbert_(0, 0, 0, +height, +width, 0)
 
-            for j, alt in alts.items():
-                while alt['f'] in pruned:
-                    alt['f'] = pruned[alt['f']]
-                while alt['nf'] in pruned:
-                    alt['nf'] = pruned[alt['nf']]
+    # we need to make this a list to cache correctly
+    return list(hilbert_(width, height))
 
-        # find the trunk and depth of each alt
-        def rec_trunk(j):
-            if j not in alts:
-                return trunks[j]
-            else:
-                if 'nft' not in alts[j]:
-                    alts[j]['nft'] = rec_trunk(alts[j]['nf'])
-                return alts[j]['nft']
+# space filling Z-curve/Lebesgue-curve
+#
+# we memoize the last curve since this is a bit expensive
+#
+@ft.lru_cache(1)
+def lebesgue_curve(width, height):
+    def lebesgue_(width, height):
+        # we create a truncated Z-curve by simply filtering out the
+        # points that are outside our region
+        for i in range(2**(2*mt.ceil(mt.log2(max(width, height))))):
+            # we just operate on binary strings here because it's easier
+            b = '{:0{}b}'.format(i, 2*mt.ceil(mt.log2(i+1)/2))
+            x = int(b[1::2], 2) if b[1::2] else 0
+            y = int(b[0::2], 2) if b[0::2] else 0
+            if x < width and y < height:
+                yield x, y
 
-        for j in alts.keys():
-            rec_trunk(j)
-        for j, alt in alts.items():
-            if alt['f'] in alts:
-                alt['ft'] = alts[alt['f']]['nft']
-            else:
-                alt['ft'] = trunks[alt['f']]
+    # we need to make this a list to cache correctly
+    return list(lebesgue_(width, height))
 
-        def rec_height(j):
-            if j not in alts:
-                return 0
-            else:
-                if 'h' not in alts[j]:
-                    alts[j]['h'] = max(
-                            rec_height(alts[j]['f']),
-                            rec_height(alts[j]['nf'])) + 1
-                return alts[j]['h']
 
-        for j in alts.keys():
-            rec_height(j)
+# an abstract block representation
+class Block:
+    def __init__(self, block, type='unused', value=None, *,
+            siblings=None, children=None,
+            x=None, y=None, width=None, height=None):
+        self.block = block
+        self.type = type
+        self.value = value
+        self.siblings = siblings if siblings is not None else set()
+        self.children = children if children is not None else set()
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
 
-        t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
+    def __repr__(self):
+        return 'Block(0x%x, %r, x=%s, y=%s, width=%s, height=%s)' % (
+                self.block,
+                self.type,
+                self.x, self.y, self.width, self.height)
 
-        # convert to more general tree representation
-        tree = set()
-        for j, alt in alts.items():
-            # note all non-trunk edges should be colored black
-            tree.add(cls.Branch(
-                    alt['nft'],
-                    alt['nft'],
-                    t_depth-1 - alt['h'],
-                    alt['c']))
-            if alt['ft'] != alt['nft']:
-                tree.add(cls.Branch(
-                        alt['nft'],
-                        alt['ft'],
-                        t_depth-1 - alt['h'],
-                        'b'))
+    def __eq__(self, other):
+        return self.block == other.block
 
-        return cls(tree)
+    def __ne__(self, other):
+        return self.block != other.block
 
-    # render an rbyd btree tree for debugging
-    @classmethod
-    def _fromrbydbtree(cls, rbyd, **args):
-        # for rbyds this is just a pointer to every rid
-        tree = set()
-        root = None
-        for rid, name in rbyd.rids():
-            b = (rid, name.tag)
-            if root is None:
-                root = b
-            tree.add(cls.Branch(root, b))
-        return cls(tree)
+    def __hash__(self):
+        return hash(self.block)
 
-    # render an rbyd tree for debugging
-    @classmethod
-    def fromrbyd(cls, rbyd, **args):
-        if args.get('tree_btree'):
-            return cls._fromrbydbtree(rbyd, **args)
+    def __lt__(self, other):
+        return self.block < other.block
+
+    def __le__(self, other):
+        return self.block <= other.block
+
+    def __gt__(self, other):
+        return self.block > other.block
+
+    def __ge__(self, other):
+        return self.block >= other.block
+
+    # align to pixel boundaries
+    def align(self):
+        # this extra +0.1 and using points instead of width/height is
+        # to help minimize rounding errors
+        x0 = int(self.x+0.1)
+        y0 = int(self.y+0.1)
+        x1 = int(self.x+self.width+0.1)
+        y1 = int(self.y+self.height+0.1)
+        self.x = x0
+        self.y = y0
+        self.width = x1 - x0
+        self.height = y1 - y0
+
+    # generate a label
+    @ft.cached_property
+    def label(self):
+        if self.type == 'mdir':
+            return '%s %s %s w%s\ncksum %08x' % (
+                    self.type,
+                    self.value.mid.mbidrepr(),
+                    self.value.addr(),
+                    self.value.weight,
+                    self.value.cksum)
+        elif self.type == 'btree':
+            return '%s %s w%s\ncksum %08x' % (
+                    self.type,
+                    self.value.addr(),
+                    self.value.weight,
+                    self.value.cksum)
+        elif self.type == 'data':
+            return '%s %s %s\ncksize %s\ncksum %08x' % (
+                    self.type,
+                    '0x%x.%x' % (self.block, self.value.off),
+                    self.value.size,
+                    self.value.cksize,
+                    self.value.cksum)
+        elif self.type != 'unused':
+            return '%s\n%s' % (
+                    self.type,
+                    '0x%x' % self.block)
         else:
-            return cls._fromrbydrtree(rbyd, **args)
-
-    # render some nice ascii trees
-    def repr(self, x, color=False):
-        if self.depth == 0:
             return ''
 
-        def branchrepr(tree, x, d, was):
-            for t in tree:
-                if t.z == d and t.b == x:
-                    if any(t.z == d and t.a == x
-                            for t in tree):
-                        return '+-', t.color, t.color
-                    elif any(t.z == d
-                                and x > min(t.a, t.b)
-                                and x < max(t.a, t.b)
-                            for t in tree):
-                        return '|-', t.color, t.color
-                    elif t.a < t.b:
-                        return '\'-', t.color, t.color
-                    else:
-                        return '.-', t.color, t.color
-            for t in tree:
-                if t.z == d and t.a == x:
-                    return '+ ', t.color, None
-            for t in tree:
-                if (t.z == d
-                        and x > min(t.a, t.b)
-                        and x < max(t.a, t.b)):
-                    return '| ', t.color, was
-            if was:
-                return '--', was, was
-            return '  ', None, None
-
-        trunk = []
-        was = None
-        for d in range(self.depth):
-            t, c, was = branchrepr(self.tree, x, d, was)
-
-            trunk.append('%s%s%s%s' % (
-                    '\x1b[33m' if color and c == 'y'
-                        else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color and c == 'b'
-                        else '',
-                    t,
-                    ('>' if was else ' ') if d == self.depth-1 else '',
-                    '\x1b[m' if color and c else ''))
-
-        return '%s ' % ''.join(trunk)
-
-    # some more renderers
-
-# render a btree rbyd tree for debugging
-@classmethod
-def _treeartfrombtreertree(cls, btree, *,
-        depth=None,
-        inner=False,
-        **args):
-    # precompute rbyd trees so we know the max depth at each layer
-    # to nicely align trees
-    rtrees = {}
-    rdepths = {}
-    for bid, rbyd, path in btree.traverse(path=True, depth=depth):
-        if not rbyd:
-            continue
-
-        rtree = cls.fromrbyd(rbyd, **args)
-        rtrees[rbyd] = rtree
-        rdepths[len(path)] = max(rdepths.get(len(path), 0), rtree.depth)
-
-    # map rbyd branches into our btree space
-    tree = set()
-    for bid, rbyd, path in btree.traverse(path=True, depth=depth):
-        if not rbyd:
-            continue
-
-        # yes we can find new rbyds if disk is being mutated, just
-        # ignore these
-        if rbyd not in rtrees:
-            continue
-
-        rtree = rtrees[rbyd]
-        rz = max((t.z+1 for t in rtree), default=0)
-        d = sum(rdepths[d]+1 for d in range(len(path)))
-
-        # map into our btree space
-        for t in rtree:
-            # note we adjust our bid to be left-leaning, this allows
-            # a global order and makes tree rendering quite a bit easier
-            a_rid, a_tag = t.a
-            b_rid, b_tag = t.b
-            _, (_, a_w, _) = rbyd.lookupnext(a_rid)
-            _, (_, b_w, _) = rbyd.lookupnext(b_rid)
-            tree.add(cls.Branch(
-                    (bid-(rbyd.weight-1)+a_rid-(a_w-1), len(path), a_tag),
-                    (bid-(rbyd.weight-1)+b_rid-(b_w-1), len(path), b_tag),
-                    d + rdepths[len(path)]-rz + t.z,
-                    t.color))
-
-        # connect rbyd branches to rbyd roots
-        if path:
-            l_bid, l_rbyd, l_rid, l_name = path[-1]
-            l_branch = l_rbyd.lookup(l_rid, TAG_BRANCH, 0x3)
-
-            if rtree:
-                r_rid, r_tag = min(rtree, key=lambda t: t.z).a
-                _, (_, r_w, _) = rbyd.lookupnext(r_rid)
-            else:
-                r_rid, (r_tag, r_w, _) = rbyd.lookupnext(-1)
-
-            tree.add(cls.Branch(
-                    (l_bid-(l_name.weight-1), len(path)-1, l_branch.tag),
-                    (bid-(rbyd.weight-1)+r_rid-(r_w-1), len(path), r_tag),
-                    d-1))
-
-    # remap branches to leaves if we aren't showing inner branches
-    if not inner:
-        # step through each btree layer backwards
-        b_depth = max((t.a[1]+1 for t in tree), default=0)
-
-        for d in reversed(range(b_depth-1)):
-            # find bid ranges at this level
-            bids = set()
-            for t in tree:
-                if t.b[1] == d:
-                    bids.add(t.b[0])
-            bids = sorted(bids)
-
-            # find the best root for each bid range
-            roots = {}
-            for i in range(len(bids)):
-                for t in tree:
-                    if (t.a[1] > d
-                            and t.a[0] >= bids[i]
-                            and (i == len(bids)-1 or t.a[0] < bids[i+1])
-                            and (bids[i] not in roots
-                                or t < roots[bids[i]])):
-                        roots[bids[i]] = t
-
-            # remap branches to leaf-roots
-            tree = {t.map(
-                        lambda x: x[1] == d and x[0] in roots,
-                        lambda x: roots[x[0]].a)
-                    for t in tree}
-
-    return cls(tree)
-
-# render a btree btree tree for debugging
-@classmethod
-def _treeartfrombtreebtree(cls, btree, *,
-        depth=None,
-        inner=False,
-        **args):
-    # find all branches
-    tree = set()
-    root = None
-    branches = {}
-    for bid, name, path in btree.bids(
-            path=True,
-            depth=depth):
-        # create branch for each jump in path
-        #
-        # note we adjust our bid to be left-leaning, this allows
-        # a global order and makes tree rendering quite a bit easier
-        a = root
-        for d, (bid_, rbyd_, rid_, name_) in enumerate(path):
-            # map into our btree space
-            bid__ = bid_-(name_.weight-1)
-            b = (bid__, d, name_.tag)
-
-            # remap branches to leaves if we aren't showing inner
-            # branches
-            if not inner:
-                if b not in branches:
-                    bid_, rbyd_, rid_, name_ = path[-1]
-                    bid__ = bid_-(name_.weight-1)
-                    branches[b] = (bid__, len(path)-1, name_.tag)
-                b = branches[b]
-
-            # render the root path on first rid, this is arbitrary
-            if root is None:
-                root, a = b, b
-
-            tree.add(cls.Branch(a, b, d))
-            a = b
-
-    return cls(tree)
-
-# render a btree tree for debugging
-@classmethod
-def treeartfrombtree(cls, btree, **args):
-    if args.get('tree_btree'):
-        return cls._frombtreebtree(btree, **args)
-    else:
-        return cls._frombtreertree(btree, **args)
-
-TreeArt._frombtreertree = _treeartfrombtreertree
-TreeArt._frombtreebtree = _treeartfrombtreebtree
-TreeArt.frombtree = treeartfrombtree
-
-# render a file tree for debugging
-@classmethod
-def treeartfromfile(cls, file, **args):
-    tree = cls.frombtree(file.bshrub, **args)
-    t_depth = tree.depth
-
-    # connect bptr tags to bptrs
-    tree = set(tree)
-    bptrs = {}
-    for pos, data, path in file.datas(
-            path=True,
-            depth=args.get('depth')):
-        if isinstance(data, Bptr):
-            a = (pos, len(path)-1, data.tag)
-            b = (pos, len(path), data.tag)
-            bptrs[a] = b
-            tree.add(cls.Branch(a, b, t_depth))
-
-    # if we're not showing inner branches, nudge bptr tags to
-    # their bptrs
-    if not args.get('inner'):
-        tree = {t.map(lambda x: bptrs.get(x, x)) for t in tree}
-
-    return cls(tree)
-
-TreeArt.fromfile = treeartfromfile
-
-
-
-# show the littlefs config
-def dbg_config(lfs,
-        color=False,
-        w_width=2,
-        **args):
-    for i, config in enumerate(it.chain(
-                lfs.config,
-                lfs.attrs())):
-        # some special situations worth reporting
-        notes = []
-        # magic corrupt?
-        if (config.tag == TAG_MAGIC
-                and config.data != b'littlefs'):
-            notes.append('magic!=littlefs')
-
-        print('%s%12s %*s %-*s  %s%s%s' % (
-                '\x1b[31m' if color and notes else '',
-                '{%s}:' % ','.join('%04x' % block
-                        for block in config.blocks)
-                    if i == 0 else '',
-                2*w_width+1, '%d.%d' % (-1, -1)
-                    if i == 0 else '',
-                21+w_width, config.repr(),
-                next(xxd(config.data, 8), '')
-                    if not args.get('raw')
-                        and not args.get('no_truncate')
-                    else '',
-                ' (%s)' % ', '.join(notes) if notes else '',
-                '\x1b[m' if color and notes else ''))
-
-        # show on-disk encoding
-        if args.get('raw') or args.get('no_truncate'):
-            for o, line in enumerate(xxd(config.data)):
-                print('%11s: %*s %s' % (
-                        '%04x' % (config.toff + o*16),
-                        2*w_width+1, '',
-                        line))
-
-# show the littlefs gstate
-def dbg_gstate(lfs,
-        color=False,
-        w_width=2,
-        **args):
-    for i, gstate in enumerate(lfs.gstate):
-        # some special situations worth reporting
-        notes = []
-        # gcksum mismatch?
-        if (gstate.tag == TAG_GCKSUMDELTA
-                and int(gstate) != crc32ccube(lfs.cksum)):
-            notes.append('gcksum!=%08x' % crc32ccube(lfs.cksum))
-
-        print('%s%12s %*s %-*s  %s%s%s' % (
-                '\x1b[31m' if color and notes else '',
-                'gstate:'
-                    if i == 0 or args.get('gdelta')
-                    else '',
-                2*w_width+1, 'g.-1'
-                    if i == 0 or args.get('gdelta')
-                    else '',
-                21+w_width, gstate.repr(),
-                next(xxd(gstate.data, 8), '')
-                    if not args.get('raw')
-                        and not args.get('no_truncate')
-                    else '',
-                ' (%s)' % ', '.join(notes) if notes else '',
-                '\x1b[m' if color and notes else ''))
-
-        # show on-disk encoding
-        if args.get('raw') or args.get('no_truncate'):
-            for o, line in enumerate(xxd(gstate.data)):
-                print('%11s: %*s %s' % (
-                        '%04x' % (o*16),
-                        2*w_width+1, '',
-                        line))
-
-        # print gdeltas?
-        if args.get('gdelta'):
-            for mid, gdelta in gstate.gdeltas:
-                print('%s%12s %*s %-*s  %s%s' % (
-                        '\x1b[90m' if color else '',
-                        '{%s}:' % ','.join('%04x' % block
-                            for block in gdelta.blocks),
-                        2*w_width+1, mid.repr(),
-                        21+w_width, gdelta.repr(),
-                        next(xxd(gdelta.data, 8), '')
-                            if not args.get('raw')
-                                and not args.get('no_truncate')
-                            else '',
-                        '\x1b[m' if color else ''))
-
-                # show on-disk encoding
-                if args.get('raw'):
-                    for o, line in enumerate(xxd(gdelta.tdata)):
-                        print('%11s: %*s %s' % (
-                                '%04x' % (gdelta.toff + o*16),
-                                2*w_width+1, '',
-                                line))
-                if args.get('raw') or args.get('no_truncate'):
-                    for o, line in enumerate(xxd(gdelta.data)):
-                        print('%11s: %*s %s' % (
-                                '%04x' % (gdelta.off + o*16),
-                                2*w_width+1, '',
-                                line))
-
-# show the littlefs file tree
-def dbg_files(lfs, paths,
-        color=False,
-        w_width=2,
-        recurse=None,
-        all=False,
-        no_orphans=False,
-        **args):
-    all_ = all; del all
-
-    # parse all paths first, error if anything is malformed
-    dirs = []
-    # default paths to the root dir
-    for path in (paths or ['/']):
-        try:
-            dir = lfs.pathlookup(path,
-                    all=args.get('all'))
-        except Lfs.PathError as e:
-            print("error: %s" % e,
-                    file=sys.stderr)
-            sys.exit(-1)
-
-        if dir is not None:
-            dirs.append(dir)
-
-    # it's kinda tricky to iterate over everything we want to show,
-    # so create a reusable iterator
-    def iter_dir(dir, **args_):
-        if dir.recursable:
-            yield from dir.files(**args_)
+    # generate attrs for punescaping
+    @ft.cached_property
+    def attrs(self):
+        if self.type == 'mdir':
+            return {
+                'block': self.block,
+                'type': self.type,
+                'addr': self.value.addr(),
+                'trunk': self.value.trunk,
+                'weight': self.value.weight,
+                'cksum': self.value.cksum,
+            }
+        elif self.type == 'btree':
+            return {
+                'block': self.block,
+                'type': self.type,
+                'addr': self.value.addr(),
+                'trunk': self.value.trunk,
+                'weight': self.value.weight,
+                'cksum': self.value.cksum,
+            }
+        elif self.type == 'data':
+            return {
+                'block': self.block,
+                'type': self.type,
+                'addr': self.value.addr(),
+                'off': self.value.off,
+                'size': self.value.size,
+                'cksize': self.value.cksize,
+                'cksum': self.value.cksum,
+            }
         else:
-            if args_.get('path'):
-                yield dir, []
-            else:
-                yield dir
+            return {
+                'block': self.block,
+                'type': self.type,
+            }
 
-        # include any orphaned entries in the root directory to help
-        # debugging (these don't actually live in the root directory)
-        if not no_orphans and isinstance(dir, Lfs.Root):
-            # finding orphans is expensive, so cache this
-            if not hasattr(iter_dir, 'orphans'):
-                iter_dir.orphans = dir.lfs.orphans()
-            for orphan in iter_dir.orphans:
-                if args_.get('path'):
-                    yield orphan, []
-                else:
-                    yield orphan
 
-    # do a pass to figure out the width+depth of the file tree
-    # and file names so we can format things nicely
-    f_depth, f_width = 0, 0
-    for dir in dirs:
-        for file, path in iter_dir(dir,
-                all=all_,
-                depth=recurse,
-                path=True):
-            f_depth = max(f_depth, len(path)+1)
-            f_width = max(f_width, 4*len(path) + len(file.name.name))
+# a mergable range set type
+class RangeSet:
+    def __init__(self, ranges=None):
+        self._ranges = []
 
-    # only show the mdir/rbyd/block address on mdir change
-    pmdir = None
-    # recursively print directories
-    def dbg_dir(dir,
-            depth,
-            prefixes=('', '', '', '')):
-        nonlocal pmdir
+        if ranges is not None:
+            # using add here makes sure all ranges are merged/sorted
+            # correctly
+            for r in ranges:
+                self.add(r)
 
-        # first figure out the dir length so we know when the dir ends
-        if prefixes != ('', '', '', ''):
-            len_ = sum(1 for _ in iter_dir(dir, all=all_))
+    def __repr__(self):
+        return 'RangeSet(%r)' % self._ranges
+
+    def __contains__(self, k):
+        i = bisect.bisect(self._ranges, k,
+                key=lambda r: r.start) - 1
+        if i > -1:
+            return k in self._ranges[i]
         else:
-            len_ = 1
+            return False
 
-        # print files
-        for i, file in enumerate(iter_dir(dir, all=all_)):
-            # some special situations worth reporting
-            notes = []
-            # grmed?
-            if file.grmed:
-                notes.append('grmed')
-            # orphaned?
-            if file.orphaned:
-                notes.append('orphaned')
-            # missing bookmark/did?
-            if isinstance(file, Lfs.Dir):
-                if file.did is None:
-                    notes.append('missing did')
-                elif lfs.namelookup(file.did, b'') is None:
-                    notes.append('missing bookmark')
+    def __bool__(self):
+        return bool(self._ranges)
 
-            # print human readable file entry
-            print('%s%12s %*s %-*s  %s%s%s' % (
-                    '\x1b[31m'
-                        if color and not file.grmed and notes
-                        else '\x1b[90m'
-                        if color and (file.grmed or file.internal)
-                        else '',
-                    '{%s}:' % ','.join('%04x' % block
-                            for block in file.mdir.blocks)
-                        if not isinstance(pmdir, Mdir) or file.mdir != pmdir
-                        else '',
-                    2*w_width+1, file.mid.repr(),
-                    f_width, '%s%s' % (
-                        prefixes[0+(i==len_-1)],
-                        file.name.name.decode('utf8',
-                            errors='backslashreplace')),
-                    file.repr(),
-                    ' (%s)' % ', '.join(notes) if notes else '',
-                    '\x1b[m'
-                        if color and (notes or file.grmed or file.internal)
-                        else ''))
-            pmdir = file.mdir
+    def ranges(self):
+        yield from self._ranges
 
-            # print attrs associated with each file?
-            if args.get('attrs'):
-                for rattr in file.rattrs():
-                    print('%12s %*s %-*s  %s' % (
-                            '',
-                            2*w_width+1, '',
-                            21+w_width, rattr.repr(),
-                            next(xxd(rattr.data, 8), '')
-                                if not args.get('raw')
-                                    and not args.get('no_truncate')
-                                else ''))
+    def __iter__(self):
+        for r in self._ranges:
+            yield from r
 
-                    # show on-disk encoding
-                    if args.get('raw'):
-                        for o, line in enumerate(xxd(rattr.tdata)):
-                            print('%11s: %*s %s' % (
-                                    '%04x' % (rattr.toff + o*16),
-                                    2*w_width+1, '',
-                                    line))
-                    if args.get('raw') or args.get('no_truncate'):
-                        for o, line in enumerate(xxd(rattr.data)):
-                            print('%11s: %*s %s' % (
-                                    '%04x' % (rattr.off + o*16),
-                                    2*w_width+1, '',
-                                    line))
-
-            # print file structures?
-            if args.get('structs'):
-                dbg_struct(file)
-
-            # recurse?
-            if (file.recursable
-                    and depth is not None
-                    and (depth == 0 or depth > 1)):
-                dbg_dir(file,
-                        depth-1 if depth else 0,
-                        (prefixes[2+(i==len_-1)] + "|-> ",
-                         prefixes[2+(i==len_-1)] + "'-> ",
-                         prefixes[2+(i==len_-1)] + "|   ",
-                         prefixes[2+(i==len_-1)] + "    "))
-
-    # print file structures
-    def dbg_struct(file):
-        nonlocal pmdir
-
-        # no tree?
-        if file.bshrub is None:
+    def add(self, r):
+        assert isinstance(r, range)
+        # trivial range?
+        if not r:
             return
 
-        # precompute tree renderings
-        bt_width = 0
-        if (args.get('tree')
-                or args.get('tree_rbyd')
-                or args.get('tree_btree')):
-            treeart = TreeArt.fromfile(file, **args)
-            bt_width = treeart.width
+        # find earliest possible merge point
+        ranges = self._ranges
+        i = bisect.bisect_left(ranges, r.start,
+                key=lambda r: r.stop)
 
-        # dynamically size the id field
-        bw_width = mt.ceil(mt.log10(max(1, file.size)+1))
+        # copy ranges < merge
+        merged = ranges[:i]
 
-        # recursively print bshrub branches
-        def dbg_branch(d, bid, rbyd, rid, name):
-            nonlocal pmdir
+        # merge ranges and append
+        while i < len(ranges) and ranges[i].start <= r.stop:
+            r = range(
+                    min(ranges[i].start, r.start),
+                    max(ranges[i].stop, r.stop))
+            i += 1
+        merged.append(r)
 
-            for rattr in rbyd.rattrs(rid):
-                print('%12s %*s %s%*s %-*s  %s' % (
-                        '%04x.%04x:' % (rbyd.block, rbyd.trunk)
-                            if not isinstance(pmdir, Rbyd) or rbyd != pmdir
-                            else '',
-                        2*w_width+1, '',
-                        treeart.repr(
-                                (bid-(name.weight-1), d, rattr.tag),
-                                color)
-                            if args.get('tree')
-                                or args.get('tree_rbyd')
-                                or args.get('tree_btree')
-                            else '',
-                        2*bw_width+1, '%d-%d' % (bid-(rattr.weight-1), bid)
-                            if rattr.weight > 1
-                            else bid if rattr.weight > 0
-                            else '',
-                        21+2*bw_width+1, rattr.repr(),
-                        next(xxd(rattr.data, 8), '')
-                            if not args.get('raw')
-                                and not args.get('no_truncate')
-                            else ''))
-                pmdir = rbyd
+        # copy ranges > merge
+        merged.extend(ranges[i:])
 
-                # show on-disk encoding of tags/data
-                if args.get('raw'):
-                    for o, line in enumerate(xxd(rattr.tdata)):
-                        print('%11s: %*s %*s%*s %s' % (
-                                '%04x' % (rattr.toff + o*16),
-                                2*w_width+1, '',
-                                bt_width, '',
-                                2*bw_width+1, '',
-                                line))
-                if args.get('raw') or args.get('no_truncate'):
-                    for o, line in enumerate(xxd(rattr.data)):
-                        print('%11s: %*s %*s%*s %s' % (
-                                '%04x' % (rattr.off + o*16),
-                                2*w_width+1, '',
-                                bt_width, '',
-                                2*bw_width+1, '',
-                                line))
+        self._ranges = merged
 
-        # print inlined data, block pointers, etc
-        def dbg_bptr(d, pos, bptr):
-            nonlocal pmdir
-            # some special situations worth reporting
-            notes = []
-            # cksum mismatch?
-            cksum = crc32c(bptr.ckdata)
-            if cksum != bptr.cksum:
-                notes.append('cksum!=%08x' % bptr.cksum)
+    def remove(self, r):
+        assert isinstance(r, range)
+        # trivial range?
+        if not r:
+            return
 
-            print('%s%12s%s %*s %s%s%s%-*s%s%s' % (
-                    '\x1b[31m' if color and notes else '',
-                    '%04x.%04x:' % (bptr.block, bptr.off)
-                        if not isinstance(pmdir, Bptr) or bptr != pmdir
-                        else '',
-                    '\x1b[0m' if color and notes else '',
-                    2*w_width+1, '',
-                    treeart.repr((pos, d, bptr.tag), color)
-                        if args.get('tree')
-                            or args.get('tree_rbyd')
-                            or args.get('tree_btree')
-                        else '',
-                    '\x1b[31m' if color and notes else '',
-                    '%*s ' % (
-                        2*bw_width+1, '%d-%d' % (pos, pos+(bptr.weight-1))
-                            if bptr.weight > 1
-                            else pos if bptr.weight > 0
-                            else ''),
-                    56+2*bw_width+1, '%-*s  %s' % (
-                        21+2*bw_width+1, bptr.repr(),
-                        next(xxd(bptr.data, 8), '')
-                            if not args.get('raw')
-                                and not args.get('no_truncate')
-                            else ''),
-                    ' (%s)' % ', '.join(notes) if notes else '',
-                    '\x1b[m' if color and notes else ''))
-            pmdir = bptr
+        # find earliest possible carve point
+        ranges = self._ranges
+        i = bisect.bisect_left(ranges, r.start,
+                key=lambda r: r.stop)
 
-            # show on-disk encoding of tag/bptr/data
-            if args.get('raw'):
-                for o, line in enumerate(xxd(bptr.rattr.tdata)):
-                    print('%11s: %*s %*s%s%s' % (
-                            '%04x' % (bptr.rattr.toff + o*16),
-                            2*w_width+1, '',
-                            bt_width, '',
-                            '%*s ' % (2*bw_width+1, ''),
-                            line))
-            if args.get('raw'):
-                for o, line in enumerate(xxd(bptr.rattr.data)):
-                    print('%11s: %*s %*s%s%s' % (
-                            '%04x' % (bptr.rattr.off + o*16),
-                            2*w_width+1, '',
-                            bt_width, '',
-                            '%*s ' % (2*bw_width+1, ''),
-                            line))
-            if args.get('raw') or args.get('no_truncate'):
-                for o, line in enumerate(xxd(bptr.data)):
-                    print('%11s: %*s %*s%s%s' % (
-                            '%04x' % (bptr.off + o*16),
-                            2*w_width+1, '',
-                            bt_width, '',
-                            '%*s ' % (2*bw_width+1, ''),
-                            line))
+        # copy ranges < carve
+        carved = ranges[:i]
 
-        # traverse and print entries
-        ppath = []
-        for pos, data, path in file.leaves(
-                path=True,
-                depth=args.get('depth')):
-            # print inner branches if requested
-            if args.get('inner'):
-                for d, (bid_, rbyd_, rid_, name_) in pathdelta(
-                        path, ppath):
-                    dbg_branch(d, bid_, rbyd_, rid_, name_)
-            ppath = path
+        # carve overlapping ranges, note this can split ranges
+        while i < len(ranges) and ranges[i].start <= r.stop:
+            if ranges[i].start < r.start:
+                carved.append(range(ranges[i].start, r.start))
+            if ranges[i].stop > r.stop:
+                carved.append(range(r.stop, ranges[i].stop))
+            i += 1
 
-            # inlined data?
-            if isinstance(data, Rattr):
-                # a bit of a hack
-                if not args.get('inner'):
-                    bid_, rbyd_, rid_, name_ = path[-1]
-                    dbg_branch(len(path)-1, bid_, rbyd_, rid_, data)
+        # copy ranges > carve 
+        carved.extend(ranges[i:])
 
-            # block pointer?
-            elif isinstance(data, Bptr):
-                # show the data
-                dbg_bptr(len(path), pos, data)
+        self._ranges = carved
 
-            # btree node?
+    @property
+    def start(self):
+        if not self._ranges:
+            return 0
+        else:
+            return self._ranges[0].start
+
+    @property
+    def stop(self):
+        if not self._ranges:
+            return 0
+        else:
+            return self._ranges[-1].stop
+
+    def __len__(self):
+        return self.stop
+
+    def copy(self):
+        # create a shallow copy
+        ranges = RangeSet()
+        ranges._ranges = self._ranges.copy()
+        return ranges
+
+    def __getitem__(self, slice_):
+        assert isinstance(slice_, slice)
+
+        # create a copy
+        ranges = self.copy()
+
+        # just use remove to do the carving, it's good enough probably
+        if slice_.stop is not None:
+            ranges.remove(range(slice_.stop, len(self)))
+        if slice_.start is not None:
+            ranges.remove(range(0, slice_.start))
+            ranges._ranges = [range(
+                        r.start - slice_.start,
+                        r.stop - slice_.start)
+                    for r in ranges._ranges]
+
+        return ranges
+
+    def __ior__(self, other):
+        for r in other.ranges():
+            self.add(r)
+        return self
+
+    def __or__(self, other):
+        ranges = self.copy()
+        ranges |= other
+        return ranges
+
+# a mergable range dict type
+class RangeDict:
+    def __init__(self, ranges=None):
+        self._ranges = []
+
+        if ranges is not None:
+            # using __setitem__ here makes sure all ranges are
+            # merged/sorted correctly
+            for r, v in ranges:
+                self[r] = v
+
+    def __repr__(self):
+        return 'RangeDict(%r)' % self._ranges
+
+    def _get(self, k):
+        i = bisect.bisect(self._ranges, k,
+                key=lambda rv: rv[0].start) - 1
+        if i > -1:
+            return self._ranges[i][1]
+        else:
+            raise KeyError(k)
+
+    def get(self, k, d=None):
+        try:
+            return self._get(k)
+        except KeyError:
+            return d
+
+    def __getitem__(self, k):
+        # special case for slicing
+        if isinstance(k, slice):
+            return self._slice(k)
+        else:
+            return self._get(k)
+
+    def __contains__(self, k):
+        try:
+            self._get(k)
+            return True
+        except KeyError:
+            return False
+
+    def __bool__(self):
+        return bool(self._ranges)
+
+    def ranges(self):
+        yield from self._ranges
+
+    def __iter__(self):
+        for r, v in self._ranges:
+            for k in r:
+                yield k, v
+
+    # apply a function to a range
+    def map(self, r, f):
+        assert isinstance(r, range)
+        # trivial range?
+        if not r:
+            return
+
+        # find earliest possible merge point
+        ranges = self._ranges
+        i = bisect.bisect_left(ranges, r.start,
+                key=lambda rv: rv[0].stop)
+
+        # copy ranges < merge
+        merged = ranges[:i]
+
+        # map, merge/carve ranges
+        while i < len(ranges) and ranges[i][0].start <= r.stop:
+            # carve prefix
+            if ranges[i][0].start < r.start:
+                merged.append((
+                        range(ranges[i][0].start, r.start),
+                        ranges[i][1]))
+
+            # need fill?
+            if ranges[i][0].start > r.start:
+                v = f(None)
+                # merge?
+                if (merged
+                        and merged[-1][0].stop >= r.start
+                        and merged[-1][1] == v):
+                    merged[-1] = (
+                            range(
+                                merged[-1][0].start,
+                                ranges[i][0].start),
+                            merged[-1][1])
+                else:
+                    merged.append((
+                            range(r.start, ranges[i][0].start),
+                            f(None)))
+
+            # apply f
+            v = f(ranges[i][1])
+
+            # merge?
+            if (merged
+                    and merged[-1][0].stop >= r.start
+                    and merged[-1][1] == v):
+                merged[-1] = (
+                        range(
+                            merged[-1][0].start,
+                            min(ranges[i][0].stop, r.stop)),
+                        merged[-1][1])
             else:
-                bid, rbyd = data
-                # corrupted? try to keep printing the tree
-                if not rbyd:
-                    print('%11s: %*s %*s%s%s%s' % (
-                            '%04x.%04x' % (rbyd.block, rbyd.trunk),
-                            2*w_width+1, '',
-                            bt_width, '',
-                            '\x1b[31m' if color else '',
-                            '(corrupted rbyd %s)' % rbyd.addr(),
-                            '\x1b[m' if color else ''))
-                    pmdir = None
-                    continue
+                merged.append((
+                        range(
+                            r.start,
+                            min(ranges[i][0].stop, r.stop)),
+                        v))
+            r = range(
+                    min(ranges[i][0].stop, r.stop),
+                    r.stop)
 
-                for rid, name in rbyd.rids():
-                    bid_ = bid-(rbyd.weight-1) + rid
-                    # show the leaf entry/branch
-                    dbg_branch(len(path), bid_, rbyd, rid, name)
+            # carve suffix
+            if ranges[i][0].stop > r.stop:
+                # merge?
+                if ranges[i][1] == v:
+                    merged[-1] = (
+                        range(
+                            merged[-1][0].start,
+                            ranges[i][0].stop),
+                        merged[-1][1])
+                else:
+                    merged.append((
+                            range(r.stop, ranges[i][0].stop),
+                            ranges[i][1]))
 
-    # print stuff
-    for dir in dirs:
-        dbg_dir(dir, recurse)
+            i += 1
+
+        # need fill?
+        if not merged or merged[-1][0].stop < r.stop:
+            v = f(None)
+            # merge?
+            if (merged
+                    and merged[-1][0].stop >= r.start
+                    and merged[-1][1] == v):
+                merged[-1] = (
+                        range(merged[-1][0].start, r.stop),
+                        merged[-1][1])
+            else:
+                merged.append((r, v))
+
+        # copy ranges > merge
+        merged.extend(ranges[i:])
+
+        self._ranges = merged
+
+    def __setitem__(self, r, v):
+        # we can define __setitem__ using map
+        assert isinstance(r, range)
+        self.map(r, lambda _: v)
+
+    def __delitem__(self, r):
+        # __delitem__ is a bit more complicated
+        assert isinstance(r, range)
+        # trivial range?
+        if not r:
+            return
+
+        # find earliest possible carve point
+        ranges = self._ranges
+        i = bisect.bisect_left(ranges, r.start,
+                key=lambda rv: rv[0].stop)
+
+        # copy ranges < carve
+        carved = ranges[:i]
+
+        # carve overlapping ranges, note this can split ranges
+        while i < len(ranges) and ranges[i][0].start <= r.stop:
+            if ranges[i][0].start < r.start:
+                carved.append((
+                        range(ranges[i][0].start, r.start),
+                        ranges[i][1]))
+            if ranges[i][0].stop > r.stop:
+                carved.append((
+                        range(r.stop, ranges[i][0].stop),
+                        ranges[i][1]))
+            i += 1
+
+        # copy ranges > carve 
+        carved.extend(ranges[i:])
+
+        self._ranges = carved
+
+    @property
+    def start(self):
+        if not self._ranges:
+            return 0
+        else:
+            return self._ranges[0][0].start
+
+    @property
+    def stop(self):
+        if not self._ranges:
+            return 0
+        else:
+            return self._ranges[-1][0].stop
+
+    def __len__(self):
+        return self.stop
+
+    def copy(self):
+        # create a shallow copy
+        ranges = RangeDict()
+        ranges._ranges = self._ranges.copy()
+        return ranges
+
+    def _slice(self, slice_):
+        assert isinstance(slice_, slice)
+
+        # create a copy
+        ranges = RangeDict()
+        ranges._ranges = self._ranges
+
+        # just use __delitem__ to do the carving, it's good enough probably
+        if slice_.stop is not None:
+            del ranges[range(slice_.stop, len(self))]
+        if slice_.start is not None:
+            del ranges[range(0, slice_.start)]
+            ranges._ranges = [(
+                        range(
+                            r.start - slice_.start,
+                            r.stop - slice_.start),
+                        v)
+                    for r, v in ranges._ranges]
+
+        return ranges
+
+    def __ior__(self, other):
+        for r, v in other.ranges():
+            self[r] = v
+        return self
+
+    def __or__(self, other):
+        ranges = self.copy()
+        ranges |= other
+        return ranges
 
 
-def main(disk, mroots=None, paths=None, *,
+## a representation of a range of blocks/offs to show
+#class BmapSlice:
+#    def __init__(self, blocks=None, off=None, size=None):
+#        self.orig_blocks = blocks
+#        self.orig_off = off
+#        self.orig_size = size
+#
+#        # flatten blocks, default to all blocks
+#        blocks = ([blocks] if isinstance(blocks, slice)
+#                else list(it.chain.from_iterable(
+#                    [blocks_] if isinstance(blocks_, slice) else blocks_
+#                    for blocks_ in blocks))
+#                if blocks is not None
+#                else [slice(None)])
+#
+#        # blocks may also encode offsets
+#        blocks, offs, size = (
+#                [block[0] if isinstance(block, tuple)
+#                        else block
+#                    for block in blocks],
+#                [off.start if isinstance(off, slice)
+#                        else off if off is not None
+#                        else size.start if isinstance(size, slice)
+#                        else block[1] if isinstance(block, tuple)
+#                        else None
+#                    for block in blocks],
+#                (size.stop - (size.start or 0)
+#                        if size.stop is not None
+#                        else None) if isinstance(size, slice)
+#                    else size if size is not None
+#                    else ((off.stop - (off.start or 0))
+#                        if off.stop is not None
+#                        else None) if isinstance(off, slice)
+#                    else None)
+#
+#        self.blocks = blocks
+#        self.offs = offs
+#        self.size = size
+#
+#    @property
+#    def off(self):
+#        if not self.offs:
+#            return None
+#        else:
+#            return self.offs[-1]
+#
+#    def __repr__(self):
+#        return 'BmapSlice(%r, %r, %r)' % (
+#                self.orig_blocks,
+#                self.orig_off,
+#                self.orig_size)
+#
+#    def slices(self, block_size, block_count):
+#        for block, off in zip(self.blocks, self.offs):
+#            # figure out off range, bound to block_size
+#            off = off if off is not None else 0
+#            size = self.size if self.size is not None else block_size - off
+#            if off >= block_size:
+#                continue
+#            size = min(off + size, block_size) - off
+#
+#            # flatten/filter blocks
+#            if isinstance(block, slice):
+#                start = block.start if block.start is not None else 0
+#                stop = block.stop if block.stop is not None else block_count
+#                for block_ in range(start, min(stop, block_count)):
+#                    yield block_, off, size
+#            else:
+#                block = block if block is not None else 0
+#                if block < block_count:
+#                    yield block, off, size
+#
+#    def blocks(self, block_count):
+#        for block in self.blocks:
+#            # flatten/filter blocks
+#            if isinstance(block, slice):
+#                start = block.start if block.start is not None else 0
+#                stop = block.stop if block.stop is not None else block_count
+#                for block_ in range(start, min(stop, block_count)):
+#                    yield block_
+#            else:
+#                block = block if block is not None else 0
+#                if block < block_count:
+#                    yield block
+#
+#    def sorted_slices(self, block_size, block_count):
+#        # merge block ranges
+#        blocks = RangeDict()
+#        for block in self.blocks:
+#            # figure out off range, bound to block_size
+#            off = off if off is not None else 0
+#            size = self.size if self.size is not None else block_size - off
+#            if off >= block_size:
+#                continue
+#            size = min(off + size, block_size) - off
+#
+#            # flatten/filter blocks
+#            if isinstance(block, slice):
+#                start = block.start if block.start is not None else 0
+#                stop = block.stop if block.stop is not None else block_count
+#                blocks.map(range(start, min(stop, block_count)),
+#                        lambda r: (r if r is not None else RangeSet())
+#                            | RangeSet([range(off, off+size)]))
+#            else:
+#                block = block if block is not None else 0
+#                if block < block_count:
+#                    blocks.map(range(block, block+1),
+#                            lambda r: (r if r is not None else RangeSet())
+#                                | RangeSet([range(off, off+size)]))
+#
+#        for block, r in blocks:
+#            for off, stop in r:
+#                yield off, stop-off
+#
+#    def sorted_blocks(self, block_count):
+#        # merge block ranges
+#        blocks = RangeSet()
+#        for block in self.blocks:
+#            # flatten/filter blocks
+#            if isinstance(block, slice):
+#                start = block.start if block.start is not None else 0
+#                stop = block.stop if block.stop is not None else block_count
+#                blocks.add(range(start, min(stop, block_count)))
+#            else:
+#                block = block if block is not None else 0
+#                if block < block_count:
+#                    blocks.add(range(block, block+1))
+#
+#        yield from blocks
+#
+#
+#
+##        # merge block ranges
+##        merged = []
+##        for blocks, offs in zip(self.blocks, self.offs):
+##            # simplify blocks first
+##            if not isinstance(blocks, slice):
+##                blocks = slice(blocks, blocks+1)
+##            blocks = slice(
+##                    blocks.start if blocks.start is not None else 0,
+##                    blocks.start if blocks.start is not None else block_count)
+##
+##            # copy ranges before merge
+##            i = 0
+##            merged_ = []
+##            blocks_ = blocks
+##            while i < len(merged) and merged[i].stop < blocks_.start:
+##                merged_.append(merged[i])
+##
+##            # merge ranges and append
+##            while i < len(merged) and merged[i].start <= blocks_.stop:
+##                blocks_ = slice(
+##                        min(merged[i].start, blocks_.start),
+##                        max(merged[i].stop, blocks_.stop))
+##            merged_.append(blocks_)
+##
+##            # and copy the rest
+##            merged_.extend(merged[i:])
+##
+##                
+##
+##
+##
+##            for blocks_ in merged:
+##                # merge ranges?
+##                if blocks_
+##                else
+#
+#
+#    def __contains__(self, block):
+#        if isinstance(block, tuple):
+#            block, off = block
+#        else:
+#            block, off = block, None
+#
+#        for block_, off_ in zip(self.blocks, self.offs):
+#            # in off range?
+#            if off is not None:
+#                off_ = off_ if off_ is not None else 0
+#                size_ = self.size
+#                if not (off >= off_
+#                        and (size_ is None or off < off_ + size_)):
+#                    continue
+#
+#            # in block range?
+#            if isinstance(block_, slice):
+#                if ((block_.start is None or block >= block_.start)
+#                        and (block_.stop is None or block < block_.stop)):
+#                    return True
+#            else:
+#                if block_ is None or block == block_:
+#                    return True
+#
+#        return False
+        
+
+
+def main(disk, output, mroots=None, *,
+        quiet=False,
         trunk=None,
+        mtree_only=False,
         block_size=None,
         block_count=None,
-        color='auto',
+        blocks=None,
+        labels=[],
+        colors=[],
+        width=None,
+        height=None,
+        block_cols=None,
+        block_rows=None,
+        block_ratio=None,
+        no_header=False,
+        no_mode=False,
+        hilbert=False,
+        lebesgue=False,
+        no_javascript=False,
+        mode_tree=False,
+        mode_branches=False,
+        mode_references=False,
+        mode_redund=False,
+        to_scale=None,
+        aspect_ratio=(1,1),
+        tiny=False,
+        title=None,
+        padding=None,
+        no_label=False,
+        dark=False,
+        font=FONT,
+        font_size=FONT_SIZE,
+        background=None,
         **args):
-    # figure out what color should be
-    if color == 'auto':
-        color = sys.stdout.isatty()
-    elif color == 'always':
-        color = True
+    # tiny mode?
+    if tiny:
+        if block_ratio is None:
+            block_ratio = 1
+        if to_scale is None:
+            to_scale = 1
+        if padding is None:
+            padding = 0
+        no_header = True
+        no_label = True
+        no_javascript = True
+
+    if block_ratio is None:
+        # golden ratio
+        block_ratio = 1 / ((1 + mt.sqrt(5))/2)
+
+    if padding is None:
+        padding = 1
+
+    # default to all modes
+    if (not mode_tree
+            and not mode_branches
+            and not mode_references
+            and not mode_redund):
+        mode_tree = True
+        mode_branches = True
+        mode_references = True
+        mode_redund = True
+
+    # what colors/labels to use?
+    colors_ = Attr(colors, defaults=COLORS_DARK if dark else COLORS)
+
+    labels_ = Attr(labels)
+
+    if background is not None:
+        background_ = background
+    elif dark:
+        background_ = '#000000'
     else:
-        color = False
+        background_ = '#ffffff'
 
-    # show files be default, but there's quite a few other things we
-    # can show if requested
-    show_config = args.get('config')
-    show_gstate = (args.get('gstate')
-            or args.get('gdelta'))
-    show_files = (args.get('files')
-            or args.get('structs')
-            or args.get('attrs'))
+    # figure out width/height
+    if width is not None:
+        width_ = width
+    else:
+        width_ = WIDTH
 
-    if (not show_config
-            and not show_gstate
-            and not show_files):
-        show_files = True
+    if height is not None:
+        height_ = height
+    else:
+        height_ = HEIGHT
 
     # is bd geometry specified?
     if isinstance(block_size, tuple):
@@ -4423,8 +4757,912 @@ def main(disk, mroots=None, paths=None, *,
         bd = Bd(f, block_size, block_count)
         lfs = Lfs.fetch(bd, mroots, trunk)
 
-        # print some information about the filesystem
-        print('littlefs%s v%s.%s %sx%s %s w%s.%s, rev %08x, cksum %08x%s' % (
+        # if we can't figure out the block_count, guess
+        if block_count is None:
+            if lfs.config.geometry is not None:
+                block_count = lfs.config.geometry.block_count
+            else:
+                f.seek(0, os.SEEK_END)
+                block_count = mt.ceil(f.tell() / block_size)
+
+        # flatten blocks, default to all blocks
+        blocks = list(
+                range(blocks.start or 0, blocks.stop or block_count)
+                        if isinstance(blocks, slice)
+                        else range(blocks, blocks+1)
+                    if blocks
+                    else range(block_count))
+
+        # scale width/height if requested
+        if (to_scale is not None
+                and (width is None or height is None)):
+            # scale width only
+            if height is not None:
+                width_ = mt.ceil((len(blocks) * to_scale) / height_)
+            # scale height only
+            elif width is not None:
+                height_ = mt.ceil((len(blocks) * to_scale) / width_)
+            # scale based on aspect-ratio
+            else:
+                width_ = mt.ceil(mt.sqrt(len(blocks) * to_scale)
+                        * (aspect_ratio[0] / aspect_ratio[1]))
+                height_ = mt.ceil((len(blocks) * to_scale) / width_)
+
+        # figure out block_cols/block_rows
+        if block_cols is not None and block_rows is not None:
+            pass
+        elif block_rows is not None:
+            block_cols = mt.ceil(len(blocks) / block_rows)
+        elif block_cols is not None:
+            block_rows = mt.ceil(len(blocks) / block_cols)
+        else:
+            # divide by 2 until we hit our target ratio, this works
+            # well for things that are often powers-of-two
+            block_cols = 1
+            block_rows = mt.ceil(len(blocks) / block_cols)
+            while (width_/block_cols) / (height_/block_rows) > block_ratio:
+                block_cols *= 2
+                block_rows = mt.ceil(len(blocks) / block_cols)
+
+        # traverse the filesystem and create a block map
+        bmap = {b: Block(b, 'unused') for b in blocks}
+        for child, path in lfs.traverse(
+                mtree_only=mtree_only,
+                path=True):
+            # mdir?
+            if isinstance(child, Mdir):
+                type = 'mdir'
+            # btree node?
+            elif isinstance(child, Rbyd):
+                type = 'btree'
+            # bptr?
+            elif isinstance(child, Bptr):
+                type = 'data'
+            else:
+                assert False, "%r?" % b
+
+            # track each block in our window
+            for b in child.blocks:
+                if b not in bmap:
+                    continue
+
+                # check for some common issues
+
+                # block conflict?
+                if b in bmap and bmap[b].type != 'unused':
+                    if bmap[b].type == 'conflict':
+                        bmap[b].value.append(child)
+                    else:
+                        bmap[b] = Block(b, 'conflict', [
+                                bmap[b].value,
+                                child])
+                # corrupt block?
+                elif not child:
+                    bmap[b] = Block(b, 'corrupt', child)
+
+                # normal block
+                else:
+                    bmap[b] = Block(b, type, child)
+
+                # keep track of siblings
+                bmap[b].siblings.update(
+                        b_ for b_ in child.blocks
+                            if b_ != b and b_ in bmap)
+
+            # update parents with children
+            if path:
+                parent = path[-1][1]
+                for b in parent.blocks:
+                    if b in bmap:
+                        bmap[b].children.update(
+                                b_ for b_ in child.blocks
+                                    if b_ in bmap)
+
+    # create space for header
+    x__ = 0
+    y__ = 0
+    width__ = width_
+    height__ = height_
+    if not no_header:
+        y__ += mt.ceil(FONT_SIZE * 1.3)
+        height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
+
+    block_width = width__ / block_cols
+    block_height = height__ / block_rows
+
+    # assign block locations based on block_rows/block_cols and the
+    # requested space filling curve
+    for (x, y), b in zip(
+            (hilbert_curve if hilbert
+                else lebesgue_curve if lebesgue
+                else naive_curve)(block_cols, block_rows),
+            sorted(bmap.values())):
+        b.x = x__ + (x * block_width)
+        b.y = y__ + (y * block_height)
+        b.width = block_width
+        b.height = block_height
+
+        # apply top padding
+        if x == 0:
+            b.x += padding
+            b.width -= min(padding, b.width)
+        if y == 0:
+            b.y += padding
+            b.height -= min(padding, b.height)
+        # apply bottom padding
+        b.width  -= min(padding, b.width)
+        b.height -= min(padding, b.height)
+
+        # align to pixel boundaries
+        b.align()
+
+    # assign colors based on block type
+    for b in bmap.values():
+        color__ = colors_[b.block, (b.type, '0x%x' % b.block)]
+        if color__ is not None:
+            b.color = punescape(color__, b.attrs)
+
+    # assign labels
+    for b in bmap.values():
+        label__ = labels_[b.block, (b.type, '0x%x' % b.block)]
+        if label__ is not None:
+            b.label = punescape(label__, b.attrs)
+
+
+    # create svg file
+    with openio(output, 'w') as f:
+        def writeln(s=''):
+            f.write(s)
+            f.write('\n')
+        f.writeln = writeln
+
+        # yes this is svg
+        f.write('<svg '
+                'xmlns="http://www.w3.org/2000/svg" '
+                'viewBox="0,0,%(width)d,%(height)d" '
+                'width="%(width)d" '
+                'height="%(height)d" '
+                'style="max-width: 100%%; '
+                        'height: auto; '
+                        'font: %(font_size)dpx %(font)s; '
+                        'background-color: %(background)s; '
+                        'user-select: %(user_select)s;">' % dict(
+                    width=width_,
+                    height=height_,
+                    font=','.join(font),
+                    font_size=font_size,
+                    background=background_,
+                    user_select='none' if not no_javascript else 'auto'))
+
+        # create header
+        if not no_header:
+            f.write('<g '
+                    'id="header" '
+                    '%(js)s>' % dict(
+                        js= 'cursor="pointer" '
+                            'onclick="click_header(this,event)">'
+                                if not no_javascript else ''))
+            # add an invisible rect to make things more clickable
+            f.write('<rect '
+                    'x="%(x)d" '
+                    'y="%(y)d" '
+                    'width="%(width)d" '
+                    'height="%(height)d" '
+                    'opacity="0">' % dict(
+                        x=0,
+                        y=0,
+                        width=width_,
+                        height=y__))
+            f.write('</rect>')
+            f.write('<text fill="%(color)s">' % dict(
+                    color='#ffffff' if dark else '#000000'))
+            f.write('<tspan x="3" y="1.1em">')
+            if title:
+                f.write(punescape(title, {
+                    'magic': 'littlefs%s' % (
+                        '' if lfs.ckmagic() else '?'),
+                    'version': 'v%s.%s' % (
+                        lfs.version.major
+                            if lfs.version is not None else '?',
+                        lfs.version.minor
+                            if lfs.version is not None else '?'),
+                    'version_major': lfs.version.major
+                            if lfs.version is not None else '?',
+                    'version_minor': lfs.version.minor
+                            if lfs.version is not None else '?',
+                    'geometry': '%sx%s' % (
+                        lfs.block_size
+                            if lfs.block_size is not None else '?',
+                        lfs.block_count
+                            if lfs.block_count is not None else '?'),
+                    'block_size': lfs.block_size
+                            if lfs.block_size is not None else '?',
+                    'block_count': lfs.block_count
+                            if lfs.block_count is not None else '?',
+                    'addr': lfs.addr(),
+                    'weight': 'w%s.%s' % (
+                        lfs.mbweightrepr(),
+                        lfs.mrweightrepr()),
+                    'mbweight': lfs.mbweightrepr(),
+                    'mrweight': lfs.mrweightrepr(),
+                    'cksum': '%08x%s' % (
+                        lfs.cksum,
+                        '' if lfs.ckcksum() else '?'),
+
+                }))
+            else:
+                f.write('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
+                        '' if lfs.ckmagic() else '?',
+                        lfs.version.major if lfs.version is not None else '?',
+                        lfs.version.minor if lfs.version is not None else '?',
+                        lfs.block_size if lfs.block_size is not None else '?',
+                        lfs.block_count if lfs.block_count is not None else '?',
+                        lfs.addr(),
+                        lfs.mbweightrepr(), lfs.mrweightrepr(),
+                        lfs.cksum,
+                        '' if lfs.ckcksum() else '?'))
+            f.write('</tspan>')
+            if not no_mode and not no_javascript:
+                f.write('<tspan id="mode" x="%(x)d" y="1.1em" '
+                        'text-anchor="end">' % dict(
+                            x=width_-3))
+                f.write('mode: %s' % (
+                        'tree' if mode_tree
+                            else 'branches' if mode_branches
+                            else 'references' if mode_references
+                            else 'redund'))
+                f.write('</tspan>')
+            f.write('</text>')
+            f.write('</g>')
+
+        # create block tiles
+        for b in bmap.values():
+            # skip anything with zero weight/height after aligning things
+            if b.width == 0 or b.height == 0:
+                continue
+
+            f.write('<g '
+                    'id="b-%(block)d" '
+                    'class="block" '
+                    'transform="translate(%(x)d,%(y)d)" '
+                    '%(js)s>' % dict(
+                        block=b.block,
+                        x=b.x,
+                        y=b.y,
+                        js= 'data-block="%(block)d" '
+                            # precompute x/y for javascript, svg makes this
+                            # weirdly difficult to figure out post-transform
+                            'data-x="%(x)d" '
+                            'data-y="%(y)d" '
+                            'data-width="%(width)d" '
+                            'data-height="%(height)d" '
+                            'onmouseenter="enter_block(this,event)" '
+                            'onmouseleave="leave_block(this,event)" '
+                            'onclick="click_block(this,event)">' % dict(
+                                    block=b.block,
+                                    x=b.x,
+                                    y=b.y,
+                                    width=b.width,
+                                    height=b.height)
+                                if not no_javascript else ''))
+            # add an invisible rect to make things more clickable
+            f.write('<rect '
+                    'width="%(width)d" '
+                    'height="%(height)d" '
+                    'opacity="0">' % dict(
+                        width=b.width + padding,
+                        height=b.height + padding))
+            f.write('</rect>')
+            f.write('<title>')
+            f.write(b.label)
+            f.write('</title>')
+            f.write('<rect '
+                    'id="b-tile-%(block)d" '
+                    'fill="%(color)s" '
+                    'width="%(width)d" '
+                    'height="%(height)d">' % dict(
+                        block=b.block,
+                        color=b.color,
+                        width=b.width,
+                        height=b.height))
+            f.write('</rect>')
+            if not no_label:
+                f.write('<clipPath id="b-clip-%d">' % b.block)
+                f.write('<use href="#b-tile-%d">' % b.block)
+                f.write('</use>')
+                f.write('</clipPath>')
+                f.write('<text clip-path="url(#b-clip-%d)">' % b.block)
+                for j, l in enumerate(b.label.split('\n')):
+                    if j == 0:
+                        f.write('<tspan x="3" y="1.1em">')
+                        f.write(l)
+                        f.write('</tspan>')
+                    else:
+                        f.write('<tspan x="3" dy="1.1em" '
+                                'fill-opacity="0.7">')
+                        f.write(l)
+                        f.write('</tspan>')
+                f.write('</text>')
+            f.write('</g>')
+
+        if not no_javascript:
+            # arrowhead for arrows
+            f.write('<defs>')
+            f.write('<marker '
+                    'id="arrowhead" '
+                    'viewBox="0 0 10 10" '
+                    'refX="10" '
+                    'refY="5" '
+                    'markerWidth="6" '
+                    'markerHeight="6" '
+                    'orient="auto-start-reverse" '
+                    'fill="black">')
+            f.write('<path d="M 0 0 L 10 5 L 0 10 z"/>')
+            f.write('</marker>')
+            f.write('</defs>')
+
+            # javascript for arrows
+            #
+            # why tf does svg support javascript?
+            f.write('<script><![CDATA[')
+
+            # embed our siblings
+            f.write('const siblings = %s;' % json.dumps(
+                    {b.block: list(b.siblings)
+                        for b in bmap.values()
+                        if b.siblings},
+                    separators=(',', ':')))
+
+            # embed our children
+            f.write('const children = %s;' % json.dumps(
+                    {b.block: list(b.children)
+                        for b in bmap.values()
+                        if b.children},
+                    separators=(',', ':')))
+
+            # function for rect <-> line interesection
+            f.write('function rect_intersect(x, y, width, height, l_x, l_y) {')
+            f.write(    'let r_x = (x + width/2);')
+            f.write(    'let r_y = (y + height/2);')
+            f.write(    'let dx = l_x - r_x;')
+            f.write(    'let dy = l_y - r_y;')
+            f.write(    'let θ = Math.abs(dy / dx);')
+            f.write(    'let φ = height / width;')
+            f.write(    'if (θ > φ) {')
+            f.write(        'return [')
+            f.write(            'r_x + ((height/2)/θ)*Math.sign(dx),')
+            f.write(            'r_y + (height/2)*Math.sign(dy),')
+            f.write(        '];')
+            f.write(    '} else {')
+            f.write(        'return [')
+            f.write(            'r_x + (width/2)*Math.sign(dx),')
+            f.write(            'r_y + ((width/2)*θ)*Math.sign(dy),')
+            f.write(        '];')
+            f.write(    '}')
+            f.write('}')
+
+            # our main drawing functions
+            f.write('function draw_unfocus() {')
+                        # lower opacity of unfocused tiles
+            f.write(    'for (let b of document.querySelectorAll(".block")) {')
+            f.write(        'b.setAttribute("fill-opacity", 0.7);')
+            f.write(    '}')
+            f.write('}')
+
+            f.write('function draw_focus(a) {')
+                        # revert opacity and move to top
+            f.write(    'a.setAttribute("fill-opacity", 1);')
+            f.write(    'a.parentElement.appendChild(a);')
+            f.write('}')
+
+            # draw an arrow
+            f.write('function draw_arrow(a, b) {')
+                        # no self-referential arrows
+            f.write(    'if (b == a) {')
+            f.write(        'return;')
+            f.write(    '}')
+                        # figure out rect intersections
+            f.write(    'let svg = document.documentElement;')
+            f.write(    'let ns = svg.getAttribute("xmlns");')
+            f.write(    'let a_x = parseInt(a.dataset.x);')
+            f.write(    'let a_y = parseInt(a.dataset.y);')
+            f.write(    'let a_width = parseInt(a.dataset.width);')
+            f.write(    'let a_height = parseInt(a.dataset.height);')
+            f.write(    'let b_x = parseInt(b.dataset.x);')
+            f.write(    'let b_y = parseInt(b.dataset.y);')
+            f.write(    'let b_width = parseInt(b.dataset.width);')
+            f.write(    'let b_height = parseInt(b.dataset.height);')
+            f.write(    'let [a_ix, a_iy] = rect_intersect(')
+            f.write(            'a_x, a_y, a_width, a_height,')
+            f.write(            'b_x + b_width/2, b_y + b_height/2);')
+            f.write(    'let [b_ix, b_iy] = rect_intersect(')
+            f.write(            'b_x, b_y, b_width, b_height,')
+            f.write(            'a_x + a_width/2, a_y + a_height/2);')
+                        # create the actual arrow
+            f.write(    'let arrow = document.createElementNS(ns, "line");')
+            f.write(    'arrow.classList.add("arrow");')
+            f.write(    'arrow.setAttribute("x1", a_ix);')
+            f.write(    'arrow.setAttribute("y1", a_iy);')
+            f.write(    'arrow.setAttribute("x2", b_ix);')
+            f.write(    'arrow.setAttribute("y2", b_iy);')
+            f.write(    'arrow.setAttribute("stroke", "black");')
+            f.write(    'arrow.setAttribute("marker-end", "url(#arrowhead)");')
+            f.write(    'arrow.setAttribute("pointer-events", "none");')
+            f.write(    'a.parentElement.appendChild(arrow);')
+            f.write('}')
+
+            # draw a dashed line
+            f.write('function draw_dashed(a, b) {')
+                        # no self-referential arrows
+            f.write(    'if (b == a) {')
+            f.write(        'return;')
+            f.write(    '}')
+                        # figure out rect intersections
+            f.write(    'let svg = document.documentElement;')
+            f.write(    'let ns = svg.getAttribute("xmlns");')
+            f.write(    'let a_x = parseInt(a.dataset.x);')
+            f.write(    'let a_y = parseInt(a.dataset.y);')
+            f.write(    'let a_width = parseInt(a.dataset.width);')
+            f.write(    'let a_height = parseInt(a.dataset.height);')
+            f.write(    'let b_x = parseInt(b.dataset.x);')
+            f.write(    'let b_y = parseInt(b.dataset.y);')
+            f.write(    'let b_width = parseInt(b.dataset.width);')
+            f.write(    'let b_height = parseInt(b.dataset.height);')
+            f.write(    'let [a_ix, a_iy] = rect_intersect(')
+            f.write(            'a_x, a_y, a_width, a_height,')
+            f.write(            'b_x + b_width/2, b_y + b_height/2);')
+            f.write(    'let [b_ix, b_iy] = rect_intersect(')
+            f.write(            'b_x, b_y, b_width, b_height,')
+            f.write(            'a_x + a_width/2, a_y + a_height/2);')
+                        # create the actual arrow
+            f.write(    'let arrow = document.createElementNS(ns, "line");')
+            f.write(    'arrow.classList.add("arrow");')
+            f.write(    'arrow.setAttribute("x1", a_ix);')
+            f.write(    'arrow.setAttribute("y1", a_iy);')
+            f.write(    'arrow.setAttribute("x2", b_ix);')
+            f.write(    'arrow.setAttribute("y2", b_iy);')
+            f.write(    'arrow.setAttribute("stroke", "black");')
+            f.write(    'arrow.setAttribute("stroke-dasharray", "5,5");')
+            f.write(    'arrow.setAttribute("pointer-events", "none");')
+            f.write(    'a.parentElement.appendChild(arrow);')
+            f.write('}')
+
+            # some other draw helpers
+
+            # connect siblings with dashed lines
+            f.write('function draw_sibling_arrows(a, seen) {')
+            f.write(    'if (a.dataset.block in seen) {')
+            f.write(        'return;')
+            f.write(    '}')
+            f.write(    'seen[a.dataset.block] = true;')
+            f.write(    'for (let sibling of '
+                                'siblings[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById('
+                                    '"b-"+sibling);')
+            f.write(        'if (b) {')
+            f.write(            'draw_dashed(a, b);')
+            f.write(            'seen[b.dataset.block] = true;')
+            f.write(        '}')
+            f.write(    '}')
+            f.write('}')
+
+            # focus siblings
+            f.write('function draw_sibling_focus(a) {')
+            f.write(    'for (let sibling of '
+                                'siblings[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById('
+                                    '"b-"+sibling);')
+            f.write(        'if (b) {')
+            f.write(            'draw_focus(b);')
+            f.write(        '}')
+            f.write(    '}')
+            f.write('}')
+
+            # here are some drawing modes to choose from
+
+            # draw full tree
+            f.write('function draw_tree(a) {')
+                        # track visited children to avoid cycles
+            f.write(    'let seen = {};')
+                        # avoid duplicate sibling arrows
+            f.write(    'let seen_siblings = {};')
+                        # create new arrows
+            f.write(    'let recurse = function(a) {')
+            f.write(        'if (a.dataset.block in seen) {')
+            f.write(            'return;')
+            f.write(        '}')
+            f.write(        'seen[a.dataset.block] = true;')
+            f.write(        'for (let child of ')
+            f.write(                'children[a.dataset.block] || []) {')
+            f.write(            'let b = document.getElementById("b-"+child);')
+            f.write(            'if (b) {')
+            f.write(                'draw_arrow(a, b);')
+            f.write(                'recurse(b);')
+            f.write(            '}')
+            f.write(        '}')
+                            # also connect siblings
+            f.write(        'draw_sibling_arrows(a, seen_siblings);')
+                            # and siblings to their children
+            f.write(        'for (let sibling of '
+                                    'siblings[a.dataset.block] || []) {')
+            f.write(            'let b = document.getElementById('
+                                        '"b-"+sibling);')
+            f.write(            'if (b) {')
+            f.write(                'recurse(b);')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '};')
+            f.write(    'recurse(a);')
+                        # track visited children to avoid cycles
+            f.write(    'seen = {};')
+                        # move in-focus tiles to the top
+            f.write(    'recurse = function(a) {')
+            f.write(        'if (a.dataset.block in seen) {')
+            f.write(            'return;')
+            f.write(        '}')
+            f.write(        'seen[a.dataset.block] = true;')
+            f.write(        'for (let child of ')
+            f.write(                'children[a.dataset.block] || []) {')
+            f.write(            'let b = document.getElementById("b-"+child);')
+            f.write(            'if (b) {')
+            f.write(                'draw_focus(b);')
+            f.write(                'recurse(b);')
+            f.write(            '}')
+            f.write(        '}')
+                            # also connect siblings
+            f.write(        'draw_sibling_focus(a);')
+                            # and siblings to their children
+            f.write(        'for (let sibling of '
+                                    'siblings[a.dataset.block] || []) {')
+            f.write(            'let b = document.getElementById('
+                                        '"b-"+sibling);')
+            f.write(            'if (b) {')
+            f.write(                'recurse(b);')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '};')
+            f.write(    'recurse(a);')
+                        # move our tile to the top
+            f.write(    'draw_focus(a);')
+            f.write('}')
+
+            # draw one level of branches
+            f.write('function draw_branches(a) {')
+                        # avoid duplicate sibling arrows
+            f.write(    'let seen_siblings = {};')
+                        # create new arrows
+            f.write(    'for (let child of children[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById("b-"+child);')
+            f.write(        'if (b) {')
+            f.write(            'draw_arrow(a, b);')
+                                # also connect siblings
+            f.write(            'draw_sibling_arrows(b, seen_siblings);')
+            f.write(        '}')
+            f.write(    '}')
+                        # also connect siblings
+            f.write(    'draw_sibling_arrows(a, seen_siblings);')
+                        # and siblings to their children
+            f.write(    'for (let sibling of '
+                                'siblings[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById("b-"+sibling);')
+            f.write(        'if (b) {')
+            f.write(            'for (let child of '
+                                        'children[b.dataset.block] || []) {')
+            f.write(                'let c = document.getElementById('
+                                            '"b-"+child);')
+            f.write(                'if (c) {')
+            f.write(                    'draw_arrow(b, c);')
+            f.write(                '}')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+                        # move in-focus tiles to the top
+            f.write(    'for (let child of children[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById("b-"+child);')
+            f.write(        'if (b) {')
+            f.write(            'draw_focus(b);')
+                                # also connect siblings
+            f.write(            'draw_sibling_focus(b);')
+            f.write(        '}')
+            f.write(    '}')
+                        # also connect siblings
+            f.write(    'draw_sibling_focus(a);')
+                        # and siblings to their children
+            f.write(    'for (let sibling of '
+                                'siblings[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById("b-"+sibling);')
+            f.write(        'if (b) {')
+            f.write(            'for (let child of '
+                                        'children[b.dataset.block] || []) {')
+            f.write(                'let c = document.getElementById('
+                                            '"b-"+child);')
+            f.write(                'if (c) {')
+            f.write(                    'draw_focus(c);')
+            f.write(                '}')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+                        # move our tile to the top
+            f.write(    'draw_focus(a);')
+            f.write('}')
+
+            # draw one level of references
+            f.write('function draw_references(a) {')
+                        # avoid duplicate sibling arrows
+            f.write(    'let seen_siblings = {};')
+                        # create new arrows
+            f.write(    'for (let parent in children) {')
+            f.write(        'if ((children[parent] || []).includes(')
+            f.write(                'parseInt(a.dataset.block))) {')
+            f.write(            'let b = document.getElementById('
+                                        '"b-"+parent);')
+            f.write(            'if (b) {')
+            f.write(                'draw_arrow(b, a);')
+                                    # also connect parent siblings
+            f.write(                'draw_sibling_arrows(b, seen_siblings);')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+                        # connect siblings
+            f.write(    'draw_sibling_arrows(a, seen_siblings);')
+                        # and siblings to their parents
+            f.write(    'for (let sibling of '
+                                'siblings[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById("b-"+sibling);')
+            f.write(        'if (b) {')
+            f.write(            'for (let parent in children) {')
+            f.write(                'if ((children[parent] || []).includes(')
+            f.write(                        'parseInt(b.dataset.block))) {')
+            f.write(                    'let c = document.getElementById('
+                                                '"b-"+parent);')
+            f.write(                    'if (c) {')
+            f.write(                        'draw_arrow(c, b);')
+            f.write(                    '}')
+            f.write(                '}')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+                        # move in-focus tiles to the top
+            f.write(    'for (let parent in children) {')
+            f.write(        'if ((children[parent] || []).includes(')
+            f.write(                'parseInt(a.dataset.block))) {')
+            f.write(            'let b = document.getElementById('
+                                        '"b-"+parent);')
+            f.write(            'if (b) {')
+            f.write(                'draw_focus(b);')
+                                    # also connect parent siblings
+            f.write(                'draw_sibling_focus(b);')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+                        # connect siblings
+            f.write(    'draw_sibling_focus(a);')
+                        # and siblings to their parents
+            f.write(    'for (let sibling of '
+                                'siblings[a.dataset.block] || []) {')
+            f.write(        'let b = document.getElementById("b-"+sibling);')
+            f.write(        'if (b) {')
+            f.write(            'for (let parent in children) {')
+            f.write(                'if ((children[parent] || []).includes(')
+            f.write(                        'parseInt(b.dataset.block))) {')
+            f.write(                    'let c = document.getElementById('
+                                                '"b-"+parent);')
+            f.write(                    'if (c) {')
+            f.write(                        'draw_focus(c, b);')
+            f.write(                    '}')
+            f.write(                '}')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+                        # move our tile to the top
+            f.write(    'draw_focus(a);')
+            f.write('}')
+
+            # draw related redund blocks
+            f.write('function draw_redund(a) {')
+                        # avoid duplicate sibling arrows
+            f.write(    'let seen_siblings = {};')
+                        # connect siblings
+            f.write(    'draw_sibling_arrows(a, seen_siblings);')
+                        # move in-focus tiles to the top
+            f.write(    'draw_sibling_focus(a);')
+                        # move our tile to the top
+            f.write(    'draw_focus(a);')
+            f.write('}')
+
+            # clear old arrows/tiles if we leave
+            f.write('function undraw() {')
+                        # clear arrows
+            f.write(    'for (let arrow of document.querySelectorAll('
+                                '".arrow")) {')
+            f.write(        'arrow.remove();')
+            f.write(    '}')
+                        # revert opacity
+            f.write(    'for (let b of document.querySelectorAll(".block")) {')
+            f.write(        'b.setAttribute("fill-opacity", 1);')
+            f.write(    '}')
+            f.write('}')
+
+            # state machine for mouseover/clicks
+            f.write('const modes = [')
+            if mode_tree:
+                f.write('{name: "tree",         draw: draw_tree         },')
+            if mode_branches:
+                f.write('{name: "branches",     draw: draw_branches     },')
+            if mode_references:
+                f.write('{name: "references",   draw: draw_references   },')
+            if mode_redund:
+                f.write('{name: "redund",       draw: draw_redund       },')
+            f.write('];')
+            f.write('let state = 0;')
+            f.write('let hovered = null;')
+            f.write('let active = null;')
+            f.write('let paused = false;')
+
+            f.write('function enter_block(a, event) {')
+            f.write(    'hovered = a;')
+                        # do nothing if paused
+            f.write(    'if (paused) {')
+            f.write(        'return;')
+            f.write(    '}')
+
+            f.write(    'if (!active) {')
+                            # reset
+            f.write(        'undraw();')
+            f.write(        'draw_unfocus();')
+                            # draw selected mode
+            f.write(        'modes[state].draw(a);')
+            f.write(    '}')
+            f.write('}')
+
+            f.write('function leave_block(a, event) {')
+            f.write(    'hovered = null;')
+                        # do nothing if paused
+            f.write(    'if (paused) {')
+            f.write(        'return;')
+            f.write(    '}')
+
+                        # do nothing if ctrl is held
+            f.write(    'if (!active) {')
+                            # reset
+            f.write(        'undraw();')
+            f.write(    '}')
+            f.write('}')
+
+            # update the mode string
+            f.write('function draw_mode() {')
+            f.write(    'let mode = document.getElementById("mode");')
+            f.write(    'if (mode) {')
+            f.write(        'mode.textContent = "mode: "'
+                                    '+ modes[state].name'
+                                    '+ ((paused) ? " (paused)"'
+                                        ': active ? " (frozen)"'
+                                        ': "");')
+            f.write(    '}')
+            f.write('}')
+
+            # redraw things
+            f.write('function redraw() {')
+                        # reset
+            f.write(    'undraw();')
+                        # redraw block if active
+            f.write(    'if (active) {')
+            f.write(        'draw_unfocus();')
+            f.write(        'modes[state].draw(active);')
+                        # otherwise try to enter hovered block if there is one
+            f.write(    '} else if (hovered) {')
+            f.write(        'enter_block(hovered);')
+            f.write(    '}')
+            f.write('}')
+
+            # clicking the mode element changes the mode
+            f.write('function click_header(a, event) {')
+                        # do nothing if paused
+            f.write(    'if (paused) {')
+            f.write(        'return;')
+            f.write(    '}')
+                        # update state
+            f.write(    'state = (state + 1) % modes.length;')
+                        # update the mode string
+            f.write(    'draw_mode();')
+                        # redraw with new mode
+            f.write(    'redraw();')
+            f.write('}')
+
+            # click handler is kinda complicated, we handle both single
+            # and double clicks here
+            f.write('let prev = null;')
+            f.write('function click_block(a, event) {')
+                        # do nothing if paused
+            f.write(    'if (paused) {')
+            f.write(        'return;')
+            f.write(    '}')
+
+                        # double clicking changes the mode
+            f.write(    'if (event && event.detail == 2 '
+                                # limit this to double-clicking the active tile
+                                '&& (!prev || a == prev)) {')
+                            # undo single-click
+            f.write(        'active = prev;')
+                            # trigger a mode change
+            f.write(        'click_header();')
+            f.write(        'return;')
+            f.write(    '}')
+                        # save state in case we are trying to double click,
+                        # double clicks always send a single click first
+            f.write(    'prev = active;')
+
+                        # clicking blocks toggles frozen mode
+            f.write(    'if (a == active) {')
+            f.write(        'active = null;')
+            f.write(    '} else {')
+            f.write(        'active = null;')
+            f.write(        'enter_block(a);')
+            f.write(        'active = a;')
+            f.write(    '}')
+                        # update mode string
+            f.write(    'draw_mode();')
+            f.write('}')
+
+            # include some minor keybindings
+            f.write('function keydown(event) {')
+                        # m => change mode
+            f.write(    'if (event.key == "m") {')
+            f.write(        'click_header();')
+                        # escape/e => clear frozen/paused state
+            f.write(    '} else if (event.key == "Escape"'
+                                '|| event.key == "e") {')
+                            # reset frozen state
+            f.write(        'active = null;')
+                            # reset paused state
+            f.write(        'if (paused) {')
+            f.write(            'keydown({key: "Pause"});')
+            f.write(        '}')
+                            # redraw things
+            f.write(        'draw_mode();')
+            f.write(        'redraw();')
+                        # pause/p  => pause all interactivity and allow
+                        # copy-paste
+            f.write(    '} else if (event.key == "Pause"'
+                                '|| event.key == "p") {')
+            f.write(        'paused = !paused;')
+                            # update mode string
+            f.write(        'draw_mode();')
+            f.write(        'if (paused) {')
+                                # enabled copy-pasting when paused
+            f.write(            'for (let e of document.querySelectorAll('
+                                        '"[style*=\\"user-select\\"]")) {')
+            f.write(                'e.style["user-select"] = "auto";')
+            f.write(            '}')
+            f.write(            'for (let e of document.querySelectorAll('
+                                        '"[cursor]")) {')
+            f.write(                'e.setAttribute("cursor", "auto");')
+            f.write(            '}')
+            f.write(        '} else {')
+                                # reset copy-pasting
+            f.write(            'document.getSelection().empty();')
+            f.write(            'for (let e of document.querySelectorAll('
+                                        '"[style*=\\"user-select\\"]")) {')
+            f.write(                'e.style["user-select"] = "none";')
+            f.write(            '}')
+            f.write(            'for (let e of document.querySelectorAll('
+                                        '"[cursor]")) {')
+            f.write(                'e.setAttribute("cursor", "pointer");')
+            f.write(            '}')
+            f.write(        '}')
+            f.write(    '}')
+            f.write('}')
+            f.write('window.addEventListener("keydown", keydown);')
+
+            f.write(']]></script>')
+
+        f.write('</svg>')
+
+
+    # print some summary info
+    if not quiet:
+        print('updated %s, littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
+                output,
                 '' if lfs.ckmagic() else '?',
                 lfs.version.major if lfs.version is not None else '?',
                 lfs.version.minor if lfs.version is not None else '?',
@@ -4432,43 +5670,10 @@ def main(disk, mroots=None, paths=None, *,
                 lfs.block_count if lfs.block_count is not None else '?',
                 lfs.addr(),
                 lfs.mbweightrepr(), lfs.mrweightrepr(),
-                lfs.rev,
                 lfs.cksum,
                 '' if lfs.ckcksum() else '?'))
 
-        # dynamically size the id field
-        w_width = max(
-                mt.ceil(mt.log10(max(1, lfs.mbweight >> lfs.mbits)+1)),
-                mt.ceil(mt.log10(max(1, max(
-                    mdir.weight for mdir in lfs.mtree.mdirs())))+1),
-                # in case of -1.-1
-                2)
-
-        # show the on-disk config?
-        if show_config:
-            dbg_config(lfs,
-                    color=color,
-                    w_width=w_width,
-                    **args)
-
-        # show the on-disk gstate?
-        if show_gstate:
-            dbg_gstate(lfs,
-                    color=color,
-                    w_width=w_width,
-                    **args)
-
-        # show the on-disk file tree?
-        if show_files:
-            dbg_files(lfs, paths,
-                    color=color,
-                    w_width=w_width,
-                    **args)
-
-        # is the filesystem corrupt?
-        corrupted = not bool(lfs)
-
-    if args.get('error_on_corrupt') and corrupted:
+    if args.get('error_on_corrupt') and not lfs:
         sys.exit(2)
 
 
@@ -4476,41 +5681,34 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Debug littlefs stuff.",
+            description="Render currently used blocks in a littlefs image "
+                "as an interactive d3-esque map.",
             allow_abbrev=False)
     parser.add_argument(
             'disk',
             help="File containing the block device.")
-    class AppendMrootOrPath(argparse.Action):
-        def __call__(self, parser, namespace, values, option):
-            for value in values:
-                # mroot?
-                if not isinstance(value, str):
-                    if getattr(namespace, 'mroots', None) is None:
-                        namespace.mroots = []
-                    namespace.mroots.append(value)
-                # or path?
-                else:
-                    if getattr(namespace, 'paths', None) is None:
-                        namespace.paths = []
-                    namespace.paths.append(value)
     parser.add_argument(
             'mroots',
             nargs='*',
-            type=lambda x: rbydaddr(x) if not x.startswith('/') else x,
-            action=AppendMrootOrPath,
+            type=rbydaddr,
             help="Block address of the mroots. Defaults to 0x{0,1}.")
     parser.add_argument(
-            'paths',
-            nargs='*',
-            type=lambda x: rbydaddr(x) if not x.startswith('/') else x,
-            action=AppendMrootOrPath,
-            help="Paths to show, must start with a leading slash. Defaults "
-                "to the root directory.")
+            '-o', '--output',
+            required=True,
+            help="Output *.svg file.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't print info.")
     parser.add_argument(
             '--trunk',
             type=lambda x: int(x, 0),
             help="Use this offset as the trunk of the mroots.")
+    # TODO adopt this in dbglfs.py for --ckdata?
+    parser.add_argument(
+            '--mtree-only',
+            action='store_true',
+            help="Only traverse the mtree.")
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
@@ -4519,84 +5717,186 @@ if __name__ == "__main__":
             '--block-count',
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
+
+#    # subparser for block arguments
+#    blocks_parser = argparse.ArgumentParser(
+#            prog="%s -@/--blocks" % parser.prog,
+#            allow_abbrev=False)
+#    blocks_parser.add_argument(
+#            'blocks',
+#            nargs='*',
+#            type=lambda x: (
+#                slice(*(int(x, 0) if x.strip() else None
+#                        for x in x.split(',', 1)))
+#                    if ',' in x and '{' not in x
+#                    else rbydaddr(x)),
+#            help="Block addresses, may be a range.")
+#    blocks_parser.add_argument(
+#            '--off',
+#            type=lambda x: (
+#                slice(*(int(x, 0) if x.strip() else None
+#                        for x in x.split(',', 1)))
+#                    if ',' in x
+#                    else int(x, 0)),
+#            help="Show a specific offset, may be a range.")
+#    blocks_parser.add_argument(
+#            '-n', '--size',
+#            type=lambda x: (
+#                slice(*(int(x, 0) if x.strip() else None
+#                        for x in x.split(',', 1)))
+#                    if ',' in x
+#                    else int(x, 0)),
+#            help="Show this many bytes, may be a range.")
+#
+#    parser.add_argument(
+#            '-@', '--blocks',
+#            type=lambda blocks: BmapSlice(**{k: v
+#                for k, v in vars(blocks_parser.parse_intermixed_args(
+#                    shlex.split(blocks))).items()
+#                if v is not None}),
+#            help="Optional blocks to show, may be a range. Can also include "
+#                "--off and -n/--size flags to indicate a range inside the "
+#                "block, both which may also be ranges.")
+
     parser.add_argument(
-            '--color',
-            choices=['never', 'always', 'auto'],
-            default='auto',
-            help="When to use terminal colors. Defaults to 'auto'.")
+            '-@', '--blocks',
+            type=lambda x: (
+                slice(*(int(x, 0) if x.strip() else None
+                        for x in x.split(',', 1)))
+                    if ',' in x
+                    else int(x, 0)),
+            help="Show a specific block, may be a range.")
     parser.add_argument(
-            '--config',
-            action='store_true',
-            help="Show the on-disk config.")
+            '-L', '--add-label',
+            dest='labels',
+            action='append',
+            type=lambda x: (
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a label to use. Can be assigned to a specific "
+                "function/subsystem. Accepts %% modifiers.")
     parser.add_argument(
-            '--gstate',
-            action='store_true',
-            help="Show the on-disk global-state.")
+            '-C', '--add-color',
+            dest='colors',
+            action='append',
+            type=lambda x: (
+                lambda ks, v: (
+                    tuple(k.strip() for k in ks.split(',')),
+                    v.strip())
+                )(*x.split('=', 1))
+                    if '=' in x else x.strip(),
+            help="Add a color to use. Can be assigned to a specific "
+                "function/subsystem. Accepts %% modifiers.")
     parser.add_argument(
-            '--gdelta',
-            action='store_true',
-            help="Show relevant gdeltas used to build the gstate. "
-                "Implies --gstate.")
-    parser.add_argument(
-            '--files',
-            action='store_true',
-            help="Show the file tree (the default).")
-    parser.add_argument(
-            '--structs',
-            action='store_true',
-            help="Show the internal structure of files. Implies --files.")
-    parser.add_argument(
-            '--attrs',
-            action='store_true',
-            help="Show custom attributes attached to files. Implies --files.")
-    parser.add_argument(
-            '-r', '--recurse', '--file-depth',
-            nargs='?',
+            '-W', '--width',
             type=lambda x: int(x, 0),
-            const=0,
-            help="Depth of the file tree to show. 0 shows all files in the "
-                "filesystem. Defaults to 1, which only shows the root "
-                "directory.")
+            help="Width in pixels. Defaults to %r." % WIDTH)
     parser.add_argument(
-            '-a', '--all',
-            action='store_true',
-            help="Show all files including bookmarks, stickynotes, grms, "
-                "etc.")
-    parser.add_argument(
-            '--no-orphans',
-            action='store_true',
-            help="Don't scan for orphaned files.")
-    parser.add_argument(
-            '-x', '--raw',
-            action='store_true',
-            help="Show the raw data including tag encodings.")
-    parser.add_argument(
-            '-T', '--no-truncate',
-            action='store_true',
-            help="Don't truncate, show the full contents.")
-    parser.add_argument(
-            '-t', '--tree',
-            action='store_true',
-            help="Show the rbyd tree.")
-    parser.add_argument(
-            '-R', '--tree-rbyd',
-            action='store_true',
-            help="Show the full rbyd tree.")
-    parser.add_argument(
-            '-B', '--tree-btree',
-            action='store_true',
-            help="Show a simplified btree tree.")
-    parser.add_argument(
-            '-i', '--inner',
-            action='store_true',
-            help="Show inner branches.")
-    parser.add_argument(
-            '-z', '--depth', '--tree-depth',
-            nargs='?',
+            '-H', '--height',
             type=lambda x: int(x, 0),
-            const=0,
-            help="Depth of trees to show. Defaults to 0, which shows full "
-                "trees.")
+            help="Height in pixels. Defaults to %r." % HEIGHT)
+    parser.add_argument(
+            '-X', '--block-cols',
+            type=lambda x: int(x, 0),
+            help="Number of blocks on the x-axis. Guesses from --block-count "
+                "and --block-ratio by default.")
+    parser.add_argument(
+            '-Y', '--block-rows',
+            type=lambda x: int(x, 0),
+            help="Number of blocks on the y-axis. Guesses from --block-count "
+                "and --block-ratio by default.")
+    parser.add_argument(
+            '--block-ratio',
+            dest='block_ratio',
+            type=lambda x: (
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
+            help="Target ratio for block sizes. Defaults to the golden ratio.")
+    parser.add_argument(
+            '--no-header',
+            action='store_true',
+            help="Don't show the header.")
+    parser.add_argument(
+            '--no-mode',
+            action='store_true',
+            help="Don't show the mode state.")
+    parser.add_argument(
+            '-U', '--hilbert',
+            action='store_true',
+            help="Render as a space-filling Hilbert curve.")
+    parser.add_argument(
+            '-Z', '--lebesgue',
+            action='store_true',
+            help="Render as a space-filling Z-curve.")
+    parser.add_argument(
+            '-J', '--no-javascript',
+            action='store_true',
+            help="Don't add javascript for interactability.")
+    parser.add_argument(
+            '--mode-tree',
+            action='store_true',
+            help="Include the tree rendering mode.")
+    parser.add_argument(
+            '--mode-branches',
+            action='store_true',
+            help="Include the branches rendering mode.")
+    parser.add_argument(
+            '--mode-references',
+            action='store_true',
+            help="Include the references rendering mode.")
+    parser.add_argument(
+            '--mode-redund',
+            action='store_true',
+            help="Include the redund rendering mode.")
+    parser.add_argument(
+            '--to-scale',
+            nargs='?',
+            type=lambda x: (
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
+            const=1,
+            help="Scale the resulting treemap such that 1 pixel ~= 1/scale "
+                "units. Defaults to scale=1. ")
+    parser.add_argument(
+            '-R', '--aspect-ratio',
+            type=lambda x: (
+                tuple(float(v) for v in x.split(':', 1))
+                    if ':' in x else (float(x), 1)),
+            help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
+    parser.add_argument(
+            '-t', '--tiny',
+            action='store_true',
+            help="Tiny mode, alias for --block-ratio=1, --to-scale=1, "
+                "--padding=0, --no-header, --no-label, and --no-javascript.")
+    parser.add_argument(
+            '--title',
+            help="Add a title. Accepts %% modifiers.")
+    parser.add_argument(
+            '--padding',
+            type=float,
+            help="Padding to add to each level of the treemap. Defaults to 1.")
+    parser.add_argument(
+            '--no-label',
+            action='store_true',
+            help="Don't render any labels.")
+    parser.add_argument(
+            '--dark',
+            action='store_true',
+            help="Use the dark style.")
+    parser.add_argument(
+            '--font',
+            type=lambda x: [x.strip() for x in x.split(',')],
+            help="Font family to use.")
+    parser.add_argument(
+            '--font-size',
+            help="Font size to use. Defaults to %r." % FONT_SIZE)
+    parser.add_argument(
+            '--background',
+            help="Background color to use. Note #00000000 can make the "
+                "background transparent.")
     parser.add_argument(
             '-e', '--error-on-corrupt',
             action='store_true',

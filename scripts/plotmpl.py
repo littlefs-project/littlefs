@@ -298,37 +298,54 @@ def fold(results, by=None, x=None, y=None, defines=[]):
 
 # a representation of optionally key-mapped attrs
 class Attr:
-    def __init__(self, attrs, *,
-            defaults=None):
-        # include defaults?
-        if (defaults is not None
-                and not any(
-                    not isinstance(attr, tuple)
-                        or attr[0] in {None, (), ('*',)}
-                    for attr in (attrs or []))):
-            attrs = list(defaults) + (attrs or [])
+    def __init__(self, attrs, defaults=None):
+        if attrs is None:
+            attrs = []
+        if isinstance(attrs, dict):
+            attrs = attrs.items()
 
         # normalize
         self.attrs = []
         self.keyed = co.OrderedDict()
-        for attr in (attrs or []):
-            if not isinstance(attr, tuple):
+        for attr in attrs:
+            if (not isinstance(attr, tuple)
+                    or attr[0] in {None, (), (None,), ('*',)}):
                 attr = ((), attr)
-            elif attr[0] in {None, (), ('*',)}:
-                attr = ((), attr[1])
+            if not isinstance(attr[0], tuple):
+                attr = ((attr[0],), attr[1])
 
             self.attrs.append(attr)
             if attr[0] not in self.keyed:
                 self.keyed[attr[0]] = []
             self.keyed[attr[0]].append(attr[1])
 
+        # create attrs object for defaults
+        if isinstance(defaults, Attr):
+            self.defaults = defaults
+        elif defaults is not None:
+            self.defaults = Attr(defaults)
+        else:
+            self.defaults = None
+
     def __repr__(self):
-        return 'Attr(%r)' % [
-                (','.join(attr[0]), attr[1])
-                for attr in self.attrs]
+        if self.defaults is None:
+            return 'Attr(%r)' % (
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.attrs])
+        else:
+            return 'Attr(%r, %r)' % (
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.attrs],
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.defaults.attrs])
 
     def __iter__(self):
-        return it.cycle(self.keyed[()])
+        if () in self.keyed:
+            return it.cycle(self.keyed[()])
+        elif self.defaults is not None:
+            return iter(self.defaults)
+        else:
+            return iter(())
 
     def __bool__(self):
         return bool(self.attrs)
@@ -341,6 +358,9 @@ class Attr:
                 i, key = 0, key
         else:
             i, key = key, ()
+
+        if not isinstance(key, tuple):
+            key = (key,)
 
         # try to lookup by key
         best = None
@@ -361,6 +381,10 @@ class Attr:
             # cycle based on index
             return best[1][i % len(best[1])]
 
+        # fallback to defaults?
+        if self.defaults is not None:
+            return self.defaults[i, key]
+
         return None
 
     def __contains__(self, key):
@@ -368,11 +392,8 @@ class Attr:
 
     # a key function for sorting by key order
     def key(self, key):
-        # allow key to be a tuple to make sorting dicts easier
-        if (isinstance(key, tuple)
-                and len(key) >= 1
-                and isinstance(key[0], tuple)):
-            key = key[0]
+        if not isinstance(key, tuple):
+            key = (key,)
 
         best = None
         for i, ks in enumerate(self.keyed.keys()):
@@ -390,6 +411,10 @@ class Attr:
 
         if best is not None:
             return best[1]
+
+        # fallback to defaults?
+        if self.defaults is not None:
+            return len(self.keyed) + self.defaults.key(key)
 
         return len(self.keyed)
 
@@ -882,7 +907,7 @@ def main(csv_paths, output, *,
     # order by labels
     datasets_ = co.OrderedDict(sorted(
             datasets_.items(),
-            key=labels_.key))
+            key=lambda kv: labels_.key(kv[0])))
 
     # and merge dataattrs
     mergedattrs_ = {k: v
@@ -969,7 +994,7 @@ def main(csv_paths, output, *,
         # order by labels
         subdatasets = co.OrderedDict(sorted(
                 subdatasets.items(),
-                key=labels_.key))
+                key=lambda kv: labels_.key(kv[0])))
 
         # filter by subplot x/y
         subdatasets = co.OrderedDict([(name, dataset)

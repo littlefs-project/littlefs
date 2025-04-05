@@ -218,10 +218,10 @@ class SymInfo:
 
             # find sym by range
             i = bisect.bisect(self._by_addr, k,
-                    key=lambda x: x.addr)
+                    key=lambda x: x.addr) - 1
             # check that we're actually in this sym's size
-            if i > 0 and k < self._by_addr[i-1].addr+self._by_addr[i-1].size:
-                return self._by_addr[i-1]
+            if i > -1 and k < self._by_addr[i].addr+self._by_addr[i].size:
+                return self._by_addr[i]
             else:
                 return d
 

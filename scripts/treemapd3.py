@@ -174,37 +174,54 @@ def fold(results, by=None, fields=None, defines=[]):
 
 # a representation of optionally key-mapped attrs
 class Attr:
-    def __init__(self, attrs, *,
-            defaults=None):
-        # include defaults?
-        if (defaults is not None
-                and not any(
-                    not isinstance(attr, tuple)
-                        or attr[0] in {None, (), ('*',)}
-                    for attr in (attrs or []))):
-            attrs = list(defaults) + (attrs or [])
+    def __init__(self, attrs, defaults=None):
+        if attrs is None:
+            attrs = []
+        if isinstance(attrs, dict):
+            attrs = attrs.items()
 
         # normalize
         self.attrs = []
         self.keyed = co.OrderedDict()
-        for attr in (attrs or []):
-            if not isinstance(attr, tuple):
+        for attr in attrs:
+            if (not isinstance(attr, tuple)
+                    or attr[0] in {None, (), (None,), ('*',)}):
                 attr = ((), attr)
-            elif attr[0] in {None, (), ('*',)}:
-                attr = ((), attr[1])
+            if not isinstance(attr[0], tuple):
+                attr = ((attr[0],), attr[1])
 
             self.attrs.append(attr)
             if attr[0] not in self.keyed:
                 self.keyed[attr[0]] = []
             self.keyed[attr[0]].append(attr[1])
 
+        # create attrs object for defaults
+        if isinstance(defaults, Attr):
+            self.defaults = defaults
+        elif defaults is not None:
+            self.defaults = Attr(defaults)
+        else:
+            self.defaults = None
+
     def __repr__(self):
-        return 'Attr(%r)' % [
-                (','.join(attr[0]), attr[1])
-                for attr in self.attrs]
+        if self.defaults is None:
+            return 'Attr(%r)' % (
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.attrs])
+        else:
+            return 'Attr(%r, %r)' % (
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.attrs],
+                    [(','.join(attr[0]), attr[1])
+                        for attr in self.defaults.attrs])
 
     def __iter__(self):
-        return it.cycle(self.keyed[()])
+        if () in self.keyed:
+            return it.cycle(self.keyed[()])
+        elif self.defaults is not None:
+            return iter(self.defaults)
+        else:
+            return iter(())
 
     def __bool__(self):
         return bool(self.attrs)
@@ -217,6 +234,9 @@ class Attr:
                 i, key = 0, key
         else:
             i, key = key, ()
+
+        if not isinstance(key, tuple):
+            key = (key,)
 
         # try to lookup by key
         best = None
@@ -237,6 +257,10 @@ class Attr:
             # cycle based on index
             return best[1][i % len(best[1])]
 
+        # fallback to defaults?
+        if self.defaults is not None:
+            return self.defaults[i, key]
+
         return None
 
     def __contains__(self, key):
@@ -244,11 +268,8 @@ class Attr:
 
     # a key function for sorting by key order
     def key(self, key):
-        # allow key to be a tuple to make sorting dicts easier
-        if (isinstance(key, tuple)
-                and len(key) >= 1
-                and isinstance(key[0], tuple)):
-            key = key[0]
+        if not isinstance(key, tuple):
+            key = (key,)
 
         best = None
         for i, ks in enumerate(self.keyed.keys()):
@@ -266,6 +287,10 @@ class Attr:
 
         if best is not None:
             return best[1]
+
+        # fallback to defaults?
+        if self.defaults is not None:
+            return len(self.keyed) + self.defaults.key(key)
 
         return len(self.keyed)
 
@@ -316,8 +341,8 @@ def punescape(s, attrs=None):
 
 # a type to represent tiles
 class Tile:
-    def __init__(self, key, children,
-            x=None, y=None, width=None, height=None, *,
+    def __init__(self, key, children, *,
+            x=None, y=None, width=None, height=None,
             depth=None,
             attrs=None,
             label=None,
@@ -340,7 +365,7 @@ class Tile:
         self.color = color
 
     def __repr__(self):
-        return 'Tile(%r, %r, %r, %r, %r, %r)' % (
+        return 'Tile(%r, %r, x=%r, y=%r, width=%r, height=%r)' % (
                 ','.join(self.key), self.value,
                 self.x, self.y, self.width, self.height)
 
@@ -372,6 +397,15 @@ class Tile:
     def __lt__(self, other):
         return self.value < other.value
 
+    def __le__(self, other):
+        return self.value <= other.value
+
+    def __gt__(self, other):
+        return self.value > other.value
+
+    def __ge__(self, other):
+        return self.value >= other.value
+
     # recursive traversals
     def tiles(self):
         yield self
@@ -389,7 +423,7 @@ class Tile:
         for t in self.children:
             t.sort()
 
-    # recursive align to int boundaries
+    # recursive align to pixel boundaries
     def align(self):
         # this extra +0.1 and using points instead of width/height is
         # to help minimize rounding errors

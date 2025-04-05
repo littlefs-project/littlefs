@@ -1081,7 +1081,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
-            help="Block size/geometry in bytes.")
+            help="Block size/geometry in bytes. Accepts <size>x<count>.")
     parser.add_argument(
             '--block-count',
             type=lambda x: int(x, 0),

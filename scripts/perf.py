@@ -320,10 +320,10 @@ class SymInfo:
 
             # find sym by range
             i = bisect.bisect(self._by_addr, k,
-                    key=lambda x: x.addr)
+                    key=lambda x: x.addr) - 1
             # check that we're actually in this sym's size
-            if i > 0 and k < self._by_addr[i-1].addr+self._by_addr[i-1].size:
-                return self._by_addr[i-1]
+            if i > -1 and k < self._by_addr[i].addr+self._by_addr[i].size:
+                return self._by_addr[i]
             else:
                 return d
 
@@ -444,9 +444,9 @@ class LineInfo:
 
             # find file+line by addr
             i = bisect.bisect(self._by_addr, k,
-                    key=lambda x: x.addr)
-            if i > 0:
-                return self._by_addr[i-1]
+                    key=lambda x: x.addr) - 1
+            if i > -1:
+                return self._by_addr[i]
             else:
                 return d
 
@@ -469,10 +469,10 @@ class LineInfo:
 
             # find addr by file+line tuple
             i = bisect.bisect(self._by_line, k,
-                    key=lambda x: (x.file, x.line))
+                    key=lambda x: (x.file, x.line)) - 1
             # make sure file at least matches!
-            if i > 0 and self._by_line[i-1].file == k[0]:
-                return self._by_line[i-1]
+            if i > -1 and self._by_line[i].file == k[0]:
+                return self._by_line[i]
             else:
                 return d
 
