@@ -5019,10 +5019,11 @@ def main(disk, output, mroots=None, *,
 
             f.write('<g '
                     'id="b-%(block)d" '
-                    'class="block" '
+                    'class="block %(type)s" '
                     'transform="translate(%(x)d,%(y)d)" '
                     '%(js)s>' % dict(
                         block=b.block,
+                        type=b.type,
                         x=b.x,
                         y=b.y,
                         js= 'data-block="%(block)d" '
@@ -5092,7 +5093,8 @@ def main(disk, output, mroots=None, *,
                     'markerWidth="6" '
                     'markerHeight="6" '
                     'orient="auto-start-reverse" '
-                    'fill="black">')
+                    'fill="%(color)s">' % dict(
+                        color='#000000' if dark else '#555555'))
             f.write('<path d="M 0 0 L 10 5 L 0 10 z"/>')
             f.write('</marker>')
             f.write('</defs>')
@@ -5140,8 +5142,9 @@ def main(disk, output, mroots=None, *,
             # our main drawing functions
             f.write('function draw_unfocus() {')
                         # lower opacity of unfocused tiles
-            f.write(    'for (let b of document.querySelectorAll(".block")) {')
-            f.write(        'b.setAttribute("fill-opacity", 0.7);')
+            f.write(    'for (let b of document.querySelectorAll('
+                                '".block:not(.unused)")) {')
+            f.write(        'b.setAttribute("fill-opacity", 0.5);')
             f.write(    '}')
             f.write('}')
 
@@ -5181,7 +5184,8 @@ def main(disk, output, mroots=None, *,
             f.write(    'arrow.setAttribute("y1", a_iy);')
             f.write(    'arrow.setAttribute("x2", b_ix);')
             f.write(    'arrow.setAttribute("y2", b_iy);')
-            f.write(    'arrow.setAttribute("stroke", "black");')
+            f.write(    'arrow.setAttribute("stroke", "%(color)s");' % dict(
+                                color='#000000' if dark else '#555555'))
             f.write(    'arrow.setAttribute("marker-end", "url(#arrowhead)");')
             f.write(    'arrow.setAttribute("pointer-events", "none");')
             f.write(    'a.parentElement.appendChild(arrow);')
@@ -5217,7 +5221,8 @@ def main(disk, output, mroots=None, *,
             f.write(    'arrow.setAttribute("y1", a_iy);')
             f.write(    'arrow.setAttribute("x2", b_ix);')
             f.write(    'arrow.setAttribute("y2", b_iy);')
-            f.write(    'arrow.setAttribute("stroke", "black");')
+            f.write(    'arrow.setAttribute("stroke", "%(color)s");' % dict(
+                                color='#000000' if dark else '#555555'))
             f.write(    'arrow.setAttribute("stroke-dasharray", "5,5");')
             f.write(    'arrow.setAttribute("pointer-events", "none");')
             f.write(    'a.parentElement.appendChild(arrow);')
@@ -5474,7 +5479,8 @@ def main(disk, output, mroots=None, *,
             f.write(        'arrow.remove();')
             f.write(    '}')
                         # revert opacity
-            f.write(    'for (let b of document.querySelectorAll(".block")) {')
+            f.write(    'for (let b of document.querySelectorAll('
+                                '".block:not(.unused)")) {')
             f.write(        'b.setAttribute("fill-opacity", 1);')
             f.write(    '}')
             f.write('}')

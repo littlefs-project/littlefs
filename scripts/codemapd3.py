@@ -1474,7 +1474,8 @@ def main(paths, output, *,
                     'markerWidth="6" '
                     'markerHeight="6" '
                     'orient="auto-start-reverse" '
-                    'fill="black">')
+                    'fill="%(color)s">' % dict(
+                        color='#000000' if dark else '#555555'))
             f.write('<path d="M 0 0 L 10 5 L 0 10 z"/>')
             f.write('</marker>')
             f.write('</defs>')
@@ -1517,7 +1518,7 @@ def main(paths, output, *,
             f.write('function draw_unfocus() {')
                         # lower opacity of unfocused tiles
             f.write(    'for (let b of document.querySelectorAll(".tile")) {')
-            f.write(        'b.setAttribute("fill-opacity", 0.7);')
+            f.write(        'b.setAttribute("fill-opacity", 0.5);')
             f.write(    '}')
             f.write('}')
 
@@ -1557,7 +1558,8 @@ def main(paths, output, *,
             f.write(    'arrow.setAttribute("y1", a_iy);')
             f.write(    'arrow.setAttribute("x2", b_ix);')
             f.write(    'arrow.setAttribute("y2", b_iy);')
-            f.write(    'arrow.setAttribute("stroke", "black");')
+            f.write(    'arrow.setAttribute("stroke", "%(color)s");' % dict(
+                                color='#000000' if dark else '#555555'))
             f.write(    'arrow.setAttribute("marker-end", "url(#arrowhead)");')
             f.write(    'arrow.setAttribute("pointer-events", "none");')
             f.write(    'a.parentElement.appendChild(arrow);')
