@@ -1681,6 +1681,7 @@ def main(disk, roots=None, *,
         trunk=None,
         block_size=None,
         block_count=None,
+        quiet=False,
         color='auto',
         **args):
     # figure out what color should be
@@ -1724,11 +1725,12 @@ def main(disk, roots=None, *,
         btree = Btree.fetch(bd, roots, trunk)
 
         # print some information about the btree
-        print('btree %s w%d, rev %08x, cksum %08x' % (
-                btree.addr(),
-                btree.weight,
-                btree.rev,
-                btree.cksum))
+        if not quiet:
+            print('btree %s w%d, rev %08x, cksum %08x' % (
+                    btree.addr(),
+                    btree.weight,
+                    btree.rev,
+                    btree.cksum))
 
         # precompute tree renderings
         t_width = 0
@@ -1792,7 +1794,7 @@ def main(disk, roots=None, *,
                 path=True,
                 depth=args.get('depth')):
             # print inner branches if requested
-            if args.get('inner'):
+            if args.get('inner') and not quiet:
                 for d, (bid_, rbyd_, rid_, name_) in pathdelta(
                         path, ppath):
                     dbg_branch(d, bid_, rbyd_, rid_, name_)
@@ -1800,20 +1802,22 @@ def main(disk, roots=None, *,
 
             # corrupted? try to keep printing the tree
             if not rbyd:
-                print('%04x.%04x: %*s%s%s%s' % (
-                        rbyd.block, rbyd.trunk,
-                        t_width, '',
-                        '\x1b[31m' if color else '',
-                        '(corrupted rbyd %s)' % rbyd.addr(),
-                        '\x1b[m' if color else ''))
+                if not quiet:
+                    print('%04x.%04x: %*s%s%s%s' % (
+                            rbyd.block, rbyd.trunk,
+                            t_width, '',
+                            '\x1b[31m' if color else '',
+                            '(corrupted rbyd %s)' % rbyd.addr(),
+                            '\x1b[m' if color else ''))
                 prbyd = None
                 corrupted = True
                 continue
 
-            for rid, name in rbyd.rids():
-                bid_ = bid-(rbyd.weight-1) + rid
-                # show the leaf entry/branch
-                dbg_branch(len(path), bid_, rbyd, rid, name)
+            if not quiet:
+                for rid, name in rbyd.rids():
+                    bid_ = bid-(rbyd.weight-1) + rid
+                    # show the leaf entry/branch
+                    dbg_branch(len(path), bid_, rbyd, rid, name)
 
     if args.get('error_on_corrupt') and corrupted:
         sys.exit(2)
@@ -1845,6 +1849,10 @@ if __name__ == "__main__":
             '--block-count',
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful when checking for errors.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],

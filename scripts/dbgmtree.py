@@ -2800,6 +2800,7 @@ def main(disk, mroots=None, *,
         trunk=None,
         block_size=None,
         block_count=None,
+        quiet=False,
         color='auto',
         **args):
     # figure out what color should be
@@ -2844,11 +2845,12 @@ def main(disk, mroots=None, *,
                 depth=args.get('depth'))
 
         # print some information about the mtree
-        print('mtree %s w%s.%s, rev %08x, cksum %08x' % (
-                mtree.addr(),
-                mtree.mbweightrepr(), mtree.mrweightrepr(),
-                mtree.rev,
-                mtree.cksum))
+        if not quiet:
+            print('mtree %s w%s.%s, rev %08x, cksum %08x' % (
+                    mtree.addr(),
+                    mtree.mbweightrepr(), mtree.mrweightrepr(),
+                    mtree.rev,
+                    mtree.cksum))
 
         # precompute tree renderings
         t_width = 0
@@ -2976,7 +2978,7 @@ def main(disk, mroots=None, *,
                 path=True,
                 depth=args.get('depth')):
             # print inner branches if requested
-            if args.get('inner'):
+            if args.get('inner') and not quiet:
                 for d, (bid_, rbyd_, rid_, name_) in pathdelta(
                         # skip the mrootchain
                         path[len(mtree.mrootchain):],
@@ -2989,14 +2991,15 @@ def main(disk, mroots=None, *,
             if isinstance(mdir, Mdir):
                 # corrupted?
                 if not mdir:
-                    print('{%s}: %s%s%s' % (
-                            ','.join('%04x' % block
-                                for block in mdir.blocks),
-                            '\x1b[31m' if color else '',
-                            '(corrupted %s %s)' % (
-                                'mroot' if mdir.mid == -1 else 'mdir',
-                                mdir.addr()),
-                            '\x1b[m' if color else ''))
+                    if not quiet:
+                        print('{%s}: %s%s%s' % (
+                                ','.join('%04x' % block
+                                    for block in mdir.blocks),
+                                '\x1b[31m' if color else '',
+                                '(corrupted %s %s)' % (
+                                    'mroot' if mdir.mid == -1 else 'mdir',
+                                    mdir.addr()),
+                                '\x1b[m' if color else ''))
                     pmdir = None
                     corrupted = True
                     continue
@@ -3004,39 +3007,43 @@ def main(disk, mroots=None, *,
                 # cycle detected?
                 if mdir.mid == -1:
                     if mdir in mrootseen:
-                        print('{%s}: %s%s%s' % (
-                                ','.join('%04x' % block
-                                    for block in mdir.blocks),
-                                '\x1b[31m' if color else '',
-                                '(mroot cycle detected %s)' % mdir.addr(),
-                                '\x1b[m' if color else ''))
+                        if not quiet:
+                            print('{%s}: %s%s%s' % (
+                                    ','.join('%04x' % block
+                                        for block in mdir.blocks),
+                                    '\x1b[31m' if color else '',
+                                    '(mroot cycle detected %s)' % mdir.addr(),
+                                    '\x1b[m' if color else ''))
                         pmdir = None
                         corrupted = True
                         continue
                     mrootseen.add(mdir)
 
                 # show the mdir
-                dbg_mdir(len(path), mdir)
+                if not quiet:
+                    dbg_mdir(len(path), mdir)
 
             # btree node?
             else:
                 bid, rbyd = mdir
                 # corrupted? try to keep printing the tree
                 if not rbyd:
-                    print('%11s: %*s%s%s%s' % (
-                            '%04x.%04x' % (rbyd.block, rbyd.trunk),
-                            t_width, '',
-                            '\x1b[31m' if color else '',
-                            '(corrupted rbyd %s)' % rbyd.addr(),
-                            '\x1b[m' if color else ''))
+                    if not quiet:
+                        print('%11s: %*s%s%s%s' % (
+                                '%04x.%04x' % (rbyd.block, rbyd.trunk),
+                                t_width, '',
+                                '\x1b[31m' if color else '',
+                                '(corrupted rbyd %s)' % rbyd.addr(),
+                                '\x1b[m' if color else ''))
                     pmdir = None
                     corrupted = True
                     continue
 
-                for rid, name in rbyd.rids():
-                    bid_ = bid-(rbyd.weight-1) + rid
-                    # show the leaf entry/branch
-                    dbg_branch(len(path), bid_, rbyd, rid, name)
+                if not quiet:
+                    for rid, name in rbyd.rids():
+                        bid_ = bid-(rbyd.weight-1) + rid
+                        # show the leaf entry/branch
+                        dbg_branch(len(path), bid_, rbyd, rid, name)
 
     if args.get('error_on_corrupt') and corrupted:
         sys.exit(2)
@@ -3068,6 +3075,10 @@ if __name__ == "__main__":
             '--block-count',
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful when checking for errors.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],

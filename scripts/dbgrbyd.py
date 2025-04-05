@@ -1673,6 +1673,7 @@ def main(disk, blocks=None, *,
         trunk=None,
         block_size=None,
         block_count=None,
+        quiet=False,
         color='auto',
         **args):
     # figure out what color should be
@@ -1715,18 +1716,19 @@ def main(disk, blocks=None, *,
         rbyd = Rbyd.fetch(bd, blocks, trunk)
 
     # print some information about the rbyd
-    print('rbyd %s w%d, rev %08x, size %d, cksum %08x' % (
-            rbyd.addr(),
-            rbyd.weight,
-            rbyd.rev,
-            rbyd.eoff,
-            rbyd.cksum))
+    if not quiet:
+        print('rbyd %s w%d, rev %08x, size %d, cksum %08x' % (
+                rbyd.addr(),
+                rbyd.weight,
+                rbyd.rev,
+                rbyd.eoff,
+                rbyd.cksum))
 
-    if args.get('log'):
+    if args.get('log') and not quiet:
         dbg_log(rbyd,
                 color=color,
                 **args)
-    else:
+    elif not quiet:
         dbg_tree(rbyd,
                 color=color,
                 **args)
@@ -1761,6 +1763,10 @@ if __name__ == "__main__":
             '--block-count',
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful when checking for errors.")
     parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
