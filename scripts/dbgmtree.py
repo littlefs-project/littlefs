@@ -1447,7 +1447,11 @@ class Mdir:
         return self.rbyd.gcksumdelta
 
     def addr(self):
-        return self.rbyd.addr()
+        if len(self.blocks) == 1:
+            return '0x%x' % self.block
+        else:
+            return '0x{%s}' % (
+                    ','.join('%x' % block for block in self.blocks))
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.repr())

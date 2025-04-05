@@ -1550,7 +1550,11 @@ class Mdir:
         return self.rbyd.gcksumdelta
 
     def addr(self):
-        return self.rbyd.addr()
+        if len(self.blocks) == 1:
+            return '0x%x' % self.block
+        else:
+            return '0x{%s}' % (
+                    ','.join('%x' % block for block in self.blocks))
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.repr())
@@ -4636,12 +4640,12 @@ class RangeDict:
 
 
 def main(disk, output, mroots=None, *,
-        quiet=False,
         trunk=None,
-        mtree_only=False,
         block_size=None,
         block_count=None,
         blocks=None,
+        mtree_only=False,
+        quiet=False,
         labels=[],
         colors=[],
         width=None,
@@ -4752,6 +4756,7 @@ def main(disk, output, mroots=None, *,
         # fetch the filesystem
         bd = Bd(f, block_size, block_count)
         lfs = Lfs.fetch(bd, mroots, trunk)
+        corrupted = not bool(lfs)
 
         # if we can't figure out the block_count, guess
         if block_count is None:
@@ -4832,9 +4837,12 @@ def main(disk, output, mroots=None, *,
                         bmap[b] = Block(b, 'conflict', [
                                 bmap[b].value,
                                 child])
+                    corrupted = True
+
                 # corrupt block?
                 elif not child:
                     bmap[b] = Block(b, 'corrupt', child)
+                    corrupted = True
 
                 # normal block
                 else:
@@ -5663,19 +5671,21 @@ def main(disk, output, mroots=None, *,
 
     # print some summary info
     if not quiet:
-        print('updated %s, littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
-                output,
-                '' if lfs.ckmagic() else '?',
-                lfs.version.major if lfs.version is not None else '?',
-                lfs.version.minor if lfs.version is not None else '?',
-                lfs.block_size if lfs.block_size is not None else '?',
-                lfs.block_count if lfs.block_count is not None else '?',
-                lfs.addr(),
-                lfs.mbweightrepr(), lfs.mrweightrepr(),
-                lfs.cksum,
-                '' if lfs.ckcksum() else '?'))
+        print('updated %s, '
+                'littlefs%s v%s.%s %sx%s %s w%s.%s, '
+                'cksum %08x%s' % (
+                    output,
+                    '' if lfs.ckmagic() else '?',
+                    lfs.version.major if lfs.version is not None else '?',
+                    lfs.version.minor if lfs.version is not None else '?',
+                    lfs.block_size if lfs.block_size is not None else '?',
+                    lfs.block_count if lfs.block_count is not None else '?',
+                    lfs.addr(),
+                    lfs.mbweightrepr(), lfs.mrweightrepr(),
+                    lfs.cksum,
+                    '' if lfs.ckcksum() else '?'))
 
-    if args.get('error_on_corrupt') and not lfs:
+    if args.get('error_on_corrupt') and corrupted:
         sys.exit(2)
 
 
@@ -5699,18 +5709,9 @@ if __name__ == "__main__":
             required=True,
             help="Output *.svg file.")
     parser.add_argument(
-            '-q', '--quiet',
-            action='store_true',
-            help="Don't print info.")
-    parser.add_argument(
             '--trunk',
             type=lambda x: int(x, 0),
             help="Use this offset as the trunk of the mroots.")
-    # TODO adopt this in dbglfs.py for --ckdata?
-    parser.add_argument(
-            '--mtree-only',
-            action='store_true',
-            help="Only traverse the mtree.")
     parser.add_argument(
             '-b', '--block-size',
             type=bdgeom,
@@ -5768,6 +5769,15 @@ if __name__ == "__main__":
                     if ',' in x
                     else int(x, 0)),
             help="Show a specific block, may be a range.")
+    parser.add_argument(
+            '--mtree-only',
+            action='store_true',
+            help="Only traverse the mtree.")
+    parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't print info.")
+
     parser.add_argument(
             '-L', '--add-label',
             dest='labels',

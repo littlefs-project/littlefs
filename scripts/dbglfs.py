@@ -1481,7 +1481,11 @@ class Mdir:
         return self.rbyd.gcksumdelta
 
     def addr(self):
-        return self.rbyd.addr()
+        if len(self.blocks) == 1:
+            return '0x%x' % self.block
+        else:
+            return '0x{%s}' % (
+                    ','.join('%x' % block for block in self.blocks))
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.repr())
@@ -4011,7 +4015,7 @@ TreeArt.fromfile = treeartfromfile
 
 
 # show the littlefs config
-def dbg_config(lfs,
+def dbg_config(lfs, *,
         color=False,
         w_width=2,
         **args):
@@ -4049,7 +4053,7 @@ def dbg_config(lfs,
                         line))
 
 # show the littlefs gstate
-def dbg_gstate(lfs,
+def dbg_gstate(lfs, *,
         color=False,
         w_width=2,
         **args):
@@ -4115,7 +4119,7 @@ def dbg_gstate(lfs,
                                 line))
 
 # show the littlefs file tree
-def dbg_files(lfs, paths,
+def dbg_files(lfs, paths, *,
         color=False,
         w_width=2,
         recurse=None,
@@ -4445,11 +4449,57 @@ def dbg_files(lfs, paths,
     for dir in dirs:
         dbg_dir(dir, recurse)
 
+# common ck function
+def dbg_ck(lfs, *,
+        meta=True,
+        data=True,
+        mtree_only=False,
+        quiet=False,
+        color=False,
+        **args):
+    # lfs traverse does most of the work here
+    corrupted = False
+    for child in lfs.traverse(
+            mtree_only=mtree_only):
+        # limit to metadata blocks?
+        if (((meta and isinstance(child, (Mdir, Rbyd)))
+                    or (data and isinstance(child, Bptr)))
+                and not child):
+            if not quiet:
+                print('%11s: %s%s%s' % (
+                        '{%s}' % ','.join('%04x' % block
+                                for block in child.blocks)
+                            if isinstance(child, Mdir)
+                            else '%04x.%04x' % (child.block, child.trunk)
+                            if isinstance(child, Rbyd)
+                            else '%04x.%04x' % (child.block, child.off),
+                        '\x1b[31m' if color else '',
+                        '(corrupted %s %s)' % (
+                            'mroot' if isinstance(child, Mdir)
+                                    and child.mid == -1
+                                else 'mdir' if isinstance(child, Mdir)
+                                else 'rbyd' if isinstance(child, Rbyd)
+                                else 'bptr',
+                            child.addr()),
+                        '\x1b[m' if color else ''))
+            corrupted = True
+
+    return not corrupted
+
+# check metadata blocks for errors
+def dbg_ckmeta(lfs, **args):
+    return dbg_ck(lfs, meta=True, **args)
+
+# check metadata + data blocks for errors
+def dbg_ckdata(lfs, **args):
+    return dbg_ck(lfs, meta=True, data=True, **args)
+
 
 def main(disk, mroots=None, paths=None, *,
         trunk=None,
         block_size=None,
         block_count=None,
+        quiet=False,
         color='auto',
         **args):
     # figure out what color should be
@@ -4468,10 +4518,14 @@ def main(disk, mroots=None, paths=None, *,
     show_files = (args.get('files')
             or args.get('structs')
             or args.get('attrs'))
+    show_ckmeta = args.get('ckmeta')
+    show_ckdata = args.get('ckdata')
 
     if (not show_config
             and not show_gstate
-            and not show_files):
+            and not show_files
+            and not show_ckmeta
+            and not show_ckdata):
         show_files = True
 
     # is bd geometry specified?
@@ -4507,17 +4561,20 @@ def main(disk, mroots=None, paths=None, *,
         lfs = Lfs.fetch(bd, mroots, trunk)
 
         # print some information about the filesystem
-        print('littlefs%s v%s.%s %sx%s %s w%s.%s, rev %08x, cksum %08x%s' % (
-                '' if lfs.ckmagic() else '?',
-                lfs.version.major if lfs.version is not None else '?',
-                lfs.version.minor if lfs.version is not None else '?',
-                lfs.block_size if lfs.block_size is not None else '?',
-                lfs.block_count if lfs.block_count is not None else '?',
-                lfs.addr(),
-                lfs.mbweightrepr(), lfs.mrweightrepr(),
-                lfs.rev,
-                lfs.cksum,
-                '' if lfs.ckcksum() else '?'))
+        if not quiet:
+            print('littlefs%s v%s.%s %sx%s %s w%s.%s, '
+                    'rev %08x, '
+                    'cksum %08x%s' % (
+                        '' if lfs.ckmagic() else '?',
+                        lfs.version.major if lfs.version is not None else '?',
+                        lfs.version.minor if lfs.version is not None else '?',
+                        lfs.block_size if lfs.block_size is not None else '?',
+                        lfs.block_count if lfs.block_count is not None else '?',
+                        lfs.addr(),
+                        lfs.mbweightrepr(), lfs.mrweightrepr(),
+                        lfs.rev,
+                        lfs.cksum,
+                        '' if lfs.ckcksum() else '?'))
 
         # dynamically size the id field
         w_width = max(
@@ -4528,30 +4585,50 @@ def main(disk, mroots=None, paths=None, *,
                 2)
 
         # show the on-disk config?
-        if show_config:
+        if show_config and not quiet:
             dbg_config(lfs,
                     color=color,
                     w_width=w_width,
                     **args)
 
         # show the on-disk gstate?
-        if show_gstate:
+        if show_gstate and not quiet:
             dbg_gstate(lfs,
                     color=color,
                     w_width=w_width,
                     **args)
 
         # show the on-disk file tree?
-        if show_files:
+        if show_files and not quiet:
             dbg_files(lfs, paths,
                     color=color,
                     w_width=w_width,
                     **args)
 
-        # is the filesystem corrupt?
+        # always check magic/gcksum
         corrupted = not bool(lfs)
 
-    if args.get('error_on_corrupt') and corrupted:
+        # check metadata blocks for errors
+        if show_ckmeta and not show_ckdata:
+            if not dbg_ckmeta(lfs,
+                    quiet=quiet,
+                    color=color,
+                    w_width=w_width,
+                    **args):
+                corrupted = True
+
+        # check metadata + data blocks for errors
+        if show_ckdata:
+            if not dbg_ckdata(lfs,
+                    quiet=quiet,
+                    color=color,
+                    w_width=w_width,
+                    **args):
+                corrupted = True
+
+    # ckmeta/ckdata implies error_on_corrupt
+    if ((show_ckmeta or show_ckdata or args.get('error_on_corrupt'))
+            and corrupted):
         sys.exit(2)
 
 
@@ -4603,6 +4680,10 @@ if __name__ == "__main__":
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
     parser.add_argument(
+            '-q', '--quiet',
+            action='store_true',
+            help="Don't show anything, useful when checking for errors.")
+    parser.add_argument(
             '--color',
             choices=['never', 'always', 'auto'],
             default='auto',
@@ -4632,6 +4713,18 @@ if __name__ == "__main__":
             '--attrs',
             action='store_true',
             help="Show custom attributes attached to files. Implies --files.")
+    parser.add_argument(
+            '--ckmeta',
+            action='store_true',
+            help="Check metadata blocks for errors.")
+    parser.add_argument(
+            '--ckdata',
+            action='store_true',
+            help="Check metadata + data blocks for errors.")
+    parser.add_argument(
+            '--mtree-only',
+            action='store_true',
+            help="Only traverse the mtree.")
     parser.add_argument(
             '-r', '--recurse', '--file-depth',
             nargs='?',
