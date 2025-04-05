@@ -454,6 +454,7 @@ class Ralt:
 # our core rbyd type
 class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
+            shrub=False,
             gcksumdelta=None,
             corrupt=False):
         if isinstance(blocks, int):
@@ -467,6 +468,7 @@ class Rbyd:
         self.cksum = cksum
         self.data = data
 
+        self.shrub = shrub
         self.gcksumdelta = gcksumdelta
         self.corrupt = corrupt
 
@@ -655,6 +657,7 @@ class Rbyd:
         # this helps avoid race conditions with cksums and stuff
         shrub = cls._fetch(rbyd.data, rbyd.block, trunk)
         shrub.blocks = rbyd.blocks
+        shrub.shrub = True
         return shrub
 
     def lookupnext(self, rid, tag=None, *,

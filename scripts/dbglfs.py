@@ -520,6 +520,7 @@ class Ralt:
 # our core rbyd type
 class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
+            shrub=False,
             gcksumdelta=None,
             corrupt=False):
         if isinstance(blocks, int):
@@ -533,6 +534,7 @@ class Rbyd:
         self.cksum = cksum
         self.data = data
 
+        self.shrub = shrub
         self.gcksumdelta = gcksumdelta
         self.corrupt = corrupt
 
@@ -721,6 +723,7 @@ class Rbyd:
         # this helps avoid race conditions with cksums and stuff
         shrub = cls._fetch(rbyd.data, rbyd.block, trunk)
         shrub.blocks = rbyd.blocks
+        shrub.shrub = True
         return shrub
 
     def lookupnext(self, rid, tag=None, *,
@@ -979,6 +982,10 @@ class Btree:
     def cksum(self):
         return self.rbyd.cksum
 
+    @property
+    def shrub(self):
+        return self.rbyd.shrub
+
     def addr(self):
         return self.rbyd.addr()
 
@@ -1161,7 +1168,9 @@ class Btree:
                 break
 
             if path:
-                yield bid-rid + (rbyd.weight-1), rbyd, path_[:-1]
+                yield (bid-rid + (rbyd.weight-1), rbyd,
+                        # path tail is usually redundant unless corrupt
+                        path_[:-1] if rbyd else path_)
             else:
                 yield bid-rid + (rbyd.weight-1), rbyd
             bid += rbyd.weight - rid + 1
@@ -1926,7 +1935,9 @@ class Mtree:
                 else:
                     bid, rbyd, rid = mdir
                     if path:
-                        yield (bid-rid + (rbyd.weight-1), rbyd), path_[:-1]
+                        yield ((bid-rid + (rbyd.weight-1), rbyd),
+                                # path tail is usually redundant unless corrupt
+                                path_[:-1] if rbyd else path_)
                     else:
                         yield (bid-rid + (rbyd.weight-1), rbyd)
                     mid = self.mid(bid-rid + (rbyd.weight-1) + 1)
@@ -3111,6 +3122,70 @@ class Lfs:
                 file.orphaned = True
                 yield file
 
+    # traverse the filesystem
+    def traverse(self, *,
+            mtree_only=False,
+            shrubs=False,
+            fragments=False,
+            path=False):
+        # traverse the mtree
+        for r in self.mtree.traverse(
+                path=path):
+            if path:
+                mdir, path_ = r
+            else:
+                mdir = r
+
+            # mdir?
+            if isinstance(mdir, Mdir):
+                if path:
+                    yield mdir, path_
+                else:
+                    yield mdir
+
+            # btree node? we only care about the rbyd for simplicity
+            else:
+                bid, rbyd = mdir
+                if path:
+                    yield rbyd, path_
+                else:
+                    yield rbyd
+
+            # traverse file bshrubs/btrees
+            if not mtree_only and isinstance(mdir, Mdir):
+                for mid, name in mdir.mids():
+                    file = self._open(mid, mdir, name.tag, name)
+                    for r in file.traverse(
+                            path=path):
+                        if path:
+                            pos, data, path__ = r
+                            path__ = [(mid, mdir, name)]+path__
+                        else:
+                            pos, data = r
+
+                        # inlined data? we usually ignore these
+                        if isinstance(data, Rattr):
+                            if fragments:
+                                if path:
+                                    yield data, path_+path__
+                                else:
+                                    yield data
+                        # block pointer?
+                        elif isinstance(data, Bptr):
+                            if path:
+                                yield data, path_+path__
+                            else:
+                                yield data
+                        # bshrub/btree node? we only care about the rbyd
+                        # for simplicity, we also usually ignore shrubs
+                        # since these live the the parent mdir
+                        else:
+                            if shrubs or not data.shrub:
+                                if path:
+                                    yield data, path_+path__
+                                else:
+                                    yield data
+
     # common file operations, note Reg extends this for regular files
     class File:
         tag = None
@@ -3216,6 +3291,13 @@ class Lfs:
         def _lookupleaf(self, pos, *,
                 path=False,
                 depth=None):
+            # no bshrub?
+            if self.bshrub is None:
+                if path:
+                    return None, None, []
+                else:
+                    return None, None
+
             # lookup data in our bshrub
             r = self.bshrub.lookupleaf(pos,
                     path=path or depth,
@@ -3228,7 +3310,7 @@ class Lfs:
                 if path:
                     return None, None, path_
                 else:
-                    return None, None, *path_
+                    return None, None
 
             # corrupt btree node?
             if not rbyd:
@@ -3317,7 +3399,8 @@ class Lfs:
                     bid, rbyd, rid = data
                     if path:
                         yield (pos, (bid-rid + (rbyd.weight-1), rbyd),
-                                path_[:-1])
+                                # path tail is usually redundant unless corrupt
+                                path_[:-1] if rbyd else path_)
                     else:
                         yield pos, (bid-rid + (rbyd.weight-1), rbyd)
                     pos += rbyd.weight

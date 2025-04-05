@@ -586,7 +586,6 @@ class Ralt:
         return hash((self.tag, self.weight, self.jump))
 
 
-# TODO sync
 # our core rbyd type
 class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
@@ -1018,7 +1017,6 @@ class Rbyd:
         return best
 
 
-# TODO sync
 # our rbyd btree type
 class Btree:
     def __init__(self, bd, rbyd):
@@ -1648,7 +1646,6 @@ class Mdir:
 
         return Mid(self.mid, rid), name_
 
-# TODO sync
 # the mtree, the skeletal structure of littlefs
 class Mtree:
     def __init__(self, bd, mrootchain, mtree, *,
@@ -2797,7 +2794,6 @@ class Gstate:
         locals()[g.__name__.lower()] = ft.cached_property(_parser(g))
 
 
-# TODO sync
 # high-level littlefs representation
 class Lfs:
     def __init__(self, bd, mtree, config=None, gstate=None, cksum=None, *,

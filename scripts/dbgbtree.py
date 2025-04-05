@@ -471,6 +471,7 @@ class Ralt:
 # our core rbyd type
 class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
+            shrub=False,
             gcksumdelta=None,
             corrupt=False):
         if isinstance(blocks, int):
@@ -484,6 +485,7 @@ class Rbyd:
         self.cksum = cksum
         self.data = data
 
+        self.shrub = shrub
         self.gcksumdelta = gcksumdelta
         self.corrupt = corrupt
 
@@ -672,6 +674,7 @@ class Rbyd:
         # this helps avoid race conditions with cksums and stuff
         shrub = cls._fetch(rbyd.data, rbyd.block, trunk)
         shrub.blocks = rbyd.blocks
+        shrub.shrub = True
         return shrub
 
     def lookupnext(self, rid, tag=None, *,
@@ -930,6 +933,10 @@ class Btree:
     def cksum(self):
         return self.rbyd.cksum
 
+    @property
+    def shrub(self):
+        return self.rbyd.shrub
+
     def addr(self):
         return self.rbyd.addr()
 
@@ -1112,7 +1119,9 @@ class Btree:
                 break
 
             if path:
-                yield bid-rid + (rbyd.weight-1), rbyd, path_[:-1]
+                yield (bid-rid + (rbyd.weight-1), rbyd,
+                        # path tail is usually redundant unless corrupt
+                        path_[:-1] if rbyd else path_)
             else:
                 yield bid-rid + (rbyd.weight-1), rbyd
             bid += rbyd.weight - rid + 1
