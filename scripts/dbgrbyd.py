@@ -12,6 +12,11 @@ import math as mt
 import os
 import struct
 
+try:
+    import crc32c as crc32c_lib
+except ModuleNotFoundError:
+    crc32c_lib = None
+
 
 COLORS = [
     '34',   # blue
@@ -127,12 +132,15 @@ def rbydaddr(s):
     return tuple(addr)
 
 def crc32c(data, crc=0):
-    crc ^= 0xffffffff
-    for b in data:
-        crc ^= b
-        for j in range(8):
-            crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
-    return 0xffffffff ^ crc
+    if crc32c_lib is not None:
+        return crc32c_lib.crc32c(data, crc)
+    else:
+        crc ^= 0xffffffff
+        for b in data:
+            crc ^= b
+            for j in range(8):
+                crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
+        return 0xffffffff ^ crc
 
 def popc(x):
     return bin(x).count('1')

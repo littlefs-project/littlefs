@@ -7,6 +7,11 @@ if __name__ == "__main__":
 import itertools as it
 import os
 
+try:
+    import crc32c as crc32c_lib
+except ModuleNotFoundError:
+    crc32c_lib = None
+
 
 # some ways of block geometry representations
 # 512      -> 512
@@ -79,12 +84,15 @@ def xxd(data, width=16):
                         for b in map(chr, data[i:i+width])))
 
 def crc32c(data, crc=0):
-    crc ^= 0xffffffff
-    for b in data:
-        crc ^= b
-        for j in range(8):
-            crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
-    return 0xffffffff ^ crc
+    if crc32c_lib is not None:
+        return crc32c_lib.crc32c(data, crc)
+    else:
+        crc ^= 0xffffffff
+        for b in data:
+            crc ^= b
+            for j in range(8):
+                crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
+        return 0xffffffff ^ crc
 
 def main(disk, blocks=None, *,
         block_size=None,

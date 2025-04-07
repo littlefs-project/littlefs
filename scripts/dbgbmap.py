@@ -23,6 +23,11 @@ try:
 except ModuleNotFoundError:
     inotify_simple = None
 
+try:
+    import crc32c as crc32c_lib
+except ModuleNotFoundError:
+    crc32c_lib = None
+
 
 TAG_NULL        = 0x0000    ## 0x0000  v--- ---- ---- ----
 TAG_CONFIG      = 0x0000    ## 0x00tt  v--- ---- -ttt tttt
@@ -161,12 +166,15 @@ def rbydaddr(s):
     return tuple(addr)
 
 def crc32c(data, crc=0):
-    crc ^= 0xffffffff
-    for b in data:
-        crc ^= b
-        for j in range(8):
-            crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
-    return 0xffffffff ^ crc
+    if crc32c_lib is not None:
+        return crc32c_lib.crc32c(data, crc)
+    else:
+        crc ^= 0xffffffff
+        for b in data:
+            crc ^= b
+            for j in range(8):
+                crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
+        return 0xffffffff ^ crc
 
 def pmul(a, b):
     r = 0
