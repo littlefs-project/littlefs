@@ -412,12 +412,15 @@ def compile(test_paths, **args):
                         f.writeln()
 
                 # create suite struct
-                #
+                f.writeln('#if defined(__APPLE__)')
+                f.writeln('__attribute__((section("__DATA,_test_suites")))')
+                f.writeln('#else')
                 # note we place this in the custom test_suites section with
                 # minimum alignment, otherwise GCC ups the alignment to
                 # 32-bytes for some reason
                 f.writeln('__attribute__((section("_test_suites"), '
                     'aligned(1)))')
+                f.writeln('#endif')
                 f.writeln('const struct test_suite __test__%s__suite = {'
                     % suite.name)
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
